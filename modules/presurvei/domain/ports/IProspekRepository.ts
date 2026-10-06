@@ -20,6 +20,12 @@ export interface ProspekListFilters {
   jenis?: ProspekJenis;
   pemilikId?: string;
   /**
+   * Batasi ke sekumpulan pemilik — dipakai kepala sales untuk melihat prospek
+   * timnya. Menang atas `pemilikId` dan `tanpaPemilik`, karena ini batas
+   * lingkup yang ditetapkan server, bukan filter pilihan pengguna.
+   */
+  pemilikIds?: string[];
+  /**
    * Hanya prospek tanpa pemilik. Kalah dari `pemilikId` yang terisi — lihat
    * `ProspekRepository.bangunFilterPemilik`.
    */

@@ -4,23 +4,27 @@ import {
   apiPaginated,
   apiSuccess,
   createHandler,
+  requireSessionTenantId,
   requireSessionTenantIdUnlessSuperAdmin,
 } from "@/lib/api";
 import {
   buatProspekSchema,
   daftarProspekSchema,
+  LingkupSalesService,
   ProspekService,
   toProspekDetail,
   toProspekListItem,
 } from "@/modules/presurvei";
 import { isBolehLihatSemuaPresurvei } from "@/modules/roles";
 import {
+  ikatFilterProspekKeLingkup,
   ikatFilterProspekKePemanggil,
   isMenugaskanPemilik,
   tentukanPemilikProspek,
 } from "../akses-presurvei";
 
 const service = new ProspekService();
+const lingkupSales = new LingkupSalesService();
 
 /** GET /api/presurvei/prospek — daftar prospek dengan filter dan paginasi. */
 export const GET = createHandler(
@@ -50,13 +54,27 @@ export const GET = createHandler(
       return ApiErrors.forbidden("Akses ditolak");
     }
 
-    // Sales tanpa permission web hanya melihat prospeknya sendiri; filter
-    // `pemilikId` yang dikirim klien ditimpa, dan `tanpaPemilik` ("false")
-    // dibuang sebagai lapis kedua.
+    // Lingkup menentukan prospek siapa yang terlihat: admin seluruh tenant,
+    // kepala sales timnya, sales hanya miliknya. Filter `pemilikId` kiriman
+    // klien ditimpa, dan `tanpaPemilik` ("false") dibuang sebagai lapis kedua.
+    // `isBolehLihatSemua` (presurvei:read) dan lingkup sales
+    // (presurvei_rencana:view_all) adalah izin berbeda. Begitu yang pertama
+    // menolak, lingkup hanya boleh mempersempit — karenanya varian yang tak
+    // pernah menjawab "tanpa batas".
+    const idSalesTerlihat = isBolehLihatSemua
+      ? undefined
+      : await lingkupSales.idSalesTerlihatTanpaMelebarkan({
+          penggunaId: ctx.session!.user.id,
+          tenantId: requireSessionTenantId(ctx),
+          permissions: ctx.permissions,
+        });
+
     const hasil = await service.daftar(
-      isBolehLihatSemua
+      idSalesTerlihat === undefined
         ? filters
-        : ikatFilterProspekKePemanggil(filters, ctx.session!.user.id),
+        : idSalesTerlihat.length === 1
+          ? ikatFilterProspekKePemanggil(filters, idSalesTerlihat[0])
+          : ikatFilterProspekKeLingkup(filters, idSalesTerlihat),
     );
 
     return apiPaginated(hasil.items.map(toProspekListItem), {

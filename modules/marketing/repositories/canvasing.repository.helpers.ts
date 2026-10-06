@@ -107,6 +107,21 @@ export function buildCanvasingUpdateInput(
   };
 }
 
+/**
+ * Batas sales: `salesIds` (lingkup server) menang, dan `salesId` kiriman
+ * pengguna hanya boleh mempersempit ke dalamnya — tidak pernah keluar darinya.
+ */
+function buildSalesScope(
+  filters?: CanvasingListFilters,
+): Prisma.CanvasingWhereInput {
+  if (filters?.salesIds) {
+    return filters.salesId && filters.salesIds.includes(filters.salesId)
+      ? { salesId: filters.salesId }
+      : { salesId: { in: filters.salesIds } };
+  }
+  return filters?.salesId ? { salesId: filters.salesId } : {};
+}
+
 export async function buildCanvasingWhereClause(
   lookup: CanvasingMitraLookup,
   filters?: CanvasingListFilters,
@@ -117,7 +132,7 @@ export async function buildCanvasingWhereClause(
   return {
     AND: [
       filters?.status ? { status: filters.status } : {},
-      filters?.salesId ? { salesId: filters.salesId } : {},
+      buildSalesScope(filters),
       filters?.mitraId ? { mitraId: filters.mitraId } : {},
       siteScope,
       normalizedSearch ? buildSearchClause(normalizedSearch) : {},

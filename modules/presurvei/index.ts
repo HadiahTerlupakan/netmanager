@@ -243,6 +243,7 @@ export {
   type PenggunaRencana,
   type RincianRencana,
 } from "./services/RencanaService";
+export { LingkupSalesService } from "./services/LingkupSalesService";
 export {
   toRencanaDto,
   toRincianRencanaDto,

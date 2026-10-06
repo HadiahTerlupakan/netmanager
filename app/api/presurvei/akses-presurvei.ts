@@ -83,3 +83,19 @@ export function ikatFilterProspekKePemanggil<T extends FilterPemilikProspek>(
   const { tanpaPemilik: _dibuang, ...sisa } = filters;
   return { ...sisa, pemilikId: idPemanggil };
 }
+
+/**
+ * Ikat filter daftar prospek ke sekumpulan sales dalam lingkup pemanggil —
+ * dipakai kepala sales yang boleh melihat prospek timnya.
+ *
+ * `tanpaPemilik` tetap dibuang: prospek tak bertuan milik tenant, bukan milik
+ * tim mana pun. `pemilikIds` yang menang di repository, sehingga `pemilikId`
+ * kiriman klien hanya bisa mempersempit ke dalam tim, tidak keluar darinya.
+ */
+export function ikatFilterProspekKeLingkup<T extends FilterPemilikProspek>(
+  filters: T,
+  idSales: string[],
+): Omit<T, "tanpaPemilik"> & { pemilikIds: string[] } {
+  const { tanpaPemilik: _dibuang, ...sisa } = filters;
+  return { ...sisa, pemilikIds: idSales };
+}

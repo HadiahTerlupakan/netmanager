@@ -8,6 +8,11 @@ import type {
 export interface CanvasingListFilters {
   status?: CanvasingStatus;
   salesId?: string;
+  /**
+   * Batas lingkup server — dipakai kepala sales untuk melihat canvasing
+   * timnya. Menang atas `salesId`, yang hanya boleh mempersempit ke dalamnya.
+   */
+  salesIds?: string[];
   mitraId?: string;
   siteId?: string;
   siteIds?: string[];

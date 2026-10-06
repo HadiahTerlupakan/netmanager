@@ -1,5 +1,6 @@
 import { ZodError } from "zod";
 import { hasCapability } from "@/lib/permission-aliases";
+import { LingkupSalesService } from "@/modules/presurvei";
 import { ErrorCodes, type ErrorCode } from "@/lib/api";
 import { hasMobilePermission } from "@/lib/mobile-auth";
 import {
@@ -27,6 +28,8 @@ const EMPTY_LIST_SUMMARY: CanvasingListSummaryEntity = {
 
 export interface CanvasingListRouteSession {
   id: string;
+  /** Wajib untuk menurunkan lingkup tim; `verifyAuth` selalu menyediakannya. */
+  tenantId?: string | null;
   role?: string | null;
   permissions?: string[];
   siteId?: string | null;
@@ -98,6 +101,15 @@ function emptyListPayload(page: number, limit: number): CanvasingListPayload {
  * scope yang tadinya nempel di route handler, sehingga handler tinggal jadi
  * thin controller (sejalan dengan MarketingCanvasingDetailRouteService).
  */
+// Dibuat saat dipakai, bukan saat modul diimpor: instansiasi di tingkat modul
+// ikut membangun repository (dan klien Prisma) hanya karena file ini disentuh
+// graf impor, yang membuat modul ini tidak bisa diimpor di lingkungan tes.
+let lingkupSalesTersimpan: LingkupSalesService | undefined;
+function lingkupSales(): LingkupSalesService {
+  lingkupSalesTersimpan ??= new LingkupSalesService();
+  return lingkupSalesTersimpan;
+}
+
 export class MarketingCanvasingListRouteService {
   private serviceInstance?: CanvasingService;
 
@@ -128,11 +140,29 @@ export class MarketingCanvasingListRouteService {
         input.permissions.includes("canvasing:site_only");
 
       let salesId = input.salesId ?? undefined;
+      let salesIds: string[] | undefined;
       const filterSiteId = input.siteId ?? undefined;
       let restrictSiteIds: string[] | undefined;
 
       if (!canViewOthers) {
-        salesId = input.session.id;
+        // Kepala sales melihat canvasing timnya; sales biasa hanya miliknya.
+        // Lingkupnya satu definisi dengan rencana dan prospek.
+        // Izin canvasing sudah menolak melihat milik orang lain, jadi lingkup
+        // sales di sini hanya boleh mempersempit. Dipakai varian yang tak
+        // pernah menjawab "tanpa batas".
+        const lingkup = await lingkupSales().idSalesTerlihatTanpaMelebarkan({
+          penggunaId: input.session.id,
+          tenantId: input.session.tenantId,
+          permissions: input.permissions,
+        });
+
+        if (lingkup.length === 1) {
+          salesId = lingkup[0];
+          salesIds = undefined;
+        } else {
+          salesId = undefined;
+          salesIds = lingkup;
+        }
       } else if (isSiteRestricted) {
         const allowedSiteIds = input.session.siteIds ?? [];
         if (allowedSiteIds.length === 0) {
@@ -155,6 +185,7 @@ export class MarketingCanvasingListRouteService {
       const filterParams: {
         status?: CanvasingStatusValue;
         salesId?: string;
+        salesIds?: string[];
         siteId?: string;
         siteIds?: string[];
         search?: string;
@@ -162,6 +193,7 @@ export class MarketingCanvasingListRouteService {
 
       if (status) filterParams.status = status as CanvasingStatusValue;
       if (salesId) filterParams.salesId = salesId;
+      if (salesIds) filterParams.salesIds = salesIds;
       if (filterSiteId) {
         filterParams.siteId = filterSiteId;
       } else if (restrictSiteIds) {

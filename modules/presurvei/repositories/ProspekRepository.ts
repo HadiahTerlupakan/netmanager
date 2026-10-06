@@ -243,6 +243,13 @@ export class ProspekRepository implements IProspekRepository {
   private bangunFilterPemilik(
     filters: ProspekListFilters,
   ): Prisma.PresurveiProspekWhereInput {
+    // Batas lingkup server menang lebih dulu: `pemilikIds` membatasi ke tim,
+    // dan filter pilihan pengguna hanya boleh mempersempit di dalamnya.
+    if (filters.pemilikIds) {
+      return filters.pemilikId && filters.pemilikIds.includes(filters.pemilikId)
+        ? { pemilikId: filters.pemilikId }
+        : { pemilikId: { in: filters.pemilikIds } };
+    }
     if (filters.pemilikId) return { pemilikId: filters.pemilikId };
     if (filters.tanpaPemilik) return { pemilikId: null };
     return {};
