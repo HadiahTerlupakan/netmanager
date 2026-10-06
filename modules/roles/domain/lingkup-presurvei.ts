@@ -17,8 +17,17 @@ export type JenisLingkupPresurvei = "SEMUA" | "TIM" | "SENDIRI";
 const IZIN_WILDCARD = "*";
 /** Permission web rencana yang membuka seluruh tenant (admin). */
 const IZIN_RENCANA_SEMUA = "presurvei_rencana:view_all";
-/** Awalan permission web rencana; pemegangnya minimal kepala sales (lingkup tim). */
-const AWALAN_IZIN_RENCANA = "presurvei_rencana:";
+/**
+ * Permission web yang membuat seseorang benar-benar bisa menugaskan rencana ke
+ * sales lain — penanda kepala sales (lingkup tim).
+ *
+ * Sengaja izin `create`, bukan sekadar awalan `presurvei_rencana:`. Dengan
+ * awalan, role yang hanya memegang `:read` ikut dianggap kepala sales: ia
+ * mendapat tema dan kartu tim lengkap dengan tombol "Buat Rencana", padahal
+ * penugasannya pasti ditolak 403. Lingkup tim kini berarti memang berwenang
+ * menugaskan.
+ */
+const IZIN_RENCANA_TUGASKAN = "presurvei_rencana:create";
 /** Permission web presurvei — pemegangnya melihat seluruh prospek tenant. */
 const IZIN_LIHAT_SEMUA_PRESURVEI = "presurvei:read";
 /** Permission laporan pencapaian — pemegangnya sudah melihat capaian seluruh sales. */
@@ -28,16 +37,21 @@ const IZIN_LAPORAN_PRESURVEI = "presurvei_laporan:read";
  * Jenis lingkup rencana dari daftar permission `resource:action`.
  *
  * - SEMUA: `presurvei_rencana:view_all` atau wildcard (admin).
- * - TIM: permission web rencana lain tanpa `view_all` (kepala sales).
+ * - TIM: `presurvei_rencana:create` tanpa `view_all` (kepala sales).
  * - SENDIRI: hanya permission mobile (sales).
  *
  * Satu definisi untuk route API, lingkup data sales, dan profil mobile.
  */
-export function jenisLingkupDariIzin(permissions: string[]): JenisLingkupPresurvei {
-  if (permissions.includes(IZIN_WILDCARD) || permissions.includes(IZIN_RENCANA_SEMUA)) {
+export function jenisLingkupDariIzin(
+  permissions: string[],
+): JenisLingkupPresurvei {
+  if (
+    permissions.includes(IZIN_WILDCARD) ||
+    permissions.includes(IZIN_RENCANA_SEMUA)
+  ) {
     return "SEMUA";
   }
-  if (permissions.some((izin) => izin.startsWith(AWALAN_IZIN_RENCANA))) {
+  if (permissions.includes(IZIN_RENCANA_TUGASKAN)) {
     return "TIM";
   }
   return "SENDIRI";
@@ -59,9 +73,12 @@ export function isKepalaSalesDariIzin(permissions: string[]): boolean {
  * pencapaian (tanpa izin rencana) melihat seluruh tenant — ia sudah melihat
  * angka capaian semua sales di Laporan Pencapaian.
  */
-export function jenisLingkupPenilaian(permissions: string[]): JenisLingkupPresurvei {
+export function jenisLingkupPenilaian(
+  permissions: string[],
+): JenisLingkupPresurvei {
   const jenis = jenisLingkupDariIzin(permissions);
-  if (jenis === "SENDIRI" && permissions.includes(IZIN_LAPORAN_PRESURVEI)) return "SEMUA";
+  if (jenis === "SENDIRI" && permissions.includes(IZIN_LAPORAN_PRESURVEI))
+    return "SEMUA";
   return jenis;
 }
 
