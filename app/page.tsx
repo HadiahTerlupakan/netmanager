@@ -6,8 +6,8 @@ import type { Metadata } from "next";
 import { getPublicPortalSettings } from "@/modules/settings";
 import { DEFAULT_PUBLIC_APP_NAME } from "@/lib/settings/publicBranding";
 import { MAIN_TENANT_ID } from "@/lib/tenant-constants";
-import { prisma } from "@/modules/database";
 import { LandingContentService } from "@/modules/website";
+import { resolveTenantByPublicHost } from "@/modules/tenant";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
@@ -152,40 +152,9 @@ export default async function HomePage() {
 
   const headerStore = await headers();
   const host = headerStore.get("x-forwarded-host") || headerStore.get("host");
-  const normalizedHost = host?.split(":")[0]?.trim().toLowerCase();
-  const baseDomain = process.env.DOMAIN || "radpro.id";
+  const publicTenant = await resolveTenantByPublicHost(host);
 
-  let tenantId: string | null = null;
-  let tenantSlug: string | null = null;
-
-  if (
-    normalizedHost &&
-    normalizedHost !== baseDomain &&
-    normalizedHost !== "localhost"
-  ) {
-    if (normalizedHost.endsWith(`.${baseDomain}`)) {
-      const slug = normalizedHost.replace(`.${baseDomain}`, "");
-      const td = await prisma.tenantDomain.findUnique({
-        where: { slug },
-        select: { tenantId: true, slug: true },
-      });
-      if (td) {
-        tenantId = td.tenantId;
-        tenantSlug = td.slug;
-      }
-    } else {
-      const td = await prisma.tenantDomain.findFirst({
-        where: { domain: normalizedHost, status: "active" },
-        select: { tenantId: true, slug: true },
-      });
-      if (td) {
-        tenantId = td.tenantId;
-        tenantSlug = td.slug;
-      }
-    }
-  }
-
-  if (!tenantId || tenantId === MAIN_TENANT_ID) {
+  if (!publicTenant || publicTenant.tenantId === MAIN_TENANT_ID) {
     let landingContent = null;
     try {
       const service = new LandingContentService();
@@ -216,7 +185,7 @@ export default async function HomePage() {
     <TenantLandingPage
       brandingName={brandingName}
       brandingLogoUrl={brandingLogoUrl}
-      tenantSlug={tenantSlug!}
+      tenantSlug={publicTenant.slug}
     />
   );
 }

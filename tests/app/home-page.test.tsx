@@ -24,8 +24,10 @@ vi.mock("@/modules/settings", () => ({
   getPublicPortalSettings: mockFns.getPublicPortalSettings,
 }));
 
+// Resolusi host -> tenant sengaja lewat `prismaAuth` (client tanpa ekstensi
+// isolasi tenant), karena peta domain adalah data bootstrap lintas-tenant.
 vi.mock("@/modules/database", () => ({
-  prisma: {
+  prismaAuth: {
     tenantDomain: {
       findFirst: mockFns.tenantDomainFindFirst,
       findUnique: mockFns.tenantDomainFindUnique,
