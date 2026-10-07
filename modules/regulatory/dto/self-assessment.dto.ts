@@ -72,7 +72,9 @@ function toSampleDto(sample: ServiceLevelSample): ServiceLevelSampleDto {
 }
 
 function toParameterSummary(report: ParameterReport): ParameterSummaryDto {
-  const notMet = report.samples.filter((sample) => sample.outcome === "NOT_MET");
+  const notMet = report.samples.filter(
+    (sample) => sample.outcome === "NOT_MET",
+  );
   const { parameter } = report;
 
   return {
@@ -91,13 +93,18 @@ function toParameterSummary(report: ParameterReport): ParameterSummaryDto {
     months: report.months,
     quarters: report.quarters,
     regions: report.regions,
-    notMetPreview: notMet.slice(-NOT_MET_PREVIEW_LIMIT).reverse().map(toSampleDto),
+    notMetPreview: notMet
+      .slice(-NOT_MET_PREVIEW_LIMIT)
+      .reverse()
+      .map(toSampleDto),
     notMetCount: notMet.length,
   };
 }
 
 /** Ringkasan laporan untuk dikirim ke halaman. */
-export function toSelfAssessmentSummary(report: SelfAssessmentReport): SelfAssessmentSummaryDto {
+export function toSelfAssessmentSummary(
+  report: SelfAssessmentReport,
+): SelfAssessmentSummaryDto {
   return {
     year: report.year,
     generatedAt: report.generatedAt.toISOString(),

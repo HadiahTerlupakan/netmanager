@@ -7,6 +7,7 @@ import { Modal, ModalFooter } from "@/components/ui/Modal";
 import PageLoader from "@/components/ui/PageLoader";
 import { clientLogger } from "@/lib/client-logger";
 import { useApi } from "@/lib/hooks/useApi";
+import type { LicenseScheme } from "@/modules/regulatory/client";
 import {
   PARAMETER_ROWS,
   PROFILE_FIELDS,
@@ -39,15 +40,19 @@ function startDownload(url: string): void {
 }
 
 async function saveDocumentForm(
+  skema: LicenseScheme,
   year: number,
   body: { profile: OperatorProfile; yearly: YearlyDocumentInput },
 ): Promise<string | null> {
   try {
-    const response = await fetch(`${BASE_URL}/document-form?year=${year}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const response = await fetch(
+      `${BASE_URL}/document-form?skema=${skema}&year=${year}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
     if (response.ok) return null;
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
@@ -65,10 +70,12 @@ async function saveDocumentForm(
 
 function DocumentFormFields({
   initial,
+  skema,
   year,
   onClose,
 }: {
   initial: DocumentForm;
+  skema: LicenseScheme;
   year: number;
   onClose: () => void;
 }) {
@@ -79,7 +86,7 @@ function DocumentFormFields({
 
   const save = async (shouldDownload: boolean) => {
     setIsSaving(true);
-    const errorMessage = await saveDocumentForm(year, {
+    const errorMessage = await saveDocumentForm(skema, year, {
       profile,
       yearly: { manualAchievements: manual, supportingLinks: links },
     });
@@ -225,9 +232,11 @@ function DocumentFormFields({
 
 /** Modal formulir dokumen Word untuk tahun laporan terpilih. */
 export function DocumentFormModal({
+  skema,
   year,
   onClose,
 }: {
+  skema: LicenseScheme;
   year: number;
   onClose: () => void;
 }) {
@@ -235,7 +244,9 @@ export function DocumentFormModal({
     data: form,
     isLoading,
     error,
-  } = useApi<DocumentForm>(`${BASE_URL}/document-form?year=${year}`);
+  } = useApi<DocumentForm>(
+    `${BASE_URL}/document-form?skema=${skema}&year=${year}`,
+  );
 
   return (
     <Modal
@@ -251,7 +262,12 @@ export function DocumentFormModal({
         </p>
       )}
       {form && !isLoading && (
-        <DocumentFormFields initial={form} year={year} onClose={onClose} />
+        <DocumentFormFields
+          initial={form}
+          skema={skema}
+          year={year}
+          onClose={onClose}
+        />
       )}
     </Modal>
   );

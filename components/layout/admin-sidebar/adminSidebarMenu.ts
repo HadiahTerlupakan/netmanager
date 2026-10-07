@@ -223,6 +223,11 @@ function getPermissionResource(code: string): string {
     "FINANCE.COHORT": "finance",
     // Halaman /admin/incidents mewajibkan incidents:read (bukan finance:read).
     INCIDENTS: "incidents",
+    // Self-Assessment: kedua submenu memakai izin yang sama (`regulasi`).
+    // Tanpa pemetaan ini kode "REGULASI.ISP" jatuh ke resource "isp" dan
+    // submenunya hilang dari sidebar.
+    "REGULASI.ISP": "regulasi",
+    "REGULASI.JARTAPLOK_PS": "regulasi",
     // Menu Legal: submenu legal → `legal`, submenu pengesahan → `pengesahan`
     // (tanpa pemetaan ini kode "LEGAL.DOKUMEN" jatuh ke resource "dokumen").
     LEGAL: "legal",

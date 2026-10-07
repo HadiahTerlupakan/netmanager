@@ -8,7 +8,12 @@ import type { PeriodStatistic } from "../domain/service-level-aggregation";
 import type { SampleOutcome } from "../domain/service-level-evaluation";
 
 /**
- * Berkas Excel Self-Assessment Komdigi: "Lampiran I" (data sampel per
+ * Berkas kerja internal Self-Assessment — **bukan** Lampiran yang dikirim ke
+ * Komdigi. Lampiran resmi dibangun `SelfAssessmentLampiran` dari berkas milik
+ * Komdigi; berkas ini untuk telaah sendiri dan sengaja memakai nama sheet yang
+ * berbeda supaya keduanya tidak tertukar saat pelaporan.
+ *
+ * Isinya: "Data Sampel" (sampel per
  * parameter dengan baris TOTAL & CAPAIAN), "Agregasi" (bulanan, kuartalan,
  * tahunan, dan per kabupaten/kota), serta "Catatan" (metode & parameter yang
  * belum tersedia).
@@ -16,8 +21,16 @@ import type { SampleOutcome } from "../domain/service-level-evaluation";
 
 const SAMPLE_COLUMNS = 7;
 const PERCENT_FORMAT = "0.00%";
-const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE5E7EB" } };
-const SECTION_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDBEAFE" } };
+const HEADER_FILL: ExcelJS.Fill = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: "FFE5E7EB" },
+};
+const SECTION_FILL: ExcelJS.Fill = {
+  type: "pattern",
+  pattern: "solid",
+  fgColor: { argb: "FFDBEAFE" },
+};
 const THIN_BORDER: Partial<ExcelJS.Borders> = {
   top: { style: "thin" },
   left: { style: "thin" },
@@ -25,8 +38,18 @@ const THIN_BORDER: Partial<ExcelJS.Borders> = {
   right: { style: "thin" },
 };
 const MONTH_NAMES = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
 ];
 const QUARTER_NAMES = ["Kuartal I", "Kuartal II", "Kuartal III", "Kuartal IV"];
 
@@ -47,7 +70,9 @@ function formatKomdigiDateTime(date: Date | null): string {
 }
 
 function formatPercent(ratio: number | null): string {
-  return ratio === null ? "-" : `${(ratio * 100).toFixed(2).replace(".", ",")}%`;
+  return ratio === null
+    ? "-"
+    : `${(ratio * 100).toFixed(2).replace(".", ",")}%`;
 }
 
 function verdictOf(report: ParameterReport): string {
@@ -61,16 +86,27 @@ const OUTCOME_LABEL: Record<SampleOutcome, string> = {
   PENDING: "Belum dinilai",
 };
 
-function sampleNote(sample: ServiceLevelSample, parameter: ParameterReport["parameter"]): string {
+function sampleNote(
+  sample: ServiceLevelSample,
+  parameter: ParameterReport["parameter"],
+): string {
   const parts = [sample.siteName, sample.region];
   if (parameter.key === "PASANG_BARU" && sample.finishedAt) {
     parts.push(`Selesai ${formatKomdigiDateTime(sample.finishedAt)}`);
   }
-  if (!sample.finishedAt) parts.push(sample.outcome === "PENDING" ? "Masih dikerjakan" : "Belum selesai, lewat batas");
+  if (!sample.finishedAt)
+    parts.push(
+      sample.outcome === "PENDING"
+        ? "Masih dikerjakan"
+        : "Belum selesai, lewat batas",
+    );
   return parts.filter(Boolean).join(" · ");
 }
 
-function styleRow(row: ExcelJS.Row, options: { fill?: ExcelJS.Fill; isBold?: boolean; columns: number }): void {
+function styleRow(
+  row: ExcelJS.Row,
+  options: { fill?: ExcelJS.Fill; isBold?: boolean; columns: number },
+): void {
   for (let column = 1; column <= options.columns; column += 1) {
     const cell = row.getCell(column);
     cell.border = THIN_BORDER;
@@ -80,7 +116,12 @@ function styleRow(row: ExcelJS.Row, options: { fill?: ExcelJS.Fill; isBold?: boo
   }
 }
 
-function addMergedRow(sheet: ExcelJS.Worksheet, text: string, columns: number, fill?: ExcelJS.Fill): ExcelJS.Row {
+function addMergedRow(
+  sheet: ExcelJS.Worksheet,
+  text: string,
+  columns: number,
+  fill?: ExcelJS.Fill,
+): ExcelJS.Row {
   const row = sheet.addRow([text]);
   sheet.mergeCells(row.number, 1, row.number, columns);
   row.getCell(1).font = { bold: true };
@@ -90,7 +131,10 @@ function addMergedRow(sheet: ExcelJS.Worksheet, text: string, columns: number, f
 }
 
 /** Bagian satu parameter di Lampiran I. */
-function addSampleSection(sheet: ExcelJS.Worksheet, report: ParameterReport): void {
+function addSampleSection(
+  sheet: ExcelJS.Worksheet,
+  report: ParameterReport,
+): void {
   const { parameter } = report;
   addMergedRow(
     sheet,
@@ -108,7 +152,11 @@ function addSampleSection(sheet: ExcelJS.Worksheet, report: ParameterReport): vo
     parameter.columns.isMet,
     parameter.columns.note,
   ]);
-  styleRow(header, { fill: HEADER_FILL, isBold: true, columns: SAMPLE_COLUMNS });
+  styleRow(header, {
+    fill: HEADER_FILL,
+    isBold: true,
+    columns: SAMPLE_COLUMNS,
+  });
 
   report.samples.forEach((sample, index) => {
     const row = sheet.addRow([
@@ -127,7 +175,9 @@ function addSampleSection(sheet: ExcelJS.Worksheet, report: ParameterReport): vo
   const total = sheet.addRow([
     "TOTAL",
     `Jumlah permohonan dinilai: ${annual.received}`,
-    report.pendingCount ? `Belum dinilai (masih dalam batas): ${report.pendingCount}` : "",
+    report.pendingCount
+      ? `Belum dinilai (masih dalam batas): ${report.pendingCount}`
+      : "",
     "",
     "Memenuhi standar:",
     annual.met,
@@ -150,21 +200,48 @@ function addSampleSection(sheet: ExcelJS.Worksheet, report: ParameterReport): vo
   sheet.addRow([]);
 }
 
-function addStatisticRow(sheet: ExcelJS.Worksheet, label: string, statistic: PeriodStatistic, isBold = false): void {
-  const row = sheet.addRow([label, statistic.received, statistic.met, statistic.ratio ?? "-"]);
+function addStatisticRow(
+  sheet: ExcelJS.Worksheet,
+  label: string,
+  statistic: PeriodStatistic,
+  isBold = false,
+): void {
+  const row = sheet.addRow([
+    label,
+    statistic.received,
+    statistic.met,
+    statistic.ratio ?? "-",
+  ]);
   styleRow(row, { columns: 4, isBold });
   if (statistic.ratio !== null) row.getCell(4).numFmt = PERCENT_FORMAT;
 }
 
 /** Bagian satu parameter di sheet Agregasi. */
-function addAggregationSection(sheet: ExcelJS.Worksheet, report: ParameterReport): void {
+function addAggregationSection(
+  sheet: ExcelJS.Worksheet,
+  report: ParameterReport,
+): void {
   const columns = 4;
-  addMergedRow(sheet, `${report.parameter.number}. ${report.parameter.title}`, columns, SECTION_FILL);
+  addMergedRow(
+    sheet,
+    `${report.parameter.number}. ${report.parameter.title}`,
+    columns,
+    SECTION_FILL,
+  );
 
-  const header = sheet.addRow(["Periode", "Diterima (N)", "Memenuhi standar", "Statistik (S)"]);
+  const header = sheet.addRow([
+    "Periode",
+    "Diterima (N)",
+    "Memenuhi standar",
+    "Statistik (S)",
+  ]);
   styleRow(header, { fill: HEADER_FILL, isBold: true, columns });
-  report.months.forEach((month) => addStatisticRow(sheet, MONTH_NAMES[month.month - 1], month));
-  report.quarters.forEach((quarter) => addStatisticRow(sheet, QUARTER_NAMES[quarter.quarter - 1], quarter, true));
+  report.months.forEach((month) =>
+    addStatisticRow(sheet, MONTH_NAMES[month.month - 1], month),
+  );
+  report.quarters.forEach((quarter) =>
+    addStatisticRow(sheet, QUARTER_NAMES[quarter.quarter - 1], quarter, true),
+  );
   addStatisticRow(sheet, "Capaian 1 (Satu) Tahun", report.annual, true);
   addMergedRow(
     sheet,
@@ -173,22 +250,44 @@ function addAggregationSection(sheet: ExcelJS.Worksheet, report: ParameterReport
   );
   sheet.addRow([]);
 
-  const regionHeader = sheet.addRow(["Kabupaten/Kota", "Diterima (N)", "Memenuhi standar", "Statistik (S)"]);
+  const regionHeader = sheet.addRow([
+    "Kabupaten/Kota",
+    "Diterima (N)",
+    "Memenuhi standar",
+    "Statistik (S)",
+  ]);
   styleRow(regionHeader, { fill: HEADER_FILL, isBold: true, columns });
-  report.regions.forEach((region) => addStatisticRow(sheet, region.region, region));
+  report.regions.forEach((region) =>
+    addStatisticRow(sheet, region.region, region),
+  );
   sheet.addRow([]);
 }
 
-function addNotesSheet(workbook: ExcelJS.Workbook, report: SelfAssessmentReport): void {
+function addNotesSheet(
+  workbook: ExcelJS.Workbook,
+  report: SelfAssessmentReport,
+): void {
   const sheet = workbook.addWorksheet("Catatan");
   sheet.columns = [{ width: 110 }];
-  addMergedRow(sheet, `Self-Assessment Komdigi ${report.year} — Catatan metode`, 1, SECTION_FILL);
+  addMergedRow(
+    sheet,
+    `Self-Assessment Komdigi ${report.year} — Catatan metode`,
+    1,
+    SECTION_FILL,
+  );
   report.notes.forEach((note) => sheet.addRow([`• ${note}`]));
   if (report.warnings.sitesWithoutRegion.length) {
-    sheet.addRow([`• Site tanpa kabupaten/kota: ${report.warnings.sitesWithoutRegion.join(", ")}`]);
+    sheet.addRow([
+      `• Site tanpa kabupaten/kota: ${report.warnings.sitesWithoutRegion.join(", ")}`,
+    ]);
   }
   sheet.addRow([]);
-  addMergedRow(sheet, "Parameter yang belum tersedia di sistem", 1, SECTION_FILL);
+  addMergedRow(
+    sheet,
+    "Parameter yang belum tersedia di sistem",
+    1,
+    SECTION_FILL,
+  );
   report.unavailable.forEach((item) =>
     sheet.addRow([`• ${item.title} (${item.standardLabel}) — ${item.reason}`]),
   );
@@ -198,26 +297,47 @@ function addNotesSheet(workbook: ExcelJS.Workbook, report: SelfAssessmentReport)
 }
 
 /** Susun berkas Excel laporan; dikembalikan sebagai Buffer siap diunduh. */
-export async function buildSelfAssessmentWorkbook(report: SelfAssessmentReport): Promise<Buffer> {
+export async function buildSelfAssessmentWorkbook(
+  report: SelfAssessmentReport,
+): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.created = report.generatedAt;
 
-  const samples = workbook.addWorksheet("Lampiran I");
+  const samples = workbook.addWorksheet("Data Sampel");
   samples.columns = [
-    { width: 7 }, { width: 26 }, { width: 24 }, { width: 24 }, { width: 18 }, { width: 18 }, { width: 48 },
+    { width: 7 },
+    { width: 26 },
+    { width: 24 },
+    { width: 24 },
+    { width: 18 },
+    { width: 18 },
+    { width: 48 },
   ];
-  addMergedRow(samples, `Lampiran I — Metode Pengukuran (Data Sampel) Tahun ${report.year}`, SAMPLE_COLUMNS);
+  addMergedRow(
+    samples,
+    `Ringkasan Internal — Data Sampel Tahun ${report.year}`,
+    SAMPLE_COLUMNS,
+  );
   addMergedRow(samples, "B. NON NETWORK RELATED", SAMPLE_COLUMNS);
-  report.parameters.forEach((parameter) => addSampleSection(samples, parameter));
+  report.parameters.forEach((parameter) =>
+    addSampleSection(samples, parameter),
+  );
 
   const aggregation = workbook.addWorksheet("Agregasi");
-  aggregation.columns = [{ width: 34 }, { width: 16 }, { width: 18 }, { width: 16 }];
+  aggregation.columns = [
+    { width: 34 },
+    { width: 16 },
+    { width: 18 },
+    { width: 16 },
+  ];
   addMergedRow(
     aggregation,
     `Agregasi Statistik ${report.year} — S = Σ(Ni × Si) / Σ(Ni), bukan rata-rata sederhana`,
     4,
   );
-  report.parameters.forEach((parameter) => addAggregationSection(aggregation, parameter));
+  report.parameters.forEach((parameter) =>
+    addAggregationSection(aggregation, parameter),
+  );
 
   addNotesSheet(workbook, report);
 

@@ -7,11 +7,14 @@ import type {
 
 /** Work order dalam rentang waktu, tanpa yang dibatalkan, terurut waktu dibuat. */
 export class WorkOrderServiceLevelRepository implements IWorkOrderServiceLevelRepository {
-  async findForServiceLevel(query: ServiceLevelWorkOrderQuery): Promise<ServiceLevelWorkOrderRecord[]> {
+  async findForServiceLevel(
+    query: ServiceLevelWorkOrderQuery,
+  ): Promise<ServiceLevelWorkOrderRecord[]> {
     return prisma.workOrders.findMany({
       where: {
         tenantId: query.tenantId,
         type: { in: query.types },
+        ...(query.siteIds ? { siteId: { in: query.siteIds } } : {}),
         status: { not: "CANCELLED" },
         createdAt: { gte: query.from, lt: query.to },
       },

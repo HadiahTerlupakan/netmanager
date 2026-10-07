@@ -12,9 +12,13 @@ import type {
 /** Adaptor sumber data laporan ke API publik modul work-order, attendance, dan roles. */
 
 export class ServiceLevelWorkOrders implements WorkOrderSource {
-  constructor(private readonly query = new WorkOrderServiceLevelQueryService()) {}
+  constructor(
+    private readonly query = new WorkOrderServiceLevelQueryService(),
+  ) {}
 
-  async listWorkOrders(query: Parameters<WorkOrderSource["listWorkOrders"]>[0]): Promise<ServiceLevelWorkOrder[]> {
+  async listWorkOrders(
+    query: Parameters<WorkOrderSource["listWorkOrders"]>[0],
+  ): Promise<ServiceLevelWorkOrder[]> {
     const records = await this.query.listForServiceLevel(query);
     return records.map((record) => ({
       workOrderNumber: record.workOrderNumber,

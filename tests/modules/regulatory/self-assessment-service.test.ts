@@ -11,7 +11,9 @@ import { toSelfAssessmentSummary } from "@/modules/regulatory/dto/self-assessmen
 
 const wib = (value: string) => new Date(`${value}+07:00`);
 
-function workOrder(overrides: Partial<ServiceLevelWorkOrder>): ServiceLevelWorkOrder {
+function workOrder(
+  overrides: Partial<ServiceLevelWorkOrder>,
+): ServiceLevelWorkOrder {
   return {
     workOrderNumber: "WO-1",
     type: "INSTALLATION",
@@ -23,9 +25,16 @@ function workOrder(overrides: Partial<ServiceLevelWorkOrder>): ServiceLevelWorkO
   };
 }
 
-function buildService(workOrders: ServiceLevelWorkOrder[], holidays: Date[] = []) {
-  const workOrderSource = { listWorkOrders: vi.fn().mockResolvedValue(workOrders) };
-  const holidaySource = { listHolidayDates: vi.fn().mockResolvedValue(holidays) };
+function buildService(
+  workOrders: ServiceLevelWorkOrder[],
+  holidays: Date[] = [],
+) {
+  const workOrderSource = {
+    listWorkOrders: vi.fn().mockResolvedValue(workOrders),
+  };
+  const holidaySource = {
+    listHolidayDates: vi.fn().mockResolvedValue(holidays),
+  };
   const siteSource = {
     listSites: vi.fn().mockResolvedValue([
       { id: "site-bogor", name: "CARIU", kabupatenKota: "Kabupaten Bogor" },
@@ -53,19 +62,30 @@ describe("SelfAssessmentReportService", () => {
       from: new Date("2025-12-31T17:00:00Z"),
       to: new Date("2026-12-31T17:00:00Z"),
     });
-    expect(holidaySource.listHolidayDates).toHaveBeenCalledWith([2026, 2027], "tenant-1");
+    expect(holidaySource.listHolidayDates).toHaveBeenCalledWith(
+      [2026, 2027],
+      "tenant-1",
+    );
   });
 
   it("pasang baru dihitung sejak disetujui; tanpa waktu persetujuan memakai waktu dibuat", async () => {
     const { service } = buildService([
-      workOrder({ workOrderNumber: "WO-A", approvedAt: wib("2026-03-04T08:00:00") }),
+      workOrder({
+        workOrderNumber: "WO-A",
+        approvedAt: wib("2026-03-04T08:00:00"),
+      }),
       workOrder({ workOrderNumber: "WO-B" }),
     ]);
 
     const report = await service.build(2026, "tenant-1");
     const [pasangBaru] = report.parameters;
 
-    expect(pasangBaru.samples.map((sample) => [sample.reference, sample.durationDays])).toEqual([
+    expect(
+      pasangBaru.samples.map((sample) => [
+        sample.reference,
+        sample.durationDays,
+      ]),
+    ).toEqual([
       ["WO-A", 1],
       ["WO-B", 3],
     ]);
@@ -87,7 +107,10 @@ describe("SelfAssessmentReportService", () => {
 
     const [, pemulihan] = (await service.build(2026, "tenant-1")).parameters;
 
-    expect(pemulihan.samples[0]).toMatchObject({ durationDays: 1, outcome: "MET" });
+    expect(pemulihan.samples[0]).toMatchObject({
+      durationDays: 1,
+      outcome: "MET",
+    });
   });
 
   it("wilayah dari kabupaten/kota site; site tanpa wilayah diperingatkan", async () => {
@@ -99,7 +122,9 @@ describe("SelfAssessmentReportService", () => {
 
     const report = await service.build(2026, "tenant-1");
 
-    expect(report.parameters[0].regions.map((region) => region.region).sort()).toEqual(
+    expect(
+      report.parameters[0].regions.map((region) => region.region).sort(),
+    ).toEqual(
       [REGION_WITHOUT_SITE, REGION_NOT_FILLED, "Kabupaten Bogor"].sort(),
     );
     expect(report.warnings.sitesWithoutRegion).toEqual(["SUBANG"]);
@@ -107,33 +132,53 @@ describe("SelfAssessmentReportService", () => {
 
   it("ringkasan halaman hanya membawa permohonan tidak memenuhi, terbaru dulu", async () => {
     const { service } = buildService([
-      workOrder({ workOrderNumber: "WO-LAMA", completedAt: wib("2026-03-20T10:00:00") }),
+      workOrder({
+        workOrderNumber: "WO-LAMA",
+        completedAt: wib("2026-03-20T10:00:00"),
+      }),
       workOrder({ workOrderNumber: "WO-OK" }),
-      workOrder({ workOrderNumber: "WO-BARU", createdAt: wib("2026-04-01T09:00:00"), completedAt: null }),
+      workOrder({
+        workOrderNumber: "WO-BARU",
+        createdAt: wib("2026-04-01T09:00:00"),
+        completedAt: null,
+      }),
     ]);
 
-    const summary = toSelfAssessmentSummary(await service.build(2026, "tenant-1"));
+    const summary = toSelfAssessmentSummary(
+      await service.build(2026, "tenant-1"),
+    );
 
     expect(summary.parameters[0].notMetCount).toBe(2);
-    expect(summary.parameters[0].notMetPreview.map((sample) => sample.reference)).toEqual([
-      "WO-BARU",
-      "WO-LAMA",
-    ]);
+    expect(
+      summary.parameters[0].notMetPreview.map((sample) => sample.reference),
+    ).toEqual(["WO-BARU", "WO-LAMA"]);
   });
 });
 
 describe("berkas Excel", () => {
-  it("berisi Lampiran I, Agregasi, Catatan dengan baris CAPAIAN", async () => {
+  it("berisi Data Sampel, Agregasi, Catatan dengan baris CAPAIAN", async () => {
     const { service } = buildService([workOrder({})]);
-    const buffer = await buildSelfAssessmentWorkbook(await service.build(2026, "tenant-1"));
+    const buffer = await buildSelfAssessmentWorkbook(
+      await service.build(2026, "tenant-1"),
+    );
 
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(new Uint8Array(buffer).buffer);
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(["Lampiran I", "Agregasi", "Catatan"]);
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
+      "Data Sampel",
+      "Agregasi",
+      "Catatan",
+    ]);
 
     const texts: string[] = [];
-    workbook.getWorksheet("Lampiran I")!.eachRow((row) => texts.push(String(row.getCell(2).value ?? "")));
+    workbook
+      .getWorksheet("Data Sampel")!
+      .eachRow((row) => texts.push(String(row.getCell(2).value ?? "")));
     expect(texts.some((text) => text === "WO-1")).toBe(true);
-    expect(texts.some((text) => text.includes("= (1 ÷ 1) × 100% = 100,00% → MEMENUHI STANDAR"))).toBe(true);
+    expect(
+      texts.some((text) =>
+        text.includes("= (1 ÷ 1) × 100% = 100,00% → MEMENUHI STANDAR"),
+      ),
+    ).toBe(true);
   });
 });

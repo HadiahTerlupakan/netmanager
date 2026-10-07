@@ -41,6 +41,139 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-07] — Ringkasan internal Self-Assessment jadi unduhan terpisah
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/regulatory`, `app/api/admin/regulatory`, `app/admin/regulasi`
+- **Author**: agent
+- **Deskripsi**: Setelah Lampiran dibangun dari berkas resmi Komdigi, workbook lama
+  (`buildSelfAssessmentWorkbook`) tidak lagi dipakai route mana pun. Isinya tetap berguna:
+  sheet Agregasi memuat agregasi 3-bulanan yang diminta Perdirjen, dan sheet Catatan memuat
+  peringatan data serta metode perhitungan — keduanya tidak ada pada Lampiran resmi. Karena
+  itu ia tidak dibuang, melainkan dipisah ke endpoint sendiri
+  `GET /api/admin/regulatory/self-assessment/ringkasan`, dan halaman admin kini menawarkan
+  dua unduhan berdampingan: "Lampiran I" untuk dikirim ke regulator dan "Ringkasan internal"
+  untuk dipakai sendiri.
+
+  Sheet pertama workbook internal diganti nama dari "Lampiran I" menjadi "Data Sampel", dan
+  judulnya menjadi "Ringkasan Internal". Nama lamanya adalah risiko nyata: berkas internal
+  yang sheet-nya bernama "Lampiran I" mudah dikira berkas yang harus disetor, padahal
+  strukturnya berbeda dari berkas resmi dan akan ditolak.
+
+  Terverifikasi di server berjalan: kedua endpoint membalas 200 dengan nama berkas berbeda
+  (`lampiran-self-assessment-*` dan `ringkasan-internal-self-assessment-*`) serta kumpulan
+  sheet yang berbeda.
+- **Files**: `app/api/admin/regulatory/self-assessment/ringkasan/route.ts`,
+  `modules/regulatory/services/SelfAssessmentWorkbook.ts`,
+  `app/admin/regulasi/self-assessment/SelfAssessmentClient.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-07] — Lampiran I dibangun dari berkas Lampiran resmi Komdigi
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/regulatory`, `app/api/admin/regulatory`
+- **Author**: agent
+- **Deskripsi**: Lampiran Excel sebelumnya disusun sendiri mengikuti tafsiran, bukan berkas
+  `Lampiran_Draft ....xlsx` milik Komdigi — dan perbedaannya nyata: judul kolom beda redaksi
+  ("Tanggal & Waktu Pengajuan" vs "Tanggal dan waktu pengajuan pemohon pasang baru
+  (dd/mm/yyy hh:mm:ss)"), jumlah kolom 7 alih-alih 5, seluruh tabel pengukuran jaringan tidak
+  ada, tabel keluhan pelanggan tidak ada, struktur dua blok media akses ISP tidak ada, dan
+  ada dua sheet tambahan (Agregasi, Catatan) yang tidak diminta.
+
+  Lampiran kini dibangun dari berkas resmi sebagai template — pendekatan yang sama dengan
+  dokumen Word — dan hanya baris sampelnya yang diisi. Judul bagian, judul kolom, dan tata
+  letaknya tidak disentuh, termasuk salah ketik milik Komdigi sendiri ("peyelesaian",
+  "dd/mm/yyy"): menyeragamkannya terasa seperti perbaikan, padahal membuat lampiran tidak
+  lagi sama dengan yang diminta. Tabel pengukuran jaringan dibiarkan berisi baris contoh
+  aslinya karena datanya dari uji lapangan, bukan dari operasional.
+
+  Terverifikasi dengan membandingkan hasil akhir terhadap berkas resmi: judul bagian dan
+  judul kolom sama persis (Jartaplok 4 judul / 9 header, ISP 17 judul / 19 header), dan
+  kolom keempat mengikuti parameternya — pasang baru memakai waktu persetujuan, pemulihan
+  memakai waktu penyelesaian.
+
+  `buildSelfAssessmentWorkbook` lama tidak dihapus: sheet Agregasi-nya memuat agregasi
+  3-bulanan yang diminta Perdirjen. Kini ditawarkan sebagai unduhan terpisah — lihat entry
+  "Ringkasan internal Self-Assessment jadi unduhan terpisah".
+- **Files**: `modules/regulatory/services/SelfAssessmentLampiran.ts`,
+  `modules/regulatory/templates/lampiran-jartaplok-ps.xlsx`,
+  `modules/regulatory/templates/lampiran-isp.xlsx`,
+  `app/api/admin/regulatory/self-assessment/export/route.ts`
+- **Breaking**: ❌ Tidak — nama berkas unduhan berubah menjadi `lampiran-self-assessment-*`
+
+### [2026-10-07] — Pilih site yang dilaporkan pada Self-Assessment
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/regulatory`, `modules/work-order`, `app/admin/regulasi`
+- **Author**: agent
+- **Deskripsi**: Laporan sebelumnya selalu mencakup seluruh site tenant; site hanya dipakai
+  sebagai dimensi agregasi, tanpa penyaring. Padahal izin penyelenggaraan bisa mencakup
+  sebagian wilayah saja, sehingga melaporkan semua site menyalahi angka yang semestinya
+  disampaikan. Ditambahkan penyaring `siteIds` yang konsisten di seluruh sumber data:
+  work order lewat `siteId`, tagihan lewat `siteId` di database billing, serta keluhan dan
+  jumlah pelanggan lewat `pelanggan.siteId`. Tanpa pilihan berarti seluruh site; daftar
+  kosong sengaja dibedakan dan menghasilkan laporan kosong, bukan laporan penuh.
+
+  Pemilihnya dikelompokkan per kabupaten/kota — dimensi yang sama dengan agregasi Lampiran,
+  sehingga pilihan dan pelaporan sejalan. Site yang kabupaten/kotanya belum diisi ditaruh
+  paling bawah dan diberi keterangan, karena Komdigi meminta rincian per wilayah dan site
+  itu perlu dibereskan, bukan sekadar dipilih.
+
+  Terverifikasi di server berjalan dengan tiga work order di dua site: tanpa filter rasio
+  0,67; hanya HQ 0,50; hanya Jakarta Selatan 1,00; dan site tak dikenal menghasilkan
+  laporan kosong.
+- **Files**: `modules/regulatory/domain/ports/self-assessment-sources.ts`,
+  `modules/regulatory/services/complaint-source-adapters.ts`,
+  `modules/regulatory/services/SelfAssessmentReportService.ts`,
+  `modules/work-order/repositories/WorkOrderServiceLevelRepository.ts`,
+  `app/admin/regulasi/self-assessment/SelfAssessmentClient.tsx`
+- **Breaking**: ❌ Tidak — tanpa parameter `siteIds`, perilakunya sama seperti sebelumnya
+
+### [2026-10-07] — Self-Assessment Komdigi dua jenis izin: ISP dan Jartaplok PS
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/regulatory`, `app/admin/regulasi`, `app/api/admin/regulatory`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Komdigi menerbitkan dua formulir Self-Assessment yang berbeda, dan satu
+  penyelenggara bisa memegang kedua izin. Sebelumnya modul ini hanya mengenal Jartaplok PS:
+  jenis izin cuma teks yang dicetak, bukan saklar yang mengubah parameter. Akibatnya tenant
+  ISP akan melaporkan target pasang baru 90% (seharusnya 95%), memuat "pemulihan layanan"
+  yang tidak diminta, dan kehilangan belasan parameter ISP.
+
+  Ditambahkan katalog parameter per jenis izin (`license-schemes.ts`) sebagai satu-satunya
+  tempat perbedaan formulir dinyatakan: Jartaplok 6 parameter satu blok, ISP 22 parameter
+  dalam dua blok media akses (Seluler dan Jartaplok PS) dengan tolok ukur berbeda. Isian
+  disimpan terpisah per izin; Jartaplok sengaja tetap memakai kunci warisan tanpa akhiran
+  sehingga tenant yang sudah mengisi tidak perlu migrasi data. Template `.docx` ISP dibangun
+  dari berkas resmi Komdigi dengan menyisipkan penanda ke sel kosongnya — tata letak tetap
+  milik Komdigi. Menu menjadi induk "Self-Assessment" dengan submenu ISP dan Jartaplok PS.
+
+  Empat parameter non-jaringan ISP kini dihitung sistem dari data yang sudah ada: pasang
+  baru dari work order, serta keluhan akurasi tagihan, keluhan umum, dan tingkat laporan
+  gangguan dari `SupportTickets` dengan penyebut tagihan (database billing) dan jumlah
+  pelanggan. Parameter jaringan tetap manual karena menuntut uji lapangan.
+
+  Kunci parameter tidak lagi union statis (ruangnya bergantung skema), sehingga keamanan
+  tipe digantikan penjaga runtime `pastikanKunciSesuaiSkema` — tanpa itu isian satu izin
+  bisa menyelinap ke izin lain lewat payload rakitan dan ikut tercetak ke dokumen resmi.
+
+  Terverifikasi: render nyata kedua dokumen tanpa penanda tersisa (Jartaplok 4 manual +
+  2 otomatis, ISP 13 manual + 9 otomatis), API menolak skema kosong/tidak dikenal dengan
+  400, dan laporan ISP hanya menghitung `PASANG_BARU` — "pemulihan layanan" tidak lagi
+  ikut terbawa.
+
+  **Belum tercakup**: pengecualian perhitungan pada Panduan QoS huruf C (mis. "calon
+  pelanggan membatalkan", "fasilitas jaringan belum tersedia") tidak terekam aplikasi,
+  sehingga angka otomatis lebih rendah dari yang semestinya dilaporkan; dan agregasi
+  3-bulanan → tahunan untuk parameter keluhan. Keduanya tercatat di `tasks/todo.md`.
+- **Files**: `modules/regulatory/domain/license-schemes.ts`,
+  `modules/regulatory/domain/complaint-evaluation.ts`,
+  `modules/regulatory/services/complaint-source-adapters.ts`,
+  `modules/regulatory/client.ts`, `modules/regulatory/templates/self-assessment-isp.docx`,
+  `app/admin/regulasi/self-assessment/[skema]/page.tsx`, `lib/menu-config.ts`,
+  `components/layout/admin-sidebar/adminSidebarMenu.ts`
+- **Breaking**: ❌ Tidak — menu lama diarahkan ke Jartaplok PS, kunci isian lama tetap dipakai
+
 ### [2026-10-06] — Tutup lingkup fail-open pada prospek dan canvasing
 
 - **Tipe**: [SECURITY]

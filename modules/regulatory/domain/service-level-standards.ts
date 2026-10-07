@@ -5,8 +5,12 @@
 
 export type DayUnit = "CALENDAR" | "WORKING";
 
-export const SERVICE_LEVEL_PARAMETER_KEYS = ["PASANG_BARU", "PEMULIHAN_LAYANAN"] as const;
-export type ServiceLevelParameterKey = (typeof SERVICE_LEVEL_PARAMETER_KEYS)[number];
+export const SERVICE_LEVEL_PARAMETER_KEYS = [
+  "PASANG_BARU",
+  "PEMULIHAN_LAYANAN",
+] as const;
+export type ServiceLevelParameterKey =
+  (typeof SERVICE_LEVEL_PARAMETER_KEYS)[number];
 
 export interface ServiceLevelParameter {
   key: ServiceLevelParameterKey;
@@ -37,7 +41,10 @@ export type SampleTimeField = "submittedAt" | "startedAt" | "finishedAt";
 const PERDIRJEN_7_2024 = "Perdirjen 7 Tahun 2024";
 const TARGET_RATIO = 0.9;
 
-export const SERVICE_LEVEL_PARAMETERS: Record<ServiceLevelParameterKey, ServiceLevelParameter> = {
+export const SERVICE_LEVEL_PARAMETERS: Record<
+  ServiceLevelParameterKey,
+  ServiceLevelParameter
+> = {
   PASANG_BARU: {
     key: "PASANG_BARU",
     number: 1,
@@ -49,8 +56,14 @@ export const SERVICE_LEVEL_PARAMETERS: Record<ServiceLevelParameterKey, ServiceL
     standardLabel: "≥ 90% diselesaikan ≤ 7 hari kalender sejak disetujui",
     columns: {
       reference: "Daftar Pemohon Pasang Baru yang Disetujui",
-      firstTime: { header: "Tanggal & Waktu Pengajuan (dd/mm/yyyy hh:mm:ss)", field: "submittedAt" },
-      secondTime: { header: "Tanggal & Waktu Persetujuan (dd/mm/yyyy hh:mm:ss)", field: "startedAt" },
+      firstTime: {
+        header: "Tanggal & Waktu Pengajuan (dd/mm/yyyy hh:mm:ss)",
+        field: "submittedAt",
+      },
+      secondTime: {
+        header: "Tanggal & Waktu Persetujuan (dd/mm/yyyy hh:mm:ss)",
+        field: "startedAt",
+      },
       duration: "Durasi Pasang (hari kalender sejak persetujuan)",
       isMet: "Memenuhi Standar ≤ 7 Hari (Ya/Tidak)",
       note: "Keterangan",
@@ -67,8 +80,14 @@ export const SERVICE_LEVEL_PARAMETERS: Record<ServiceLevelParameterKey, ServiceL
     standardLabel: "≥ 90% diselesaikan ≤ 2 hari kerja",
     columns: {
       reference: "Daftar Pemohon Pemulihan Layanan",
-      firstTime: { header: "Tanggal & Waktu Pengajuan (dd/mm/yyyy hh:mm:ss)", field: "submittedAt" },
-      secondTime: { header: "Tanggal & Waktu Penyelesaian (dd/mm/yyyy hh:mm:ss)", field: "finishedAt" },
+      firstTime: {
+        header: "Tanggal & Waktu Pengajuan (dd/mm/yyyy hh:mm:ss)",
+        field: "submittedAt",
+      },
+      secondTime: {
+        header: "Tanggal & Waktu Penyelesaian (dd/mm/yyyy hh:mm:ss)",
+        field: "finishedAt",
+      },
       duration: "Durasi Penyelesaian (hari kerja)",
       isMet: "Memenuhi Standar ≤ 2 Hari Kerja (Ya/Tidak)",
       note: "Keterangan",

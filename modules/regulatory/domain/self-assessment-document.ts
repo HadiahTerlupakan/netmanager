@@ -1,10 +1,13 @@
+import { parametersOf, type LicenseScheme } from "./license-schemes";
+
 /**
  * Isian dokumen Word Self-Assessment Komdigi: profil penyelenggara (disimpan
  * sekali) dan isian per tahun (nilai parameter yang belum dihitung sistem
  * serta link dokumen pendukung). Murni — tanpa I/O.
  */
 
-export const DEFAULT_LICENSE_TYPE = "Jaringan Tetap Lokal Berbasis Packet Switched";
+export const DEFAULT_LICENSE_TYPE =
+  "Jaringan Tetap Lokal Berbasis Packet Switched";
 export const EMPTY_ACHIEVEMENT = "-";
 
 export interface OperatorProfile {
@@ -19,20 +22,15 @@ export interface OperatorProfile {
   directorName: string;
 }
 
-/** Parameter yang nilainya diketik manual (belum dihitung sistem). */
-export const MANUAL_ACHIEVEMENT_KEYS = ["packetLoss", "latency", "availability", "complaints"] as const;
-export type ManualAchievementKey = (typeof MANUAL_ACHIEVEMENT_KEYS)[number];
-
-/** Parameter yang punya kolom "Link Dokumen Pendukung". */
-export const SUPPORTING_LINK_KEYS = [
-  "packetLoss",
-  "latency",
-  "availability",
-  "newInstallation",
-  "restoration",
-  "complaints",
-] as const;
-export type SupportingLinkKey = (typeof SUPPORTING_LINK_KEYS)[number];
+/**
+ * Kunci parameter berasal dari katalog jenis izin (`license-schemes.ts`), bukan
+ * daftar tetap: tiap izin punya parameter sendiri, dan ISP bahkan memakai
+ * awalan blok (`seluler.`, `jartaplok.`). Union statis tidak bisa menyatakan
+ * ruang kunci yang bergantung skema, jadi kesesuaiannya dijaga saat runtime
+ * oleh validator terhadap `manualParametersOf(skema)`.
+ */
+export type ManualAchievementKey = string;
+export type SupportingLinkKey = string;
 
 export interface YearlyDocumentInput {
   /** Persen 0–100 sebagai teks ("99,62"); kosong = belum ada. */
@@ -40,13 +38,16 @@ export interface YearlyDocumentInput {
   supportingLinks: Partial<Record<SupportingLinkKey, string>>;
 }
 
-export const EMPTY_YEARLY_INPUT: YearlyDocumentInput = { manualAchievements: {}, supportingLinks: {} };
+export const EMPTY_YEARLY_INPUT: YearlyDocumentInput = {
+  manualAchievements: {},
+  supportingLinks: {},
+};
 
-/** Capaian yang dihitung sistem untuk tahun laporan (rasio 0–1, null bila tanpa data). */
-export interface ComputedAchievements {
-  newInstallation: number | null;
-  restoration: number | null;
-}
+/**
+ * Capaian hitungan sistem untuk tahun laporan (rasio 0–1, null bila tanpa
+ * data), berkunci `ParameterSpec.key` sesuai katalog jenis izinnya.
+ */
+export type ComputedAchievements = Record<string, number | null>;
 
 /** Persen Indonesia dua desimal, mis. 0.984 → "98,40%". */
 export function formatAchievementRatio(ratio: number | null): string {
@@ -74,11 +75,14 @@ const longDateFormatter = new Intl.DateTimeFormat("id-ID", {
 export function formatLicenseDate(isoDate: string): string {
   if (!isoDate) return "";
   const date = new Date(`${isoDate}T00:00:00+07:00`);
-  return Number.isNaN(date.getTime()) ? isoDate : longDateFormatter.format(date);
+  return Number.isNaN(date.getTime())
+    ? isoDate
+    : longDateFormatter.format(date);
 }
 
 export interface DocumentValueSource {
   year: number;
+  scheme: LicenseScheme;
   profile: OperatorProfile;
   yearly: YearlyDocumentInput;
   computed: ComputedAchievements;
@@ -87,13 +91,31 @@ export interface DocumentValueSource {
   signingDate: Date;
 }
 
-/** Nilai seluruh penanda isian template Word Komdigi. */
-export function buildDocumentValues(source: DocumentValueSource): Record<string, string> {
+/**
+ * Nilai seluruh penanda isian template Word.
+ *
+ * Penanda parameter dirakit dari katalog jenis izin, bukan ditulis satu per
+ * satu: formulir ISP punya 22 parameter dengan penamaan berblok, dan daftar
+ * manual akan menyimpang diam-diam begitu katalog berubah.
+ */
+export function buildDocumentValues(
+  source: DocumentValueSource,
+): Record<string, string> {
   const { profile, yearly } = source;
   const links = yearly.supportingLinks;
   const manual = yearly.manualAchievements;
 
+  const nilaiParameter: Record<string, string> = {};
+  for (const parameter of parametersOf(source.scheme)) {
+    nilaiParameter[parameter.placeholder] = parameter.auto
+      ? formatAchievementRatio(source.computed[parameter.key] ?? null)
+      : formatManualAchievement(manual[parameter.key]);
+    nilaiParameter[`link_${parameter.placeholder}`] =
+      links[parameter.key] ?? "";
+  }
+
   return {
+    ...nilaiParameter,
     tahun: String(source.year),
     nama_penyelenggara: profile.operatorName,
     jenis_izin: profile.licenseType,
@@ -101,19 +123,9 @@ export function buildDocumentValues(source: DocumentValueSource): Record<string,
     nomor_izin: profile.licenseNumber,
     tanggal_izin: formatLicenseDate(profile.licenseDate),
     link_lampiran_izin: profile.licenseAttachmentUrl,
-    packet_loss: formatManualAchievement(manual.packetLoss),
-    latency: formatManualAchievement(manual.latency),
-    availability: formatManualAchievement(manual.availability),
-    keluhan: formatManualAchievement(manual.complaints),
-    pasang_baru: formatAchievementRatio(source.computed.newInstallation),
-    pemulihan: formatAchievementRatio(source.computed.restoration),
-    link_packet_loss: links.packetLoss ?? "",
-    link_latency: links.latency ?? "",
-    link_availability: links.availability ?? "",
-    link_pasang_baru: links.newInstallation ?? "",
-    link_pemulihan: links.restoration ?? "",
-    link_keluhan: links.complaints ?? "",
-    kop_nama: [profile.operatorName.toUpperCase(), source.letterheadContact].filter(Boolean).join("\n"),
+    kop_nama: [profile.operatorName.toUpperCase(), source.letterheadContact]
+      .filter(Boolean)
+      .join("\n"),
     tempat: profile.signingCity,
     tanggal_tanda_tangan: longDateFormatter.format(source.signingDate),
     nama_direktur: profile.directorName,

@@ -23,7 +23,10 @@ const PROFILE: OperatorProfile = {
 };
 
 const documentText = (buffer: Buffer) =>
-  new PizZip(buffer).file("word/document.xml")!.asText().replace(/<[^>]+>/g, "");
+  new PizZip(buffer)
+    .file("word/document.xml")!
+    .asText()
+    .replace(/<[^>]+>/g, "");
 
 describe("format nilai dokumen", () => {
   it("rasio sistem & isian manual jadi persen Indonesia; kosong jadi '-'", () => {
@@ -37,9 +40,13 @@ describe("format nilai dokumen", () => {
 
   it("kop berisi nama kapital + kontak; tanggal tanda tangan WIB", () => {
     const values = buildDocumentValues({
+      scheme: "JARTAPLOK_PS",
       year: 2026,
       profile: PROFILE,
-      yearly: { manualAchievements: { availability: "99,7" }, supportingLinks: { restoration: "https://x" } },
+      yearly: {
+        manualAchievements: { availability: "99,7" },
+        supportingLinks: { restoration: "https://x" },
+      },
       computed: { newInstallation: 0.984, restoration: null },
       letterheadContact: "Jl. Raya Cianjur No. 10 · 0812",
       signingDate: new Date("2026-10-04T18:00:00Z"),
@@ -61,6 +68,7 @@ describe("format nilai dokumen", () => {
 describe("template Word Komdigi", () => {
   it("semua penanda terisi; teks asli template tetap ada", async () => {
     const values = buildDocumentValues({
+      scheme: "JARTAPLOK_PS",
       year: 2026,
       profile: PROFILE,
       yearly: { manualAchievements: {}, supportingLinks: {} },
@@ -69,10 +77,14 @@ describe("template Word Komdigi", () => {
       signingDate: new Date("2026-10-04T03:00:00Z"),
     });
 
-    const text = documentText(await fillDocxTemplate("self-assessment-komdigi.docx", values));
+    const text = documentText(
+      await fillDocxTemplate("self-assessment-komdigi.docx", values),
+    );
 
     expect(text).not.toMatch(/\{[a-z_]+\}/);
-    expect(text).toContain("PELAPORAN KINERJA JARINGAN DAN LAYANAN BERDASARKAN SELF ASSESSMENT");
+    expect(text).toContain(
+      "PELAPORAN KINERJA JARINGAN DAN LAYANAN BERDASARKAN SELF ASSESSMENT",
+    );
     expect(text).toContain("PT Surya Bestari Lestari");
     expect(text).toContain("Pencapaian Tahun 2026");
     expect(text).toContain("98,40%");
@@ -84,11 +96,17 @@ describe("template Word Komdigi", () => {
 
 describe("SelfAssessmentDocumentService", () => {
   function build(storedProfile: Partial<OperatorProfile> = {}) {
-    const emptyProfile = Object.fromEntries(Object.keys(PROFILE).map((key) => [key, ""])) as unknown as OperatorProfile;
+    const emptyProfile = Object.fromEntries(
+      Object.keys(PROFILE).map((key) => [key, ""]),
+    ) as unknown as OperatorProfile;
     const store = {
-      getProfile: vi.fn().mockResolvedValue({ ...emptyProfile, ...storedProfile }),
+      getProfile: vi
+        .fn()
+        .mockResolvedValue({ ...emptyProfile, ...storedProfile }),
       saveProfile: vi.fn(),
-      getYearlyInput: vi.fn().mockResolvedValue({ manualAchievements: {}, supportingLinks: {} }),
+      getYearlyInput: vi
+        .fn()
+        .mockResolvedValue({ manualAchievements: {}, supportingLinks: {} }),
       saveYearlyInput: vi.fn(),
     };
     const company = {
@@ -121,7 +139,7 @@ describe("SelfAssessmentDocumentService", () => {
   it("profil kosong diisi dari Pengaturan Umum & jenis izin baku", async () => {
     const { service } = build();
 
-    const form = await service.getForm(2026, "tenant-1");
+    const form = await service.getForm(2026, "tenant-1", "JARTAPLOK_PS");
 
     expect(form.profile).toMatchObject({
       operatorName: "PT Dari Pengaturan",
@@ -134,36 +152,103 @@ describe("SelfAssessmentDocumentService", () => {
   it("profil tersimpan diutamakan di atas Pengaturan Umum", async () => {
     const { service } = build({ operatorName: "PT Tersimpan" });
 
-    expect((await service.getForm(2026, "tenant-1")).profile.operatorName).toBe("PT Tersimpan");
+    expect(
+      (await service.getForm(2026, "tenant-1", "JARTAPLOK_PS")).profile
+        .operatorName,
+    ).toBe("PT Tersimpan");
   });
 
   it("dokumen memakai template Komdigi dengan kop dari alamat + kontak", async () => {
     const { service, renderTemplate } = build();
 
-    await service.renderDocument(2026, "tenant-1");
+    await service.renderDocument(2026, "tenant-1", "JARTAPLOK_PS");
 
     const [fileName, values] = renderTemplate.mock.calls[0];
     expect(fileName).toBe("self-assessment-komdigi.docx");
-    expect(values.kop_nama).toBe("PT DARI PENGATURAN\nAlamat Pengaturan · 0812 · a@b.id");
+    expect(values.kop_nama).toBe(
+      "PT DARI PENGATURAN\nAlamat Pengaturan · 0812 · a@b.id",
+    );
     expect(values.pasang_baru).toBe("98,00%");
+  });
+
+  // Tenant bisa memegang dua izin sekaligus; formulir ISP tidak boleh memakai
+  // template maupun jenis izin milik Jartaplok.
+  it("skema ISP memakai template dan jenis izin sendiri", async () => {
+    const { service, renderTemplate, store } = build();
+
+    const form = await service.getForm(2026, "tenant-1", "ISP");
+    expect(form.profile.licenseType).toBe("Internet Service Provider");
+    expect(store.getProfile).toHaveBeenCalledWith("tenant-1", "ISP");
+
+    await service.renderDocument(2026, "tenant-1", "ISP");
+    expect(renderTemplate.mock.calls.at(-1)?.[0]).toBe(
+      "self-assessment-isp.docx",
+    );
+  });
+
+  it("menyimpan isian ke skema yang diminta", async () => {
+    const { service, store } = build();
+    const isian = {
+      profile: {} as never,
+      yearly: { manualAchievements: {}, supportingLinks: {} },
+    };
+
+    await service.saveForm(2026, "tenant-1", "ISP", isian);
+
+    expect(store.saveProfile).toHaveBeenCalledWith(
+      "tenant-1",
+      "ISP",
+      isian.profile,
+    );
+    expect(store.saveYearlyInput).toHaveBeenCalledWith(
+      "tenant-1",
+      "ISP",
+      2026,
+      isian.yearly,
+    );
   });
 });
 
 describe("validasi formulir dokumen", () => {
   const valid = {
     profile: { ...PROFILE },
-    yearly: { manualAchievements: { packetLoss: "1,5" }, supportingLinks: { latency: "https://x" } },
+    yearly: {
+      manualAchievements: { packetLoss: "1,5" },
+      supportingLinks: { latency: "https://x" },
+    },
   };
 
   it("menerima isian lengkap", () => {
-    expect(selfAssessmentDocumentFormSchema.safeParse(valid).success).toBe(true);
+    expect(selfAssessmentDocumentFormSchema.safeParse(valid).success).toBe(
+      true,
+    );
   });
 
   it.each([
-    ["persen di atas 100", { ...valid, yearly: { ...valid.yearly, manualAchievements: { latency: "120" } } }],
-    ["link tanpa http", { ...valid, yearly: { ...valid.yearly, supportingLinks: { latency: "drive.google.com" } } }],
-    ["tanggal izin salah", { ...valid, profile: { ...PROFILE, licenseDate: "12-03-2024" } }],
+    [
+      "persen di atas 100",
+      {
+        ...valid,
+        yearly: { ...valid.yearly, manualAchievements: { latency: "120" } },
+      },
+    ],
+    [
+      "link tanpa http",
+      {
+        ...valid,
+        yearly: {
+          ...valid.yearly,
+          supportingLinks: { latency: "drive.google.com" },
+        },
+      },
+    ],
+    [
+      "tanggal izin salah",
+      { ...valid, profile: { ...PROFILE, licenseDate: "12-03-2024" } },
+    ],
   ])("menolak %s", (_label, input) => {
-    expect(selfAssessmentDocumentFormSchema.safeParse(input).success).toBe(false);
+    expect(selfAssessmentDocumentFormSchema.safeParse(input).success).toBe(
+      false,
+    );
   });
 });

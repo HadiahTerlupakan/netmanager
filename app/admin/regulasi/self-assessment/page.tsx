@@ -1,12 +1,6 @@
-import { ensurePermission } from "@/lib/rbac";
-import { SelfAssessmentClient } from "./SelfAssessmentClient";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Self-Assessment Komdigi",
-  description: "Laporan mandiri standar mutu layanan untuk Komdigi",
-};
-
-export default async function Page() {
-  await ensurePermission("regulasi:read");
-  return <SelfAssessmentClient />;
+/** Menu lama diarahkan ke Jartaplok PS — satu-satunya izin sebelum ISP ada. */
+export default function Page() {
+  redirect("/admin/regulasi/self-assessment/jartaplok-ps");
 }

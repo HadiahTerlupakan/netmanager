@@ -5,6 +5,7 @@ import {
   combinePeriods,
   isTargetMet,
 } from "../domain/service-level-aggregation";
+import { parametersOf, type LicenseScheme } from "../domain/license-schemes";
 import { evaluateSample } from "../domain/service-level-evaluation";
 import {
   SERVICE_LEVEL_PARAMETER_KEYS,
@@ -17,7 +18,10 @@ import type {
   SelfAssessmentReport,
   ServiceLevelSample,
 } from "../domain/self-assessment-report";
-import { SELF_ASSESSMENT_NOTES, UNAVAILABLE_PARAMETERS } from "../domain/unavailable-parameters";
+import {
+  SELF_ASSESSMENT_NOTES,
+  UNAVAILABLE_PARAMETERS,
+} from "../domain/unavailable-parameters";
 import { toWibDateKey, wibMonth, wibYearRange } from "../domain/wib-calendar";
 import type {
   HolidaySource,
@@ -38,7 +42,10 @@ import {
  * ada di sistem (pasang baru & pemulihan layanan dari work order).
  */
 
-const WORK_ORDER_TYPE: Record<ServiceLevelParameterKey, ServiceLevelWorkOrderType> = {
+const WORK_ORDER_TYPE: Record<
+  ServiceLevelParameterKey,
+  ServiceLevelWorkOrderType
+> = {
   PASANG_BARU: "INSTALLATION",
   PEMULIHAN_LAYANAN: "TROUBLESHOOT",
 };
@@ -53,7 +60,10 @@ interface BuildContext {
 }
 
 /** Awal hitungan durasi: pasang baru sejak disetujui, pemulihan sejak diajukan. */
-function startOf(parameter: ServiceLevelParameter, workOrder: ServiceLevelWorkOrder): Date {
+function startOf(
+  parameter: ServiceLevelParameter,
+  workOrder: ServiceLevelWorkOrder,
+): Date {
   return parameter.key === "PASANG_BARU"
     ? (workOrder.approvedAt ?? workOrder.createdAt)
     : workOrder.createdAt;
@@ -72,8 +82,24 @@ export class SelfAssessmentReportService {
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
-  /** Laporan satu tahun (WIB) untuk tenant tersebut. */
-  async build(year: number, tenantId: string): Promise<SelfAssessmentReport> {
+  /**
+   * Laporan satu tahun (WIB) untuk tenant tersebut.
+   *
+   * `scheme` menentukan parameter work order mana yang ikut: formulir ISP tidak
+   * memuat "pemulihan layanan", jadi Lampiran-nya pun tidak boleh memuatnya.
+   * Tanpa penyaring ini laporan ISP mencantumkan parameter tanpa dasar.
+   */
+  async build(
+    year: number,
+    tenantId: string,
+    scheme: LicenseScheme = "JARTAPLOK_PS",
+    /**
+     * Site yang dilaporkan. `undefined` = seluruh site tenant; array kosong
+     * sengaja dibedakan dan menghasilkan laporan kosong, bukan laporan penuh —
+     * menukarnya membuat pilihan "tidak ada site" malah melaporkan semuanya.
+     */
+    siteIds?: string[],
+  ): Promise<SelfAssessmentReport> {
     const range = wibYearRange(year);
     const [workOrders, holidayDates, sites] = await Promise.all([
       this.workOrders.listWorkOrders({
@@ -81,6 +107,7 @@ export class SelfAssessmentReportService {
         types: Object.values(WORK_ORDER_TYPE),
         from: range.from,
         to: range.to,
+        siteIds,
       }),
       // Tahun berikutnya ikut: permohonan akhir Desember bisa selesai di Januari.
       this.holidays.listHolidayDates([year, year + 1], tenantId),
@@ -92,10 +119,23 @@ export class SelfAssessmentReportService {
       holidayKeys: new Set(holidayDates.map(toWibDateKey)),
       siteById: new Map(sites.map((site) => [site.id, site])),
     };
-    const parameters = SERVICE_LEVEL_PARAMETER_KEYS.map((key) =>
+    const kunciDipakai = new Set(
+      parametersOf(scheme)
+        .map((parameter) => parameter.auto)
+        .filter((auto) => auto?.kind === "WORK_ORDER_DURATION")
+        .map(
+          (auto) => (auto as { workOrder: ServiceLevelParameterKey }).workOrder,
+        ),
+    );
+
+    const parameters = SERVICE_LEVEL_PARAMETER_KEYS.filter((key) =>
+      kunciDipakai.has(key),
+    ).map((key) =>
       this.buildParameter(
         SERVICE_LEVEL_PARAMETERS[key],
-        workOrders.filter((workOrder) => workOrder.type === WORK_ORDER_TYPE[key]),
+        workOrders.filter(
+          (workOrder) => workOrder.type === WORK_ORDER_TYPE[key],
+        ),
         context,
       ),
     );
@@ -107,7 +147,10 @@ export class SelfAssessmentReportService {
       unavailable: UNAVAILABLE_PARAMETERS,
       notes: SELF_ASSESSMENT_NOTES,
       warnings: {
-        sitesWithoutRegion: this.sitesWithoutRegion(workOrders, context.siteById),
+        sitesWithoutRegion: this.sitesWithoutRegion(
+          workOrders,
+          context.siteById,
+        ),
         lastHolidayDate: this.lastHolidayInYear(holidayDates, year),
       },
     };
@@ -118,7 +161,9 @@ export class SelfAssessmentReportService {
     workOrders: ServiceLevelWorkOrder[],
     context: BuildContext,
   ): ParameterReport {
-    const samples = workOrders.map((workOrder) => this.toSample(parameter, workOrder, context));
+    const samples = workOrders.map((workOrder) =>
+      this.toSample(parameter, workOrder, context),
+    );
     const aggregatable = samples.map((sample) => ({
       month: wibMonth(sample.startedAt),
       region: sample.region,
@@ -134,7 +179,8 @@ export class SelfAssessmentReportService {
       quarters: aggregateByQuarter(months),
       annual,
       regions: aggregateByRegion(aggregatable),
-      pendingCount: samples.filter((sample) => sample.outcome === "PENDING").length,
+      pendingCount: samples.filter((sample) => sample.outcome === "PENDING")
+        .length,
       isTargetMet: isTargetMet(annual, parameter.targetRatio),
     };
   }
@@ -145,7 +191,9 @@ export class SelfAssessmentReportService {
     context: BuildContext,
   ): ServiceLevelSample {
     const startedAt = startOf(parameter, workOrder);
-    const site = workOrder.siteId ? context.siteById.get(workOrder.siteId) : undefined;
+    const site = workOrder.siteId
+      ? context.siteById.get(workOrder.siteId)
+      : undefined;
     const evaluation = evaluateSample(
       parameter,
       { startedAt, finishedAt: workOrder.completedAt },
@@ -169,14 +217,21 @@ export class SelfAssessmentReportService {
     siteById: Map<string, ReportSite>,
   ): string[] {
     const names = workOrders
-      .map((workOrder) => (workOrder.siteId ? siteById.get(workOrder.siteId) : undefined))
-      .filter((site): site is ReportSite => Boolean(site) && !site?.kabupatenKota?.trim())
+      .map((workOrder) =>
+        workOrder.siteId ? siteById.get(workOrder.siteId) : undefined,
+      )
+      .filter(
+        (site): site is ReportSite =>
+          Boolean(site) && !site?.kabupatenKota?.trim(),
+      )
       .map((site) => site.name);
     return [...new Set(names)].sort((left, right) => left.localeCompare(right));
   }
 
   private lastHolidayInYear(holidayDates: Date[], year: number): Date | null {
-    const inYear = holidayDates.filter((date) => toWibDateKey(date).startsWith(`${year}-`));
+    const inYear = holidayDates.filter((date) =>
+      toWibDateKey(date).startsWith(`${year}-`),
+    );
     return inYear.length
       ? new Date(Math.max(...inYear.map((date) => date.getTime())))
       : null;

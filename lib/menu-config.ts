@@ -807,9 +807,23 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
     // Laporan kepatuhan ke regulator. Tahap 1: pasang baru & pemulihan layanan
     // dari work order; parameter jaringan & keluhan menyusul.
     code: "REGULASI",
-    name: "Self-Assessment Komdigi",
+    name: "Self-Assessment",
     path: "/admin/regulasi/self-assessment",
     icon: "HiOutlineClipboardDocumentCheck",
+    children: [
+      {
+        code: "REGULASI.ISP",
+        name: "ISP",
+        path: "/admin/regulasi/self-assessment/isp",
+        icon: "HiOutlineClipboardDocumentCheck",
+      },
+      {
+        code: "REGULASI.JARTAPLOK_PS",
+        name: "Jartaplok PS",
+        path: "/admin/regulasi/self-assessment/jartaplok-ps",
+        icon: "HiOutlineClipboardDocumentCheck",
+      },
+    ],
   },
   {
     code: "CHAT",

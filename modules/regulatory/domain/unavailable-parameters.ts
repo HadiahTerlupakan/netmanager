@@ -24,7 +24,8 @@ export const UNAVAILABLE_PARAMETERS: UnavailableParameter[] = [
     group: "NON_NETWORK",
     title: "Standar Penyelesaian Keluhan Pelanggan",
     standardLabel: "≥ 90% diselesaikan ≤ 3 hari kerja (Perdirjen 7 Tahun 2024)",
-    reason: "Keluhan pelanggan belum dicatat sebagai tiket berkategori Komdigi.",
+    reason:
+      "Keluhan pelanggan belum dicatat sebagai tiket berkategori Komdigi.",
   },
 ];
 

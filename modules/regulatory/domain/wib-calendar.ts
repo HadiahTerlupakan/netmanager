@@ -52,7 +52,11 @@ export function countCalendarDays(start: Date, end: Date): number {
  * Hari kerja (Senin–Jumat, bukan libur) setelah tanggal mulai sampai dengan
  * tanggal selesai. Hari yang sama = 0; Kamis → Senin dengan Sabtu-Minggu = 2.
  */
-export function countWorkingDays(start: Date, end: Date, holidayKeys: ReadonlySet<string>): number {
+export function countWorkingDays(
+  start: Date,
+  end: Date,
+  holidayKeys: ReadonlySet<string>,
+): number {
   const firstDay = dayNumber(toWibDateKey(start)) + 1;
   const lastDay = dayNumber(toWibDateKey(end));
   let workingDays = 0;
@@ -60,7 +64,11 @@ export function countWorkingDays(start: Date, end: Date, holidayKeys: ReadonlySe
   for (let day = firstDay; day <= lastDay; day += 1) {
     const weekday = weekdayOfDayNumber(day);
     const dateKey = new Date(day * MS_PER_DAY).toISOString().slice(0, 10);
-    if (weekday !== SATURDAY && weekday !== SUNDAY && !holidayKeys.has(dateKey)) {
+    if (
+      weekday !== SATURDAY &&
+      weekday !== SUNDAY &&
+      !holidayKeys.has(dateKey)
+    ) {
       workingDays += 1;
     }
   }

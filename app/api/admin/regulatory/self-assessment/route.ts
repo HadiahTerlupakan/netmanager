@@ -14,8 +14,15 @@ const reports = new SelfAssessmentReportService();
 export const GET = createHandler(
   { auth: true, permissions: ["regulasi:read"] },
   async (request, ctx) => {
-    const { year } = selfAssessmentQuerySchema.parse(parseQuery(new URL(request.url).searchParams));
-    const report = await reports.build(year, requireSessionTenantId(ctx));
+    const { year, skema, siteIds } = selfAssessmentQuerySchema.parse(
+      parseQuery(new URL(request.url).searchParams),
+    );
+    const report = await reports.build(
+      year,
+      requireSessionTenantId(ctx),
+      skema,
+      siteIds,
+    );
 
     return apiSuccess(toSelfAssessmentSummary(report));
   },

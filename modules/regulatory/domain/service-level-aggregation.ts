@@ -55,33 +55,52 @@ function countAssessable(samples: AggregatableSample[]): PeriodStatistic {
 }
 
 /** Statistik bulanan Januari–Desember (bulan tanpa permohonan tetap tampil). */
-export function aggregateByMonth(samples: AggregatableSample[]): MonthStatistic[] {
+export function aggregateByMonth(
+  samples: AggregatableSample[],
+): MonthStatistic[] {
   return Array.from({ length: MONTHS_PER_YEAR }, (_, index) => {
     const month = index + 1;
-    return { month, ...countAssessable(samples.filter((sample) => sample.month === month)) };
+    return {
+      month,
+      ...countAssessable(samples.filter((sample) => sample.month === month)),
+    };
   });
 }
 
 /** Statistik kuartalan dari statistik bulanan, tertimbang jumlah permohonan. */
-export function aggregateByQuarter(months: MonthStatistic[]): QuarterStatistic[] {
+export function aggregateByQuarter(
+  months: MonthStatistic[],
+): QuarterStatistic[] {
   return Array.from({ length: QUARTERS_PER_YEAR }, (_, index) => {
-    const quarterMonths = months.slice(index * MONTHS_PER_QUARTER, (index + 1) * MONTHS_PER_QUARTER);
+    const quarterMonths = months.slice(
+      index * MONTHS_PER_QUARTER,
+      (index + 1) * MONTHS_PER_QUARTER,
+    );
     return { quarter: index + 1, ...combinePeriods(quarterMonths) };
   });
 }
 
 /** Statistik per kabupaten/kota, diurutkan dari yang permohonannya terbanyak. */
-export function aggregateByRegion(samples: AggregatableSample[]): RegionStatistic[] {
+export function aggregateByRegion(
+  samples: AggregatableSample[],
+): RegionStatistic[] {
   const regions = [...new Set(samples.map((sample) => sample.region))];
   return regions
     .map((region) => ({
       region,
       ...countAssessable(samples.filter((sample) => sample.region === region)),
     }))
-    .sort((left, right) => right.received - left.received || left.region.localeCompare(right.region));
+    .sort(
+      (left, right) =>
+        right.received - left.received ||
+        left.region.localeCompare(right.region),
+    );
 }
 
 /** Apakah capaian memenuhi target; tanpa permohonan dianggap belum bisa dinilai (null). */
-export function isTargetMet(statistic: PeriodStatistic, targetRatio: number): boolean | null {
+export function isTargetMet(
+  statistic: PeriodStatistic,
+  targetRatio: number,
+): boolean | null {
   return statistic.ratio === null ? null : statistic.ratio >= targetRatio;
 }

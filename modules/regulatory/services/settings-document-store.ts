@@ -1,5 +1,10 @@
 import { logger } from "@/lib/logger";
-import { getGeneralSettings, getTenantSettingsMap, upsertTenantSettings } from "@/modules/settings";
+import {
+  getGeneralSettings,
+  getTenantSettingsMap,
+  upsertTenantSettings,
+} from "@/modules/settings";
+import type { LicenseScheme } from "../domain/license-schemes";
 import {
   EMPTY_YEARLY_INPUT,
   type OperatorProfile,
@@ -16,6 +21,19 @@ import type {
  * (key-value), jadi tidak butuh tabel baru.
  */
 
+/**
+ * Jartaplok PS memakai kunci tanpa akhiran — bentuk yang sudah dipakai sebelum
+ * ISP ada. Dipertahankan supaya tenant yang sudah mengisi tidak kehilangan
+ * datanya dan tidak perlu migrasi; skema baru cukup diberi akhiran sendiri.
+ */
+const SCHEME_SUFFIX: Record<LicenseScheme, string> = {
+  JARTAPLOK_PS: "",
+  ISP: "_ISP",
+};
+
+const scopedKey = (base: string, scheme: LicenseScheme) =>
+  `${base}${SCHEME_SUFFIX[scheme]}`;
+
 const PROFILE_KEYS: Record<keyof OperatorProfile, string> = {
   operatorName: "REGULASI_NAMA_PENYELENGGARA",
   licenseType: "REGULASI_JENIS_IZIN",
@@ -27,8 +45,14 @@ const PROFILE_KEYS: Record<keyof OperatorProfile, string> = {
   directorName: "REGULASI_NAMA_DIREKTUR",
 };
 
-const yearlyInputKey = (year: number) => `REGULASI_SELF_ASSESSMENT_${year}`;
-const profileFields = Object.values(PROFILE_KEYS).map((key) => ({ key, defaultValue: "" }));
+const yearlyInputKey = (scheme: LicenseScheme, year: number) =>
+  scopedKey(`REGULASI_SELF_ASSESSMENT_${year}`, scheme);
+
+const profileFieldsOf = (scheme: LicenseScheme) =>
+  Object.values(PROFILE_KEYS).map((key) => ({
+    key: scopedKey(key, scheme),
+    defaultValue: "",
+  }));
 
 function parseYearlyInput(raw: string): YearlyDocumentInput {
   if (!raw) return EMPTY_YEARLY_INPUT;
@@ -39,41 +63,68 @@ function parseYearlyInput(raw: string): YearlyDocumentInput {
       supportingLinks: parsed.supportingLinks ?? {},
     };
   } catch (error) {
-    logger.warn("[Regulatory] Isian dokumen tahunan rusak, dianggap kosong:", error);
+    logger.warn(
+      "[Regulatory] Isian dokumen tahunan rusak, dianggap kosong:",
+      error,
+    );
     return EMPTY_YEARLY_INPUT;
   }
 }
 
 export class SettingsDocumentStore implements SelfAssessmentDocumentStore {
-  async getProfile(tenantId: string): Promise<OperatorProfile> {
-    const values = await getTenantSettingsMap(tenantId, profileFields);
-    const entries = Object.entries(PROFILE_KEYS).map(([field, key]) => [field, values[key] ?? ""]);
+  async getProfile(
+    tenantId: string,
+    scheme: LicenseScheme,
+  ): Promise<OperatorProfile> {
+    const values = await getTenantSettingsMap(
+      tenantId,
+      profileFieldsOf(scheme),
+    );
+    const entries = Object.entries(PROFILE_KEYS).map(([field, key]) => [
+      field,
+      values[scopedKey(key, scheme)] ?? "",
+    ]);
     return Object.fromEntries(entries) as OperatorProfile;
   }
 
-  async saveProfile(tenantId: string, profile: OperatorProfile): Promise<void> {
+  async saveProfile(
+    tenantId: string,
+    scheme: LicenseScheme,
+    profile: OperatorProfile,
+  ): Promise<void> {
     await upsertTenantSettings(
       tenantId,
       Object.entries(PROFILE_KEYS).map(([field, key]) => ({
-        key,
+        key: scopedKey(key, scheme),
         value: profile[field as keyof OperatorProfile],
-        description: "Profil penyelenggara untuk Self-Assessment Komdigi",
+        description: `Profil penyelenggara Self-Assessment Komdigi (${scheme})`,
       })),
     );
   }
 
-  async getYearlyInput(tenantId: string, year: number): Promise<YearlyDocumentInput> {
-    const key = yearlyInputKey(year);
-    const values = await getTenantSettingsMap(tenantId, [{ key, defaultValue: "" }]);
+  async getYearlyInput(
+    tenantId: string,
+    scheme: LicenseScheme,
+    year: number,
+  ): Promise<YearlyDocumentInput> {
+    const key = yearlyInputKey(scheme, year);
+    const values = await getTenantSettingsMap(tenantId, [
+      { key, defaultValue: "" },
+    ]);
     return parseYearlyInput(values[key] ?? "");
   }
 
-  async saveYearlyInput(tenantId: string, year: number, input: YearlyDocumentInput): Promise<void> {
+  async saveYearlyInput(
+    tenantId: string,
+    scheme: LicenseScheme,
+    year: number,
+    input: YearlyDocumentInput,
+  ): Promise<void> {
     await upsertTenantSettings(tenantId, [
       {
-        key: yearlyInputKey(year),
+        key: yearlyInputKey(scheme, year),
         value: JSON.stringify(input),
-        description: `Isian dokumen Self-Assessment Komdigi ${year}`,
+        description: `Isian dokumen Self-Assessment Komdigi ${scheme} ${year}`,
       },
     ]);
   }

@@ -1,4 +1,7 @@
-import type { WorkOrderStatus, WorkOrderType } from "../entities/WorkOrderEntity";
+import type {
+  WorkOrderStatus,
+  WorkOrderType,
+} from "../entities/WorkOrderEntity";
 
 /** Data minimal work order untuk menghitung standar mutu layanan. */
 export interface ServiceLevelWorkOrderRecord {
@@ -18,9 +21,13 @@ export interface ServiceLevelWorkOrderQuery {
   /** Rentang waktu work order dibuat: [from, to). */
   from: Date;
   to: Date;
+  /** Batasi ke site tertentu; `undefined` = seluruh site tenant. */
+  siteIds?: string[];
 }
 
 /** Port baca work order untuk laporan mutu layanan. */
 export interface IWorkOrderServiceLevelRepository {
-  findForServiceLevel(query: ServiceLevelWorkOrderQuery): Promise<ServiceLevelWorkOrderRecord[]>;
+  findForServiceLevel(
+    query: ServiceLevelWorkOrderQuery,
+  ): Promise<ServiceLevelWorkOrderRecord[]>;
 }
