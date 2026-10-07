@@ -1,92 +1,81 @@
-import { NextRequest } from "next/server";
-import { getServerSession, type Session } from "next-auth";
-import { authConfig } from "@/lib/auth";
-import { getInventoryRouteService } from "@/modules/inventory";
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
+import {
+  bolehAksesGudang,
+  getInventoryRouteService,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import {
+  createHandler,
   apiSuccess,
   ApiErrors,
   ErrorCodes,
   apiError,
-} from "@/lib/api-response";
+} from "@/lib/api";
 
 const inventoryRouteService = getInventoryRouteService();
-
-async function requireAdmin() {
-  const session = (await getServerSession(authConfig)) as Session | null;
-  if (!session) {
-    return null;
-  }
-  return session;
-}
+const DEFAULT_DAYS = 30;
 
 /**
  * GET /api/inventory/analytics/usage
- * Get usage analytics for a specific barang and gudang
+ * Analitik pemakaian satu barang di satu gudang.
+ *
+ * Sama seperti endpoint stok: gudang ditunjuk klien, jadi lingkup site-nya
+ * diperiksa per gudang. Sebelumnya rute ini hanya memastikan ada sesi.
  */
-export async function GET(req: NextRequest) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
+  const user = ctx.session!.user;
+
+  if (!(await hasPermission("barang:read"))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk melihat analitik pemakaian",
+    );
+  }
+
+  const searchParams = req.nextUrl.searchParams;
+  const barangId = searchParams.get("barangId");
+  const gudangId = searchParams.get("gudangId");
+  const days = parseInt(searchParams.get("days") || String(DEFAULT_DAYS));
+
+  if (!barangId || !gudangId) {
+    return apiError(
+      "Barang ID dan Gudang ID harus diisi",
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
+  }
+
+  const boleh = await bolehAksesGudang({
+    userId: user.id,
+    gudangId,
+    permissions: await getUserPermissions(user.id),
+    isSuperAdmin: isSuperAdmin(user),
+    izinPembatas: ["barang:site_only", "gudang:site_only"],
+  });
+  if (!boleh) {
+    return ApiErrors.forbidden("Gudang ini di luar site Anda");
+  }
+
   try {
-    const session = await requireAdmin();
-    if (!session) {
-      logger.warn(
-        "Unauthorized access attempt to GET /api/inventory/analytics/usage",
-      );
-      return ApiErrors.unauthorized("Session tidak valid");
-    }
-
-    const searchParams = req.nextUrl.searchParams;
-    const barangId = searchParams.get("barangId");
-    const gudangId = searchParams.get("gudangId");
-    const days = parseInt(searchParams.get("days") || "30");
-
-    if (!barangId || !gudangId) {
-      return apiError(
-        "Barang ID dan Gudang ID harus diisi",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
-    }
-
-    try {
-      const dbStart = Date.now();
-      const analytics = await inventoryRouteService.getUsageAnalytics({
-        barangId,
-        gudangId,
-        days,
-      });
-
-      logger.dbOperation(
-        "aggregate",
-        "BarangKeluar+MonthlyAnalytics",
-        Date.now() - dbStart,
-      );
-
-      logger.apiRequest(
-        "GET",
-        "/api/inventory/analytics/usage",
-        200,
-        Date.now() - startTime,
-        {
-          userId: session.user.id,
-          barangId,
-          gudangId,
-          days,
-          totalUsage: analytics.totalUsage,
-          avgDailyUsage: analytics.avgDailyUsage,
-        },
-      );
-
-      return apiSuccess(analytics);
-    } finally {
-      // do not disconnect shared prisma client
-    }
+    const analytics = await inventoryRouteService.getUsageAnalytics({
+      barangId,
+      gudangId,
+      days,
+    });
+    logger.apiRequest(
+      "GET",
+      "/api/inventory/analytics/usage",
+      200,
+      Date.now() - startTime,
+      { userId: user.id, barangId, gudangId, days },
+    );
+    return apiSuccess(analytics);
   } catch (error) {
-    const err = error as Error;
-    logger.error("Error fetching usage analytics", err, {
+    logger.error("Error fetching usage analytics", error as Error, {
       path: "/api/inventory/analytics/usage",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal memuat analisis penggunaan");
+    return ApiErrors.internalError("Gagal mengambil analitik pemakaian");
   }
-}
+});

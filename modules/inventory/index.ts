@@ -86,3 +86,4 @@ export {
   runStockOpnameReminderCron,
 } from "./services/StockOpnamePengingatService";
 export { periodeDari as periodeStockOpnameDari } from "./domain/jadwal-stock-opname";
+export { bolehAksesGudang } from "./services/lingkup-gudang";

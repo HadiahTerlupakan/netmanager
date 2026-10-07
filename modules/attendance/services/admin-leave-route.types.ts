@@ -14,6 +14,8 @@ export type AccessContext = {
     siteId?: string | null;
     departmentId?: string | null;
   };
+  /** Dibatasi tetapi tanpa site/departemen: seluruh data di luar lingkup. */
+  tanpaData: boolean;
 };
 
 export interface AdminLeaveSession {

@@ -2,7 +2,7 @@ import type { Session } from "next-auth";
 import { isSuperAdmin } from "@/lib/auth";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { UserLookupService } from "@/modules/users";
-import { resolveAdminScope } from "./AdminScopeResolver";
+import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
 import { LocationTrackingService } from "./LocationTrackingService";
 
 const LOCATION_READ_FORBIDDEN_MESSAGE =
@@ -50,6 +50,13 @@ export class AdminLocationRouteService {
   /** Ambil lokasi live sesuai scope permission admin. */
   async getLiveLocations(session: AdminLocationSession) {
     const userScope = await this.resolveScope(session);
+
+    // `null` berarti dibatasi tanpa site/departemen: tidak ada karyawan yang
+    // boleh dipantau. Meneruskan `{}` ke bawah akan membuka seluruh tenant.
+    if (userScope === null) {
+      return { locations: [], tenantId: session.user.tenantId ?? null };
+    }
+
     const locations = await this.locationService.getLiveLocations(userScope);
     return {
       locations,
@@ -100,6 +107,11 @@ export class AdminLocationRouteService {
     );
 
     if (scope.isSuperAdmin) return {};
+
+    // Dibatasi tanpa site/departemen berarti tidak ada karyawan yang boleh
+    // dipantau. Tanpa cabang ini, lingkupnya jatuh ke `{}` dan posisi real-time
+    // seluruh tenant ikut terbuka.
+    if (scopeTanpaData(scope)) return null;
 
     if (!scope.siteId && !scope.departmentId) {
       const currentUser = await this.userRepository.findById(session.user.id);

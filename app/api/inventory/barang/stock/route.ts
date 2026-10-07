@@ -1,81 +1,75 @@
-import { NextRequest } from "next/server";
-import { getServerSession, type Session } from "next-auth";
-import { authConfig } from "@/lib/auth";
-import { getInventoryRouteService } from "@/modules/inventory";
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { hasPermission } from "@/lib/rbac";
+import {
+  bolehAksesGudang,
+  getInventoryRouteService,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import {
+  createHandler,
   apiSuccess,
   ApiErrors,
   ErrorCodes,
   apiError,
-} from "@/lib/api-response";
+} from "@/lib/api";
 
 const inventoryRouteService = getInventoryRouteService();
 
-async function requireAdmin() {
-  const session = (await getServerSession(authConfig)) as Session | null;
-  if (!session) {
-    return null;
-  }
-  return session;
-}
-
 /**
  * GET /api/inventory/barang/stock
- * Get current stock for specific barang and gudang
+ * Stok terkini satu barang di satu gudang.
+ *
+ * Gudang datang dari klien, jadi izinnya diperiksa dua lapis: `barang:read`
+ * untuk bolehnya membaca stok sama sekali, dan lingkup site untuk bolehnya
+ * membaca gudang YANG INI. Sebelumnya rute ini hanya memastikan ada sesi —
+ * siapa pun yang bisa login dapat membaca stok gudang mana pun.
  */
-export async function GET(req: NextRequest) {
+export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
+  const user = ctx.session!.user;
+
+  if (!(await hasPermission("barang:read"))) {
+    return ApiErrors.forbidden("Anda tidak memiliki akses untuk melihat stok");
+  }
+
+  const searchParams = req.nextUrl.searchParams;
+  const barangId = searchParams.get("barangId");
+  const gudangId = searchParams.get("gudangId");
+
+  if (!barangId || !gudangId) {
+    return apiError(
+      "Barang ID dan Gudang ID harus diisi",
+      ErrorCodes.VALIDATION_ERROR,
+      { status: 400 },
+    );
+  }
+
+  const boleh = await bolehAksesGudang({
+    userId: user.id,
+    gudangId,
+    permissions: await getUserPermissions(user.id),
+    isSuperAdmin: isSuperAdmin(user),
+    izinPembatas: ["barang:site_only", "gudang:site_only"],
+  });
+  if (!boleh) {
+    return ApiErrors.forbidden("Gudang ini di luar site Anda");
+  }
 
   try {
-    const session = await requireAdmin();
-    if (!session) {
-      logger.warn(
-        "Unauthorized access attempt to GET /api/inventory/barang/stock",
-      );
-      return ApiErrors.unauthorized("Session tidak valid");
-    }
-
-    const searchParams = req.nextUrl.searchParams;
-    const barangId = searchParams.get("barangId");
-    const gudangId = searchParams.get("gudangId");
-
-    if (!barangId || !gudangId) {
-      return apiError(
-        "Barang ID dan Gudang ID harus diisi",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
-    }
-
-    const dbStart = Date.now();
     const result = await inventoryRouteService.getStockInfo(barangId, gudangId);
-
-    logger.dbOperation(
-      "findUnique",
-      "BarangGudang+Relations",
-      Date.now() - dbStart,
-    );
     logger.apiRequest(
       "GET",
       "/api/inventory/barang/stock",
       200,
       Date.now() - startTime,
-      {
-        userId: session.user.id,
-        barangId,
-        gudangId,
-        stock: result.stok,
-      },
+      { userId: user.id, barangId, gudangId, stock: result.stok },
     );
-
     return apiSuccess(result);
   } catch (error) {
-    const err = error as Error;
-    logger.error("Error fetching stock information", err, {
+    logger.error("Error fetching stock information", error as Error, {
       path: "/api/inventory/barang/stock",
       method: "GET",
     });
     return ApiErrors.internalError("Gagal mengambil informasi stok");
   }
-}
+});

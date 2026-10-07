@@ -1,6 +1,6 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { UserLookupService } from "@/modules/users";
-import { resolveAdminScope } from "./AdminScopeResolver";
+import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
 
 import {
   getLeaveService,
@@ -24,6 +24,13 @@ const SITE_FORBIDDEN_MESSAGE = "Dibatasi hanya untuk Site Anda";
 const DEPARTMENT_FORBIDDEN_MESSAGE = "Dibatasi hanya untuk Departemen Anda";
 
 /** Service untuk thin controller route admin leave. */
+/**
+ * Site yang tidak pernah cocok dengan baris mana pun. Dipakai saat pengguna
+ * dibatasi tetapi tidak punya site: lingkupnya harus kosong hasilnya, bukan
+ * kosong filternya.
+ */
+const TANPA_SITE_COCOK = "__tanpa_site__";
+
 export class AdminLeaveRouteService {
   private readonly leaveService = getLeaveService();
   private readonly userRepository: UserLookupService;
@@ -188,10 +195,17 @@ export class AdminLeaveRouteService {
         siteId: scope.siteId ?? null,
         departmentId: scope.departmentId ?? null,
       },
+      tanpaData: scopeTanpaData(scope),
     };
   }
 
   private buildResolvedScope(accessContext: AccessContext) {
+    // Dibatasi tanpa site/departemen: tidak ada izin yang boleh tampil.
+    // Sebelumnya cabang ini menghasilkan lingkup kosong, yang terbaca sebagai
+    // "tanpa batas" dan membuka seluruh tenant — termasuk menyetujui dan
+    // menghapus izin milik site lain.
+    if (accessContext.tanpaData) return { siteId: TANPA_SITE_COCOK };
+
     return {
       ...(accessContext.permissions.includes(SITE_ONLY_PERMISSION) &&
       accessContext.currentUser.siteId
@@ -207,6 +221,7 @@ export class AdminLeaveRouteService {
   private createSuperAdminAccessContext(): AccessContext {
     return {
       permissions: [],
+      tanpaData: false,
       currentUser: { siteId: null, departmentId: null },
     };
   }

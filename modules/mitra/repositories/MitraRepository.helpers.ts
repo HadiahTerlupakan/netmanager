@@ -14,10 +14,10 @@ export function buildMitraWhere(filters: MitraFilters): Prisma.MitraWhereInput {
     }),
     ...(filters.isActive !== undefined && { isActive: filters.isActive }),
     ...(filters.siteId && { siteId: filters.siteId }),
-    ...(filters.allowedSiteIds &&
-      filters.allowedSiteIds.length > 0 && {
-        siteId: { in: filters.allowedSiteIds },
-      }),
+    // Daftar kosong = dibatasi tanpa site = tidak ada mitra yang boleh tampil.
+    ...(filters.allowedSiteIds && {
+      siteId: { in: filters.allowedSiteIds },
+    }),
     ...(filters.tenantId && { tenantId: filters.tenantId }),
     ...(filters.search && {
       OR: [

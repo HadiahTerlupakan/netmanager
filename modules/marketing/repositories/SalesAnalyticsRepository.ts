@@ -29,10 +29,12 @@ export class SalesAnalyticsRepository {
 
   /** Sales user untuk overview list (monthly stats). */
   findSalesUsersForOverview(input?: { allowedSiteIds?: string[] }) {
-    const siteFilter =
-      input?.allowedSiteIds && input.allowedSiteIds.length > 0
-        ? { siteId: { in: input.allowedSiteIds } }
-        : {};
+    // Daftar kosong berarti "dibatasi tetapi tanpa site", jadi tidak ada data
+    // yang boleh tampil. Memeriksa `length > 0` di sini akan membalik artinya
+    // menjadi "semua site" — lihat modules/roles/domain/lingkup-site.ts.
+    const siteFilter = input?.allowedSiteIds
+      ? { siteId: { in: input.allowedSiteIds } }
+      : {};
 
     return this.db.user.findMany({
       where: { isSales: true, isActive: true, ...siteFilter },
@@ -46,10 +48,9 @@ export class SalesAnalyticsRepository {
     allowedSiteIds?: string[];
     siteId?: string | null;
   }) {
-    const allowedFilter =
-      input.allowedSiteIds && input.allowedSiteIds.length > 0
-        ? { siteId: { in: input.allowedSiteIds } }
-        : {};
+    const allowedFilter = input.allowedSiteIds
+      ? { siteId: { in: input.allowedSiteIds } }
+      : {};
 
     return this.db.user.findMany({
       where: {
@@ -65,10 +66,9 @@ export class SalesAnalyticsRepository {
 
   /** Site list untuk dashboard filter. */
   findActiveSites(input?: { allowedSiteIds?: string[] }) {
-    const siteFilter =
-      input?.allowedSiteIds && input.allowedSiteIds.length > 0
-        ? { id: { in: input.allowedSiteIds } }
-        : {};
+    const siteFilter = input?.allowedSiteIds
+      ? { id: { in: input.allowedSiteIds } }
+      : {};
 
     return this.db.sites.findMany({
       where: { isActive: true, ...siteFilter },

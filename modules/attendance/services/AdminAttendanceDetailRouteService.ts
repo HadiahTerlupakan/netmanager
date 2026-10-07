@@ -4,7 +4,7 @@ import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { calculateAttendanceStatus } from "../utils/attendanceStatus";
 import type { AttendanceUpdate } from "../validators/attendance";
 import { AttendanceSettingsService } from "./AttendanceSettingsService";
-import { resolveAdminScope } from "./AdminScopeResolver";
+import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
 import type {
   AdminAttendanceUser,
   AttendanceUpdateInput,
@@ -41,6 +41,7 @@ async function getRestrictedScope(user: SessionUser): Promise<RestrictedScope> {
   return {
     siteId: scope.siteId ?? null,
     departmentId: scope.departmentId ?? null,
+    tanpaData: scopeTanpaData(scope),
   };
 }
 
@@ -50,6 +51,10 @@ async function isOutsideScope(
 ) {
   const scope = await getRestrictedScope(user);
   if (!scope) return false;
+  // Dibatasi tanpa site/departemen: semua data di luar lingkup. Sebelumnya
+  // `scope.siteId` kosong membuat perbandingan ini dilewati, sehingga absensi
+  // site lain bisa dibaca, diubah, bahkan dihapus.
+  if (scope.tanpaData) return true;
   if (scope.siteId && attendanceUser.siteId !== scope.siteId) return true;
   return Boolean(
     scope.departmentId && attendanceUser.departmentId !== scope.departmentId,

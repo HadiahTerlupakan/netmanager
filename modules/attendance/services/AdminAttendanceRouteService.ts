@@ -3,7 +3,7 @@ import { isSuperAdmin } from "@/lib/auth";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AdminAttendanceListService } from "./AdminAttendanceListService";
-import { resolveAdminScope } from "./AdminScopeResolver";
+import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
 import type {
   AdminAttendanceUser,
   AttendanceFilterInput,
@@ -60,17 +60,18 @@ export class AdminAttendanceRouteService {
     return this.createDeletionResult(ids, deletedIds);
   }
 
-  /** Build user scope for attendance deletion. */
+  /**
+   * Build user scope for attendance deletion.
+   *
+   * Keadaan "dibatasi tetapi tanpa site/departemen" tidak lagi ditebak dari
+   * nilai falsy di sini — `scopeTanpaData` yang menyatakannya, dan pemanggil
+   * memetakannya ke `NO_SCOPE_MATCH`.
+   */
   private buildDeletionUserScope(
     siteId: string | undefined,
     departmentId: string | undefined,
   ) {
     const userScope: Prisma.UserWhereInput = {};
-
-    if (siteId === undefined && departmentId === undefined) return userScope;
-    if (siteId !== undefined && !siteId) return { id: NO_SCOPE_MATCH };
-    if (departmentId !== undefined && !departmentId)
-      return { id: NO_SCOPE_MATCH };
     if (siteId) userScope.siteId = siteId;
     if (departmentId) userScope.departmentId = departmentId;
     return userScope;
@@ -99,10 +100,9 @@ export class AdminAttendanceRouteService {
       siteOnly: "attendance:site_only",
       departmentOnly: "attendance:department_only",
     });
-    const userScope = this.buildDeletionUserScope(
-      scope.siteId,
-      scope.departmentId,
-    );
+    const userScope = scopeTanpaData(scope)
+      ? { id: NO_SCOPE_MATCH }
+      : this.buildDeletionUserScope(scope.siteId, scope.departmentId);
 
     if (userScope.id === NO_SCOPE_MATCH) {
       attendanceWhere.user = { id: NO_SCOPE_MATCH };

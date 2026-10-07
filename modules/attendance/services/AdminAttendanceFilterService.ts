@@ -2,7 +2,7 @@ import type { Prisma } from "../repositories/prisma-boundary";
 import type { AttendanceStatus } from "../types/attendance.enums";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { isCanonicalStatusDetail } from "./AdminAttendanceEvaluationHelper";
-import { resolveAdminScope } from "./AdminScopeResolver";
+import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
 import type {
   AdminAttendanceUser,
   AttendanceFilterInput,
@@ -37,6 +37,17 @@ export async function buildAdminAttendanceWhere(
   applyDateRangeFilter(where, input, timezone);
 
   const restrictionScope = await resolveRestrictionScope(user);
+
+  // Dibatasi tetapi tanpa site/departemen berarti tidak ada kehadiran yang
+  // boleh tampil. Sebelumnya keadaan ini menghasilkan filter kosong, sehingga
+  // justru seluruh tenant terbaca. `id: { in: [] }` tidak pernah cocok dengan
+  // baris mana pun, apa pun filter lain yang menyertainya.
+  if (restrictionScope.tanpaData) {
+    where.user = { id: { in: [] } };
+    applyStatusFilter(where, input.status, input.statusDetail);
+    return where;
+  }
+
   const userWhere = buildUserWhere(
     input,
     restrictionScope.restrictedSiteId,
@@ -98,6 +109,7 @@ async function resolveRestrictionScope(user: AdminAttendanceUser) {
   return {
     restrictedSiteId: scope.isSuperAdmin ? undefined : scope.siteId,
     restrictedDeptId: scope.isSuperAdmin ? undefined : scope.departmentId,
+    tanpaData: scopeTanpaData(scope),
   };
 }
 

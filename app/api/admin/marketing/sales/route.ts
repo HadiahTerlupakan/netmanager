@@ -19,9 +19,12 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     siteIds?: string[];
     isSuperAdmin?: boolean;
   };
+  // `?? []` disengaja: sesi tanpa daftar site pada pengguna yang DIBATASI
+  // berarti tidak ada site yang boleh ia lihat. Membiarkannya `undefined` akan
+  // terbaca sebagai "tanpa batas" dan justru membuka seluruh tenant.
   const allowedSiteIds =
     !isSuperAdmin(user) && (await hasPermission("sales:site_only"))
-      ? user.siteIds
+      ? (user.siteIds ?? [])
       : undefined;
 
   try {

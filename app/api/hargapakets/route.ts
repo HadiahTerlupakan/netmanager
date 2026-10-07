@@ -34,7 +34,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     "harga",
   );
 
-  if (isRestricted && siteIds.length > 0) {
+  // Dibatasi tanpa site berarti tidak ada paket yang boleh tampil. Sebelumnya
+  // kasus itu jatuh ke cabang `siteIdParam` dan membuka seluruh tenant.
+  if (isRestricted) {
     options.siteId = { in: siteIds };
   } else if (siteIdParam) {
     options.siteId = siteIdParam;

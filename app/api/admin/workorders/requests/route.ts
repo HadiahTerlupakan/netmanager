@@ -40,6 +40,18 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.unauthorized();
   }
 
+  // `emptyResponse` menandai pengguna yang DIBATASI tetapi tidak punya
+  // site/departemen. Tanpa cabang ini, alurnya jatuh ke parameter query dan
+  // justru menampilkan seluruh permintaan WO di tenant — kebalikan dari maksud
+  // pembatasannya. Daftar utama (`/api/admin/workorders`) sudah benar.
+  if (access.emptyResponse) {
+    return apiSuccess({
+      data: [],
+      pagination: { page, totalPages: 1, total: 0 },
+      pendingCount: 0,
+    });
+  }
+
   const isSuper = isSuperAdmin({ role: user.role });
   const filters: { departmentId?: string; siteId?: string; search?: string } = {
     ...(search ? { search } : {}),

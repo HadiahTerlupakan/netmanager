@@ -309,13 +309,13 @@ export class MitraWithdrawRepository implements IMitraWithdrawRepository {
       ...(filter.userId && { mitraId: filter.userId }),
       ...(filter.status && { status: filter.status as WithdrawStatus }),
       ...(filter.tenantId && { mitra: { tenantId: filter.tenantId } }),
-      ...(filter.allowedSiteIds &&
-        filter.allowedSiteIds.length > 0 && {
-          mitra: {
-            ...(filter.tenantId && { tenantId: filter.tenantId }),
-            siteId: { in: filter.allowedSiteIds },
-          },
-        }),
+      // Daftar kosong = dibatasi tanpa site = tidak ada penarikan yang tampil.
+      ...(filter.allowedSiteIds && {
+        mitra: {
+          ...(filter.tenantId && { tenantId: filter.tenantId }),
+          siteId: { in: filter.allowedSiteIds },
+        },
+      }),
     };
   }
 

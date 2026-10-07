@@ -41,6 +41,41 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-07] — Seragamkan pembatasan data per site, tutup delapan gagal-terbuka
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/roles`, `modules/attendance`, `modules/marketing`, `modules/mitra`, `app/api`
+- **Author**: agent
+- **Deskripsi**: Audit menyeluruh atas ~250 endpoint menemukan satu pola salah yang
+  berulang di delapan tempat terpisah: daftar site kosong diperlakukan sebagai "tanpa
+  filter". Akibatnya pengguna yang DIBATASI tetapi belum ditugaskan ke site mana pun
+  justru melihat seluruh tenant — kebalikan dari maksud pembatasannya, dan tanpa gejala.
+
+  Tiga bentuknya: `allowedSiteIds.length > 0 ? filter : {}`, `dbUser?.siteId || ""`
+  (string kosong falsy sehingga tiap `if (scope.siteId)` dilewati), dan `emptyResponse`
+  yang tidak pernah diperiksa.
+
+  Kontrak tunggal `modules/roles/domain/lingkup-site.ts` menyatukan artinya dalam satu
+  tipe: "dibatasi" dan "daftar site" datang bersama, sehingga daftar kosong tidak bisa
+  dibaca tanpa lebih dulu mengakui pengguna memang dibatasi. `filterSitePrisma` melempar
+  bila dipanggil pada lingkup kosong — gagal keras lebih baik daripada diam-diam membuka.
+
+  `AdminScopeResolver` kini membawa `tanpaSite`/`tanpaDepartemen` eksplisit; itu akar
+  tujuh kebocoran sekaligus (absensi, detail absensi, izin, lembur, live tracking).
+  Diperbaiki juga: mitra, penarikan mitra, sales, sales dashboard, harga paket, dan
+  permintaan work order.
+
+  Dua test arsitektur baru menjaga arah yang selama ini tidak dijaga siapa pun: setiap
+  toggle di halaman Hak Akses wajib benar-benar ditegakkan (23 yang belum dicatat sebagai
+  utang yang boleh menyusut, tidak boleh bertambah), dan ketiga pola gagal-terbuka tidak
+  boleh muncul lagi.
+- **Files**: `modules/roles/domain/lingkup-site.ts`,
+  `modules/attendance/services/AdminScopeResolver.ts`,
+  `tests/architecture/lingkup-site-konsisten.test.ts`
+- **Breaking**: ✅ Ya — pengguna yang dibatasi tetapi belum punya site kini melihat
+  daftar kosong, bukan seluruh tenant. Itu perilaku yang benar; bila ada daftar yang
+  mendadak kosong, pengguna itu memang belum ditugaskan ke site mana pun.
+
 ### [2026-10-07] — Pembatasan lingkup tanpa toggle tidak lagi tersimpan di role
 
 - **Tipe**: [FIXED]
