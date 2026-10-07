@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HiOutlineArrowLeft } from "react-icons/hi2";
 import SiteForm from "../components/SiteForm";
+import {
+  angkaAtauNull,
+  angkaBulatAtau,
+  RADIUS_ABSENSI_BAWAAN,
+} from "@/app/admin/workorders/sites/site-form-payload";
 
 export function ClientComponent() {
   const router = useRouter();
@@ -46,9 +51,12 @@ export function ClientComponent() {
         body: JSON.stringify({
           ...formData,
           kabupatenKota: formData.kabupatenKota.trim() || null,
-          latitude: formData.latitude || null,
-          longitude: formData.longitude || null,
-          attendanceRadius: parseInt(formData.attendanceRadius) || 100,
+          latitude: angkaAtauNull(formData.latitude),
+          longitude: angkaAtauNull(formData.longitude),
+          attendanceRadius: angkaBulatAtau(
+            formData.attendanceRadius,
+            RADIUS_ABSENSI_BAWAAN,
+          ),
           gudangIds: formData.gudangIds,
         }),
       });

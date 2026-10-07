@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-07] — Perbaiki simpan site gagal "expected number, received string"
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/workorders/sites`, `lib/validations/site.ts`
+- **Author**: agent
+- **Deskripsi**: Form tambah dan ubah site mengirim `latitude`/`longitude` apa adanya dari
+  isian teks, sedangkan `siteCreateSchema`/`siteUpdateSchema` meminta `z.number()`. Setiap
+  penyimpanan dengan koordinat terisi ditolak 400 dengan pesan Zod mentah
+  "Invalid input: expected number, received string" — pengguna hanya melihat gagal
+  menyimpan, tanpa tahu field mana penyebabnya.
+
+  Konversinya dipusatkan di `site-form-payload.ts` supaya kedua form tidak bisa berbeda
+  tafsir. Isian kosong menjadi `null` (site tanpa titik peta tetap sah), dan isian yang
+  tidak terbaca juga `null` alih-alih `NaN` — `NaN` lolos `typeof === "number"` dan baru
+  meledak di dalam database.
+
+  Ditemukan menyusul: `gudangIds` dikirim form tetapi tidak dideklarasikan di skema,
+  sehingga `z.object` membuangnya diam-diam dan penugasan gudang tidak pernah tersimpan.
+  Gagal tanpa pesan kesalahan sama sekali. Kini ikut dideklarasikan.
+- **Files**: `app/admin/workorders/sites/site-form-payload.ts`,
+  `app/admin/workorders/sites/[id]/edit/SitesEditClient.tsx`,
+  `app/admin/workorders/sites/new/SitesNewClient.tsx`, `lib/validations/site.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-07] — Buang tujuh toggle pembatasan yang mustahil ditegakkan
 
 - **Tipe**: [REMOVED]
