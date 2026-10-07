@@ -155,7 +155,9 @@ export async function linkWorkOrderToTicketSafely(params: {
       ticketId: params.ticketId,
       workOrderNumber: params.workOrder.workOrderNumber,
       tahap: "DIBUAT",
-      scheduledDate: params.workOrder.scheduledDate ? new Date(params.workOrder.scheduledDate).toISOString() : null,
+      scheduledDate: params.workOrder.scheduledDate
+        ? new Date(params.workOrder.scheduledDate).toISOString()
+        : null,
       triggeredBy: params.userId,
     });
   } catch (err) {

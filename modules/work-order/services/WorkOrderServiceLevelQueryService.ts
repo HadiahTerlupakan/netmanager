@@ -17,7 +17,9 @@ export class WorkOrderServiceLevelQueryService {
   ) {}
 
   /** Work order instalasi/troubleshoot dalam rentang waktu, tanpa yang dibatalkan. */
-  listForServiceLevel(query: ServiceLevelWorkOrderQuery): Promise<ServiceLevelWorkOrderRecord[]> {
+  listForServiceLevel(
+    query: ServiceLevelWorkOrderQuery,
+  ): Promise<ServiceLevelWorkOrderRecord[]> {
     return this.repository.findForServiceLevel(query);
   }
 }
