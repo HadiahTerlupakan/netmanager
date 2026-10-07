@@ -41,6 +41,36 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-07] — Pembatasan lingkup tanpa toggle tidak lagi tersimpan di role
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/roles`, `scripts/`
+- **Author**: agent
+- **Deskripsi**: Halaman Hak Akses hanya menggambar toggle untuk pembatasan yang ada di
+  katalog kapabilitas (`lib/resource-capabilities.ts`). Pembatasan di luar katalog tersimpan
+  tanpa tombol: tak terlihat, tak bisa dimatikan. Yang membuatnya abadi adalah alur simpannya
+  sendiri — halaman memuat seluruh `permissionList` apa adanya, termasuk yang tak tergambar,
+  lalu mengirimkannya kembali saat disimpan.
+
+  Audit produksi 2026-10-07: 323 baris pembatasan di 14 role, 85 pasang di antaranya tanpa
+  toggle sama sekali. Halaman terbaca "tidak ada pembatasan menyala" padahal database
+  menyimpan ratusan baris. Tidak ada yang berbahaya — nol pembatasan tersembunyi yang
+  benar-benar ditegakkan — tetapi mustahil dikelola.
+
+  `buangPembatasanTanpaToggle` dipasang di `RoleService.sanitizePermissions`, sehingga setiap
+  penyimpanan role membersihkan dirinya sendiri. Penjaganya sengaja hanya menyentuh aksi
+  pembatasan: membuang kemampuan di luar katalog akan mencabut izin sah, karena matriks mobile
+  memakai daftar aksi yang berbeda.
+
+  Dipicu keluhan nyata: role `admin` memegang `site:site_only` warisan tombol "Semua" lama,
+  sehingga `GET /api/admin/sites` hanya mengembalikan 1 dari 10 site — dan endpoint itu
+  memasok dropdown site di 16 permukaan (work order, inventory, pelanggan, paket, pengeluaran,
+  peta, regulasi). Datanya sendiri tidak pernah terbatas; yang menyempit adalah pemilihan
+  site. Pembatasan itu sudah dimatikan lewat halaman Hak Akses dan diverifikasi: 1 → 10 site.
+- **Files**: `modules/roles/domain/pembatasan-lingkup.ts`,
+  `modules/roles/services/RoleService.ts`, `scripts/pembatasan-tanpa-toggle.ts`
+- **Breaking**: ❌ Tidak — hanya pembatasan tanpa toggle yang dibuang, kemampuan tidak disentuh
+
 ### [2026-10-07] — Ringkasan internal Self-Assessment jadi unduhan terpisah
 
 - **Tipe**: [ADDED]
