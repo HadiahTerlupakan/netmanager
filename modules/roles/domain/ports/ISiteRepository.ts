@@ -38,6 +38,15 @@ export interface ISiteRepository {
   findById(id: string): Promise<SiteEntity | null>;
   /** Find site name by ID for lightweight lookups. */
   findNameById(id: string): Promise<{ name: string } | null>;
+  /**
+   * Dari sekumpulan id gudang, kembalikan yang benar-benar ada DI TENANT AKTIF.
+   *
+   * Penugasan gudang ke site memakai `connect`/`set` berdasarkan id mentah
+   * kiriman klien, dan ekstensi tenant Prisma tidak menyaring relasi bersarang.
+   * Tanpa pemeriksaan ini, id gudang milik tenant lain bisa ditautkan ke site
+   * sendiri.
+   */
+  findGudangIdsInTenant(gudangIds: string[]): Promise<string[]>;
   /** Find site by unique code. */
   findByCode(code: string): Promise<SiteEntity | null>;
   /** Create a site entity. */

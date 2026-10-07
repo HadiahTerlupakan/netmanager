@@ -117,7 +117,9 @@ export class SiteRepository implements ISiteRepository {
             description: data.description,
           }),
           ...(data.address !== undefined && { address: data.address }),
-          ...(data.kabupatenKota !== undefined && { kabupatenKota: data.kabupatenKota }),
+          ...(data.kabupatenKota !== undefined && {
+            kabupatenKota: data.kabupatenKota,
+          }),
           ...(data.latitude !== undefined && { latitude: data.latitude }),
           ...(data.longitude !== undefined && { longitude: data.longitude }),
           ...(data.attendanceRadius !== undefined && {
@@ -191,6 +193,21 @@ export class SiteRepository implements ISiteRepository {
     }
 
     return where;
+  }
+
+  /**
+   * Id gudang yang ada di tenant aktif. `prisma` di sini sudah ber-ekstensi
+   * tenant, jadi gudang tenant lain tidak ikut terbaca dan otomatis hilang dari
+   * hasil — pemanggil cukup membandingkan jumlahnya.
+   */
+  async findGudangIdsInTenant(gudangIds: string[]): Promise<string[]> {
+    if (gudangIds.length === 0) return [];
+
+    const gudang = await prisma.gudang.findMany({
+      where: { id: { in: gudangIds } },
+      select: { id: true },
+    });
+    return gudang.map((item) => item.id);
   }
 
   private buildGudangConnect(gudangIds?: string[]) {

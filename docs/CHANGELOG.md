@@ -41,6 +41,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-07] — Tolak penugasan gudang lintas tenant pada site
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/roles`
+- **Author**: agent
+- **Deskripsi**: Penugasan gudang ke site memakai `connect`/`set` Prisma berdasarkan id
+  mentah kiriman klien, dan ekstensi tenant (`withTenantIsolation`) tidak menyaring relasi
+  bersarang. Pemegang `site:update` karena itu cukup menebak id gudang milik tenant lain
+  untuk menautkannya ke site sendiri — dan gudang itu lalu ikut terbaca lewat filter
+  `gudang.sites` di seluruh modul inventory.
+
+  Celah ini baru benar-benar bisa dijangkau setelah `gudangIds` dideklarasikan di skema
+  site pada perubahan sebelumnya; sebelum itu Zod membuangnya diam-diam sehingga jalurnya
+  mati. Ditemukan oleh review keamanan otomatis atas commit tersebut.
+
+  `findGudangIdsInTenant` memakai prisma ber-ekstensi tenant, jadi gudang tenant lain
+  tidak ikut terbaca; service membandingkan jumlahnya dan menolak sebelum menulis. Id
+  berulang dihitung sebagai himpunan supaya duplikat tidak menutupi satu id asing.
+- **Files**: `modules/roles/services/SiteService.ts`,
+  `modules/roles/repositories/SiteRepository.ts`,
+  `modules/roles/domain/ports/ISiteRepository.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-07] — Perbaiki simpan site gagal "expected number, received string"
 
 - **Tipe**: [FIXED]

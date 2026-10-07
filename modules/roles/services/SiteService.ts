@@ -106,6 +106,29 @@ export class SiteService {
     return this.repository.findNameById(id);
   }
 
+  /**
+   * Tolak penugasan gudang yang bukan milik tenant aktif.
+   *
+   * `connect`/`set` Prisma menautkan berdasarkan id mentah dan ekstensi tenant
+   * tidak menyaring relasi bersarang. Tanpa penjaga ini, pemegang `site:update`
+   * cukup menebak id gudang tenant lain untuk menautkannya ke site sendiri —
+   * dan gudang itu lalu ikut terbaca lewat filter `gudang.sites`.
+   */
+  private async validasiGudangSetenant(
+    gudangIds: string[] | undefined,
+  ): Promise<ServiceResult<null> | null> {
+    if (!gudangIds || gudangIds.length === 0) return null;
+
+    const diizinkan = await this.repository.findGudangIdsInTenant(gudangIds);
+    if (diizinkan.length === new Set(gudangIds).size) return null;
+
+    return {
+      success: false,
+      error: "Gudang yang dipilih tidak ditemukan",
+      code: "VALIDATION_ERROR",
+    };
+  }
+
   /** Create new site and return detail DTO. */
   async createSite(
     data: SiteCreateInput,
@@ -128,6 +151,9 @@ export class SiteService {
           code: "DUPLICATE_CODE",
         };
       }
+
+      const gudangTidakSah = await this.validasiGudangSetenant(data.gudangIds);
+      if (gudangTidakSah) return gudangTidakSah;
 
       const site = await this.repository.create(this.buildCreateInput(data));
       this.logCreateActivity(site, userId, data.gudangIds);
@@ -171,6 +197,9 @@ export class SiteService {
           };
         }
       }
+
+      const gudangTidakSah = await this.validasiGudangSetenant(data.gudangIds);
+      if (gudangTidakSah) return gudangTidakSah;
 
       const site = await this.repository.update(
         id,
