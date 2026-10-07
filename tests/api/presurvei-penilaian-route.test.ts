@@ -20,7 +20,9 @@ vi.mock("@/lib/auth", () => ({
   getUserPermissions: mockFns.getUserPermissions,
 }));
 vi.mock("@/modules/presurvei", async () => {
-  const actual = await vi.importActual<typeof import("@/modules/presurvei")>("@/modules/presurvei");
+  const actual = await vi.importActual<typeof import("@/modules/presurvei")>(
+    "@/modules/presurvei",
+  );
   return {
     ...actual,
     RencanaService: class {
@@ -36,23 +38,35 @@ import { GET } from "@/app/api/presurvei/penilaian/route";
 
 const sesi = (permissions: string[]) => {
   mockFns.getServerSession.mockResolvedValue({
-    user: { id: "user-1", email: "u@contoh.id", tenantId: "tenant-1", permissions },
+    user: {
+      id: "user-1",
+      email: "u@contoh.id",
+      tenantId: "tenant-1",
+      permissions,
+    },
   });
   mockFns.getUserPermissions.mockResolvedValue(permissions);
 };
 
 const panggil = (query = "") =>
-  GET(new NextRequest(`http://x/api/presurvei/penilaian${query}`), { params: Promise.resolve({}) } as never);
+  GET(new NextRequest(`http://x/api/presurvei/penilaian${query}`), {
+    params: Promise.resolve({}),
+  } as never);
 
 describe("GET /api/presurvei/penilaian", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.lingkup.mockImplementation(async (pengguna, jenis) => ({ jenis, penggunaId: pengguna.id }));
+    mockFns.lingkup.mockImplementation(async (pengguna, jenis) => ({
+      jenis,
+      penggunaId: pengguna.id,
+    }));
     mockFns.nilai.mockResolvedValue({ kepala: [], sales: [] });
   });
 
   it("kepala sales: lingkup TIM, periode dari query, tenant dari sesi", async () => {
-    sesi(["presurvei_rencana:read"]);
+    // Lingkup TIM menuntut wewenang menugaskan (`presurvei_rencana:create`);
+    // izin baca saja tidak lagi menjadikan seseorang kepala sales.
+    sesi(["presurvei_rencana:read", "presurvei_rencana:create"]);
 
     const res = await panggil("?tahun=2026&bulan=8");
 
@@ -69,7 +83,11 @@ describe("GET /api/presurvei/penilaian", () => {
 
     await panggil();
 
-    expect(mockFns.nilai).toHaveBeenCalledWith(null, { jenis: "SENDIRI", penggunaId: "user-1" }, "tenant-1");
+    expect(mockFns.nilai).toHaveBeenCalledWith(
+      null,
+      { jenis: "SENDIRI", penggunaId: "user-1" },
+      "tenant-1",
+    );
   });
 
   it("tanpa permission presurvei → 403", async () => {
