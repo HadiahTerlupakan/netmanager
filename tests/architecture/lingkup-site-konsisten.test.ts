@@ -165,31 +165,28 @@ function toggleDiKatalog(): Set<string> {
 /**
  * Toggle yang ada di halaman Hak Akses tetapi belum ditegakkan kode mana pun.
  * Snapshot 2026-10-07. Boleh menyusut, tidak boleh bertambah.
+ *
+ * Yang tersisa di sini BISA ditegakkan — modelnya punya sumbu site atau
+ * departemen — hanya belum ada kodenya. Tujuh yang mustahil ditegakkan sudah
+ * dibuang dari katalog, bukan didaftarkan di sini.
  */
 const BELUM_DITEGAKKAN = [
   "acs_dashboard:site_only",
   "acs_devices:site_only",
   "acs_mapping:site_only",
   "activity:site_only",
-  "barang:department_only",
-  "coupon:site_only",
   "daily_income:site_only",
-  "gudang:department_only",
-  "keluar:department_only",
   "list:department_only",
   "list:site_only",
   "login:site_only",
   "map:site_only",
-  "masuk:department_only",
   "network:site_only",
-  "opname:department_only",
   "period_income:site_only",
   "procurement:site_only",
   "profit_loss:site_only",
   "salary:department_only",
   "salary:site_only",
   "salary_users:site_only",
-  "transfer:department_only",
 ];
 
 describe("setiap toggle pembatasan benar-benar ditegakkan", () => {

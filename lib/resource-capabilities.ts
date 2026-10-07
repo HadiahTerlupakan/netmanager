@@ -165,59 +165,29 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
   },
 
   // ====== INVENTORY MODULE ======
+  // Kelompok inventory tanpa `department_only`: Barang, Gudang, BarangMasuk,
+  // BarangKeluar, TransferAntarGudang, dan StockOpname tidak punya kolom
+  // departemen, dan satu-satunya jalur keluar dari gudang adalah relasi ke
+  // Sites. Pembatasan per departemen di sini mustahil ditegakkan, jadi
+  // toggle-nya dibuang alih-alih dibiarkan menipu pemilik role.
   barang: {
-    actions: [
-      "read",
-      "create",
-      "update",
-      "delete",
-      "site_only",
-      "department_only",
-    ],
+    actions: ["read", "create", "update", "delete", "site_only"],
     description: "Master barang inventory",
   },
   gudang: {
-    actions: [
-      "read",
-      "create",
-      "update",
-      "delete",
-      "site_only",
-      "department_only",
-    ],
+    actions: ["read", "create", "update", "delete", "site_only"],
     description: "Master gudang/warehouse",
   },
   masuk: {
-    actions: [
-      "read",
-      "create",
-      "update",
-      "delete",
-      "site_only",
-      "department_only",
-    ],
+    actions: ["read", "create", "update", "delete", "site_only"],
     description: "Barang masuk",
   },
   keluar: {
-    actions: [
-      "read",
-      "create",
-      "update",
-      "delete",
-      "site_only",
-      "department_only",
-    ],
+    actions: ["read", "create", "update", "delete", "site_only"],
     description: "Barang keluar",
   },
   transfer: {
-    actions: [
-      "read",
-      "create",
-      "update",
-      "delete",
-      "site_only",
-      "department_only",
-    ],
+    actions: ["read", "create", "update", "delete", "site_only"],
     description: "Transfer antar gudang",
   },
   opname: {
@@ -227,7 +197,6 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
       "update",
       "delete",
       "site_only",
-      "department_only",
       // Pengelola SO: menerima ringkasan gudang yang tidak tuntas SO per bulan.
       "manage",
     ],
@@ -467,7 +436,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Menu marketing (parent)",
   },
   coupon: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    // Tanpa pembatasan lingkup: model `Coupon` tidak punya `siteId` maupun
+    // relasi ke site, jadi `coupon:site_only` mustahil ditegakkan. Toggle yang
+    // tidak bisa ditegakkan lebih berbahaya daripada tidak ada toggle — pemilik
+    // role menyalakannya dan mengira datanya terbatas.
+    actions: ["read", "create", "update", "delete"],
     description: "Manajemen kupon diskon",
   },
   canvasing: {

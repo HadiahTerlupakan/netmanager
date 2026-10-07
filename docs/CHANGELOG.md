@@ -41,6 +41,35 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-07] — Buang tujuh toggle pembatasan yang mustahil ditegakkan
+
+- **Tipe**: [REMOVED]
+- **Scope**: `lib/resource-capabilities.ts`
+- **Author**: agent
+- **Deskripsi**: Dari 23 toggle pembatasan yang belum ditegakkan, tujuh di antaranya
+  bukan "belum" melainkan "tidak bisa": modelnya tidak punya sumbu yang diminta sama
+  sekali.
+
+  `coupon:site_only` — model `Coupon` tidak punya `siteId` maupun relasi ke site.
+  `barang`, `gudang`, `masuk`, `keluar`, `transfer`, `opname` pada `department_only` —
+  keenam model itu (Barang, Gudang, BarangMasuk, BarangKeluar, TransferAntarGudang,
+  StockOpname) tidak punya kolom departemen, dan satu-satunya jalur keluar dari gudang
+  adalah relasi ke `Sites`, bukan ke departemen.
+
+  Toggle yang tidak bisa ditegakkan lebih berbahaya daripada tidak ada toggle: pemilik
+  role menyalakannya, yakin datanya sudah terbatas, padahal tidak terjadi apa-apa.
+
+  Enam belas sisanya tetap di daftar utang `tests/architecture/lingkup-site-konsisten`
+  karena memang bisa ditegakkan — `map` lewat `MappingNode.siteId`, `salary` dan
+  `salary_users` lewat relasi ke `User`, `list` lewat `WorkOrders.siteId/departmentId`,
+  `procurement` lewat `PurchaseRequest.gudangId`, `activity`/`login` lewat
+  `SystemLog.userId`. Yang kurang di sana cuma kodenya.
+- **Files**: `lib/resource-capabilities.ts`,
+  `tests/architecture/lingkup-site-konsisten.test.ts`
+- **Breaking**: ❌ Tidak — toggle yang dibuang tidak pernah berefek apa pun; baris
+  permission yang tertinggal akan tersaring sendiri oleh `buangPembatasanTanpaToggle`
+  saat role berikutnya disimpan.
+
 ### [2026-10-07] — Seragamkan pembatasan data per site, tutup delapan gagal-terbuka
 
 - **Tipe**: [SECURITY]
