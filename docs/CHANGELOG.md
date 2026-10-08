@@ -41,6 +41,41 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Pembatasan site inventory mobile tidak pernah menyala
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat QA persona teknisi. `isInventorySiteRestricted` memutuskan
+  pembatasan site dari keberadaan permission `k_barang:site_only`. Nama itu **tidak pernah
+  ada**: seed maupun basis data hanya mengenal resource `barang`, `m_barang`,
+  `m_barang_masuk`, `m_barang_keluar`. Karena menyebut nama yang mustahil dimiliki siapa
+  pun, pemeriksaan itu selalu mengembalikan `false`, sehingga seluruh mesin di bawahnya —
+  `ensureMobileAssignedSite` yang gagal-tertutup dan `getMobileScopedSiteIds` yang menyaring
+  — tidak pernah menyala. Akibatnya toggle "Batasi ke Site Sendiri" menyala di panel admin
+  tetapi teknisi mana pun tetap melihat dan bisa menarik stok dari gudang site lain.
+
+  Terbukti di aplikasi: teknisi bersite Headquarters ditawari dan berhasil memakai Gudang
+  Jakarta Selatan. Setelah diperbaiki, pemilih gudang hanya menampilkan Gudang Pusat.
+
+  Tiga berkas tes ikut memakai `k_barang` untuk menyamar sebagai pengguna terbatas, jadi tes
+  menegakkan kekeliruan yang sama — itu sebabnya tidak pernah ketahuan. Ditambahkan tes
+  penjaga yang secara eksplisit menolak nama permission yang tidak pernah ada.
+- **Files**: `modules/inventory/utils/validation.ts`,
+  `tests/modules/inventory/inventory-site-restriction-permission.test.ts`
+- **Breaking**: ❌ Tidak (menyempitkan akses sesuai toggle yang memang sudah dinyalakan)
+
+### [2026-10-08] — Pilihan gudang basi tidak lagi membuat layar buntu
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(app)/ambil-barang`, `mobile-netmanager/app/(app)/kembalikan-barang`
+- **Author**: agent
+- **Deskripsi**: Gudang terpilih hanya diisi saat kosong, tidak pernah divalidasi ulang.
+  Ketika pilihan lama menunjuk gudang yang kini di luar jangkauan — site pengguna berubah,
+  atau pembatasan site mulai berlaku — layar menampilkan "Lokasi tidak tersedia" tanpa nama
+  gudang dan daftar barang kosong, tanpa petunjuk apa pun.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Kunci baris & kode galat pada batas pengembalian barang
 
 - **Tipe**: [FIXED]

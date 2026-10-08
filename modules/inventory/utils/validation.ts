@@ -152,7 +152,18 @@ export function isInventorySiteRestricted(
     return false;
   }
 
-  return (input.permissions || []).includes("k_barang:site_only");
+  // `m_barang`, bukan `k_barang`: tidak ada satu pun permission berawalan
+  // `k_barang` yang dibuat seed maupun tersimpan di basis data — resource yang
+  // ada hanya `barang`, `m_barang`, `m_barang_masuk`, `m_barang_keluar`. Selama
+  // pemeriksaan ini menyebut nama yang tidak pernah bisa dimiliki siapa pun, ia
+  // selalu mengembalikan false: seluruh mesin pembatasan site di bawahnya
+  // (`ensureMobileAssignedSite`, `getMobileScopedSiteIds`) tidak pernah
+  // menyala, dan teknisi mana pun bisa menarik stok dari gudang site lain
+  // walau toggle "Batasi ke Site Sendiri" sudah dinyalakan admin.
+  //
+  // Ditemukan saat QA 8 Okt 2026: teknisi bersite Headquarters ditawari dan
+  // berhasil memakai Gudang Jakarta Selatan.
+  return (input.permissions || []).includes("m_barang:site_only");
 }
 
 export function getAssignedInventorySiteIds(

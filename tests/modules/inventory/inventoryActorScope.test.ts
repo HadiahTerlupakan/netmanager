@@ -43,7 +43,7 @@ describe("inventory actor scope", () => {
           id: "user-1",
           role: {
             name: "OPERATOR",
-            permission: [{ resource: "k_barang", action: "site_only" }],
+            permission: [{ resource: "m_barang", action: "site_only" }],
           },
           sites: { id: "site-primary" },
           userSites: [{ siteId: "site-assigned" }],
@@ -55,7 +55,7 @@ describe("inventory actor scope", () => {
         actor: { type: "user", id: "user-1", userId: "user-1" },
         allowedSiteIds: ["site-assigned", "site-primary"],
         isRestricted: true,
-        userPermissions: ["k_barang:site_only"],
+        userPermissions: ["m_barang:site_only"],
       }),
     );
   });

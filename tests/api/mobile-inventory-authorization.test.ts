@@ -414,7 +414,7 @@ describe("mobile inventory authorization", () => {
       id: "user-3",
       role: {
         name: "OPERATOR",
-        permission: [{ resource: "k_barang", action: "site_only" }],
+        permission: [{ resource: "m_barang", action: "site_only" }],
       },
       sites: { id: "site-1" },
       userSites: [{ siteId: "site-1" }],
@@ -466,7 +466,7 @@ describe("mobile inventory authorization", () => {
       id: "user-2",
       role: {
         name: "OPERATOR",
-        permission: [{ resource: "k_barang", action: "site_only" }],
+        permission: [{ resource: "m_barang", action: "site_only" }],
       },
       sites: { id: "site-1" },
       userSites: [{ siteId: "site-3" }],
