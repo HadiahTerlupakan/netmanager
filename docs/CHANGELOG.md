@@ -41,6 +41,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Stok gudang basi setelah ambil & kembalikan barang
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(app)/ambil-barang`, `mobile-netmanager/app/(app)/kembalikan-barang`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat QA persona teknisi. Kedua layar membaca stok gudang lewat
+  query `['barang_list', gudangId]` dan keduanya mengubah stok itu, tetapi hanya
+  membatalkan `['work_order', id]`. Setelah mengambil 2 meter kabel dari stok 500, layar
+  pemilihan barang dibuka lagi dan tetap menampilkan 500 sementara basis data sudah 498 —
+  teknisi merencanakan pekerjaan di atas angka yang sudah tidak ada. Ikon tombol "Ambil
+  Barang / Material" juga diganti dari ikon gambar ke `PackagePlus`.
+- **Files**: `app/(app)/ambil-barang/[id].tsx`, `app/(app)/kembalikan-barang/[id].tsx`,
+  `src/components/screens/work-order/ItemsTab.tsx`,
+  `__tests__/app/mutasi-stok-menyegarkan-daftar-barang.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Pre-prompt izin notifikasi mobile (push sebelumnya tidak pernah aktif)
 
 - **Tipe**: [ADDED]
