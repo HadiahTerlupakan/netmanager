@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Kolom pesan chat tidak lagi tertutup papan ketik di Android
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(app)/chat/`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat QA chat teknisi: begitu papan ketik muncul, kolom "Ketik
+  pesan" dan tombol kirim hilang dari layar — pengguna mengetik tanpa bisa melihat
+  tulisannya. Dibuktikan lewat `uiautomator dump`: `EditText` berada di `[178,2149]`
+  sementara papan ketik mulai di y≈1524. `KeyboardAvoidingView` memakai
+  `behavior={Platform.OS === 'ios' ? 'padding' : undefined}`; `undefined` di Android
+  mengandalkan `windowSoftInputMode=adjustResize`, dan sejak Expo 54 jendela selalu
+  edge-to-edge sehingga tidak lagi mengecil saat papan ketik muncul. `behavior="height"`
+  dicoba lebih dulu dan tetap gagal; `behavior="padding"` memperbaikinya (terbukti di
+  emulator: kolom naik di atas papan ketik, pesan terkirim dan tampil).
+- **Files**: `mobile-netmanager/app/(app)/chat/[conversationId].tsx`
+- **Breaking**: ❌ Tidak
+- **Catatan**: Pola `: undefined` yang sama masih ada di `keluhan/[id].tsx`,
+  `mitra-withdraw.tsx`, dan `TolakPengesahanScreen.tsx` (plus `: 'height'` di
+  `canvasing/[id]/claim.tsx`). Ketiganya di luar jangkauan role TEKNISI sehingga belum
+  bisa dibuktikan di sesi ini — belum diubah.
+
 ### [2026-10-08] — Foto unggahan mobile bisa ditampilkan kembali di aplikasi
 
 - **Tipe**: [FIXED]
