@@ -9,6 +9,10 @@ import type {
   MobileWorkOrderMaterialReturnResult,
   UserContext,
 } from "./work-order-service.contracts";
+import {
+  ASAL_DEFAULT,
+  assertBatasPengembalian,
+} from "./work-order-material-return-allowance";
 
 const DEFAULT_MATERIAL_CONDITION = "BEKAS" as KondisiBarang;
 
@@ -18,6 +22,8 @@ interface WorkOrderMaterialReturnContext {
   workOrderNumber: string;
   title: string;
   status: WorkOrderStatus;
+  /** Menentukan apakah penarikan perangkat dari pelanggan masuk akal di sini. */
+  type: string;
 }
 
 type TransactionClient = Parameters<PrismaClient["$transaction"]>[0] extends (
@@ -60,6 +66,14 @@ async function executeMaterialReturnTransaction(input: {
   userContext: UserContext;
   tenantId?: string;
 }): Promise<MobileWorkOrderMaterialReturnResult[]> {
+  // Diperiksa di dalam transaksi, sebelum stok bergerak: jatah dihitung dari
+  // riwayat yang bisa saja berubah oleh permintaan lain yang berjalan bersamaan.
+  await assertBatasPengembalian({
+    klien: input.transaction as never,
+    workOrder: input.workOrder,
+    items: input.items,
+  });
+
   const createdItems = await createReturnedItems(input);
   await appendReturnedMaterials(
     input.transaction,
@@ -198,6 +212,7 @@ function mapReturnedMaterial(
     kondisi,
     barangId: item.barangId,
     gudangId: item.gudangId,
+    asal: item.asal ?? ASAL_DEFAULT,
   };
 }
 

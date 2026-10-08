@@ -41,6 +41,38 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Pengembalian barang dibatasi jatah pengambilan
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/work-order`, `app/api/mobile/work-orders/[id]/return`, `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Tahap 1 dari penataan alur barang teknisi. Endpoint pengembalian hanya
+  memeriksa `jumlah` bilangan bulat positif — tanpa batas atas dan tanpa kaitan ke apa pun
+  yang pernah diambil. Setiap teknisi memegang `m_work_order:update`, jadi siapa pun bisa
+  menaikkan stok gudang sebanyak apa pun untuk barang apa pun di katalog.
+
+  Pengembalian kini dipisah jadi dua asal. `SISA_MATERIAL` dibatasi keras: tidak boleh
+  melebihi yang diambil untuk work order itu dikurangi yang sudah dikembalikan, dihitung
+  per barang (bukan per baris, karena satu barang bisa dikirim dua kali dengan kondisi
+  berbeda). `TARIKAN_PELANGGAN` — perangkat yang dicabut dari pelanggan, yang memang tidak
+  punya angka pembanding — dipersempit ke work order pemutusan dan relokasi, dan ditandai
+  di `returnedMaterials` supaya tidak ikut memotong jatah sisa.
+
+  Pengambilan dicatat di dua tempat (jsonb `usedMaterials` oleh jalur mobile, tabel
+  `work_order_materials` oleh jalur admin); jatah menjumlahkan keduanya. Membaca satu saja
+  membuat pengambilan dari jalur lain seolah tidak pernah terjadi.
+
+  Sekaligus: tombol "Kembalikan Barang" kini muncul di semua tipe work order. Sebelumnya
+  hanya di pemutusan dan relokasi, sehingga sisa material pada work order pemasangan tidak
+  punya jalan kembali sama sekali. Label "Barang Digunakan" diganti "Barang Diambil" —
+  daftar itu memang berisi yang keluar gudang, bukan yang terpasang.
+- **Files**: `modules/work-order/services/work-order-material-return-allowance.ts`,
+  `modules/work-order/services/work-order-mobile-material-return.ts`,
+  `app/api/mobile/work-orders/[id]/return/route.ts`,
+  `app/(app)/kembalikan-barang/[id].tsx`, `src/utils/sisaPengembalian.ts`,
+  `src/components/screens/work-order/ItemsTab.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Stok gudang basi setelah ambil & kembalikan barang
 
 - **Tipe**: [FIXED]

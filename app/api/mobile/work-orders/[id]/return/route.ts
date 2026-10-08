@@ -82,6 +82,17 @@ export const POST = createHandler(
           status: 400,
         });
       }
+
+      const { asal } = item as { asal?: unknown };
+      if (
+        asal !== undefined &&
+        asal !== "SISA_MATERIAL" &&
+        asal !== "TARIKAN_PELANGGAN"
+      ) {
+        return apiError("asal tidak valid", ErrorCodes.VALIDATION_ERROR, {
+          status: 400,
+        });
+      }
     }
 
     try {

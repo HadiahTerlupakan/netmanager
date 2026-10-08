@@ -196,12 +196,16 @@ export class WorkOrderMaterialService {
     workOrderNumber: string;
     title: string;
     status: string;
+    // Wajib, bukan opsional: kalau pemanggil lupa membawanya, penarikan
+    // perangkat pelanggan akan ditolak diam-diam alih-alih gagal dikompilasi.
+    type: string;
   }) {
     return {
       id: workOrder.id,
       tenantId: workOrder.tenantId,
       workOrderNumber: workOrder.workOrderNumber,
       title: workOrder.title,
+      type: workOrder.type,
       status: workOrder.status as WorkOrderStatus,
     };
   }
