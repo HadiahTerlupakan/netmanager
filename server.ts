@@ -17,7 +17,6 @@ logger.info(
 
 import { createServer } from "http";
 import next from "next";
-import { getToken } from "next-auth/jwt";
 import { cronRegistry } from "./lib/cron-registry";
 import { shutdownManager } from "./lib/shutdown-manager";
 import { startInternalCronIfEnabled } from "./lib/runtime/should-start-internal-cron";
@@ -28,6 +27,7 @@ import {
 } from "./modules/notification/services/PushRetryQueue";
 import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
 import { isPublicUploadPath } from "./lib/upload/upload-policy";
+import { punyaSesiBacaUpload } from "./lib/upload/upload-access";
 import { logger } from "./lib/logger";
 import { redis } from "./lib/redis";
 import { validateCriticalEnvVars } from "./lib/utils/env";
@@ -113,12 +113,9 @@ app.prepare().then(() => {
       if (isPublicUploadPath(pathname)) {
         // Public attendance uploads stay readable even when R2 falls back to local storage.
       } else {
-        const token = await getToken({
-          req: req as unknown as import("next-auth/jwt").GetTokenParams["req"],
-          secret: process.env.NEXTAUTH_SECRET,
-        });
+        const punyaSesi = await punyaSesiBacaUpload(req);
 
-        if (!token) {
+        if (!punyaSesi) {
           logger.warn(
             `[Server] Unauthorized access attempt to ${pathname} from ${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`,
           );

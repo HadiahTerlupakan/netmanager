@@ -41,6 +41,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Foto unggahan mobile bisa ditampilkan kembali di aplikasi
+
+- **Tipe**: [FIXED]
+- **Scope**: `server.ts`, `lib/upload/`, `mobile-netmanager/src/utils/`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat QA canvasing: aplikasi mengunggah foto KTP dengan sukses
+  (201, file tersimpan), lalu gagal menampilkannya kembali — Glide mencatat
+  `HttpException: Unauthorized, status code: 401`. Penjaga `/uploads/` di `server.ts`
+  hanya mengenal cookie NextAuth, sementara sesi aplikasi mobile berupa Bearer token yang
+  diverifikasi `verifyMobileToken`. Akibatnya setiap file privat yang diunggah dari
+  aplikasi — KTP canvasing, laporan penyelesaian WO, lampiran izin, foto profil, lampiran
+  chat — tidak pernah bisa dibaca oleh aplikasi yang mengunggahnya. Hanya terasa pada
+  tenant yang menyimpan file di disk lokal; tenant dengan R2 aktif menyajikannya dari URL
+  publik R2. Keputusan sesi dipindah ke `punyaSesiBacaUpload()` yang menerima kedua jalur;
+  tanpa sesi dan dengan token palsu tetap 401 (dibuktikan via curl: 200 dengan token
+  mobile sah, 401 tanpa auth, 401 dengan token ngawur). Sisi aplikasi: `<Image>` tidak
+  pernah mengirim header apa pun, jadi `sumberGambarUpload()` menempelkan Bearer token —
+  hanya untuk host tenant dan hanya untuk jalur `/uploads/`, supaya token tidak ikut
+  terkirim ke bucket R2 publik atau host pihak ketiga. Dipasang di `ImageWithCache`
+  (menutup 44 pemakaian) dan lima pemakai `<Image>` langsung.
+- **Files**: `lib/upload/upload-access.ts`, `server.ts`,
+  `tests/lib/upload-access.test.ts`, `tests/ci/local-upload-access-safety.test.ts`,
+  `mobile-netmanager/src/utils/sumberGambarUpload.ts`,
+  `mobile-netmanager/src/components/atoms/ImageWithCache.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Role TEKNISI tidak lagi mewarisi fitur khusus sales
 
 - **Tipe**: [SECURITY]
