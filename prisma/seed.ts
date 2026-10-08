@@ -81,11 +81,16 @@ async function main() {
 
       // Track mobile permissions separately
       if ((MOBILE_RESOURCES as readonly string[]).includes(resource)) {
-        // Filter eksplisit: m_work_order tidak boleh otomatis diberikan ke Teknisi/Karyawan
-        // Permission ini sekarang ada di grup BERANDA (agar muncul di Matrix), tapi default-nya dimatikan untuk role Teknisi
-        if (resource !== "m_work_order") {
-          karyawanPermissions.push(permission);
-        }
+        // `m_work_order` dulu dikecualikan di sini. Akibatnya role TEKNISI hasil
+        // seed tidak punya tab Work Order, tidak punya menu cepatnya, dan tombol
+        // "Request WO" terkunci — teknisi tanpa akses work order adalah
+        // kontradiksi, dan setiap lingkungan baru mengulang kebingungan yang
+        // sama sampai seseorang menyalakannya manual lalu login ulang (fitur
+        // ikut di token sesi).
+        //
+        // Hanya TEKNISI yang terpengaruh: SALES menyaring daftar ini dengan
+        // `RESOURCE_MOBILE_SALES`, yang tidak memuat `m_work_order`.
+        karyawanPermissions.push(permission);
       }
     }
   }
