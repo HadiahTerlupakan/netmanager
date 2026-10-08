@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Cap tenant pada event realtime tidak lagi ditebak dari super admin
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/realtime`
+- **Author**: agent
+- **Deskripsi**: Pencapan `tenantId` otomatis mengambil tenant dari konteks permintaan.
+  Konteks itu menjawab "siapa yang memanggil", bukan "milik siapa entitasnya". Untuk
+  pemanggil biasa kedua jawaban selalu sama — ekstensi tenant Prisma tidak pernah
+  menyerahkan baris tenant lain kepada mereka. Super admin berhak lintas tenant, jadi di
+  sana konteks berhenti menjadi bukti kepemilikan: super admin tenant utama yang mengubah
+  work order tenant lain akan mencap event itu `tenant-utama`, dan siapa pun di tenant
+  utama yang menebak id work order bisa membacanya. Sekarang konteks super admin mengisi
+  `null` (hanya pemegang akses panel admin yang lolos aturan Firestore); pemanggil yang
+  memang tahu pemilik entitas tetap bisa mengisi `tenantId` eksplisit.
+- **Files**: `lib/realtime/firebase-realtime-service.ts`,
+  `tests/lib/realtime/firebase-realtime-service.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Event realtime work order terkirim ke teknisi yang ditugaskan
 
 - **Tipe**: [FIXED]

@@ -189,3 +189,71 @@ describe("FirebaseRealtimeService", () => {
     });
   });
 });
+
+/**
+ * `tenantId` pada envelope adalah satu-satunya sumbu isolasi yang dimiliki
+ * aturan Firestore: jalur dokumen hanya memuat id scope, dan aturan tidak bisa
+ * menanyakan Postgres siapa pemilik entitasnya.
+ */
+describe("tenant pada envelope realtime", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+  });
+
+  it("mencap tenant pemanggil untuk pemanggil biasa", async () => {
+    const { getTenantIdFromContext } = await import("@/lib/tenant-context");
+    vi.mocked(getTenantIdFromContext).mockResolvedValue({
+      tenantId: "tenant-a",
+      isSuperAdmin: false,
+    });
+
+    const { firebaseRealtimeService } = await import("@/lib/realtime");
+    await firebaseRealtimeService.publish({
+      type: "workorder.update",
+      scope: { kind: "workorder", id: "wo-1" },
+      payload: {},
+    });
+
+    expect(addMock.mock.calls[0]?.[0].tenantId).toBe("tenant-a");
+  });
+
+  // Konteks permintaan menjawab "siapa yang memanggil", bukan "milik siapa
+  // entitasnya" — untuk super admin kedua jawaban itu bisa berbeda tenant.
+  // Mencap tenant super admin pada work order tenant lain akan membuat event
+  // itu terbaca oleh seisi tenant super admin.
+  it("menolak menebak tenant saat pemanggilnya super admin", async () => {
+    const { getTenantIdFromContext } = await import("@/lib/tenant-context");
+    vi.mocked(getTenantIdFromContext).mockResolvedValue({
+      tenantId: "tenant-utama",
+      isSuperAdmin: true,
+    });
+
+    const { firebaseRealtimeService } = await import("@/lib/realtime");
+    await firebaseRealtimeService.publish({
+      type: "workorder.update",
+      scope: { kind: "workorder", id: "wo-1" },
+      payload: {},
+    });
+
+    expect(addMock.mock.calls[0]?.[0].tenantId).toBeNull();
+  });
+
+  it("pemanggil yang tahu pemilik entitas tetap bisa mengisinya sendiri", async () => {
+    const { getTenantIdFromContext } = await import("@/lib/tenant-context");
+    vi.mocked(getTenantIdFromContext).mockResolvedValue({
+      tenantId: "tenant-utama",
+      isSuperAdmin: true,
+    });
+
+    const { firebaseRealtimeService } = await import("@/lib/realtime");
+    await firebaseRealtimeService.publish({
+      type: "workorder.update",
+      scope: { kind: "workorder", id: "wo-1" },
+      payload: {},
+      tenantId: "tenant-pemilik",
+    });
+
+    expect(addMock.mock.calls[0]?.[0].tenantId).toBe("tenant-pemilik");
+  });
+});

@@ -30,6 +30,17 @@ interface PublishInput<TPayload = unknown> {
  * Tenant pemilik event: dari pemanggil bila ia tahu, kalau tidak dari konteks
  * permintaan. Worker latar (monitor RADIUS/MikroTik) berjalan tanpa konteks,
  * dan di sana `null` adalah jawaban jujur — bukan alasan menggagalkan publish.
+ *
+ * Konteks permintaan menjawab "siapa yang memanggil", bukan "milik siapa
+ * entitasnya". Untuk pemanggil biasa kedua jawaban itu selalu sama: ekstensi
+ * tenant Prisma tidak akan pernah menyerahkan baris tenant lain kepada mereka.
+ * Super admin adalah satu-satunya yang berhak lintas tenant, jadi di sana
+ * konteks berhenti menjadi bukti kepemilikan: super admin tenant utama yang
+ * mengubah work order tenant lain akan mencap event itu dengan tenant-nya
+ * sendiri, dan siapa pun di tenant utama yang menebak id work order bisa
+ * membacanya. Maka untuk super admin kita menolak menebak dan mengisi `null` —
+ * aturan Firestore hanya meloloskannya ke pemegang akses panel admin. Pemanggil
+ * yang memang tahu pemilik entitas tetap bisa mengisinya eksplisit.
  */
 async function resolveTenantId(
   diberikan: string | null | undefined,
@@ -37,6 +48,7 @@ async function resolveTenantId(
   if (diberikan !== undefined) return diberikan;
   try {
     const konteks = await getTenantIdFromContext();
+    if (konteks.isSuperAdmin) return null;
     return konteks.tenantId ?? null;
   } catch {
     return null;
