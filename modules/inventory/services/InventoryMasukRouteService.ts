@@ -9,11 +9,7 @@ import {
   type InventoryStockMovementService,
 } from "./InventoryStockMovementService";
 
-const MASUK_RESTRICTED_PERMISSIONS = [
-  "masuk:site_only",
-  "k_barang:site_only",
-  "gudang:site_only",
-];
+const MASUK_RESTRICTED_PERMISSIONS = ["masuk:site_only", "gudang:site_only"];
 const DEFAULT_KONDISI_BARANG = "BARU" as KondisiBarang;
 const MASUK_NOT_FOUND_ERROR = "Record barang masuk tidak ditemukan";
 const NEGATIVE_STOCK_ERROR = "Stok tidak bisa negatif";

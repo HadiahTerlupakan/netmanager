@@ -501,7 +501,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Input stok barang masuk ke gudang",
   },
   m_barang: {
-    actions: ["read"],
+    // `site_only` menjadi sumbu pembatasan gudang untuk seluruh inventory
+    // mobile: pengambilan, pengembalian, dan daftar stok semuanya disaring
+    // lewat `isInventorySiteRestricted`. Tanpa dicantumkan di sini, admin tidak
+    // punya tombol untuk mematikannya walau pembatasannya nyata berlaku.
+    actions: ["read", "site_only"],
     displayName: "Barang",
     description: "Lihat daftar barang & stok",
   },

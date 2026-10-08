@@ -8,10 +8,7 @@ import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
 
-const TRANSFER_RESTRICTED_PERMISSIONS = [
-  "transfer:site_only",
-  "k_barang:site_only",
-];
+const TRANSFER_RESTRICTED_PERMISSIONS = ["transfer:site_only"];
 
 const TRANSFER_NOT_FOUND_ERROR = "Record transfer tidak ditemukan";
 const TRANSFER_ACCESS_DENIED_ERROR = "Anda tidak memiliki akses ke data ini";

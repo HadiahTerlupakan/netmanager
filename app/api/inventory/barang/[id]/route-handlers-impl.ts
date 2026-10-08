@@ -14,11 +14,7 @@ type InventoryBarangRouteFailure = Extract<
 >;
 
 const inventoryRouteService = getInventoryRouteService();
-const SITE_RESTRICTION_PERMISSIONS = [
-  "barang:site_only",
-  "k_barang:site_only",
-  "gudang:site_only",
-];
+const SITE_RESTRICTION_PERMISSIONS = ["barang:site_only", "gudang:site_only"];
 
 /** Check whether inventory barang route service returned a failure. */
 function isInventoryBarangRouteFailure(

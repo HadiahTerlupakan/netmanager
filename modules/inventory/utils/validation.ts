@@ -94,8 +94,17 @@ export async function validateGudangSiteAccess(
     return { allowed: true };
   }
 
-  const hasSiteRestriction = (user.permissions || []).includes(
-    "k_barang:site_only",
+  // Sama seperti `isInventorySiteRestricted`: pemeriksaan ini dulu hanya
+  // menyebut `k_barang:site_only`, nama yang tidak pernah dibuat seed maupun
+  // tersimpan di basis data. Tanpa ekspansi alias di jalur ini, `.includes`
+  // selalu salah — artinya fungsi ini selalu menjawab "boleh", dan pembatasan
+  // site pada gudang (transfer, barang masuk, barang keluar, opname) tidak
+  // pernah berlaku untuk siapa pun kecuali super admin.
+  //
+  // Dua nama di bawah yang benar-benar ada, dan persis itulah yang dimaksud
+  // peta alias dengan `k_barang:site_only`.
+  const hasSiteRestriction = ["barang:site_only", "gudang:site_only"].some(
+    (permission) => (user.permissions || []).includes(permission),
   );
   if (!hasSiteRestriction) {
     return { allowed: true };

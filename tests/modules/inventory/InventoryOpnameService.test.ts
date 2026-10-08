@@ -57,7 +57,7 @@ describe("InventoryOpnameService", () => {
           name: "Admin",
           email: "admin@example.com",
           role: "ADMIN",
-          permissions: ["k_barang:site_only"],
+          permissions: ["gudang:site_only"],
           siteId: "site-legacy",
           tenantId: "tenant-1",
         },
@@ -116,7 +116,7 @@ describe("InventoryOpnameService", () => {
           name: "Admin",
           email: "admin@example.com",
           role: "ADMIN",
-          permissions: ["k_barang:site_only"],
+          permissions: ["gudang:site_only"],
           siteId: "site-legacy",
         },
         barangId: "barang-1",
@@ -154,7 +154,12 @@ describe("InventoryOpnameService", () => {
 
   it("runs createOpnameBatch with a long transaction timeout for full-warehouse SO", async () => {
     await service.createOpnameBatch({
-      user: { id: "user-1", role: "ADMIN", tenantId: "tenant-1", permissions: [] },
+      user: {
+        id: "user-1",
+        role: "ADMIN",
+        tenantId: "tenant-1",
+        permissions: [],
+      },
       gudangId: "gudang-1",
       items: [],
     });

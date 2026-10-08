@@ -21,7 +21,7 @@ describe("InventoryRouteService", () => {
       userId: "user-1",
       permissions: ["gudang:site_only"],
       isSuperAdmin: false,
-      restrictedPermissions: ["gudang:site_only", "k_barang:site_only"],
+      restrictedPermissions: ["gudang:site_only", "gudang:site_only"],
     });
 
     expect(repository.findUserSiteId).toHaveBeenCalledWith("user-1");
@@ -35,7 +35,7 @@ describe("InventoryRouteService", () => {
       userId: "user-1",
       permissions: ["gudang:site_only"],
       isSuperAdmin: true,
-      restrictedPermissions: ["gudang:site_only", "k_barang:site_only"],
+      restrictedPermissions: ["gudang:site_only", "gudang:site_only"],
     });
 
     expect(repository.findUserSiteId).not.toHaveBeenCalled();

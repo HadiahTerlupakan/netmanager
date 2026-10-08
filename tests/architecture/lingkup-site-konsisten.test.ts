@@ -257,7 +257,7 @@ describe("pola gagal-terbuka tidak boleh muncul lagi", () => {
 const DIKETAHUI_TERNARY: string[] = [
   // `hasGudangSiteAccess` mengembalikan boolean, bukan filter: daftar kosong
   // menghasilkan `false` alias ditolak. Gagal-tertutup, jadi aman.
-  "modules/inventory/utils/validation.ts:189",
+  "modules/inventory/utils/validation.ts:209",
 ];
 
 const DIKETAHUI_STRING_KOSONG: string[] = [

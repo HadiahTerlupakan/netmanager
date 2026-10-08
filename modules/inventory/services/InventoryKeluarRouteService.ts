@@ -4,10 +4,7 @@ import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
 
-const KELUAR_RESTRICTED_PERMISSIONS = [
-  "keluar:site_only",
-  "k_barang:site_only",
-];
+const KELUAR_RESTRICTED_PERMISSIONS = ["keluar:site_only"];
 const DEFAULT_KONDISI_BARANG = "BARU" as KondisiBarang;
 
 interface InventoryKeluarRepositoryPort {

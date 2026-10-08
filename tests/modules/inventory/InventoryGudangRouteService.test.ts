@@ -50,7 +50,7 @@ describe("InventoryGudangRouteService", () => {
       userId: "user-1",
       permissions: ["gudang:site_only"],
       isSuperAdmin: false,
-      restrictedPermissions: ["gudang:site_only", "k_barang:site_only"],
+      restrictedPermissions: ["gudang:site_only"],
     });
     expect(repository.getAllGudang).toHaveBeenCalledWith({ siteId: "site-1" });
     expect(result).toEqual([gudang]);

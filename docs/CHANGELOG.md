@@ -41,6 +41,35 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Pembatasan site gudang di web juga tidak pernah menyala
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/inventory`, `lib/resource-capabilities.ts`
+- **Author**: agent
+- **Deskripsi**: Tindak lanjut tinjauan keamanan: perbaikan sebelumnya baru menyentuh jalur
+  mobile. `validateGudangSiteAccess` — penjaga akses gudang untuk transfer, barang masuk,
+  barang keluar, dan opname di web — juga bergantung **sepenuhnya** pada
+  `k_barang:site_only`. Nama itu tidak pernah ada dan jalur ini tidak mengekspansi alias,
+  jadi fungsinya selalu menjawab "boleh" untuk siapa pun kecuali super admin. Kini memeriksa
+  `barang:site_only` atau `gudang:site_only`, dua nama yang benar-benar ada dan persis yang
+  dimaksud peta alias.
+
+  Rujukan `k_barang:site_only` yang tersisa di lima daftar `*_RESTRICTED_PERMISSIONS` dan dua
+  route web dihapus. Itu **tidak mengubah perilaku**: `hasRestrictedPermission` hanya
+  melakukan irisan tanpa ekspansi alias, sehingga entri itu memang tidak pernah cocok —
+  masing-masing daftar sudah punya nama hidup di sebelahnya.
+
+  `m_barang` ditambahi aksi `site_only` di katalog kapabilitas. Tes arsitektur
+  `site-restriction-capability-catalog` menangkap ini: sebuah resource yang pembatasannya
+  ditegakkan tetapi tidak muncul di halaman Hak Akses berarti admin tidak punya tombol untuk
+  mematikannya.
+
+  Ditambahkan penjaga arsitektur `permission-k-prefix-tidak-dipakai`: kode produksi tidak
+  boleh lagi menyebut permission berawalan `k_`, karena tidak satu pun pernah dibuat.
+- **Files**: `modules/inventory/utils/validation.ts`, `lib/resource-capabilities.ts`,
+  `tests/architecture/permission-k-prefix-tidak-dipakai.test.ts`
+- **Breaking**: ❌ Tidak (menegakkan pembatasan yang memang sudah dinyalakan admin)
+
 ### [2026-10-08] — Pembatasan site inventory mobile tidak pernah menyala
 
 - **Tipe**: [SECURITY]

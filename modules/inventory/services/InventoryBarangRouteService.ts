@@ -11,11 +11,7 @@ import {
 
 import type { UpdateBarangInput } from "../domain/ports/IInventoryOperationRepository";
 
-const SITE_RESTRICTION_PERMISSIONS = [
-  "barang:site_only",
-  "k_barang:site_only",
-  "gudang:site_only",
-];
+const SITE_RESTRICTION_PERMISSIONS = ["barang:site_only", "gudang:site_only"];
 
 interface InventoryBarangRouteRepository {
   findBarangDetail(id: string): Promise<Record<string, unknown> | null>;

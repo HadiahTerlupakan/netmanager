@@ -1,10 +1,7 @@
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
 
-const GUDANG_RESTRICTED_PERMISSIONS = [
-  "gudang:site_only",
-  "k_barang:site_only",
-];
+const GUDANG_RESTRICTED_PERMISSIONS = ["gudang:site_only"];
 const GUDANG_CODE_PREFIX = "GD";
 const GUDANG_CODE_RANDOM_RANGE = 1000;
 

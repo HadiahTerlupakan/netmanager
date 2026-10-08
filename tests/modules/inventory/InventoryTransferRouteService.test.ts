@@ -69,7 +69,7 @@ describe("InventoryTransferRouteService", () => {
       userId: "user-1",
       permissions: ["transfer:site_only"],
       isSuperAdmin: false,
-      restrictedPermissions: ["transfer:site_only", "k_barang:site_only"],
+      restrictedPermissions: ["transfer:site_only"],
     });
     expect(repository.findAllTransfers).toHaveBeenCalledWith({
       skip: 10,

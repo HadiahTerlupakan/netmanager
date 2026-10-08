@@ -41,11 +41,7 @@ describe("InventoryMasukRouteService", () => {
       userId: "user-1",
       permissions: ["masuk:site_only"],
       isSuperAdmin: false,
-      restrictedPermissions: [
-        "masuk:site_only",
-        "k_barang:site_only",
-        "gudang:site_only",
-      ],
+      restrictedPermissions: ["masuk:site_only", "gudang:site_only"],
     });
     expect(repository.getHistoryMasuk).toHaveBeenCalledWith({
       skip: 0,

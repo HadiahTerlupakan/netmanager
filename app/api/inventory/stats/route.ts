@@ -30,11 +30,7 @@ export async function GET(req: NextRequest) {
       userId: session.id,
       permissions,
       isSuperAdmin: isSuperAdmin(session),
-      restrictedPermissions: [
-        "barang:site_only",
-        "k_barang:site_only",
-        "gudang:site_only",
-      ],
+      restrictedPermissions: ["barang:site_only", "gudang:site_only"],
     });
 
     const startOfDay = new Date();

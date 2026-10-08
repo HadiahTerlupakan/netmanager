@@ -20,7 +20,7 @@ describe("validateGudangSiteAccess", () => {
       user: {
         id: "user-1",
         role: "ADMIN",
-        permissions: ["k_barang:site_only"],
+        permissions: ["gudang:site_only"],
         siteId: "site-1",
       },
     } as Session;
