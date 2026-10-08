@@ -41,6 +41,31 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Jalur pemulihan publish OTA saat jaringan runner rusak
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/standards/mobile-update-strategy.md`
+- **Author**: agent
+- **Deskripsi**: 7 Okt 2026 publish OTA gagal empat kali berturut-turut dengan HTTP
+  499/502 tepat di detik ke-60. Penyebabnya bukan kode: transit antara runner GitHub dan
+  server merosot ke 10–17 KB/detik, sehingga bundel 13 MB tidak selesai sebelum batas baca
+  Traefik. Pembanding yang mengecualikan server: mesin lain → server 32 MB/detik, host →
+  aplikasi 31 MB/detik, dan packet loss 10–20% hanya ke jaringan GitHub (0% ke Cloudflare
+  dan Google).
+
+  Prosedur pemulihannya didokumentasikan: gejala, cara memastikan diagnosis dengan ping dan
+  laju unggah, perintah pemulihan, serta alasan bundel TIDAK boleh dibangun ulang di mesin
+  lain (nilai `EXPO_PUBLIC_*` ditanam saat export — cacat OTA 8f311761 yang dulu mematikan
+  chat dan realtime work order).
+
+  Dicatat juga keputusan untuk TIDAK menaikkan `readTimeout` Traefik: pada 10 KB/detik satu
+  request butuh ~20 menit, dan memperpanjang batas baca seluruh cluster memperlebar paparan
+  serangan koneksi lambat — ongkos keamanan permanen untuk gangguan sementara.
+
+  Perubahan kodenya ada di repo `mobile-netmanager` (artifact pada kegagalan, `SKIP_EXPORT`,
+  dan `scripts/pulihkan-publish-ota.sh`).
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-07] — Tolak penugasan gudang lintas tenant pada site
 
 - **Tipe**: [SECURITY]

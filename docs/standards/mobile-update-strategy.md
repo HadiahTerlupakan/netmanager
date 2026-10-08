@@ -163,6 +163,70 @@ Saat `isForceUpdate=true`:
    - Min Supported Version: optional, untuk force user di bawah versi tertentu
 5. Save → user existing akan dapat notifikasi pada app start berikutnya
 
+## Publish OTA gagal karena jaringan
+
+Gejalanya khas dan mudah dikenali: seluruh langkah workflow **Publish OTA** sukses
+— bundel terbentuk, `konfigurasi Firebase di bundle: web ✓`, manifest jadi —
+lalu langkah unggah gagal dengan **HTTP 499 atau 502** setelah sekitar **60
+detik**, berulang pada setiap percobaan.
+
+Itu bukan cacat kode. Yang terjadi: jalur antara runner GitHub dan server
+merosot, bundel 13 MB tidak selesai terkirim sebelum batas baca Traefik 60 detik,
+lalu koneksinya diputus.
+
+### Memastikan diagnosisnya
+
+Skrip publish mencetak laju unggah tiap percobaan. Di bawah ~220 KB/detik, bundel
+13 MB memang tidak akan selesai dalam 60 detik.
+
+```bash
+# Dari host produksi — bandingkan dengan tujuan lain
+ping -c 10 -q api.github.com     # loss tinggi = jalur ke GitHub bermasalah
+ping -c 10 -q 1.1.1.1            # 0% = uplink server sendiri sehat
+```
+
+Kejadian 7 Okt 2026 sebagai patokan angka: runner → server **10–17 KB/detik**,
+GitHub → host **86–100 KB/detik**, sementara mesin lain → server **32 MB/detik**
+dan host → aplikasi **31 MB/detik**. Loss 10–20% hanya ke jaringan GitHub, 0% ke
+Cloudflare dan Google. Server, Traefik, dan aplikasi sehat sepenuhnya.
+
+### Memulihkan
+
+Workflow menyimpan bundel hasil build sebagai artifact `ota-dist-<sha>` setiap
+kali langkah publish gagal (bertahan 5 hari). Jalankan dari repo mobile:
+
+```bash
+./scripts/pulihkan-publish-ota.sh              # run gagal terbaru
+./scripts/pulihkan-publish-ota.sh <run-id>     # run tertentu
+```
+
+Skrip itu mengunduh bundel hasil CI, mengirimnya ke host produksi, lalu
+menerbitkannya dari sana — unggahan ke aplikasi terukur di atas 14 MB/detik
+karena tidak melewati internet. Pemulihan 7 Okt 2026 selesai dalam **1,2 detik**
+setelah empat kali gagal dari runner.
+
+### Kenapa bundelnya TIDAK boleh dibangun ulang
+
+Nilai `EXPO_PUBLIC_*` ditanam ke bundel saat `expo export`. Membangun ulang di
+mesin lain berarti pengguna berisiko menerima konfigurasi Firebase yang berbeda —
+persis cacat OTA `8f311761`, yang terbit membawa API key Android, ditolak Firebase
+Auth dengan 403, lalu mematikan chat dan realtime work order tanpa satu pun laporan
+error ke backend.
+
+Karena itu jalur pemulihan memakai `SKIP_EXPORT=1`: bundel yang terbit bit-per-bit
+sama dengan yang dibangun CI. Seluruh pemeriksaan isi bundel tetap berjalan, dan
+justru paling dibutuhkan ketika bundel datang dari tempat lain.
+
+### Yang sengaja TIDAK dilakukan
+
+Menaikkan `readTimeout` Traefik agar unggahan lambat tidak diputus. Pada 10
+KB/detik satu request butuh ~20 menit, dan memperpanjang batas baca seluruh
+cluster selama itu memperlebar paparan terhadap serangan koneksi lambat — ongkos
+keamanan permanen untuk menambal gangguan jaringan yang sementara.
+
+Akar masalahnya ada di transit penyedia VPS. Kalau bertahan lebih dari sehari,
+laporkan ke mereka dengan angka ping dan laju di atas.
+
 ## Troubleshooting
 
 **OTA tidak nyambung setelah edit kode JS:**
