@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Event realtime work order terkirim ke teknisi yang ditugaskan
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/realtime`
+- **Author**: agent
+- **Deskripsi**: Langganan Firestore untuk scope `workorder` selalu dijawab
+  `permission-denied` bagi teknisi. Aturan menuntut `canAccessAdminPanel()`, dan klaim
+  teknisi `accessAdminPanel: false` — jadi orang yang justru dituju event itu tidak pernah
+  bisa membacanya, dan layar daftar/detail work order diam-diam berhenti hidup sampai
+  ditarik-segarkan. Aturan Firestore tidak bisa menanyakan Postgres siapa yang ditugaskan
+  dan jalur dokumennya hanya memuat id work order, jadi dibutuhkan sumbu isolasi di dalam
+  dokumen: `tenantId` sekarang field **wajib** pada `RealtimeEnvelope`, diisi otomatis dari
+  konteks tenant saat publish (worker latar tanpa konteks mengisi `null` — jujur, dan
+  ditolak aturan untuk pembaca non-admin). Tipe sengaja non-opsional supaya penerbit baru
+  gagal saat kompilasi, bukan gagal diam-diam di produksi.
+
+  Perubahan `firestore.rules` ada di repo mobile dan **wajib di-deploy terpisah**
+  (`firebase deploy --only firestore:rules`); perubahan kode saja tidak mengubah apa pun.
+- **Files**: `lib/realtime/contracts.ts`, `lib/realtime/firebase-realtime-service.ts`,
+  `tests/lib/realtime-envelope-tenant.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Jalur pemulihan publish OTA saat jaringan runner rusak
 
 - **Tipe**: [DOCS]

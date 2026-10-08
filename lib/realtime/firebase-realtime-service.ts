@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 
 import { db, realtimeDb, messaging } from "@/lib/firebase/admin";
 import { logger } from "@/lib/logger";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
 
 import {
   buildPresencePath,
@@ -21,6 +22,25 @@ interface PublishInput<TPayload = unknown> {
   scope: RealtimeScope;
   payload: TPayload;
   triggeredBy?: string;
+  /** Diisi otomatis dari konteks tenant bila tidak diberikan pemanggil. */
+  tenantId?: string | null;
+}
+
+/**
+ * Tenant pemilik event: dari pemanggil bila ia tahu, kalau tidak dari konteks
+ * permintaan. Worker latar (monitor RADIUS/MikroTik) berjalan tanpa konteks,
+ * dan di sana `null` adalah jawaban jujur — bukan alasan menggagalkan publish.
+ */
+async function resolveTenantId(
+  diberikan: string | null | undefined,
+): Promise<string | null> {
+  if (diberikan !== undefined) return diberikan;
+  try {
+    const konteks = await getTenantIdFromContext();
+    return konteks.tenantId ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function assertValidCollectionPath(path: string): void {
@@ -54,6 +74,7 @@ class FirebaseRealtimeService {
       payload: cleanPayload,
       createdAt: new Date().toISOString(),
       version: 1,
+      tenantId: await resolveTenantId(input.tenantId),
       ...(input.triggeredBy ? { triggeredBy: input.triggeredBy } : {}),
     } satisfies RealtimeEnvelope<TPayload>;
 

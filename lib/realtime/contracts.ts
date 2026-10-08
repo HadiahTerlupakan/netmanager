@@ -41,6 +41,14 @@ export interface RealtimeEnvelope<TPayload = unknown> {
   triggeredBy?: string;
   createdAt: string;
   version: 1;
+  /**
+   * Tenant pemilik event. Satu-satunya sumbu isolasi yang tersedia bagi aturan
+   * Firestore: jalur dokumen hanya memuat id scope, dan aturan tidak bisa
+   * menanyakan Postgres. Tanpa field ini, scope `workorder` dan `ticket` hanya
+   * bisa dibuka seluruhnya untuk admin atau seluruhnya untuk semua orang —
+   * teknisi yang ditugaskan tidak kebagian, atau tenant lain ikut kebagian.
+   */
+  tenantId: string | null;
 }
 
 export interface PresenceSnapshot {
