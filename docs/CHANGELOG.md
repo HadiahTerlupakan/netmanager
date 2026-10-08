@@ -41,6 +41,42 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Pre-prompt izin notifikasi mobile (push sebelumnya tidak pernah aktif)
+
+- **Tipe**: [ADDED]
+- **Scope**: `mobile-netmanager/src/services/izinNotifikasi.ts`
+- **Author**: agent
+- **Deskripsi**: `syncFCMTokenToBackend` sengaja tidak pernah memunculkan dialog izin dan
+  menitipkannya ke "onboarding screen" — layar itu tidak pernah dibuat. Akibatnya
+  `POST_NOTIFICATIONS` tidak pernah diminta sama sekali di Android 13+: token FCM tidak
+  pernah terdaftar dan push ke teknisi diam-diam tidak pernah sampai, tanpa error dan tanpa
+  gejala di layar. Pre-prompt baru menjelaskan isi push (work order baru, balasan diskusi,
+  pengingat absensi), lalu memanggil dialog OS, lalu mendaftarkan token. Hanya bertanya
+  sekali: dialog Android tidak muncul lagi setelah ditolak.
+- **Files**: `src/services/izinNotifikasi.ts`, `src/hooks/useIzinNotifikasi.ts`,
+  `src/components/organisms/notifikasi/PermintaanIzinNotifikasi.tsx`, `app/(app)/_layout.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-08] — Perbaikan hasil QA teknisi di aplikasi mobile
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Empat temuan dari sesi QA persona teknisi:
+  (1) `firestore.rules` menuntut `canAccessAdminPanel()` untuk event work order dan tiket,
+  sehingga teknisi yang ditugaskan selalu dijawab `permission-denied` dan layarnya berhenti
+  hidup — kini `canAccessAdminPanel() || seTenant()`, memakai `tenantId` pada envelope.
+  (2) Indikator "Live" dihitung `!!token` alias "sudah login", jadi tidak pernah bisa merah
+  walau langganan sudah menyerah; kini tiga keadaan nyata (Live/Menyambung/Terputus).
+  (3) `saveCredentials` tidak memeriksa ketersediaan biometrik, sehingga penolakan Keystore
+  yang normal tercatat sebagai ERROR setiap login.
+  (4) Ringkasan Barang menampilkan "-0" karena tanda dirangkai sebagai teks di depan angka.
+  Ditambah: kegagalan ambil GPS di detail work order turun dari `error` ke `warn` — itu
+  keadaan lingkungan, bukan cacat program, dan overlay merahnya menutupi tombol "Selesai".
+- **Files**: `firestore.rules`, `src/services/statusRealtime.ts`, `src/services/RealtimeService.ts`,
+  `src/services/CredentialStorageService.ts`, `src/utils/tandaJumlah.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Cap tenant pada event realtime tidak lagi ditebak dari super admin
 
 - **Tipe**: [SECURITY]
