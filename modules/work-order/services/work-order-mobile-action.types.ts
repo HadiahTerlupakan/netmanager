@@ -43,6 +43,11 @@ export type MobileActionPayload = {
   longitude?: string | number;
   locationName?: string;
   timestamp?: string;
+  /**
+   * Barang yang benar-benar terpasang, diisi pada laporan penyelesaian.
+   * Sisanya tetap tercatat di tangan teknisi — tidak dikembalikan otomatis.
+   */
+  materials?: { barangId: string; jumlah: number }[];
 };
 
 export interface MobileUserContext {

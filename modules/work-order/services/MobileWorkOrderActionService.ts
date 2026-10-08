@@ -1,4 +1,5 @@
 import { socketEmitter } from "@/lib/websocket/emitter";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
@@ -30,6 +31,7 @@ import type {
   WorkOrderActionExecutionInput,
   WorkOrderUpdateType,
 } from "./work-order-mobile-action.types";
+import { catatPemakaianMaterial } from "./work-order-pemakaian-material";
 
 const UNKNOWN_USER_NAME = "Unknown";
 const MOBILE_ALLOWED_WORK_ORDER_STATUSES = [
@@ -197,8 +199,43 @@ export class MobileWorkOrderActionService {
       input.userIdForDb,
       input.actionContext.timestamp,
     );
+    await this.catatPemakaian(input);
     await syncWoStatusToTicket(input.input.workOrderId, "COMPLETED");
     await processMitraCommission(input);
+  }
+
+  /**
+   * Catat barang yang benar-benar terpasang di pelanggan.
+   *
+   * Sisanya sengaja TIDAK dikembalikan otomatis: barangnya secara fisik masih
+   * di mobil teknisi, dan menaikkan stok gudang saat itu juga hanya memindahkan
+   * kebohongan angkanya. Sisa itu menggantung sebagai saldo di tangan teknisi
+   * sampai ia benar-benar mengembalikannya.
+   *
+   * Kegagalan pencatatan tidak boleh membatalkan penyelesaian pekerjaan —
+   * teknisi sudah di rumah pelanggan dan pekerjaannya memang sudah selesai.
+   * Batas jumlahnya tetap ditegakkan: yang melanggar dilempar dan dicatat,
+   * bukan diam-diam disimpan.
+   */
+  private async catatPemakaian(input: WorkOrderActionExecutionInput) {
+    const items = input.input.payload.materials;
+    if (!items?.length) return;
+
+    try {
+      await prisma.$transaction((transaction) =>
+        catatPemakaianMaterial({
+          transaction,
+          workOrderId: input.input.workOrderId,
+          tenantId: input.workOrder?.tenantId ?? null,
+          items,
+        }),
+      );
+    } catch (error) {
+      logger.warn(
+        "[WorkOrder] Pemakaian material gagal dicatat saat penyelesaian",
+        error instanceof Error ? error : undefined,
+      );
+    }
   }
 
   private async pauseWorkOrder(input: WorkOrderActionExecutionInput) {

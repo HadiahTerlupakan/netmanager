@@ -2572,79 +2572,83 @@ model WorkOrderUpdates {
 }
 
 model WorkOrders {
-  id                       String                    @id
-  workOrderNumber          String
-  pelangganId              String?
-  siteId                   String?
-  type                     WorkOrderType
-  title                    String
-  description              String
-  status                   WorkOrderStatus           @default(PENDING)
-  priority                 WorkOrderPriority         @default(NORMAL)
-  departmentId             String?
-  assignedToId             String?
-  locationAddress          String?
-  locationLat              Float?
-  locationLng              Float?
-  contactName              String?
-  contactPhone             String?
-  scheduledDate            DateTime?
-  scheduledTimeStart       String?
-  scheduledTimeEnd         String?
-  startedAt                DateTime?
-  completedAt              DateTime?
-  verifiedAt               DateTime?
-  closedAt                 DateTime?
-  estimatedHours           Float?
-  actualHours              Float?
-  estimatedCost            Float?
-  actualCost               Float?
-  requiredMaterials        Json?
-  usedMaterials            Json?
-  internalNotes            String?
-  resolutionNotes          String?
-  customerFeedback         String?
-  rating                   Int?
-  disconnectionReason      String?
-  templateId               String?
-  slaId                    String?
-  createdById              String?
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime
-  ticketId                 String?
-  returnedMaterials        Json?
-  approvedAt               DateTime?
-  approvedById             String?
-  rejectionReason          String?
-  requestedAt              DateTime?
-  requestedById            String?
-  isInternal               Boolean                   @default(false)
-  heldAt                   DateTime?
-  holdReason               String?
-  resumedAt                DateTime?
-  assignedMitraId          String?
-  isWarranty               Boolean                   @default(false)
-  warrantyOwnerId          String?
-  warrantySla              DateTime?
-  tenantId                 String
-  canvasing                Canvasing[]
-  assignments              WorkOrderAssignments[]
-  attachments              WorkOrderAttachments[]
-  workOrderMaterialReturns WorkOrderMaterialReturn[]
-  materials                WorkOrderMaterial[]
-  tasks                    WorkOrderTasks[]
-  updates                  WorkOrderUpdates[]
-  approvedBy               User?                     @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
-  assignedTo               User?                     @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
-  createdBy                User?                     @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
-  department               Departments?              @relation(fields: [departmentId], references: [id])
-  pelanggan                Pelanggan?                @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
-  requestedBy              User?                     @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
-  site                     Sites?                    @relation(fields: [siteId], references: [id])
-  sla                      Sla?                      @relation(fields: [slaId], references: [id])
-  template                 WorkOrderTemplates?       @relation(fields: [templateId], references: [id])
-  tenant                   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  ticket                   SupportTickets?           @relation(fields: [ticketId], references: [id])
+  id                  String                 @id
+  workOrderNumber     String
+  pelangganId         String?
+  siteId              String?
+  type                WorkOrderType
+  title               String
+  description         String
+  status              WorkOrderStatus        @default(PENDING)
+  priority            WorkOrderPriority      @default(NORMAL)
+  departmentId        String?
+  assignedToId        String?
+  locationAddress     String?
+  locationLat         Float?
+  locationLng         Float?
+  contactName         String?
+  contactPhone        String?
+  scheduledDate       DateTime?
+  scheduledTimeStart  String?
+  scheduledTimeEnd    String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  verifiedAt          DateTime?
+  closedAt            DateTime?
+  estimatedHours      Float?
+  actualHours         Float?
+  estimatedCost       Float?
+  actualCost          Float?
+  requiredMaterials   Json?
+  usedMaterials       Json?
+  internalNotes       String?
+  resolutionNotes     String?
+  customerFeedback    String?
+  rating              Int?
+  disconnectionReason String?
+  templateId          String?
+  slaId               String?
+  createdById         String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime
+  ticketId            String?
+  returnedMaterials   Json?
+  /// Barang yang benar-benar terpasang di pelanggan, diisi saat laporan
+  /// penyelesaian. Berbeda dari `usedMaterials` yang — meski namanya begitu —
+  /// berisi barang yang DIAMBIL dari gudang. Selisih keduanya adalah barang
+  /// yang masih di tangan teknisi dan belum kembali ke gudang.
+  consumedMaterials   Json?
+  approvedAt          DateTime?
+  approvedById        String?
+  rejectionReason     String?
+  requestedAt         DateTime?
+  requestedById       String?
+  isInternal          Boolean                @default(false)
+  heldAt              DateTime?
+  holdReason          String?
+  resumedAt           DateTime?
+  assignedMitraId     String?
+  isWarranty          Boolean                @default(false)
+  warrantyOwnerId     String?
+  warrantySla         DateTime?
+  tenantId            String
+  canvasing           Canvasing[]
+  assignments         WorkOrderAssignments[]
+  attachments         WorkOrderAttachments[]
+  materials           WorkOrderMaterial[]
+  tasks               WorkOrderTasks[]
+  updates             WorkOrderUpdates[]
+  approvedBy          User?                  @relation("work_orders_approvedByIdToUser", fields: [approvedById], references: [id])
+  assignedTo          User?                  @relation("work_orders_assignedToIdToUser", fields: [assignedToId], references: [id])
+  createdBy           User?                  @relation("work_orders_createdByIdToUser", fields: [createdById], references: [id])
+  department          Departments?           @relation(fields: [departmentId], references: [id])
+  pelanggan           Pelanggan?             @relation(fields: [pelangganId], references: [id], onDelete: Cascade)
+  requestedBy         User?                  @relation("work_orders_requestedByIdToUser", fields: [requestedById], references: [id])
+  site                Sites?                 @relation(fields: [siteId], references: [id])
+  sla                 Sla?                   @relation(fields: [slaId], references: [id])
+  template            WorkOrderTemplates?    @relation(fields: [templateId], references: [id])
+  tenant              Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ticket              SupportTickets?        @relation(fields: [ticketId], references: [id])
 
   @@unique([tenantId, workOrderNumber], name: "tenantId_workOrderNumber")
   @@unique([workOrderNumber], name: "uniq_workOrderNumber_global", map: "uniq_workOrderNumber_global")
@@ -2668,32 +2672,6 @@ model WorkOrders {
   @@index([tenantId])
   @@index([tenantId, status, assignedToId, assignedMitraId], map: "idx_wo_available_lookup")
   @@map("work_orders")
-}
-
-model WorkOrderMaterialReturn {
-  id                 String               @id @default(uuid())
-  workOrderId        String
-  barangId           String
-  quantity           Int
-  kondisi            KondisiBarang        @default(BARU)
-  returnedToGudangId String?
-  reason             String?
-  notes              String?
-  returnedById       String?
-  verifiedById       String?
-  verifiedAt         DateTime?
-  status             MaterialReturnStatus @default(PENDING)
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  tenantId           String
-  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  workOrder          WorkOrders           @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId])
-  @@index([barangId])
-  @@index([status])
-  @@index([tenantId])
-  @@map("work_order_material_returns")
 }
 
 model Conversation {
@@ -4266,7 +4244,6 @@ model Tenant {
   workOrderAssignments      WorkOrderAssignments[]
   workOrderAttachments      WorkOrderAttachments[]
   workOrderEscalations      WorkOrderEscalations[]
-  workOrderMaterialReturn   WorkOrderMaterialReturn[]
   workOrderMaterial         WorkOrderMaterial[]
   workOrderTasks            WorkOrderTasks[]
   workOrderTemplateItem     WorkOrderTemplateItem[]
@@ -4495,13 +4472,6 @@ model EndorsementEvent {
   @@index([endorsementId, createdAt])
   @@index([signerId])
   @@index([tenantId])
-}
-
-enum MaterialReturnStatus {
-  PENDING
-  VERIFIED
-  RETURNED_TO_WAREHOUSE
-  REJECTED
 }
 
 enum EmployeeType {

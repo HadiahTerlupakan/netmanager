@@ -67,6 +67,7 @@ describe("WorkOrderService", () => {
     requiredMaterials: null,
     usedMaterials: null,
     returnedMaterials: null,
+    consumedMaterials: null,
     templateId: null,
     requestedAt: null,
     heldAt: null,

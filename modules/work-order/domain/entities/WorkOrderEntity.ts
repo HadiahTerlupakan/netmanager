@@ -69,6 +69,8 @@ export interface WorkOrderEntity {
   requiredMaterials: JsonValue;
   usedMaterials: JsonValue;
   returnedMaterials: JsonValue;
+  /** Barang yang benar-benar terpasang; lihat catatan di schema.prisma. */
+  consumedMaterials: JsonValue;
   templateId: string | null;
   requestedAt: Date | null;
   heldAt: Date | null;

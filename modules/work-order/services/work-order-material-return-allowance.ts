@@ -58,6 +58,7 @@ export interface KlienBaca {
     findUnique: (args: unknown) => Promise<{
       usedMaterials: unknown;
       returnedMaterials: unknown;
+      consumedMaterials: unknown;
     } | null>;
   };
   $queryRaw: (
@@ -86,7 +87,7 @@ async function kunciWorkOrder(
 }
 
 /** Jumlahkan `{ barangId, jumlah }` dari sebuah senarai jsonb ke dalam peta. */
-function akumulasiDariJsonb(
+export function akumulasiDariJsonb(
   riwayat: unknown,
   kedalam: Map<string, number>,
   lewati?: (baris: Record<string, unknown>) => boolean,
@@ -141,6 +142,25 @@ async function hitungDiambil(
  * Tarikan pelanggan sengaja tidak ikut dihitung: ia tidak pernah mengurangi
  * jatah sisa material karena memang bukan berasal dari pengambilan.
  */
+/**
+ * Jumlah per barang yang sudah tercatat terpasang di pelanggan.
+ *
+ * Barang yang sudah terpasang tidak mungkin dikembalikan ke gudang. Tanpa ini,
+ * teknisi yang mengambil 10 dan memasang 7 masih bisa "mengembalikan" 10 —
+ * stok gudang naik 3 unit yang sebenarnya tertanam di rumah orang.
+ *
+ * Work order lama tidak punya catatan pemakaian sama sekali; `null` di sana
+ * menghasilkan nol, yang artinya perilakunya sama persis seperti sebelum fitur
+ * ini ada. Itu disengaja — mengartikannya sebagai "belum dipakai" lebih aman
+ * daripada menolak pengembalian yang sah hanya karena catatannya tidak pernah
+ * dibuat.
+ */
+function hitungSudahDipakai(riwayat: unknown): Map<string, number> {
+  const total = new Map<string, number>();
+  akumulasiDariJsonb(riwayat, total);
+  return total;
+}
+
 function hitungSudahDikembalikan(riwayat: unknown): Map<string, number> {
   const total = new Map<string, number>();
   akumulasiDariJsonb(
@@ -192,7 +212,11 @@ export async function assertBatasPengembalian(input: {
 
   const workOrder = await input.klien.workOrders.findUnique({
     where: { id: input.workOrder.id },
-    select: { usedMaterials: true, returnedMaterials: true },
+    select: {
+      usedMaterials: true,
+      returnedMaterials: true,
+      consumedMaterials: true,
+    },
   });
 
   const diambil = await hitungDiambil(
@@ -201,22 +225,29 @@ export async function assertBatasPengembalian(input: {
     workOrder?.usedMaterials,
   );
   const dikembalikan = hitungSudahDikembalikan(workOrder?.returnedMaterials);
+  const dipakai = hitungSudahDipakai(workOrder?.consumedMaterials);
 
   // Diperiksa per barang, bukan per baris: satu permintaan bisa memuat beberapa
   // baris barang yang sama dengan kondisi berbeda, dan jatahnya satu.
   for (const barangId of new Set(sisa.map((item) => item.barangId))) {
     const jatah =
-      (diambil.get(barangId) ?? 0) - (dikembalikan.get(barangId) ?? 0);
+      (diambil.get(barangId) ?? 0) -
+      (dipakai.get(barangId) ?? 0) -
+      (dikembalikan.get(barangId) ?? 0);
     const diminta = jumlahDiminta(sisa, barangId);
 
     if (jatah <= 0) {
-      // Dua sebab yang berbeda, dan tindakan teknisinya juga berbeda: salah
-      // pilih barang, versus sisa yang memang sudah dipulangkan semua.
+      // Tiga sebab yang berbeda, dan tindakan teknisinya juga berbeda: salah
+      // pilih barang, barangnya sudah terpasang di pelanggan, atau sisanya
+      // memang sudah dipulangkan semua.
       const pernahDiambil = (diambil.get(barangId) ?? 0) > 0;
+      const sudahTerpasang = (dipakai.get(barangId) ?? 0) > 0;
       throw new BatasPengembalianError(
-        pernahDiambil
-          ? `Sisa barang ini pada ${input.workOrder.workOrderNumber} sudah dikembalikan semua.`
-          : `Barang ini tidak diambil pada ${input.workOrder.workOrderNumber}, jadi tidak ada sisa yang bisa dikembalikan.`,
+        !pernahDiambil
+          ? `Barang ini tidak diambil pada ${input.workOrder.workOrderNumber}, jadi tidak ada sisa yang bisa dikembalikan.`
+          : sudahTerpasang
+            ? `Barang ini sudah tercatat terpasang di pelanggan, jadi tidak ada sisa yang bisa dikembalikan.`
+            : `Sisa barang ini pada ${input.workOrder.workOrderNumber} sudah dikembalikan semua.`,
       );
     }
 

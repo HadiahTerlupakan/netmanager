@@ -20,6 +20,7 @@ import {
 function buatKlien(opsi: {
   diambil?: { barangId: string; jumlah: number }[];
   diambilAdmin?: { barangId: string; jumlah: number }[];
+  dipakai?: { barangId: string; jumlah: number }[];
   dikembalikan?: unknown;
 }) {
   return {
@@ -35,6 +36,7 @@ function buatKlien(opsi: {
       findUnique: vi.fn().mockResolvedValue({
         usedMaterials: opsi.diambil ?? null,
         returnedMaterials: opsi.dikembalikan ?? null,
+        consumedMaterials: opsi.dipakai ?? null,
       }),
     },
     $queryRaw: vi.fn().mockResolvedValue([]),
@@ -228,6 +230,53 @@ describe("batas pengembalian sisa material", () => {
         error instanceof BatasPengembalianError &&
         error.code === "VALIDATION_ERROR",
     );
+  });
+
+  // Barang yang sudah terpasang di rumah pelanggan tidak mungkin dikembalikan
+  // ke gudang. Tanpa pengurangan ini, teknisi yang mengambil 10 dan memasang 7
+  // masih bisa "mengembalikan" 10 — stok naik 3 unit yang sebenarnya tertanam.
+  it("yang sudah terpasang tidak ikut jatah pengembalian", async () => {
+    const klien = buatKlien({
+      diambil: [{ barangId: "kabel", jumlah: 10 }],
+      dipakai: [{ barangId: "kabel", jumlah: 7 }],
+    });
+
+    await expect(
+      assertBatasPengembalian({
+        klien: klien as never,
+        workOrder: WO_PEMASANGAN,
+        items: [{ ...BARANG, jumlah: 4 }],
+      }),
+    ).rejects.toThrow(/tinggal 3, diminta 4/);
+  });
+
+  it("menyebut pemasangan sebagai sebab ketika jatahnya habis karenanya", async () => {
+    const klien = buatKlien({
+      diambil: [{ barangId: "kabel", jumlah: 5 }],
+      dipakai: [{ barangId: "kabel", jumlah: 5 }],
+    });
+
+    await expect(
+      assertBatasPengembalian({
+        klien: klien as never,
+        workOrder: WO_PEMASANGAN,
+        items: [{ ...BARANG, jumlah: 1 }],
+      }),
+    ).rejects.toThrow(/sudah tercatat terpasang di pelanggan/);
+  });
+
+  // Work order lama tidak punya catatan pemakaian sama sekali. `null` di sana
+  // harus berarti "tidak diketahui", bukan menolak pengembalian yang sah.
+  it("work order tanpa catatan pemakaian berperilaku seperti sebelumnya", async () => {
+    const klien = buatKlien({ diambil: [{ barangId: "kabel", jumlah: 10 }] });
+
+    await expect(
+      assertBatasPengembalian({
+        klien: klien as never,
+        workOrder: WO_PEMASANGAN,
+        items: [{ ...BARANG, jumlah: 10 }],
+      }),
+    ).resolves.toBeUndefined();
   });
 });
 

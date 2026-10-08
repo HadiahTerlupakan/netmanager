@@ -12,6 +12,36 @@ const service = new MobileWorkOrderActionService();
 /**
  * Update mobile work order with action payload.
  */
+/**
+ * `materials` dikirim sebagai JSON di dalam multipart karena laporan
+ * penyelesaian membawa foto. Bentuk yang tidak dikenali diabaikan, bukan
+ * ditolak: penyelesaian pekerjaan tidak boleh gagal gara-gara catatan
+ * pemakaian — batas jumlahnya tetap ditegakkan di layanan.
+ */
+function parseMaterialsField(
+  nilai: FormDataEntryValue | null,
+): { barangId: string; jumlah: number }[] | undefined {
+  if (typeof nilai !== "string" || !nilai.trim()) return undefined;
+
+  try {
+    const terurai = JSON.parse(nilai);
+    if (!Array.isArray(terurai)) return undefined;
+
+    return terurai
+      .filter(
+        (item): item is { barangId: string; jumlah: number } =>
+          !!item &&
+          typeof item === "object" &&
+          typeof item.barangId === "string" &&
+          typeof item.jumlah === "number" &&
+          Number.isFinite(item.jumlah),
+      )
+      .map((item) => ({ barangId: item.barangId, jumlah: item.jumlah }));
+  } catch {
+    return undefined;
+  }
+}
+
 export const POST = createHandler(
   { auth: true, permissions: ["m_work_order:update"] },
   async (req, ctx) => {
@@ -40,6 +70,7 @@ export const POST = createHandler(
       photoUrl?: string;
       photoUrls?: string[];
       timestamp?: string;
+      materials?: { barangId: string; jumlah: number }[];
     } = {};
 
     const contentType = req.headers.get("content-type") || "";
@@ -64,6 +95,7 @@ export const POST = createHandler(
         longitude: formData.get("longitude") as string,
         locationName: formData.get("locationName") as string,
         timestamp: formData.get("timestamp") as string,
+        materials: parseMaterialsField(formData.get("materials")),
       };
       ctx.validated = {
         action: payload.action,
