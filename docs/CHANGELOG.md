@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — "Status Hari Ini" pada layar Barang menyebut yang sebenarnya dihitung
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(app)/barang`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat QA jalur barang keluar/masuk mandiri. Angka pada kartu
+  "Status Hari Ini" adalah banyaknya **transaksi** hari ini (`barangKeluar.count` di
+  server), bukan jumlah barang — tetapi ditulis "Total Masuk/Keluar" dengan tanda `+`/`-`
+  sehingga terbaca sebagai kuantitas. Mengeluarkan 2 unit dalam satu catatan tampil sebagai
+  **"-1"**. Menjumlahkan kuantitas juga tidak bisa dibenarkan karena satuannya bercampur
+  (2 unit ONT dan 500 meter kabel), jadi labelnya yang diperbaiki: "Transaksi masuk" /
+  "Transaksi keluar", tanpa tanda. Helper `jumlahBertanda` dan tesnya ikut dihapus karena
+  kehilangan seluruh pemakainya.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Pencatatan material terpasang (Tahap 2 alur barang)
 
 - **Tipe**: [ADDED]
