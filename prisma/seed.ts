@@ -150,6 +150,25 @@ async function main() {
   // terakhir adalah fitur kepegawaian dasar yang juga dipegang Teknisi —
   // tanpa itu menu cepat Chat, Izin & Cuti, serta Kalender Libur tampil
   // terkunci bagi sales.
+  /**
+   * Resource mobile yang hanya milik SALES.
+   *
+   * TEKNISI dulu menerima `karyawanPermissions` seutuhnya — artinya seluruh
+   * resource mobile, termasuk yang jelas-jelas punya sales. Akibatnya menu cepat
+   * teknisi memuat Presurvei, Tunggakan, dan Pelanggan Saya, dan role TEKNISI
+   * menjadi superset dari SALES. Asimetrinya tidak disengaja: seseorang repot
+   * menyusun daftar khusus untuk SALES tetapi membiarkan TEKNISI "dapat semua".
+   *
+   * Dibuat sebagai daftar pengecualian, bukan daftar inklusi, karena teknisi
+   * adalah peran dasar: resource mobile baru sewajarnya ikut untuk mereka, dan
+   * yang perlu disebut justru yang khusus sales.
+   */
+  const RESOURCE_MOBILE_KHUSUS_SALES = ["m_presurvei"];
+
+  const teknisiPermissions = karyawanPermissions.filter(
+    (p) => !RESOURCE_MOBILE_KHUSUS_SALES.includes(p.resource),
+  );
+
   const RESOURCE_MOBILE_SALES = [
     "m_dashboard",
     "m_canvasing",
@@ -271,7 +290,7 @@ async function main() {
       accessEmployeePanel: true,
       permission: {
         set: [], // Clear existing
-        connect: karyawanPermissions.map((p) => ({ id: p.id })),
+        connect: teknisiPermissions.map((p) => ({ id: p.id })),
       },
     },
     create: {
@@ -284,13 +303,11 @@ async function main() {
       accessAdminPanel: false,
       accessEmployeePanel: true,
       permission: {
-        connect: karyawanPermissions.map((p) => ({ id: p.id })),
+        connect: teknisiPermissions.map((p) => ({ id: p.id })),
       },
     },
   });
-  logger.info(
-    `   ✅ Role: TEKNISI (${karyawanPermissions.length} permissions)`,
-  );
+  logger.info(`   ✅ Role: TEKNISI (${teknisiPermissions.length} permissions)`);
 
   // 2.4 SALES Role - Employee panel only (marketing permissions)
   const salesRole = await prisma.role.upsert({

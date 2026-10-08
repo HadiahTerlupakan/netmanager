@@ -41,6 +41,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Role TEKNISI tidak lagi mewarisi fitur khusus sales
+
+- **Tipe**: [SECURITY]
+- **Scope**: `prisma/seed.ts`, `mobile-netmanager/src/constants/menuCepat.ts`
+- **Author**: agent
+- **Deskripsi**: Dilaporkan user saat QA: menu cepat teknisi memuat Presurvei, Tunggakan,
+  dan Pelanggan Saya — ketiganya fitur sales. Akarnya di seed: SALES mendapat daftar
+  tersusun (`RESOURCE_MOBILE_SALES`, 7 resource) sedangkan TEKNISI menerima
+  `karyawanPermissions` **seutuhnya**, yaitu seluruh resource mobile. Role TEKNISI karena
+  itu menjadi superset dari SALES. Asimetrinya jelas tidak disengaja: seseorang repot
+  menyusun daftar untuk SALES tetapi membiarkan TEKNISI "dapat semua".
+
+  `m_presurvei` kini dikecualikan lewat `RESOURCE_MOBILE_KHUSUS_SALES`. Dibuat sebagai
+  daftar pengecualian, bukan inklusi, karena teknisi adalah peran dasar — resource mobile
+  baru sewajarnya ikut untuk mereka.
+
+  Tile Tunggakan dan Pelanggan Saya diberi `hideWhenLocked` supaya tidak menyisakan kartu
+  terkunci yang tidak akan pernah terbuka. **Keluhan ikut terkunci** sebagai efek samping:
+  ia memakai gerbang `m_presurvei` yang sama — perlu keputusan apakah teknisi berhak
+  melaporkan keluhan lewat izin sendiri.
+
+  Perubahan seed hanya berlaku untuk lingkungan baru; role TEKNISI yang sudah ada di
+  produksi masih memegang izin tersebut dan harus dimatikan lewat halaman Hak Akses.
+  Perubahan izin baru terasa setelah pengguna login ulang (fitur ikut di token sesi).
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — "Status Hari Ini" pada layar Barang menyebut yang sebenarnya dihitung
 
 - **Tipe**: [FIXED]
