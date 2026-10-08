@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Penjaga: resource pembatasan wajib ada di seed
+
+- **Tipe**: [ADDED]
+- **Scope**: `tests/architecture`
+- **Author**: agent
+- **Deskripsi**: Nama permission dibandingkan sebagai string biasa, jadi salah ketik tidak
+  membuat apa pun gagal — ia hanya membuat pemeriksaannya selalu salah. Untuk aksi
+  pembatasan, "selalu salah" berarti **gagal-terbuka**: tidak ada yang dibatasi. Itulah yang
+  terjadi pada `k_barang:site_only`. Aksi biasa seperti `read` gagal-tertutup dan langsung
+  ketahuan; asimetri itu alasan penjaga ini hanya mengawasi `site_only` dan
+  `department_only`.
+
+  Penjaga baru menyilangkan setiap literal `"<resource>:site_only"` / `":department_only"`
+  di `app/`, `modules/`, `lib/` dengan daftar resource yang benar-benar dibuat seed
+  (`lib/permission-config.ts`, sumber yang sama dipakai `prisma/seed.ts`). Diverifikasi
+  dengan menyuntikkan ulang `k_barang:site_only`: penjaga gagal seperti seharusnya.
+- **Files**: `tests/architecture/site-restriction-capability-catalog.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Pembatasan site gudang di web juga tidak pernah menyala
 
 - **Tipe**: [SECURITY]

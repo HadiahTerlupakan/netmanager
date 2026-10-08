@@ -7,6 +7,11 @@ import {
   getResourceCapabilities,
   type ResourceAction,
 } from "@/lib/resource-capabilities";
+import {
+  INTERNAL_MOBILE_RESOURCES,
+  PERMISSION_GROUPS,
+  PERMISSION_GROUPS_MOBILE,
+} from "@/lib/permission-config";
 
 /**
  * Halaman Hak Akses hanya menggambar toggle yang ada di katalog kapabilitas
@@ -143,6 +148,48 @@ describe("katalog kapabilitas menampilkan setiap pembatasan yang ditegakkan", ()
         .sort();
 
       expect(tersembunyi).toEqual([]);
+    },
+  );
+
+  /**
+   * Resource yang benar-benar dibuat seed, diturunkan dari sumber yang sama
+   * yang dipakai `prisma/seed.ts`.
+   */
+  const RESOURCE_DISEED = new Set<string>([
+    ...Object.values(PERMISSION_GROUPS).flatMap((grup) =>
+      Array.isArray(grup)
+        ? grup
+        : ((grup as { resources?: string[] }).resources ?? []),
+    ),
+    ...Object.values(PERMISSION_GROUPS_MOBILE).flat(),
+    ...INTERNAL_MOBILE_RESOURCES,
+  ]);
+
+  /**
+   * Nama permission dibandingkan sebagai string biasa, jadi salah ketik tidak
+   * membuat apa pun gagal — ia hanya membuat pemeriksaannya selalu salah.
+   *
+   * Untuk aksi pembatasan, "selalu salah" berarti **gagal-terbuka**: tidak ada
+   * yang dibatasi. Inilah yang terjadi pada `k_barang:site_only` — nama yang
+   * tidak pernah dibuat seed, dipakai sebagai satu-satunya syarat pembatasan
+   * site inventory mobile dan `validateGudangSiteAccess`, sehingga toggle
+   * "Batasi ke Site Sendiri" menyala di panel admin tanpa efek apa pun selama
+   * berbulan-bulan. Tidak ada tes yang gagal, karena tesnya memakai nama yang
+   * sama kelirunya.
+   *
+   * Bandingkan dengan aksi biasa seperti `read`: salah ketik di sana
+   * gagal-tertutup — orang langsung mengeluh tidak bisa membuka halaman, dan
+   * bugnya ketahuan hari itu juga. Asimetri itulah alasan penjaga ini hanya
+   * mengawasi aksi pembatasan.
+   */
+  it.each(SCOPE_ACTIONS)(
+    "setiap resource yang menegakkan %s memang dibuat seed",
+    (action) => {
+      const tidakAdaDiSeed = [...enforced.get(action)!]
+        .filter((resource) => !RESOURCE_DISEED.has(resource))
+        .sort();
+
+      expect(tidakAdaDiSeed).toEqual([]);
     },
   );
 
