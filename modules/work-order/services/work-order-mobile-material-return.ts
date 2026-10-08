@@ -12,6 +12,7 @@ import type {
 import {
   ASAL_DEFAULT,
   assertBatasPengembalian,
+  type KlienBaca,
 } from "./work-order-material-return-allowance";
 
 const DEFAULT_MATERIAL_CONDITION = "BEKAS" as KondisiBarang;
@@ -69,7 +70,9 @@ async function executeMaterialReturnTransaction(input: {
   // Diperiksa di dalam transaksi, sebelum stok bergerak: jatah dihitung dari
   // riwayat yang bisa saja berubah oleh permintaan lain yang berjalan bersamaan.
   await assertBatasPengembalian({
-    klien: input.transaction as never,
+    // `as never` menerima apa saja tanpa bersuara; menyebut bentuk yang
+    // diharapkan membuat ketidakcocokan terlihat saat dibaca.
+    klien: input.transaction as unknown as KlienBaca,
     workOrder: input.workOrder,
     items: input.items,
   });

@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Kunci baris & kode galat pada batas pengembalian barang
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Tindak lanjut tinjauan keamanan atas pembatasan pengembalian barang.
+  (1) **Balapan**: jatah dibaca dari riwayat lalu riwayatnya ditulis di transaksi yang sama.
+  Pada READ COMMITTED — bawaan PostgreSQL — dua pengembalian serentak sama-sama membaca
+  jatah penuh sebelum keduanya menulis, sehingga keduanya lolos dan jatah 2 bisa menaikkan
+  stok 4. Baris work order kini dikunci `FOR UPDATE` sebelum jatah dihitung, setara dengan
+  penjaga `updateMany ... gte` di jalur pengambilan.
+  (2) **Pesan**: "tidak pernah diambil" dan "sisa sudah dikembalikan semua" menuntut
+  tindakan berbeda dari teknisi; sebelumnya keduanya memakai kalimat yang sama.
+  (3) **Kode galat**: penolakan batas dilempar sebagai `BatasPengembalianError` dengan
+  `code: VALIDATION_ERROR`, bukan `Error` biasa yang ditebak dari kata kunci pesannya.
+  Sebelumnya penolakan terbaca sebagai **500** — memberi tahu pemantauan bahwa server rusak
+  padahal teknisi hanya meminta melebihi jatahnya. Terverifikasi di aplikasi: 500 → **400**.
+- **Files**: `modules/work-order/services/work-order-material-return-allowance.ts`,
+  `modules/work-order/services/work-order-service-helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Pengembalian barang dibatasi jatah pengambilan
 
 - **Tipe**: [SECURITY]

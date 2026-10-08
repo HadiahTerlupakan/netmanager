@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { assertBatasPengembalian } from "@/modules/work-order/services/work-order-material-return-allowance";
+import {
+  assertBatasPengembalian,
+  BatasPengembalianError,
+} from "@/modules/work-order/services/work-order-material-return-allowance";
 
 /**
  * Endpoint pengembalian material dulu hanya memeriksa bahwa `jumlah` adalah
@@ -34,6 +37,7 @@ function buatKlien(opsi: {
         returnedMaterials: opsi.dikembalikan ?? null,
       }),
     },
+    $queryRaw: vi.fn().mockResolvedValue([]),
   };
 }
 
@@ -169,6 +173,61 @@ describe("batas pengembalian sisa material", () => {
         ],
       }),
     ).rejects.toThrow(/tinggal 10, diminta 12/);
+  });
+
+  // Jatah dibaca lalu riwayatnya ditulis di transaksi yang sama. Pada READ
+  // COMMITTED dua pengembalian serentak sama-sama membaca jatah penuh dan
+  // keduanya lolos — jatah 2 bisa menaikkan stok 4. Barisnya harus dikunci.
+  it("mengunci baris work order sebelum membaca jatah", async () => {
+    const klien = buatKlien({ diambil: [{ barangId: "kabel", jumlah: 10 }] });
+
+    await assertBatasPengembalian({
+      klien: klien as never,
+      workOrder: WO_PEMASANGAN,
+      items: [{ ...BARANG, jumlah: 1 }],
+    });
+
+    expect(klien.$queryRaw).toHaveBeenCalledTimes(1);
+    const kueri = (
+      klien.$queryRaw as unknown as { mock: { calls: unknown[][] } }
+    ).mock.calls[0][0] as string[];
+    expect(kueri.join("")).toMatch(/FOR UPDATE/);
+  });
+
+  // "Tidak diambil" dan "sudah dikembalikan semua" menuntut tindakan berbeda
+  // dari teknisi; satu pesan untuk keduanya mengirim orang mencari masalah
+  // yang tidak ada.
+  it("membedakan sisa habis dari barang yang tak pernah diambil", async () => {
+    const klien = buatKlien({
+      diambil: [{ barangId: "kabel", jumlah: 5 }],
+      dikembalikan: [{ barangId: "kabel", jumlah: 5, asal: "SISA_MATERIAL" }],
+    });
+
+    await expect(
+      assertBatasPengembalian({
+        klien: klien as never,
+        workOrder: WO_PEMASANGAN,
+        items: [{ ...BARANG, jumlah: 1 }],
+      }),
+    ).rejects.toThrow(/sudah dikembalikan semua/);
+  });
+
+  // Penolakan yang terbaca 500 memberi tahu pemantauan bahwa server rusak
+  // padahal teknisi hanya meminta lebih banyak daripada jatahnya.
+  it("menolak dengan error yang menyebut dirinya kesalahan validasi", async () => {
+    const klien = buatKlien({ diambil: [{ barangId: "kabel", jumlah: 1 }] });
+
+    await expect(
+      assertBatasPengembalian({
+        klien: klien as never,
+        workOrder: WO_PEMASANGAN,
+        items: [{ ...BARANG, jumlah: 2 }],
+      }),
+    ).rejects.toSatisfy(
+      (error: unknown) =>
+        error instanceof BatasPengembalianError &&
+        error.code === "VALIDATION_ERROR",
+    );
   });
 });
 

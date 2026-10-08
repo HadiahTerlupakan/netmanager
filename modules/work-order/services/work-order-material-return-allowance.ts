@@ -20,6 +20,23 @@ import type {
   MobileWorkOrderMaterialReturnInput,
 } from "./work-order.material.types";
 
+/**
+ * Pengembalian ditolak karena melanggar batas, bukan karena server bermasalah.
+ *
+ * Dibedakan lewat tipe, bukan lewat tebakan kata kunci pada pesan: penolakan
+ * yang terbaca sebagai 500 memberi tahu pemantauan bahwa server rusak padahal
+ * teknisi hanya meminta lebih banyak daripada jatahnya, dan galat palsu yang
+ * rutin melatih orang mengabaikan galat sungguhan.
+ */
+export class BatasPengembalianError extends Error {
+  readonly code = "VALIDATION_ERROR";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "BatasPengembalianError";
+  }
+}
+
 /** Tipe work order yang wajar menarik perangkat dari pelanggan. */
 const TIPE_BOLEH_TARIKAN_PELANGGAN = new Set(["DISCONNECTION", "RELOCATION"]);
 
@@ -31,7 +48,7 @@ interface KonteksPengembalian {
   workOrderNumber: string;
 }
 
-interface KlienBaca {
+export interface KlienBaca {
   workOrderMaterial: {
     groupBy: (
       args: unknown,
@@ -43,6 +60,29 @@ interface KlienBaca {
       returnedMaterials: unknown;
     } | null>;
   };
+  $queryRaw: (
+    query: TemplateStringsArray,
+    ...nilai: unknown[]
+  ) => Promise<unknown>;
+}
+
+/**
+ * Kunci baris work order sampai transaksi selesai.
+ *
+ * Jatah dihitung dari riwayat lalu riwayatnya ditambah di transaksi yang sama.
+ * Pada isolasi READ COMMITTED — bawaan PostgreSQL — dua pengembalian yang
+ * berjalan bersamaan sama-sama membaca riwayat sebelum keduanya menulis, jadi
+ * keduanya melihat jatah penuh dan keduanya lolos: jatah 2 bisa menaikkan stok
+ * gudang 4. Mengunci barisnya membuat yang kedua menunggu, lalu membaca riwayat
+ * yang sudah memuat tulisan pertama.
+ *
+ * Jalur pengambilan memakai penjaga setara lewat `updateMany ... gte`.
+ */
+async function kunciWorkOrder(
+  klien: KlienBaca,
+  workOrderId: string,
+): Promise<void> {
+  await klien.$queryRaw`SELECT "id" FROM "work_orders" WHERE "id" = ${workOrderId} FOR UPDATE`;
 }
 
 /** Jumlahkan `{ barangId, jumlah }` dari sebuah senarai jsonb ke dalam peta. */
@@ -138,7 +178,7 @@ export async function assertBatasPengembalian(input: {
     tarikan.length > 0 &&
     !TIPE_BOLEH_TARIKAN_PELANGGAN.has(input.workOrder.type)
   ) {
-    throw new Error(
+    throw new BatasPengembalianError(
       "Penarikan perangkat dari pelanggan hanya berlaku untuk work order pemutusan atau relokasi.",
     );
   }
@@ -147,6 +187,8 @@ export async function assertBatasPengembalian(input: {
     (item) => (item.asal ?? ASAL_DEFAULT) === ASAL_DEFAULT,
   );
   if (sisa.length === 0) return;
+
+  await kunciWorkOrder(input.klien, input.workOrder.id);
 
   const workOrder = await input.klien.workOrders.findUnique({
     where: { id: input.workOrder.id },
@@ -168,13 +210,18 @@ export async function assertBatasPengembalian(input: {
     const diminta = jumlahDiminta(sisa, barangId);
 
     if (jatah <= 0) {
-      throw new Error(
-        `Barang ini tidak diambil pada ${input.workOrder.workOrderNumber}, jadi tidak ada sisa yang bisa dikembalikan.`,
+      // Dua sebab yang berbeda, dan tindakan teknisinya juga berbeda: salah
+      // pilih barang, versus sisa yang memang sudah dipulangkan semua.
+      const pernahDiambil = (diambil.get(barangId) ?? 0) > 0;
+      throw new BatasPengembalianError(
+        pernahDiambil
+          ? `Sisa barang ini pada ${input.workOrder.workOrderNumber} sudah dikembalikan semua.`
+          : `Barang ini tidak diambil pada ${input.workOrder.workOrderNumber}, jadi tidak ada sisa yang bisa dikembalikan.`,
       );
     }
 
     if (diminta > jatah) {
-      throw new Error(
+      throw new BatasPengembalianError(
         `Sisa yang bisa dikembalikan tinggal ${jatah}, diminta ${diminta}.`,
       );
     }

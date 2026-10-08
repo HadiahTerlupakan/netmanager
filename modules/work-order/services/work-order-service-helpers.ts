@@ -140,6 +140,13 @@ export function isMobileMaterialValidationError(error: unknown): boolean {
     return false;
   }
 
+  // Error yang menyebut kodenya sendiri tidak perlu ditebak dari pesannya.
+  // Pencocokan kata kunci di bawah hanya jaring untuk pelempar lama yang
+  // melempar `Error` biasa; penolakan baru sebaiknya membawa `code`.
+  if ((error as { code?: unknown }).code === "VALIDATION_ERROR") {
+    return true;
+  }
+
   return ["wajib", "harus", "Stok", "Data stok", "Kondisi"].some((keyword) =>
     error.message.includes(keyword),
   );
