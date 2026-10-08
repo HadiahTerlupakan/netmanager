@@ -41,6 +41,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Pemakaian material akhirnya benar-benar tercatat saat WO selesai
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/mobile/work-orders/[id]/update`, `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Fitur `consumedMaterials` (Tahap 2 alur barang) ternyata tidak pernah
+  berjalan sekali pun lewat jalur online. Aplikasi men-`JSON.stringify` daftar material
+  lalu mengirimnya sebagai body JSON; route hanya menormalkan field itu pada cabang
+  multipart, sehingga layanan menerima sebuah **string**. `items?.length` pada string
+  bernilai benar, `.filter` padanya melempar, dan penjaga "penyelesaian pekerjaan tidak
+  boleh gagal" menelan kesalahannya — WO selesai dengan 200 sementara `consumedMaterials`
+  tetap `null`. Dibuktikan di emulator: sebelum perbaikan kolomnya kosong meski layar
+  menampilkan "terpasang 7, sisa 3"; sesudahnya terisi
+  `[{"barangId":…,"jumlah":7,…}]`. Normalisasi dipindah ke
+  `parseMaterialPemakaian()` (menerima array maupun string JSON) dan dipakai kedua
+  cabang. Pesan warning-nya juga diperbaiki: sebuah `Error` ter-serialisasi jadi `{}` di
+  log, dan justru itu yang membuat kegagalan ini tak terlihat.
+- **Files**: `modules/work-order/utils/material-pemakaian-payload.ts`,
+  `app/api/mobile/work-orders/[id]/update/route.ts`,
+  `modules/work-order/services/MobileWorkOrderActionService.ts`,
+  `tests/modules/work-order/material-pemakaian-payload.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Kolom pesan chat tidak lagi tertutup papan ketik di Android
 
 - **Tipe**: [FIXED]

@@ -231,9 +231,13 @@ export class MobileWorkOrderActionService {
         }),
       );
     } catch (error) {
+      // Pesannya ditulis apa adanya: sebuah Error ter-serialisasi jadi `{}` di
+      // log, dan itulah yang membuat kegagalan pencatatan ini tidak terlihat
+      // selama fitur pemakaian material ternyata tidak pernah berjalan.
       logger.warn(
-        "[WorkOrder] Pemakaian material gagal dicatat saat penyelesaian",
-        error instanceof Error ? error : undefined,
+        `[WorkOrder] Pemakaian material gagal dicatat saat penyelesaian: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
     }
   }

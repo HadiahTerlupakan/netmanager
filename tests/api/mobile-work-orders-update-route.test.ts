@@ -77,85 +77,95 @@ vi.mock("@/modules/database", () => ({
   },
 }));
 
-vi.mock("@/modules/work-order", () => ({
-  WorkOrderRepository: class MockWorkOrderRepository {
-    constructor() {}
-    findById = mockFns.findById;
-    start = mockFns.start;
-    assign = mockFns.assign;
-    complete = mockFns.complete;
-    updateStatus = mockFns.updateStatus;
-    updateTask = mockFns.updateTask;
-    addUpdate = mockFns.addUpdate;
-    addAttachment = mockFns.addAttachment;
-  },
-  validateMobileAssignedWorkOrderAccess: async ({
-    repository,
-    workOrderId,
-    userContext,
-    allowedStatuses,
-    invalidStatusMessage,
-  }: {
-    repository: {
-      findById: (id: string) => Promise<{
-        tenantId?: string | null;
-        assignedToId?: string | null;
-        assignments?: Array<{ userId: string; status: string }>;
-        status: string;
-      } | null>;
-    };
-    workOrderId: string;
-    userContext: {
-      id: string;
-      tenantId?: string | undefined;
-      isSuperAdmin?: boolean;
-    };
-    allowedStatuses: string[];
-    invalidStatusMessage: string;
-  }) => {
-    const workOrder = await repository.findById(workOrderId);
+// Mock-nya menggantikan seluruh modul, jadi apa pun yang dipakai route harus
+// disediakan di sini. `parseMaterialPemakaian` diambil dari implementasi
+// aslinya — fungsi murni tanpa dependensi berat, dan memalsukannya hanya akan
+// membuat normalisasi payload material diuji terhadap tiruan yang bisa melenceng.
+vi.mock("@/modules/work-order", async () => {
+  const { parseMaterialPemakaian } =
+    await import("@/modules/work-order/utils/material-pemakaian-payload");
 
-    if (!workOrder) {
-      throw new Error("Work order tidak ditemukan");
-    }
+  return {
+    parseMaterialPemakaian,
+    WorkOrderRepository: class MockWorkOrderRepository {
+      constructor() {}
+      findById = mockFns.findById;
+      start = mockFns.start;
+      assign = mockFns.assign;
+      complete = mockFns.complete;
+      updateStatus = mockFns.updateStatus;
+      updateTask = mockFns.updateTask;
+      addUpdate = mockFns.addUpdate;
+      addAttachment = mockFns.addAttachment;
+    },
+    validateMobileAssignedWorkOrderAccess: async ({
+      repository,
+      workOrderId,
+      userContext,
+      allowedStatuses,
+      invalidStatusMessage,
+    }: {
+      repository: {
+        findById: (id: string) => Promise<{
+          tenantId?: string | null;
+          assignedToId?: string | null;
+          assignments?: Array<{ userId: string; status: string }>;
+          status: string;
+        } | null>;
+      };
+      workOrderId: string;
+      userContext: {
+        id: string;
+        tenantId?: string | undefined;
+        isSuperAdmin?: boolean;
+      };
+      allowedStatuses: string[];
+      invalidStatusMessage: string;
+    }) => {
+      const workOrder = await repository.findById(workOrderId);
 
-    if (
-      !userContext.isSuperAdmin &&
-      (!userContext.tenantId ||
-        !workOrder.tenantId ||
-        workOrder.tenantId !== userContext.tenantId)
-    ) {
-      throw new Error("Akses ditolak: Tenant berbeda");
-    }
+      if (!workOrder) {
+        throw new Error("Work order tidak ditemukan");
+      }
 
-    const isAssignedTo = workOrder.assignedToId === userContext.id;
-    const isApprovedPartner = workOrder.assignments?.some(
-      (assignment: { userId: string; status: string }) =>
-        assignment.userId === userContext.id &&
-        assignment.status === "APPROVED",
-    );
+      if (
+        !userContext.isSuperAdmin &&
+        (!userContext.tenantId ||
+          !workOrder.tenantId ||
+          workOrder.tenantId !== userContext.tenantId)
+      ) {
+        throw new Error("Akses ditolak: Tenant berbeda");
+      }
 
-    if (!isAssignedTo && !isApprovedPartner) {
-      throw new Error(
-        "Akses ditolak: Work order ini bukan tanggung jawab Anda",
+      const isAssignedTo = workOrder.assignedToId === userContext.id;
+      const isApprovedPartner = workOrder.assignments?.some(
+        (assignment: { userId: string; status: string }) =>
+          assignment.userId === userContext.id &&
+          assignment.status === "APPROVED",
       );
-    }
 
-    if (!allowedStatuses.includes(workOrder.status)) {
-      throw new Error(invalidStatusMessage);
-    }
+      if (!isAssignedTo && !isApprovedPartner) {
+        throw new Error(
+          "Akses ditolak: Work order ini bukan tanggung jawab Anda",
+        );
+      }
 
-    return workOrder;
-  },
-  syncWoStatusToTicket: mockFns.syncWoStatusToTicket,
-  getEmployeeWorkOrderQueryService: () => ({
-    getMobileWorkOrderDetail: mockFns.getMobileWorkOrderDetail,
-  }),
-  MobileWorkOrderActionService: class MockMobileWorkOrderActionService {
-    updateTaskStatus = mockFns.updateTask;
-    handleAction = mockFns.updateStatus;
-  },
-}));
+      if (!allowedStatuses.includes(workOrder.status)) {
+        throw new Error(invalidStatusMessage);
+      }
+
+      return workOrder;
+    },
+    syncWoStatusToTicket: mockFns.syncWoStatusToTicket,
+    getEmployeeWorkOrderQueryService: () => ({
+      getMobileWorkOrderDetail: mockFns.getMobileWorkOrderDetail,
+    }),
+    MobileWorkOrderActionService: class MockMobileWorkOrderActionService {
+      updateTaskStatus = mockFns.updateTask;
+      handleAction = mockFns.updateStatus;
+    },
+  };
+});
 
 vi.mock("@/lib/mobile-api-auth", () => ({
   getMobileAuthPayload: mockFns.getMobileAuthPayload,

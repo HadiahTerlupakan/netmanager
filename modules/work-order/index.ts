@@ -31,3 +31,5 @@ export type {
   WorkOrderListSummary,
   WorkOrderListSummarySource,
 } from "./client";
+export { parseMaterialPemakaian } from "./utils/material-pemakaian-payload";
+export type { MaterialTerpasang } from "./utils/material-pemakaian-payload";

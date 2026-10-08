@@ -609,3 +609,37 @@
 - **How to apply:** untuk setiap layar baru, siapkan data yang membuat SEMUA bagian kondisional
   tampil (chip, badge, ringkasan per sales) lalu screenshot. ScrollView horizontal di dalam
   kolom flex selalu diberi `flex-grow-0`.
+
+## Fitur baru belum terbukti sampai jalur HTTP-nya benar-benar dijalankan
+
+- **Konteks (2026-10-08):** `consumedMaterials` (Tahap 2 alur barang) lolos review, lolos 7
+  unit test, dan tampil benar di layar ("terpasang 7, sisa 3") — tetapi tidak pernah
+  menulis apa pun. Aplikasi men-`JSON.stringify` daftar material; route hanya menormalkan
+  field itu di cabang multipart, sehingga layanan menerima sebuah string, `.filter`
+  melempar, dan penjaga "penyelesaian tidak boleh gagal" menelan kesalahannya. Hasilnya 200
+  dengan kolom tetap `null`. Saya sempat menutup tugasnya dengan catatan "submit HTTP belum
+  pernah dieksekusi" — tepat di jalur yang rusak itu.
+- **Why:** unit test memanggil fungsi dengan bentuk data yang sudah benar; yang rusak justru
+  bentuk data di perbatasan HTTP, dan tidak ada tes yang melewatinya.
+- **How to apply:** untuk setiap fitur yang menulis data, jalankan sekali dari aplikasi
+  sampai tuntas lalu **periksa barisnya di database**. Jika sebuah blocker (mis. form minta
+  foto) menghalangi, cari jalan lain dulu — `adb push` sebuah gambar ke `/sdcard/Pictures`
+  plus media scan membuat tombol "Galeri" bisa dipakai dan membuka hampir semua form
+  berfoto. Jangan menutup tugas dengan "jalur ini belum diuji".
+
+## Penjaga try/catch yang menelan kesalahan harus mencetak pesannya
+
+- **Konteks (2026-10-08):** kegagalan pencatatan material tercatat sebagai
+  `[WARN] … {"args":[{}]}` karena sebuah `Error` ter-serialisasi menjadi `{}`. Log-nya ada,
+  tetapi tidak memberi tahu apa pun, dan bug-nya hidup berminggu-minggu.
+- **How to apply:** di blok catch yang sengaja tidak melempar ulang, tulis
+  `error instanceof Error ? error.message : String(error)` ke dalam string pesannya, bukan
+  mengoper objek Error sebagai argumen kedua.
+
+## Jangan `git stash` saat ada test run yang sedang jalan
+
+- **Konteks (2026-10-08):** saya stash untuk membandingkan baseline sementara dua `vitest run`
+  masih berjalan; hasil keduanya jadi tidak bisa dipercaya dan butuh beberapa putaran untuk
+  memulihkan keadaan.
+- **How to apply:** tunggu run selesai dulu. Untuk membandingkan baseline, pakai worktree
+  terpisah, bukan stash di working directory yang sedang dipakai.
