@@ -226,7 +226,11 @@ ALTER TABLE "work_order_updates" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 ALTER TABLE "work_orders" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
 
 -- AlterTable
+DO $$ BEGIN
+IF to_regclass('public."work_order_material_returns"') IS NOT NULL THEN
 ALTER TABLE "work_order_material_returns" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+END IF;
+END $$;
 
 -- AlterTable
 ALTER TABLE "Conversation" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
@@ -587,7 +591,11 @@ CREATE INDEX IF NOT EXISTS "work_order_updates_tenantId_idx" ON "work_order_upda
 CREATE INDEX IF NOT EXISTS "work_orders_tenantId_idx" ON "work_orders"("tenantId");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "work_order_material_returns_tenantId_idx" ON "work_order_material_returns"("tenantId");
+DO $$ BEGIN
+IF to_regclass('public."work_order_material_returns"') IS NOT NULL THEN
+EXECUTE 'CREATE INDEX IF NOT EXISTS "work_order_material_returns_tenantId_idx" ON "work_order_material_returns"("tenantId")';
+END IF;
+END $$;
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "Conversation_tenantId_idx" ON "Conversation"("tenantId");
@@ -1234,7 +1242,8 @@ END $$;
 
 -- AddForeignKey
 DO $$ BEGIN
-IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_material_returns_tenantId_fkey') THEN
+IF to_regclass('public."work_order_material_returns"') IS NOT NULL
+AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'work_order_material_returns_tenantId_fkey') THEN
 ALTER TABLE "work_order_material_returns" ADD CONSTRAINT "work_order_material_returns_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 END IF;
 END $$;

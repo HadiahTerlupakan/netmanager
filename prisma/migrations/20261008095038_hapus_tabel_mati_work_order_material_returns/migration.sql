@@ -1,3 +1,4 @@
+-- @safe-guard-ack: Tabel work_order_material_returns tidak pernah ditulis maupun dibaca kode mana pun; pengembalian barang menulis ke barang_masuk dan workOrderUpdates. Skemanya memuat status/verifiedById/verifiedAt sehingga menyesatkan pembaca seolah ada alur verifikasi retur. Tabel lokal kosong; isi produksi wajib dihitung sebelum deploy.
 /*
   Warnings:
 
