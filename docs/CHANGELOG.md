@@ -41,6 +41,41 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Pencatatan material terpasang (Tahap 2 alur barang)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/work-order`, `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: `usedMaterials` — meski namanya begitu — berisi barang yang **diambil**
+  dari gudang; tidak ada tempat mana pun yang mencatat berapa yang akhirnya terpasang.
+  Ambil 10 meter kabel, pasang 7, dan selisih 3 meter itu lenyap dari pembukuan.
+
+  Kolom `consumedMaterials` diisi dari laporan penyelesaian, dengan nilai awal terisi penuh
+  karena kasus tersering adalah semuanya terpakai. Sisanya **sengaja tidak dikembalikan
+  otomatis**: barangnya masih di mobil teknisi, dan menaikkan stok gudang saat itu juga
+  hanya memindahkan kebohongan angkanya. Sisa itu menggantung sebagai saldo di tangan
+  teknisi sampai benar-benar dikembalikan (opsi (a) yang dipilih user).
+
+  Jatah pengembalian kini `diambil − dipakai − dikembalikan`: barang yang sudah terpasang
+  di rumah pelanggan tidak bisa lagi "dikembalikan" ke gudang. Work order lama tanpa catatan
+  pemakaian menghasilkan nol, jadi perilakunya sama seperti sebelumnya — disengaja.
+- **Migration**: `20261008100445_tambah_consumed_materials_work_order`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-08] — Hapus tabel mati work_order_material_returns
+
+- **Tipe**: [REMOVED]
+- **Scope**: `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Tabel ini tidak pernah ditulis maupun dibaca oleh satu baris kode pun —
+  pengembalian barang menulis ke `barang_masuk` dan `workOrderUpdates`. Skemanya memuat
+  `status`, `verifiedById`, dan `verifiedAt`, sehingga siapa pun yang membacanya akan
+  menyimpulkan ada alur verifikasi retur yang sebenarnya tidak ada. Enum
+  `MaterialReturnStatus` ikut dihapus. Tabel lokal kosong saat migration dibuat; **isi
+  produksi belum diverifikasi**, jadi `migrate deploy` sebaiknya menunggu hitungan baris.
+- **Migration**: `20261008095038_hapus_tabel_mati_work_order_material_returns`
+- **Breaking**: ✅ Ya (tabel dihapus)
+
 ### [2026-10-08] — Riwayat pengajuan work order untuk pengaju
 
 - **Tipe**: [ADDED]
