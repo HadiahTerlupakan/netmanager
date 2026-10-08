@@ -41,6 +41,49 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-08] — Riwayat pengajuan work order untuk pengaju
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/mobile/work-orders/request`, `modules/work-order`, `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Endpoint pengajuan hanya punya POST, sehingga teknisi mengirim request lalu
+  tidak punya satu pun tempat untuk melihat nasibnya — tidak muncul di tab Tersedia, Aktif,
+  maupun Riwayat. Izin & Cuti, Lembur, dan Canvasing semuanya punya riwayat; hanya Request
+  WO yang tidak. `GET` baru mengembalikan seluruh pengajuan milik pengguna apa pun statusnya
+  (bukan hanya `REQUESTED`), karena justru nasib sesudahnya yang ingin diketahui. Riwayatnya
+  ditempatkan di layar Request WO mengikuti pola fitur sejenis, bukan sebagai tab keempat.
+  Penolakan (`CANCELLED` + `rejectionReason`) dibedakan dari pembatalan biasa, dan alasannya
+  ditampilkan karena itu satu-satunya hal yang bisa ditindaklanjuti pengaju.
+- **Files**: `app/api/mobile/work-orders/request/route.ts`,
+  `modules/work-order/repositories/work-order-repository-requests.ts`,
+  `src/components/organisms/work-order/RiwayatPengajuanWo.tsx`, `src/utils/statusPengajuanWo.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-08] — Sumbu pembatasan site disatukan untuk semua mutasi stok
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Tiap daftar inventory menebak sendiri sumbu pembatasannya: `transfer` dan
+  `keluar` tidak memuat sumbu gudang sama sekali, `masuk` memuat sebagian, hanya `barang`
+  yang lengkap. `PEMBATASAN_SITE_GUDANG` kini satu definisi yang dipakai kelimanya.
+  **Ini pelebaran, bukan pemulihan**: pemegang `barang:site_only` atau `gudang:site_only`
+  yang selama ini melihat seluruh daftar transfer dan barang keluar akan mulai melihat
+  site-nya saja.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-08] — Seed memberi m_work_order ke role TEKNISI
+
+- **Tipe**: [CHANGED]
+- **Scope**: `prisma/seed.ts`
+- **Author**: agent
+- **Deskripsi**: Role TEKNISI hasil seed tidak punya tab Work Order, menu cepatnya, maupun
+  tombol Request WO — teknisi tanpa akses work order adalah kontradiksi, dan setiap
+  lingkungan baru mengulang kebingungan yang sama (fitur ikut di token sesi, jadi
+  menyalakannya manual pun masih butuh login ulang). Hanya TEKNISI yang terpengaruh: SALES
+  menyaring daftar yang sama dengan `RESOURCE_MOBILE_SALES`.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-08] — Penjaga: resource pembatasan wajib ada di seed
 
 - **Tipe**: [ADDED]
