@@ -10,6 +10,52 @@ interface RequestFilterInput {
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
+/** Jumlah pengajuan terakhir yang ditampilkan di aplikasi mobile. */
+const BATAS_PENGAJUAN_SAYA = 50;
+
+/**
+ * Pengajuan work order yang dibuat oleh satu orang, apa pun statusnya sekarang.
+ *
+ * Sengaja tidak menyaring `status: "REQUESTED"`: justru nasib sesudahnya yang
+ * ingin diketahui pengaju. Penolakan menyimpan `CANCELLED` + `rejectionReason`,
+ * persetujuan memindahkan statusnya ke alur normal — keduanya hanya terlihat
+ * kalau seluruh riwayat ikut dikembalikan.
+ */
+export async function findRequestsByRequester(input: {
+  prisma: PrismaClient;
+  requestedById: string;
+}): Promise<
+  Array<
+    Pick<
+      WorkOrders,
+      | "id"
+      | "workOrderNumber"
+      | "title"
+      | "type"
+      | "status"
+      | "rejectionReason"
+      | "createdAt"
+      | "approvedAt"
+    >
+  >
+> {
+  return input.prisma.workOrders.findMany({
+    where: { requestedById: input.requestedById },
+    select: {
+      id: true,
+      workOrderNumber: true,
+      title: true,
+      type: true,
+      status: true,
+      rejectionReason: true,
+      createdAt: true,
+      approvedAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: BATAS_PENGAJUAN_SAYA,
+  });
+}
+
 /** Ambil daftar work order request dengan filter ringkas. */
 export async function findRequestedWorkOrders(
   prisma: PrismaClient,

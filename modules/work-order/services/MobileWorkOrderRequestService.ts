@@ -5,6 +5,7 @@ import { prisma } from "@/modules/database";
 import { createNotification, sendPushToUsers } from "@/modules/notification";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import type { CreateWorkOrderData } from "../domain/ports/IWorkOrderRepository";
+import { findRequestsByRequester } from "../repositories/work-order-repository-requests";
 
 export interface MobileWorkOrderRequestBody {
   type: CreateWorkOrderData["type"];
@@ -38,6 +39,32 @@ export class MobileWorkOrderRequestService {
   constructor(prismaClient: PrismaClient = prisma) {
     this.prisma = prismaClient;
     this.workOrderRepo = new WorkOrderRepository(prismaClient);
+  }
+
+  /**
+   * Pengajuan yang dibuat pengguna ini, beserta nasibnya.
+   *
+   * Tanpa ini aplikasi mobile adalah jalur buntu: teknisi mengirim request lalu
+   * tidak punya satu pun tempat untuk melihat apakah disetujui, ditolak, atau
+   * belum disentuh. Izin & Cuti, Lembur, dan Canvasing semuanya punya riwayat;
+   * hanya Request WO yang tidak.
+   */
+  async listMyRequests(userId: string) {
+    const pengajuan = await findRequestsByRequester({
+      prisma: this.prisma,
+      requestedById: userId,
+    });
+
+    return pengajuan.map((wo) => ({
+      id: wo.id,
+      workOrderNumber: wo.workOrderNumber,
+      title: wo.title,
+      type: wo.type,
+      status: wo.status,
+      rejectionReason: wo.rejectionReason,
+      createdAt: wo.createdAt,
+      approvedAt: wo.approvedAt,
+    }));
   }
 
   async createRequest(

@@ -2,6 +2,24 @@ import { apiSuccess, apiError, createHandler, ErrorCodes } from "@/lib/api";
 import { getMobileWorkOrderRequestService } from "@/modules/work-order";
 
 /**
+ * GET /api/mobile/work-orders/request
+ * Daftar pengajuan milik pengguna sendiri, beserta nasibnya.
+ *
+ * Hanya `m_work_order:read` yang dibutuhkan: ini membaca pengajuan sendiri,
+ * bukan antrean persetujuan admin.
+ */
+export const GET = createHandler(
+  { auth: true, permissions: ["m_work_order:read"] },
+  async (_req, ctx) => {
+    const pengajuan = await getMobileWorkOrderRequestService().listMyRequests(
+      ctx.session!.user.id,
+    );
+
+    return apiSuccess(pengajuan);
+  },
+);
+
+/**
  * POST /api/mobile/work-orders/request
  * Create a Work Order Request from Mobile App
  */
