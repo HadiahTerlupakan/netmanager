@@ -83,6 +83,24 @@ function getSessionAssignedSiteIds(user: UserSession): string[] {
 }
 
 /**
+ * Sumbu pembatasan yang berlaku untuk seluruh pergerakan stok.
+ *
+ * Setiap daftar inventory punya sumbunya sendiri (`masuk:`, `keluar:`,
+ * `transfer:`), tetapi semuanya pada akhirnya berbicara tentang gudang. Orang
+ * yang dibatasi per-site untuk gudang atau barang tidak seharusnya melihat
+ * mutasi gudang site lain hanya karena sumbu spesifik mutasi itu tidak
+ * dinyalakan admin.
+ *
+ * Disatukan di sini supaya tiap daftar tidak lagi menebak sendiri — dulu
+ * `transfer` dan `keluar` tidak memuat sumbu gudang sama sekali, sementara
+ * `masuk` memuat sebagian.
+ */
+export const PEMBATASAN_SITE_GUDANG = [
+  "barang:site_only",
+  "gudang:site_only",
+] as const;
+
+/**
  * Validate site-scoped akses user ke Gudang berdasarkan RBAC dan Site restrictions.
  */
 export async function validateGudangSiteAccess(

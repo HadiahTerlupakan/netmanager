@@ -3,8 +3,12 @@ import type { KondisiBarang } from "../types/asset.enums";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
+import { PEMBATASAN_SITE_GUDANG } from "../utils/validation";
 
-const KELUAR_RESTRICTED_PERMISSIONS = ["keluar:site_only"];
+const KELUAR_RESTRICTED_PERMISSIONS = [
+  "keluar:site_only",
+  ...PEMBATASAN_SITE_GUDANG,
+];
 const DEFAULT_KONDISI_BARANG = "BARU" as KondisiBarang;
 
 interface InventoryKeluarRepositoryPort {

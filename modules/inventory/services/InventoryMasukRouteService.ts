@@ -8,8 +8,12 @@ import {
   getInventoryStockMovementService,
   type InventoryStockMovementService,
 } from "./InventoryStockMovementService";
+import { PEMBATASAN_SITE_GUDANG } from "../utils/validation";
 
-const MASUK_RESTRICTED_PERMISSIONS = ["masuk:site_only", "gudang:site_only"];
+const MASUK_RESTRICTED_PERMISSIONS = [
+  "masuk:site_only",
+  ...PEMBATASAN_SITE_GUDANG,
+];
 const DEFAULT_KONDISI_BARANG = "BARU" as KondisiBarang;
 const MASUK_NOT_FOUND_ERROR = "Record barang masuk tidak ditemukan";
 const NEGATIVE_STOCK_ERROR = "Stok tidak bisa negatif";
