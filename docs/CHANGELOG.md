@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-09] — Absensi memakai util label lokasi bersama
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(app)/absensi.tsx`
+- **Author**: agent
+- **Deskripsi**: Layar Absensi masih memakai kode lokasinya sendiri, bukan
+  `src/utils/labelLokasi.ts` yang dibuat untuk layar Lembur, sehingga tiga keadaan
+  dilaporkan keliru. (1) GPS yang menyala tapi belum memberi fix disebut "GPS perangkat
+  tidak aktif" — expo-location memakai kalimat "…make sure that location services are
+  enabled" juga untuk kegagalan fix, padahal layanan lokasi sudah diperiksa menyala
+  sebelum posisi diminta, jadi pengguna disuruh menyalakan GPS yang sudah menyala.
+  Sekarang "Sinyal GPS belum didapat", sama dengan Lembur. (2) `getCurrentPositionAsync`
+  dipanggil tanpa tenggat sehingga di dalam ruangan layar bisa berhenti di "Mencari
+  lokasi..." selamanya; kini dibungkus `denganBatasWaktu` (15 detik). (3) Label alamat
+  dirakit dengan template mentah sehingga geocode yang mengembalikan entri kosong
+  menghasilkan label " ,"; kini lewat `labelLokasi()` yang jatuh ke koordinat.
+  Izin lokasi yang ditolak juga kini mengubah label, tidak hanya memunculkan Alert.
+  Pesan "GPS perangkat tidak aktif" tetap dipakai saat layanan lokasi memang mati.
+  Ditemukan saat QA persona STAFF; dibuktikan dengan membandingkan Absensi dan Lembur
+  pada kondisi perangkat yang sama persis.
+- **Files**: `mobile-netmanager/app/(app)/absensi.tsx`,
+  `mobile-netmanager/__tests__/app/absensi-label-lokasi.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-09] — Laporan rujukan URL upload di database
 
 - **Tipe**: [ADDED]
