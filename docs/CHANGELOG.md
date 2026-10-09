@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-09] — Laporan penyelesaian WO offline tidak lagi kehilangan foto
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(app)/complete-work-order/`
+- **Author**: agent
+- **Deskripsi**: Pemeriksaan lanjutan atas keempat pemanggil `meta.photoMap` setelah
+  perbaikan izin. Hasilnya: **canvasing, lembur, dan chat aman** — nama kunci
+  photoMap-nya persis sama dengan medan yang dibaca endpoint (`foto`/`fotoKtp`, `photo`,
+  `imageUrl`). **Laporan penyelesaian work order rusak**: ia mengantre
+  `photoMap: { photo1, photo2, … }` bersama `targetField: "photoUrls"`, padahal
+  `targetField` hanya berlaku untuk `meta.photos` sehingga diabaikan. Server hanya
+  membaca `payload.photoUrls`, jadi laporan yang dikirim offline tersimpan sebagai
+  COMPLETED dengan **nol lampiran** — dan tidak ada satu pun pesan yang mengoreksinya:
+  SyncService melaporkan "Item synced successfully", teknisi mengira fotonya terkirim,
+  admin melihat WO selesai tanpa bukti. Lebih buruk daripada kasus izin yang setidaknya
+  ditolak 400. Kini memakai bentuk array `meta.photos`, yang menulis ke `photoUrls` dan
+  tetap membawa watermark saat diputar ulang.
+  Dibuktikan di emulator: sebelum perbaikan WO-QA-0002 selesai dengan 0 lampiran
+  (bandingkan WO-QA-0001 yang diselesaikan online: 2 lampiran); sesudahnya 1 lampiran
+  tersimpan di `tenants/<id>/workorder/completion/`.
+- **Files**: `mobile-netmanager/app/(app)/complete-work-order/[id].tsx`,
+  `mobile-netmanager/__tests__/hooks/useApiMutation.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-09] — Pengajuan izin offline akhirnya benar-benar terkirim
 
 - **Tipe**: [FIXED]
