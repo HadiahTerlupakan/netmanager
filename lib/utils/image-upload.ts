@@ -27,6 +27,7 @@ export type UploadType =
   | "workorder-completion"
   | "work-order-updates"
   | "tickets"
+  | "chat"
   | "user-profile"
   | "marketing"
   | "presurvei"

@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-09] — Gambar chat disimpan di folder chat, bukan folder umum
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/mobile/upload`, `lib/utils/`
+- **Author**: agent
+- **Deskripsi**: Ada dua jalur unggah untuk gambar chat: rute khusus
+  `/api/mobile/chat/upload` yang dipakai `ChatService` dan menulis ke
+  `uploads/chat/` ber-namespace tenant, serta rute generik `/api/mobile/upload` yang
+  dipakai layar chat (karena antrean offline-nya lewat `meta.photoMap`). Tipe `chat`
+  tidak dikenal di rute generik — tidak ada di union `UploadType`, tidak ada case di
+  `resolveUploadDir` maupun `generateR2Key` — sehingga berkasnya jatuh ke
+  `mobile/general`. Jenis berkas yang sama berakhir di dua tempat berbeda tergantung
+  jalur mana yang dipakai. Sama seperti perbaikan `employee-leave` sebelumnya.
+  Ditemukan dari log unggahan saat QA kirim gambar chat.
+- **Files**: `lib/utils/image-upload.ts`, `lib/utils/r2-client.ts`,
+  `app/api/mobile/upload/route-handlers-impl.ts`,
+  `tests/api/mobile-upload-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-09] — Laporan penyelesaian WO offline tidak lagi kehilangan foto
 
 - **Tipe**: [FIXED]

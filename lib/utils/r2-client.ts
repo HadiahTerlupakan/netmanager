@@ -563,6 +563,7 @@ export function generateR2Key(
     | "workorder-completion"
     | "work-order-updates"
     | "tickets"
+    | "chat"
     | "user-profile"
     | "app-version"
     | "marketing"
@@ -644,6 +645,15 @@ export function generateR2Key(
         return `uploads/presurvei/kegiatan/${subFolder}/${timestamp}-${sanitizedFilename}`;
       }
       return `uploads/presurvei/kegiatan/${timestamp}-${sanitizedFilename}`;
+    // Layar chat mengunggah lewat rute generik (karena antrean offline-nya
+    // memakai `meta.photoMap`), sementara `ChatService` memakai rute khusus
+    // `/api/mobile/chat/upload` yang menulis ke `uploads/chat/`. Tanpa case
+    // ini keduanya berakhir di tempat berbeda untuk jenis berkas yang sama.
+    case "chat":
+      if (subFolder) {
+        return `uploads/chat/${subFolder}/${timestamp}-${sanitizedFilename}`;
+      }
+      return `uploads/chat/${timestamp}-${sanitizedFilename}`;
     case "map-nodes":
       if (subFolder) {
         return `uploads/map-nodes/${subFolder}/${timestamp}-${sanitizedFilename}`;

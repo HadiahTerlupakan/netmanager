@@ -289,4 +289,38 @@ describe("mobile upload route", () => {
       undefined,
     );
   });
+
+  // Layar chat mengunggah lewat rute generik ini (antrean offline-nya memakai
+  // `meta.photoMap`), sementara `ChatService` memakai rute khusus
+  // `/api/mobile/chat/upload` yang menulis ke `uploads/chat/`. Tanpa case
+  // `chat`, berkas dari layar jatuh ke `mobile/general` — jenis berkas yang
+  // sama berakhir di dua tempat berbeda.
+  it("menyimpan gambar chat di folder chat", async () => {
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "kiriman.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+    formData.set("type", "chat");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/upload", {
+        method: "POST",
+        body: formData,
+        headers: { host: "localhost:3000", "x-forwarded-proto": "https" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFns.convertAndSaveImage).toHaveBeenCalledWith(
+      expect.anything(),
+      path.join("public", "uploads", "tenants", "tenant-1", "chat"),
+      expect.any(String),
+      "chat",
+      undefined,
+      undefined,
+    );
+  });
 });

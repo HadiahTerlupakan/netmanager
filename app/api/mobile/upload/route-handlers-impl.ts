@@ -56,6 +56,8 @@ function resolveUploadDir(type: UploadType) {
       return path.join("public", "uploads", "workorder", "completion");
     case "marketing":
       return path.join("public", "uploads", "marketing", "canvasing");
+    case "chat":
+      return path.join("public", "uploads", "chat");
     case "tickets":
       return path.join("public", "uploads", "tickets");
     case "presurvei":
