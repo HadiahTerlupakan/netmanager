@@ -1,3 +1,4 @@
+import { AppError } from "@/lib/errors";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 
 import type { OvertimeEntity } from "../domain/entities/OvertimeEntity";
@@ -24,8 +25,13 @@ export class OvertimeServiceAccess {
       return;
     }
 
-    throw new Error(
+    // `Error` biasa terklasifikasi 500 oleh handler, sehingga teknisi hanya
+    // melihat "Terjadi kesalahan pada server" dan pemantauan mengira server
+    // rusak — padahal penjaga ini bekerja persis sebagaimana mestinya.
+    throw new AppError(
       "Anda sudah memiliki pengajuan lembur untuk hari ini. Lembur hanya dapat diajukan 1x per hari.",
+      409,
+      "CONFLICT",
     );
   }
 

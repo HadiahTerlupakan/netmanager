@@ -43,6 +43,11 @@ function resolveUploadDir(type: UploadType) {
       return path.join("public", "uploads", "inventory", "masuk");
     case "inventory-keluar":
       return path.join("public", "uploads", "inventory", "keluar");
+    // Tanpa case ini lampiran izin jatuh ke `mobile/general` di disk lokal
+    // sementara kunci R2-nya tetap `uploads/employee/leave/…` — satu jenis
+    // berkas berakhir di dua tempat berbeda tergantung backend penyimpanan.
+    case "employee-leave":
+      return path.join("public", "uploads", "employee", "leave");
     case "employee-attendance":
       return path.join("public", "uploads", "employee", "attendance");
     case "work-order-updates":

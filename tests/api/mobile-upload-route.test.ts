@@ -251,4 +251,42 @@ describe("mobile upload route", () => {
       undefined,
     );
   });
+
+  // Jenis ini dikirim oleh form Izin & Cuti. Tanpa case-nya, berkas jatuh ke
+  // `mobile/general` di disk sementara kunci R2 tetap `uploads/employee/leave/`.
+  it("menyimpan lampiran izin di folder employee/leave", async () => {
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "surat-dokter.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+    formData.set("type", "employee-leave");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/upload", {
+        method: "POST",
+        body: formData,
+        headers: { host: "localhost:3000", "x-forwarded-proto": "https" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFns.convertAndSaveImage).toHaveBeenCalledWith(
+      expect.anything(),
+      path.join(
+        "public",
+        "uploads",
+        "tenants",
+        "tenant-1",
+        "employee",
+        "leave",
+      ),
+      expect.any(String),
+      "employee-leave",
+      undefined,
+      undefined,
+    );
+  });
 });

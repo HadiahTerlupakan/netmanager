@@ -67,6 +67,7 @@ vi.mock("@/lib/prisma", async () => {
 });
 
 import { OvertimeService } from "@/modules/overtime/services/OvertimeService";
+import { AppError } from "@/lib/errors";
 
 describe("OvertimeService", () => {
   let service: OvertimeService;
@@ -81,6 +82,32 @@ describe("OvertimeService", () => {
   });
 
   describe("createRequest", () => {
+    // Penjaga duplikat sebelumnya melempar `Error` biasa, yang terklasifikasi
+    // 500 oleh handler API. Teknisi hanya melihat "Terjadi kesalahan pada
+    // server" dan pemantauan mengira server rusak — padahal penjaganya bekerja.
+    it("menolak pengajuan kedua di hari yang sama sebagai konflik, bukan 500", async () => {
+      mockOvertimeRepo.findActiveRequestByDate.mockResolvedValueOnce({
+        id: "overtime-sudah-ada",
+        status: OvertimeStatus.PENDING,
+      } as never);
+
+      await expect(
+        service.createRequest("user-1", {
+          date: new Date(),
+          reason: "Duplikat",
+          tenantId: "tenant-1",
+        }),
+      ).rejects.toSatisfy(
+        (error: unknown) =>
+          error instanceof AppError &&
+          error.statusCode === 409 &&
+          error.code === "CONFLICT" &&
+          /1x per hari/.test(error.message),
+      );
+
+      expect(mockOvertimeRepo.create).not.toHaveBeenCalled();
+    });
+
     it("should create overtime request successfully", async () => {
       mockOvertimeRepo.findActiveRequestByDate.mockResolvedValueOnce(null);
       mockOvertimeRepo.create.mockResolvedValueOnce({

@@ -41,6 +41,38 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-09] — Pengajuan lembur ganda ditolak sebagai konflik, bukan 500
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/overtime`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat QA lembur teknisi. Penjaga "1x per hari" bekerja dengan
+  benar, tetapi melempar `Error` biasa — handler API mengklasifikasikannya sebagai 500,
+  jadi teknisi hanya melihat "Terjadi kesalahan pada server" dan tidak pernah tahu bahwa
+  ia sudah mengajukan hari itu. Pemantauan pun mengira server rusak padahal penjaganya
+  justru berfungsi. Kini `AppError(…, 409, "CONFLICT")`, sehingga pesan aslinya sampai ke
+  pengguna. Terbukti lewat curl: sebelumnya `500 {"error":"Terjadi kesalahan pada
+  server"}`, sesudahnya `409 {"error":"Anda sudah memiliki pengajuan lembur untuk hari
+  ini…","code":"CONFLICT"}`. Kelas yang sama pernah diperbaiki untuk batas pengembalian
+  material.
+- **Files**: `modules/overtime/services/OvertimeService.access.ts`,
+  `tests/modules/overtime/OvertimeService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-09] — Lampiran izin disimpan di folder yang benar
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/mobile/upload`
+- **Author**: agent
+- **Deskripsi**: `resolveUploadDir` tidak punya case untuk `employee-leave`, sehingga
+  lampiran Izin & Cuti jatuh ke `mobile/general` di disk lokal sementara kunci R2-nya
+  tetap `uploads/employee/leave/…` — satu jenis berkas berakhir di dua tempat berbeda
+  tergantung backend penyimpanan. Ditemukan dari log unggahan saat QA
+  (`Uploading employee-leave` → `…/mobile/general/…`).
+- **Files**: `app/api/mobile/upload/route-handlers-impl.ts`,
+  `tests/api/mobile-upload-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-09] — Isolasi tenant untuk berkas upload
 
 - **Tipe**: [SECURITY]
