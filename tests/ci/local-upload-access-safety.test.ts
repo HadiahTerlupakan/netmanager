@@ -78,4 +78,20 @@ describe("local upload access safety", () => {
       'JSON.stringify({ error: "File tidak ditemukan" })',
     );
   });
+
+  // Berkas pribadi di R2 kini dirujuk lewat jalur ini, bukan URL publik bucket.
+  // Isinya hanya boleh dialirkan setelah penjaga sesi dan tenant terlewati.
+  it("streams private R2 objects only after both guards", () => {
+    const serverFile = readServerFile();
+
+    expect(serverFile).toContain("downloadFromR2(kunciR2)");
+
+    const tenantGateIndex = serverFile.indexOf(
+      "if (!bolehBacaJalurUpload(pembaca, jalurUpload)) {",
+    );
+    const r2Index = serverFile.indexOf("downloadFromR2(kunciR2)");
+
+    expect(r2Index).toBeGreaterThan(-1);
+    expect(r2Index).toBeGreaterThan(tenantGateIndex);
+  });
 });

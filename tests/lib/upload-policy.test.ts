@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isPublicUploadPath,
+  isR2KeyPublic,
   kanonikJalurUpload,
   sanitizeUploadFolder,
   subFolderUploadAman,
@@ -172,5 +173,35 @@ describe("sub folder upload aman", () => {
     expect(subFolderUploadAman("   ")).toBeNull();
     expect(subFolderUploadAman(undefined)).toBeNull();
     expect(subFolderUploadAman("a".repeat(65))).toBeNull();
+  });
+});
+
+describe("kunci R2 publik", () => {
+  // Bucket R2 disajikan lewat URL publik tanpa autentikasi apa pun, jadi
+  // berkas pribadi tidak boleh dirujuk dari sana.
+  it("berkas pribadi tidak publik", () => {
+    expect(isR2KeyPublic("uploads/marketing/canvasing/ktp.webp")).toBe(false);
+    expect(
+      isR2KeyPublic("uploads/tenants/tenant-a/marketing/canvasing/ktp.webp"),
+    ).toBe(false);
+    expect(isR2KeyPublic("uploads/workorder/completion/a.webp")).toBe(false);
+    expect(isR2KeyPublic("uploads/employee/leave/surat.webp")).toBe(false);
+  });
+
+  // Foto absensi dan logo memang sudah publik; rilis aplikasi diunduh updater
+  // yang belum tentu memegang sesi.
+  it("absensi, logo, dan rilis aplikasi tetap publik", () => {
+    expect(isR2KeyPublic("uploads/employee/attendance/a.webp")).toBe(true);
+    expect(
+      isR2KeyPublic("uploads/tenants/tenant-a/employee/attendance/a.webp"),
+    ).toBe(true);
+    expect(isR2KeyPublic("uploads/logos/logo.png")).toBe(true);
+    expect(isR2KeyPublic("uploads/app-version/app.apk")).toBe(true);
+  });
+
+  it("kunci di luar uploads tidak dianggap publik", () => {
+    expect(isR2KeyPublic("lain/employee/attendance/a.webp")).toBe(false);
+    expect(isR2KeyPublic("")).toBe(false);
+    expect(isR2KeyPublic(undefined)).toBe(false);
   });
 });

@@ -187,7 +187,36 @@ app.prepare().then(() => {
           return;
         }
       } catch {
-        // Berkas tidak ada di jalur kanonik.
+        // Berkas tidak ada di disk; mungkin tersimpan di R2.
+      }
+
+      // Berkas pribadi di R2 dirujuk lewat jalur ini, bukan lewat URL publik
+      // bucket — URL publik tidak mengenal sesi maupun tenant sama sekali.
+      // Isinya baru dialirkan setelah kedua penjaga di atas terlewati.
+      try {
+        const { isR2Enabled, downloadFromR2 } =
+          await import("./lib/utils/r2-client");
+
+        if (await isR2Enabled()) {
+          // Kunci R2 memakai jalur lengkap termasuk awalan `uploads/`, berbeda
+          // dari `relativePath` yang relatif terhadap direktori uploads lokal.
+          const kunciR2 = jalurUpload.replace(/^\//, "");
+          const objek = await downloadFromR2(kunciR2);
+          if (objek) {
+            res.writeHead(200, {
+              "Content-Type": getMimeType(requestedPath),
+              "Content-Length": objek.length,
+            });
+            res.end(objek);
+            return;
+          }
+        }
+      } catch (error) {
+        logger.warn(
+          `[Server] Gagal mengambil ${jalurUpload} dari R2: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
 
       // Tidak diteruskan ke Next.js. `public/` adalah direktori statisnya, dan

@@ -145,6 +145,7 @@ describe("MobileAttendanceCheckInRouteService", () => {
           location: "Kantor",
           latitude: -6.2,
           longitude: 106.8,
+          photoUrl: "/uploads/check-in.jpg",
         }),
       },
     );
@@ -176,7 +177,12 @@ describe("MobileAttendanceCheckInRouteService", () => {
           "content-type": "application/json",
           "idempotency-key": "request-1",
         },
-        body: JSON.stringify({ location: "Kantor" }),
+        body: JSON.stringify({
+          location: "Kantor",
+          latitude: -6.2,
+          longitude: 106.8,
+          photoUrl: "/uploads/check-in.jpg",
+        }),
       },
     );
 
@@ -189,6 +195,59 @@ describe("MobileAttendanceCheckInRouteService", () => {
       success: true,
       data: { success: true, data: { id: "old" } },
       idempotentReplay: true,
+    });
+    expect(attendance.checkIn).not.toHaveBeenCalled();
+  });
+
+  // Foto selfie dan koordinat adalah inti kontrol kehadiran: aplikasi menolak
+  // mengirim tanpa keduanya dan `/api/mobile/geofence` mengumumkan
+  // `requirePhoto: true`, tetapi server dulu tidak memeriksanya sama sekali.
+  // Check-in tanpa foto tetap diterima, sehingga gerbang deteksi wajah bisa
+  // dilewati hanya dengan memanggil endpoint ini langsung.
+  it("menolak check-in tanpa foto selfie", async () => {
+    const { attendance, service } = createService();
+    const request = new Request(
+      "http://localhost/api/mobile/attendance/check-in",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", host: "localhost:3000" },
+        body: JSON.stringify({ latitude: -6.2, longitude: 106.8 }),
+      },
+    );
+
+    const hasil = await service.checkIn({
+      request,
+      user: { id: "user-1", tenantId: "tenant-1" } as never,
+    });
+
+    expect(hasil).toMatchObject({
+      success: false,
+      status: 400,
+      code: "PHOTO_REQUIRED",
+    });
+    expect(attendance.checkIn).not.toHaveBeenCalled();
+  });
+
+  it("menolak check-in tanpa koordinat", async () => {
+    const { attendance, service } = createService();
+    const request = new Request(
+      "http://localhost/api/mobile/attendance/check-in",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", host: "localhost:3000" },
+        body: JSON.stringify({ photoUrl: "/uploads/check-in.jpg" }),
+      },
+    );
+
+    const hasil = await service.checkIn({
+      request,
+      user: { id: "user-1", tenantId: "tenant-1" } as never,
+    });
+
+    expect(hasil).toMatchObject({
+      success: false,
+      status: 400,
+      code: "LOCATION_REQUIRED",
     });
     expect(attendance.checkIn).not.toHaveBeenCalled();
   });

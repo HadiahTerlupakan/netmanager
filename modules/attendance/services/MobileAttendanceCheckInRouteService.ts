@@ -92,6 +92,20 @@ export class MobileAttendanceCheckInRouteService {
       });
 
       const payload = parsedPayload.data;
+
+      const kelengkapan = this.periksaBuktiKehadiran(payload);
+      if (kelengkapan) {
+        logger.warn(
+          "MobileCheckInRouteService: Bukti kehadiran tidak lengkap",
+          {
+            userId,
+            hasPhotoUrl: !!payload.photoUrl,
+            hasCoordinates: !!(payload.latitude && payload.longitude),
+          },
+        );
+        return kelengkapan;
+      }
+
       resolvedRequestId = this.idempotencyService.resolveRequestId(
         input.request,
         payload,
@@ -137,6 +151,40 @@ export class MobileAttendanceCheckInRouteService {
 
       return this.mapCheckInError(error);
     }
+  }
+
+  /**
+   * Foto selfie dan koordinat adalah inti kontrol kehadiran: aplikasi menolak
+   * mengirim tanpa keduanya, dan `/api/mobile/geofence` mengumumkan
+   * `requirePhoto: true`. Server sendiri dulu tidak memeriksanya, sehingga
+   * check-in tanpa foto dan tanpa lokasi tetap diterima — seluruh gerbang
+   * deteksi wajah bisa dilewati hanya dengan memanggil endpoint ini langsung.
+   */
+  private periksaBuktiKehadiran(
+    payload: MobileCheckInParsedPayload,
+  ): MobileAttendanceCheckInRouteFailure | null {
+    if (!payload.photoUrl) {
+      return {
+        success: false,
+        status: 400,
+        code: "PHOTO_REQUIRED",
+        error: "Foto selfie wajib disertakan saat check-in",
+      };
+    }
+
+    if (
+      typeof payload.latitude !== "number" ||
+      typeof payload.longitude !== "number"
+    ) {
+      return {
+        success: false,
+        status: 400,
+        code: "LOCATION_REQUIRED",
+        error: "Lokasi wajib disertakan saat check-in",
+      };
+    }
+
+    return null;
   }
 
   private async performCheckIn(input: {

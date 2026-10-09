@@ -74,6 +74,9 @@ describe("mobile attendance route parity", () => {
         body: JSON.stringify({
           location: "HQ",
           capturedAt,
+          latitude: -6.2,
+          longitude: 106.8,
+          photoUrl: "/uploads/check-in.jpg",
         }),
       }),
       {
@@ -129,6 +132,9 @@ describe("mobile attendance route parity", () => {
         body: JSON.stringify({
           location: "HQ",
           capturedAt,
+          latitude: -6.2,
+          longitude: 106.8,
+          photoUrl: "/uploads/check-in.jpg",
         }),
       }),
       {
@@ -219,6 +225,9 @@ describe("mobile attendance route parity", () => {
         },
         body: JSON.stringify({
           location: "HQ",
+          latitude: -6.2,
+          longitude: 106.8,
+          photoUrl: "/uploads/check-in.jpg",
         }),
       }),
       {
@@ -249,6 +258,9 @@ describe("mobile attendance route parity", () => {
         },
         body: JSON.stringify({
           location: "HQ",
+          latitude: -6.2,
+          longitude: 106.8,
+          photoUrl: "/uploads/check-in.jpg",
         }),
       }),
       {
@@ -285,6 +297,9 @@ describe("mobile attendance route parity", () => {
         },
         body: JSON.stringify({
           location: "HQ",
+          latitude: -6.2,
+          longitude: 106.8,
+          photoUrl: "/uploads/check-in.jpg",
         }),
       }),
       {
@@ -323,6 +338,9 @@ describe("mobile attendance route parity", () => {
         },
         body: JSON.stringify({
           location: "HQ",
+          latitude: -6.2,
+          longitude: 106.8,
+          photoUrl: "/uploads/check-in.jpg",
         }),
       }),
       {
@@ -365,6 +383,8 @@ describe("mobile attendance route parity", () => {
         body: JSON.stringify({
           location: "HQ",
           photoUrl: "/uploads/attendance.jpg",
+          latitude: -6.2,
+          longitude: 106.8,
         }),
       }),
       {
@@ -410,6 +430,8 @@ describe("mobile attendance route parity", () => {
         body: JSON.stringify({
           location: "HQ",
           photoUrl: "/uploads/attendance.jpg",
+          latitude: -6.2,
+          longitude: 106.8,
         }),
       }),
       {

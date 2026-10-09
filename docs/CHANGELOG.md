@@ -41,6 +41,62 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-09] — Berkas pribadi di R2 tidak lagi disajikan dari URL publik
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/upload/`, `lib/utils/image-upload.ts`, `server.ts`
+- **Author**: agent
+- **Deskripsi**: `uploadToR2` mengembalikan URL publik bucket, dan URL itulah yang
+  tersimpan di database serta dikirim ke klien. URL publik tidak mengenal sesi maupun
+  tenant, jadi KTP calon pelanggan, foto penyelesaian WO, dan lampiran izin bisa dibuka
+  siapa pun yang tahu alamatnya — tanpa login sama sekali. Namespace tenant yang
+  ditambahkan sebelumnya hanya merapikan tata letak, tidak menutup akses itu.
+  Sekarang hanya kunci yang memang publik (foto absensi, logo, berkas rilis aplikasi)
+  yang memakai URL bucket; selebihnya dirujuk lewat `/uploads/...` milik aplikasi, dan
+  isinya baru dialirkan dari R2 setelah penjaga sesi dan penjaga tenant terlewati.
+  Berkas rilis aplikasi sengaja tetap publik karena pengunduhnya adalah updater yang
+  belum tentu memegang sesi.
+- **Files**: `lib/upload/upload-policy.ts`, `lib/utils/image-upload.ts`, `server.ts`,
+  `tests/lib/upload-policy.test.ts`, `tests/ci/local-upload-access-safety.test.ts`
+- **Breaking**: ❌ Tidak
+- **Catatan**: URL R2 absolut yang terlanjur tersimpan di database tetap publik; menutup
+  sisa itu butuh migrasi data tersendiri.
+
+### [2026-10-09] — Check-in absensi menolak kiriman tanpa selfie dan lokasi
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: `/api/mobile/geofence` mengumumkan `requirePhoto: true` dan aplikasi
+  menolak mengirim tanpa foto maupun lokasi, tetapi server sendiri tidak pernah
+  memeriksanya: check-in dengan body `{}` tetap diterima 200 dan tersimpan dengan
+  `checkInPhoto: null`. Seluruh gerbang deteksi wajah karena itu bisa dilewati hanya
+  dengan memanggil endpoint ini langsung — pada sistem yang dipakai menghitung kehadiran.
+  Kini ditolak 400 dengan kode `PHOTO_REQUIRED` dan `LOCATION_REQUIRED`; jalur lengkap
+  tetap berjalan seperti biasa (terbukti via curl).
+- **Files**: `modules/attendance/services/MobileAttendanceCheckInRouteService.ts`,
+  `tests/modules/attendance/MobileAttendanceCheckInRouteService.test.ts`,
+  `tests/api/mobile-attendance-route-parity.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-09] — Skrip pencabutan presurvei dan laporan upload tanpa namespace
+
+- **Tipe**: [ADDED]
+- **Scope**: `scripts/`
+- **Author**: agent
+- **Deskripsi**: Dua alat operasional. `cabut-presurvei-dari-teknisi.ts` mencabut resource
+  khusus sales dari role TEKNISI yang terlanjur dibuat sebelum seed diperbaiki — punya
+  mode kering, hanya menyentuh role bernama TEKNISI, dan berjalan lewat
+  `runAsSystemContext` karena lintas tenant. Diuji lokal: mendeteksi 18 izin pada 1 role,
+  mencabutnya, dan meninggalkan SALES serta SUPER_ADMIN utuh.
+  `laporan-upload-tanpa-tenant.ts` menghitung berkas upload yang belum ber-namespace
+  tenant per folder — hanya melapor, tidak memindahkan, karena rujukan URL tersebar di
+  lebih dari 20 kolom dan memindah berkas tanpa memperbarui semuanya akan membuat foto
+  menjadi yatim.
+- **Files**: `scripts/cabut-presurvei-dari-teknisi.ts`,
+  `scripts/laporan-upload-tanpa-tenant.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-09] — Pengajuan lembur ganda ditolak sebagai konflik, bukan 500
 
 - **Tipe**: [FIXED]

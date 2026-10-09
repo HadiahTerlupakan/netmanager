@@ -1,5 +1,8 @@
 import { logger } from "@/lib/logger";
-import { tenantDariDirektoriUpload } from "@/lib/upload/upload-policy";
+import {
+  isR2KeyPublic,
+  tenantDariDirektoriUpload,
+} from "@/lib/upload/upload-policy";
 import sharp from "sharp";
 import { writeFile, mkdir, rm } from "fs/promises";
 import path from "path";
@@ -155,6 +158,20 @@ export async function convertAndSaveBase64(
  * penanda tenant sama sekali, sehingga file lintas tenant berbagi satu
  * namespace dan tidak ada yang bisa ditegakkan di sisi pembacaan.
  */
+/**
+ * URL yang dipakai klien untuk sebuah objek R2.
+ *
+ * Bucket R2 disajikan lewat URL publik tanpa autentikasi apa pun, jadi
+ * mengembalikan URL itu untuk berkas pribadi berarti KTP pelanggan bisa dibuka
+ * siapa saja yang tahu alamatnya — tanpa login, apalagi tanpa pemeriksaan
+ * tenant. Berkas pribadi karena itu dirujuk lewat jalur `/uploads/...` milik
+ * aplikasi sendiri, yang sudah menegakkan sesi dan tenant lalu mengalirkan
+ * isinya dari R2.
+ */
+function urlObjekR2(key: string, urlPublik: string): string {
+  return isR2KeyPublic(key) ? urlPublik : `/${key}`;
+}
+
 function kunciR2BerNamespace(uploadDir: string, key: string): string {
   const tenantId = tenantDariDirektoriUpload(uploadDir);
   if (!tenantId || !key.startsWith("uploads/")) return key;
@@ -207,7 +224,7 @@ async function processAndSaveBuffer(
 
     const url = await uploadToR2(webpBuffer, key, "image/webp");
     logger.info("Image uploaded to R2:", { key, url });
-    return url;
+    return urlObjekR2(key, url);
   }
 
   // Fallback to local storage
@@ -273,7 +290,7 @@ export async function saveFile(
         file.type || "application/octet-stream",
       );
       logger.info("File uploaded to R2:", { key, url });
-      return url;
+      return urlObjekR2(key, url);
     }
 
     // Fallback to local storage

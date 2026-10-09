@@ -290,3 +290,33 @@ export function subFolderUploadAman(
 
   return POLA_SUBFOLDER_UPLOAD.test(bersih) ? bersih : null;
 }
+
+/**
+ * Kunci R2 yang memang boleh dibaca siapa saja.
+ *
+ * Sisanya berisi data pribadi — KTP calon pelanggan, foto penyelesaian WO,
+ * lampiran izin — dan tidak boleh disajikan dari URL publik bucket, karena URL
+ * publik tidak mengenal sesi maupun tenant sama sekali.
+ *
+ * Foto absensi dan logo memang sudah publik sejak semula. Berkas rilis aplikasi
+ * ikut di sini karena pengunduhnya adalah updater yang belum tentu memegang
+ * sesi; mengunci berkas itu akan mematahkan pembaruan APK.
+ */
+const PREFIX_KUNCI_R2_PUBLIK = [
+  "uploads/employee/attendance/",
+  "uploads/logos/",
+  "uploads/app-version/",
+];
+
+export function isR2KeyPublic(key: string | null | undefined): boolean {
+  const bersih = (key ?? "").trim().replace(/^\/+/, "");
+  if (!bersih.startsWith("uploads/")) return false;
+
+  // Kunci yang sudah ber-namespace tenant dibandingkan tanpa segmen itu supaya
+  // aturannya sama untuk berkas lama maupun baru.
+  const tanpaTenant = bersih.replace(/^uploads\/tenants\/[^/]+\//, "uploads/");
+
+  return PREFIX_KUNCI_R2_PUBLIK.some((prefix) =>
+    tanpaTenant.startsWith(prefix),
+  );
+}
