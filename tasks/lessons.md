@@ -643,3 +643,21 @@
   memulihkan keadaan.
 - **How to apply:** tunggu run selesai dulu. Untuk membandingkan baseline, pakai worktree
   terpisah, bukan stash di working directory yang sedang dipakai.
+
+## Keputusan izin dan pemilihan sumber daya harus memakai nilai yang sama persis
+
+- **Konteks (2026-10-09):** penjaga tenant untuk `/uploads/` membaca pathname apa adanya,
+  sementara berkasnya — ketika tidak ditemukan di jalur literal — berakhir disajikan
+  handler statis Next yang men-decode `%2f`. Akibatnya
+  `/uploads/tenants/<sendiri>/..%2f<lain>/rahasia.webp` lolos sebagai milik sendiri dan
+  mengirim berkas tenant lain utuh. `new URL()` sudah menormalkan `..` dan `%2e%2e`, dan
+  itu sempat membuat saya menyimpulkan jalurnya aman — padahal `%2f` tidak ikut
+  dinormalkan.
+- **Why:** celahnya bukan di regex, melainkan pada adanya **dua** interpretasi jalur dalam
+  satu permintaan.
+- **How to apply:** kanonikalkan dulu (decode sekali → tolak `..`, `\`, NUL → normalize →
+  pastikan masih di bawah akar yang diizinkan), lalu pakai bentuk kanonik itu untuk
+  keputusan izin DAN untuk membuka sumber dayanya. Jangan pernah meneruskan jalur yang
+  sudah lolos penjaga ke handler lain yang punya decoding sendiri — di Next, `public/`
+  adalah direktori statis, jadi fallthrough untuk `/uploads/` berarti penjaga bisa
+  dilewati. Buktikan dengan curl `--path-as-is`, bukan dengan menalar parser URL.

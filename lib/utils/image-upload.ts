@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { tenantDariDirektoriUpload } from "@/lib/upload/upload-policy";
 import sharp from "sharp";
 import { writeFile, mkdir, rm } from "fs/promises";
 import path from "path";
@@ -146,6 +147,21 @@ export async function convertAndSaveBase64(
   }
 }
 
+/**
+ * Kunci R2 yang mengikuti namespace tenant dari direktori lokalnya.
+ *
+ * Tanpa ini kedua backend punya tata letak berbeda: disk menulis ke
+ * `uploads/tenants/<id>/…` sementara R2 menulis ke `uploads/<tipe>/…` tanpa
+ * penanda tenant sama sekali, sehingga file lintas tenant berbagi satu
+ * namespace dan tidak ada yang bisa ditegakkan di sisi pembacaan.
+ */
+function kunciR2BerNamespace(uploadDir: string, key: string): string {
+  const tenantId = tenantDariDirektoriUpload(uploadDir);
+  if (!tenantId || !key.startsWith("uploads/")) return key;
+
+  return `uploads/tenants/${tenantId}/${key.slice("uploads/".length)}`;
+}
+
 async function processAndSaveBuffer(
   buffer: Buffer,
   uploadDir: string,
@@ -180,10 +196,13 @@ async function processAndSaveBuffer(
   // Check if R2 is enabled
   if (await isR2Enabled()) {
     // Upload to R2
-    const key = generateR2Key(
-      uploadType || "pelanggan",
-      `${fileName}.webp`,
-      subFolder || "",
+    const key = kunciR2BerNamespace(
+      uploadDir,
+      generateR2Key(
+        uploadType || "pelanggan",
+        `${fileName}.webp`,
+        subFolder || "",
+      ),
     );
 
     const url = await uploadToR2(webpBuffer, key, "image/webp");
@@ -243,7 +262,10 @@ export async function saveFile(
     // Check if R2 is enabled
     if (await isR2Enabled()) {
       // Upload to R2
-      const key = generateR2Key(uploadType || "pelanggan", fileName, subFolder);
+      const key = kunciR2BerNamespace(
+        uploadDir,
+        generateR2Key(uploadType || "pelanggan", fileName, subFolder),
+      );
 
       const url = await uploadToR2(
         buffer,

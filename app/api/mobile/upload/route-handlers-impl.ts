@@ -9,6 +9,10 @@ import {
   isImageFile,
 } from "@/lib/utils/image-upload";
 import type { UploadType } from "@/lib/utils/image-upload";
+import {
+  buildTenantUploadDir,
+  tenantJalurUpload,
+} from "@/lib/upload/upload-policy";
 import path from "path";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -34,66 +38,45 @@ async function isTrustedMobileUploadUrl(url: URL, request: NextRequest) {
 function resolveUploadDir(type: UploadType) {
   switch (type) {
     case "inventory-masuk":
-      return path.join(
-        process.cwd(),
-        "public",
-        "uploads",
-        "inventory",
-        "masuk",
-      );
+      return path.join("public", "uploads", "inventory", "masuk");
     case "inventory-keluar":
-      return path.join(
-        process.cwd(),
-        "public",
-        "uploads",
-        "inventory",
-        "keluar",
-      );
+      return path.join("public", "uploads", "inventory", "keluar");
     case "employee-attendance":
-      return path.join(
-        process.cwd(),
-        "public",
-        "uploads",
-        "employee",
-        "attendance",
-      );
+      return path.join("public", "uploads", "employee", "attendance");
     case "work-order-updates":
-      return path.join(
-        process.cwd(),
-        "public",
-        "uploads",
-        "workorder",
-        "updates",
-      );
+      return path.join("public", "uploads", "workorder", "updates");
     case "workorder-completion":
-      return path.join(
-        process.cwd(),
-        "public",
-        "uploads",
-        "workorder",
-        "completion",
-      );
+      return path.join("public", "uploads", "workorder", "completion");
     case "marketing":
-      return path.join(
-        process.cwd(),
-        "public",
-        "uploads",
-        "marketing",
-        "canvasing",
-      );
+      return path.join("public", "uploads", "marketing", "canvasing");
     case "tickets":
-      return path.join(process.cwd(), "public", "uploads", "tickets");
+      return path.join("public", "uploads", "tickets");
     case "presurvei":
-      return path.join(
-        process.cwd(),
-        "public",
-        "uploads",
-        "presurvei",
-        "kegiatan",
-      );
+      return path.join("public", "uploads", "presurvei", "kegiatan");
     default:
-      return path.join(process.cwd(), "public", "uploads", "mobile", "general");
+      return path.join("public", "uploads", "mobile", "general");
   }
+}
+
+/**
+ * Direktori upload ber-namespace tenant.
+ *
+ * Token tanpa tenant (super admin lintas tenant) tetap menulis ke jalur lama:
+ * menolak unggahannya hanya akan mematahkan alur yang selama ini berjalan,
+ * sementara menebak tenant-nya akan menaruh berkas di namespace yang salah.
+ */
+function direktoriUploadTenant(
+  baseDir: string,
+  tenantId: string | null | undefined,
+): string {
+  if (!tenantId) {
+    logger.warn(
+      "[Mobile Upload] Token tanpa tenant; berkas disimpan tanpa namespace tenant",
+    );
+    return baseDir;
+  }
+
+  return buildTenantUploadDir(baseDir, tenantId);
 }
 
 /** Resolve valid absolute public URL from upload result. */
@@ -130,6 +113,22 @@ export async function DELETE(request: NextRequest) {
       return apiError("URL upload tidak diizinkan", ErrorCodes.FORBIDDEN, {
         status: 403,
       });
+    }
+
+    // Host yang benar tidak berarti berkasnya milik si peminta. Tanpa
+    // pemeriksaan ini, siapa pun yang tahu URL berkas tenant lain bisa
+    // menghapusnya. Berkas lama tanpa segmen tenant tidak bisa dikaitkan ke
+    // siapa pun, jadi ia tetap mengikuti perilaku lama.
+    const tenantBerkas = tenantJalurUpload(parsedUrl.pathname);
+    if (
+      tenantBerkas &&
+      !authResult.isSuperAdmin &&
+      tenantBerkas !== authResult.tenantId
+    ) {
+      logger.warn(
+        `[Mobile Upload] Penghapusan lintas tenant ditolak untuk ${parsedUrl.pathname}`,
+      );
+      return apiError("Akses ditolak", ErrorCodes.FORBIDDEN, { status: 403 });
     }
 
     const deleted = await deleteUploadedFile(parsedUrl.toString());
@@ -191,9 +190,18 @@ export async function POST(request: NextRequest) {
     }
 
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+    // Semua berkas di sini milik satu tenant — KTP calon pelanggan, foto
+    // penyelesaian WO, lampiran izin. Tanpa namespace tenant semuanya berbagi
+    // satu direktori, dan penjaga penyajian tidak punya apa pun untuk
+    // membedakan pemiliknya. Rute upload web sudah lama memakai pola ini.
+    const basisUpload = direktoriUploadTenant(
+      resolveUploadDir(type),
+      authResult.tenantId as string | null | undefined,
+    );
     const uploadDir = subFolder
-      ? path.join(resolveUploadDir(type), subFolder)
-      : resolveUploadDir(type);
+      ? path.join(basisUpload, subFolder)
+      : basisUpload;
     const url = await convertAndSaveImage(
       file,
       uploadDir,

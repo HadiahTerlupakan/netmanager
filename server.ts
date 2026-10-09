@@ -26,8 +26,14 @@ import {
   stopPushRetryProcessor,
 } from "./modules/notification/services/PushRetryQueue";
 import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
-import { isPublicUploadPath } from "./lib/upload/upload-policy";
-import { punyaSesiBacaUpload } from "./lib/upload/upload-access";
+import {
+  isPublicUploadPath,
+  kanonikJalurUpload,
+} from "./lib/upload/upload-policy";
+import {
+  bolehBacaJalurUpload,
+  pembacaUploadDariSesi,
+} from "./lib/upload/upload-access";
 import { logger } from "./lib/logger";
 import { redis } from "./lib/redis";
 import { validateCriticalEnvVars } from "./lib/utils/env";
@@ -110,14 +116,26 @@ app.prepare().then(() => {
     };
 
     if (pathname?.startsWith("/uploads/") && req.method === "GET") {
-      if (isPublicUploadPath(pathname)) {
+      // Izin dan pemilihan berkas harus memakai bentuk jalur yang sama persis.
+      // Saat keduanya berbeda, `/uploads/tenants/<sendiri>/..%2f<lain>/x.webp`
+      // lolos sebagai milik sendiri lalu menyajikan berkas tenant lain.
+      const jalurUpload = kanonikJalurUpload(pathname);
+
+      if (!jalurUpload) {
+        logger.warn(`[Server] Blocked malformed upload path: ${pathname}`);
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Jalur upload tidak valid" }));
+        return;
+      }
+
+      if (isPublicUploadPath(jalurUpload)) {
         // Public attendance uploads stay readable even when R2 falls back to local storage.
       } else {
-        const punyaSesi = await punyaSesiBacaUpload(req);
+        const pembaca = await pembacaUploadDariSesi(req);
 
-        if (!punyaSesi) {
+        if (!pembaca) {
           logger.warn(
-            `[Server] Unauthorized access attempt to ${pathname} from ${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`,
+            `[Server] Unauthorized access attempt to ${jalurUpload} from ${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`,
           );
           res.writeHead(401, { "Content-Type": "application/json" });
           res.end(
@@ -128,12 +146,23 @@ app.prepare().then(() => {
           );
           return;
         }
+
+        // Sesi yang sah milik tenant lain bukan masalah sesi, jadi jawabannya
+        // 403 — bukan 401 yang akan menyuruh orang login ulang tanpa guna.
+        if (!bolehBacaJalurUpload(pembaca, jalurUpload)) {
+          logger.warn(
+            `[Server] Cross-tenant upload access blocked for ${jalurUpload} (tenant ${pembaca.tenantId ?? "-"})`,
+          );
+          res.writeHead(403, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Akses ditolak" }));
+          return;
+        }
       }
 
       const fs = await import("fs");
       const path = await import("path");
       const uploadsRootDir = path.resolve(process.cwd(), "public", "uploads");
-      const relativePath = (pathname || "").replace(/^\/uploads\//, "");
+      const relativePath = jalurUpload.replace(/^\/uploads\//, "");
       const requestedPath = path.resolve(uploadsRootDir, relativePath);
 
       if (
@@ -158,8 +187,16 @@ app.prepare().then(() => {
           return;
         }
       } catch {
-        // File not found - fall through to Next.js handler
+        // Berkas tidak ada di jalur kanonik.
       }
+
+      // Tidak diteruskan ke Next.js. `public/` adalah direktori statisnya, dan
+      // handler itu menerapkan decoding-nya sendiri — jalur yang sudah lolos
+      // penjaga di atas bisa berakhir menunjuk berkas lain. Satu-satunya yang
+      // boleh menyajikan `/uploads/` adalah blok ini.
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "File tidak ditemukan" }));
+      return;
     }
 
     handle(req, res);

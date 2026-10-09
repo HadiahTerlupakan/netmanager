@@ -41,6 +41,48 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-09] — Isolasi tenant untuk berkas upload
+
+- **Tipe**: [SECURITY]
+- **Scope**: `server.ts`, `lib/upload/`, `lib/utils/image-upload.ts`, `app/api/mobile/upload`
+- **Author**: agent
+- **Deskripsi**: Penjaga `/uploads/` hanya memeriksa ada-tidaknya sesi, tanpa menanyakan
+  sesi itu milik tenant mana. Rute `/api/mobile/upload` — jalur untuk KTP canvasing, foto
+  penyelesaian WO, inventory, presurvei, tiket — juga menulis ke
+  `public/uploads/<tipe>/` tanpa namespace tenant, berbeda dari rute web yang sudah lama
+  memakai `buildTenantUploadDir`. Akibatnya pemegang sesi tenant mana pun bisa membaca —
+  dan lewat endpoint DELETE, menghapus — berkas tenant lain asal tahu URL-nya.
+  Sekarang: upload mobile ditulis ke `uploads/tenants/<id>/…`, kunci R2 mengikuti
+  namespace yang sama supaya kedua backend punya satu bentuk jalur, penyajian menolak
+  pembaca dari tenant lain dengan 403 (bukan 401 yang akan menyuruh login ulang tanpa
+  guna), dan penghapusan lewat API mobile memeriksa pemilik. Super admin tetap lintas
+  tenant. Berkas lama tanpa segmen tenant sengaja tetap terbuka bagi pemegang sesi —
+  memblokirnya akan membuat seluruh foto yang terlanjur tersimpan tidak bisa dibuka.
+  Prefix publik (foto absensi) tetap publik setelah jalurnya ber-namespace.
+  Diverifikasi di emulator & curl: tenant pemilik 200, tenant lain 403, tanpa auth 401,
+  hapus lintas tenant 403 dan berkasnya masih ada, absensi ber-namespace 200 tanpa sesi,
+  foto profil ber-namespace tampil di aplikasi.
+
+  Versi pertama penjaga ini masih bisa ditembus dan sudah diperbaiki sebelum rilis:
+  pemeriksaan tenant membaca jalur apa adanya sementara berkasnya berakhir disajikan
+  handler statis Next yang men-decode `%2f`, sehingga
+  `/uploads/tenants/<sendiri>/..%2f<lain>/rahasia.webp` lolos sebagai milik sendiri lalu
+  mengirim berkas tenant lain **utuh** (terbukti: 200, 368.254 byte, identik dengan
+  aslinya). Sekarang jalur di-decode sekali lalu dinormalkan lebih dulu
+  (`kanonikJalurUpload`), dan bentuk kanonik itulah yang dipakai baik untuk keputusan izin
+  maupun untuk memilih berkas; `/uploads/` tidak lagi pernah diteruskan ke handler Next.
+  Keempat varian traversal kini 403, sementara jalur sah tetap jalan — termasuk nama
+  berkas berspasi yang sebelumnya justru bergantung pada fallthrough itu.
+- **Files**: `lib/upload/upload-access.ts`, `lib/upload/upload-policy.ts`, `server.ts`,
+  `lib/utils/image-upload.ts`, `app/api/mobile/upload/route-handlers-impl.ts`,
+  `tests/lib/upload-access.test.ts`, `tests/lib/upload-policy.test.ts`,
+  `tests/ci/local-upload-access-safety.test.ts`
+- **Breaking**: ❌ Tidak
+- **Catatan**: Pada tenant dengan R2 aktif, URL yang dikembalikan adalah URL publik
+  bucket — tanpa autentikasi sama sekali. Namespace tenant pada kunci R2 merapikan tata
+  letaknya tetapi **tidak** menutup akses publik itu; menutupnya butuh bucket privat plus
+  penyajian lewat proxy atau presigned URL, dan belum dikerjakan.
+
 ### [2026-10-08] — Pemakaian material akhirnya benar-benar tercatat saat WO selesai
 
 - **Tipe**: [FIXED]

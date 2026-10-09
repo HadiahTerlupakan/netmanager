@@ -93,9 +93,20 @@ describe("mobile upload route", () => {
     // Argumen keempat adalah tipe yang diteruskan ke kunci R2; argumen
     // kedua folder lokal. Tanpa case "presurvei", folder jatuh ke
     // uploads/mobile/general (route-handlers-impl.ts:84-85).
+    //
+    // Folder itu wajib ber-namespace tenant: tanpa itu berkas semua tenant
+    // menumpuk di satu direktori dan penjaga penyajian tidak punya apa pun
+    // untuk membedakan pemiliknya.
     expect(mockFns.convertAndSaveImage).toHaveBeenCalledWith(
       expect.anything(),
-      path.join(process.cwd(), "public", "uploads", "presurvei", "kegiatan"),
+      path.join(
+        "public",
+        "uploads",
+        "tenants",
+        "tenant-1",
+        "presurvei",
+        "kegiatan",
+      ),
       expect.any(String),
       "presurvei",
       undefined,

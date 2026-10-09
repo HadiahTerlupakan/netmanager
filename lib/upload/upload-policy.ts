@@ -1,3 +1,5 @@
+import { posix } from "path";
+
 const ALLOWED_FOLDERS = new Set([
   "general",
   "uploads",
@@ -80,9 +82,35 @@ export function isPublicUploadPath(
     return false;
   }
 
+  // Prefix publik dibandingkan terhadap jalur tanpa segmen tenant supaya aturan
+  // yang sama berlaku untuk file lama (`/uploads/employee/attendance/…`) maupun
+  // yang sudah ber-namespace (`/uploads/tenants/<id>/employee/attendance/…`).
+  const tanpaTenant = lepasSegmenTenant(normalizedPath);
+
   return PUBLIC_UPLOAD_PREFIXES.some((prefix) =>
-    normalizedPath.startsWith(prefix),
+    tanpaTenant.startsWith(prefix),
   );
+}
+
+/** `/uploads/tenants/<id>/x` → `/uploads/x`; jalur lain dikembalikan apa adanya. */
+function lepasSegmenTenant(pathname: string): string {
+  const cocok = /^\/uploads\/tenants\/([^/]+)\/(.*)$/.exec(pathname);
+  return cocok ? `/uploads/${cocok[2]}` : pathname;
+}
+
+/**
+ * Tenant pemilik sebuah jalur upload, atau null bila jalurnya tidak
+ * ber-namespace tenant.
+ *
+ * Dipakai penjaga penyajian `/uploads/` untuk menolak pembaca dari tenant lain.
+ * File lama tidak punya segmen ini dan karena itu tidak bisa dikaitkan ke
+ * tenant mana pun — penanganannya ada di pemanggil.
+ */
+export function tenantJalurUpload(
+  pathname: string | null | undefined,
+): string | null {
+  const cocok = /^\/uploads\/tenants\/([^/]+)\//.exec((pathname ?? "").trim());
+  return cocok ? cocok[1] : null;
 }
 
 export function validateUploadFile(
@@ -189,4 +217,55 @@ export function buildTenantUploadDir(
   }
 
   return `${trimmed}/tenants/${safeTenant}`;
+}
+
+/**
+ * Tenant pemilik sebuah direktori upload hasil `buildTenantUploadDir`, atau
+ * null bila direktorinya tidak ber-namespace.
+ *
+ * Dipakai saat menyusun kunci R2 supaya tata letaknya sama dengan penyimpanan
+ * lokal — satu bentuk jalur untuk dua backend, dan tenant selalu ada di segmen
+ * yang sama.
+ */
+export function tenantDariDirektoriUpload(
+  uploadDir: string | null | undefined,
+): string | null {
+  const normal = (uploadDir ?? "").replace(/\\/g, "/");
+  const cocok = /(?:^|\/)uploads\/tenants\/([^/]+)(?:\/|$)/.exec(normal);
+  return cocok ? cocok[1] : null;
+}
+
+/**
+ * Bentuk kanonik sebuah jalur `/uploads/` — hasil decode sekali lalu normalisasi
+ * — atau null bila jalurnya tidak sah.
+ *
+ * Keputusan izin dan pemilihan berkas wajib memakai bentuk yang sama persis.
+ * Sebelum ini keduanya berbeda: pemeriksaan tenant membaca jalur apa adanya,
+ * sementara berkasnya akhirnya disajikan handler statis Next yang men-decode
+ * `%2f`. Permintaan ke
+ * `/uploads/tenants/<tenant-sendiri>/..%2f<tenant-lain>/rahasia.webp` karena itu
+ * lolos pemeriksaan sebagai milik sendiri lalu menyajikan berkas tenant lain
+ * secara utuh.
+ */
+export function kanonikJalurUpload(
+  pathname: string | null | undefined,
+): string | null {
+  const mentah = (pathname ?? "").trim();
+  if (!mentah.startsWith("/uploads/")) return null;
+
+  let terdekode: string;
+  try {
+    terdekode = decodeURIComponent(mentah);
+  } catch {
+    return null;
+  }
+
+  // Backslash adalah pemisah direktori di Windows dan NUL memotong nama berkas
+  // di lapisan C; keduanya tidak pernah sah dalam URL upload.
+  if (terdekode.includes("\\") || terdekode.includes("\0")) return null;
+
+  const ternormalisasi = posix.normalize(terdekode);
+  if (!ternormalisasi.startsWith("/uploads/")) return null;
+
+  return ternormalisasi;
 }
