@@ -41,6 +41,45 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-09] — Pengajuan izin offline akhirnya benar-benar terkirim
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(app)/izin/`, `mobile-netmanager/src/hooks/queries/`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat QA antrean offline dengan jaringan emulator benar-benar
+  diputus. Tiga cacat bertumpuk, dan gabungannya membuat pengajuan izin hilang tanpa
+  jejak di lapangan:
+
+  1. **Antrean menyimpan foto di medan yang salah.** Jalur offline mengantre dengan
+     `photos: []` dan foto di `meta.photoMap`; SyncService menaruh URL hasil unggah
+     sebagai `photo0`, sementara endpoint membaca `body.photos` dan menolak bila kosong
+     ("Foto bukti wajib diupload"). Setiap replay dijawab 400 lalu itemnya dihapus —
+     padahal pengguna sudah diberi tahu "disimpan offline". Artinya pengajuan izin
+     offline **tidak pernah berhasil sejak awal**. Kini memakai `meta.photos` +
+     `targetField: "photos"`.
+  2. **Kegagalan jaringan non-axios tidak dikenali.** `isNetworkError` di `useApiMutation`
+     mensyaratkan `isAxiosError`, sedangkan unggahan `photoMap` melempar `Error` biasa
+     dari UploadService. Mutasinya gagal total alih-alih diantre.
+  3. **Jalur online tidak punya jaring pengaman.** `SyncService.isOnline()` bersandar
+     pada status NetInfo yang bisa basi: tepat setelah sinyal hilang ia masih menjawab
+     "online", formulir menempuh jalur online, unggahannya gagal, dan isian dibuang.
+     Kegagalan jaringan kini dialihkan ke antrean.
+
+  Diverifikasi ujung-ke-ujung di emulator: isi form online → putus jaringan → kirim →
+  item masuk antrean (`status RETRY`, `meta.targetField`) → jaringan pulih → "Item synced
+  successfully" → baris bertambah 0 → 1 lengkap dengan `attachmentUrl` di folder
+  `tenants/<id>/employee/leave/`. Sebelum perbaikan, skenario yang sama berakhir
+  "Client Error (400). Removing item" dan datanya lenyap.
+- **Files**: `mobile-netmanager/app/(app)/izin/form.tsx`,
+  `mobile-netmanager/src/hooks/queries/useApiMutation.ts`,
+  `mobile-netmanager/src/utils/kegagalanJaringan.ts`,
+  `mobile-netmanager/__tests__/utils/kegagalanJaringan.test.ts`,
+  `mobile-netmanager/__tests__/hooks/useApiMutation.test.tsx`
+- **Breaking**: ❌ Tidak
+- **Catatan**: Bentuk `meta.photoMap` yang sama masih dipakai canvasing, lembur, chat,
+  dan work order. Yang terbukti rusak baru izin (endpoint-nya membaca `body.photos`);
+  yang lain perlu diperiksa satu per satu sebelum diubah.
+
 ### [2026-10-09] — Check-out absensi menolak kiriman tanpa selfie dan lokasi
 
 - **Tipe**: [SECURITY]
