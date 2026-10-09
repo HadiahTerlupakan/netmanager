@@ -118,6 +118,15 @@ local_radius*.log
 # !.claude/settings.json
 # !.claude/CLAUDE.md
 
+# Skill pihak ketiga hasil `npx skills add` — dipasang per developer, bukan
+# bagian dari source project. `.claude/skills/` hanya symlink ke `.agents/`.
+# Kalau suatu saat tim ingin satu set skill yang seragam, lacak
+# `skills-lock.json` saja (hapus barisnya dari sini) supaya versinya bisa
+# direproduksi tanpa ikut menyimpan isinya.
+.agents/
+.claude/skills/
+skills-lock.json
+
 # =========================
 # OS Files
 # =========================
