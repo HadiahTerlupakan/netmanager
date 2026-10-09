@@ -4,6 +4,7 @@ import {
   isPublicUploadPath,
   kanonikJalurUpload,
   sanitizeUploadFolder,
+  subFolderUploadAman,
   tenantDariDirektoriUpload,
   tenantJalurUpload,
   validateUploadFile,
@@ -147,5 +148,29 @@ describe("kanonik jalur upload", () => {
     expect(kanonikJalurUpload("/uploads/tenants/a/spasi%20file.webp")).toBe(
       "/uploads/tenants/a/spasi file.webp",
     );
+  });
+});
+
+describe("sub folder upload aman", () => {
+  it("menerima satu segmen huruf, angka, strip, dan garis bawah", () => {
+    expect(subFolderUploadAman("kegiatan")).toBe("kegiatan");
+    expect(subFolderUploadAman("pelanggan_12-ab")).toBe("pelanggan_12-ab");
+  });
+
+  // Nilainya dipakai sebagai segmen direktori; `../` di dalamnya dulu menulis
+  // berkas ke luar direktori tenant, bahkan ke luar `public/`.
+  it("menolak traversal dan pemisah direktori", () => {
+    expect(subFolderUploadAman("../../../../tenant-lain/bukti")).toBeNull();
+    expect(subFolderUploadAman("a/b")).toBeNull();
+    expect(subFolderUploadAman("a\\b")).toBeNull();
+    expect(subFolderUploadAman("..")).toBeNull();
+    expect(subFolderUploadAman(".")).toBeNull();
+  });
+
+  it("menolak nilai kosong dan yang terlalu panjang", () => {
+    expect(subFolderUploadAman("")).toBeNull();
+    expect(subFolderUploadAman("   ")).toBeNull();
+    expect(subFolderUploadAman(undefined)).toBeNull();
+    expect(subFolderUploadAman("a".repeat(65))).toBeNull();
   });
 });

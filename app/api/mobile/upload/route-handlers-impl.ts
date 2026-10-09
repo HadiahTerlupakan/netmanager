@@ -11,6 +11,8 @@ import {
 import type { UploadType } from "@/lib/utils/image-upload";
 import {
   buildTenantUploadDir,
+  kanonikJalurUpload,
+  subFolderUploadAman,
   tenantJalurUpload,
 } from "@/lib/upload/upload-policy";
 import path from "path";
@@ -115,11 +117,21 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
+    // Keputusan tenant dan penghapusan harus memakai bentuk jalur yang sama;
+    // membaca yang mentah membuka celah yang sama seperti pada penyajian.
+    const jalurKanonik = kanonikJalurUpload(parsedUrl.pathname);
+    if (!jalurKanonik) {
+      return apiError("URL upload tidak valid", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
+    parsedUrl.pathname = jalurKanonik;
+
     // Host yang benar tidak berarti berkasnya milik si peminta. Tanpa
     // pemeriksaan ini, siapa pun yang tahu URL berkas tenant lain bisa
     // menghapusnya. Berkas lama tanpa segmen tenant tidak bisa dikaitkan ke
     // siapa pun, jadi ia tetap mengikuti perilaku lama.
-    const tenantBerkas = tenantJalurUpload(parsedUrl.pathname);
+    const tenantBerkas = tenantJalurUpload(jalurKanonik);
     if (
       tenantBerkas &&
       !authResult.isSuperAdmin &&
@@ -158,7 +170,20 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const type = (formData.get("type") as UploadType) || "general";
-    const subFolder = (formData.get("subFolder") as string) || undefined;
+    const subFolderMentah = formData.get("subFolder");
+    const subFolder =
+      typeof subFolderMentah === "string" && subFolderMentah.trim()
+        ? subFolderUploadAman(subFolderMentah)
+        : undefined;
+
+    // `subFolder` dipakai sebagai segmen direktori. Nilai seperti
+    // `../../../../tenant-lain/bukti` dulu diteruskan apa adanya ke
+    // `path.join` dan menulis berkas ke luar direktori tenant.
+    if (subFolder === null) {
+      return apiError("Sub folder tidak valid", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
     const watermarkLinesStr = formData.get("watermarkLines") as string | null;
     let watermarkLines: string[] | undefined;
     if (watermarkLinesStr) {

@@ -269,3 +269,24 @@ export function kanonikJalurUpload(
 
   return ternormalisasi;
 }
+
+/**
+ * Sub-folder upload yang aman dipakai sebagai satu segmen direktori, atau null
+ * bila nilainya tidak layak.
+ *
+ * Nilainya datang dari form dan dulu diteruskan apa adanya ke `path.join`,
+ * sehingga `subFolder=../../../../tenant-lain/bukti` menulis berkas ke luar
+ * direktori tenant — dengan `../` yang cukup, ke luar `public/` sama sekali.
+ * Satu segmen tanpa pemisah dan tanpa titik sudah memenuhi seluruh pemakaian
+ * yang ada (umumnya sebuah id), jadi tidak ada alasan menerima lebih.
+ */
+const POLA_SUBFOLDER_UPLOAD = /^[A-Za-z0-9_-]{1,64}$/;
+
+export function subFolderUploadAman(
+  nilai: string | null | undefined,
+): string | null {
+  const bersih = (nilai ?? "").trim();
+  if (!bersih) return null;
+
+  return POLA_SUBFOLDER_UPLOAD.test(bersih) ? bersih : null;
+}

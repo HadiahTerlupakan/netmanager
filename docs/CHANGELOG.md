@@ -73,6 +73,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   maupun untuk memilih berkas; `/uploads/` tidak lagi pernah diteruskan ke handler Next.
   Keempat varian traversal kini 403, sementara jalur sah tetap jalan — termasuk nama
   berkas berspasi yang sebelumnya justru bergantung pada fallthrough itu.
+
+  Celah kembarannya ada di sisi tulis dan ikut ditutup: field `subFolder` pada
+  `/api/mobile/upload` datang dari form dan diteruskan apa adanya ke `path.join`, sehingga
+  `subFolder=../../../../tenant-korban/bukti` menulis berkas ke luar direktori tenant
+  (terbukti: berkas mendarat di `public/uploads/tenant-korban/bukti/`), dan dengan `../`
+  yang cukup ke luar `public/` sama sekali. Tidak satu pun pemanggil di aplikasi mobile
+  mengirim field ini. Sekarang hanya satu segmen `[A-Za-z0-9_-]` sepanjang maksimal 64
+  karakter yang diterima; selebihnya 400. Pemeriksaan tenant pada endpoint DELETE juga
+  dipindah ke jalur kanonik supaya tidak mengulang celah yang sama.
 - **Files**: `lib/upload/upload-access.ts`, `lib/upload/upload-policy.ts`, `server.ts`,
   `lib/utils/image-upload.ts`, `app/api/mobile/upload/route-handlers-impl.ts`,
   `tests/lib/upload-access.test.ts`, `tests/lib/upload-policy.test.ts`,

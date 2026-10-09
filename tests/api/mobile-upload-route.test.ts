@@ -187,4 +187,68 @@ describe("mobile upload route", () => {
       "https://bucket.account.r2.cloudflarestorage.com/uploads/employee/attendance/test-photo.webp",
     );
   });
+
+  // `subFolder` datang dari form dan dipakai sebagai segmen direktori. Tanpa
+  // validasi, nilai ini menulis berkas ke luar direktori tenant — dengan `../`
+  // yang cukup, ke luar `public/` sama sekali.
+  it("menolak subFolder yang keluar dari direktori tenant", async () => {
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "bukti.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+    formData.set("type", "marketing");
+    formData.set("subFolder", "../../../../tenant-lain/bukti");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/upload", {
+        method: "POST",
+        body: formData,
+        headers: { host: "localhost:3000", "x-forwarded-proto": "https" },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockFns.convertAndSaveImage).not.toHaveBeenCalled();
+  });
+
+  it("meneruskan subFolder yang berupa satu segmen aman", async () => {
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "bukti.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+    formData.set("type", "marketing");
+    formData.set("subFolder", "pelanggan-42");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/upload", {
+        method: "POST",
+        body: formData,
+        headers: { host: "localhost:3000", "x-forwarded-proto": "https" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFns.convertAndSaveImage).toHaveBeenCalledWith(
+      expect.anything(),
+      path.join(
+        "public",
+        "uploads",
+        "tenants",
+        "tenant-1",
+        "marketing",
+        "canvasing",
+        "pelanggan-42",
+      ),
+      expect.any(String),
+      "marketing",
+      "pelanggan-42",
+      undefined,
+    );
+  });
 });
