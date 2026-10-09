@@ -6,6 +6,20 @@ import { prisma } from "@/modules/database";
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 
+/**
+ * Partner work order harus benar-benar bisa mengerjakan work order.
+ *
+ * Penyaringnya dulu hanya `isActive` dan `tenantId`, sehingga pemilih yang
+ * berbunyi "Cari nama teknisi" menawarkan seluruh isi tenant — staf finance,
+ * sales, dan admin ikut terdaftar. Mereka tidak memegang resource ini sama
+ * sekali, jadi diundang pun tidak bisa berbuat apa-apa di work order itu;
+ * yang tersisa hanya daftar yang menyesatkan dan undangan yang mubazir.
+ *
+ * Disaring lewat izin, bukan nama peran, supaya tetap benar bila sebuah tenant
+ * menamai peran lapangannya dengan sebutan lain.
+ */
+const RESOURCE_WORK_ORDER_MOBILE = "m_work_order";
+
 export interface MobilePartnerFilters {
   tenantId: string;
   userId: string;
@@ -50,6 +64,9 @@ function buildPartnerWhere(
     id: { not: filters.userId },
     isActive: true,
     tenantId: filters.tenantId,
+    role: {
+      permission: { some: { resource: RESOURCE_WORK_ORDER_MOBILE } },
+    },
     ...(search ? { OR: buildSearchFilters(search) } : {}),
   };
 }

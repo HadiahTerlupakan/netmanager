@@ -23,6 +23,17 @@ export class MobileAttendanceCheckoutRouteService {
 
     try {
       const payload = await this.payloadParser.parse(request, userId);
+
+      const kurangBukti = this.periksaBuktiKehadiran(payload);
+      if (kurangBukti) {
+        logger.warn("Mobile check-out: bukti kehadiran tidak lengkap", {
+          userId,
+          hasPhotoUrl: !!payload.photoUrl,
+          hasCoordinates: !!(payload.latitude && payload.longitude),
+        });
+        return kurangBukti;
+      }
+
       resolvedRequestId = this.resolveRequestId(request, payload);
       const payloadHash = this.buildPayloadHash(payload);
       const replay = await this.beginIdempotency(
@@ -49,6 +60,35 @@ export class MobileAttendanceCheckoutRouteService {
       if (error instanceof NextResponse) return error;
       throw error;
     }
+  }
+
+  /**
+   * Sama seperti check-in: aplikasi menolak mengirim tanpa foto dan lokasi
+   * (`submitAttendance` dipakai bersama untuk keduanya), tetapi server dulu
+   * tidak memeriksanya. Check-out dengan body kosong tetap diterima, sehingga
+   * jam pulang bisa dicatat tanpa bukti apa pun.
+   */
+  private periksaBuktiKehadiran(payload: MobileCheckoutPayload) {
+    if (!payload.photoUrl) {
+      return apiError(
+        "Foto selfie wajib disertakan saat check-out",
+        "PHOTO_REQUIRED",
+        { status: 400 },
+      );
+    }
+
+    if (
+      typeof payload.latitude !== "number" ||
+      typeof payload.longitude !== "number"
+    ) {
+      return apiError(
+        "Lokasi wajib disertakan saat check-out",
+        "LOCATION_REQUIRED",
+        { status: 400 },
+      );
+    }
+
+    return null;
   }
 
   private resolveRequestId(

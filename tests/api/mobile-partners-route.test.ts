@@ -114,4 +114,40 @@ describe("mobile partners route", () => {
       },
     ]);
   });
+
+  // Pemilihnya berbunyi "Cari nama teknisi", tetapi penyaringnya dulu hanya
+  // `isActive` dan `tenantId` — staf finance, sales, dan admin ikut terdaftar
+  // padahal tidak memegang resource work order sama sekali.
+  it("hanya menawarkan pengguna yang perannya memegang resource work order", async () => {
+    await GET(
+      authedRequest("http://localhost/api/mobile/partners?page=1&limit=20"),
+      routeCtx,
+    );
+
+    const where = prismaMock.user.findMany.mock.calls[0]?.[0]?.where;
+    expect(where).toMatchObject({
+      isActive: true,
+      tenantId: "tenant-1",
+      id: { not: "user-1" },
+      role: {
+        permission: { some: { resource: "m_work_order" } },
+      },
+    });
+  });
+
+  it("tetap menyaring berdasarkan izin ketika ada kata pencarian", async () => {
+    await GET(
+      authedRequest("http://localhost/api/mobile/partners?search=budi"),
+      routeCtx,
+    );
+
+    const where = prismaMock.user.findMany.mock.calls[0]?.[0]?.where as {
+      role?: unknown;
+      OR?: unknown[];
+    };
+    expect(where.role).toEqual({
+      permission: { some: { resource: "m_work_order" } },
+    });
+    expect(where.OR).toHaveLength(2);
+  });
 });

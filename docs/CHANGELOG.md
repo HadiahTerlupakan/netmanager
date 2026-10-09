@@ -41,6 +41,37 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-09] — Check-out absensi menolak kiriman tanpa selfie dan lokasi
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: Pasangan dari perbaikan check-in: aplikasi memakai satu fungsi untuk
+  keduanya dan menolak mengirim tanpa foto maupun lokasi, tetapi server tidak
+  memeriksanya — check-out dengan body `{}` tetap diterima, sehingga jam pulang bisa
+  dicatat tanpa bukti apa pun. Kini 400 `PHOTO_REQUIRED` / `LOCATION_REQUIRED`; jalur
+  lengkap tetap berjalan (terbukti via curl).
+- **Files**: `modules/attendance/services/MobileAttendanceCheckoutRouteService.ts`,
+  `tests/modules/attendance/MobileAttendanceCheckoutRouteService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-09] — Pemilih partner work order hanya menawarkan yang berwenang
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/users`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat QA tim pengerjaan. Pemilihnya berbunyi "Cari nama
+  teknisi", tetapi `buildPartnerWhere` hanya menyaring `isActive` dan `tenantId` —
+  seluruh isi tenant ikut terdaftar. Di data lokal: staf SALES, FINANCE, dan ADMIN
+  ditawarkan sebagai partner padahal perannya tidak memegang `m_work_order` sama sekali,
+  jadi diundang pun mereka tidak bisa berbuat apa-apa di work order itu. Kini disaring
+  lewat izin (`role.permission.some({ resource: "m_work_order" })`), bukan nama peran,
+  supaya tetap benar bila sebuah tenant menamai peran lapangannya dengan sebutan lain.
+  Daftar menyusut dari 4 menjadi 1 pada data lokal, terbukti di aplikasi.
+- **Files**: `modules/users/services/MobilePartnerRouteService.ts`,
+  `tests/api/mobile-partners-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-09] — Berkas pribadi di R2 tidak lagi disajikan dari URL publik
 
 - **Tipe**: [SECURITY]

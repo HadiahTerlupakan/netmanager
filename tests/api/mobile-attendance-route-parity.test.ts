@@ -193,6 +193,8 @@ describe("mobile attendance route parity", () => {
           body: JSON.stringify({
             location: "HQ",
             photoUrl: "https://tenant.example.com/uploads/attendance.jpg",
+            latitude: -6.2,
+            longitude: 106.8,
           }),
         },
       ),
