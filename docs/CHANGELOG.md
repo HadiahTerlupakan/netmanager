@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-09] — Laporan rujukan URL upload di database
+
+- **Tipe**: [ADDED]
+- **Scope**: `scripts/`
+- **Author**: agent
+- **Deskripsi**: Prasyarat untuk memutuskan migrasi berkas upload lama. Memindai 36
+  kandidat kolom bertipe String/String[] dari `schema.prisma` dan melaporkan, per kolom,
+  berapa rujukan yang masih menunjuk `/uploads/...` tanpa segmen `tenants/<id>/`. Kolom
+  array dibongkar dengan `unnest` supaya yang terhitung adalah jumlah berkas, bukan
+  jumlah baris. Hanya menghitung, tidak mengubah apa pun.
+  Hasil di data lokal mengoreksi perkiraan awal: bukan 20+ kolom, hanya **5** yang
+  benar-benar menyimpan URL upload tanpa namespace (`Attendance.checkInPhoto`,
+  `Attendance.checkOutPhoto`, `canvasing.fotoKtp`, `point_claims.buktiUrls`,
+  `work_order_attachments.filePath`). Angka produksi bisa berbeda — kolom yang kosong
+  di lokal belum tentu kosong di sana.
+- **Files**: `scripts/laporan-url-upload-database.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-09] — Gambar chat disimpan di folder chat, bukan folder umum
 
 - **Tipe**: [FIXED]
