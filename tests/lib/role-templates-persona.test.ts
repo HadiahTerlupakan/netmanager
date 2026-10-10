@@ -16,6 +16,7 @@ describe("ROLE_TEMPLATES — persona", () => {
   it("memetakan template ke persona yang sesuai tugasnya", () => {
     expect(personaPerTemplate).toEqual({
       teknisi: "TEKNISI",
+      "staff-kantor": "STAFF",
       admin: "STAFF",
       helpdesk: "STAFF",
       "staff-keuangan": "FINANCE",
@@ -53,10 +54,15 @@ describe("template Head of Sales & Marketing", () => {
   it("melihat SEMUA sales (view_all), kepala sales hanya timnya", async () => {
     const { ROLE_TEMPLATES } = await import("@/lib/role-templates");
     const { jenisLingkupDariIzin } = await import("@/modules/roles/client");
-    const ambil = (id: string) => ROLE_TEMPLATES.find((template) => template.id === id)!;
+    const ambil = (id: string) =>
+      ROLE_TEMPLATES.find((template) => template.id === id)!;
 
-    expect(jenisLingkupDariIzin(ambil("head_of_sales").permissions)).toBe("SEMUA");
+    expect(jenisLingkupDariIzin(ambil("head_of_sales").permissions)).toBe(
+      "SEMUA",
+    );
     expect(jenisLingkupDariIzin(ambil("kepala_sales").permissions)).toBe("TIM");
-    expect(ambil("head_of_sales").permissions).not.toContain("pelanggan:update");
+    expect(ambil("head_of_sales").permissions).not.toContain(
+      "pelanggan:update",
+    );
   });
 });

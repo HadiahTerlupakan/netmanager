@@ -262,6 +262,10 @@ describe("module public api boundaries", () => {
       "lib/auth.ts",
       "lib/event-bus/types.ts",
       "lib/menu-config.ts",
+      // Katalog data, bukan logika: satu entri per arketipe role, dan setiap
+      // entri berubah karena alasan yang sama. Memecahnya hanya memindahkan
+      // baris tanpa mengurangi alasan berubah.
+      "lib/role-templates.ts",
       "lib/utils/snmp-helpers.ts",
       "modules/attendance/repositories/AttendanceRepository.ts",
       "modules/attendance/services/AttendanceService.ts",

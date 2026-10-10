@@ -179,6 +179,25 @@ async function main() {
     "m_holidays",
   ];
 
+  /**
+   * Resource mobile untuk karyawan kantor: absen dan pendukung kepegawaian saja.
+   *
+   * Tanpa role ini persona STAFF tidak punya pintu masuk sama sekali — ADMIN dan
+   * FINANCE memang berpersona STAFF tetapi `accessEmployeePanel: false`, jadi
+   * tidak bisa membuka aplikasi mobile, dan satu-satunya persona STAFF yang bisa
+   * masuk adalah SUPER_ADMIN. Akibatnya staff kantor terpaksa diberi role TEKNISI
+   * dan melihat work order yang bukan urusannya. Sejajar dengan template
+   * "Staff Kantor" di `lib/role-templates.ts`.
+   */
+  const RESOURCE_MOBILE_STAFF = [
+    "m_dashboard",
+    "m_absensi",
+    "m_lembur",
+    "m_izin",
+    "m_holidays",
+    "m_chat",
+  ];
+
   // Role bawaan peninggalan sebelum multi-tenant ber-`tenantId` NULL, sedangkan
   // upsert di bawah mencari `(name, MAIN_TENANT_ID)`. Pencarian itu tak pernah
   // cocok, sehingga blok `update` tidak pernah terpakai — persona dan permission
@@ -308,6 +327,45 @@ async function main() {
     },
   });
   logger.info(`   ✅ Role: TEKNISI (${teknisiPermissions.length} permissions)`);
+
+  // 2.3a STAFF Role - Employee panel only (kepegawaian, tanpa work order)
+  const staffRole = await prisma.role.upsert({
+    where: {
+      name_tenantId: {
+        name: "STAFF",
+        tenantId: MAIN_TENANT_ID,
+      },
+    },
+    update: {
+      persona: "STAFF",
+      accessAdminPanel: false,
+      accessEmployeePanel: true,
+      permission: {
+        set: [], // Clear existing
+        connect: karyawanPermissions
+          .filter((p) => RESOURCE_MOBILE_STAFF.includes(p.resource))
+          .map((p) => ({ id: p.id })),
+      },
+    },
+    create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
+      name: "STAFF",
+      tenantId: MAIN_TENANT_ID,
+      description: "Staff Kantor - Employee Portal Access (tanpa work order)",
+      accessAdminPanel: false,
+      accessEmployeePanel: true,
+      persona: "STAFF",
+      permission: {
+        connect: karyawanPermissions
+          .filter((p) => RESOURCE_MOBILE_STAFF.includes(p.resource))
+          .map((p) => ({ id: p.id })),
+      },
+    },
+  });
+  logger.info(
+    `   ✅ Role: STAFF (${RESOURCE_MOBILE_STAFF.length} resource mobile)`,
+  );
 
   // 2.4 SALES Role - Employee panel only (marketing permissions)
   const salesRole = await prisma.role.upsert({
@@ -834,6 +892,31 @@ async function main() {
     },
   });
   logger.info("   ✅ User: sales@example.com (Role: SALES)");
+
+  // 8.4a STAFF User - karyawan kantor, tampilan mobile persona STAFF
+  const staffPasswordHash = await hash("staff123", 10);
+  await prisma.user.upsert({
+    where: { email: "staff@example.com" },
+    update: {},
+    create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
+      email: "staff@example.com",
+      name: "Siti Nurhaliza",
+      passwordHash: staffPasswordHash,
+      phone: "+62812-0000-0009",
+      departmentId: operationsDept.id,
+      siteId: hqSite.id,
+      isActive: true,
+      roleId: staffRole.id,
+      workingHourMode: "FIXED",
+      startWorkTime: "08:00",
+      endWorkTime: "17:00",
+      workDays: "Mon,Tue,Wed,Thu,Fri",
+      tenantId: MAIN_TENANT_ID,
+    },
+  });
+  logger.info("   ✅ User: staff@example.com (Role: STAFF)");
 
   // 8.5 FINANCE User
   const financePasswordHash = await hash("finance123", 10);

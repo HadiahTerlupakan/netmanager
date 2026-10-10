@@ -69,6 +69,44 @@ export const ROLE_TEMPLATES: RoleTemplate[] = [
     ],
   },
   {
+    /**
+     * Pasangan STAFF untuk "Teknisi" dan "Sales / Marketing": role mobile murni
+     * tanpa portal admin. Sebelumnya persona STAFF hanya bisa dicapai lewat
+     * template yang juga membawa akses panel admin (Helpdesk, Manager, HRD),
+     * sehingga karyawan kantor biasa — yang cuma perlu absen dan pengajuan —
+     * terpaksa diberi portal admin, atau diberi role Teknisi dan melihat work
+     * order yang bukan urusannya. Lihat `docs/architecture/persona-pengguna-design.md` §1.
+     */
+    id: "staff-kantor",
+    name: "Staff Kantor",
+    description:
+      "Karyawan kantor non-lapangan. Hanya absensi, pengajuan izin & lembur, kalender libur, dan chat di mobile app. Tanpa portal admin.",
+    icon: "briefcase",
+    color: "teal",
+    accessAdminPanel: false,
+    accessEmployeePanel: true,
+    isTechnical: false,
+    persona: "STAFF",
+    isRestricted: false,
+    isSuperAdmin: false,
+    tags: ["Mobile", "Kepegawaian"],
+    permissions: [
+      // Mobile - Beranda
+      "m_dashboard:read",
+      // Mobile - Kehadiran
+      "m_absensi:read",
+      "m_absensi:create",
+      "m_lembur:read",
+      "m_lembur:create",
+      "m_izin:read",
+      "m_izin:create",
+      "m_holidays:read",
+      // Mobile - Chat
+      "m_chat:read",
+      "m_chat:create",
+    ],
+  },
+  {
     id: "admin",
     name: "Admin",
     description:

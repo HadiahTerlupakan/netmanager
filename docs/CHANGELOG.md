@@ -41,6 +41,35 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-10] — Role STAFF: persona STAFF akhirnya punya role sendiri
+
+- **Tipe**: [ADDED]
+- **Scope**: `prisma/seed.ts`, `lib/role-templates.ts`, `scripts/`
+- **Author**: agent
+- **Deskripsi**: Persona `STAFF` sudah ada di enum sejak `add_persona_to_roles`, tetapi
+  tidak satu pun role yang memakainya bisa membuka aplikasi mobile — ADMIN dan FINANCE
+  memang berpersona STAFF namun `accessEmployeePanel: false`, sehingga satu-satunya
+  persona STAFF yang bisa masuk adalah SUPER_ADMIN. Asimetri yang sama ada di template
+  role: TEKNISI punya "Teknisi" dan SALES punya "Sales / Marketing" yang mobile-murni,
+  sedangkan setiap template berpersona STAFF yang bisa masuk mobile (Helpdesk, Manager,
+  HRD) juga membawa akses panel admin. Akibatnya karyawan kantor biasa terpaksa diberi
+  role TEKNISI dan melihat work order, barang, serta topologi yang bukan urusannya —
+  persis keadaan yang hendak dihapus oleh `persona-pengguna-design.md` §1.
+  Ditambahkan: role bawaan `STAFF` di seed (persona STAFF, portal karyawan saja, 6
+  resource mobile: dashboard, absensi, lembur, izin, holidays, chat) beserta user contoh
+  `staff@example.com`; template "Staff Kantor" di form Tambah Role; dan skrip idempoten
+  untuk lingkungan yang sudah berjalan, karena seed hanya jalan di dev/CI.
+  Persona FINANCE **belum** disentuh: role FINANCE masih berpersona STAFF walau enum
+  punya FINANCE. Itu keputusan terpisah karena mengubah persona role ikut menyinkronkan
+  `User.isSales` dan mengganti tampilan mobile penggunanya.
+  `lib/role-templates.ts` menembus ambang 800 baris penjaga arsitektur dan dimasukkan ke
+  daftar pengecualian: isinya katalog data (satu entri per arketipe role) yang seluruh
+  entrinya berubah karena alasan yang sama, jadi memecahnya hanya memindahkan baris.
+- **Files**: `prisma/seed.ts`, `lib/role-templates.ts`,
+  `scripts/tambah-role-staff.ts`, `tests/lib/role-templates-persona.test.ts`,
+  `tests/architecture/module-public-api.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-09] — Absensi memakai util label lokasi bersama
 
 - **Tipe**: [FIXED]
