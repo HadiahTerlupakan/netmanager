@@ -41,6 +41,39 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Uji alur role Staff Kantor di aplikasi mobile
+
+- **Tipe**: [ADDED]
+- **Scope**: `mobile-netmanager/__tests__/persona`
+- **Author**: agent
+- **Deskripsi**: Role STAFF sudah dikunci di sisi server
+  (`MobileEmployeeAuthService.persona-staff.test.ts`), tetapi sisi aplikasi belum pernah
+  menjalani role itu: `jalurMasukStaff.test.ts` menguji penyusun tab & menu satu per satu
+  dan selalu dengan `role: 'SALES'`. `alurRoleStaffKantor.test.tsx` memasok muatan login
+  role STAFF apa adanya lalu membiarkan rantai nyata bekerja — `tentukanPersona` →
+  multiplexer Beranda → `KaryawanStaffDashboardScreen` → `QuickMenu` — serta tab bar;
+  hanya batas jaringan yang dimock. Mencakup: pemetaan persona, keempat tab terbuka,
+  tab Absensi & Chat hilang saat izinnya dicabut, kartu pengajuan & jam kerja, menu
+  kepegawaian tampil sementara permukaan teknisi (Work Order, Topologi, Barang,
+  Canvasing, Presurvei) tidak, dan Beranda mode cuti. Tiap pengujian diverifikasi dengan
+  mutasi kode: melonggarkan aturan tab dan menyalahkan layar persona membuatnya merah.
+- **Files**: `mobile-netmanager/__tests__/persona/alurRoleStaffKantor.test.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Alur Maestro persona STAFF dibatalkan
+
+- **Tipe**: [REMOVED]
+- **Scope**: `mobile-netmanager/.maestro`
+- **Author**: agent
+- **Deskripsi**: Dua alur Maestro (`persona-staff.yaml`, `persona-staff-izin.yaml`)
+  ditulis untuk E2E di perangkat tetapi tidak pernah bisa dijalankan: pemasangan Maestro
+  terhenti di `brew trust mobile-dev-inc/tap`. Alur yang belum pernah dieksekusi lebih
+  berbahaya daripada tidak ada — mudah dianggap sudah lulus. Dihapus; kontrak permukaan
+  persona STAFF kini dijaga uji alur yang benar-benar jalan di CI. E2E perangkat tetap
+  terbuka bila Maestro dipasang kelak (Detox bukan pilihan: dependensi native-nya
+  menggeser fingerprint `runtimeVersion` dan memaksa rebuild APK).
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-10] — Role STAFF: persona STAFF akhirnya punya role sendiri
 
 - **Tipe**: [ADDED]
