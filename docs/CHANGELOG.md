@@ -41,6 +41,40 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — QA perangkat persona STAFF: empat perbaikan aplikasi mobile
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(app)/chat`, `mobile-netmanager/src/components/organisms`
+- **Author**: agent
+- **Deskripsi**: Penelusuran fitur persona STAFF satu per satu di emulator (login
+  `staff@example.com`, Beranda → Izin & Cuti → Lembur → Kalender Libur → Chat →
+  Absensi → Profil → Notifikasi) menemukan empat cacat:
+  (1) **Urutan pesan chat terbalik.** `19af0c0` menghapus prop `inverted` karena
+  FlashList v2 mengabaikannya, tetapi data tetap disusun terbaru-dulu "untuk
+  daftar terbalik" — pesan terbaru muncul di puncak layar sementara kolom ketik
+  ada di bawah. Diganti pola v2: data kronologis, `maintainVisibleContentPosition`
+  dengan `startRenderingFromBottom`, pesan lama dimuat lewat `onStartReached`, dan
+  `scrollToEnd` setelah kirim.
+  (2) **Beranda staff mengabaikan `workDays`.** Staff Senin–Jumat dijanjikan
+  "Jam kerja 08:00 – 17:00" pada hari Minggu, sementara layar Absensi pada saat
+  yang sama menampilkan "HARI LIBUR ANDA". Keduanya membaca endpoint yang sama;
+  Beranda kini ikut memakai `today.isOffDay` darinya.
+  (3) **Dialog izin notifikasi menjanjikan work order** kepada staff kantor yang
+  tidak akan pernah menerimanya. Tiap alasan kini dipasangkan dengan izin yang
+  benar-benar menghasilkan push itu.
+  (4) **Pengungkapan lokasi menyebut "penugasan work order ke teknisi terdekat"**
+  sebagai alasan meminta lokasi latar belakang dari staff kantor. Kebijakan Google
+  Play menuntut alasan izin sensitif yang akurat; baris itu kini hanya tampil bagi
+  pemegang `m_work_order`.
+  Setiap perbaikan diverifikasi dua kali: di emulator lewat tangkapan layar, dan
+  lewat uji-mutasi — membatalkan masing-masing perbaikan membuat tesnya merah.
+- **Files**: `app/(app)/chat/[conversationId].tsx`,
+  `src/components/organisms/staff/KartuHariIniStaff.tsx`,
+  `src/components/organisms/notifikasi/PermintaanIzinNotifikasi.tsx`,
+  `src/components/organisms/attendance/LocationDisclosureModal.tsx`,
+  `src/hooks/useBerandaStaff.ts`, `src/utils/presurvei/berandaSales.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Uji alur role Staff Kantor di aplikasi mobile
 
 - **Tipe**: [ADDED]
