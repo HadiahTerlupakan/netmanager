@@ -53,7 +53,11 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   tak lagi tanpa penyaring) dan menyaring node rencana secara bawaan lewat
   `lingkup` (`nyata`/`rencana`/`semua`); `findAllEdges` memakai batasan yang
   sama. `MapListFilters` disatukan di `tenantContext.ts`. Semua kolom nullable
-  atau ber-default, tanpa data loss.
+  atau ber-default, tanpa data loss. Pembacaan by-id/edge/hitung di
+  `MappingRepository` kini berparameter `lingkup` (bawaan `"nyata"`); sync,
+  reset, dan upsert node tidak lagi menyentuh data rencana. FK
+  `PlanningDocument.nodeId` memakai `ON DELETE SET NULL` agar foto survei tidak
+  ikut terhapus bersama node.
 - **Files**: `modules/map/utils/tenantContext.ts`,
   `modules/map/repositories/MappingRepository.ts`,
   `modules/map/types/MappingRepositoryTypes.ts`

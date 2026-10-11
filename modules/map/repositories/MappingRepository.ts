@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NotFoundError as MapNotFoundError } from "@/lib/errors";
 import type { IMappingRepository } from "../domain/ports/IMappingRepository";
-import type { TenantContext } from "../utils/tenantContext";
+import type { LingkupPeta, TenantContext } from "../utils/tenantContext";
 import {
   batasanLingkup,
   buildMapWhere,
@@ -96,26 +96,39 @@ export class MappingRepository implements IMappingRepository {
     return MapMapper.toDomainEdge(record);
   }
 
-  async findNodeById(ctx: TenantContext, nodeId: string) {
+  async findNodeById(
+    ctx: TenantContext,
+    nodeId: string,
+    lingkup: LingkupPeta = "nyata",
+  ) {
     const record = await prisma.mappingNode.findFirst({
-      where: { nodeId, ...buildTenantWhere(ctx) },
+      where: { nodeId, ...buildTenantWhere(ctx), ...batasanLingkup(lingkup) },
     });
     return record ? MapMapper.toDomainNode(record) : null;
   }
 
-  async findEdgeById(ctx: TenantContext, edgeId: string) {
+  async findEdgeById(
+    ctx: TenantContext,
+    edgeId: string,
+    lingkup: LingkupPeta = "nyata",
+  ) {
     const record = await prisma.mappingEdge.findFirst({
-      where: { edgeId, ...buildTenantWhere(ctx) },
+      where: { edgeId, ...buildTenantWhere(ctx), ...batasanLingkup(lingkup) },
       include: EDGE_INCLUDE,
     });
     return record ? MapMapper.toDomainEdge(record) : null;
   }
 
-  async findEdgesByNode(ctx: TenantContext, nodeId: string) {
+  async findEdgesByNode(
+    ctx: TenantContext,
+    nodeId: string,
+    lingkup: LingkupPeta = "nyata",
+  ) {
     const records = await prisma.mappingEdge.findMany({
       where: {
         OR: [{ source: nodeId }, { target: nodeId }],
         ...buildTenantWhere(ctx),
+        ...batasanLingkup(lingkup),
       },
       include: EDGE_INCLUDE,
     });
@@ -183,19 +196,27 @@ export class MappingRepository implements IMappingRepository {
     return MapMapper.toDomainEdge(owned);
   }
 
-  async countEdgesFromSource(ctx: TenantContext, sourceNodeId: string) {
+  async countEdgesFromSource(
+    ctx: TenantContext,
+    sourceNodeId: string,
+    lingkup: LingkupPeta = "nyata",
+  ) {
     return prisma.mappingEdge.count({
-      where: { source: sourceNodeId, ...buildTenantWhere(ctx) },
+      where: {
+        source: sourceNodeId,
+        ...buildTenantWhere(ctx),
+        ...batasanLingkup(lingkup),
+      },
     });
   }
 
   async syncAllMappingData(ctx: TenantContext, data: SyncMapDataInput) {
     await prisma.$transaction(async (transaction) => {
       await transaction.mappingEdge.deleteMany({
-        where: buildTenantWhere(ctx),
+        where: { ...buildTenantWhere(ctx), ...batasanLingkup("nyata") },
       });
       await transaction.mappingNode.deleteMany({
-        where: buildTenantWhere(ctx),
+        where: { ...buildTenantWhere(ctx), ...batasanLingkup("nyata") },
       });
       await createManyMappingNodes(transaction, data.nodes, ctx.tenantId);
       await createManyMappingEdges(transaction, data.edges, ctx.tenantId);
@@ -205,10 +226,10 @@ export class MappingRepository implements IMappingRepository {
   async resetAllMappingData(ctx: TenantContext) {
     await prisma.$transaction(async (transaction) => {
       await transaction.mappingEdge.deleteMany({
-        where: buildTenantWhere(ctx),
+        where: { ...buildTenantWhere(ctx), ...batasanLingkup("nyata") },
       });
       await transaction.mappingNode.deleteMany({
-        where: buildTenantWhere(ctx),
+        where: { ...buildTenantWhere(ctx), ...batasanLingkup("nyata") },
       });
     });
   }
@@ -228,7 +249,11 @@ export class MappingRepository implements IMappingRepository {
     const tenantWhere = buildTenantWhere(ctx);
     const nodeIds = nodes.map((node) => node.nodeId);
     const existing = await prisma.mappingNode.findMany({
-      where: { ...tenantWhere, nodeId: { in: nodeIds } },
+      where: {
+        ...tenantWhere,
+        ...batasanLingkup("nyata"),
+        nodeId: { in: nodeIds },
+      },
       select: { nodeId: true },
     });
     const existingIds = new Set(existing.map((node) => node.nodeId));

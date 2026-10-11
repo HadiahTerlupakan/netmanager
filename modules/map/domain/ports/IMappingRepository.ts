@@ -1,7 +1,7 @@
 import type { MapEdge } from "../entities/MapEdge";
 import type { MapNode } from "../entities/MapNode";
 import type { MapSettings } from "../entities/MapSettings";
-import type { TenantContext } from "../../utils/tenantContext";
+import type { LingkupPeta, TenantContext } from "../../utils/tenantContext";
 import type {
   CreateMapEdgeInput,
   CreateMapNodeInput,
@@ -28,9 +28,21 @@ export interface IMappingRepository {
   ): Promise<MapSettings>;
   createNode(ctx: TenantContext, data: CreateMapNodeInput): Promise<MapNode>;
   createEdge(ctx: TenantContext, data: CreateMapEdgeInput): Promise<MapEdge>;
-  findNodeById(ctx: TenantContext, nodeId: string): Promise<MapNode | null>;
-  findEdgeById(ctx: TenantContext, edgeId: string): Promise<MapEdge | null>;
-  findEdgesByNode(ctx: TenantContext, nodeId: string): Promise<MapEdge[]>;
+  findNodeById(
+    ctx: TenantContext,
+    nodeId: string,
+    lingkup?: LingkupPeta,
+  ): Promise<MapNode | null>;
+  findEdgeById(
+    ctx: TenantContext,
+    edgeId: string,
+    lingkup?: LingkupPeta,
+  ): Promise<MapEdge | null>;
+  findEdgesByNode(
+    ctx: TenantContext,
+    nodeId: string,
+    lingkup?: LingkupPeta,
+  ): Promise<MapEdge[]>;
   updateNode(
     ctx: TenantContext,
     nodeId: string,
@@ -46,6 +58,7 @@ export interface IMappingRepository {
   countEdgesFromSource(
     ctx: TenantContext,
     sourceNodeId: string,
+    lingkup?: LingkupPeta,
   ): Promise<number>;
   syncAllMappingData(ctx: TenantContext, data: SyncMapDataInput): Promise<void>;
   resetAllMappingData(ctx: TenantContext): Promise<void>;

@@ -41,5 +41,5 @@ ALTER TABLE "mapping_nodes" ADD CONSTRAINT "mapping_nodes_planningId_fkey" FOREI
 ALTER TABLE "mapping_edges" ADD CONSTRAINT "mapping_edges_planningId_fkey" FOREIGN KEY ("planningId") REFERENCES "Planning"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "PlanningDocument" ADD CONSTRAINT "PlanningDocument_nodeId_fkey" FOREIGN KEY ("nodeId") REFERENCES "mapping_nodes"("node_id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PlanningDocument" ADD CONSTRAINT "PlanningDocument_nodeId_fkey" FOREIGN KEY ("nodeId") REFERENCES "mapping_nodes"("node_id") ON DELETE SET NULL ON UPDATE CASCADE;
 

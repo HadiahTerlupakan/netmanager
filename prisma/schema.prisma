@@ -6461,7 +6461,7 @@ model PlanningDocument {
   planning   Planning     @relation(fields: [planningId], references: [id], onDelete: Cascade)
   tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   uploadedBy User?        @relation("planning_document_uploadedByIdToUser", fields: [uploadedById], references: [id])
-  node       MappingNode? @relation(fields: [nodeId], references: [nodeId], onDelete: Cascade)
+  node       MappingNode? @relation(fields: [nodeId], references: [nodeId], onDelete: SetNull)
 
   @@index([planningId])
   @@index([tenantId])
