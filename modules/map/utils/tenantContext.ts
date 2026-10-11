@@ -5,6 +5,9 @@ export interface TenantContext {
   isSuperAdmin: boolean;
 }
 
+/** Lingkup keterlihatan node/jalur peta. */
+export type LingkupPeta = "nyata" | "rencana" | "semua";
+
 export interface MapListFilters {
   siteId?: string;
   /** Batasi ke satu tipe node (mis. "odp") — disaring di SQL, bukan di memori. */
@@ -19,6 +22,16 @@ export interface MapListFilters {
    * kosong. `HargaPaketRepository` sudah memakai pendekatan toleran yang sama.
    */
   includeUnassignedSite?: boolean;
+  /**
+   * Bawaan `"nyata"`: hanya node yang benar-benar terpasang.
+   *
+   * Titik rencana OSP hidup di tabel yang sama dengan topologi nyata. Penyaring
+   * ini sengaja bersifat bawaan, bukan tanggung jawab pemanggil, supaya lupa
+   * menyaring tidak mungkin terjadi karena bentuknya — bukan karena disiplin.
+   * Konsekuensi terburuk bila bocor: pelanggan disambungkan ke ODP yang
+   * fisiknya belum ada.
+   */
+  lingkup?: LingkupPeta;
 }
 
 export function buildTenantWhere(
@@ -36,33 +49,28 @@ export function buildTenantWhere(
   return { tenantId: ctx.tenantId };
 }
 
-export function buildMapWhere(
-  ctx: TenantContext,
-  filters?: MapListFilters,
-):
-  | {
-      tenantId?: string;
-      siteId?: string;
-      type?: string;
-      OR?: Array<{ siteId: string | null }>;
-    }
-  | undefined {
-  const tenantWhere = buildTenantWhere(ctx);
+/** Batasan `isPlanned` untuk sebuah lingkup; `{}` berarti tanpa batasan. */
+export function batasanLingkup(lingkup: LingkupPeta = "nyata") {
+  if (lingkup === "semua") return {};
+  return { isPlanned: lingkup === "rencana" };
+}
 
-  if (!filters?.siteId && !filters?.type) {
-    return tenantWhere;
-  }
+/** Menyusun `where` node peta: tenant, lingkup (bawaan nyata), site, dan tipe. */
+export function buildMapWhere(ctx: TenantContext, filters?: MapListFilters) {
+  const tenantWhere = buildTenantWhere(ctx) ?? {};
+  const lingkupWhere = batasanLingkup(filters?.lingkup);
 
-  const siteWhere = filters.siteId
+  const siteWhere = filters?.siteId
     ? filters.includeUnassignedSite
       ? { OR: [{ siteId: filters.siteId }, { siteId: null }] }
       : { siteId: filters.siteId }
     : {};
 
   return {
-    ...(tenantWhere ?? {}),
+    ...tenantWhere,
+    ...lingkupWhere,
     ...siteWhere,
-    ...(filters.type ? { type: filters.type } : {}),
+    ...(filters?.type ? { type: filters.type } : {}),
   };
 }
 

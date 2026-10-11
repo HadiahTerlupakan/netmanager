@@ -45,6 +45,7 @@ describe("PlanningMapper", () => {
         createdAt: now,
         updatedAt: now,
         deletedAt: null,
+        spareKabelPersen: 0,
       };
 
       const entity = PlanningMapper.toEntity(prismaModel);
@@ -95,6 +96,7 @@ describe("PlanningMapper", () => {
         createdAt: now,
         updatedAt: now,
         deletedAt: null,
+        spareKabelPersen: 0,
       };
 
       const entity = PlanningMapper.toEntity(prismaModel);

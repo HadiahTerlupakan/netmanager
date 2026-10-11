@@ -2,7 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { NotFoundError as MapNotFoundError } from "@/lib/errors";
 import type { IMappingRepository } from "../domain/ports/IMappingRepository";
 import type { TenantContext } from "../utils/tenantContext";
-import { buildMapWhere, buildTenantWhere } from "../utils/tenantContext";
+import {
+  batasanLingkup,
+  buildMapWhere,
+  buildTenantWhere,
+} from "../utils/tenantContext";
 import { MapMapper } from "../mappers/MapMapper";
 import type {
   CreateMapEdgeInput,
@@ -37,16 +41,18 @@ export class MappingRepository implements IMappingRepository {
   }
 
   async findAllEdges(ctx: TenantContext, filters?: MapListFilters) {
-    const tenantWhere = buildTenantWhere(ctx);
+    const tenantWhere = buildTenantWhere(ctx) ?? {};
+    const lingkupWhere = batasanLingkup(filters?.lingkup);
     const siteId = filters?.siteId;
 
     const records = await prisma.mappingEdge.findMany({
-      where: siteId
-        ? {
-            ...tenantWhere,
-            OR: [{ sourceNode: { siteId } }, { targetNode: { siteId } }],
-          }
-        : tenantWhere,
+      where: {
+        ...tenantWhere,
+        ...lingkupWhere,
+        ...(siteId
+          ? { OR: [{ sourceNode: { siteId } }, { targetNode: { siteId } }] }
+          : {}),
+      },
       include: EDGE_INCLUDE,
     });
     return records.map((record) => MapMapper.toDomainEdge(record));
