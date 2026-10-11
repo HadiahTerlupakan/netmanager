@@ -9,6 +9,7 @@ export { authConfig, authOptions, createAuthConfig } from "./auth/config";
 export { cookies } from "./auth/cookies";
 export { jwtCallback, sessionCallback } from "./auth/callbacks";
 export {
+  getActorPermissions,
   getUserPermissions,
   invalidatePermissionCache,
   invalidateRolePermissionCache,

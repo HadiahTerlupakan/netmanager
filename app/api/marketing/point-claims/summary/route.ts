@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { verifyAuth, getUserPermissions } from "@/lib/auth";
+import { verifyAuth, getActorPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
 import {
   isPointClaimRouteFailure,
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const result = await marketingPointClaimRouteService.getSummary({
     session,
-    permissions: await getUserPermissions(session.id),
+    permissions: await getActorPermissions(session),
     isSuperAdmin: isSuperAdminRole(session.role),
     salesId: searchParams.get("salesId") ?? undefined,
   });

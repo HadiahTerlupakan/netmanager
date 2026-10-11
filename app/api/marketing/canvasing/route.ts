@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuth, getUserPermissions } from "@/lib/auth";
+import {
+  verifyAuth,
+  getActorPermissions,
+  getUserPermissions,
+} from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
 import { apiSuccess, ApiErrors, apiError } from "@/lib/api-response";
 import { ErrorCodes } from "@/lib/api";
@@ -27,7 +31,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const result = await marketingCanvasingListRouteService.list({
     session,
-    permissions: await getUserPermissions(session.id),
+    permissions: await getActorPermissions(session),
     isSuperAdmin: isSuperAdminRole(session.role),
     status: searchParams.get("status"),
     salesId: searchParams.get("salesId"),

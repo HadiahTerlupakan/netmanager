@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { verifyAuth, getUserPermissions } from "@/lib/auth";
+import { verifyAuth, getActorPermissions } from "@/lib/auth";
 import { isSuperAdminRole } from "@/lib/auth-helpers";
 import {
   marketingCanvasingDetailRouteService,
@@ -36,7 +36,7 @@ async function buildCanvasingRouteInput(req: NextRequest, id: string) {
   return {
     id,
     session,
-    permissions: await getUserPermissions(session.id),
+    permissions: await getActorPermissions(session),
     isSuperAdmin: isSuperAdminRole(session.role),
   };
 }

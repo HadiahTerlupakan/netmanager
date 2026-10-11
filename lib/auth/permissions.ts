@@ -124,6 +124,30 @@ export async function invalidateRolePermissionCache(
   }
 }
 
+/** Peran yang barisnya tidak ada di tabel `User` — izinnya dibawa token. */
+const PERAN_TANPA_BARIS_USER = new Set(["MITRA", "CUSTOMER", "INVESTOR"]);
+
+/**
+ * Izin pelaku permintaan, apa pun jenis akunnya.
+ *
+ * `getUserPermissions` mencari id di tabel `User`. Untuk mitra id itu berasal
+ * dari database mitra, jadi hasilnya `[]` — dan gerbang izin di route bukan
+ * menolak, melainkan hilang (setiap `hasMobilePermission` jadi false sehingga
+ * pemeriksaannya tak pernah menyaring siapa pun). Untuk akun seperti itu izin
+ * sudah diturunkan server-side saat verifikasi token.
+ */
+export async function getActorPermissions(actor: {
+  id: string;
+  role?: string | null;
+  permissions?: string[];
+}): Promise<string[]> {
+  if (actor.role && PERAN_TANPA_BARIS_USER.has(actor.role)) {
+    return actor.permissions ?? [];
+  }
+
+  return getUserPermissions(actor.id);
+}
+
 export async function hasPermission(
   userId: string,
   resource: string,

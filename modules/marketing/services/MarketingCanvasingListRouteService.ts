@@ -85,6 +85,28 @@ export function isCanvasingListRouteFailure<T>(
   return !result.success;
 }
 
+const PERAN_MITRA = "MITRA";
+
+/** Sesi milik mitra eksternal — id-nya ada di database mitra, bukan `User`. */
+function isSesiMitra(session: CanvasingListRouteSession): boolean {
+  return session.role === PERAN_MITRA;
+}
+
+/**
+ * Atribusi pembuat canvasing. Mitra eksternal memakai kolom `mitraId`;
+ * `salesId` ber-FK ke `User`, jadi id mitra di sana membuat insert gagal
+ * (`canvasing_salesId_fkey`). Ditulis dari sesi, bukan dari badan permintaan,
+ * supaya komisi tidak bisa dialihkan ke mitra lain.
+ */
+function atribusiPembuat(session: CanvasingListRouteSession): {
+  salesId: string | null;
+  mitraId: string | null;
+} {
+  return isSesiMitra(session)
+    ? { mitraId: session.id, salesId: null }
+    : { salesId: session.id, mitraId: null };
+}
+
 function emptyListPayload(page: number, limit: number): CanvasingListPayload {
   return {
     data: [],
@@ -127,6 +149,19 @@ export class MarketingCanvasingListRouteService {
   async list(
     input: CanvasingListRouteInput,
   ): Promise<CanvasingListRouteResult<CanvasingListPayload>> {
+    if (
+      isSesiMitra(input.session) &&
+      !hasMobilePermission(input.permissions, "m_canvasing:read")
+    ) {
+      // Mitra teknisi tidak punya fitur canvasing; tanpa gerbang ini ia tetap
+      // menerima 200 karena lingkup mempersempit datanya ke miliknya sendiri.
+      return {
+        success: false,
+        status: 403,
+        error: "Anda tidak memiliki akses ke data canvasing",
+      };
+    }
+
     try {
       const status = parseCanvasingStatusParam(input.status ?? null);
       const canReadAll =
@@ -141,10 +176,18 @@ export class MarketingCanvasingListRouteService {
 
       let salesId = input.salesId ?? undefined;
       let salesIds: string[] | undefined;
+      let mitraId: string | undefined;
       const filterSiteId = input.siteId ?? undefined;
       let restrictSiteIds: string[] | undefined;
 
-      if (!canViewOthers) {
+      if (!canViewOthers && isSesiMitra(input.session)) {
+        // Canvasing mitra tersimpan di `mitraId`. Lewat lingkup sales ia akan
+        // disaring sebagai `salesId = id mitra` dan mitra tidak pernah melihat
+        // kirimannya sendiri.
+        salesId = undefined;
+        salesIds = undefined;
+        mitraId = input.session.id;
+      } else if (!canViewOthers) {
         // Kepala sales melihat canvasing timnya; sales biasa hanya miliknya.
         // Lingkupnya satu definisi dengan rencana dan prospek.
         // Izin canvasing sudah menolak melihat milik orang lain, jadi lingkup
@@ -186,6 +229,7 @@ export class MarketingCanvasingListRouteService {
         status?: CanvasingStatusValue;
         salesId?: string;
         salesIds?: string[];
+        mitraId?: string;
         siteId?: string;
         siteIds?: string[];
         search?: string;
@@ -194,6 +238,7 @@ export class MarketingCanvasingListRouteService {
       if (status) filterParams.status = status as CanvasingStatusValue;
       if (salesId) filterParams.salesId = salesId;
       if (salesIds) filterParams.salesIds = salesIds;
+      if (mitraId) filterParams.mitraId = mitraId;
       if (filterSiteId) {
         filterParams.siteId = filterSiteId;
       } else if (restrictSiteIds) {
@@ -240,7 +285,7 @@ export class MarketingCanvasingListRouteService {
     try {
       const payload = parseCreateCanvasingInput({
         ...input.body,
-        salesId: input.session.id,
+        ...atribusiPembuat(input.session),
       });
       const created = await this.service.createRequest(payload);
       return { success: true, data: created, status: 201 };

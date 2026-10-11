@@ -12,6 +12,10 @@ const mockFns = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({
   verifyAuth: mockFns.verifyAuth,
   getUserPermissions: mockFns.getUserPermissions,
+  // Untuk sesi karyawan `getActorPermissions` memang meneruskan ke
+  // `getUserPermissions`; mitra memakai izin dari token.
+  getActorPermissions: (actor: { id: string }) =>
+    mockFns.getUserPermissions(actor.id),
 }));
 
 vi.mock("@/lib/auth-helpers", () => ({
