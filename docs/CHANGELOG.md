@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Portal pelanggan: tagihan tidak pernah muncul
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(customer)`
+- **Author**: agent
+- **Deskripsi**: Endpoint portal pelanggan membungkus muatan di `data`
+  (`apiSuccess`), tetapi **ketiga** pembaca invoice — Beranda, Tagihan, dan Riwayat —
+  membacanya dari akar (`res.data.invoices`), sehingga selalu `undefined`. Pembaca
+  profil & koneksi sudah memakai pola bertahan `data?.x || x`; invoice tertinggal.
+  Akibatnya daftar tagihan selalu kosong dan Beranda menyatakan "Tagihan Bulan Ini
+  Rp 0 — Tagihan Lunas" kepada pelanggan yang sebenarnya menunggak. Dibuktikan di QA
+  perangkat: tagihan Rp 150.000 berstatus SENT ada di basis data dan dikembalikan API,
+  aplikasi tetap menulis Rp 0; setelah perbaikan layar yang sama menampilkan
+  "Rp 150.000 — Jatuh tempo 20 Okt 2026" dengan tombol "Bayar Sekarang".
+  Bentuk respons kini dibaca satu penolong bersama (`ambilMuatan`).
+- **Files**: `src/utils/responsPelanggan.ts`, `app/(customer)/dashboard.tsx`,
+  `app/(customer)/tagihan/index.tsx`, `app/(customer)/riwayat/index.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Login pelanggan di aplikasi mobile selalu gagal 500
 
 - **Tipe**: [FIXED]
