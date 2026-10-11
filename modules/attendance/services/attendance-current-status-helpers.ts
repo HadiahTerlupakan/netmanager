@@ -73,13 +73,37 @@ export function mapPersistedAttendanceEvaluation(
 }
 
 /** Ambil warning aktif dari evaluation absensi. */
+/**
+ * Kode alasan evaluasi ditulis untuk mesin (dipakai ekspor dan audit admin).
+ * Sebelumnya kode mentahnya dikirim apa adanya sebagai `warningMessage` dan
+ * aplikasi menampilkannya verbatim, sehingga teknisi melihat banner
+ * "WEAK_GEOFENCE_EVIDENCE" di layar absensi.
+ */
+const PESAN_ALASAN_ABSENSI: Record<string, string> = {
+  WEAK_GEOFENCE_EVIDENCE:
+    "Lokasi absensi belum terverifikasi: titik GPS di luar area site, atau site Anda belum punya koordinat.",
+  ATTENDANCE_ACCEPTED_WITHOUT_USABLE_SITE_CONFIG:
+    "Absensi diterima, tetapi site Anda belum punya konfigurasi lokasi.",
+  HOLIDAY_OVERRIDES_ATTENDANCE:
+    "Hari ini hari libur, sehingga absensi tidak dihitung sebagai hari kerja.",
+  APPROVED_LEAVE_OVERRIDES_ATTENDANCE:
+    "Anda sedang izin/cuti yang disetujui, sehingga absensi tidak dihitung.",
+  ATTENDANCE_RECORDED_ON_HOLIDAY_WITHOUT_APPROVED_OVERTIME:
+    "Absensi tercatat di hari libur tanpa lembur yang disetujui.",
+  ATTENDANCE_RECORDED_DURING_APPROVED_LEAVE:
+    "Absensi tercatat saat Anda sedang izin/cuti yang disetujui.",
+};
+
 export function getCurrentAttendanceWarningMessage(
   evaluation: CurrentAttendanceEvaluationRow,
   fallbackWarningMessage: string | null,
 ): string | null {
   if (!evaluation) return fallbackWarningMessage;
   const [firstReason] = normalizeReasonCodes(evaluation.reasonCodes);
-  return firstReason ?? fallbackWarningMessage;
+  if (!firstReason) return fallbackWarningMessage;
+  // Kode yang belum punya kalimat tidak ditampilkan: lebih baik senyap
+  // daripada memunculkan konstanta di layar orang.
+  return PESAN_ALASAN_ABSENSI[firstReason] ?? fallbackWarningMessage;
 }
 
 /** Bangun response status absensi aktif. */

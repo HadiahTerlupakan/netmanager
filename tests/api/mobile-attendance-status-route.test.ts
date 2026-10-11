@@ -215,7 +215,10 @@ describe("mobile attendance status route", () => {
       status: "checked-in",
       sourceAttendanceId: "attendance-open-1",
       attendanceStatus: "PERMIT",
-      warningMessage: "APPROVED_LEAVE_OVERRIDES_ATTENDANCE",
+      // Kalimat, bukan kode alasan: aplikasi menampilkan `warningMessage` apa
+      // adanya, jadi kode mentah muncul sebagai banner di layar absensi.
+      warningMessage:
+        "Anda sedang izin/cuti yang disetujui, sehingga absensi tidak dihitung.",
     });
   });
 
