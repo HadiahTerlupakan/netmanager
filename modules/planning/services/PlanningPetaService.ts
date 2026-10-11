@@ -65,37 +65,34 @@ export class PlanningPetaService {
     }
   }
 
-  /** Mengambil titik yang benar-benar milik rencana tersebut. */
+  /** Mengambil titik rencana milik planning ini; selain itu dianggap tidak ada. */
   private async findNodeOfPlanning(
     nodeId: string,
     planningId: string,
   ): Promise<MappingNode> {
-    const node = await this.petaRepo.ambilTitik(nodeId);
+    const node = await this.petaRepo.ambilTitikMilikPlanning(
+      nodeId,
+      planningId,
+    );
 
-    if (!node || node.planningId !== planningId) {
+    if (!node) {
       throw new PlanningNotFoundError("Titik tidak ditemukan");
     }
 
     return node;
   }
 
-  /** Titik yang sudah terbit menjadi node nyata tidak boleh diubah dari sini. */
-  private assertNodeStillPlanned(node: MappingNode): void {
-    if (!node.isPlanned) {
-      throw new PlanningInvalidStateError(
-        "Titik ini sudah terbit menjadi node jaringan nyata dan tidak bisa diubah atau dihapus dari rencana.",
-      );
-    }
-  }
-
-  /** Mengambil jalur yang benar-benar milik rencana tersebut. */
+  /** Mengambil jalur rencana milik planning ini; selain itu dianggap tidak ada. */
   private async findEdgeOfPlanning(
     edgeId: string,
     planningId: string,
   ): Promise<MappingEdge> {
-    const edge = await this.petaRepo.ambilJalur(edgeId);
+    const edge = await this.petaRepo.ambilJalurMilikPlanning(
+      edgeId,
+      planningId,
+    );
 
-    if (!edge || edge.planningId !== planningId) {
+    if (!edge) {
       throw new PlanningNotFoundError("Jalur tidak ditemukan");
     }
 
@@ -103,24 +100,22 @@ export class PlanningPetaService {
   }
 
   /**
-   * Satu ujung jalur boleh titik rencana planning ini atau node nyata
-   * (`isPlanned = false`) dalam tenant yang sama; titik rencana planning lain
-   * ditolak. Jalur rencana memang dimaksudkan menyambung dari infrastruktur
-   * yang sudah terpasang ke titik yang akan dibangun.
+   * Memastikan titik boleh menjadi ujung jalur. Seluruh aturan (tenant,
+   * rencana planning ini atau node nyata, tipe infrastruktur) disaring di
+   * query repository; di sini hanya soal ada atau tidak.
    */
   private async assertEndpointAllowed(
     nodeId: string,
     planningId: string,
     tenantId: string,
   ): Promise<void> {
-    const node = await this.petaRepo.ambilTitik(nodeId);
+    const node = await this.petaRepo.ambilTitikUjungJalur(
+      nodeId,
+      planningId,
+      tenantId,
+    );
 
-    if (!node || node.tenantId !== tenantId) {
-      throw new PlanningNotFoundError("Titik tidak ditemukan");
-    }
-
-    const isOwnPlannedNode = node.isPlanned && node.planningId === planningId;
-    if (node.isPlanned && !isOwnPlannedNode) {
+    if (!node) {
       throw new PlanningNotFoundError("Titik tidak ditemukan");
     }
   }
@@ -209,7 +204,6 @@ export class PlanningPetaService {
     this.assertMapEditable(planning);
 
     const existing = await this.findNodeOfPlanning(nodeId, planningId);
-    this.assertNodeStillPlanned(existing);
 
     if (existing.type !== input.type) {
       throw new PlanningValidationError(
@@ -272,7 +266,6 @@ export class PlanningPetaService {
     this.assertMapEditable(planning);
 
     const existing = await this.findNodeOfPlanning(nodeId, planningId);
-    this.assertNodeStillPlanned(existing);
 
     const jumlahJalur = await this.petaRepo.hitungJalurTerhubung(nodeId);
     if (jumlahJalur > 0) {
@@ -385,11 +378,6 @@ export class PlanningPetaService {
     this.assertMapEditable(planning);
 
     const existing = await this.findEdgeOfPlanning(edgeId, planningId);
-    if (!existing.isPlanned) {
-      throw new PlanningInvalidStateError(
-        "Jalur ini sudah terbit menjadi kabel jaringan nyata dan tidak bisa dihapus dari rencana.",
-      );
-    }
 
     await this.unitOfWork.runInTransaction(async (tx) => {
       await this.petaRepo.hapusJalur(edgeId, tx as PrismaTx);

@@ -112,12 +112,13 @@ describe("PlanningPetaService", () => {
       buatTitik: vi.fn().mockResolvedValue(node()),
       ubahTitik: vi.fn().mockResolvedValue(node()),
       hapusTitik: vi.fn().mockResolvedValue(undefined),
-      ambilTitik: vi.fn().mockResolvedValue(node()),
+      ambilTitikMilikPlanning: vi.fn().mockResolvedValue(node()),
+      ambilTitikUjungJalur: vi.fn().mockResolvedValue(node()),
       ambilTitikPerPlanning: vi.fn().mockResolvedValue([node()]),
       ambilTitikYatim: vi.fn().mockResolvedValue([]),
       hitungJalurTerhubung: vi.fn().mockResolvedValue(0),
       buatJalur: vi.fn().mockResolvedValue(edge()),
-      ambilJalur: vi.fn().mockResolvedValue(edge()),
+      ambilJalurMilikPlanning: vi.fn().mockResolvedValue(edge()),
       hapusJalur: vi.fn().mockResolvedValue(undefined),
       ambilJalurPerPlanning: vi.fn().mockResolvedValue([edge()]),
     } as unknown as Mocked<PlanningPetaRepository>;
@@ -170,8 +171,8 @@ describe("PlanningPetaService", () => {
   });
 
   describe("ubahTitik", () => {
-    it("menolak titik milik planning lain", async () => {
-      repo.ambilTitik.mockResolvedValue(node({ planningId: "plan-lain" }));
+    it("menolak titik yang tidak ditemukan sebagai milik planning ini", async () => {
+      repo.ambilTitikMilikPlanning.mockResolvedValue(null);
 
       await expect(
         service.ubahTitik("plan-1", "n-1", masukanTitik, "user-1", "tenant-1"),
@@ -179,12 +180,19 @@ describe("PlanningPetaService", () => {
       expect(repo.ubahTitik).not.toHaveBeenCalled();
     });
 
-    it("menolak titik yang sudah terbit", async () => {
-      repo.ambilTitik.mockResolvedValue(node({ isPlanned: false }));
+    it("meminta titik lewat query yang menyaring planning dan status rencana", async () => {
+      await service.ubahTitik(
+        "plan-1",
+        "n-1",
+        masukanTitik,
+        "user-1",
+        "tenant-1",
+      );
 
-      await expect(
-        service.ubahTitik("plan-1", "n-1", masukanTitik, "user-1", "tenant-1"),
-      ).rejects.toBeInstanceOf(PlanningInvalidStateError);
+      expect(repo.ambilTitikMilikPlanning).toHaveBeenCalledWith(
+        "n-1",
+        "plan-1",
+      );
     });
 
     it("menolak penggantian jenis titik", async () => {
@@ -218,21 +226,12 @@ describe("PlanningPetaService", () => {
   });
 
   describe("hapusTitik", () => {
-    it("menolak titik yang bukan milik planning itu", async () => {
-      repo.ambilTitik.mockResolvedValue(node({ planningId: "plan-lain" }));
+    it("menolak titik yang bukan titik rencana planning itu (termasuk yang sudah terbit)", async () => {
+      repo.ambilTitikMilikPlanning.mockResolvedValue(null);
 
       await expect(
         service.hapusTitik("plan-1", "n-1", "user-1", "tenant-1"),
       ).rejects.toBeInstanceOf(PlanningNotFoundError);
-      expect(repo.hapusTitik).not.toHaveBeenCalled();
-    });
-
-    it("menolak menghapus titik yang sudah terbit menjadi node nyata", async () => {
-      repo.ambilTitik.mockResolvedValue(node({ isPlanned: false }));
-
-      await expect(
-        service.hapusTitik("plan-1", "n-1", "user-1", "tenant-1"),
-      ).rejects.toBeInstanceOf(PlanningInvalidStateError);
       expect(repo.hapusTitik).not.toHaveBeenCalled();
     });
 
@@ -263,11 +262,6 @@ describe("PlanningPetaService", () => {
       notes: null as string | null,
     };
 
-    beforeEach(() => {
-      repo.ambilTitik.mockImplementation(((id: string) =>
-        Promise.resolve(node({ nodeId: id }))) as never);
-    });
-
     it("menandai planningId dan menyimpan waypoints sebagai JSON string", async () => {
       await service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1");
 
@@ -295,50 +289,33 @@ describe("PlanningPetaService", () => {
       );
     });
 
-    // Jalur rencana boleh menyambung dari infrastruktur yang sudah ada.
-    const ujung = (peta: Record<string, Partial<MappingNode>>): void => {
-      repo.ambilTitik.mockImplementation(((id: string) =>
-        Promise.resolve(node({ nodeId: id, ...peta[id] }))) as never);
-    };
-    const rencanaIni = { isPlanned: true, planningId: "plan-1" };
-    const nyata = { isPlanned: false, planningId: null as string | null };
-
-    it("menerima rencana ke rencana (planning yang sama)", async () => {
-      ujung({ "n-1": rencanaIni, "n-2": rencanaIni });
+    // Penyaringan ujung (tenant, rencana/nyata, tipe) dilakukan query
+    // repository dan diuji di PlanningPetaRepository.test.ts; di sini hanya
+    // perilaku service terhadap hasilnya.
+    it("memeriksa kedua ujung dengan planning dan tenant pemanggil", async () => {
       await service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1");
+
+      expect(repo.ambilTitikUjungJalur).toHaveBeenCalledWith(
+        "n-1",
+        "plan-1",
+        "tenant-1",
+      );
+      expect(repo.ambilTitikUjungJalur).toHaveBeenCalledWith(
+        "n-2",
+        "plan-1",
+        "tenant-1",
+      );
       expect(repo.buatJalur).toHaveBeenCalled();
     });
 
-    it("menerima rencana ke node nyata", async () => {
-      ujung({ "n-1": nyata, "n-2": rencanaIni });
-      await service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1");
-      expect(repo.buatJalur).toHaveBeenCalled();
-    });
-
-    it("menerima nyata ke nyata", async () => {
-      ujung({ "n-1": nyata, "n-2": nyata });
-      await service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1");
-      expect(repo.buatJalur).toHaveBeenCalled();
-    });
-
-    it("menolak titik rencana milik planning lain", async () => {
-      ujung({
-        "n-1": nyata,
-        "n-2": { isPlanned: true, planningId: "plan-lain" },
-      });
+    it("menolak bila salah satu ujung tidak ada", async () => {
+      repo.ambilTitikUjungJalur.mockImplementation(((id: string) =>
+        Promise.resolve(id === "n-2" ? null : node({ nodeId: id }))) as never);
 
       await expect(
         service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1"),
       ).rejects.toBeInstanceOf(PlanningNotFoundError);
       expect(repo.buatJalur).not.toHaveBeenCalled();
-    });
-
-    it("menolak node nyata milik tenant lain", async () => {
-      ujung({ "n-1": nyata, "n-2": { ...nyata, tenantId: "lain" } });
-
-      await expect(
-        service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1"),
-      ).rejects.toBeInstanceOf(PlanningNotFoundError);
     });
 
     it("menolak jalur yang asal dan tujuannya sama", async () => {
@@ -362,21 +339,12 @@ describe("PlanningPetaService", () => {
   });
 
   describe("hapusJalur", () => {
-    it("menolak jalur milik planning lain", async () => {
-      repo.ambilJalur.mockResolvedValue(edge({ planningId: "plan-lain" }));
+    it("menolak jalur yang tidak ditemukan sebagai milik planning ini", async () => {
+      repo.ambilJalurMilikPlanning.mockResolvedValue(null);
 
       await expect(
         service.hapusJalur("plan-1", "e-1", "user-1", "tenant-1"),
       ).rejects.toBeInstanceOf(PlanningNotFoundError);
-    });
-
-    it("menolak jalur yang sudah terbit", async () => {
-      repo.ambilJalur.mockResolvedValue(edge({ isPlanned: false }));
-
-      await expect(
-        service.hapusJalur("plan-1", "e-1", "user-1", "tenant-1"),
-      ).rejects.toBeInstanceOf(PlanningInvalidStateError);
-      expect(repo.hapusJalur).not.toHaveBeenCalled();
     });
 
     it("menghapus jalur rencana dan mengaudit", async () => {

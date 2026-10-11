@@ -3,6 +3,15 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 
+/** Tipe node yang boleh menjadi ujung kabel pada jalur rencana. */
+export const TIPE_UJUNG_JALUR = [
+  "olt",
+  "odc",
+  "odp",
+  "pole",
+  "joinbox",
+] as const;
+
 /** Data titik rencana baru; `isPlanned` selalu disetel repository ini. */
 export interface BuatTitikData {
   planningId: string;
@@ -78,9 +87,30 @@ export class PlanningPetaRepository {
     await client.mappingNode.delete({ where: { nodeId } });
   }
 
-  /** Mengambil satu titik tanpa memandang status rencana/terbit. */
-  ambilTitik(nodeId: string) {
-    return prisma.mappingNode.findUnique({ where: { nodeId } });
+  /**
+   * Titik rencana milik planning tertentu. Penyaringan ada di query: titik
+   * terbit, titik planning lain, atau yatim tidak pernah ikut terbaca.
+   */
+  ambilTitikMilikPlanning(nodeId: string, planningId: string) {
+    return prisma.mappingNode.findFirst({
+      where: { nodeId, planningId, isPlanned: true },
+    });
+  }
+
+  /**
+   * Titik yang boleh menjadi ujung jalur rencana: titik rencana planning ini
+   * atau node nyata, dalam tenant yang sama, dan hanya elemen infrastruktur
+   * jalur kabel (perencanaan OSP berhenti di ODP, bukan perangkat pelanggan).
+   */
+  ambilTitikUjungJalur(nodeId: string, planningId: string, tenantId: string) {
+    return prisma.mappingNode.findFirst({
+      where: {
+        nodeId,
+        tenantId,
+        type: { in: [...TIPE_UJUNG_JALUR] },
+        OR: [{ isPlanned: false }, { isPlanned: true, planningId }],
+      },
+    });
   }
 
   /** Titik rencana milik sebuah planning, urut pembuatan. */
@@ -114,9 +144,11 @@ export class PlanningPetaRepository {
     });
   }
 
-  /** Mengambil satu jalur tanpa memandang status rencana/terbit. */
-  ambilJalur(edgeId: string) {
-    return prisma.mappingEdge.findUnique({ where: { edgeId } });
+  /** Jalur rencana milik planning tertentu; jalur terbit/planning lain tidak terbaca. */
+  ambilJalurMilikPlanning(edgeId: string, planningId: string) {
+    return prisma.mappingEdge.findFirst({
+      where: { edgeId, planningId, isPlanned: true },
+    });
   }
 
   /** Menghapus satu jalur. */

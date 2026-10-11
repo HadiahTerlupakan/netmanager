@@ -50,7 +50,9 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   (ODP/ODC) dan jalur kabel rencana yang disimpan di `MappingNode`/`MappingEdge`
   dengan `isPlanned: true` dan `planningId`. Aturan di service: kepemilikan
   tenant, hanya planning BACKLOG/REJECTED yang peta-nya bisa diubah, titik/jalur
-  harus milik planning itu, kedua ujung jalur harus titik planning yang sama,
+  harus milik planning itu, tiap ujung jalur boleh titik rencana planning ini atau node nyata
+  satu tenant bertipe olt/odc/odp/pole/joinbox (titik rencana planning lain,
+  customer, dan ont ditolak; disaring di query repository),
   titik/jalur yang sudah terbit (`isPlanned: false`) tidak bisa diubah atau
   dihapus, titik yang masih punya jalur tidak bisa dihapus, jenis titik tidak
   bisa diganti. Setiap perubahan diaudit (`UPDATED`) satu transaksi dengan
@@ -59,7 +61,8 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   Soft delete planning (`PlanningRepository.delete`) kini, dalam transaksi yang
   sama, juga menghapus node/edge miliknya yang masih `isPlanned = true`; yang
   sudah terbit tidak disentuh.
-  Route: `GET/POST/PUT/DELETE .../peta/titik`, `POST/DELETE .../peta/jalur`
+  Route: `GET/POST .../peta/titik`, `PUT/DELETE .../peta/titik/[nodeId]`,
+  `POST .../peta/jalur`, `DELETE .../peta/jalur/[edgeId]`
   (`planning:read` untuk GET, `planning:update` untuk tulis).
 - **Files**: `modules/planning/services/PlanningPetaService.ts`,
   `modules/planning/repositories/PlanningPetaRepository.ts`,
