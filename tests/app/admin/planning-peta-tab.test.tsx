@@ -43,6 +43,7 @@ vi.mock("next/dynamic", async () => {
 });
 
 import PlanningPetaTab from "@/app/admin/planning/[id]/peta/PlanningPetaTab";
+import { usePetaRencana } from "@/app/admin/planning/[id]/peta/usePetaRencana";
 import type { TitikRencanaDTO } from "@/modules/planning/client";
 
 const ID_RENCANA = "plan-1";
@@ -61,6 +62,19 @@ const titikRencana: TitikRencanaDTO = {
   splitter: "1:8",
   notes: null,
   isPlanned: true,
+};
+
+/** Node jaringan nyata yang jauh dari lokasi rencana, untuk menguji pusat peta. */
+const nodeNyataJauh: TitikRencanaDTO = {
+  nodeId: "node-nyata-jauh",
+  planningId: null,
+  type: "odc",
+  name: "ODC-SBY-01",
+  latitude: -7.25,
+  longitude: 112.75,
+  splitter: null,
+  notes: null,
+  isPlanned: false,
 };
 
 /** Rekap material tiruan; 200 m terukur dengan cadangan 10% berarti 220 m dipesan. */
@@ -82,10 +96,24 @@ function responsTautanBerhasil(): Response {
 }
 
 interface SkenarioFetch {
+  peta: () => Response;
   uraikan: () => Response;
   hapusTitik: () => Response;
   terbitkan: () => Response | Promise<Response>;
   rekap: () => Response;
+}
+
+/** Respons peta rencana; `latarDisembunyikanKarenaIzin` bisa ditimpa per tes. */
+function responsPeta(latarDisembunyikanKarenaIzin = false): Response {
+  return responsJson(200, {
+    success: true,
+    data: {
+      titik: [titikRencana],
+      jalur: [],
+      nodeNyata: [],
+      latarDisembunyikanKarenaIzin,
+    },
+  });
 }
 
 interface PermintaanTercatat {
@@ -123,10 +151,7 @@ function pasangFetch(): void {
         });
 
         if (url === URL_PETA) {
-          return responsJson(200, {
-            success: true,
-            data: { titik: [titikRencana], jalur: [], nodeNyata: [] },
-          });
+          return skenario.peta();
         }
         if (url === URL_MATERIAL) {
           return metode === "POST" ? skenario.terbitkan() : skenario.rekap();
@@ -183,6 +208,7 @@ describe("tab Peta planning OSP", () => {
   beforeEach(() => {
     petaPalsu.props = null;
     skenario = {
+      peta: () => responsPeta(),
       uraikan: responsTautanBerhasil,
       hapusTitik: () => responsJson(200, { success: true, data: {} }),
       terbitkan: () => responsJson(200, { success: true, data: [] }),
@@ -323,7 +349,7 @@ describe("tab Peta planning OSP", () => {
     });
   });
 
-  it("menjelaskan titik sudah terbit, bukan tidak ditemukan, saat API membalas 404", async () => {
+  it("menjelaskan titik sudah tidak ada tanpa mengklaim satu sebab saat API membalas 404", async () => {
     skenario.hapusTitik = () =>
       responsJson(404, { success: false, error: "Titik tidak ditemukan" });
     await renderTab();
@@ -340,13 +366,52 @@ describe("tab Peta planning OSP", () => {
     });
 
     await tungguSampai(
-      () => teksPesan().includes("sudah terbit menjadi node jaringan nyata"),
-      "pesan titik sudah terbit tersaji",
+      () => teksPesan().includes("sudah tidak ada di rencana ini"),
+      "pesan titik sudah tidak ada tersaji",
     );
     expect(teksPesan()).toContain("ODP-CPN-01");
     expect(teksPesan()).not.toContain("tidak ditemukan");
+    // 404 juga timbul dari klik hapus kedua, jadi pesannya tidak boleh
+    // menyatakan titik itu pasti sudah terbit menjadi node jaringan.
+    expect(teksPesan()).toContain("atau sudah dihapus");
     // Peta disegarkan, bukan dibiarkan menampilkan keadaan lama.
     expect(permintaanKe(URL_PETA, "GET").length).toBeGreaterThan(1);
+  });
+
+  it("memusatkan peta ke koordinat rencana, bukan ke node nyata yang jauh", async () => {
+    // Rencana belum punya titik. Node nyata tertua milik tenant bisa ratusan
+    // kilometer dari lokasi rencana, dan itu layar pertama yang dilihat
+    // perencana — jadi koordinat rencana wajib menang.
+    skenario.peta = () =>
+      responsJson(200, {
+        success: true,
+        data: {
+          titik: [],
+          jalur: [],
+          nodeNyata: [nodeNyataJauh],
+          latarDisembunyikanKarenaIzin: false,
+        },
+      });
+    await renderTab();
+
+    await tungguSampai(() => petaPalsu.props !== null, "peta terpasang");
+    expect(petaPalsu.props?.pusat).toEqual([-6.2, 106.8]);
+  });
+
+  it("mengatakan latar jaringan disembunyikan karena izin, bukan membiarkannya tampak kosong", async () => {
+    // Degradasi senyap di sini berarti perencana menyimpulkan tidak ada
+    // jaringan di lokasi itu, lalu menggambar ODC kedua di atas yang sudah
+    // berdiri. Jadi penanda dari server wajib dikatakan.
+    skenario.peta = () => responsPeta(true);
+    await renderTab();
+
+    await tungguSampai(
+      () => teksPeringatan().includes("tidak ditampilkan sebagai latar"),
+      "alasan latar disembunyikan tersaji",
+    );
+    expect(teksPeringatan()).toContain("map:read");
+    // Titik rencana tetap tersaji: endpoint tidak di-403-kan.
+    expect(petaPalsu.props?.titikRencana).toHaveLength(1);
   });
 
   it("memberi tahu jumlah jalur yang panjangnya tidak bisa dihitung", async () => {
@@ -359,5 +424,54 @@ describe("tab Peta planning OSP", () => {
       "peringatan jalur diabaikan tersaji",
     );
     expect(teksPeringatan()).toContain("lebih kecil dari kenyataan");
+  });
+
+  /**
+   * Penjaga konkurensi diuji langsung di hook, bukan lewat tombol.
+   *
+   * Lewat tombol, atribut `disabled` yang menahan klik kedua — jadi penjaga di
+   * dalam hook tidak pernah terbukti. Yang perlu dijaga justru jalur
+   * non-klik: dua pemanggilan dalam satu tick, yang sebelumnya lolos karena
+   * penjaganya membaca state dari closure yang sama.
+   */
+  describe("penjaga klik ganda di dalam hook", () => {
+    let api: ReturnType<typeof usePetaRencana> | null = null;
+
+    function Penyelidik(): null {
+      api = usePetaRencana(ID_RENCANA);
+      return null;
+    }
+
+    it("hanya mengirim satu POST untuk dua pemanggilan dalam satu tick", async () => {
+      api = null;
+      await render(panggung, <Penyelidik />);
+      await tungguSampai(() => api !== null, "hook terpasang");
+
+      await act(async () => {
+        await Promise.all([
+          api!.terbitkanMaterial(10),
+          api!.terbitkanMaterial(10),
+        ]);
+      });
+
+      expect(permintaanKe(URL_MATERIAL, "POST")).toHaveLength(1);
+    });
+
+    it("hanya mengirim satu DELETE untuk dua penghapusan titik yang sama", async () => {
+      api = null;
+      await render(panggung, <Penyelidik />);
+      await tungguSampai(() => api !== null, "hook terpasang");
+
+      await act(async () => {
+        await Promise.all([
+          api!.hapusTitik(titikRencana),
+          api!.hapusTitik(titikRencana),
+        ]);
+      });
+
+      expect(
+        permintaanKe(`${URL_TITIK}/${titikRencana.nodeId}`, "DELETE"),
+      ).toHaveLength(1);
+    });
   });
 });

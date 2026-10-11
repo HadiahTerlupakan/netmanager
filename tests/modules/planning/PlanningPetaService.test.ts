@@ -398,16 +398,18 @@ describe("PlanningPetaService", () => {
       const peta = await service.ambilPeta("plan-1", "tenant-1");
 
       expect(peta.nodeNyata).toEqual([]);
+      expect(peta.latarDisembunyikanKarenaIzin).toBe(false);
       expect(repo.ambilNodeNyataInfrastruktur).not.toHaveBeenCalled();
     });
 
-    it("menyertakan node nyata tenant yang sama sebagai latar bila diminta", async () => {
+    it("menyertakan node nyata tenant yang sama sebagai latar bila diminta dan diizinkan", async () => {
       repo.ambilNodeNyataInfrastruktur.mockResolvedValue([
         node({ nodeId: "n-nyata", isPlanned: false, planningId: null }),
       ]);
 
       const peta = await service.ambilPeta("plan-1", "tenant-1", {
         sertakanNodeNyata: true,
+        diizinkanNodeNyata: true,
       });
 
       expect(repo.ambilNodeNyataInfrastruktur).toHaveBeenCalledWith("tenant-1");
@@ -416,6 +418,32 @@ describe("PlanningPetaService", () => {
         nodeId: "n-nyata",
         isPlanned: false,
       });
+      expect(peta.latarDisembunyikanKarenaIzin).toBe(false);
+    });
+
+    it("menandai latar disembunyikan dan tidak membaca topologi bila tidak diizinkan", async () => {
+      // Latar ini adalah enumerasi topologi operasional lengkap; tanpa izin
+      // `map:read` ia tidak boleh dibaca. Titik & jalur rencana tetap
+      // dikembalikan — 403 akan mematikan seluruh peta rencana — jadi
+      // kekurangannya WAJIB ditandai, bukan dibiarkan tampak kosong.
+      const peta = await service.ambilPeta("plan-1", "tenant-1", {
+        sertakanNodeNyata: true,
+        diizinkanNodeNyata: false,
+      });
+
+      expect(repo.ambilNodeNyataInfrastruktur).not.toHaveBeenCalled();
+      expect(peta.nodeNyata).toEqual([]);
+      expect(peta.latarDisembunyikanKarenaIzin).toBe(true);
+      expect(peta.titik).toHaveLength(1);
+    });
+
+    it("tidak menandai apa pun bila latar tidak diminta", async () => {
+      const peta = await service.ambilPeta("plan-1", "tenant-1", {
+        diizinkanNodeNyata: true,
+      });
+
+      expect(repo.ambilNodeNyataInfrastruktur).not.toHaveBeenCalled();
+      expect(peta.latarDisembunyikanKarenaIzin).toBe(false);
     });
   });
 

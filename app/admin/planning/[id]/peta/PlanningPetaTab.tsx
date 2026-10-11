@@ -57,21 +57,36 @@ const KELAS_PESAN: Record<PesanPeta["nada"], string> = {
     "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300",
 };
 
-/** Titik pertama yang berkoordinat, untuk memusatkan peta. */
-function cariPusat(
-  titik: TitikRencanaDTO[],
-  koordinatPlanning: Coordinates | null,
-): [number, number] {
+/** Koordinat lengkap titik pertama yang punya keduanya; null bila tidak ada. */
+function koordinatPertama(titik: TitikRencanaDTO[]): [number, number] | null {
   const berkoordinat = titik.find(
     (satu) => satu.latitude !== null && satu.longitude !== null,
   );
-  if (berkoordinat) {
-    return [berkoordinat.latitude!, berkoordinat.longitude!];
-  }
+  return berkoordinat
+    ? [berkoordinat.latitude!, berkoordinat.longitude!]
+    : null;
+}
+
+/**
+ * Pusat peta, dari yang paling spesifik ke yang paling umum: titik rencana →
+ * koordinat rencana → node nyata → Jakarta.
+ *
+ * Node nyata WAJIB di belakang koordinat rencana. Sebelumnya keduanya dicari
+ * bersama, sehingga rencana yang belum punya titik terbuka di node nyata
+ * tertua milik tenant — bisa ratusan kilometer dari lokasi rencana, dan itu
+ * layar pertama yang dilihat perencana.
+ */
+function cariPusat(
+  titikRencana: TitikRencanaDTO[],
+  koordinatPlanning: Coordinates | null,
+  nodeNyata: TitikRencanaDTO[],
+): [number, number] {
+  const dariRencana = koordinatPertama(titikRencana);
+  if (dariRencana) return dariRencana;
   if (koordinatPlanning) {
     return [koordinatPlanning.latitude, koordinatPlanning.longitude];
   }
-  return PUSAT_BAWAAN;
+  return koordinatPertama(nodeNyata) ?? PUSAT_BAWAAN;
 }
 
 /** Koordinat draf dari teks di form; null selama angkanya belum lengkap. */
@@ -101,6 +116,7 @@ export default function PlanningPetaTab({
     sedangMenyimpanTitik,
     sedangMenyimpanJalur,
     sedangMenerbitkan,
+    isSedangDihapus,
     tambahTitik,
     hapusTitik,
     tambahJalur,
@@ -252,24 +268,34 @@ export default function PlanningPetaTab({
             titikRencana={titikRencana}
             nodeNyata={nodeNyata}
             jalur={peta?.jalur ?? []}
-            pusat={cariPusat(
-              [...titikRencana, ...nodeNyata],
-              koordinatPlanning,
-            )}
+            pusat={cariPusat(titikRencana, koordinatPlanning, nodeNyata)}
             koordinatDraf={koordinatDrafDari(koordinat)}
             jalurDraf={jalurDraf}
             sedangGambarJalur={mode === "jalur"}
             dapatDiubah={dapatDiubah}
+            isSedangDihapus={isSedangDihapus}
             onKlikPeta={klikPeta}
             onKlikTitik={klikTitik}
             onHapusTitik={hapusTitik}
             onHapusJalur={hapusJalur}
           />
 
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Penanda redup adalah node jaringan yang sudah terpasang. Titik
-            rencana tampil penuh dan bisa disambung ke node redup itu.
-          </p>
+          {peta?.latarDisembunyikanKarenaIzin ? (
+            <p
+              role="alert"
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+            >
+              Jaringan yang sudah terpasang tidak ditampilkan sebagai latar
+              karena akun Anda tidak punya izin membaca peta jaringan (map:read)
+              — peta ini bisa tampak kosong padahal di lokasinya sudah ada
+              perangkat. Minta administrator menambahkan izin itu ke peran Anda.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Penanda redup adalah node jaringan yang sudah terpasang. Titik
+              rencana tampil penuh dan bisa disambung ke node redup itu.
+            </p>
+          )}
 
           {jalurDraf && tujuanJalur && (
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">

@@ -45,6 +45,8 @@ interface PetaRencanaLeafletProps {
   jalurDraf: JalurDraf | null;
   sedangGambarJalur: boolean;
   dapatDiubah: boolean;
+  /** `true` selama permintaan hapus untuk id itu berjalan; tombolnya dinonaktifkan. */
+  isSedangDihapus: (id: string) => boolean;
   onKlikPeta: (latitude: number, longitude: number) => void;
   onKlikTitik: (titik: TitikRencanaDTO) => void;
   onHapusTitik: (titik: TitikRencanaDTO) => void;
@@ -55,7 +57,6 @@ interface PetaRencanaLeafletProps {
 const OPASITAS_NODE_NYATA = 0.4;
 const ZOOM_AWAL = 16;
 const BOBOT_JALUR_RENCANA = 5;
-const BOBOT_JALUR_NYATA = 3;
 
 // Leaflet mencari berkas ikonnya secara relatif terhadap bundel; samakan
 // dengan peta operasional (components/map/NetworkMapInteractive.tsx).
@@ -139,6 +140,7 @@ export default function PetaRencanaLeaflet({
   jalurDraf,
   sedangGambarJalur,
   dapatDiubah,
+  isSedangDihapus,
   onKlikPeta,
   onKlikTitik,
   onHapusTitik,
@@ -192,13 +194,15 @@ export default function PetaRencanaLeaflet({
             <Polyline
               key={satuJalur.edgeId}
               positions={jejak}
+              // Seluruh jalur di sini adalah jalur rencana: endpoint peta
+              // planning hanya mengembalikan `isPlanned: true`, dan latar
+              // node nyata tidak membawa kabelnya. Jadi tidak ada cabang
+              // gaya "jalur nyata" — cabang itu tidak akan pernah terpakai.
               pathOptions={{
                 color: getFiberColor(satuJalur.fiberType),
-                weight: satuJalur.isPlanned
-                  ? BOBOT_JALUR_RENCANA
-                  : BOBOT_JALUR_NYATA,
-                opacity: satuJalur.isPlanned ? 0.9 : OPASITAS_NODE_NYATA,
-                dashArray: satuJalur.isPlanned ? "10, 10" : undefined,
+                weight: BOBOT_JALUR_RENCANA,
+                opacity: 0.9,
+                dashArray: "10, 10",
               }}
             >
               <Popup>
@@ -207,10 +211,12 @@ export default function PetaRencanaLeaflet({
                     Jalur {satuJalur.fiberType ?? "tanpa jenis"}
                   </p>
                   <p>Panjang: {panjang.toFixed(1)} m</p>
-                  {dapatDiubah && satuJalur.isPlanned && (
+                  {dapatDiubah && (
                     <Button
                       variant="destructive"
                       size="sm"
+                      loading={isSedangDihapus(satuJalur.edgeId)}
+                      disabled={isSedangDihapus(satuJalur.edgeId)}
                       onClick={() => onHapusJalur(satuJalur)}
                     >
                       Hapus jalur
@@ -267,6 +273,8 @@ export default function PetaRencanaLeaflet({
                     <Button
                       variant="destructive"
                       size="sm"
+                      loading={isSedangDihapus(titik.nodeId)}
+                      disabled={isSedangDihapus(titik.nodeId)}
                       onClick={() => onHapusTitik(titik)}
                     >
                       Hapus titik

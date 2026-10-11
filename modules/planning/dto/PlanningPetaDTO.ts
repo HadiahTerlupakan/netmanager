@@ -37,4 +37,12 @@ export interface PetaPlanningDTO {
    * berarti tidak diminta, bukan berarti jaringannya tidak ada.
    */
   nodeNyata: TitikRencanaDTO[];
+  /**
+   * `true` bila latar jaringan nyata diminta tetapi tidak boleh dibaca oleh
+   * pemanggil. Tanpa penanda ini `nodeNyata` kosong punya dua arti yang
+   * berbeda — tidak diminta, atau tidak diizinkan — dan perencana akan
+   * menyimpulkan tidak ada jaringan di sana. Degradasi senyap itu yang
+   * membuat rencana digambar di atas jaringan yang sudah berdiri.
+   */
+  latarDisembunyikanKarenaIzin: boolean;
 }

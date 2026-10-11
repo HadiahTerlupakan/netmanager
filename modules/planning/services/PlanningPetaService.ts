@@ -417,18 +417,27 @@ export class PlanningPetaService {
    * latar redup: rencana tanpa konteks jaringan yang sudah berdiri membuat
    * perencana menggambar ODC kedua di tempat yang sudah punya satu, dan
    * node-node itu pula yang boleh menjadi ujung jalur rencana.
+   *
+   * `diizinkanNodeNyata` dihitung pemanggil, bukan di sini: latar itu adalah
+   * inventaris topologi operasional lengkap beserta koordinatnya, jadi tidak
+   * boleh ikut hanya karena pemegang izin planning memintanya. Service tidak
+   * pernah tahu nama izinnya — ia hanya menerima dua boolean dan menandai
+   * hasilnya, sesuai batasan "tiada logika otorisasi di service".
    */
   async ambilPeta(
     planningId: string,
     tenantId: string,
-    opsi: { sertakanNodeNyata?: boolean } = {},
+    opsi: { sertakanNodeNyata?: boolean; diizinkanNodeNyata?: boolean } = {},
   ): Promise<PetaPlanningDTO> {
     await this.findOwnedPlanning(planningId, tenantId);
+
+    const diminta = Boolean(opsi.sertakanNodeNyata);
+    const bolehDibaca = diminta && Boolean(opsi.diizinkanNodeNyata);
 
     const [titik, jalur, nodeNyata] = await Promise.all([
       this.petaRepo.ambilTitikPerPlanning(planningId),
       this.petaRepo.ambilJalurPerPlanning(planningId),
-      opsi.sertakanNodeNyata
+      bolehDibaca
         ? this.petaRepo.ambilNodeNyataInfrastruktur(tenantId)
         : Promise.resolve([] as MappingNode[]),
     ]);
@@ -437,6 +446,7 @@ export class PlanningPetaService {
       titik: titik.map((node) => PlanningPetaMapper.toTitikDTO(node)),
       jalur: jalur.map((edge) => PlanningPetaMapper.toJalurDTO(edge)),
       nodeNyata: nodeNyata.map((node) => PlanningPetaMapper.toTitikDTO(node)),
+      latarDisembunyikanKarenaIzin: diminta && !bolehDibaca,
     };
   }
 

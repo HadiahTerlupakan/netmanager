@@ -72,6 +72,7 @@ describe("kanvas peta rencana OSP", () => {
           jalurDraf={{ sumber: rencana, waypoints: [[-6.203, 106.803]] }}
           sedangGambarJalur
           dapatDiubah
+          isSedangDihapus={() => false}
           onKlikPeta={() => {}}
           onKlikTitik={() => {}}
           onHapusTitik={() => {}}
