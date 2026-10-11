@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Titik dan jalur rencana pada peta Planning OSP
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/planning`, `app/api/planning/[id]/peta`
+- **Author**: agent
+- **Deskripsi**: `PlanningPetaService` + `PlanningPetaRepository` untuk titik
+  (ODP/ODC) dan jalur kabel rencana yang disimpan di `MappingNode`/`MappingEdge`
+  dengan `isPlanned: true` dan `planningId`. Aturan di service: kepemilikan
+  tenant, hanya planning BACKLOG/REJECTED yang peta-nya bisa diubah, titik/jalur
+  harus milik planning itu, kedua ujung jalur harus titik planning yang sama,
+  titik/jalur yang sudah terbit (`isPlanned: false`) tidak bisa diubah atau
+  dihapus, titik yang masih punya jalur tidak bisa dihapus, jenis titik tidak
+  bisa diganti. Setiap perubahan diaudit (`UPDATED`) satu transaksi dengan
+  tulisannya. Rasio splitter wajib dipilih tanpa nilai bawaan (ODC 1:2-1:64,
+  ODP 1:2-1:32). `waypoints` disimpan sebagai JSON string seperti editor peta.
+  Route: `GET/POST/PUT/DELETE .../peta/titik`, `POST/DELETE .../peta/jalur`
+  (`planning:read` untuk GET, `planning:update` untuk tulis).
+- **Files**: `modules/planning/services/PlanningPetaService.ts`,
+  `modules/planning/repositories/PlanningPetaRepository.ts`,
+  `modules/planning/validators/planningPetaSchemas.ts`,
+  `modules/planning/dto/PlanningPetaDTO.ts`,
+  `modules/planning/mappers/PlanningPetaMapper.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Penyelesai tautan pendek Google Maps dengan penjaga SSRF
 
 - **Tipe**: [ADDED]

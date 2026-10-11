@@ -13,6 +13,7 @@
 export {
   planningService,
   planningItemService,
+  planningPetaService,
   planningMilestoneService,
   planningApprovalService,
   planningTemplateService,
@@ -63,6 +64,12 @@ export type {
   CreatePlanningItemDTO,
   UpdatePlanningItemDTO,
 } from "./dto/PlanningItemDTO";
+
+export type {
+  TitikRencanaDTO,
+  JalurRencanaDTO,
+  PetaPlanningDTO,
+} from "./dto/PlanningPetaDTO";
 
 export type {
   PlanningMilestoneDTO,

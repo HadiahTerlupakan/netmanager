@@ -2,6 +2,7 @@ import { PlanningRepository } from "../repositories/PlanningRepository";
 import { PlanningItemRepository } from "../repositories/PlanningItemRepository";
 import { PlanningMilestoneRepository } from "../repositories/PlanningMilestoneRepository";
 import { PlanningDocumentRepository } from "../repositories/PlanningDocumentRepository";
+import { PlanningPetaRepository } from "../repositories/PlanningPetaRepository";
 import { PlanningAuditLogRepository } from "../repositories/PlanningAuditLogRepository";
 import { PlanningTemplateRepository } from "../repositories/PlanningTemplateRepository";
 import { PlanningTemplateItemRepository } from "../repositories/PlanningTemplateItemRepository";
@@ -10,6 +11,7 @@ import { PrismaPlanningUnitOfWork } from "../repositories/PrismaPlanningUnitOfWo
 import { PlanningAuditService } from "./PlanningAuditService";
 import { PlanningService } from "./PlanningService";
 import { PlanningItemService } from "./PlanningItemService";
+import { PlanningPetaService } from "./PlanningPetaService";
 import { PlanningMilestoneService } from "./PlanningMilestoneService";
 import { PlanningApprovalService } from "./PlanningApprovalService";
 import { PlanningTemplateService } from "./PlanningTemplateService";
@@ -85,6 +87,24 @@ class PlanningServiceFactory {
       );
     }
     return this.instances.get("item") as PlanningItemService;
+  }
+
+  /**
+   * Get PlanningPetaService singleton
+   */
+  static getPetaService(): PlanningPetaService {
+    if (!this.instances.has("peta")) {
+      this.instances.set(
+        "peta",
+        new PlanningPetaService(
+          new PlanningRepository(),
+          new PlanningPetaRepository(),
+          this.getAuditService(),
+          this.getUnitOfWork(),
+        ),
+      );
+    }
+    return this.instances.get("peta") as PlanningPetaService;
   }
 
   /**
@@ -194,6 +214,7 @@ class PlanningServiceFactory {
 export const planningAuditService = PlanningServiceFactory.getAuditService();
 export const planningService = PlanningServiceFactory.getPlanningService();
 export const planningItemService = PlanningServiceFactory.getItemService();
+export const planningPetaService = PlanningServiceFactory.getPetaService();
 export const planningMilestoneService =
   PlanningServiceFactory.getMilestoneService();
 export const planningApprovalService =
