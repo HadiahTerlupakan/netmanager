@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 
-import { Button } from "@/components/ui/Button";
 import { useInvalidatePlanningRelated } from "@/lib/hooks/useInvalidate";
 import { formatApiError } from "@/lib/utils/api-response-parser";
 
@@ -120,33 +119,31 @@ export function FormUnggahDokumen({ planningId }: FormUnggahDokumenProps) {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-3">
+        <label
+          className="block text-xs font-medium text-gray-600 dark:text-gray-300"
+          htmlFor="berkas-dokumen"
+        >
+          Berkas
+        </label>
         <input
           ref={inputBerkas}
           id="berkas-dokumen"
           type="file"
           accept={TIPE_DITERIMA}
           disabled={sedangUnggah}
-          className="text-xs"
+          className="mt-1 w-full text-xs"
           onChange={(e) => {
             const berkas = e.target.files?.[0];
             if (berkas) void unggah(berkas);
           }}
         />
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={sedangUnggah}
-          onClick={() => inputBerkas.current?.click()}
-        >
-          {sedangUnggah ? "Mengunggah…" : "Pilih berkas"}
-        </Button>
       </div>
 
       <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-        Gambar maksimal 5MB, PDF maksimal 15MB. Foto survei per titik diunggah
-        dari popup titik di tab Peta.
+        {sedangUnggah
+          ? "Mengunggah…"
+          : "Gambar maksimal 5MB, PDF maksimal 15MB. Foto survei per titik diunggah dari popup titik di tab Peta."}
       </p>
     </div>
   );
