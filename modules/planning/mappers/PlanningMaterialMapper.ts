@@ -19,9 +19,10 @@ function isPasanganKoordinat(nilai: unknown): nilai is [number, number] {
 
 /**
  * Menguraikan kolom `waypoints` (String? berisi JSON) untuk perhitungan.
- * Kosong, gagal diurai, atau berisi elemen tak sah dianggap tanpa waypoint:
- * satu jalur rusak tidak boleh menggagalkan seluruh perhitungan, dan panjangnya
- * tetap terhitung dari garis lurus ujung ke ujung.
+ * Kosong, gagal diurai, atau memuat satu elemen saja yang bukan pasangan
+ * koordinat sah, maka seluruh waypoints jalur itu dianggap kosong (bukan hanya
+ * elemen rusaknya). Data rusak tidak menggagalkan perhitungan anggaran; panjang
+ * jalur tetap terhitung dari garis lurus ujung ke ujung.
  */
 export function uraikanWaypointsUntukHitung(
   mentah: string | null,
