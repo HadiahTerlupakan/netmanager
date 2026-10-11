@@ -3,19 +3,34 @@
  *
  * Murni dan tanpa jaringan. Tautan pendek (`maps.app.goo.gl`, `goo.gl/maps`)
  * tidak memuat koordinat sama sekali — untuk itu fungsi ini mengembalikan
- * `butuh_resolusi`, dan pemanggil memutuskan apakah mau menukarnya lewat
- * jaringan (lihat `lib/geo/tautan-peta-pendek.ts`).
+ * `butuh_resolusi` dengan URL yang sudah dinormalisasi, dan pemanggil memutuskan
+ * apakah mau menukarnya lewat jaringan (lihat `lib/geo/tautan-peta-pendek.ts`).
+ *
+ * Pengurai ini juga menjadi penjaga pertama bagi penyelesai pendek: apa pun yang
+ * lolos di sini akan dikirimi permintaan keluar, jadi aturan protokol, host,
+ * kredensial, dan port ditegakkan di sini, bukan di hilir.
  */
 
-export const HOST_PETA_DIIZINKAN: readonly string[] = [
+/**
+ * Daftar host Google yang diizinkan, disebut satu per satu. Dibekukan saat
+ * runtime agar tidak bisa diubah diam-diam. Jangan diganti pola wildcard ccTLD,
+ * karena daftar ini adalah dasar penjaga SSRF.
+ */
+export const HOST_PETA_DIIZINKAN: readonly string[] = Object.freeze([
   "maps.app.goo.gl",
   "goo.gl",
   "maps.google.com",
   "www.google.com",
   "google.com",
-];
+  "google.co.id",
+  "www.google.co.id",
+  "maps.google.co.id",
+]);
 
-const HOST_TAUTAN_PENDEK: readonly string[] = ["maps.app.goo.gl", "goo.gl"];
+const HOST_TAUTAN_PENDEK_KHUSUS_PETA = "maps.app.goo.gl";
+const HOST_PEMENDEK_GOO_GL = "goo.gl";
+const PROTOKOL_DIIZINKAN = "https:";
+const PATH_PETA_GOO_GL = "/maps";
 
 /** Pola koordinat tempat Google: `!3d<lat>!4d<lng>` pada path. */
 const POLA_KOORDINAT_TEMPAT = /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/;
@@ -38,7 +53,8 @@ function buatHasilGagal(alasan: string): HasilUraiTautan {
 
 /**
  * Titik nol derajat berada di Samudra Atlantik dan secara praktis selalu
- * berarti tempelan yang gagal, bukan lokasi sungguhan.
+ * berarti tempelan yang gagal, bukan lokasi sungguhan. Hanya pasangan
+ * nol-nol yang ditolak; lintang nol atau bujur nol saja tetap sah.
  */
 function isKoordinatMasukAkal(latitude: number, longitude: number): boolean {
   if (Number.isNaN(latitude) || Number.isNaN(longitude)) return false;
@@ -85,6 +101,60 @@ function parseUrlSah(teks: string): URL | null {
   }
 }
 
+/**
+ * Memeriksa protokol, kredensial, dan port. Hanya https tanpa username/password
+ * dan tanpa port non-default yang lolos. Mengembalikan alasan penolakan, atau
+ * null bila URL aman.
+ */
+function cariAlasanProtokolKredensialPort(url: URL): string | null {
+  if (url.protocol !== PROTOKOL_DIIZINKAN) return "Tautan harus memakai https";
+  if (url.username || url.password)
+    return "Tautan tidak boleh memuat kredensial";
+  if (url.port !== "") return "Tautan tidak boleh memakai port khusus";
+  return null;
+}
+
+/** Memeriksa apakah host ada di daftar izin Google. */
+function isHostDiizinkan(url: URL): boolean {
+  return HOST_PETA_DIIZINKAN.includes(url.hostname);
+}
+
+/**
+ * `goo.gl` adalah pemendek umum Google dan hanya dianggap tautan peta bila
+ * path-nya `/maps` atau berada di bawahnya. `maps.app.goo.gl` khusus peta.
+ */
+function isGooGlBukanPeta(url: URL): boolean {
+  if (url.hostname !== HOST_PEMENDEK_GOO_GL) return false;
+  const adalahPeta =
+    url.pathname === PATH_PETA_GOO_GL ||
+    url.pathname.startsWith(`${PATH_PETA_GOO_GL}/`);
+  return !adalahPeta;
+}
+
+/** Memeriksa tautan pendek yang perlu ditukar lewat jaringan oleh pemanggil. */
+function isTautanPendek(url: URL): boolean {
+  return (
+    url.hostname === HOST_TAUTAN_PENDEK_KHUSUS_PETA ||
+    url.hostname === HOST_PEMENDEK_GOO_GL
+  );
+}
+
+/**
+ * Menjalankan semua penjaga URL sebelum koordinat diurai. Mengembalikan hasil
+ * gagal bila ada yang tidak lolos, atau null bila URL boleh diproses lebih lanjut.
+ */
+function periksaUrl(url: URL): HasilUraiTautan | null {
+  const alasanProtokol = cariAlasanProtokolKredensialPort(url);
+  if (alasanProtokol) return buatHasilGagal(alasanProtokol);
+  if (!isHostDiizinkan(url)) {
+    return buatHasilGagal("Tautan bukan dari Google Maps");
+  }
+  if (isGooGlBukanPeta(url)) {
+    return buatHasilGagal("Pemendek goo.gl hanya diterima untuk tautan peta");
+  }
+  return null;
+}
+
 /** Urai tautan Google Maps menjadi koordinat, tanpa menyentuh jaringan. */
 export function uraikanTautanPeta(teks: string): HasilUraiTautan {
   const bersih = teks.trim();
@@ -93,16 +163,17 @@ export function uraikanTautanPeta(teks: string): HasilUraiTautan {
   const url = parseUrlSah(bersih);
   if (!url) return buatHasilGagal("Bukan tautan yang sah");
 
-  if (!HOST_PETA_DIIZINKAN.includes(url.hostname)) {
-    return buatHasilGagal("Tautan bukan dari Google Maps");
-  }
+  const penolakan = periksaUrl(url);
+  if (penolakan) return penolakan;
 
-  if (HOST_TAUTAN_PENDEK.includes(url.hostname)) {
+  if (isTautanPendek(url)) {
     return { status: "butuh_resolusi", url: url.toString() };
   }
 
   // `!3d`/`!4d` adalah koordinat tempatnya; `@` hanya posisi kamera. Yang
-  // pertama lebih tepat, jadi didahulukan.
+  // pertama lebih tepat, jadi didahulukan. Tautan rute yang memuat beberapa
+  // pasang `!3d!4d` mengambil pasangan pertama (titik asal, bukan tujuan);
+  // perilaku ini sengaja dipertahankan.
   return (
     uraiDariPola(POLA_KOORDINAT_TEMPAT, url.pathname) ??
     uraiDariParameterQuery(url) ??

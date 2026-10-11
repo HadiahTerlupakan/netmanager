@@ -49,9 +49,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Deskripsi**: Fungsi murni `uraikanTautanPeta` mengubah tautan Google Maps
   menjadi koordinat tanpa jaringan. Urutan prioritas: `!3d`/`!4d` (koordinat
   tempat) lebih dulu, lalu parameter `q`/`query`, lalu `@` (posisi kamera).
-  Host dibatasi ke domain Google. Tautan pendek (`maps.app.goo.gl`, `goo.gl`)
-  mengembalikan `butuh_resolusi` agar penyelesai pendek dikerjakan terpisah.
-  Koordinat `0,0` ditolak karena hampir selalu berarti tempelan yang gagal.
+  Penjaga URL ditegakkan di pengurai, sebelum penyelesai pendek (Task 5) memakai
+  hasilnya: hanya `https`, tanpa username/password, tanpa port non-default, dan
+  host dibatasi ke daftar izin Google yang disebut satu per satu (termasuk
+  `google.co.id`, `www.google.co.id`, `maps.google.co.id`), dibekukan dengan
+  `Object.freeze`. `goo.gl` hanya diterima untuk path `/maps`; `maps.app.goo.gl`
+  diterima untuk semua path. Tautan pendek mengembalikan `butuh_resolusi` dengan
+  URL yang sudah dinormalisasi, bukan teks mentah. Hanya pasangan `0,0` yang
+  ditolak karena hampir selalu berarti tempelan yang gagal; lintang atau bujur
+  nol saja tetap sah.
 - **Files**: `lib/geo/tautan-peta.ts`, `tests/lib/geo/tautan-peta.test.ts`
 - **Breaking**: ❌ Tidak
 
