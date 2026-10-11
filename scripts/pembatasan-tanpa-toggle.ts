@@ -16,6 +16,7 @@
  *   (satu baris per pasangan, format `resource:action`)
  */
 
+import { getResourceCapabilities } from "../lib/resource-capabilities";
 import { isPembatasanPunyaToggle } from "../modules/roles/domain/pembatasan-lingkup";
 
 const SCOPE_ACTIONS = ["site_only", "department_only"];
@@ -46,8 +47,13 @@ async function main() {
   const pembatasan = pasangan.filter((p) =>
     SCOPE_ACTIONS.includes(p.split(":")[1] ?? ""),
   );
-  const tanpaToggle = pembatasan.filter((p) => !isPembatasanPunyaToggle(p));
-  const punyaToggle = pembatasan.filter((p) => isPembatasanPunyaToggle(p));
+  // Katalog kapabilitas disuntikkan: lapisan domain tidak mengimpor `lib/`.
+  const tanpaToggle = pembatasan.filter(
+    (p) => !isPembatasanPunyaToggle(p, getResourceCapabilities),
+  );
+  const punyaToggle = pembatasan.filter((p) =>
+    isPembatasanPunyaToggle(p, getResourceCapabilities),
+  );
 
   console.log(`-- pasangan dibaca      : ${pasangan.length}`);
   console.log(`-- di antaranya pembatas: ${pembatasan.length}`);
