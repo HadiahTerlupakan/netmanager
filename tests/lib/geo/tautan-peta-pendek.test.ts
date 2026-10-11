@@ -69,22 +69,36 @@ describe("selesaikanTautanPendek", () => {
     expect(ambil).toHaveBeenCalledTimes(1);
   });
 
-  it("tidak pernah mengirim permintaan ke URL di luar daftar izin sepanjang rantai", async () => {
-    const ambil = vi
-      .fn()
-      .mockResolvedValueOnce(responsPengalihan("https://goo.gl/maps/satu"))
-      .mockResolvedValueOnce(responsPengalihan("https://maps.app.goo.gl/dua"))
-      .mockResolvedValueOnce(responsPengalihan("https://goo.gl/maps/tiga"));
+  it.each([
+    ["host jahat di lompatan kedua", 2, "https://penyerang.test/dua"],
+    ["host internal di lompatan kedua", 2, "https://169.254.169.254/dua"],
+    ["port khusus di lompatan ketiga", 3, "https://goo.gl:8443/maps/tiga"],
+    ["host jahat di lompatan ketiga", 3, "https://penyerang.test/tiga"],
+  ])(
+    "tidak pernah mengirim permintaan ke tujuan jahat pada rantai: %s",
+    async (_nama, lompatanJahat, urlJahat) => {
+      const rantaiSah = [
+        "https://goo.gl/maps/satu",
+        "https://maps.app.goo.gl/dua",
+      ];
+      const ambil = vi.fn();
+      for (let i = 1; i <= 3; i += 1) {
+        const tujuan = i === lompatanJahat - 1 ? urlJahat : rantaiSah[i - 1];
+        ambil.mockResolvedValueOnce(responsPengalihan(tujuan));
+      }
 
-    await selesaikanTautanPendek(URL_PENDEK, ambil);
+      const hasil = await selesaikanTautanPendek(URL_PENDEK, ambil);
 
-    expect(ambil.mock.calls.length).toBe(3);
-    for (const panggilan of ambil.mock.calls) {
-      const url = new URL(panggilan[0]);
-      expect(url.protocol).toBe("https:");
-      expect(HOST_PETA_DIIZINKAN).toContain(url.hostname);
-    }
-  });
+      expect(hasil.status).toBe("gagal");
+      expect(ambil.mock.calls.length).toBe(lompatanJahat - 1);
+      for (const panggilan of ambil.mock.calls) {
+        const url = new URL(panggilan[0]);
+        expect(url.protocol).toBe("https:");
+        expect(url.port).toBe("");
+        expect(HOST_PETA_DIIZINKAN).toContain(url.hostname);
+      }
+    },
+  );
 
   it("memeriksa ulang penjaga pada lompatan kedua", async () => {
     const ambil = vi

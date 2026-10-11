@@ -113,13 +113,13 @@ describe("POST /api/planning/tautan-peta/uraikan", () => {
     });
 
     let status = 0;
-    for (let i = 0; i < 25; i += 1) {
+    for (let i = 0; i < 70; i += 1) {
       status = (
         await POST(buatRequest("https://maps.app.goo.gl/abc"), KONTEKS_ROUTE)
       ).status;
     }
 
     expect(status).toBe(429);
-    expect(mockFns.selesaikanTautanPendek.mock.calls.length).toBeLessThan(25);
+    expect(mockFns.selesaikanTautanPendek.mock.calls.length).toBeLessThan(70);
   });
 });

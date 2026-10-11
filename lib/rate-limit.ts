@@ -6,7 +6,10 @@ export const RATE_LIMITS = {
   register: 3, // 3 registrations per minute
   resetPassword: 3, // 3 password resets per minute
   verifyOTP: 10, // 10 OTP verifications per minute
-  resolveMapShortLink: 20, // 20 penukaran tautan peta pendek per menit per pengguna
+  // Maksimum 60 penukaran tautan peta pendek berturut-turut per pengguna.
+  // Hitungan hanya mereset setelah 60 detik tanpa permintaan (TTL diperbarui
+  // pada setiap permintaan), jadi ini bukan jendela bergulir per menit.
+  resolveMapShortLink: 60,
   general: 100, // 100 requests per minute (general API)
 } as const;
 
