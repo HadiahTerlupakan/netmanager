@@ -7,3 +7,4 @@ export * from "./planningSchemas";
 export * from "./planningItemSchemas";
 export * from "./planningMilestoneSchemas";
 export * from "./planningTemplateSchemas";
+export * from "./planningPetaSchemas";

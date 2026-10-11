@@ -92,7 +92,7 @@ const masukanTitik = {
   latitude: -6.2,
   longitude: 106.8,
   splitter: "1:8",
-  notes: null,
+  notes: null as string | null,
 };
 
 describe("PlanningPetaService", () => {
@@ -260,13 +260,12 @@ describe("PlanningPetaService", () => {
       fiberType: "24 core",
       waypoints: [[-6.2, 106.8]] as Array<[number, number]>,
       distance: 120,
-      notes: null,
+      notes: null as string | null,
     };
 
     beforeEach(() => {
-      repo.ambilTitik.mockImplementation(async (id: string) =>
-        node({ nodeId: id }),
-      );
+      repo.ambilTitik.mockImplementation(((id: string) =>
+        Promise.resolve(node({ nodeId: id }))) as never);
     });
 
     it("menandai planningId dan menyimpan waypoints sebagai JSON string", async () => {
@@ -297,9 +296,13 @@ describe("PlanningPetaService", () => {
     });
 
     it("menolak ujung jalur yang bukan titik planning itu", async () => {
-      repo.ambilTitik.mockImplementation(async (id: string) =>
-        node({ nodeId: id, planningId: id === "n-2" ? "plan-lain" : "plan-1" }),
-      );
+      repo.ambilTitik.mockImplementation(((id: string) =>
+        Promise.resolve(
+          node({
+            nodeId: id,
+            planningId: id === "n-2" ? "plan-lain" : "plan-1",
+          }),
+        )) as never);
 
       await expect(
         service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1"),
