@@ -41,6 +41,34 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Registry Cleanup tidak lagi mati di batas 100 versi
+
+- **Tipe**: [INFRA]
+- **Scope**: `.github/workflows/registry-cleanup.yml`
+- **Author**: agent
+- **Deskripsi**: Job pemangkas image GHCR gagal pada **setiap** run sejak dibuat
+  (36303446243, 37186679674, 38124148965) dengan `delete version API failed.
+  Package not found.` setelah menghapus ~199 versi. Penyebabnya batas halaman di
+  `actions/delete-package-versions@v5`: setelah satu halaman 100 versi dihapus,
+  kursor halaman berikutnya menunjuk versi yang sudah hilang dan API menjawab
+  404. Diganti ke `dataaxiom/ghcr-cleanup-action@v1` yang memahami manifes
+  multi-arsitektur/attestation — persis yang terbit sebagai versi untagged tiap
+  kali `build-push-action` mendorong image — dan tidak memecah dirinya per
+  halaman. Matriks 3 job diringkas jadi satu job karena action-nya menerima
+  daftar paket. Dua penjaga ditambahkan supaya image yang sedang dipakai
+  produksi tidak ikut terpangkas: `keep-n-tagged: 10` dan `older-than: 7 days`
+  (yang terakhir menutup kasus rollback ke tag bukan-terbaru). `ignore-versions`
+  lama menjaga tag `production`/`production-prev` yang sebenarnya tidak pernah
+  didorong pipeline ini — tag satu-satunya adalah `<commit12>-<epoch>`.
+  `workflow_dispatch` sekarang punya input `dry_run` (default aktif) untuk
+  memeriksa dampak sebelum menghapus betulan. Peringatan deprecation Node 20
+  ikut hilang: action baru berjalan di `node24`. Action pihak ketiga ini dipin ke
+  SHA (`d52806a` = v1.2.2) alih-alih tag `v1` yang bisa digeser pemilik repo, dan
+  `packages: write` dipindah ke level job supaya tokennya tidak lebih luas dari
+  yang dibutuhkan.
+- **Files**: `.github/workflows/registry-cleanup.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Investor bisa mengganti passwordnya sendiri
 
 - **Tipe**: [ADDED]

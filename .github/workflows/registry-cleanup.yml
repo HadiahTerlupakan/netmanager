@@ -1,34 +1,51 @@
-# Prune old GHCR container package versions so immutable tags
-# (<commit>-<build>) do not grow forever. Keeps last 10 versions
-# per package; never deletes production / production-prev tags.
+# Pangkas versi image GHCR lama supaya tag immutable (<commit>-<build>) tidak
+# tumbuh tanpa batas.
+#
+# Memakai dataaxiom/ghcr-cleanup-action, bukan actions/delete-package-versions:
+# yang terakhir putus di batas 100 versi per halaman — setelah menghapus satu
+# halaman, kursor halaman berikutnya menunjuk versi yang sudah hilang dan API
+# menjawab 404 "Package not found" (run 36303446243, 37186679674, 38124148965
+# gagal dengan cara yang sama persis). Action ini juga paham manifes
+# multi-arsitektur dan attestation, yang di sini terbit sebagai versi untagged
+# setiap kali build-push-action mendorong image.
+#
+# Penjaga agar image yang sedang dipakai produksi tidak ikut terhapus:
+#   - keep-n-tagged: 10 → sepuluh tag terbaru selalu disimpan
+#   - older-than: 7 days → apa pun yang terbit sepekan terakhir tidak disentuh,
+#     termasuk saat produksi di-rollback ke tag yang bukan paling baru
 name: Registry Cleanup
 
 on:
   schedule:
     - cron: '0 2 * * 0'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Laporkan saja apa yang akan dihapus, tanpa menghapus'
+        type: boolean
+        default: true
 
+# `packages: write` diberikan di level job, bukan workflow, supaya token yang
+# dipegang action pihak ketiga itu tidak lebih luas dari yang ia butuhkan.
 permissions:
   contents: read
-  packages: write
 
 jobs:
   cleanup:
     runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-24.04"') }}
-    strategy:
-      fail-fast: false
-      matrix:
-        package:
-          - netmanager-app
-          - netmanager-cron
-          - netmanager-radius
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      - name: Delete old package versions
-        uses: actions/delete-package-versions@v5
+      - name: Pangkas versi image lama
+        # Dipin ke SHA, bukan tag: action pihak ketiga ini berjalan dengan
+        # `packages: write`, dan tag `v1` bisa digeser pemilik repo kapan saja.
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
-          package-name: ${{ matrix.package }}
-          package-type: container
-          min-versions-to-keep: 10
-          ignore-versions: '^(production|production-prev)$'
+          packages: netmanager-app,netmanager-cron,netmanager-radius
+          keep-n-tagged: 10
+          delete-untagged: true
+          older-than: 7 days
+          dry-run: ${{ inputs.dry_run || false }}
           token: ${{ secrets.GITHUB_TOKEN }}
