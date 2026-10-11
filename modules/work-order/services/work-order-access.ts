@@ -5,6 +5,8 @@ import type { UserContext } from "./WorkOrderService";
 type MobileWorkOrderMaterialAccessWorkOrder = WorkOrderWithRelations & {
   assignments?: Array<{
     userId: string;
+    /** Terisi bila penerima tugas adalah mitra eksternal, bukan karyawan. */
+    mitraId?: string | null;
     status: string;
   }>;
 };
@@ -66,7 +68,14 @@ function validateTenantAccess(
   throw new Error("Akses ditolak: Tenant berbeda");
 }
 
-/** Validasi bahwa user adalah lead teknisi atau partner yang disetujui. */
+/**
+ * Validasi bahwa pelaku adalah pemegang work order atau partner yang disetujui.
+ *
+ * Mitra eksternal tercatat di kolomnya sendiri (`assignedMitraId`,
+ * `assignments.mitraId`) karena id-nya berasal dari database mitra, bukan
+ * `User`. Tanpa ikut diperiksa, mitra teknisi berhasil mengambil work order
+ * lewat `claimAvailableWorkOrder` lalu ditolak saat membukanya sendiri.
+ */
 function validateAssigneeAccess(
   workOrder: MobileWorkOrderMaterialAccessWorkOrder,
   userId: string,
@@ -77,6 +86,7 @@ function validateAssigneeAccess(
   if (isUnclaimedStatus) return;
 
   const isAssignedTechnician = workOrder.assignedToId === userId;
+  const isAssignedMitra = workOrder.assignedMitraId === userId;
   // PENDING hanya diterima pada jalur baca. Undangan yang sudah ditolak
   // (REJECTED) tetap tidak pernah melepas akses.
   const statusPartnerDiterima = allowPendingInvitation
@@ -84,11 +94,11 @@ function validateAssigneeAccess(
     : ["APPROVED"];
   const isInvitedPartner = workOrder.assignments?.some(
     (assignment) =>
-      assignment.userId === userId &&
+      (assignment.userId === userId || assignment.mitraId === userId) &&
       statusPartnerDiterima.includes(assignment.status),
   );
 
-  if (isAssignedTechnician || isInvitedPartner) return;
+  if (isAssignedTechnician || isAssignedMitra || isInvitedPartner) return;
   throw new Error(
     "Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.",
   );
