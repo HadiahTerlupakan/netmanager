@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { calculateHaversineDistance } from "@/lib/geo-utils";
 import { hitungKebutuhanMaterialOsp } from "@/modules/planning/domain/kebutuhan-material-osp";
 
 const TITIK_NOL = { latitude: 0, longitude: 0 };
 
-function jalur(fiberType: string, distance: number | null) {
+function jalur(fiberType: string | null, distance: number | null) {
   return {
     fiberType,
     distance,
@@ -128,5 +129,141 @@ describe("hitungKebutuhanMaterialOsp", () => {
 
     expect(hasil.splitter).toEqual([]);
     expect(hasil.jumlahTitik.odp).toBe(1);
+  });
+
+  it("menjumlahkan meter mentah lalu membulatkan sekali, bukan per jalur", () => {
+    // Tiap jalur ~0,011 m: dibulatkan per jalur akan menjadi 0, tetapi
+    // jumlah mentah lima jalur ~0,056 m sehingga terbulat menjadi 0,1 m.
+    const jalurPendek = Array.from({ length: 5 }, () => ({
+      fiberType: "feeder",
+      distance: null,
+      sumber: { latitude: 0, longitude: 0 },
+      tujuan: { latitude: 0.0000001, longitude: 0 },
+      waypoints: [],
+    }));
+
+    const hasil = hitungKebutuhanMaterialOsp([], jalurPendek, 0);
+
+    expect(hasil.kabel[0].meterTerukur).toBe(0.1);
+  });
+
+  it("menjumlahkan semua ruas waypoint saat distance null", () => {
+    const ruasPertama = calculateHaversineDistance(0, 0, 0, 0.001);
+    const ruasKedua = calculateHaversineDistance(0, 0.001, 0.001, 0.001);
+
+    const hasil = hitungKebutuhanMaterialOsp(
+      [],
+      [
+        {
+          fiberType: "feeder",
+          distance: null,
+          sumber: { latitude: 0, longitude: 0 },
+          tujuan: { latitude: 0.001, longitude: 0.001 },
+          waypoints: [[0, 0.001]],
+        },
+      ],
+      0,
+    );
+
+    expect(hasil.kabel[0].meterTerukur).toBe(
+      Math.round((ruasPertama + ruasKedua) * 10) / 10,
+    );
+  });
+
+  it("mengelompokkan fiberType null ke kelompok lainnya", () => {
+    const hasil = hitungKebutuhanMaterialOsp([], [jalur(null, 150)], 0);
+
+    expect(hasil.kabel).toEqual([
+      { jenisFiber: "lainnya", meterTerukur: 150, meterDipesan: 150 },
+    ]);
+  });
+
+  it("tetap memakai distance saat koordinat kosong", () => {
+    const hasil = hitungKebutuhanMaterialOsp(
+      [],
+      [
+        {
+          fiberType: "feeder",
+          distance: 250,
+          sumber: { latitude: null, longitude: null },
+          tujuan: { latitude: null, longitude: null },
+          waypoints: [],
+        },
+      ],
+      0,
+    );
+
+    expect(hasil.kabel[0].meterTerukur).toBe(250);
+    expect(hasil.jalurDiabaikan).toBe(0);
+  });
+
+  it.each([0, Number.NaN, -50])(
+    "menganggap distance %s tidak tersedia lalu menghitung dari koordinat",
+    (distanceTidakValid) => {
+      const hasil = hitungKebutuhanMaterialOsp(
+        [],
+        [
+          {
+            fiberType: "feeder",
+            distance: distanceTidakValid,
+            sumber: { latitude: -6.2, longitude: 106.8 },
+            tujuan: { latitude: -6.201, longitude: 106.8 },
+            waypoints: [],
+          },
+        ],
+        0,
+      );
+
+      expect(hasil.kabel[0].meterTerukur).toBeGreaterThan(100);
+      expect(hasil.kabel[0].meterTerukur).toBeLessThan(125);
+    },
+  );
+
+  it("mencatat distance 0 tanpa koordinat lengkap sebagai jalur diabaikan", () => {
+    const hasil = hitungKebutuhanMaterialOsp(
+      [],
+      [
+        {
+          fiberType: "feeder",
+          distance: 0,
+          sumber: { latitude: null, longitude: null },
+          tujuan: TITIK_NOL,
+          waypoints: [],
+        },
+      ],
+      0,
+    );
+
+    expect(hasil.kabel).toEqual([]);
+    expect(hasil.jalurDiabaikan).toBe(1);
+  });
+
+  it("menghitung jumlah jalur yang diabaikan dan tidak ikut ke kabel", () => {
+    const hasil = hitungKebutuhanMaterialOsp(
+      [],
+      [
+        jalur("feeder", 100),
+        {
+          fiberType: "feeder",
+          distance: null,
+          sumber: { latitude: null, longitude: null },
+          tujuan: TITIK_NOL,
+          waypoints: [],
+        },
+        {
+          fiberType: "distribution",
+          distance: null,
+          sumber: { latitude: 0, longitude: 0 },
+          tujuan: { latitude: null, longitude: null },
+          waypoints: [],
+        },
+      ],
+      0,
+    );
+
+    expect(hasil.kabel).toEqual([
+      { jenisFiber: "feeder", meterTerukur: 100, meterDipesan: 100 },
+    ]);
+    expect(hasil.jalurDiabaikan).toBe(2);
   });
 });

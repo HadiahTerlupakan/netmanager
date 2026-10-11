@@ -47,11 +47,13 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Scope**: `modules/planning`
 - **Author**: agent
 - **Deskripsi**: Fungsi murni `hitungKebutuhanMaterialOsp` menghitung kebutuhan
-  material dari titik dan jalur rencana di peta. Panjang kabel dijumlahkan per
-  jenis fiber (memakai `distance` bila ada, jika tidak dihitung dari koordinat
-  dan waypoint). Cadangan kabel (0 sampai 100 persen) diterapkan sekali di akhir
-  dan dibulatkan ke 0,1 meter. Splitter dikelompokkan per rasio, dan titik tanpa
-  rasio tidak dihitung. Tidak ada I/O atau Prisma; belum dipasang ke service.
+  material dari titik dan jalur rencana di peta. Panjang kabel dijumlahkan mentah
+  per jenis fiber (memakai `distance` bila angka hingga dan positif, jika tidak
+  dihitung dari koordinat dan waypoint), lalu dibulatkan ke 0,1 meter sekali di
+  akhir. Cadangan kabel (0 sampai 100 persen) diterapkan sekali pada total itu.
+  Jalur yang panjangnya tidak bisa ditentukan dicatat di `jalurDiabaikan` agar
+  tidak hilang diam-diam. Splitter dikelompokkan per rasio, dan titik tanpa rasio
+  tidak dihitung. Tidak ada I/O atau Prisma; belum dipasang ke service.
 - **Files**: `modules/planning/domain/kebutuhan-material-osp.ts`,
   `tests/modules/planning/kebutuhan-material-osp.test.ts`
 - **Breaking**: ❌ Tidak
