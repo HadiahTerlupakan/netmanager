@@ -91,6 +91,16 @@ describe("FormUnggahDokumen", () => {
     expect(pilihanKategori()).not.toContain("SURVEY_PHOTO");
   });
 
+  it("menamai pilihannya untuk manusia, bukan dengan nilai enum", () => {
+    const label = [
+      ...document.body.querySelectorAll("#kategori-dokumen option"),
+    ].map((opsi) => opsi.textContent);
+    expect(label).toContain("Dokumen izin / persetujuan");
+    // Daftar dokumen di bawah form memakai peta label yang sama; kalau yang
+    // tampil di sini nilai enum, keduanya sudah menyimpang.
+    expect(label).not.toContain("APPROVAL_DOCUMENT");
+  });
+
   it("menerima gambar maupun PDF pada atribut accept", () => {
     const input = cari<HTMLInputElement>("#berkas-dokumen");
     expect(input.accept).toContain("application/pdf");

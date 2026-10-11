@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Kategori dokumen planning tampil manusiawi, keterangan tidak lagi hilang
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`, `app/admin/planning/[id]`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat menguji unggah PDF di server dev yang berjalan.
+  Kartu dokumen merender `doc.category` apa adanya, sehingga berkas yang baru
+  diunggah tampil sebagai `APPROVAL_DOCUMENT` tepat di bawah form yang
+  menamainya "Dokumen izin / persetujuan" — satu berkas, dua nama, dan yang
+  terbaca justru nama kolom basis data. Keterangan yang diisi di form juga
+  tersimpan tapi tidak pernah ditampilkan di mana pun. Daftar kategori kini
+  tinggal di `modules/planning/domain/kategori-dokumen.ts` dan dipakai bersama
+  oleh validator unggah, form pemilihan kategori, serta daftar dokumen, jadi
+  tidak ada lagi salinan yang bisa menyimpang sendiri.
+- **Files**: `modules/planning/domain/kategori-dokumen.ts`,
+  `modules/planning/validators/planningDocumentSchemas.ts`,
+  `modules/planning/client.ts`,
+  `app/admin/planning/[id]/FormUnggahDokumen.tsx`,
+  `app/admin/planning/[id]/PlanningDetailClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Reset peta menolak dengan jelas, bukan 500
 
 - **Tipe**: [FIXED]

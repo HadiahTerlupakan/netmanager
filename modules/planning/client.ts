@@ -22,6 +22,12 @@ export {
   type PlanningActions,
   type PlanningPermissions,
 } from "./domain/planning-actions";
+export {
+  KATEGORI_DOKUMEN,
+  KATEGORI_LAMPIRAN_PROYEK,
+  LABEL_KATEGORI_DOKUMEN,
+  labelKategoriDokumen,
+} from "./domain/kategori-dokumen";
 export { PlanningMapper } from "./mappers/PlanningMapper";
 export { PlanningItemMapper } from "./mappers/PlanningItemMapper";
 export { PlanningMilestoneMapper } from "./mappers/PlanningMilestoneMapper";
@@ -74,6 +80,7 @@ export type {
   PlanningStatus,
 } from "./domain/entities/PlanningEntity";
 export type { MilestoneStatus } from "./domain/entities/PlanningMilestoneEntity";
+export type { DocumentCategory } from "./domain/entities/PlanningDocumentEntity";
 
 // Port types (for API route input typing)
 export type { UpdatePlanningMilestoneInput } from "./domain/ports/IPlanningMilestoneRepository";

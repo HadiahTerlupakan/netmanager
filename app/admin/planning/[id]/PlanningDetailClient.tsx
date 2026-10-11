@@ -34,6 +34,7 @@ import {
   MILESTONE_STATUS_CONFIG,
   formatBudget,
   formatDateShort,
+  labelKategoriDokumen,
 } from "@/modules/planning/client";
 import type { PlanningDetailDTO } from "@/modules/planning/client";
 import type { PlanningStatus } from "@/modules/planning/client";
@@ -909,8 +910,14 @@ function DocumentsTab({
                   {doc.filename}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {doc.category} · {doc.formattedFileSize ?? "-"}
+                  {labelKategoriDokumen(doc.category)} ·{" "}
+                  {doc.formattedFileSize ?? "-"}
                 </p>
+                {doc.description && (
+                  <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500 truncate">
+                    {doc.description}
+                  </p>
+                )}
               </div>
             </a>
           ))}

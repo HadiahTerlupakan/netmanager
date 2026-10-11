@@ -5,21 +5,10 @@ import { toast } from "react-hot-toast";
 
 import { useInvalidatePlanningRelated } from "@/lib/hooks/useInvalidate";
 import { formatApiError } from "@/lib/utils/api-response-parser";
-
-/**
- * Kategori yang bisa dipilih untuk lampiran tingkat proyek.
- *
- * `SURVEY_PHOTO` tidak ada di sini: foto survei selalu menempel pada satu
- * titik dan diunggah dari popup titik di tab Peta, yang memaksa kategorinya
- * di server.
- */
-const KATEGORI_LAMPIRAN = [
-  { nilai: "APPROVAL_DOCUMENT", label: "Dokumen izin / persetujuan" },
-  { nilai: "TECHNICAL_DRAWING", label: "Gambar teknis" },
-  { nilai: "NETWORK_DIAGRAM", label: "Diagram jaringan" },
-  { nilai: "COMPLETION_PHOTO", label: "Foto penyelesaian" },
-  { nilai: "OTHER", label: "Lainnya" },
-] as const;
+import {
+  KATEGORI_LAMPIRAN_PROYEK,
+  LABEL_KATEGORI_DOKUMEN,
+} from "@/modules/planning/client";
 
 /** Tipe yang diterima server: gambar apa pun, atau PDF. */
 const TIPE_DITERIMA = "image/*,application/pdf";
@@ -92,9 +81,9 @@ export function FormUnggahDokumen({ planningId }: FormUnggahDokumenProps) {
             disabled={sedangUnggah}
             className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm text-gray-900 dark:text-white"
           >
-            {KATEGORI_LAMPIRAN.map((item) => (
-              <option key={item.nilai} value={item.nilai}>
-                {item.label}
+            {KATEGORI_LAMPIRAN_PROYEK.map((nilai) => (
+              <option key={nilai} value={nilai}>
+                {LABEL_KATEGORI_DOKUMEN[nilai]}
               </option>
             ))}
           </select>
