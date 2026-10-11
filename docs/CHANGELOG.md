@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Lonceng notifikasi ikut menjaga sesi investor
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/src/components/molecules`
+- **Author**: agent
+- **Deskripsi**: `NotificationBell` sudah menjaga sesi pelanggan tetapi tidak
+  investor, padahal alasannya sama persis: token investor beraudience sendiri
+  (`netmanager-investor-mobile`) sehingga `/api/mobile/notifications` menjawab
+  401, dan penangan 401 global menutup sesi. Hari ini belum berakibat karena
+  Beranda investor kebetulan tidak memasang lonceng; penjaga ditaruh di
+  komponennya supaya memasangnya nanti tidak menendang investor ke layar
+  masuk. Ditemukan saat QA persona investor; tidak ada bug lain yang
+  ditemukan di portal investor.
+- **Files**: `src/components/molecules/NotificationBell.tsx`,
+  `__tests__/components/NotificationBell.pelanggan.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Ganti password tidak mencabut sesi lama
 
 - **Tipe**: [SECURITY]
