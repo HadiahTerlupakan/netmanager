@@ -10,6 +10,7 @@ import {
   MAIN_TENANT_NAME,
 } from "../modules/mitra/services/tenant-constants";
 import { logger } from "../lib/logger";
+import { ROLE_TEMPLATES } from "../lib/role-templates";
 
 import {
   PERMISSION_GROUPS,
@@ -405,6 +406,59 @@ async function main() {
   });
   logger.info(
     `   ✅ Role: SALES (${RESOURCE_MOBILE_SALES.length} resource mobile)`,
+  );
+
+  // 2.4a KEPALA_SALES Role - sales yang memimpin tim (lingkup rencana TIM)
+  /**
+   * Tanpa role ini seluruh jalur "pemberi tugas" tidak pernah terjangkau di
+   * lingkungan baru: `jenisLingkupDariIzin` menyimpulkan TIM dari izin web
+   * `presurvei_rencana:create`, dan tidak satu pun role hasil seed memilikinya
+   * sambil tetap bisa membuka aplikasi mobile. Akibatnya penugasan rencana,
+   * kartu tim, dan penilaian kinerja tim tidak pernah terlihat saat
+   * pengembangan maupun QA. Izinnya diambil dari template `kepala_sales`
+   * supaya definisi role hanya ada di satu tempat.
+   */
+  const templateKepalaSales = ROLE_TEMPLATES.find(
+    (t) => t.id === "kepala_sales",
+  );
+  if (!templateKepalaSales) {
+    throw new Error(
+      "Template role `kepala_sales` tidak ditemukan di lib/role-templates.ts",
+    );
+  }
+  const izinKepalaSales = permissions
+    .filter((p) =>
+      templateKepalaSales.permissions.includes(`${p.resource}:${p.action}`),
+    )
+    .map((p) => ({ id: p.id }));
+
+  const kepalaSalesRole = await prisma.role.upsert({
+    where: {
+      name_tenantId: {
+        name: "KEPALA_SALES",
+        tenantId: MAIN_TENANT_ID,
+      },
+    },
+    update: {
+      accessAdminPanel: templateKepalaSales.accessAdminPanel,
+      accessEmployeePanel: templateKepalaSales.accessEmployeePanel,
+      persona: "SALES",
+      permission: { set: [], connect: izinKepalaSales },
+    },
+    create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
+      name: "KEPALA_SALES",
+      tenantId: MAIN_TENANT_ID,
+      description: templateKepalaSales.description,
+      accessAdminPanel: templateKepalaSales.accessAdminPanel,
+      accessEmployeePanel: templateKepalaSales.accessEmployeePanel,
+      persona: "SALES",
+      permission: { connect: izinKepalaSales },
+    },
+  });
+  logger.info(
+    `   ✅ Role: KEPALA_SALES (${izinKepalaSales.length}/${templateKepalaSales.permissions.length} izin template)`,
   );
 
   // 2.5 FINANCE Role - Admin panel only (finance permissions)
@@ -917,6 +971,40 @@ async function main() {
     },
   });
   logger.info("   ✅ User: staff@example.com (Role: STAFF)");
+
+  // 8.4b KEPALA_SALES User - atasan Ani Wijaya, supaya relasi tim ada isinya
+  const kepalaSalesPasswordHash = await hash("kepala123", 10);
+  const kepalaSalesUser = await prisma.user.upsert({
+    where: { email: "kepalasales@example.com" },
+    update: {},
+    create: {
+      id: randomUUID(),
+      updatedAt: new Date(),
+      email: "kepalasales@example.com",
+      name: "Rina Kepala Sales",
+      passwordHash: kepalaSalesPasswordHash,
+      phone: "+62812-0000-0010",
+      departmentId: marketingDept.id,
+      siteId: jkt01Site.id,
+      isActive: true,
+      roleId: kepalaSalesRole.id,
+      isSales: true, // turunan persona role SALES; jaga tetap sama dengan role
+      workingHourMode: "FIXED",
+      startWorkTime: "09:00",
+      endWorkTime: "17:00",
+      workDays: "Mon,Tue,Wed,Thu,Fri",
+      tenantId: MAIN_TENANT_ID,
+    },
+  });
+  // Tim kosong membuat kartu tim & penilaian kinerja tim tidak punya apa pun
+  // untuk ditampilkan, jadi sales bawaan dijadikan anggotanya.
+  await prisma.user.updateMany({
+    where: { email: "sales@example.com", kepalaSalesId: null },
+    data: { kepalaSalesId: kepalaSalesUser.id },
+  });
+  logger.info(
+    "   ✅ User: kepalasales@example.com (Role: KEPALA_SALES, tim: sales@example.com)",
+  );
 
   // 8.5 FINANCE User
   const financePasswordHash = await hash("finance123", 10);

@@ -41,6 +41,43 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Role KEPALA_SALES di seed & penjaga lingkup rencana
+
+- **Tipe**: [ADDED]
+- **Scope**: `prisma/seed.ts`, `tests/lib`
+- **Author**: agent
+- **Deskripsi**: QA perangkat sisi kepala sales menemukan bahwa seluruh jalur
+  "pemberi tugas" tidak pernah terjangkau di lingkungan hasil seed. Lingkup rencana
+  TIM disimpulkan `jenisLingkupDariIzin` dari izin web `presurvei_rencana:create`,
+  dan tidak satu pun role bawaan memilikinya sambil tetap `accessEmployeePanel`:
+  SALES berlingkup SENDIRI, ADMIN berlingkup SEMUA tapi tanpa akses mobile, dan
+  SUPER_ADMIN berpersona STAFF sehingga mendapat tab bar staff — tanpa Presurvei.
+  Akibatnya penugasan rencana, kartu tim, dan penilaian kinerja tim tidak pernah
+  bisa dilihat saat pengembangan maupun QA. Template `kepala_sales` dan
+  `head_of_sales` sendiri sudah benar, jadi produksi tidak terdampak — yang kurang
+  hanya seed. Ditambahkan role `KEPALA_SALES` (izin diambil dari template supaya
+  definisinya tetap satu tempat; seed melaporkan 17/17 izin cocok) beserta pengguna
+  `kepalasales@example.com` / `kepala123` yang menjadi atasan `sales@example.com`.
+  `role-templates-lingkup-rencana.test.ts` mengunci pemetaan lingkupnya sekaligus
+  syarat bahwa setiap template pemberi tugas bisa membuka aplikasi mobile — asimetri
+  yang sama pernah membuat persona STAFF tidak punya role.
+- **Files**: `prisma/seed.ts`, `tests/lib/role-templates-lingkup-rencana.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Pesan "Ambil minimal 1 foto bukti" tidak lagi tertinggal
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/src/hooks/presurvei`
+- **Author**: agent
+- **Deskripsi**: Kesalahan form kegiatan hanya dihitung di dalam `periksa`, yang
+  berjalan saat simpan. Setelah validasi gagal lalu sales mengambil fotonya, pesan
+  merah "Ambil minimal 1 foto bukti" tetap tampil di bawah petak foto yang sudah
+  terisi — bertentangan dengan keadaan tepat di atasnya. Terlihat saat melaporkan
+  kunjungan di QA perangkat. Pesan foto kini dibereskan begitu jumlah fotonya cukup;
+  kesalahan medan lain tidak disentuh, dan pesan muncul lagi bila fotonya dihapus.
+- **Files**: `src/hooks/presurvei/useFormKegiatan.ts`, `src/utils/presurvei/formKegiatan.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — QA perangkat persona SALES: dua perbaikan aplikasi mobile
 
 - **Tipe**: [FIXED]
