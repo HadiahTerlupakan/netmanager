@@ -41,6 +41,123 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Aplikasi mitra: tombol aksi tertutup tab bar & beranda sales selalu Rp 0
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/src/components`
+- **Author**: agent
+- **Deskripsi**: Tiga perbaikan sisi aplikasi untuk persona mitra, semuanya
+  ditemukan saat QA di emulator. (1) `MitraSalesTabBar` dan
+  `MitraTeknisiTabBar` tidak memeriksa `isTabBarDisembunyikan` seperti tab bar
+  persona karyawan, sehingga pil mengambangnya tetap dirender di layar penuh
+  dan menutupi tombol "Tunda"/"Selesai" di rincian work order — mitra teknisi
+  tidak bisa menyelesaikan pekerjaannya dari layar itu. (2) Beranda mitra sales
+  tidak membuka bungkus `{ success, data }` seperti beranda teknisi, sehingga
+  Saldo Komisi dan "Closing bulan ini" selalu tampil Rp 0 / 0 berapa pun
+  datanya. (3) Beranda mitra teknisi memakai kunci cache yang sama dengan
+  `/api/mobile/dashboard` padahal endpoint-nya `/api/mobile/mitra/dashboard`
+  dengan bentuk respons berbeda; kini memakai `queryKeys.dashboard.statsMitra()`.
+- **Files**: `src/components/organisms/navigation/MitraSalesTabBar.tsx`,
+  `src/components/organisms/navigation/MitraTeknisiTabBar.tsx`,
+  `src/components/screens/MitraSalesDashboardScreen.tsx`,
+  `src/components/screens/MitraTeknisiDashboardScreen.tsx`,
+  `src/lib/queryClient.ts`,
+  `__tests__/components/MitraTabBarLayarPenuh.test.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Mitra sales tidak pernah bisa mengirim canvasing
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/marketing`
+- **Author**: agent
+- **Deskripsi**: `MarketingCanvasingListRouteService` memaksa `salesId = session.id`
+  saat membuat canvasing. Untuk mitra, id itu berasal dari database mitra dan
+  bukan baris `User`, sehingga insert gagal dengan `canvasing_salesId_fkey` dan
+  setiap pengajuan canvasing mitra sales berakhir 500. Tabel `canvasing` sudah
+  punya kolom `mitraId` dan seluruh lapisan baca (repository, mapper, dashboard
+  mitra) memang memakainya — hanya route service yang tertinggal. Atribusi kini
+  diturunkan dari sesi: mitra → `mitraId`, karyawan → `salesId`, dan tidak
+  pernah dari badan permintaan sehingga komisi tidak bisa dialihkan ke mitra
+  lain. Lingkup daftar untuk mitra ikut disaring dengan `mitraId`; tanpa itu
+  mitra tidak akan melihat kirimannya sendiri. Ditemukan & diverifikasi di
+  emulator: pengajuan 500 → 201, daftar terisi, dan "Closing bulan ini" naik
+  menjadi 1 setelah admin menyetujui.
+- **Files**: `modules/marketing/services/MarketingCanvasingListRouteService.ts`,
+  `tests/modules/marketing/canvasing-atribusi-mitra.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Mitra teknisi terkunci dari work order yang ia ambil sendiri
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: `validateAssigneeAccess` hanya membandingkan `assignedToId` dan
+  `assignments[].userId`, sedangkan klaim oleh mitra menulis `assignedMitraId`
+  dan `assignments[].mitraId`. Akibatnya mitra teknisi berhasil mengambil work
+  order (status berubah ASSIGNED/IN_PROGRESS) lalu ditolak 403 saat membuka
+  rinciannya, memperbarui status, memakai material, atau menyelesaikannya —
+  pekerjaan tersangkut tanpa jalan keluar dan komisi WO tidak pernah terbayar.
+  Penjaga kini mengenali kolom mitra. Diverifikasi di emulator sampai komisi
+  Rp 50.000 masuk dompet setelah WO diselesaikan.
+- **Files**: `modules/work-order/services/work-order-access.ts`,
+  `tests/modules/work-order/work-order-access-mitra.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Profil mitra: PATCH 500, foto gagal, dan site selalu kosong
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/users`
+- **Author**: agent
+- **Deskripsi**: `PATCH /api/mobile/profile` dan `POST /api/mobile/profile/photo`
+  tidak punya cabang MITRA sehingga menulis ke `prisma.user` dengan id mitra →
+  500. Keduanya kini menulis ke database mitra (`fotoDiri` untuk foto). Selain
+  itu profil mitra mengirim `sites` sebagai array sementara profil karyawan
+  mengirim objek; aplikasi membaca `sites.name`, jadi site mitra selalu tampil
+  "Belum diatur". Bentuknya disamakan menjadi objek. Pesan galat Prisma mentah
+  (berisi path file server dan potongan kode) tidak lagi diteruskan ke klien
+  pada kedua route tersebut.
+- **Files**: `modules/users/services/MobileProfileRouteService.ts`,
+  `modules/users/services/MobileProfilePhotoRouteService.ts`,
+  `app/api/mobile/profile/route.ts`, `app/api/mobile/profile/photo/route.ts`,
+  `tests/modules/users/mobile-profil-mitra.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Izin pelaku non-`User` hilang di gerbang canvasing
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/auth`
+- **Author**: agent
+- **Deskripsi**: Route canvasing memanggil `getUserPermissions(session.id)`, yang
+  mencari id di tabel `User`. Untuk mitra hasilnya `[]` — bukan menolak,
+  melainkan membuat setiap pemeriksaan izin bernilai false sehingga gerbangnya
+  hilang; `MITRA_TEKNISI` yang tidak punya fitur canvasing tetap menerima 200.
+  Ditambahkan `getActorPermissions()` yang memakai izin dari token untuk peran
+  tanpa baris `User` (MITRA/CUSTOMER/INVESTOR), plus gerbang baca
+  `m_canvasing:read` di service. Datanya sendiri tidak pernah bocor lintas
+  mitra karena lingkup selalu menyempit ke id pelaku.
+- **Files**: `lib/auth/permissions.ts`, `lib/auth.ts`,
+  `app/api/marketing/canvasing/route.ts`,
+  `app/api/marketing/canvasing/[id]/route.ts`,
+  `app/api/marketing/point-claims/summary/route.ts`,
+  `modules/marketing/services/MarketingCanvasingListRouteService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Minimum penarikan mitra berbeda antara tampilan dan validasi
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/mitra`
+- **Author**: agent
+- **Deskripsi**: Dashboard mitra mengirim `minWithdrawal` apa adanya dari kolom
+  mitra, yang hanya berisi override per-mitra. Bila kosong, aplikasi memakai
+  angka cadangannya sendiri (Rp 100.000) padahal server memvalidasi dengan
+  setelan tenant (Rp 50.000) — mitra diberi tahu batas yang salah. Dashboard
+  kini mengirim nilai efektif. Seed mitra juga diperbaiki: `update: {}` pada
+  upsert membuat `siteId` mitra tetap menunjuk site yang sudah hilang setelah
+  database utama di-reset, dan daftar work order tersedia diam-diam kosong.
+- **Files**: `modules/mitra/services/MobileMitraRouteService.ts`,
+  `prisma/seed.ts`, `tests/modules/mitra/MobileMitraRouteService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Portal pelanggan: tagihan tidak pernah muncul
 
 - **Tipe**: [FIXED]
