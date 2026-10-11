@@ -23,6 +23,15 @@ export const MAP_CONSTANTS = {
 } as const;
 
 /**
+ * URL petak peta Google. Dipakai bersama oleh peta operasional dan peta
+ * perencanaan OSP supaya keduanya memperlihatkan latar yang sama.
+ */
+export const MAP_TILE_URL = {
+  satellite: "https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}",
+  plain: "https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}",
+} as const;
+
+/**
  * Node tool configuration
  */
 export const NODE_TOOL_CONFIG = {

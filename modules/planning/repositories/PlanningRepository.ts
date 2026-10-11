@@ -255,6 +255,9 @@ export class PlanningRepository implements IPlanningRepository {
     if (data.targetCompletionDate !== undefined) {
       updateData.targetCompletionDate = data.targetCompletionDate;
     }
+    if (data.spareKabelPersen !== undefined) {
+      updateData.spareKabelPersen = data.spareKabelPersen;
+    }
     if (data.actualCompletionDate !== undefined) {
       updateData.actualCompletionDate = data.actualCompletionDate;
     }

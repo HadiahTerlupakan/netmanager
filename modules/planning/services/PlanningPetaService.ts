@@ -409,21 +409,34 @@ export class PlanningPetaService {
     });
   }
 
-  /** Seluruh titik dan jalur rencana sebuah planning (boleh di status apa pun). */
+  /**
+   * Seluruh titik dan jalur rencana sebuah planning (boleh di status apa pun).
+   *
+   * Dengan `sertakanNodeNyata`, jawaban juga memuat node jaringan yang sudah
+   * nyata dalam tenant yang sama. Peta perencanaan menampilkannya sebagai
+   * latar redup: rencana tanpa konteks jaringan yang sudah berdiri membuat
+   * perencana menggambar ODC kedua di tempat yang sudah punya satu, dan
+   * node-node itu pula yang boleh menjadi ujung jalur rencana.
+   */
   async ambilPeta(
     planningId: string,
     tenantId: string,
+    opsi: { sertakanNodeNyata?: boolean } = {},
   ): Promise<PetaPlanningDTO> {
     await this.findOwnedPlanning(planningId, tenantId);
 
-    const [titik, jalur] = await Promise.all([
+    const [titik, jalur, nodeNyata] = await Promise.all([
       this.petaRepo.ambilTitikPerPlanning(planningId),
       this.petaRepo.ambilJalurPerPlanning(planningId),
+      opsi.sertakanNodeNyata
+        ? this.petaRepo.ambilNodeNyataInfrastruktur(tenantId)
+        : Promise.resolve([] as MappingNode[]),
     ]);
 
     return {
       titik: titik.map((node) => PlanningPetaMapper.toTitikDTO(node)),
       jalur: jalur.map((edge) => PlanningPetaMapper.toJalurDTO(edge)),
+      nodeNyata: nodeNyata.map((node) => PlanningPetaMapper.toTitikDTO(node)),
     };
   }
 

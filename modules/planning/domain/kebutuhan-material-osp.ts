@@ -130,18 +130,35 @@ function jumlahkanKabel(jalur: JalurRencana[]): HasilJumlahKabel {
   return { meterPerJenis, jalurDiabaikan };
 }
 
+/**
+ * Panjang kabel yang dipesan dari panjang terukur, setelah cadangan.
+ *
+ * Diekspor karena panel ringkasan material di klien memperlihatkan angka
+ * pesanan berubah saat perencana mengubah persentase cadangan, sebelum apa
+ * pun ditulis. Angka itu wajib lahir dari aritmetika yang sama dengan yang
+ * dipakai saat penerbitan — kalau klien menghitungnya sendiri, layar dan
+ * item material bisa berbeda tanpa ada yang menyadarinya.
+ */
+export function terapkanCadanganKabel(
+  meterTerukur: number,
+  spareKabelPersen: number,
+): number {
+  return bulatkanSepersepuluh(
+    meterTerukur * (1 + spareKabelPersen / PERSEN_PENUH),
+  );
+}
+
 /** Menyusun daftar kabel; cadangan diterapkan sekali pada total per jenis. */
 function susunDaftarKabel(
   meterPerJenis: Map<string, number>,
   spareKabelPersen: number,
 ): KebutuhanMaterialOsp["kabel"] {
-  const pengali = 1 + spareKabelPersen / PERSEN_PENUH;
   return [...meterPerJenis.entries()].map(([jenisFiber, meter]) => {
     const meterTerukur = bulatkanSepersepuluh(meter);
     return {
       jenisFiber,
       meterTerukur,
-      meterDipesan: bulatkanSepersepuluh(meterTerukur * pengali),
+      meterDipesan: terapkanCadanganKabel(meterTerukur, spareKabelPersen),
     };
   });
 }

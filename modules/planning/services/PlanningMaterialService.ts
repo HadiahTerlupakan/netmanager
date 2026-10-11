@@ -122,9 +122,16 @@ export class PlanningMaterialService {
     return peta;
   }
 
-  /** Menghitung kebutuhan material dari peta; tidak menulis apa pun. */
+  /**
+   * Menghitung kebutuhan material dari peta; tidak menulis apa pun.
+   *
+   * `spareKabelPersen` boleh ditimpa pemanggil supaya perencana bisa
+   * menerbitkan dengan cadangan yang baru dia pilih tanpa langkah simpan
+   * terpisah. Rentangnya ditegakkan ulang di domain (`pastikanCadanganSah`).
+   */
   private async hitungUntukPlanning(
     planning: PlanningEntity,
+    spareKabelPersen = planning.spareKabelPersen,
   ): Promise<KebutuhanMaterialOsp> {
     const [titik, jalur] = await Promise.all([
       this.petaRepo.ambilTitikPerPlanning(planning.id),
@@ -143,7 +150,7 @@ export class PlanningMaterialService {
       jalur.map((edge) =>
         PlanningMaterialMapper.toJalurRencana(edge, titikPerId),
       ),
-      planning.spareKabelPersen,
+      spareKabelPersen,
     );
   }
 
@@ -165,15 +172,33 @@ export class PlanningMaterialService {
     planningId: string,
     userId: string,
     tenantId: string,
+    spareKabelPersenBaru?: number,
   ): Promise<PlanningItemDTO[]> {
     const planning = await this.findOwnedPlanning(planningId, tenantId);
     this.assertMaterialEditable(planning);
 
-    const rekap = await this.hitungUntukPlanning(planning);
+    const rekap = await this.hitungUntukPlanning(
+      planning,
+      spareKabelPersenBaru,
+    );
     const daftarItem = susunItemOtomatis(rekap);
     const sourceKeyDipakai = daftarItem.map((item) => item.sourceKey);
+    const cadanganBerubah =
+      spareKabelPersenBaru !== undefined &&
+      spareKabelPersenBaru !== planning.spareKabelPersen;
 
     const diterbitkan = await this.unitOfWork.runInTransaction(async (tx) => {
+      // Cadangan yang dipakai disimpan bersama item yang lahir darinya.
+      // Tanpa ini panel akan membuka kembali dengan angka lama, sementara
+      // item material sudah memakai angka yang baru.
+      if (cadanganBerubah) {
+        await this.planningRepo.update(
+          planningId,
+          { spareKabelPersen: spareKabelPersenBaru },
+          tx,
+        );
+      }
+
       const hasil = [];
       for (const item of daftarItem) {
         hasil.push(

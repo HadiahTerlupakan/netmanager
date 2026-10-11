@@ -81,5 +81,11 @@ export const ubahCadanganKabelSchema = z.object({
     .max(100, "Cadangan kabel maksimal 100 persen"),
 });
 
+/**
+ * Body POST penerbitan material. Cadangan kabel opsional: bila tidak dikirim,
+ * nilai yang tersimpan di rencana dipakai apa adanya.
+ */
+export const terbitkanMaterialSchema = ubahCadanganKabelSchema.partial();
+
 export type BuatTitikRencanaInput = z.infer<typeof buatTitikRencanaSchema>;
 export type BuatJalurRencanaInput = z.infer<typeof buatJalurRencanaSchema>;

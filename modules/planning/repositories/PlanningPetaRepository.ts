@@ -131,6 +131,26 @@ export class PlanningPetaRepository {
     });
   }
 
+  /**
+   * Node jaringan nyata yang relevan bagi perencanaan OSP, dalam satu tenant.
+   *
+   * Dibatasi pada tipe yang boleh menjadi ujung jalur: perencanaan OSP
+   * berhenti di ODP, jadi perangkat pelanggan (ONT) hanya akan memadati peta
+   * tanpa pernah bisa disambung. Daftar ini sengaja sama dengan
+   * `ambilTitikUjungJalur`, supaya setiap node yang terlihat di latar memang
+   * bisa dipilih sebagai ujung jalur.
+   */
+  ambilNodeNyataInfrastruktur(tenantId: string) {
+    return prisma.mappingNode.findMany({
+      where: {
+        tenantId,
+        isPlanned: false,
+        type: { in: [...TIPE_UJUNG_JALUR] },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
   /** Titik rencana yang planning induknya sudah dihapus (`onDelete: SetNull`). */
   ambilTitikYatim(tenantId: string) {
     return prisma.mappingNode.findMany({

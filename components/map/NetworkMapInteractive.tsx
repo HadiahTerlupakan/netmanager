@@ -31,6 +31,7 @@ import {
 } from "@/components/map/map-utils";
 import { HiMap, HiExclamationTriangle } from "react-icons/hi2";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { MAP_TILE_URL } from "@/components/map/map-constants";
 
 // Dynamically import Leaflet components
 const MapContainer = dynamic(
@@ -275,10 +276,7 @@ export default function NetworkMapInteractive() {
   const maxZoomIn = settings?.maxZoomIn ? parseInt(settings.maxZoomIn) : 22;
   const minZoomOut = settings?.maxZoomOut ? parseInt(settings.maxZoomOut) : 5;
 
-  const tileUrl =
-    mapStyle === "satellite"
-      ? "https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}"
-      : "https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}";
+  const tileUrl = MAP_TILE_URL[mapStyle];
 
   const filteredNodes = searchQuery
     ? nodes.filter(

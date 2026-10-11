@@ -34,6 +34,8 @@ export interface UpdatePlanningInput {
   startDate?: Date | null;
   targetCompletionDate?: Date | null;
   actualCompletionDate?: Date | null;
+  /** Persentase cadangan kabel yang dipakai saat material diterbitkan dari peta. */
+  spareKabelPersen?: number;
 }
 
 export interface UpdateStatusInput {

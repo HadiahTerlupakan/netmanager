@@ -1,5 +1,8 @@
 import { createHandler, apiSuccess, requireSessionTenantId } from "@/lib/api";
-import { planningMaterialService } from "@/modules/planning";
+import {
+  planningMaterialService,
+  terbitkanMaterialSchema,
+} from "@/modules/planning";
 
 /**
  * GET /api/planning/[id]/peta/material
@@ -20,14 +23,23 @@ export const GET = createHandler(
 /**
  * POST /api/planning/[id]/peta/material
  * Menerbitkan rekap menjadi item material otomatis. Aturan ada di `PlanningMaterialService`.
+ *
+ * `spareKabelPersen` opsional: cadangan yang dipilih perencana di panel ikut
+ * tersimpan di rencana, supaya angka yang dipesan dan angka yang terlihat
+ * berikutnya tidak bisa berbeda.
  */
 export const POST = createHandler(
-  { auth: true, permissions: ["planning:update"] },
+  {
+    auth: true,
+    permissions: ["planning:update"],
+    schema: terbitkanMaterialSchema,
+  },
   async (req, ctx) => {
     const items = await planningMaterialService.terbitkan(
       ctx.params.id,
       ctx.session!.user.id,
       requireSessionTenantId(ctx),
+      ctx.validated.spareKabelPersen,
     );
 
     return apiSuccess(items, {

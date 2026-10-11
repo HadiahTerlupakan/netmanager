@@ -31,4 +31,10 @@ export interface JalurRencanaDTO {
 export interface PetaPlanningDTO {
   titik: TitikRencanaDTO[];
   jalur: JalurRencanaDTO[];
+  /**
+   * Node jaringan yang sudah nyata (bukan rencana), dipakai sebagai latar
+   * redup di peta perencanaan. Hanya terisi bila pemanggil memintanya; kosong
+   * berarti tidak diminta, bukan berarti jaringannya tidak ada.
+   */
+  nodeNyata: TitikRencanaDTO[];
 }

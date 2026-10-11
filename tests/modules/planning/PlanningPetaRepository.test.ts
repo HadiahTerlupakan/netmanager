@@ -43,6 +43,9 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: vi.fn(async ({ where }: { where: SyaratNode }) => {
         return penyimpanan.nodes.find((node) => cocok(node, where)) ?? null;
       }),
+      findMany: vi.fn(async ({ where }: { where: SyaratNode }) => {
+        return penyimpanan.nodes.filter((node) => cocok(node, where));
+      }),
     },
     mappingEdge: { create: mockEdgeCreate, findFirst: mockEdgeFindFirst },
   },
@@ -125,6 +128,31 @@ describe("PlanningPetaRepository", () => {
       expect(await repo.ambilTitikMilikPlanning("lain", "plan-1")).toBeNull();
       expect(await repo.ambilTitikMilikPlanning("terbit", "plan-1")).toBeNull();
       expect(await repo.ambilTitikMilikPlanning("yatim", "plan-1")).toBeNull();
+    });
+  });
+
+  describe("ambilNodeNyataInfrastruktur", () => {
+    it("hanya node nyata setenant yang bisa menjadi ujung jalur", async () => {
+      penyimpanan.nodes = [
+        node({ nodeId: "rencana" }),
+        node({ nodeId: "nyata", isPlanned: false, planningId: null }),
+        node({
+          nodeId: "nyata-tenant-lain",
+          isPlanned: false,
+          planningId: null,
+          tenantId: "tenant-2",
+        }),
+        node({
+          nodeId: "ont-pelanggan",
+          isPlanned: false,
+          planningId: null,
+          type: "ont",
+        }),
+      ];
+
+      const hasil = await repo.ambilNodeNyataInfrastruktur("tenant-1");
+
+      expect(hasil.map((satu) => satu.nodeId)).toEqual(["nyata"]);
     });
   });
 

@@ -121,6 +121,7 @@ describe("PlanningPetaService", () => {
       ambilJalurMilikPlanning: vi.fn().mockResolvedValue(edge()),
       hapusJalur: vi.fn().mockResolvedValue(undefined),
       ambilJalurPerPlanning: vi.fn().mockResolvedValue([edge()]),
+      ambilNodeNyataInfrastruktur: vi.fn().mockResolvedValue([]),
     } as unknown as Mocked<PlanningPetaRepository>;
 
     audit = { logChange: vi.fn() } as unknown as Mocked<PlanningAuditService>;
@@ -391,6 +392,30 @@ describe("PlanningPetaService", () => {
       await expect(
         service.ambilPeta("plan-1", "tenant-1"),
       ).resolves.toBeDefined();
+    });
+
+    it("tidak mengambil node nyata bila tidak diminta", async () => {
+      const peta = await service.ambilPeta("plan-1", "tenant-1");
+
+      expect(peta.nodeNyata).toEqual([]);
+      expect(repo.ambilNodeNyataInfrastruktur).not.toHaveBeenCalled();
+    });
+
+    it("menyertakan node nyata tenant yang sama sebagai latar bila diminta", async () => {
+      repo.ambilNodeNyataInfrastruktur.mockResolvedValue([
+        node({ nodeId: "n-nyata", isPlanned: false, planningId: null }),
+      ]);
+
+      const peta = await service.ambilPeta("plan-1", "tenant-1", {
+        sertakanNodeNyata: true,
+      });
+
+      expect(repo.ambilNodeNyataInfrastruktur).toHaveBeenCalledWith("tenant-1");
+      expect(peta.nodeNyata).toHaveLength(1);
+      expect(peta.nodeNyata[0]).toMatchObject({
+        nodeId: "n-nyata",
+        isPlanned: false,
+      });
     });
   });
 

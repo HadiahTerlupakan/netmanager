@@ -26,6 +26,7 @@ export { PlanningMilestoneMapper } from "./mappers/PlanningMilestoneMapper";
 
 // DTOs (type-only — safe for client bundle)
 export type {
+  Coordinates,
   PlanningListItemDTO,
   PlanningDetailDTO,
   CreatePlanningDTO,
@@ -39,6 +40,19 @@ export type {
   CreatePlanningItemDTO,
   UpdatePlanningItemDTO,
 } from "./dto/PlanningItemDTO";
+
+export type {
+  TitikRencanaDTO,
+  JalurRencanaDTO,
+  PetaPlanningDTO,
+} from "./dto/PlanningPetaDTO";
+
+// Perhitungan kebutuhan material: murni (tanpa Prisma/I-O), jadi panel peta
+// boleh memakai aritmetika yang sama persis dengan yang dipakai saat terbit.
+export {
+  terapkanCadanganKabel,
+  type KebutuhanMaterialOsp,
+} from "./domain/kebutuhan-material-osp";
 
 export type {
   PlanningMilestoneDTO,

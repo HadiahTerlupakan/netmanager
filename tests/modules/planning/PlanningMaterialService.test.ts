@@ -121,6 +121,7 @@ describe("PlanningMaterialService", () => {
 
     planningRepo = {
       findById: vi.fn().mockResolvedValue(planning()),
+      update: vi.fn().mockResolvedValue(planning()),
     } as unknown as Mocked<IPlanningRepository>;
 
     petaRepo = {
@@ -279,6 +280,47 @@ describe("PlanningMaterialService", () => {
       await expect(
         service.terbitkan("plan-1", "user-1", "tenant-1"),
       ).rejects.toBeInstanceOf(PlanningNotFoundError);
+    });
+
+    it("memakai cadangan yang dikirim pemanggil, bukan yang tersimpan", async () => {
+      // Perencana mengubah persentase di panel lalu langsung menekan tombol;
+      // bila angka itu tidak ikut, item yang dibeli memakai cadangan lama.
+      await service.terbitkan("plan-1", "user-1", "tenant-1", 25);
+
+      expect(itemRepo.upsertBySourceKey).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourceKey: "kabel:feeder",
+          quantity: 250,
+          notes: "terukur 200 m + cadangan 25%",
+        }),
+        undefined,
+      );
+    });
+
+    it("menyimpan cadangan baru dalam transaksi yang sama", async () => {
+      await service.terbitkan("plan-1", "user-1", "tenant-1", 25);
+
+      expect(planningRepo.update).toHaveBeenCalledWith(
+        "plan-1",
+        { spareKabelPersen: 25 },
+        undefined,
+      );
+    });
+
+    it("tidak menyentuh rencana bila cadangan tidak berubah atau tidak dikirim", async () => {
+      await service.terbitkan("plan-1", "user-1", "tenant-1");
+      await service.terbitkan("plan-1", "user-1", "tenant-1", 10);
+
+      expect(planningRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("menolak cadangan di luar rentang tanpa menulis apa pun", async () => {
+      await expect(
+        service.terbitkan("plan-1", "user-1", "tenant-1", 101),
+      ).rejects.toThrow(/cadangan kabel/i);
+
+      expect(itemRepo.upsertBySourceKey).not.toHaveBeenCalled();
+      expect(planningRepo.update).not.toHaveBeenCalled();
     });
 
     it("menulis audit saat material diterbitkan, termasuk jalur yang diabaikan", async () => {

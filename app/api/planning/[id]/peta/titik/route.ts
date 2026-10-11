@@ -4,9 +4,15 @@ import {
   buatTitikRencanaSchema,
 } from "@/modules/planning";
 
+/** Nilai `?lingkup=` yang juga mengembalikan node jaringan nyata sebagai latar. */
+const LINGKUP_SEMUA = "semua";
+
 /**
  * GET /api/planning/[id]/peta/titik
  * Seluruh titik dan jalur rencana pada peta planning.
+ *
+ * `?lingkup=semua` menambahkan node jaringan nyata milik tenant yang sama,
+ * supaya rencana bisa digambar di atas konteks jaringan yang sudah berdiri.
  */
 export const GET = createHandler(
   {
@@ -17,6 +23,10 @@ export const GET = createHandler(
     const peta = await planningPetaService.ambilPeta(
       ctx.params.id,
       requireSessionTenantId(ctx),
+      {
+        sertakanNodeNyata:
+          req.nextUrl.searchParams.get("lingkup") === LINGKUP_SEMUA,
+      },
     );
 
     return apiSuccess(peta);
