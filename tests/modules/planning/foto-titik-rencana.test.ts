@@ -146,9 +146,27 @@ describe("foto survei per titik rencana", () => {
     );
   });
 
-  it("menolak kategori berkas dokumen pada skema unggah", () => {
+  it("menerima seluruh kategori dokumen pada skema unggah", () => {
+    // Dulu `TECHNICAL_DRAWING` dan `APPROVAL_DOCUMENT` ditolak di sini karena
+    // unggahnya hanya menerima gambar. Keduanya memang berkas PDF, dan sejak
+    // PDF didukung penolakan itu tidak punya alasan lagi.
+    for (const category of [
+      "SURVEY_PHOTO",
+      "COMPLETION_PHOTO",
+      "NETWORK_DIAGRAM",
+      "TECHNICAL_DRAWING",
+      "APPROVAL_DOCUMENT",
+      "OTHER",
+    ]) {
+      expect(unggahDokumenPlanningSchema.safeParse({ category }).success).toBe(
+        true,
+      );
+    }
+  });
+
+  it("tetap menolak kategori yang tidak dikenal", () => {
     const hasil = unggahDokumenPlanningSchema.safeParse({
-      category: "APPROVAL_DOCUMENT",
+      category: "KATEGORI_KARANGAN",
     });
 
     expect(hasil.success).toBe(false);
@@ -229,15 +247,71 @@ describe("foto survei per titik rencana", () => {
     ).rejects.toBeInstanceOf(PlanningNotFoundError);
   });
 
-  it("menolak berkas yang bukan gambar", async () => {
+  it("menolak berkas yang bukan gambar maupun PDF", async () => {
     await expect(
       service.upload(
         "plan-1",
-        { file: foto("a.pdf", "application/pdf") },
+        { file: foto("a.zip", "application/zip") },
         "user-1",
         "tenant-1",
       ),
     ).rejects.toBeInstanceOf(PlanningValidationError);
+  });
+
+  it("menerima PDF sebagai lampiran tingkat proyek", async () => {
+    await service.upload(
+      "plan-1",
+      {
+        file: foto("izin.pdf", "application/pdf"),
+        category: "APPROVAL_DOCUMENT",
+      },
+      "user-1",
+      "tenant-1",
+    );
+
+    expect(documentRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: "APPROVAL_DOCUMENT",
+        mimeType: "application/pdf",
+        nodeId: null,
+      }),
+    );
+  });
+
+  it("menolak PDF yang ditempelkan ke sebuah titik", async () => {
+    // Foto survei menempel pada titik di peta dan digambar sebagai gambar di
+    // popup titik; PDF tidak punya tempat di sana.
+    await expect(
+      service.upload(
+        "plan-1",
+        { file: foto("izin.pdf", "application/pdf"), nodeId: "n-1" },
+        "user-1",
+        "tenant-1",
+      ),
+    ).rejects.toBeInstanceOf(PlanningValidationError);
+    expect(simpanGambar).not.toHaveBeenCalled();
+  });
+
+  it("menolak PDF di atas 15MB, tapi menerima yang lebih besar dari batas foto", async () => {
+    await expect(
+      service.upload(
+        "plan-1",
+        { file: foto("besar.pdf", "application/pdf", 16 * 1024 * 1024) },
+        "user-1",
+        "tenant-1",
+      ),
+    ).rejects.toBeInstanceOf(PlanningValidationError);
+    expect(simpanGambar).not.toHaveBeenCalled();
+
+    // 8MB melewati batas foto (5MB) tapi masih di bawah batas PDF: izin dan
+    // berita acara hasil scan rutin berada di rentang ini.
+    await service.upload(
+      "plan-1",
+      { file: foto("berita-acara.pdf", "application/pdf", 8 * 1024 * 1024) },
+      "user-1",
+      "tenant-1",
+    );
+    expect(simpanGambar).toHaveBeenCalledTimes(1);
   });
 
   it("menolak foto di atas 5MB", async () => {

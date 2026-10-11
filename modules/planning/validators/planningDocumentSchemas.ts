@@ -2,11 +2,25 @@ import { z } from "zod";
 
 const MAKS_PANJANG_KETERANGAN = 500;
 
-/** Kategori yang masuk akal untuk gambar; kategori berkas dokumen belum didukung. */
-const KATEGORI_GAMBAR = [
+/**
+ * Seluruh kategori dokumen planning.
+ *
+ * Dulu daftar ini dipersempit ke kategori yang masuk akal untuk gambar, karena
+ * unggahnya memang hanya menerima gambar: `TECHNICAL_DRAWING` dan
+ * `APPROVAL_DOCUMENT` adalah berkas PDF, dan menjanjikannya di kontrak lalu
+ * menolaknya di service adalah kebohongan yang lebih buruk daripada 400 yang
+ * jujur. Sejak unggah PDF didukung, pembatasan itu tidak punya alasan lagi.
+ *
+ * Nilainya harus tetap sejalan dengan `DocumentCategory`
+ * (`domain/entities/PlanningDocumentEntity.ts`) dan enum `DocumentCategory`
+ * di Prisma.
+ */
+const KATEGORI_DOKUMEN = [
   "SURVEY_PHOTO",
   "COMPLETION_PHOTO",
   "NETWORK_DIAGRAM",
+  "TECHNICAL_DRAWING",
+  "APPROVAL_DOCUMENT",
   "OTHER",
 ] as const;
 
@@ -14,10 +28,7 @@ const KATEGORI_GAMBAR = [
 export const unggahDokumenPlanningSchema = z.object({
   nodeId: z.string().min(1).nullish(),
   category: z
-    .enum(KATEGORI_GAMBAR, {
-      message:
-        "Kategori tidak didukung: saat ini hanya gambar yang bisa diunggah, unggah berkas dokumen (mis. PDF) belum didukung",
-    })
+    .enum(KATEGORI_DOKUMEN, { message: "Kategori dokumen tidak dikenal" })
     .optional(),
   description: z.string().max(MAKS_PANJANG_KETERANGAN).nullish(),
 });

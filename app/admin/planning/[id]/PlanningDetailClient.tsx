@@ -28,6 +28,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import MapPicker from "@/components/common/MapPicker";
 import { downloadPlanningPdf } from "../planning-pdf";
 import PlanningPetaTab from "./peta/PlanningPetaTab";
+import { FormUnggahDokumen } from "./FormUnggahDokumen";
 import {
   PLANNING_STATUS_CONFIG,
   MILESTONE_STATUS_CONFIG,
@@ -879,6 +880,7 @@ function DocumentsTab({
       <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
         Dokumen
       </h3>
+      {canUpdate && <FormUnggahDokumen planningId={planning.id} />}
       {planning.documents.length === 0 ? (
         <div className="py-10 text-center">
           <HiOutlineDocumentText className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600" />
@@ -887,7 +889,7 @@ function DocumentsTab({
           </p>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
             {canUpdate
-              ? "Foto survei diunggah dari popup titik di tab Peta, dan muncul di sini setelah tersimpan. Unggah berkas dokumen (mis. PDF izin atau berita acara) belum didukung — hanya gambar."
+              ? "Unggah lampiran proyek di atas, atau foto survei per titik dari popup titik di tab Peta."
               : "Dokumen pendukung akan tampil di sini setelah dilampirkan."}
           </p>
         </div>

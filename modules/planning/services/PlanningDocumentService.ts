@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { buildTenantUploadDir } from "@/lib/upload/upload-policy";
-import { convertAndSaveImage } from "@/lib/utils/image-upload";
+import { convertAndSaveImage, saveFile } from "@/lib/utils/image-upload";
 
 import type { DocumentCategory } from "../domain/entities/PlanningDocumentEntity";
 import type { IPlanningDocumentRepository } from "../domain/ports/IPlanningDocumentRepository";
@@ -18,13 +18,24 @@ import type { PlanningAuditService } from "./PlanningAuditService";
 /** Batas ukuran satu foto, sama dengan unggah foto node peta. */
 export const BATAS_UKURAN_FOTO_BYTE = 5 * 1024 * 1024;
 
+/**
+ * Batas ukuran satu berkas PDF.
+ *
+ * Lebih longgar daripada foto: izin, berita acara, dan gambar teknis hasil
+ * scan rutin melewati 5MB, sementara foto sudah dikonversi ke WebP lebih dulu.
+ */
+export const BATAS_UKURAN_PDF_BYTE = 15 * 1024 * 1024;
+
+/** Satu-satunya tipe berkas non-gambar yang diterima. */
+export const MIME_PDF = "application/pdf";
+
 /** Kategori bagi foto yang tertaut ke titik rencana. */
 const KATEGORI_FOTO_TITIK: DocumentCategory = "SURVEY_PHOTO";
 
 /** Kategori bawaan bagi lampiran tingkat proyek tanpa titik. */
 const KATEGORI_LAMPIRAN_BAWAAN: DocumentCategory = "OTHER";
 
-/** Menyimpan gambar dan mengembalikan URL-nya. Dipisah agar mudah diganti di tes. */
+/** Menyimpan berkas dan mengembalikan URL-nya. Dipisah agar mudah diganti di tes. */
 export type SimpanGambarPlanning = (
   file: File,
   planningId: string,
@@ -47,21 +58,42 @@ export const simpanGambarPlanning: SimpanGambarPlanning = (
   file,
   planningId,
   tenantId,
-) =>
-  convertAndSaveImage(
+) => {
+  const direktori = buildTenantUploadDir(
+    `public/uploads/planning/${planningId}`,
+    tenantId,
+  );
+  const dasarNama = `planning_${Date.now()}_${randomUUID().split("-")[0]}`;
+
+  // PDF tidak boleh lewat `convertAndSaveImage`: sharp akan menolaknya, dan
+  // kalaupun lolos hasilnya WebP — dokumennya hancur. `saveFile` menyimpan
+  // byte-nya apa adanya, ke R2 maupun lokal, lewat namespace tenant yang sama.
+  if (file.type === MIME_PDF) {
+    return saveFile(
+      file,
+      direktori,
+      `${dasarNama}.pdf`,
+      "planning",
+      planningId,
+    );
+  }
+
+  return convertAndSaveImage(
     file,
-    buildTenantUploadDir(`public/uploads/planning/${planningId}`, tenantId),
-    `planning_${Date.now()}_${randomUUID().split("-")[0]}`,
+    direktori,
+    dasarNama,
     "planning",
     planningId,
   );
+};
 
 /**
  * PlanningDocumentService
  *
- * Unggah gambar dokumen sebuah Planning OSP. Foto dapat ditautkan ke titik
- * yang berasal dari rencana itu (`nodeId`) sebagai foto survei; tanpa
- * `nodeId` berkas menjadi lampiran tingkat proyek. Titik yang sudah terbit
+ * Unggah gambar atau PDF ke sebuah Planning OSP. Gambar dapat ditautkan ke
+ * titik yang berasal dari rencana itu (`nodeId`) sebagai foto survei; tanpa
+ * `nodeId` berkas menjadi lampiran tingkat proyek — di situlah izin, berita
+ * acara, dan gambar teknis berbentuk PDF tinggal. Titik yang sudah terbit
  * menjadi node jaringan tetap menerima foto — lihat `assertTitikAsalPlanning`.
  *
  * Tidak ada kunci status rencana pada unggahan: item dan milestone dikunci
@@ -79,7 +111,7 @@ export class PlanningDocumentService {
   ) {}
 
   /**
-   * Mengunggah gambar ke sebuah planning milik tenant pemanggil.
+   * Mengunggah gambar atau PDF ke sebuah planning milik tenant pemanggil.
    * Bila `nodeId` diisi, titik wajib berasal dari planning ini (disaring di
    * query repository, terbit maupun belum) dan kategorinya dipaksa
    * `SURVEY_PHOTO`, mengabaikan kategori kiriman klien.
@@ -100,7 +132,7 @@ export class PlanningDocumentService {
       await this.assertTitikAsalPlanning(nodeId, planningId);
     }
 
-    this.assertBerkasValid(input.file);
+    this.assertBerkasValid(input.file, nodeId);
 
     const fileUrl = await this.simpanGambar(input.file, planningId, tenantId);
     const created = await this.documentRepo.create({
@@ -158,12 +190,27 @@ export class PlanningDocumentService {
     }
   }
 
-  /** Hanya gambar, dan tidak melebihi batas ukuran. */
-  private assertBerkasValid(file: File): void {
-    if (!file.type.startsWith("image/")) {
-      throw new PlanningValidationError("Berkas harus berupa gambar");
+  /** Gambar atau PDF, masing-masing dengan batas ukurannya sendiri. */
+  private assertBerkasValid(file: File, nodeId: string | null): void {
+    const isGambar = file.type.startsWith("image/");
+    const isPdf = file.type === MIME_PDF;
+
+    if (!isGambar && !isPdf) {
+      throw new PlanningValidationError("Berkas harus berupa gambar atau PDF");
     }
-    if (file.size > BATAS_UKURAN_FOTO_BYTE) {
+
+    // Foto survei menempel pada sebuah TITIK di peta dan ditampilkan sebagai
+    // gambar di popup titik; PDF tidak punya tempat di sana.
+    if (isPdf && nodeId) {
+      throw new PlanningValidationError(
+        "Foto survei titik harus berupa gambar, bukan PDF",
+      );
+    }
+
+    if (isPdf && file.size > BATAS_UKURAN_PDF_BYTE) {
+      throw new PlanningValidationError("Ukuran PDF maksimal 15MB");
+    }
+    if (isGambar && file.size > BATAS_UKURAN_FOTO_BYTE) {
       throw new PlanningValidationError("Ukuran foto maksimal 5MB");
     }
   }

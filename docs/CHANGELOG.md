@@ -41,6 +41,97 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Hapus node peta ditolak bila masih menyangga kabel rencana
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/map`, `modules/network`
+- **Author**: agent
+- **Deskripsi**: `MappingRepository.deleteNode` menyapu setiap edge yang
+  menempel pada node (FK `source`/`target` non-null), sehingga menghapus satu
+  ODC nyata ikut menghapus kabel RENCANA yang menujunya — kebutuhan material
+  sebuah planning menyusut tanpa jejak audit dan tanpa masuk hitungan
+  `jalurDiabaikan`. `MappingService.deleteNode` sekarang menolak dengan 400
+  selama masih ada jalur rencana di titik itu. Sekalian: tiga query `mapping*`
+  di `MobileTopologyRepository` menulis `tenantId` tersurat, karena ketiganya
+  sudah menulis `isPlanned` sendiri dan penjaga tersirat di sebelah penjaga
+  tersurat adalah bentuk yang paling mudah disalahbaca.
+- **Files**: `modules/map/services/MappingService.ts`,
+  `modules/map/repositories/MappingRepository.ts`,
+  `modules/network/repositories/MobileTopologyRepository.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Gerbang izin "DAN" eksplisit di createHandler
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/api`, `lib/rbac.ts`, `app/api/planning/[id]/peta/terbitkan`
+- **Author**: agent
+- **Deskripsi**: Opsi `permissions` pada `createHandler` bersifat "salah satu
+  dari", sehingga menuliskan dua izin di sana MELONGGARKAN akses alih-alih
+  mengetatkannya. Jebakan itu sebelumnya hanya terdokumentasi sebagai komentar
+  di dua route. Ditambahkan opsi `permissionsAll` (gerbang DAN) dan route
+  penerbitan peta rencana memakainya alih-alih menghitung sendiri.
+  `permissionListAllows` mendelegasikan ke `hasCapability` supaya aturan "satu
+  izin dipenuhi" punya satu definisi. Opsi mati `HandlerOptions.rateLimit` —
+  yang tidak pernah dibaca, sehingga siapa pun yang menuliskannya akan mengira
+  endpoint-nya terlindungi — dibuang.
+- **Files**: `lib/api/handler.ts`, `lib/rbac.ts`,
+  `app/api/planning/[id]/peta/terbitkan/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Tes kemurnian domain menangkap impor berbentuk daftar
+
+- **Tipe**: [FIXED]
+- **Scope**: `tests/architecture`, `modules/roles/domain`
+- **Author**: agent
+- **Deskripsi**: Regex lama memakai flag `m` dengan `.*`, yang tidak melewati
+  newline — hanya impor satu baris yang terbaca, sementara impor berbentuk
+  daftar lolos sepenuhnya. Tiga pelanggaran nyata bersembunyi di sana.
+  `modules/roles/domain/pembatasan-lingkup.ts` diperbaiki: katalog kapabilitas
+  disuntikkan sebagai fungsi alih-alih diimpor dari `lib/`. Dua port inventory
+  tercatat di `UTANG_DIKETAHUI`, daftar yang dijaga dua arah sehingga tidak
+  bisa membusuk dalam diam.
+- **Files**: `tests/architecture/domain-purity.test.ts`,
+  `modules/roles/domain/pembatasan-lingkup.ts`,
+  `modules/roles/services/RoleService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Sinkronisasi peta berhenti merampas provenance titik terbit
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/map`, `tests/db`, `scripts/`
+- **Author**: agent
+- **Deskripsi**: `POST /api/map/sync` berbentuk hapus-semua lalu tulis-ulang.
+  Titik rencana yang sudah terbit ber-`isPlanned: false` sehingga ikut tersapu,
+  padahal ia tetap memegang `planningId` yang tidak dibawa payload. Setiap
+  sinkronisasi karena itu mencabut `planningId` dari titik terbit dan,
+  karena `PlanningDocument.nodeId` ber-`SET NULL`, melepaskan foto surveinya.
+  Sekarang baris yang masih ada di payload diperbarui di tempat. Ditambahkan
+  infrastruktur tes integrasi DB nyata (`scripts/setup-test-db.sh`,
+  `vitest.config.db.ts`, `tests/db/`) yang dilewati tanpa `TEST_DATABASE_URL`,
+  dengan 11 tes yang mengunci arti `notIn: []`, unique index PlanningItem,
+  kedua chokepoint peta, dan perilaku `SET NULL`.
+- **Files**: `modules/map/repositories/MappingRepository.ts`,
+  `modules/map/repositories/mapping-repository.helpers.ts`,
+  `tests/db/peta-rencana-chokepoint.test.ts`, `vitest.config.db.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Unggah PDF untuk dokumen planning
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/planning`, `app/admin/planning/[id]`
+- **Author**: agent
+- **Deskripsi**: Kategori `TECHNICAL_DRAWING` dan `APPROVAL_DOCUMENT` ada di
+  schema tapi ditolak validator, karena unggahnya hanya menerima gambar — dua
+  kategori itu memang berkas PDF. Sekarang PDF diterima (maks 15MB, lewat
+  `saveFile` bukan konversi WebP) sebagai lampiran tingkat proyek; foto survei
+  per titik tetap wajib gambar. Ditambahkan form unggah di tab Dokumen — tanpa
+  itu dukungan PDF hanya bisa dipakai lewat curl, sebab satu-satunya jalur
+  unggah sebelumnya adalah popup titik di tab Peta.
+- **Files**: `modules/planning/services/PlanningDocumentService.ts`,
+  `modules/planning/validators/planningDocumentSchemas.ts`,
+  `app/admin/planning/[id]/FormUnggahDokumen.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Domain material OSP murni dan tes peta diselaraskan
 
 - **Tipe**: [FIXED]
