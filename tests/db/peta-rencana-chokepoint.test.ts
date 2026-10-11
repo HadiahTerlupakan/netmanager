@@ -433,6 +433,34 @@ describeDb("integrasi DB nyata — chokepoint peta rencana", () => {
       expect(node?.latitude).toBe(-6.3);
     });
 
+    it("FK source/target benar-benar RESTRICT, jadi reset peta harus menjaganya", async () => {
+      const planningId = await buatPlanning("plan-restrict");
+      await buatNode({ nodeId: "odc-nyata" });
+      await buatNode({ nodeId: "odp-rencana", isPlanned: true, planningId });
+      await buatJalur(
+        "edge-rencana",
+        "odp-rencana",
+        "odc-nyata",
+        true,
+        planningId,
+      );
+
+      // Hitungan inilah yang dipakai penjaga reset.
+      const menempel = await sebagaiTenant(() =>
+        mappingRepo.countPlannedEdgesOnRealNodes(ctx),
+      );
+      expect(menempel).toBe(1);
+
+      // Dan tanpa penjaga itu, penghapusan node nyata memang ditolak database —
+      // bukan sebagai 400 yang terbaca, tapi sebagai galat Prisma yang jatuh
+      // menjadi 500.
+      await expect(
+        prismaAuth.mappingNode.deleteMany({
+          where: { tenantId: TENANT, isPlanned: false },
+        }),
+      ).rejects.toThrow();
+    });
+
     it("titik yang hilang dari payload dihapus, fotonya dilepas bukan dimusnahkan", async () => {
       const { documentId } = await titikTerbitDenganFoto();
 

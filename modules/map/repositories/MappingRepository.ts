@@ -320,6 +320,28 @@ export class MappingRepository implements IMappingRepository {
     });
   }
 
+  /**
+   * Jalur rencana yang menempel di node nyata.
+   *
+   * Peta rencana sengaja boleh menarik kabel ke node yang sudah berdiri — itu
+   * justru gunanya menggambar di atas konteks jaringan nyata. Konsekuensinya:
+   * node nyata itu tidak bisa dihapus selama jalur rencananya masih ada, sebab
+   * `mapping_edges_source_fkey` dan `_target_fkey` ber-`ON DELETE RESTRICT`
+   * (diperiksa di database, bukan diasumsikan).
+   */
+  async countPlannedEdgesOnRealNodes(ctx: TenantContext) {
+    return prisma.mappingEdge.count({
+      where: {
+        ...buildTenantWhere(ctx),
+        ...batasanLingkup("rencana"),
+        OR: [
+          { sourceNode: { isPlanned: false } },
+          { targetNode: { isPlanned: false } },
+        ],
+      },
+    });
+  }
+
   async resetAllMappingData(ctx: TenantContext) {
     await prisma.$transaction(async (transaction) => {
       await transaction.mappingEdge.deleteMany({

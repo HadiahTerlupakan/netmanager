@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Reset peta menolak dengan jelas, bukan 500
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/map`
+- **Author**: agent
+- **Deskripsi**: Peta rencana boleh menarik kabel ke node yang sudah berdiri,
+  sehingga node itu tidak bisa dihapus selama jalur rencananya ada — FK
+  `mapping_edges_source_fkey`/`_target_fkey` ber-`ON DELETE RESTRICT`
+  (diverifikasi langsung di database). `POST /api/map/reset` karena itu
+  membalas 500 "Terjadi kesalahan pada server" di tenant mana pun yang punya
+  rencana OSP aktif, dan operator tidak bisa membedakannya dari server rusak.
+  `MappingAdminService.resetAllMappingData` sekarang menolak dengan 400 yang
+  menyebut jumlah jalurnya, lewat method port baru
+  `countPlannedEdgesOnRealNodes`.
+- **Files**: `modules/map/services/MappingAdminService.ts`,
+  `modules/map/repositories/MappingRepository.ts`,
+  `modules/map/domain/ports/IMappingRepository.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Perbaikan checksum migration dengan penjaga drift skema
 
 - **Tipe**: [INFRA]

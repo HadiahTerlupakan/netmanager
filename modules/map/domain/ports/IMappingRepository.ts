@@ -64,6 +64,13 @@ export interface IMappingRepository {
   ): Promise<number>;
   syncAllMappingData(ctx: TenantContext, data: SyncMapDataInput): Promise<void>;
   resetAllMappingData(ctx: TenantContext): Promise<void>;
+  /**
+   * Jumlah jalur RENCANA yang salah satu ujungnya menempel di node NYATA.
+   *
+   * Dipakai penjaga reset peta: FK `source`/`target` ber-`ON DELETE RESTRICT`,
+   * jadi menghapus node-node nyata itu akan ditolak database.
+   */
+  countPlannedEdgesOnRealNodes(ctx: TenantContext): Promise<number>;
   /** Upsert nodes by nodeId (merge). Returns per-row actions. */
   upsertNodes(
     ctx: TenantContext,
