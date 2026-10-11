@@ -26,6 +26,25 @@ import type {
   ServiceResult,
 } from "./MobileMitraRouteService.types";
 
+/**
+ * Minimum penarikan yang benar-benar ditegakkan server.
+ *
+ * `Mitra.minWithdrawal` hanya menyimpan override per-mitra; bila kosong yang
+ * berlaku adalah setelan tenant (`mitra_min_withdraw`). Mengirim null membuat
+ * aplikasi jatuh ke angka cadangannya sendiri dan menampilkan batas yang
+ * berbeda dari yang dipakai saat penarikan divalidasi.
+ */
+async function resolveMinimumWithdrawalBerlaku(
+  override: number | null,
+): Promise<number | null> {
+  if (override !== null && override !== undefined) {
+    return override;
+  }
+
+  const setelan = await getMitraWithdrawService().getMinWithdrawSetting();
+  return setelan.success ? setelan.data.minWithdraw : null;
+}
+
 const DEFAULT_PAGE = 1;
 const MOBILE_LIMIT = 20;
 const DASHBOARD_RECENT_TRANSACTION_LIMIT = 5;
@@ -61,6 +80,7 @@ export class MobileMitraRouteService {
       woCompletedToday,
       woCompletedWeek,
       woCompletedMonth,
+      minWithdrawal,
     ] = await Promise.all([
       getMitraWalletService().getBalance(mitraData.id, tenantId),
       getMitraWalletService().getEarningsSummary(mitraData.id, tenantId),
@@ -95,6 +115,7 @@ export class MobileMitraRouteService {
         tenantId: tenantId || "",
         since: periods.monthStart,
       }),
+      resolveMinimumWithdrawalBerlaku(mitraData.minWithdrawal),
     ]);
 
     return {
@@ -104,7 +125,7 @@ export class MobileMitraRouteService {
         ratePsb: mitraData.mitraRateWoPsb,
         rateMaintenance: mitraData.mitraRateWoMaintenance,
         rateCanvasing: mitraData.mitraRateCanvasing,
-        minWithdrawal: mitraData.minWithdrawal,
+        minWithdrawal,
         balance: balance.success ? balance.data?.balance || 0 : 0,
         totalEarnings: balance.success ? balance.data?.totalEarnings || 0 : 0,
         totalWithdrawn: balance.success ? balance.data?.totalWithdrawn || 0 : 0,

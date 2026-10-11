@@ -19,6 +19,20 @@ vi.mock(
   }),
 );
 
+const withdrawService = vi.hoisted(() => ({
+  getMinWithdrawSetting: vi.fn(),
+}));
+
+vi.mock(
+  "@/modules/mitra/services/MitraWithdrawService",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("@/modules/mitra/services/MitraWithdrawService")
+    >()),
+    getMitraWithdrawService: () => withdrawService,
+  }),
+);
+
 describe("MobileMitraRouteService", () => {
   it("mengirim dashboard mobile dengan total pendapatan dari wallet dan key fee lama bernilai netral", async () => {
     const mitraRepository = {
@@ -100,6 +114,64 @@ describe("MobileMitraRouteService", () => {
         monthlyEarnings: { earningsThisMonth: 100_000 },
         recentTransactions: [],
       },
+    });
+  });
+  it("melaporkan minimum penarikan setelan tenant saat mitra tanpa override", async () => {
+    // Mengirim null membuat aplikasi memakai angka cadangannya sendiri
+    // (Rp 100.000) padahal penarikan divalidasi pada setelan tenant.
+    const mitraRepository = {
+      findByIdSimple: vi.fn().mockResolvedValue({
+        id: "mitra-1",
+        isActive: true,
+        mitraType: "MITRA_TEKNISI",
+        mitraRateWoPsb: 50_000,
+        mitraRateWoMaintenance: 20_000,
+        mitraRateCanvasing: null,
+        minWithdrawal: null,
+        targetHarian: null,
+      }),
+      countPendingWithdrawals: vi.fn().mockResolvedValue(0),
+    };
+    const dashboardRepository = {
+      countAssignedMitraWorkOrders: vi.fn().mockResolvedValue(0),
+      countPendingMitraWorkOrders: vi.fn().mockResolvedValue(0),
+      countClosedMitraWorkOrders: vi.fn().mockResolvedValue(0),
+    };
+    walletService.getBalance.mockResolvedValue({
+      success: true,
+      data: { balance: 0, totalEarnings: 0, totalWithdrawn: 0 },
+    });
+    walletService.getEarningsSummary.mockResolvedValue({
+      success: true,
+      data: { earningsThisMonth: 0 },
+    });
+    walletService.getTransactions.mockResolvedValue({
+      success: true,
+      data: { transactions: [], total: 0 },
+    });
+    walletService.countMonthlyEarningsByDescription.mockResolvedValue({
+      success: true,
+      data: 0,
+    });
+    withdrawService.getMinWithdrawSetting.mockResolvedValue({
+      success: true,
+      data: { minWithdraw: 50_000 },
+    });
+    const service = new MobileMitraRouteService(
+      mitraRepository as never,
+      {} as never,
+      dashboardRepository as never,
+    );
+
+    const result = await service.getDashboard({
+      id: "mitra-1",
+      tenantId: "tenant-1",
+      role: "MITRA",
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: { minWithdrawal: 50_000 },
     });
   });
 });

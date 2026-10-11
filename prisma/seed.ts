@@ -1073,7 +1073,16 @@ async function main() {
         email: "mitrateknisi@example.com",
       },
     },
-    update: {},
+    // Site & tarif ikut diperbarui: dengan `update: {}` baris mitra lama tetap
+    // menunjuk site yang sudah hilang setelah database utama di-reset, dan
+    // daftar work order tersedia untuk mitra itu diam-diam kosong.
+    update: {
+      siteId: hqSite.id,
+      mitraType: "MITRA_TEKNISI",
+      mitraRateWoPsb: 50000,
+      mitraRateWoMaintenance: 20000,
+      isActive: true,
+    },
     create: {
       name: "Budi Mitra Teknisi",
       email: "mitrateknisi@example.com",
@@ -1107,7 +1116,12 @@ async function main() {
         email: "mitrasales@example.com",
       },
     },
-    update: {},
+    update: {
+      siteId: jkt01Site.id,
+      mitraType: "MITRA_SALES",
+      mitraRateCanvasing: 25000,
+      isActive: true,
+    },
     create: {
       name: "Andi Mitra Sales",
       email: "mitrasales@example.com",
