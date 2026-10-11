@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Penyelesai tautan pendek Google Maps dengan penjaga SSRF
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/geo`, `app/api/planning/tautan-peta/uraikan`
+- **Author**: agent
+- **Deskripsi**: `selesaikanTautanPendek` menukar tautan pendek (`maps.app.goo.gl`,
+  `goo.gl/maps`) menjadi koordinat lewat satu rantai pengalihan manual. Penjaga
+  SSRF berlaku di setiap lompatan lewat `isUrlPetaAman` (https, tanpa
+  username/password, tanpa port khusus, host dalam daftar izin) yang dipakai
+  bersama pengurai. Maksimum 3 lompatan, timeout 5 detik, tanpa kredensial,
+  query dan fragment dibuang sebelum permintaan keluar, badan respons tidak
+  dibaca. HEAD dahulu, lalu GET sekali bila tidak ada header `location`. Pesan
+  galat ke klien bersifat umum. Endpoint `POST /api/planning/tautan-peta/uraikan`
+  (izin `planning:update`) hanya memanggil pengurai dan penyelesai.
+- **Files**: `lib/geo/tautan-peta-pendek.ts`, `lib/geo/tautan-peta.ts`,
+  `app/api/planning/tautan-peta/uraikan/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Pengurai tautan Google Maps menjadi koordinat
 
 - **Tipe**: [ADDED]

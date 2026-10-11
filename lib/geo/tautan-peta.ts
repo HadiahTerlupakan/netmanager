@@ -155,6 +155,16 @@ function periksaUrl(url: URL): HasilUraiTautan | null {
   return null;
 }
 
+/**
+ * Satu-satunya sumber kebenaran untuk "URL ini boleh dikirimi permintaan
+ * keluar": https, tanpa kredensial, tanpa port khusus, host dalam daftar izin,
+ * dan goo.gl hanya untuk path peta. Dipakai penyelesai tautan pendek di setiap
+ * lompatan pengalihan.
+ */
+export function isUrlPetaAman(url: URL): boolean {
+  return periksaUrl(url) === null;
+}
+
 /** Urai tautan Google Maps menjadi koordinat, tanpa menyentuh jaringan. */
 export function uraikanTautanPeta(teks: string): HasilUraiTautan {
   const bersih = teks.trim();
