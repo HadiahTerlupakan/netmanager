@@ -14,6 +14,7 @@ export {
   planningService,
   planningItemService,
   planningPetaService,
+  planningDocumentService,
   planningMilestoneService,
   planningApprovalService,
   planningTemplateService,

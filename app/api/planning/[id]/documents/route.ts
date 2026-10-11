@@ -1,4 +1,14 @@
-import { createHandler, ApiErrors } from "@/lib/api";
+import {
+  createHandler,
+  ApiErrors,
+  apiError,
+  apiSuccess,
+  requireSessionTenantId,
+} from "@/lib/api";
+import {
+  planningDocumentService,
+  unggahDokumenPlanningSchema,
+} from "@/modules/planning";
 
 /**
  * GET /api/planning/[id]/documents
@@ -28,16 +38,39 @@ export const GET = createHandler(
 
 /**
  * POST /api/planning/[id]/documents
- * Upload document untuk planning (stub - belum diimplementasi)
+ * Unggah gambar ke planning (multipart: `file`, opsional `nodeId`, `category`,
+ * `description`). Dengan `nodeId` menjadi foto survei titik rencananya.
  */
 export const POST = createHandler(
   {
     auth: true,
     permissions: ["planning:update"],
   },
-  async (_req, _ctx) => {
-    return ApiErrors.notImplemented(
-      "Document upload not yet implemented. Will be implemented in Task 14 with FormData handling.",
+  async (req, ctx) => {
+    const formData = await req.formData();
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return apiError("Berkas wajib diisi", "VALIDATION_ERROR", {
+        status: 400,
+      });
+    }
+
+    const fields = unggahDokumenPlanningSchema.parse({
+      nodeId: formData.get("nodeId") || null,
+      category: formData.get("category") || undefined,
+      description: formData.get("description") || null,
+    });
+
+    const dokumen = await planningDocumentService.upload(
+      ctx.params.id,
+      { file, ...fields },
+      ctx.session!.user.id,
+      requireSessionTenantId(ctx),
     );
+
+    return apiSuccess(dokumen, {
+      status: 201,
+      message: "Dokumen berhasil diunggah",
+    });
   },
 );

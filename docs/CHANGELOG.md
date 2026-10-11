@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Foto survei melekat pada titik rencana
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/planning`, `app/api/planning/[id]/documents`
+- **Author**: agent
+- **Deskripsi**: `PlanningDocumentService.upload` dan `POST
+  /api/planning/[id]/documents` (sebelumnya stub 501) menerima gambar dengan
+  `nodeId` opsional. Dengan `nodeId`, titik diperiksa lewat
+  `PlanningPetaRepository.ambilTitikMilikPlanning` (disaring di query: milik
+  planning ini dan `isPlanned`), lalu dokumen disimpan berkategori
+  `SURVEY_PHOTO`; titik planning lain ditolak 404. Tanpa `nodeId` berkas tetap
+  menjadi lampiran tingkat proyek. Gambar disimpan lewat `convertAndSaveImage`
+  (WebP, R2 bila aktif, namespace tenant). `nodeId` kini terbawa di entity,
+  mapper, DTO, dan repository dokumen. Kolom `PlanningDocument.nodeId` sudah ada
+  (`onDelete: SetNull`) dari migration sebelumnya.
+- **Files**: `modules/planning/services/PlanningDocumentService.ts`,
+  `modules/planning/validators/planningDocumentSchemas.ts`,
+  `app/api/planning/[id]/documents/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Titik dan jalur rencana pada peta Planning OSP
 
 - **Tipe**: [ADDED]

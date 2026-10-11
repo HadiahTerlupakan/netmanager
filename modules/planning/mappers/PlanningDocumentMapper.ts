@@ -22,6 +22,7 @@ export class PlanningDocumentMapper {
       description: prisma.description,
       uploadedById: prisma.uploadedById,
       uploadedAt: prisma.uploadedAt,
+      nodeId: prisma.nodeId,
     });
   }
 
@@ -40,6 +41,7 @@ export class PlanningDocumentMapper {
       description: entity.description,
       uploadedById: entity.uploadedById,
       uploadedAt: entity.uploadedAt.toISOString(),
+      nodeId: entity.nodeId,
       formattedFileSize: entity.getFormattedFileSize(),
       fileExtension: entity.getFileExtension(),
       isImage: entity.isImage(),

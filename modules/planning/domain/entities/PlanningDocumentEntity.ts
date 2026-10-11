@@ -18,6 +18,8 @@ export interface PlanningDocumentEntityProps {
   description: string | null;
   uploadedById: string | null;
   uploadedAt: Date;
+  /** Titik rencana yang difoto; null untuk lampiran tingkat proyek. */
+  nodeId?: string | null;
 }
 
 /**
@@ -36,6 +38,7 @@ export class PlanningDocumentEntity {
   readonly description: string | null;
   readonly uploadedById: string | null;
   readonly uploadedAt: Date;
+  readonly nodeId: string | null;
 
   constructor(props: PlanningDocumentEntityProps) {
     this.id = props.id;
@@ -49,6 +52,7 @@ export class PlanningDocumentEntity {
     this.description = props.description;
     this.uploadedById = props.uploadedById;
     this.uploadedAt = props.uploadedAt;
+    this.nodeId = props.nodeId ?? null;
   }
 
   /**

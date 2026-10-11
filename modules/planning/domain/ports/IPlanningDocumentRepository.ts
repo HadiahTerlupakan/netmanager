@@ -15,6 +15,8 @@ export interface CreatePlanningDocumentInput {
   category: DocumentCategory;
   description?: string | null;
   uploadedById?: string | null;
+  /** Titik rencana yang difoto; null/kosong untuk lampiran tingkat proyek. */
+  nodeId?: string | null;
 }
 
 export interface UpdatePlanningDocumentInput {

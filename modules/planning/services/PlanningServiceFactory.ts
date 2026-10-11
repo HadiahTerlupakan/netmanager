@@ -12,6 +12,7 @@ import { PlanningAuditService } from "./PlanningAuditService";
 import { PlanningService } from "./PlanningService";
 import { PlanningItemService } from "./PlanningItemService";
 import { PlanningPetaService } from "./PlanningPetaService";
+import { PlanningDocumentService } from "./PlanningDocumentService";
 import { PlanningMilestoneService } from "./PlanningMilestoneService";
 import { PlanningApprovalService } from "./PlanningApprovalService";
 import { PlanningTemplateService } from "./PlanningTemplateService";
@@ -203,6 +204,23 @@ class PlanningServiceFactory {
   }
 
   /**
+   * Get PlanningDocumentService singleton
+   */
+  static getDocumentService(): PlanningDocumentService {
+    if (!this.instances.has("document")) {
+      this.instances.set(
+        "document",
+        new PlanningDocumentService(
+          new PlanningRepository(),
+          new PlanningDocumentRepository(),
+          new PlanningPetaRepository(),
+        ),
+      );
+    }
+    return this.instances.get("document") as PlanningDocumentService;
+  }
+
+  /**
    * Clear all singleton instances (useful for testing)
    */
   static clearInstances(): void {
@@ -215,6 +233,8 @@ export const planningAuditService = PlanningServiceFactory.getAuditService();
 export const planningService = PlanningServiceFactory.getPlanningService();
 export const planningItemService = PlanningServiceFactory.getItemService();
 export const planningPetaService = PlanningServiceFactory.getPetaService();
+export const planningDocumentService =
+  PlanningServiceFactory.getDocumentService();
 export const planningMilestoneService =
   PlanningServiceFactory.getMilestoneService();
 export const planningApprovalService =

@@ -111,6 +111,7 @@ export class PlanningDocumentRepository implements IPlanningDocumentRepository {
       category: data.category,
       description: data.description ?? null,
       uploadedById: data.uploadedById ?? null,
+      nodeId: data.nodeId ?? null,
     };
 
     const created = await client.planningDocument.create({

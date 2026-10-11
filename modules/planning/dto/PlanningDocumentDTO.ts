@@ -14,6 +14,8 @@ export interface PlanningDocumentDTO {
   description: string | null;
   uploadedById: string | null;
   uploadedAt: string;
+  /** Titik rencana yang difoto; null untuk lampiran tingkat proyek. */
+  nodeId: string | null;
 
   // Computed fields
   formattedFileSize: string | null;
