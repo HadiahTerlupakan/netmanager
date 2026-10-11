@@ -21,9 +21,12 @@ const IZIN_BACA_PETA_OPERASIONAL = "map:read";
  * Latar itu adalah enumerasi topologi operasional (nama, koordinat, splitter,
  * catatan seluruh OLT/ODC/ODP/pole/joinbox satu tenant), jadi ia menuntut
  * `map:read` DI ATAS `planning:read`. Dua izin itu TIDAK boleh ditulis
- * berdampingan di `permissions`: gerbang `createHandler` bersifat "salah satu
- * dari" (`lib/api/handler.ts`, `expandedPerms.some`), sehingga menambahkan
- * `map:read` di sana justru akan melonggarkan akses ke peta planning. Jadi
+ * berdampingan di `permissions`: gerbang itu bersifat "salah satu dari"
+ * (`lib/api/handler.ts`, `expandedPerms.some`), sehingga menambahkan
+ * `map:read` di sana justru akan melonggarkan akses ke peta planning.
+ *
+ * Gerbang "DAN"-nya ada — opsi `permissionsAll` — tapi di sini sengaja tidak
+ * dipakai: ia menolak 403, sedangkan endpoint ini harus tetap melayani. Jadi
  * izinnya dihitung di sini dengan `permissionListAllows` dan diserahkan ke
  * service sebagai boolean.
  *

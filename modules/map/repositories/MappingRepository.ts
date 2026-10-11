@@ -174,9 +174,12 @@ export class MappingRepository implements IMappingRepository {
     const owned = await this.findNodeById(ctx, nodeId);
     if (!owned) throw new MapNotFoundError("Node");
 
-    // Edge rencana yang ujungnya menempel di node ini ikut terhapus dengan
-    // sengaja: `source` dan `target` adalah FK non-null, sehingga edge tidak
-    // boleh menggantung tanpa node.
+    // Sapuan ini menghapus SETIAP edge yang menempel, rencana maupun nyata:
+    // `source` dan `target` adalah FK non-null, jadi edge tidak boleh
+    // menggantung tanpa node. Karena itu penjaganya ada satu lapis di atas —
+    // `MappingService.deleteNode` menolak permintaan selama masih ada jalur
+    // rencana di titik ini, supaya anggaran material sebuah planning tidak
+    // pernah menyusut sebagai efek samping penghapusan node.
     await prisma.mappingEdge.deleteMany({
       where: {
         OR: [{ source: nodeId }, { target: nodeId }],

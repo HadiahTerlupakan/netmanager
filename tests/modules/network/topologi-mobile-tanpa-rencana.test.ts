@@ -27,7 +27,9 @@ describe("MobileTopologyRepository", () => {
     await new MobileTopologyRepository().getTopologyData("tenant-1");
 
     expect(prismaMock.mappingNode.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { isPlanned: false } }),
+      expect.objectContaining({
+        where: { tenantId: "tenant-1", isPlanned: false },
+      }),
     );
   });
 
@@ -35,7 +37,9 @@ describe("MobileTopologyRepository", () => {
     await new MobileTopologyRepository().getTopologyData("tenant-1");
 
     expect(prismaMock.mappingEdge.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { isPlanned: false } }),
+      expect.objectContaining({
+        where: { tenantId: "tenant-1", isPlanned: false },
+      }),
     );
   });
 
@@ -43,7 +47,26 @@ describe("MobileTopologyRepository", () => {
     await new MobileTopologyRepository().getTopologyData("tenant-1");
 
     expect(prismaMock.mappingEdge.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { isPlanned: false } }),
+      expect.objectContaining({
+        where: { tenantId: "tenant-1", isPlanned: false },
+      }),
     );
+  });
+
+  it("menyaring tenant secara tersurat, tidak bersandar pada ekstensi Prisma", async () => {
+    await new MobileTopologyRepository().getTopologyData("tenant-1");
+
+    // Ekstensi tenant berhenti menyaring di system context. Ketiga query ini
+    // sudah menulis `isPlanned` sendiri, jadi `tenantId` harus tersurat juga —
+    // satu penjaga tersurat berdampingan dengan satu penjaga tersirat adalah
+    // bentuk yang paling mudah disalahbaca.
+    for (const panggilan of [
+      prismaMock.mappingNode.findMany,
+      prismaMock.mappingEdge.findMany,
+      prismaMock.mappingEdge.groupBy,
+    ]) {
+      const where = panggilan.mock.calls[0][0].where;
+      expect(where.tenantId).toBe("tenant-1");
+    }
   });
 });

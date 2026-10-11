@@ -54,7 +54,10 @@ import {
   logResponse,
   logAuditActivity,
 } from "@/lib/middleware/request-logger";
-import { expandPermissionsWithAliases } from "@/lib/permission-aliases";
+import {
+  expandPermissionsWithAliases,
+  hasCapability,
+} from "@/lib/permission-aliases";
 
 // Types
 export interface HandlerContext<T = unknown> {
@@ -86,12 +89,27 @@ export interface HandlerContext<T = unknown> {
 export interface HandlerOptions<T = unknown> {
   /** Require authentication */
   auth?: boolean;
-  /** Required permissions (RBAC) */
+  /**
+   * Izin RBAC yang dipakai sebagai gerbang "SALAH SATU DARI" (ATAU).
+   *
+   * Satu izin saja dari daftar ini sudah meloloskan permintaan. Karena itu
+   * menambahkan izin kedua di sini MELONGGARKAN akses, bukan mengetatkannya —
+   * jebakan yang sudah pernah hampir memasang gerbang terbalik di route
+   * penerbitan peta rencana. Bila maksudnya "harus punya keduanya", pakai
+   * `permissionsAll`.
+   */
   permissions?: string[];
+  /**
+   * Izin RBAC yang SELURUHNYA harus dimiliki (DAN).
+   *
+   * Pelengkap `permissions`: dipakai ketika sebuah aksi menyentuh dua wilayah
+   * sekaligus — mis. menerbitkan rencana ke topologi operasional menuntut
+   * `planning:update` DAN `map:create`. Wildcard `*` dan super admin tetap
+   * lolos, alias izin tetap diperhitungkan.
+   */
+  permissionsAll?: string[];
   /** Zod schema for request body validation */
   schema?: ZodType<T>;
-  /** Custom rate limit (requests per minute) */
-  rateLimit?: number;
   /**
    * Feature module yang harus aktif untuk tenant agar route ini bisa diakses.
    * Lihat `lib/feature-modules.ts` untuk daftar kode valid. Super admin
@@ -233,7 +251,7 @@ export function createHandler<T = unknown>(
         }
       }
 
-      // 2. Permission check (RBAC) with alias resolution
+      // 2. Permission check (RBAC) with alias resolution — "SALAH SATU DARI".
       if (options.permissions && options.permissions.length > 0) {
         const expandedPerms = expandPermissionsWithAliases(options.permissions);
         const hasPermission = expandedPerms.some(
@@ -245,6 +263,23 @@ export function createHandler<T = unknown>(
           const missingPerms = options.permissions.join(", ");
           return ApiErrors.forbidden(
             `Akses ditolak. Anda memerlukan permission: ${missingPerms}`,
+          );
+        }
+      }
+
+      // 2a. Permission check — "SELURUHNYA" (DAN). Gerbang di atas bersifat
+      // ATAU, jadi inilah satu-satunya tempat yang benar untuk menuntut dua
+      // izin sekaligus.
+      if (options.permissionsAll && options.permissionsAll.length > 0) {
+        const izinKurang = options.permissionsAll.filter(
+          (perm) =>
+            ctx.session?.user?.isSuperAdmin !== true &&
+            !hasCapability(ctx.permissions, perm),
+        );
+
+        if (izinKurang.length > 0) {
+          return ApiErrors.forbidden(
+            `Akses ditolak. Anda memerlukan permission: ${izinKurang.join(", ")}`,
           );
         }
       }

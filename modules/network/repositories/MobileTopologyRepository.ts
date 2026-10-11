@@ -16,11 +16,17 @@ export class MobileTopologyRepository implements IMobileTopologyRepository {
         this.findKmzFiles(tenantId),
         // Titik dan jalur rencana OSP hidup di tabel yang sama dengan topologi
         // nyata. Aplikasi mobile hanya boleh melihat yang sudah terpasang.
-        prisma.mappingNode.findMany({ where: { isPlanned: false } }),
-        prisma.mappingEdge.findMany({ where: { isPlanned: false } }),
+        //
+        // `tenantId` ditulis eksplisit meski ekstensi Prisma juga menyaringnya.
+        // Ekstensi itu berhenti menyaring di system context, dan ketiga query
+        // ini duduk persis di sebelah penyaring tersurat `isPlanned` — satu
+        // penjaga tersurat berdampingan dengan satu penjaga tersirat adalah
+        // bentuk yang paling mudah disalahbaca pembaca berikutnya.
+        prisma.mappingNode.findMany({ where: { tenantId, isPlanned: false } }),
+        prisma.mappingEdge.findMany({ where: { tenantId, isPlanned: false } }),
         prisma.mappingEdge.groupBy({
           by: ["source"],
-          where: { isPlanned: false },
+          where: { tenantId, isPlanned: false },
           _count: { source: true },
         }),
       ]);

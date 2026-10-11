@@ -10,6 +10,7 @@ import type { User } from "next-auth";
 import {
   hasPermissionWithAlias,
   expandPermissionsWithAliases,
+  hasCapability,
 } from "@/lib/permission-aliases";
 
 interface ExtendedUser extends User {
@@ -214,9 +215,10 @@ export function permissionListAllows(
   holder: { permissions: string[]; isSuperAdmin?: boolean },
   requiredPermission: string,
 ): boolean {
-  if (holder.isSuperAdmin || holder.permissions.includes("*")) return true;
+  if (holder.isSuperAdmin) return true;
 
-  return expandPermissionsWithAliases([requiredPermission]).some((permission) =>
-    holder.permissions.includes(permission),
-  );
+  // `hasCapability` sudah menangani wildcard `*` dan alias. Opsi
+  // `permissionsAll` di `createHandler` memakai helper yang sama, supaya
+  // aturan "satu izin dipenuhi" hanya punya satu definisi.
+  return hasCapability(holder.permissions, requiredPermission);
 }

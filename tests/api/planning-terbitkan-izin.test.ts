@@ -4,10 +4,11 @@ import { NextRequest } from "next/server";
 /**
  * Wiring izin `POST /api/planning/[id]/peta/terbitkan`.
  *
- * Menerbitkan menuntut `planning:update` DAN `map:create`. Gerbang
- * `createHandler` bersifat "salah satu dari", jadi izin kedua dihitung di route
- * dan ditolak 403. Tes ini mengunci kombinasi yang membedakan "dan" dari
- * "atau": hanya salah satu izin tidak boleh meloloskan.
+ * Menerbitkan menuntut `planning:update` DAN `map:create`, dipasang lewat
+ * opsi `permissionsAll` — `permissions` bersifat "salah satu dari" dan di sana
+ * daftar yang sama justru akan meloloskan pemegang `map:create` saja. Tes ini
+ * mengunci kombinasi yang membedakan "dan" dari "atau": hanya salah satu izin
+ * tidak boleh meloloskan.
  */
 
 const mockFns = vi.hoisted(() => ({

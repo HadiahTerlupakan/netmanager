@@ -174,10 +174,24 @@ export class MappingService {
     return MapMapper.toSettingsDTORequired(settings);
   }
 
+  /**
+   * Menghapus node jaringan nyata.
+   *
+   * Ditolak selama masih ada jalur RENCANA yang ujungnya menempel di node ini.
+   * `MappingRepository.deleteNode` menyapu setiap edge yang menempel karena
+   * `source`/`target` adalah FK non-null; tanpa penjaga ini, menghapus satu ODC
+   * nyata ikut menghapus kabel rencana yang menujunya. Akibatnya kebutuhan
+   * material sebuah planning — yang mungkin sudah disetujui — menyusut tanpa
+   * jejak audit dan tanpa pernah masuk hitungan `jalurDiabaikan`.
+   *
+   * Jalan keluarnya ada di tim planning: hapus jalurnya dari peta rencana OSP
+   * lebih dulu, lalu node boleh dihapus.
+   */
   async deleteNode(
     ctx: TenantContext,
     nodeId: string,
   ): Promise<MapNodeListItemDTO> {
+    await this.assertTanpaJalurRencana(ctx, nodeId);
     const node = await this.repository.deleteNode(ctx, nodeId);
     return MapMapper.toNodeDTO(node);
   }
@@ -212,6 +226,30 @@ export class MappingService {
     ) {
       throw new ValidationError("Site tidak termasuk tenant Anda", { siteId });
     }
+  }
+
+  /**
+   * Menolak penghapusan selama jalur rencana masih menempel di node.
+   *
+   * Lingkup `"rencana"` disebut eksplisit: bawaan repository adalah `"nyata"`,
+   * dan dengan bawaan itu penjaga ini akan membaca himpunan yang salah dan
+   * selalu lolos.
+   */
+  private async assertTanpaJalurRencana(
+    ctx: TenantContext,
+    nodeId: string,
+  ): Promise<void> {
+    const jalurRencana = await this.repository.findEdgesByNode(
+      ctx,
+      nodeId,
+      "rencana",
+    );
+    if (jalurRencana.length === 0) return;
+
+    throw new ValidationError(
+      `Node tidak bisa dihapus: masih ada ${jalurRencana.length} jalur kabel rencana yang menempel padanya. Hapus jalur itu dari peta rencana OSP lebih dulu.`,
+      { nodeId, jumlahJalurRencana: jalurRencana.length },
+    );
   }
 
   private async ensureNodeExists(
