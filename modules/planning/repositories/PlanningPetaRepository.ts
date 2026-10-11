@@ -194,4 +194,35 @@ export class PlanningPetaRepository {
       orderBy: { createdAt: "asc" },
     });
   }
+
+  /**
+   * Menerbitkan peta sebuah planning: melepas penanda rencana dari seluruh
+   * titik dan jalurnya dalam satu transaksi. Tidak ada data yang disalin —
+   * baris yang sama berhenti disaring dari topologi operasional.
+   *
+   * `planningId` SENGAJA tidak disentuh: ia jejak asal-usul node ("berasal
+   * dari rencana mana") yang harus bertahan selamanya setelah terbit.
+   * Penyaringan `tenantId` + `isPlanned: true` membuat pemanggilan ulang
+   * idempoten (jumlahnya 0) dan tidak pernah menyentuh node nyata.
+   */
+  async tandaiTerbit(
+    planningId: string,
+    tenantId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ titikTerbit: number; jalurTerbit: number }> {
+    const jalankan = async (client: Prisma.TransactionClient) => {
+      const titik = await client.mappingNode.updateMany({
+        where: { planningId, tenantId, isPlanned: true },
+        data: { isPlanned: false },
+      });
+      const jalur = await client.mappingEdge.updateMany({
+        where: { planningId, tenantId, isPlanned: true },
+        data: { isPlanned: false },
+      });
+      return { titikTerbit: titik.count, jalurTerbit: jalur.count };
+    };
+
+    if (tx) return jalankan(tx);
+    return prisma.$transaction(jalankan);
+  }
 }

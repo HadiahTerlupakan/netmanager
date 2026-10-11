@@ -1,6 +1,9 @@
 import type { MappingEdge, MappingNode } from "@prisma/client";
 
-import type { PlanningEntity } from "../domain/entities/PlanningEntity";
+import type {
+  PlanningEntity,
+  PlanningStatus,
+} from "../domain/entities/PlanningEntity";
 import type { IPlanningRepository } from "../domain/ports/IPlanningRepository";
 import type { IPlanningUnitOfWork } from "../domain/ports/IPlanningUnitOfWork";
 import type {
@@ -21,6 +24,13 @@ import type {
 } from "../validators/planningPetaSchemas";
 import type { PlanningAuditService } from "./PlanningAuditService";
 import { logger } from "@/lib/logger";
+
+/** Status yang sudah tuntas disetujui, satu-satunya yang boleh diterbitkan. */
+const STATUS_BOLEH_TERBIT: readonly PlanningStatus[] = [
+  "APPROVED",
+  "IN_PROGRESS",
+  "COMPLETED",
+];
 
 /** Repository peta dipakai lewat transaksi Prisma yang sama dengan audit. */
 type PrismaTx = Parameters<PlanningPetaRepository["buatTitik"]>[1];
@@ -448,6 +458,60 @@ export class PlanningPetaService {
       nodeNyata: nodeNyata.map((node) => PlanningPetaMapper.toTitikDTO(node)),
       latarDisembunyikanKarenaIzin: diminta && !bolehDibaca,
     };
+  }
+
+  /**
+   * Menerbitkan seluruh titik dan jalur rencana menjadi node jaringan nyata.
+   *
+   * Sekaligus satu planning, bukan per titik: persetujuan berlaku untuk
+   * seluruh planning, jadi menerbitkan sebagian berarti sebagian jaringan
+   * nyata berasal dari rencana yang belum tuntas disetujui. Penerbitan hanya
+   * melepas penanda rencana (tanpa menyalin data) dan mempertahankan
+   * `planningId` sebagai jejak asal-usul. Izin `map:create` dijaga di route.
+   */
+  async terbitkan(
+    planningId: string,
+    userId: string,
+    tenantId: string,
+  ): Promise<{ titikTerbit: number; jalurTerbit: number }> {
+    const planning = await this.findOwnedPlanning(planningId, tenantId);
+
+    if (!STATUS_BOLEH_TERBIT.includes(planning.status)) {
+      throw new PlanningInvalidStateError(
+        `Peta rencana berstatus ${planning.status} belum bisa diterbitkan. Hanya rencana berstatus APPROVED, IN_PROGRESS, atau COMPLETED yang bisa diterbitkan.`,
+      );
+    }
+
+    const hasil = await this.unitOfWork.runInTransaction(async (tx) => {
+      const diterbitkan = await this.petaRepo.tandaiTerbit(
+        planningId,
+        planning.tenantId,
+        tx as PrismaTx,
+      );
+
+      await this.auditService.logChange(
+        {
+          planningId,
+          tenantId: planning.tenantId,
+          action: "UPDATED",
+          performedById: userId,
+          changes: { peta: "diterbitkan", ...diterbitkan },
+        },
+        tx,
+      );
+
+      return diterbitkan;
+    });
+
+    logger.logActivity({
+      action: "planning.peta_published",
+      subject: "Planning",
+      details: { planningId, ...hasil },
+      userId,
+      tenantId: planning.tenantId,
+    });
+
+    return hasil;
   }
 
   /**

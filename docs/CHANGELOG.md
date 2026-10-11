@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Terbitkan titik rencana OSP menjadi node jaringan nyata
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/planning`, `app/api/planning/[id]/peta/terbitkan`
+- **Author**: agent
+- **Deskripsi**: Endpoint `POST /api/planning/[id]/peta/terbitkan` menerbitkan
+  seluruh titik dan jalur rencana sebuah planning sekaligus. Penerbitan hanya
+  melepas penanda `isPlanned` lewat `PlanningPetaRepository.tandaiTerbit`
+  (satu transaksi, tanpa menyalin data); `planningId` dipertahankan sebagai
+  jejak asal-usul. Hanya planning berstatus APPROVED, IN_PROGRESS, atau
+  COMPLETED yang boleh diterbitkan, dan setiap penerbitan diaudit. Izin:
+  `planning:update` lewat `createHandler` plus `map:create` dihitung di route
+  (gerbang `permissions` bersifat "salah satu dari") dan ditolak 403 bila tidak
+  ada.
+- **Files**: `modules/planning/services/PlanningPetaService.ts`,
+  `modules/planning/repositories/PlanningPetaRepository.ts`,
+  `app/api/planning/[id]/peta/terbitkan/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Tab Peta perencanaan OSP pada detail planning
 
 - **Tipe**: [ADDED]
