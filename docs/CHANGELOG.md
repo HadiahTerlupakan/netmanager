@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Pengurai tautan Google Maps menjadi koordinat
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/geo`
+- **Author**: agent
+- **Deskripsi**: Fungsi murni `uraikanTautanPeta` mengubah tautan Google Maps
+  menjadi koordinat tanpa jaringan. Urutan prioritas: `!3d`/`!4d` (koordinat
+  tempat) lebih dulu, lalu parameter `q`/`query`, lalu `@` (posisi kamera).
+  Host dibatasi ke domain Google. Tautan pendek (`maps.app.goo.gl`, `goo.gl`)
+  mengembalikan `butuh_resolusi` agar penyelesai pendek dikerjakan terpisah.
+  Koordinat `0,0` ditolak karena hampir selalu berarti tempelan yang gagal.
+- **Files**: `lib/geo/tautan-peta.ts`, `tests/lib/geo/tautan-peta.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Perhitungan kebutuhan kabel dan splitter OSP
 
 - **Tipe**: [ADDED]
