@@ -47,11 +47,13 @@ export interface IMappingRepository {
     ctx: TenantContext,
     nodeId: string,
     data: UpdateMapNodeInput,
+    lingkup?: LingkupPeta,
   ): Promise<MapNode>;
   updateEdge(
     ctx: TenantContext,
     edgeId: string,
     data: UpdateMapEdgeInput,
+    lingkup?: LingkupPeta,
   ): Promise<MapEdge>;
   deleteNode(ctx: TenantContext, nodeId: string): Promise<MapNode>;
   deleteEdge(ctx: TenantContext, edgeId: string): Promise<MapEdge>;

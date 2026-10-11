@@ -139,9 +139,10 @@ export class MappingRepository implements IMappingRepository {
     ctx: TenantContext,
     nodeId: string,
     data: UpdateMapNodeInput,
+    lingkup: LingkupPeta = "nyata",
   ) {
     const result = await prisma.mappingNode.updateMany({
-      where: { nodeId, ...buildTenantWhere(ctx) },
+      where: { nodeId, ...buildTenantWhere(ctx), ...batasanLingkup(lingkup) },
       data: toNodeUpdateData(data),
     });
     if (result.count === 0) throw new MapNotFoundError("Node");
@@ -155,9 +156,10 @@ export class MappingRepository implements IMappingRepository {
     ctx: TenantContext,
     edgeId: string,
     data: UpdateMapEdgeInput,
+    lingkup: LingkupPeta = "nyata",
   ) {
     const result = await prisma.mappingEdge.updateMany({
-      where: { edgeId, ...buildTenantWhere(ctx) },
+      where: { edgeId, ...buildTenantWhere(ctx), ...batasanLingkup(lingkup) },
       data: toEdgeUpdateData(data),
     });
     if (result.count === 0) throw new MapNotFoundError("Edge");
@@ -172,6 +174,9 @@ export class MappingRepository implements IMappingRepository {
     const owned = await this.findNodeById(ctx, nodeId);
     if (!owned) throw new MapNotFoundError("Node");
 
+    // Edge rencana yang ujungnya menempel di node ini ikut terhapus dengan
+    // sengaja: `source` dan `target` adalah FK non-null, sehingga edge tidak
+    // boleh menggantung tanpa node.
     await prisma.mappingEdge.deleteMany({
       where: {
         OR: [{ source: nodeId }, { target: nodeId }],

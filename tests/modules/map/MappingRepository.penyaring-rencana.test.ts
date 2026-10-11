@@ -12,8 +12,19 @@ const prismaMock = vi.hoisted(() => {
   };
   return {
     transaction,
-    mappingNode: { findFirst: vi.fn(), findMany: vi.fn() },
-    mappingEdge: { findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn() },
+    mappingNode: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      updateMany: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
+    },
+    mappingEdge: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
+      updateMany: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
+    },
     $transaction: vi.fn(),
   };
 });
@@ -32,6 +43,8 @@ beforeEach(() => {
   prismaMock.mappingEdge.findFirst.mockResolvedValue(null);
   prismaMock.mappingEdge.findMany.mockResolvedValue([]);
   prismaMock.mappingEdge.count.mockResolvedValue(0);
+  prismaMock.mappingNode.updateMany.mockResolvedValue({ count: 0 });
+  prismaMock.mappingEdge.updateMany.mockResolvedValue({ count: 0 });
   prismaMock.$transaction.mockImplementation(
     async (callback: (tx: typeof prismaMock.transaction) => unknown) =>
       callback(prismaMock.transaction),
@@ -107,5 +120,25 @@ describe("MappingRepository — penyaring node/jalur rencana", () => {
     await repository.upsertNodes(ctx, [{ nodeId: "n1", type: "odp" }]);
     const { where } = prismaMock.mappingNode.findMany.mock.calls[0][0];
     expect(where).toMatchObject({ isPlanned: false, nodeId: { in: ["n1"] } });
+  });
+
+  it("updateNode menyaring node nyata bawaan dan bisa meminta rencana", async () => {
+    await expect(repository.updateNode(ctx, "n1", {})).rejects.toThrow();
+    await expect(
+      repository.updateNode(ctx, "n1", {}, "rencana"),
+    ).rejects.toThrow();
+    const calls = prismaMock.mappingNode.updateMany.mock.calls;
+    expect(calls[0][0].where).toMatchObject({ nodeId: "n1", isPlanned: false });
+    expect(calls[1][0].where).toMatchObject({ nodeId: "n1", isPlanned: true });
+  });
+
+  it("updateEdge menyaring edge nyata bawaan dan bisa meminta rencana", async () => {
+    await expect(repository.updateEdge(ctx, "e1", {})).rejects.toThrow();
+    await expect(
+      repository.updateEdge(ctx, "e1", {}, "rencana"),
+    ).rejects.toThrow();
+    const calls = prismaMock.mappingEdge.updateMany.mock.calls;
+    expect(calls[0][0].where).toMatchObject({ edgeId: "e1", isPlanned: false });
+    expect(calls[1][0].where).toMatchObject({ edgeId: "e1", isPlanned: true });
   });
 });
