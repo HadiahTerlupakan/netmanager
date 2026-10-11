@@ -1,9 +1,10 @@
 import type { MappingEdge, MappingNode } from "@prisma/client";
 
-import type {
-  PlanningEntity,
-  PlanningStatus,
-} from "../domain/entities/PlanningEntity";
+import type { PlanningEntity } from "../domain/entities/PlanningEntity";
+import {
+  bolehMenerbitkanPeta,
+  STATUS_BOLEH_TERBIT,
+} from "../domain/planning-actions";
 import type { IPlanningRepository } from "../domain/ports/IPlanningRepository";
 import type { IPlanningUnitOfWork } from "../domain/ports/IPlanningUnitOfWork";
 import type {
@@ -24,13 +25,6 @@ import type {
 } from "../validators/planningPetaSchemas";
 import type { PlanningAuditService } from "./PlanningAuditService";
 import { logger } from "@/lib/logger";
-
-/** Status yang sudah tuntas disetujui, satu-satunya yang boleh diterbitkan. */
-const STATUS_BOLEH_TERBIT: readonly PlanningStatus[] = [
-  "APPROVED",
-  "IN_PROGRESS",
-  "COMPLETED",
-];
 
 /** Repository peta dipakai lewat transaksi Prisma yang sama dengan audit. */
 type PrismaTx = Parameters<PlanningPetaRepository["buatTitik"]>[1];
@@ -476,9 +470,9 @@ export class PlanningPetaService {
   ): Promise<{ titikTerbit: number; jalurTerbit: number }> {
     const planning = await this.findOwnedPlanning(planningId, tenantId);
 
-    if (!STATUS_BOLEH_TERBIT.includes(planning.status)) {
+    if (!bolehMenerbitkanPeta(planning.status)) {
       throw new PlanningInvalidStateError(
-        `Peta rencana berstatus ${planning.status} belum bisa diterbitkan. Hanya rencana berstatus APPROVED, IN_PROGRESS, atau COMPLETED yang bisa diterbitkan.`,
+        `Peta rencana berstatus ${planning.status} belum bisa diterbitkan. Hanya rencana berstatus ${STATUS_BOLEH_TERBIT.join(", ")} yang bisa diterbitkan.`,
       );
     }
 

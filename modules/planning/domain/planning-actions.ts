@@ -1,5 +1,26 @@
 import type { PlanningStatus } from "./entities/PlanningEntity";
 
+/**
+ * Status yang sudah tuntas disetujui — satu-satunya yang boleh menerbitkan
+ * titik rencana ke topologi operasional.
+ *
+ * Tinggal di domain, bukan di `PlanningPetaService`, karena layar peta harus
+ * memutuskan kapan tombol "Terbitkan" muncul berdasarkan daftar yang SAMA.
+ * Menyalinnya ke komponen berarti tombol bisa muncul untuk status yang
+ * ditolak server, atau hilang untuk status yang diterima — keduanya hanya
+ * terlihat setelah seseorang mencoba.
+ */
+export const STATUS_BOLEH_TERBIT: readonly PlanningStatus[] = [
+  "APPROVED",
+  "IN_PROGRESS",
+  "COMPLETED",
+];
+
+/** Apakah peta sebuah rencana sudah boleh diterbitkan pada status ini. */
+export function bolehMenerbitkanPeta(status: PlanningStatus): boolean {
+  return STATUS_BOLEH_TERBIT.includes(status);
+}
+
 export interface PlanningPermissions {
   canUpdate: boolean;
   canSubmit: boolean;

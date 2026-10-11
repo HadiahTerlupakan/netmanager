@@ -364,6 +364,8 @@ export default function PlanningDetailClient({
           planningId={planning.id}
           koordinatPlanning={planning.coordinates}
           dapatDiubah={actions.canEdit}
+          statusPlanning={planning.status as PlanningStatus}
+          dapatUbahPlanning={canUpdate}
         />
       )}
       {activeTab === "items" && (
@@ -885,7 +887,7 @@ function DocumentsTab({
           </p>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
             {canUpdate
-              ? "Unggah dokumen belum tersedia di aplikasi. Sertakan gambar kerja, izin, dan berita acara lewat kanal yang berlaku sampai fitur ini dibuka."
+              ? "Foto survei diunggah dari popup titik di tab Peta, dan muncul di sini setelah tersimpan. Unggah berkas dokumen (mis. PDF izin atau berita acara) belum didukung — hanya gambar."
               : "Dokumen pendukung akan tampil di sini setelah dilampirkan."}
           </p>
         </div>

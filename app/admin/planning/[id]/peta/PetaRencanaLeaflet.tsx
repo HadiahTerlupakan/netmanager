@@ -28,6 +28,8 @@ import type {
   TitikRencanaDTO,
 } from "@/modules/planning/client";
 
+import { KontrolFotoTitik, PopupTitikRencana } from "./PopupTitikRencana";
+
 /** Jalur yang sedang digambar: titik asal plus titik belok yang sudah diklik. */
 export interface JalurDraf {
   sumber: TitikRencanaDTO;
@@ -35,6 +37,8 @@ export interface JalurDraf {
 }
 
 interface PetaRencanaLeafletProps {
+  /** Planning yang petanya digambar; penentu titik nyata mana yang berasal darinya. */
+  planningId: string;
   titikRencana: TitikRencanaDTO[];
   /** Node jaringan yang sudah nyata; dirender redup sebagai konteks. */
   nodeNyata: TitikRencanaDTO[];
@@ -45,11 +49,19 @@ interface PetaRencanaLeafletProps {
   jalurDraf: JalurDraf | null;
   sedangGambarJalur: boolean;
   dapatDiubah: boolean;
+  /** Izin `planning:update` saja; unggah foto tidak terkunci status rencana. */
+  dapatUnggahFoto: boolean;
   /** `true` selama permintaan hapus untuk id itu berjalan; tombolnya dinonaktifkan. */
   isSedangDihapus: (id: string) => boolean;
+  /** `true` selama permintaan ubah titik itu berjalan. */
+  isSedangDiubah: (nodeId: string) => boolean;
+  /** `true` selama unggah foto titik itu berjalan. */
+  isSedangUnggahFoto: (nodeId: string) => boolean;
   onKlikPeta: (latitude: number, longitude: number) => void;
   onKlikTitik: (titik: TitikRencanaDTO) => void;
+  onUbahTitik: (titik: TitikRencanaDTO) => void;
   onHapusTitik: (titik: TitikRencanaDTO) => void;
+  onUnggahFotoTitik: (nodeId: string, file: File) => void;
   onHapusJalur: (jalur: JalurRencanaDTO) => void;
 }
 
@@ -132,6 +144,7 @@ function PanelPanjangJalur({ jalurDraf }: { jalurDraf: JalurDraf }) {
  * `dynamic(..., { ssr: false })` karena Leaflet menyentuh `window`.
  */
 export default function PetaRencanaLeaflet({
+  planningId,
   titikRencana,
   nodeNyata,
   jalur,
@@ -140,10 +153,15 @@ export default function PetaRencanaLeaflet({
   jalurDraf,
   sedangGambarJalur,
   dapatDiubah,
+  dapatUnggahFoto,
   isSedangDihapus,
+  isSedangDiubah,
+  isSedangUnggahFoto,
   onKlikPeta,
   onKlikTitik,
+  onUbahTitik,
   onHapusTitik,
+  onUnggahFotoTitik,
   onHapusJalur,
 }: PetaRencanaLeafletProps) {
   const semuaTitik = [...titikRencana, ...nodeNyata];
@@ -240,11 +258,29 @@ export default function PetaRencanaLeaflet({
               eventHandlers={{ click: () => onKlikTitik(titik) }}
             >
               <Popup>
-                <div className="min-w-[180px] space-y-1 text-sm">
-                  <p className="font-semibold">{titik.name ?? "Tanpa nama"}</p>
-                  <p className="text-gray-500">
-                    {titik.type.toUpperCase()} · jaringan terpasang
-                  </p>
+                <div className="min-w-[180px] space-y-2 text-sm">
+                  <div className="space-y-1">
+                    <p className="font-semibold">
+                      {titik.name ?? "Tanpa nama"}
+                    </p>
+                    <p className="text-gray-500">
+                      {titik.type.toUpperCase()} · jaringan terpasang
+                      {titik.planningId === planningId
+                        ? " · terbit dari rencana ini"
+                        : ""}
+                    </p>
+                  </div>
+                  {/* Titik yang terbit dari rencana ini tetap boleh menerima
+                      foto: justru setelah dibangun fotonya ada. Titik milik
+                      rencana lain atau yang bukan dari rencana akan ditolak
+                      server, jadi kontrolnya tidak ditawarkan. */}
+                  {dapatUnggahFoto && titik.planningId === planningId && (
+                    <KontrolFotoTitik
+                      titik={titik}
+                      sedangUnggahFoto={isSedangUnggahFoto(titik.nodeId)}
+                      onUnggahFoto={onUnggahFotoTitik}
+                    />
+                  )}
                 </div>
               </Popup>
             </Marker>
@@ -263,24 +299,17 @@ export default function PetaRencanaLeaflet({
               eventHandlers={{ click: () => onKlikTitik(titik) }}
             >
               <Popup>
-                <div className="min-w-[180px] space-y-1 text-sm">
-                  <p className="font-semibold">{titik.name ?? "Tanpa nama"}</p>
-                  <p className="text-gray-500">
-                    {titik.type.toUpperCase()} · rencana
-                    {titik.splitter ? ` · splitter ${titik.splitter}` : ""}
-                  </p>
-                  {dapatDiubah && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      loading={isSedangDihapus(titik.nodeId)}
-                      disabled={isSedangDihapus(titik.nodeId)}
-                      onClick={() => onHapusTitik(titik)}
-                    >
-                      Hapus titik
-                    </Button>
-                  )}
-                </div>
+                <PopupTitikRencana
+                  titik={titik}
+                  dapatDiubah={dapatDiubah}
+                  dapatUnggahFoto={dapatUnggahFoto}
+                  sedangDihapus={isSedangDihapus(titik.nodeId)}
+                  sedangDiubah={isSedangDiubah(titik.nodeId)}
+                  sedangUnggahFoto={isSedangUnggahFoto(titik.nodeId)}
+                  onUbah={onUbahTitik}
+                  onHapus={onHapusTitik}
+                  onUnggahFoto={onUnggahFotoTitik}
+                />
               </Popup>
             </Marker>
           );

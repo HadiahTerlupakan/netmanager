@@ -51,6 +51,18 @@ const URL_PETA = `/api/planning/${ID_RENCANA}/peta/titik?lingkup=semua`;
 const URL_TITIK = `/api/planning/${ID_RENCANA}/peta/titik`;
 const URL_MATERIAL = `/api/planning/${ID_RENCANA}/peta/material`;
 const URL_URAIKAN = "/api/planning/tautan-peta/uraikan";
+const URL_TERBITKAN_PETA = `/api/planning/${ID_RENCANA}/peta/terbitkan`;
+const URL_DOKUMEN = `/api/planning/${ID_RENCANA}/documents`;
+
+/**
+ * Badan permintaan apa adanya: JSON diurai, multipart dibiarkan sebagai
+ * `FormData` supaya unggah foto bisa diperiksa tanpa mengurainya paksa.
+ */
+function bacaBadan(badan: BodyInit | null | undefined): unknown {
+  if (!badan) return null;
+  if (badan instanceof FormData) return badan;
+  return JSON.parse(String(badan));
+}
 
 const titikRencana: TitikRencanaDTO = {
   nodeId: "node-1",
@@ -99,7 +111,10 @@ interface SkenarioFetch {
   peta: () => Response;
   uraikan: () => Response;
   hapusTitik: () => Response;
+  ubahTitik: () => Response;
   terbitkan: () => Response | Promise<Response>;
+  terbitkanPeta: () => Response | Promise<Response>;
+  unggahFoto: () => Response;
   rekap: () => Response;
 }
 
@@ -144,11 +159,7 @@ function pasangFetch(): void {
       ): Promise<Response> => {
         const url = typeof masukan === "string" ? masukan : String(masukan);
         const metode = (opsi?.method ?? "GET").toUpperCase();
-        permintaan.push({
-          url,
-          metode,
-          badan: opsi?.body ? JSON.parse(String(opsi.body)) : null,
-        });
+        permintaan.push({ url, metode, badan: bacaBadan(opsi?.body) });
 
         if (url === URL_PETA) {
           return skenario.peta();
@@ -160,7 +171,15 @@ function pasangFetch(): void {
           return skenario.uraikan();
         }
         if (url === `${URL_TITIK}/${titikRencana.nodeId}`) {
-          return skenario.hapusTitik();
+          return metode === "PUT"
+            ? skenario.ubahTitik()
+            : skenario.hapusTitik();
+        }
+        if (url === URL_TERBITKAN_PETA) {
+          return skenario.terbitkanPeta();
+        }
+        if (url === URL_DOKUMEN) {
+          return skenario.unggahFoto();
         }
         if (url === URL_TITIK && metode === "POST") {
           return responsJson(201, { success: true, data: titikRencana });
@@ -172,13 +191,18 @@ function pasangFetch(): void {
 }
 
 /** Merender tab dan menunggu panel kebutuhan material tersaji. */
-async function renderTab(): Promise<void> {
+async function renderTab(
+  timpa: Partial<React.ComponentProps<typeof PlanningPetaTab>> = {},
+): Promise<void> {
   await render(
     panggung,
     <PlanningPetaTab
       planningId={ID_RENCANA}
       koordinatPlanning={{ latitude: -6.2, longitude: 106.8 }}
       dapatDiubah
+      statusPlanning="BACKLOG"
+      dapatUbahPlanning
+      {...timpa}
     />,
   );
   await tungguSampai(
@@ -211,7 +235,15 @@ describe("tab Peta planning OSP", () => {
       peta: () => responsPeta(),
       uraikan: responsTautanBerhasil,
       hapusTitik: () => responsJson(200, { success: true, data: {} }),
+      ubahTitik: () => responsJson(200, { success: true, data: titikRencana }),
       terbitkan: () => responsJson(200, { success: true, data: [] }),
+      terbitkanPeta: () =>
+        responsJson(200, {
+          success: true,
+          data: { titikTerbit: 2, jalurTerbit: 1 },
+        }),
+      unggahFoto: () =>
+        responsJson(201, { success: true, data: { id: "doc-1" } }),
       rekap: () => responsJson(200, { success: true, data: rekapAwal() }),
     };
     pasangFetch();
@@ -424,6 +456,214 @@ describe("tab Peta planning OSP", () => {
       "peringatan jalur diabaikan tersaji",
     );
     expect(teksPeringatan()).toContain("lebih kecil dari kenyataan");
+  });
+
+  /**
+   * Tiga kemampuan backend yang sebelumnya tidak punya pintu masuk mana pun:
+   * penerbitan titik ke topologi operasional, koreksi titik, dan unggah foto
+   * titik. Rencana bisa digambar, dihitung, dan disetujui — lalu hanya `curl`
+   * yang bisa menerbitkannya.
+   */
+  describe("penerbitan titik rencana ke peta jaringan", () => {
+    it("tidak menawarkan tombol saat status rencana belum mengizinkan", async () => {
+      await renderTab({ statusPlanning: "BACKLOG" });
+
+      expect(tombolBerteks("Terbitkan titik rencana")).toBeUndefined();
+      expect(document.body.textContent).toContain("belum bisa diterbitkan");
+    });
+
+    it("menawarkan tombol pada status yang diizinkan service", async () => {
+      // Daftar statusnya dibaca dari domain (`STATUS_BOLEH_TERBIT`), jadi
+      // tombol ini tidak bisa menyimpang dari gerbang yang ditegakkan server.
+      await renderTab({ statusPlanning: "APPROVED", dapatDiubah: false });
+
+      expect(tombolBerteks("Terbitkan titik rencana")).toBeDefined();
+    });
+
+    it("mengirim penerbitan hanya setelah konfirmasi, lalu menyegarkan peta", async () => {
+      await renderTab({ statusPlanning: "IN_PROGRESS", dapatDiubah: false });
+      const jumlahAmbilPetaAwal = permintaanKe(URL_PETA, "GET").length;
+
+      await klikTombol("Terbitkan titik rencana");
+      // Konfirmasi wajib: tindakan ini memasukkan baris ke topologi
+      // operasional dan tidak punya tombol pembatal.
+      expect(permintaanKe(URL_TERBITKAN_PETA, "POST")).toHaveLength(0);
+      expect(document.body.textContent).toContain("Terbitkan titik rencana?");
+
+      await klikTombol("Terbitkan");
+
+      await tungguSampai(
+        () => permintaanKe(URL_TERBITKAN_PETA, "POST").length === 1,
+        "penerbitan peta terkirim",
+      );
+      await tungguSampai(
+        () => teksPesan().includes("masuk ke peta jaringan"),
+        "hasil penerbitan dilaporkan",
+      );
+      expect(permintaanKe(URL_PETA, "GET").length).toBeGreaterThan(
+        jumlahAmbilPetaAwal,
+      );
+    });
+
+    it("tidak mengirim apa pun bila konfirmasi dibatalkan", async () => {
+      await renderTab({ statusPlanning: "APPROVED", dapatDiubah: false });
+
+      await klikTombol("Terbitkan titik rencana");
+      await klikTombol("Batal");
+
+      expect(permintaanKe(URL_TERBITKAN_PETA, "POST")).toHaveLength(0);
+    });
+
+    it("menonaktifkan tombol selama penerbitan berjalan", async () => {
+      const penahan: { lepaskan: (() => void) | null } = { lepaskan: null };
+      skenario.terbitkanPeta = () =>
+        new Promise<Response>((selesai) => {
+          penahan.lepaskan = () =>
+            selesai(
+              responsJson(200, {
+                success: true,
+                data: { titikTerbit: 1, jalurTerbit: 0 },
+              }),
+            );
+        });
+      await renderTab({ statusPlanning: "APPROVED", dapatDiubah: false });
+
+      await klikTombol("Terbitkan titik rencana");
+      await klikTombol("Terbitkan");
+
+      await tungguSampai(
+        () => tombolBerteks("Terbitkan titik rencana")?.disabled === true,
+        "tombol dinonaktifkan selama permintaan berjalan",
+      );
+      expect(permintaanKe(URL_TERBITKAN_PETA, "POST")).toHaveLength(1);
+
+      await act(async () => {
+        penahan.lepaskan?.();
+      });
+      await tungguSampai(
+        () => tombolBerteks("Terbitkan titik rencana")?.disabled === false,
+        "tombol aktif kembali",
+      );
+    });
+
+    it("menjelaskan 403 tanpa menggemakan galat API", async () => {
+      skenario.terbitkanPeta = () =>
+        responsJson(403, {
+          success: false,
+          error: "Menerbitkan peta rencana memerlukan izin map:create",
+        });
+      await renderTab({ statusPlanning: "APPROVED", dapatDiubah: false });
+
+      await klikTombol("Terbitkan titik rencana");
+      await klikTombol("Terbitkan");
+
+      await tungguSampai(
+        () => teksPesan().includes("map:create"),
+        "alasan penolakan dijelaskan",
+      );
+      expect(teksPesan()).toContain("Minta administrator");
+      expect(teksPesan()).not.toContain("memerlukan izin map:create");
+    });
+  });
+
+  describe("koreksi dan foto titik rencana", () => {
+    /** Props peta tiruan setelah titik rencana tersaji. */
+    async function propsPeta(): Promise<Record<string, unknown>> {
+      await tungguSampai(
+        () => petaPalsu.props !== null,
+        "peta menerima titik rencana",
+      );
+      return petaPalsu.props!;
+    }
+
+    /**
+     * Tanpa jalur ubah ini, titik dengan rasio splitter salah DAN satu kabel
+     * menempel tidak bisa dikoreksi sama sekali dari layar: `hapusTitik`
+     * menolak titik yang masih punya jalur. Rasio itu persis angka yang
+     * menjadi jumlah barang yang dibeli.
+     */
+    it("mengirim PUT dengan rasio splitter yang diperbaiki", async () => {
+      await renderTab();
+      const ubah = (await propsPeta()).onUbahTitik as (
+        titik: TitikRencanaDTO,
+      ) => void;
+
+      await act(async () => {
+        ubah(titikRencana);
+      });
+
+      await tungguSampai(
+        () => tombolBerteks("Simpan perubahan") !== undefined,
+        "form koreksi terbuka",
+      );
+      // Nilai awal diambil dari titiknya, bukan dari form kosong.
+      expect(cari<HTMLInputElement>("#titik-nama")?.value).toBe("ODP-CPN-01");
+      expect(cari<HTMLSelectElement>("#titik-splitter")?.value).toBe("1:8");
+      expect(cari<HTMLInputElement>("#titik-latitude")?.value).toBe("-6.2");
+      // Jenis titik tidak bisa diganti (`ubahTitik` menolaknya), jadi
+      // medannya dimatikan alih-alih menawarkan pilihan yang akan ditolak.
+      expect(cari<HTMLSelectElement>("#titik-jenis")?.disabled).toBe(true);
+
+      await isiMedan("#titik-splitter", "1:16");
+      await klikTombol("Simpan perubahan");
+
+      const urlTitikIni = `${URL_TITIK}/${titikRencana.nodeId}`;
+      await tungguSampai(
+        () => permintaanKe(urlTitikIni, "PUT").length === 1,
+        "koreksi titik terkirim",
+      );
+      expect(permintaanKe(urlTitikIni, "PUT")[0].badan).toMatchObject({
+        type: "odp",
+        name: "ODP-CPN-01",
+        splitter: "1:16",
+      });
+      expect(permintaanKe(URL_TITIK, "POST")).toHaveLength(0);
+    });
+
+    it("menutup form koreksi setelah berhasil", async () => {
+      await renderTab();
+      const ubah = (await propsPeta()).onUbahTitik as (
+        titik: TitikRencanaDTO,
+      ) => void;
+
+      await act(async () => {
+        ubah(titikRencana);
+      });
+      await klikTombol("Simpan perubahan");
+
+      await tungguSampai(
+        () => tombolBerteks("Simpan titik") !== undefined,
+        "form kembali ke mode tambah",
+      );
+      expect(cari<HTMLInputElement>("#titik-nama")?.value).toBe("");
+    });
+
+    it("mengunggah foto titik sebagai multipart ber-nodeId", async () => {
+      await renderTab();
+      const unggah = (await propsPeta()).onUnggahFotoTitik as (
+        nodeId: string,
+        file: File,
+      ) => void;
+
+      await act(async () => {
+        unggah(
+          titikRencana.nodeId,
+          new File(["x"], "odp.jpg", { type: "image/jpeg" }),
+        );
+      });
+
+      await tungguSampai(
+        () => permintaanKe(URL_DOKUMEN, "POST").length === 1,
+        "unggah foto terkirim",
+      );
+      const badan = permintaanKe(URL_DOKUMEN, "POST")[0].badan as FormData;
+      expect(badan.get("nodeId")).toBe(titikRencana.nodeId);
+      expect((badan.get("file") as File).name).toBe("odp.jpg");
+      await tungguSampai(
+        () => teksPesan().includes("ditautkan ke titik ini"),
+        "hasil unggah dilaporkan",
+      );
+    });
   });
 
   /**

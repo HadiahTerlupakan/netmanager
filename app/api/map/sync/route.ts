@@ -1,4 +1,5 @@
 import { createHandler, apiSuccess } from "@/lib/api";
+import { JENIS_FIBER } from "@/lib/constants/jenis-fiber";
 import { getMappingAdminService } from "@/modules/map";
 import { SYNC_NODE_TYPES } from "@/modules/map";
 import { buildTenantContext } from "@/modules/map";
@@ -23,17 +24,7 @@ const edgeSchema = z.object({
   edgeId: z.string(),
   source: z.string(),
   target: z.string(),
-  fiberType: z
-    .enum([
-      "feeder",
-      "distribution",
-      "drop",
-      "odp_to_odp",
-      "odp_to_odp_ratio",
-      "odc_to_odc",
-      "odc_to_odc_ratio",
-    ])
-    .optional(),
+  fiberType: z.enum(JENIS_FIBER).optional(),
   distance: z.number().nullable().optional(),
   waypoints: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),

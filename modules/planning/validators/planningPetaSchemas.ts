@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { JENIS_FIBER } from "@/lib/constants/jenis-fiber";
+
 /** Rasio splitter yang sah untuk ODC; disalin dari components/map/node-form-utils.ts. */
 export const RASIO_SPLITTER_ODC = [
   "1:2",
@@ -21,7 +23,6 @@ export const RASIO_SPLITTER_ODP = [
 
 const MAKS_PANJANG_NAMA_TITIK = 120;
 const MAKS_PANJANG_CATATAN = 500;
-const MAKS_PANJANG_JENIS_KABEL = 40;
 
 const latitudeSchema = z
   .number()
@@ -63,11 +64,20 @@ export const buatTitikRencanaSchema = z
     }
   });
 
-/** Jalur kabel rencana; `waypoints` berupa pasangan [latitude, longitude]. */
+/**
+ * Jalur kabel rencana; `waypoints` berupa pasangan [latitude, longitude].
+ *
+ * `fiberType` ditutup daftar bersama `JENIS_FIBER`, bukan string bebas.
+ * Nilainya menjadi `sourceKey` item material (`kabel:<jenis>`) sekaligus
+ * namanya, jadi satu salah ketik melahirkan baris BOQ permanen yang tidak
+ * pernah tersapu penghapusan item otomatis.
+ */
 export const buatJalurRencanaSchema = z.object({
   source: z.string().min(1),
   target: z.string().min(1),
-  fiberType: z.string().min(1).max(MAKS_PANJANG_JENIS_KABEL),
+  fiberType: z.enum(JENIS_FIBER, {
+    message: `Jenis kabel harus salah satu dari ${JENIS_FIBER.join(", ")}`,
+  }),
   waypoints: z.array(z.tuple([latitudeSchema, longitudeSchema])).default([]),
   distance: z.number().nonnegative().optional().nullable(),
   notes: z.string().max(MAKS_PANJANG_CATATAN).optional().nullable(),

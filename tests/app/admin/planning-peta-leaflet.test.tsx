@@ -52,6 +52,7 @@ describe("kanvas peta rencana OSP", () => {
     await act(async () => {
       createRoot(wadah).render(
         <PetaRencanaLeaflet
+          planningId="p1"
           titikRencana={[rencana]}
           nodeNyata={[nyata]}
           jalur={[
@@ -72,10 +73,15 @@ describe("kanvas peta rencana OSP", () => {
           jalurDraf={{ sumber: rencana, waypoints: [[-6.203, 106.803]] }}
           sedangGambarJalur
           dapatDiubah
+          dapatUnggahFoto
           isSedangDihapus={() => false}
+          isSedangDiubah={() => false}
+          isSedangUnggahFoto={() => false}
           onKlikPeta={() => {}}
           onKlikTitik={() => {}}
+          onUbahTitik={() => {}}
           onHapusTitik={() => {}}
+          onUnggahFotoTitik={() => {}}
           onHapusJalur={() => {}}
         />,
       );

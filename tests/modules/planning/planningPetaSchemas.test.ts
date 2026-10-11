@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 
+import { JENIS_FIBER } from "@/lib/constants/jenis-fiber";
 import {
   buatTitikRencanaSchema,
   buatJalurRencanaSchema,
@@ -60,13 +61,39 @@ describe("buatJalurRencanaSchema", () => {
     const hasil = buatJalurRencanaSchema.parse({
       source: "a",
       target: "b",
-      fiberType: "24 core",
+      fiberType: "distribution",
     });
     expect(hasil.waypoints).toEqual([]);
   });
 
+  /**
+   * `fiberType` menjadi `sourceKey` item material (`kabel:<jenis>`) sekaligus
+   * namanya, dan item otomatis yang kuncinya masih "dipakai" tidak pernah
+   * tersapu. Satu salah ketik karena itu melahirkan baris BOQ permanen.
+   */
+  it("menolak jenis kabel di luar daftar bersama", () => {
+    const hasil = buatJalurRencanaSchema.safeParse({
+      source: "a",
+      target: "b",
+      fiberType: "24 core",
+    });
+
+    expect(hasil.success).toBe(false);
+  });
+
+  it("menerima setiap nilai pada daftar bersama", () => {
+    for (const jenis of JENIS_FIBER) {
+      const hasil = buatJalurRencanaSchema.safeParse({
+        source: "a",
+        target: "b",
+        fiberType: jenis,
+      });
+      expect(hasil.success, `${jenis} seharusnya diterima`).toBe(true);
+    }
+  });
+
   it("menolak jarak negatif dan waypoint di luar rentang", () => {
-    const dasar = { source: "a", target: "b", fiberType: "24 core" };
+    const dasar = { source: "a", target: "b", fiberType: "distribution" };
     expect(
       buatJalurRencanaSchema.safeParse({ ...dasar, distance: -1 }).success,
     ).toBe(false);

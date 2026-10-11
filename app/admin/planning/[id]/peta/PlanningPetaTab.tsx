@@ -5,14 +5,25 @@ import { useState } from "react";
 import { HiOutlineMapPin, HiOutlineShare } from "react-icons/hi2";
 
 import { Button } from "@/components/ui/Button";
+import {
+  JENIS_FIBER_JALUR_RENCANA,
+  LABEL_JENIS_FIBER,
+  type JenisFiber,
+} from "@/lib/constants/jenis-fiber";
 import { Skeleton } from "@/components/ui/LoadingSkeleton";
 import {
   calculateMapDistance,
   determineFiberType,
 } from "@/components/map/map-utils";
-import type { Coordinates, TitikRencanaDTO } from "@/modules/planning/client";
+import type {
+  BuatTitikRencanaInput,
+  Coordinates,
+  PlanningStatus,
+  TitikRencanaDTO,
+} from "@/modules/planning/client";
 
 import { FormTitikRencana, type KoordinatTeks } from "./FormTitikRencana";
+import { PanelPenerbitanPeta } from "./PanelPenerbitanPeta";
 import { PanelRingkasanMaterial } from "./PanelRingkasanMaterial";
 import type { JalurDraf } from "./PetaRencanaLeaflet";
 import { usePetaRencana, type PesanPeta } from "./usePetaRencana";
@@ -34,17 +45,29 @@ interface PlanningPetaTabProps {
   koordinatPlanning: Coordinates | null;
   /** Permission DAN status yang masih boleh diubah (`actions.canEdit`). */
   dapatDiubah: boolean;
+  /** Status rencana; penentu apakah peta sudah boleh diterbitkan. */
+  statusPlanning: PlanningStatus;
+  /**
+   * Izin `planning:update` tanpa kunci status.
+   *
+   * Dipisah dari `dapatDiubah` karena dua aksi memang tidak terkunci status:
+   * penerbitan baru boleh SETELAH disetujui, dan unggah foto titik boleh
+   * kapan pun (foto hasil pekerjaan baru ada setelah titiknya dibangun).
+   */
+  dapatUbahPlanning: boolean;
 }
 
 type ModePeta = "titik" | "jalur";
 
-const JENIS_KABEL: Array<{ nilai: string; label: string }> = [
-  { nilai: "feeder", label: "Feeder (backbone)" },
-  { nilai: "distribution", label: "Distribution (ODC ke ODP)" },
-  { nilai: "drop", label: "Drop" },
-  { nilai: "odc_to_odc", label: "ODC ke ODC" },
-  { nilai: "odp_to_odp", label: "ODP ke ODP" },
-];
+/**
+ * Pilihan jenis kabel, diturunkan dari daftar bersama `JENIS_FIBER` dan
+ * bukan ditulis ulang di sini: nilainya menjadi `sourceKey` item material,
+ * jadi layar dan validator tidak boleh punya daftar yang bisa berbeda.
+ */
+const JENIS_KABEL = JENIS_FIBER_JALUR_RENCANA.map((nilai) => ({
+  nilai,
+  label: LABEL_JENIS_FIBER[nilai],
+}));
 
 /** Jakarta; dipakai hanya bila rencana belum punya titik maupun koordinat. */
 const PUSAT_BAWAAN: [number, number] = [-6.2088, 106.8456];
@@ -106,6 +129,8 @@ export default function PlanningPetaTab({
   planningId,
   koordinatPlanning,
   dapatDiubah,
+  statusPlanning,
+  dapatUbahPlanning,
 }: PlanningPetaTabProps) {
   const {
     peta,
@@ -116,22 +141,29 @@ export default function PlanningPetaTab({
     sedangMenyimpanTitik,
     sedangMenyimpanJalur,
     sedangMenerbitkan,
+    sedangMenerbitkanPeta,
     isSedangDihapus,
+    isSedangDiubah,
+    isSedangUnggahFoto,
     tambahTitik,
+    ubahTitik,
     hapusTitik,
+    unggahFotoTitik,
     tambahJalur,
     hapusJalur,
     terbitkanMaterial,
+    terbitkanPeta,
   } = usePetaRencana(planningId);
 
   const [mode, setMode] = useState<ModePeta>("titik");
+  const [titikDiubah, setTitikDiubah] = useState<TitikRencanaDTO | null>(null);
   const [koordinat, setKoordinat] = useState<KoordinatTeks>({
     latitude: "",
     longitude: "",
   });
   const [jalurDraf, setJalurDraf] = useState<JalurDraf | null>(null);
   const [tujuanJalur, setTujuanJalur] = useState<TitikRencanaDTO | null>(null);
-  const [jenisKabel, setJenisKabel] = useState("distribution");
+  const [jenisKabel, setJenisKabel] = useState<JenisFiber>("distribution");
   const [persenDipilih, setPersenDipilih] = useState<number | null>(null);
 
   const titikRencana = peta?.titik ?? [];
@@ -143,9 +175,37 @@ export default function PlanningPetaTab({
     setTujuanJalur(null);
   };
 
+  /** Membuka form koreksi dengan koordinat titik itu sebagai nilai awal. */
+  const mulaiUbahTitik = (titik: TitikRencanaDTO) => {
+    setMode("titik");
+    batalkanJalur();
+    setTitikDiubah(titik);
+    setKoordinat({
+      latitude: titik.latitude === null ? "" : String(titik.latitude),
+      longitude: titik.longitude === null ? "" : String(titik.longitude),
+    });
+  };
+
+  const batalkanUbahTitik = () => {
+    setTitikDiubah(null);
+    setKoordinat({ latitude: "", longitude: "" });
+  };
+
+  /** Satu pintu simpan untuk form: membuat titik baru atau mengoreksi yang terpilih. */
+  const simpanTitik = async (
+    input: BuatTitikRencanaInput,
+  ): Promise<boolean> => {
+    if (!titikDiubah) return tambahTitik(input);
+
+    const tersimpan = await ubahTitik(titikDiubah.nodeId, input);
+    if (tersimpan) batalkanUbahTitik();
+    return tersimpan;
+  };
+
   const gantiMode = (modeBaru: ModePeta) => {
     setMode(modeBaru);
     batalkanJalur();
+    if (modeBaru === "jalur") batalkanUbahTitik();
   };
 
   const klikPeta = (latitude: number, longitude: number) => {
@@ -265,6 +325,7 @@ export default function PlanningPetaTab({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">
           <PetaRencanaLeaflet
+            planningId={planningId}
             titikRencana={titikRencana}
             nodeNyata={nodeNyata}
             jalur={peta?.jalur ?? []}
@@ -273,10 +334,15 @@ export default function PlanningPetaTab({
             jalurDraf={jalurDraf}
             sedangGambarJalur={mode === "jalur"}
             dapatDiubah={dapatDiubah}
+            dapatUnggahFoto={dapatUbahPlanning}
             isSedangDihapus={isSedangDihapus}
+            isSedangDiubah={isSedangDiubah}
+            isSedangUnggahFoto={isSedangUnggahFoto}
             onKlikPeta={klikPeta}
             onKlikTitik={klikTitik}
+            onUbahTitik={mulaiUbahTitik}
             onHapusTitik={hapusTitik}
+            onUnggahFotoTitik={unggahFotoTitik}
             onHapusJalur={hapusJalur}
           />
 
@@ -314,7 +380,9 @@ export default function PlanningPetaTab({
                   <select
                     id="jalur-jenis-kabel"
                     value={jenisKabel}
-                    onChange={(e) => setJenisKabel(e.target.value)}
+                    onChange={(e) =>
+                      setJenisKabel(e.target.value as JenisFiber)
+                    }
                     className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                   >
                     {JENIS_KABEL.map((pilihan) => (
@@ -341,12 +409,22 @@ export default function PlanningPetaTab({
         </div>
 
         <div className="space-y-4">
+          {/* `key` memaksa form terpasang ulang saat titik yang dikoreksi
+              berganti, supaya nilai awalnya tidak tertinggal dari titik
+              sebelumnya tanpa perlu effect penyinkron. */}
           <FormTitikRencana
+            key={titikDiubah?.nodeId ?? "titik-baru"}
             koordinat={koordinat}
             onKoordinatChange={setKoordinat}
-            sedangMenyimpan={sedangMenyimpanTitik}
+            sedangMenyimpan={
+              titikDiubah
+                ? isSedangDiubah(titikDiubah.nodeId)
+                : sedangMenyimpanTitik
+            }
             dapatDiubah={dapatDiubah}
-            onSimpan={tambahTitik}
+            titikDiubah={titikDiubah}
+            onBatalUbah={batalkanUbahTitik}
+            onSimpan={simpanTitik}
           />
           <PanelRingkasanMaterial
             rekap={rekap}
@@ -356,6 +434,14 @@ export default function PlanningPetaTab({
             sedangMenerbitkan={sedangMenerbitkan}
             dapatMenerbitkan={dapatDiubah}
             onTerbitkan={() => void terbitkanMaterial(persenCadangan)}
+          />
+          <PanelPenerbitanPeta
+            statusPlanning={statusPlanning}
+            dapatMenerbitkan={dapatUbahPlanning}
+            jumlahTitikRencana={titikRencana.length}
+            jumlahJalurRencana={peta?.jalur.length ?? 0}
+            sedangMenerbitkan={sedangMenerbitkanPeta}
+            onTerbitkan={() => void terbitkanPeta()}
           />
         </div>
       </div>

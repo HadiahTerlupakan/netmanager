@@ -8,6 +8,7 @@ import {
   RASIO_SPLITTER_ODC,
   RASIO_SPLITTER_ODP,
   type BuatTitikRencanaInput,
+  type TitikRencanaDTO,
 } from "@/modules/planning/client";
 
 /** Koordinat sebagai teks, supaya pengetikan sebagian tidak dibulatkan paksa. */
@@ -22,6 +23,16 @@ interface FormTitikRencanaProps {
   onKoordinatChange: (koordinat: KoordinatTeks) => void;
   sedangMenyimpan: boolean;
   dapatDiubah: boolean;
+  /**
+   * Titik yang sedang dikoreksi; `null` berarti form membuat titik baru.
+   *
+   * Induk WAJIB memberi `key` yang berubah bersama titik ini (mis.
+   * `titikDiubah?.nodeId ?? "baru"`) supaya form terpasang ulang dengan
+   * nilai awal yang benar — tanpa itu isinya tertinggal dari titik sebelumnya.
+   */
+  titikDiubah?: TitikRencanaDTO | null;
+  /** Membatalkan koreksi; hanya dipakai saat `titikDiubah` terisi. */
+  onBatalUbah?: () => void;
   /** Mengembalikan true bila titik tersimpan, supaya form bisa dikosongkan. */
   onSimpan: (input: BuatTitikRencanaInput) => Promise<boolean>;
 }
@@ -55,6 +66,11 @@ function rasioUntuk(jenis: JenisTitik): readonly string[] {
   return jenis === "odc" ? RASIO_SPLITTER_ODC : RASIO_SPLITTER_ODP;
 }
 
+/** Jenis titik yang sah dari baris topologi; nilai lain dianggap ODP. */
+function jenisAwal(titik: TitikRencanaDTO | null | undefined): JenisTitik {
+  return titik?.type === "odc" ? "odc" : "odp";
+}
+
 /** Angka koordinat yang sah, atau null bila teksnya bukan angka dalam rentang. */
 function bacaKoordinat(teks: string, batas: number): number | null {
   const bersih = teks.trim();
@@ -68,20 +84,29 @@ function bacaKoordinat(teks: string, batas: number): number | null {
  * Form satu titik rencana dengan tiga cara mengisi koordinat: klik di peta
  * (induk yang mengisi `koordinat`), mengetik latitude/longitude, dan menempel
  * tautan Google Maps.
+ *
+ * Dipakai untuk membuat titik baru maupun mengoreksi titik yang sudah ada
+ * (`titikDiubah`). Satu form untuk keduanya karena aturannya sama persis —
+ * terutama rasio splitter yang wajib dan tanpa nilai bawaan, yang justru
+ * paling sering jadi alasan sebuah titik perlu dikoreksi.
  */
 export function FormTitikRencana({
   koordinat,
   onKoordinatChange,
   sedangMenyimpan,
   dapatDiubah,
+  titikDiubah = null,
+  onBatalUbah,
   onSimpan,
 }: FormTitikRencanaProps) {
-  const [jenis, setJenis] = useState<JenisTitik>("odp");
-  const [nama, setNama] = useState("");
-  // Sengaja kosong: di dokumen anggaran, rasio yang tidak pernah disentuh
-  // perencana akan diam-diam menjadi jumlah splitter yang dibeli.
-  const [splitter, setSplitter] = useState("");
-  const [catatan, setCatatan] = useState("");
+  const sedangMengubah = titikDiubah !== null;
+  const [jenis, setJenis] = useState<JenisTitik>(jenisAwal(titikDiubah));
+  const [nama, setNama] = useState(titikDiubah?.name ?? "");
+  // Sengaja kosong saat membuat titik: di dokumen anggaran, rasio yang tidak
+  // pernah disentuh perencana akan diam-diam menjadi jumlah splitter yang
+  // dibeli. Saat mengoreksi, rasio yang ada ditampilkan apa adanya.
+  const [splitter, setSplitter] = useState(titikDiubah?.splitter ?? "");
+  const [catatan, setCatatan] = useState(titikDiubah?.notes ?? "");
   const [tautan, setTautan] = useState("");
   const [pesanTautan, setPesanTautan] = useState<string | null>(null);
   const [sedangMenguraiTautan, setSedangMenguraiTautan] = useState(false);
@@ -179,7 +204,9 @@ export function FormTitikRencana({
       notes: catatan.trim() || null,
     });
 
-    if (tersimpan) {
+    // Saat mengoreksi, induk menutup mode ubah dan form terpasang ulang lewat
+    // `key`, jadi tidak ada yang perlu dikosongkan di sini.
+    if (tersimpan && !sedangMengubah) {
       setNama("");
       setSplitter("");
       setCatatan("");
@@ -206,7 +233,7 @@ export function FormTitikRencana({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 space-y-3">
       <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-        Tambah titik rencana
+        {sedangMengubah ? "Ubah titik rencana" : "Tambah titik rencana"}
       </h3>
 
       <div className="grid grid-cols-2 gap-3">
@@ -218,6 +245,7 @@ export function FormTitikRencana({
             id="titik-jenis"
             className={KELAS_MEDAN}
             value={jenis}
+            disabled={sedangMengubah}
             onChange={(e) => gantiJenis(e.target.value as JenisTitik)}
           >
             {JENIS_TITIK.map((pilihan) => (
@@ -246,6 +274,13 @@ export function FormTitikRencana({
           </select>
         </div>
       </div>
+
+      {sedangMengubah && (
+        <p className="text-xs text-gray-400 dark:text-gray-500">
+          Jenis titik tidak bisa diganti. Bila jenisnya salah, hapus titik ini
+          (setelah jalurnya dihapus) lalu buat titik baru.
+        </p>
+      )}
 
       <div>
         <label className={KELAS_LABEL} htmlFor="titik-nama">
@@ -353,14 +388,21 @@ export function FormTitikRencana({
         </p>
       )}
 
-      <Button
-        size="sm"
-        loading={sedangMenyimpan}
-        disabled={sedangMenyimpan}
-        onClick={simpan}
-      >
-        Simpan titik
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          loading={sedangMenyimpan}
+          disabled={sedangMenyimpan}
+          onClick={simpan}
+        >
+          {sedangMengubah ? "Simpan perubahan" : "Simpan titik"}
+        </Button>
+        {sedangMengubah && (
+          <Button size="sm" variant="outline" onClick={onBatalUbah}>
+            Batal
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

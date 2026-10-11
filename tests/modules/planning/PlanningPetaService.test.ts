@@ -14,6 +14,7 @@ import {
   PlanningNotFoundError,
   PlanningValidationError,
 } from "@/modules/planning/errors/planning-errors";
+import type { BuatJalurRencanaInput } from "@/modules/planning/validators/planningPetaSchemas";
 import { createFakeUnitOfWork } from "./helpers/fakeUnitOfWork";
 
 const now = new Date("2026-10-11T00:00:00.000Z");
@@ -254,10 +255,10 @@ describe("PlanningPetaService", () => {
   });
 
   describe("tambahJalur", () => {
-    const masukanJalur = {
+    const masukanJalur: BuatJalurRencanaInput = {
       source: "n-1",
       target: "n-2",
-      fiberType: "24 core",
+      fiberType: "distribution",
       waypoints: [[-6.2, 106.8]] as Array<[number, number]>,
       distance: 120,
       notes: null as string | null,
