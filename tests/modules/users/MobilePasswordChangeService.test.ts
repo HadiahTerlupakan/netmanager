@@ -10,6 +10,12 @@ const mockFns = vi.hoisted(() => ({
   mitraFindUnique: vi.fn(),
   mitraUpdate: vi.fn(),
   logActivity: vi.fn(),
+  authUserUpdate: vi.fn(),
+  invalidatePelangganRefreshTokens: vi.fn(),
+}));
+
+vi.mock("@/lib/jwt", () => ({
+  invalidatePelangganRefreshTokens: mockFns.invalidatePelangganRefreshTokens,
 }));
 
 vi.mock("bcryptjs", () => ({
@@ -34,6 +40,11 @@ vi.mock("@/modules/database", () => ({
     mitra: {
       findUnique: mockFns.mitraFindUnique,
       update: mockFns.mitraUpdate,
+    },
+  },
+  prismaAuth: {
+    user: {
+      update: mockFns.authUserUpdate,
     },
   },
 }));
@@ -99,6 +110,45 @@ describe("changeMobilePassword", () => {
     expect(mockFns.pelangganUpdate).toHaveBeenCalledWith({
       where: { id: "customer-1", tenantId: "tenant-1" },
       data: { passwordHash: "new-hash" },
+    });
+    expect(mockFns.invalidatePelangganRefreshTokens).toHaveBeenCalledWith(
+      "customer-1",
+    );
+  });
+
+  it("mencabut sesi lama karyawan setelah password diganti", async () => {
+    // Tanpa ini refresh token yang sudah beredar tetap sah sampai 30 hari,
+    // jadi mengganti password tidak mengusir sesi yang bocor.
+    await changeMobilePassword({
+      auth: { id: "user-1", tenantId: "tenant-1", role: "ADMIN" },
+      input: {
+        currentPassword: "old-pass",
+        newPassword: "new-pass",
+        confirmPassword: "new-pass",
+      },
+    });
+
+    expect(mockFns.authUserUpdate).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { tokenVersion: { increment: 1 } },
+    });
+  });
+
+  it("mencabut sesi lama mitra setelah password diganti", async () => {
+    mockFns.mitraFindUnique.mockResolvedValue({ passwordHash: "mitra-hash" });
+
+    await changeMobilePassword({
+      auth: { id: "mitra-1", tenantId: "tenant-1", role: "MITRA" },
+      input: {
+        currentPassword: "old-pass",
+        newPassword: "new-pass",
+        confirmPassword: "new-pass",
+      },
+    });
+
+    expect(mockFns.mitraUpdate).toHaveBeenCalledWith({
+      where: { id: "mitra-1" },
+      data: { tokenVersion: { increment: 1 } },
     });
   });
 

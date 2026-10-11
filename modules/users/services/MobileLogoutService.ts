@@ -21,6 +21,18 @@ export interface MobileLogoutInput {
 export async function performMobileLogout(
   input: MobileLogoutInput,
 ): Promise<void> {
+  return revokeMobileSessions(input);
+}
+
+/**
+ * Mencabut seluruh sesi mobile milik satu akun. Dipakai saat logout dan saat
+ * password diganti — tanpa itu refresh token lama tetap bisa mencetak access
+ * token baru selama 30 hari, sehingga mengganti password tidak mengusir
+ * siapa pun yang sesinya sudah terlanjur bocor.
+ */
+export async function revokeMobileSessions(
+  input: MobileLogoutInput,
+): Promise<void> {
   const { userId, role } = input;
 
   if (role === "CUSTOMER") {

@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { prisma, prismaMitra } from "@/modules/database";
+import { revokeMobileSessions } from "./MobileLogoutService";
 import { ErrorCodes, type ErrorCode } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
 
@@ -144,11 +145,22 @@ async function assertCurrentPassword(
   }
 }
 
-function updatePasswordHash(auth: MobilePasswordAuth, passwordHash: string) {
-  if (auth.role === "MITRA") return updateMitraPassword(auth.id, passwordHash);
-  if (auth.role === "CUSTOMER")
-    return updateCustomerPassword(auth, passwordHash);
-  return updateUserPassword(auth, passwordHash);
+async function updatePasswordHash(
+  auth: MobilePasswordAuth,
+  passwordHash: string,
+) {
+  if (auth.role === "MITRA") {
+    await updateMitraPassword(auth.id, passwordHash);
+  } else if (auth.role === "CUSTOMER") {
+    await updateCustomerPassword(auth, passwordHash);
+  } else {
+    await updateUserPassword(auth, passwordHash);
+  }
+
+  // Sesi lama dicabut: tanpa ini refresh token yang sudah beredar tetap sah
+  // sampai 30 hari, jadi mengganti password tidak mengusir sesi yang bocor.
+  // Pemilik akun ikut diminta masuk ulang dengan password barunya.
+  await revokeMobileSessions({ userId: auth.id, role: auth.role ?? "" });
 }
 
 function updateMitraPassword(id: string, passwordHash: string) {
