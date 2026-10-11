@@ -1,5 +1,7 @@
 import type { MappingNode } from "@prisma/client";
 
+import { calculateHaversineDistance } from "@/lib/geo-utils";
+
 import type { PlanningEntity } from "../domain/entities/PlanningEntity";
 import {
   hitungKebutuhanMaterialOsp,
@@ -151,6 +153,7 @@ export class PlanningMaterialService {
         PlanningMaterialMapper.toJalurRencana(edge, titikPerId),
       ),
       spareKabelPersen,
+      calculateHaversineDistance,
     );
   }
 

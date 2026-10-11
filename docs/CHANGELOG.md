@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Domain material OSP murni dan tes peta diselaraskan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning/domain`, `tests/unit/map-site-filter.test.ts`
+- **Author**: agent
+- **Deskripsi**: `hitungKebutuhanMaterialOsp` tidak lagi mengimpor `@/lib/geo-utils`
+  (melanggar kemurnian domain). Penghitung jarak kini parameter wajib keempat
+  bertipe `PenghitungJarakMeter`; `PlanningMaterialService` meneruskan
+  `calculateHaversineDistance`, jadi rumus tetap satu. Tes `buildMapWhere`
+  diperbarui ke perilaku baru (selalu objek, selalu `isPlanned`) plus tes yang
+  mengunci superadmin tanpa filter tetap mendapat `isPlanned: false`.
+- **Files**: `modules/planning/domain/kebutuhan-material-osp.ts`,
+  `modules/planning/services/PlanningMaterialService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Pintu masuk UI penerbitan, koreksi, dan foto titik rencana
 
 - **Tipe**: [ADDED]

@@ -2,9 +2,23 @@ import { describe, expect, it } from "vitest";
 
 import { calculateHaversineDistance } from "@/lib/geo-utils";
 import {
-  hitungKebutuhanMaterialOsp,
+  hitungKebutuhanMaterialOsp as hitungDenganJarak,
   type JalurRencana,
 } from "@/modules/planning/domain/kebutuhan-material-osp";
+
+/** Memanggil fungsi domain dengan Haversine yang sama seperti service produksi. */
+function hitungKebutuhanMaterialOsp(
+  titik: Parameters<typeof hitungDenganJarak>[0],
+  jalur: JalurRencana[],
+  spareKabelPersen: number,
+) {
+  return hitungDenganJarak(
+    titik,
+    jalur,
+    spareKabelPersen,
+    calculateHaversineDistance,
+  );
+}
 
 const TITIK_NOL = { latitude: 0, longitude: 0 };
 
@@ -363,5 +377,25 @@ describe("hitungKebutuhanMaterialOsp", () => {
       ]);
       expect(hasil.jalurDiabaikan).toBe(0);
     });
+  });
+
+  it("memakai penghitung jarak yang diserahkan untuk jalur tanpa distance", () => {
+    const jarakTetap = () => 42;
+    const hasil = hitungDenganJarak(
+      [],
+      [
+        {
+          fiberType: "feeder",
+          distance: null,
+          sumber: { latitude: 1, longitude: 1 },
+          tujuan: { latitude: 2, longitude: 2 },
+          waypoints: [[1.5, 1.5]],
+        },
+      ],
+      0,
+      jarakTetap,
+    );
+
+    expect(hasil.kabel[0].meterTerukur).toBe(84);
   });
 });

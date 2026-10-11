@@ -1,5 +1,3 @@
-import { calculateHaversineDistance } from "@/lib/geo-utils";
-
 /**
  * Kebutuhan material sebuah Planning OSP, dihitung dari titik dan jalur di
  * peta. Murni: tanpa Prisma, tanpa I/O.
@@ -9,6 +7,20 @@ import { calculateHaversineDistance } from "@/lib/geo-utils";
  * Panjang kabel dijumlahkan mentah per jenis fiber dan dibulatkan sekali di
  * akhir, agar galat pembulatan tidak menumpuk per ruas.
  */
+
+/**
+ * Penghitung jarak antara dua koordinat dalam meter.
+ *
+ * Domain tidak boleh mengimpor `lib/`, jadi rumus jaraknya diserahkan oleh
+ * pemanggil. Wajib diisi (bukan opsional) agar lupa meneruskannya tertangkap
+ * typecheck, dan agar seluruh pemakai berbagi satu implementasi yang sama.
+ */
+export type PenghitungJarakMeter = (
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+) => number;
 
 export interface TitikRencana {
   type: string;
@@ -97,7 +109,10 @@ function isPasanganHingga(pasangan: [number, number]): boolean {
  * 3. ada koordinat `NaN`/`Infinity`; Haversine atasnya menghasilkan `NaN`
  *    yang akan mencemari total satu jenis fiber tanpa gejala
  */
-function hitungPanjangPolyline(jalur: JalurRencana): number | null {
+function hitungPanjangPolyline(
+  jalur: JalurRencana,
+  hitungJarak: PenghitungJarakMeter,
+): number | null {
   const { sumber, tujuan, waypoints } = jalur;
   if (waypoints === null) {
     return null;
@@ -122,7 +137,7 @@ function hitungPanjangPolyline(jalur: JalurRencana): number | null {
 
   let total = 0;
   for (let i = 0; i < titik.length - 1; i += 1) {
-    total += calculateHaversineDistance(
+    total += hitungJarak(
       titik[i][0],
       titik[i][1],
       titik[i + 1][0],
@@ -140,11 +155,14 @@ function hitungPanjangPolyline(jalur: JalurRencana): number | null {
  * yang tersimpan saat jalur digambar, jadi panjangnya memang sudah diketahui
  * walau jejak beloknya tidak lagi bisa dibaca.
  */
-function panjangJalur(jalur: JalurRencana): number | null {
+function panjangJalur(
+  jalur: JalurRencana,
+  hitungJarak: PenghitungJarakMeter,
+): number | null {
   if (isDistanceTersedia(jalur.distance)) {
     return jalur.distance;
   }
-  return hitungPanjangPolyline(jalur);
+  return hitungPanjangPolyline(jalur, hitungJarak);
 }
 
 /** Memastikan persentase cadangan berada di rentang 0 sampai 100. */
@@ -159,12 +177,15 @@ function pastikanCadanganSah(spareKabelPersen: number): void {
 }
 
 /** Menjumlahkan meter mentah per jenis fiber dan mencatat jalur yang diabaikan. */
-function jumlahkanKabel(jalur: JalurRencana[]): HasilJumlahKabel {
+function jumlahkanKabel(
+  jalur: JalurRencana[],
+  hitungJarak: PenghitungJarakMeter,
+): HasilJumlahKabel {
   const meterPerJenis = new Map<string, number>();
   let jalurDiabaikan = 0;
 
   for (const satuJalur of jalur) {
-    const panjang = panjangJalur(satuJalur);
+    const panjang = panjangJalur(satuJalur, hitungJarak);
     if (panjang === null) {
       jalurDiabaikan += 1;
       continue;
@@ -241,15 +262,19 @@ function hitungSplitterDanTitik(
   };
 }
 
-/** Hitung kebutuhan kabel dan splitter dari titik & jalur rencana. */
+/**
+ * Hitung kebutuhan kabel dan splitter dari titik & jalur rencana.
+ * `hitungJarak` dipakai untuk jalur yang panjangnya harus diturunkan dari koordinat.
+ */
 export function hitungKebutuhanMaterialOsp(
   titik: TitikRencana[],
   jalur: JalurRencana[],
   spareKabelPersen: number,
+  hitungJarak: PenghitungJarakMeter,
 ): KebutuhanMaterialOsp {
   pastikanCadanganSah(spareKabelPersen);
 
-  const { meterPerJenis, jalurDiabaikan } = jumlahkanKabel(jalur);
+  const { meterPerJenis, jalurDiabaikan } = jumlahkanKabel(jalur, hitungJarak);
 
   return {
     kabel: susunDaftarKabel(meterPerJenis, spareKabelPersen),
