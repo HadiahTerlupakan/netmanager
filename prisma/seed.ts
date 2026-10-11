@@ -521,7 +521,7 @@ async function main() {
 
   const technicalDept = await prisma.departments.upsert({
     where: { name_tenantId: { name: "Technical", tenantId: MAIN_TENANT_ID } },
-    update: {},
+    update: { showInMobileWO: true },
     create: {
       id: randomUUID(),
       updatedAt: new Date(),
@@ -529,7 +529,11 @@ async function main() {
       tenantId: MAIN_TENANT_ID,
       description: "Technical Support & Network Operations",
       jobDescription: "Mengelola infrastruktur jaringan dan dukungan teknis",
+      // Tanpa ini picker "Request WO Internal" di aplikasi kosong sama sekali
+      // ("Data tidak ditemukan") karena kolomnya default false.
+      showInMobileWO: true,
     },
+    // Instalasi yang sudah pernah di-seed ikut dinyalakan.
   });
   logger.info("   ✅ Department: Technical");
 
@@ -537,7 +541,7 @@ async function main() {
     where: {
       name_tenantId: { name: "Customer Service", tenantId: MAIN_TENANT_ID },
     },
-    update: {},
+    update: { showInMobileWO: true },
     create: {
       id: randomUUID(),
       updatedAt: new Date(),
@@ -545,6 +549,7 @@ async function main() {
       tenantId: MAIN_TENANT_ID,
       description: "Customer Support & Relations",
       jobDescription: "Menangani pertanyaan dan keluhan pelanggan",
+      showInMobileWO: true,
     },
   });
   logger.info("   ✅ Department: Customer Service");
