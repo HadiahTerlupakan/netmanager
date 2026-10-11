@@ -56,6 +56,9 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   bisa diganti. Setiap perubahan diaudit (`UPDATED`) satu transaksi dengan
   tulisannya. Rasio splitter wajib dipilih tanpa nilai bawaan (ODC 1:2-1:64,
   ODP 1:2-1:32). `waypoints` disimpan sebagai JSON string seperti editor peta.
+  Soft delete planning (`PlanningRepository.delete`) kini, dalam transaksi yang
+  sama, juga menghapus node/edge miliknya yang masih `isPlanned = true`; yang
+  sudah terbit tidak disentuh.
   Route: `GET/POST/PUT/DELETE .../peta/titik`, `POST/DELETE .../peta/jalur`
   (`planning:read` untuk GET, `planning:update` untuk tulis).
 - **Files**: `modules/planning/services/PlanningPetaService.ts`,

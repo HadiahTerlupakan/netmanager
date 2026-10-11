@@ -295,19 +295,50 @@ describe("PlanningPetaService", () => {
       );
     });
 
-    it("menolak ujung jalur yang bukan titik planning itu", async () => {
+    // Jalur rencana boleh menyambung dari infrastruktur yang sudah ada.
+    const ujung = (peta: Record<string, Partial<MappingNode>>): void => {
       repo.ambilTitik.mockImplementation(((id: string) =>
-        Promise.resolve(
-          node({
-            nodeId: id,
-            planningId: id === "n-2" ? "plan-lain" : "plan-1",
-          }),
-        )) as never);
+        Promise.resolve(node({ nodeId: id, ...peta[id] }))) as never);
+    };
+    const rencanaIni = { isPlanned: true, planningId: "plan-1" };
+    const nyata = { isPlanned: false, planningId: null };
+
+    it("menerima rencana ke rencana (planning yang sama)", async () => {
+      ujung({ "n-1": rencanaIni, "n-2": rencanaIni });
+      await service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1");
+      expect(repo.buatJalur).toHaveBeenCalled();
+    });
+
+    it("menerima rencana ke node nyata", async () => {
+      ujung({ "n-1": nyata, "n-2": rencanaIni });
+      await service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1");
+      expect(repo.buatJalur).toHaveBeenCalled();
+    });
+
+    it("menerima nyata ke nyata", async () => {
+      ujung({ "n-1": nyata, "n-2": nyata });
+      await service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1");
+      expect(repo.buatJalur).toHaveBeenCalled();
+    });
+
+    it("menolak titik rencana milik planning lain", async () => {
+      ujung({
+        "n-1": nyata,
+        "n-2": { isPlanned: true, planningId: "plan-lain" },
+      });
 
       await expect(
         service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1"),
       ).rejects.toBeInstanceOf(PlanningNotFoundError);
       expect(repo.buatJalur).not.toHaveBeenCalled();
+    });
+
+    it("menolak node nyata milik tenant lain", async () => {
+      ujung({ "n-1": nyata, "n-2": { ...nyata, tenantId: "lain" } });
+
+      await expect(
+        service.tambahJalur("plan-1", masukanJalur, "user-1", "tenant-1"),
+      ).rejects.toBeInstanceOf(PlanningNotFoundError);
     });
 
     it("menolak jalur yang asal dan tujuannya sama", async () => {

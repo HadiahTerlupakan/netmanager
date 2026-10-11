@@ -354,11 +354,27 @@ export class PlanningRepository implements IPlanningRepository {
    * Soft delete planning (set deletedAt)
    */
   async delete(id: string, tx?: Prisma.TransactionClient): Promise<void> {
-    const client = tx ?? prisma;
+    if (!tx) {
+      await prisma.$transaction((inner) => this.delete(id, inner));
+      return;
+    }
 
-    await client.planning.update({
+    await tx.planning.update({
       where: { id },
       data: { deletedAt: new Date() },
+    });
+
+    // Titik & jalur rencana ikut dihapus: planning yang di-soft-delete hilang
+    // dari daftar, kanban, dan dashboard, sedangkan baris rencananya tidak
+    // tampil di peta operasional (`isPlanned`) — tanpa ini mereka menumpuk
+    // tanpa cara melihatnya. Yang sudah terbit (`isPlanned: false`) sengaja
+    // tidak disentuh: fisiknya sudah terpasang di lapangan. Jalur dihapus
+    // lebih dulu karena `source`/`target` adalah FK ke node.
+    await tx.mappingEdge.deleteMany({
+      where: { planningId: id, isPlanned: true },
+    });
+    await tx.mappingNode.deleteMany({
+      where: { planningId: id, isPlanned: true },
     });
   }
 }

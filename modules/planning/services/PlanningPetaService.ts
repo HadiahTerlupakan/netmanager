@@ -102,19 +102,43 @@ export class PlanningPetaService {
     return edge;
   }
 
-  /** Kedua ujung jalur wajib titik milik rencana yang sama. */
-  private async assertEndpointsBelongToPlanning(
+  /**
+   * Satu ujung jalur boleh titik rencana planning ini atau node nyata
+   * (`isPlanned = false`) dalam tenant yang sama; titik rencana planning lain
+   * ditolak. Jalur rencana memang dimaksudkan menyambung dari infrastruktur
+   * yang sudah terpasang ke titik yang akan dibangun.
+   */
+  private async assertEndpointAllowed(
+    nodeId: string,
+    planningId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const node = await this.petaRepo.ambilTitik(nodeId);
+
+    if (!node || node.tenantId !== tenantId) {
+      throw new PlanningNotFoundError("Titik tidak ditemukan");
+    }
+
+    const isOwnPlannedNode = node.isPlanned && node.planningId === planningId;
+    if (node.isPlanned && !isOwnPlannedNode) {
+      throw new PlanningNotFoundError("Titik tidak ditemukan");
+    }
+  }
+
+  /** Kedua ujung jalur wajib lolos `assertEndpointAllowed` dan berbeda. */
+  private async assertEndpointsAllowed(
     planningId: string,
     sourceId: string,
     targetId: string,
+    tenantId: string,
   ): Promise<void> {
     if (sourceId === targetId) {
       throw new PlanningValidationError(
         "Titik asal dan tujuan jalur tidak boleh sama",
       );
     }
-    await this.findNodeOfPlanning(sourceId, planningId);
-    await this.findNodeOfPlanning(targetId, planningId);
+    await this.assertEndpointAllowed(sourceId, planningId, tenantId);
+    await this.assertEndpointAllowed(targetId, planningId, tenantId);
   }
 
   /** Menambahkan satu titik rencana ke peta planning. */
@@ -295,10 +319,11 @@ export class PlanningPetaService {
   ): Promise<JalurRencanaDTO> {
     const planning = await this.findOwnedPlanning(planningId, tenantId);
     this.assertMapEditable(planning);
-    await this.assertEndpointsBelongToPlanning(
+    await this.assertEndpointsAllowed(
       planningId,
       input.source,
       input.target,
+      planning.tenantId,
     );
 
     const edge = await this.unitOfWork.runInTransaction(async (tx) => {
