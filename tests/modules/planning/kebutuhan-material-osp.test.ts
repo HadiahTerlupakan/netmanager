@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { calculateHaversineDistance } from "@/lib/geo-utils";
-import { hitungKebutuhanMaterialOsp } from "@/modules/planning/domain/kebutuhan-material-osp";
+import {
+  hitungKebutuhanMaterialOsp,
+  type JalurRencana,
+} from "@/modules/planning/domain/kebutuhan-material-osp";
 
 const TITIK_NOL = { latitude: 0, longitude: 0 };
 
@@ -134,13 +137,16 @@ describe("hitungKebutuhanMaterialOsp", () => {
   it("menjumlahkan meter mentah lalu membulatkan sekali, bukan per jalur", () => {
     // Tiap jalur ~0,011 m: dibulatkan per jalur akan menjadi 0, tetapi
     // jumlah mentah lima jalur ~0,056 m sehingga terbulat menjadi 0,1 m.
-    const jalurPendek = Array.from({ length: 5 }, () => ({
-      fiberType: "feeder",
-      distance: null,
-      sumber: { latitude: 0, longitude: 0 },
-      tujuan: { latitude: 0.0000001, longitude: 0 },
-      waypoints: [],
-    }));
+    const jalurPendek = Array.from(
+      { length: 5 },
+      (): JalurRencana => ({
+        fiberType: "feeder",
+        distance: null,
+        sumber: { latitude: 0, longitude: 0 },
+        tujuan: { latitude: 0.0000001, longitude: 0 },
+        waypoints: [],
+      }),
+    );
 
     const hasil = hitungKebutuhanMaterialOsp([], jalurPendek, 0);
 
