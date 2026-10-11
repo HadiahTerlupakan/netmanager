@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   getMobileTokenDetails,
@@ -101,16 +103,47 @@ export function buildVersionMetadata(input: MobileLoginPayload) {
   };
 }
 
-export function buildVersionUpdate(input: {
+/** Masukan pencatatan versi aplikasi dari payload login. */
+interface MasukanVersi {
   versionCode: number;
   versionName?: string | null;
   otaUpdateId?: string | null;
-}) {
+}
+
+/**
+ * Medan versi yang ada di `Pelanggan` MAUPUN `User`.
+ *
+ * Dipisahkan dari versi `User` karena keduanya sempat memakai satu fungsi yang
+ * ikut menulis `lastOtaUpdateId` dan `lastLoginAt` — dua kolom yang hanya ada
+ * di `User`. Akibatnya setiap login pelanggan melempar validasi Prisma dan
+ * route menjawab 500: tidak satu pun pelanggan bisa membuka aplikasi.
+ * TypeScript tidak menangkapnya, dan tidak akan: hasil pemanggilan fungsi
+ * tidak kena pemeriksaan properti berlebih, dan assignability struktural pun
+ * mengizinkan medan tambahan. Penjaganya ada di
+ * `tests/modules/users/mobile-version-update-kolom.test.ts`, yang mencocokkan
+ * kunci hasil fungsi ini dengan kolom asli kedua model.
+ */
+export interface MedanVersiBersama {
+  lastVersionCode: number;
+  lastVersionName: string | null;
+  lastVersionUpdate: Date;
+}
+
+export function buildVersionUpdate(input: MasukanVersi): MedanVersiBersama {
   return {
     lastVersionCode: input.versionCode,
     lastVersionName: input.versionName || null,
-    lastOtaUpdateId: normalizeOtaUpdateId(input.otaUpdateId),
     lastVersionUpdate: new Date(),
+  };
+}
+
+/** Medan versi untuk `User`: menambah jejak OTA dan waktu login terakhir. */
+export function buildVersionUpdatePengguna(
+  input: MasukanVersi,
+): Prisma.UserUpdateInput {
+  return {
+    ...buildVersionUpdate(input),
+    lastOtaUpdateId: normalizeOtaUpdateId(input.otaUpdateId),
     lastLoginAt: new Date(),
   };
 }

@@ -1,6 +1,20 @@
 import { logger } from "@/lib/logger";
 import jwt from "jsonwebtoken";
-import { prisma } from "./prisma";
+/**
+ * Klien tanpa isolasi tenant — disengaja.
+ *
+ * Fungsi-fungsi token pelanggan di berkas ini berjalan SEBELUM ada sesi:
+ * saat login, saat menukar refresh token, dan saat logout. Konteks tenant
+ * pada titik itu hanya bisa berasal dari header Host, sehingga klien
+ * `prisma` yang berpenjaga menolak `Pelanggan.update` dengan
+ * `TenantContextError` dan login pelanggan berakhir 500 — persis yang terjadi
+ * saat aplikasi mobile memanggil lewat host yang tidak terpetakan.
+ *
+ * Aman karena `pelangganId` di sini selalu berasal dari kredensial atau token
+ * yang sudah diverifikasi, bukan dari parameter yang dikirim pemanggil; sama
+ * seperti `MobileCustomerAuthService` yang memang sudah memakai `prismaAuth`.
+ */
+import { prismaAuth as prisma } from "./prisma";
 
 interface PelangganJWTPayload {
   id: string;

@@ -7,9 +7,13 @@ import type {
   MobileLoginPayload,
   MobileLoginResult,
 } from "./MobileAuthRouteService";
-import { isSalesPengguna, personaPengguna, type PersonaKaryawan } from "./peran-sales-pengguna";
 import {
-  buildVersionUpdate,
+  isSalesPengguna,
+  personaPengguna,
+  type PersonaKaryawan,
+} from "./peran-sales-pengguna";
+import {
+  buildVersionUpdatePengguna,
   MobileAuthVersionService,
 } from "./MobileAuthVersionService";
 
@@ -140,6 +144,6 @@ async function persistEmployeeVersion(
   if (input.versionCode <= 0) return;
   await prismaAuth.user.update({
     where: { id: userId },
-    data: buildVersionUpdate(input),
+    data: buildVersionUpdatePengguna(input),
   });
 }

@@ -1518,6 +1518,51 @@ async function main() {
       ...pkgBasicData,
     },
   });
+
+  // Pelanggan contoh — tanpa ini portal pelanggan tidak punya jalur data apa
+  // pun di lingkungan baru. Nol pelanggan hasil seed adalah sebab tiga cacat
+  // login pelanggan bertahan tanpa ketahuan: tidak ada yang bisa mencobanya.
+  //
+  // `idPelanggan` 8 digit angka mengikuti `createPelangganSchema`
+  // ("ID Pelanggan harus 8 digit" / "harus angka") — pelanggan menyebutkannya
+  // lewat telepon, jadi harus mudah diingat dan didiktekan.
+  const paketBasic = await prisma.hargaPaket.findFirst({
+    where: { tenantId: MAIN_TENANT_ID, name: "Paket Basic 10 Mbps" },
+    select: { id: true },
+  });
+  if (paketBasic) {
+    const sekarang = new Date();
+    const pelangganPasswordHash = await hash("pelanggan123", 10);
+    await prisma.pelanggan.upsert({
+      where: { username: "budisantoso" },
+      update: {},
+      create: {
+        id: randomUUID(),
+        updatedAt: sekarang,
+        idPelanggan: "10000001",
+        nama: "Budi Santoso",
+        username: "budisantoso",
+        password: "",
+        passwordHash: pelangganPasswordHash,
+        hargaPaketId: paketBasic.id,
+        tanggalAktif: new Date(
+          sekarang.getFullYear(),
+          sekarang.getMonth() - 3,
+          1,
+        ),
+        jatuhTempo: new Date(sekarang.getFullYear(), sekarang.getMonth(), 20),
+        status: "AKTIF",
+        alamat: "Jl. Melati No. 5, RT 02",
+        noTelp: "+62812-0000-0011",
+        email: "budi.santoso@example.com",
+        siteId: hqSite.id,
+        tenantId: MAIN_TENANT_ID,
+      },
+    });
+    logger.info(
+      "   ✅ Pelanggan: 10000001 / budisantoso / pelanggan123 (Paket Basic 10 Mbps)",
+    );
+  }
   logger.info("   ✅ Harga Paket: Paket Basic 10 Mbps");
 
   const pkgStandardData = {

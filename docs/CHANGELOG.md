@@ -41,6 +41,46 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Login pelanggan di aplikasi mobile selalu gagal 500
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/users/services`, `lib/jwt.ts`
+- **Author**: agent
+- **Deskripsi**: `buildVersionUpdate` dipakai bersama untuk mencatat versi aplikasi ke
+  `User` dan `Pelanggan`, tetapi selalu menyertakan `lastOtaUpdateId` dan `lastLoginAt`
+  — dua kolom yang hanya ada di `User`. Setiap login pelanggan karenanya melempar
+  `PrismaClientValidationError` dan route menjawab 500. TypeScript tidak menangkapnya
+  dan tidak akan: hasil pemanggilan fungsi tidak kena pemeriksaan properti berlebih,
+  dan assignability struktural pun mengizinkan medan tambahan. Masuk sejak
+  `19e43bde2` (2026-07-21) dan tidak ketahuan karena jalur login pelanggan sama sekali
+  tidak punya pengujian — karyawan dan investor punya. Fungsi dipecah: medan bersama
+  untuk kedua model, `buildVersionUpdatePengguna` untuk `User`.
+  Selain itu `lib/jwt.ts` memakai klien `prisma` yang berpenjaga tenant untuk
+  primitif token pelanggan (buat/refresh/invalidate) yang justru berjalan SEBELUM ada
+  sesi; konteks tenant pada titik itu hanya bisa dari header Host, sehingga
+  `Pelanggan.update` ditolak `TenantContextError` pada host yang tidak terpetakan.
+  Diganti `prismaAuth` — aman karena `pelangganId` selalu dari kredensial atau token
+  terverifikasi, bukan parameter pemanggil, sama seperti `MobileCustomerAuthService`.
+- **Files**: `modules/users/services/MobileAuthVersionService.ts`,
+  `modules/users/services/MobileEmployeeAuthService.ts`,
+  `modules/users/services/MobileAuthRouteService.ts`, `lib/jwt.ts`,
+  `tests/modules/users/MobileCustomerAuthService.login.test.ts`,
+  `tests/modules/users/mobile-version-update-kolom.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Pelanggan contoh di seed
+
+- **Tipe**: [ADDED]
+- **Scope**: `prisma/seed.ts`
+- **Author**: agent
+- **Deskripsi**: Seed tidak pernah membuat satu pun pelanggan, sehingga portal
+  pelanggan — mobile maupun web — tidak punya jalur data di lingkungan baru. Itulah
+  sebab tiga cacat login pelanggan bertahan tanpa ketahuan: tidak ada yang bisa
+  mencobanya. Ditambahkan `10000001` / `budisantoso` / `pelanggan123` pada Paket Basic
+  10 Mbps. `idPelanggan` 8 digit angka mengikuti `createPelangganSchema`, karena
+  pelanggan menyebutkan nomor itu lewat telepon.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Role KEPALA_SALES di seed & penjaga lingkup rencana
 
 - **Tipe**: [ADDED]

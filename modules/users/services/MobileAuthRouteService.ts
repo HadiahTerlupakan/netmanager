@@ -7,7 +7,11 @@ import { prismaAuth } from "@/modules/database";
 import { MobileCustomerAuthService } from "./MobileCustomerAuthService";
 import { MobileEmployeeAuthService } from "./MobileEmployeeAuthService";
 import { MobileAuthVersionService } from "./MobileAuthVersionService";
-import { isSalesPengguna, personaPengguna, type PersonaKaryawan } from "./peran-sales-pengguna";
+import {
+  isSalesPengguna,
+  personaPengguna,
+  type PersonaKaryawan,
+} from "./peran-sales-pengguna";
 
 const DEFAULT_EMPLOYEE_TYPE = "KARYAWAN";
 const DEFAULT_WORKING_HOUR_MODE = "FLEXIBLE";
@@ -187,10 +191,11 @@ async function persistMobileVersionReport(
 ) {
   if (!input.versionCode || input.versionCode <= 0) return;
   try {
-    const { buildVersionUpdate } = await import("./MobileAuthVersionService");
+    const { buildVersionUpdatePengguna } =
+      await import("./MobileAuthVersionService");
     await prismaAuth.user.update({
       where: { id: userId },
-      data: buildVersionUpdate(input),
+      data: buildVersionUpdatePengguna(input),
     });
   } catch {
     void 0;
