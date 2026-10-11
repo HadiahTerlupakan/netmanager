@@ -29,9 +29,11 @@ export async function GET(request: Request) {
     return apiSuccess(profile);
   } catch (error: unknown) {
     logger.error("Profile fetch error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Terjadi kesalahan";
-    return apiError(errorMessage, ErrorCodes.INTERNAL_ERROR, { status: 500 });
+    return apiError(
+      "Terjadi kesalahan server. Silakan coba lagi.",
+      ErrorCodes.INTERNAL_ERROR,
+      { status: 500 },
+    );
   }
 }
 
@@ -59,8 +61,10 @@ export async function PATCH(request: Request) {
     );
   } catch (error: unknown) {
     logger.error("Profile update error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Terjadi kesalahan";
-    return apiError(errorMessage, ErrorCodes.INTERNAL_ERROR, { status: 500 });
+    return apiError(
+      "Terjadi kesalahan server. Silakan coba lagi.",
+      ErrorCodes.INTERNAL_ERROR,
+      { status: 500 },
+    );
   }
 }

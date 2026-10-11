@@ -74,7 +74,9 @@ describe("MobileProfileRouteService", () => {
     ).resolves.toMatchObject({
       id: "mitra-1",
       role: { id: "mitra", name: "MITRA" },
-      sites: [{ id: "site-1", name: "Site A" }],
+      // Objek, bukan array — sama seperti profil karyawan; aplikasi membaca
+      // `sites.name`.
+      sites: { id: "site-1", name: "Site A" },
       features: ["sales"],
       isOnLeave: false,
     });
@@ -108,17 +110,39 @@ describe("MobileProfileRouteService", () => {
   });
 
   it.each([
-    [{ isSuperAdmin: false, permission: [{ resource: "presurvei_rencana", action: "create" }] }, "TIM"],
-    [{ isSuperAdmin: false, permission: [{ resource: "presurvei_rencana", action: "view_all" }] }, "SEMUA"],
+    [
+      {
+        isSuperAdmin: false,
+        permission: [{ resource: "presurvei_rencana", action: "create" }],
+      },
+      "TIM",
+    ],
+    [
+      {
+        isSuperAdmin: false,
+        permission: [{ resource: "presurvei_rencana", action: "view_all" }],
+      },
+      "SEMUA",
+    ],
     [{ isSuperAdmin: true, permission: [] }, "SEMUA"],
-  ])("lingkupRencana dari izin role %j → %s (kepala sales/admin boleh menugaskan)", async (role, harapan) => {
-    mockFns.userFindFirst.mockResolvedValue({ id: "user-1", role: { id: "r", name: "X", ...role } });
-    mockFns.leaveFindFirst.mockResolvedValue(null);
+  ])(
+    "lingkupRencana dari izin role %j → %s (kepala sales/admin boleh menugaskan)",
+    async (role, harapan) => {
+      mockFns.userFindFirst.mockResolvedValue({
+        id: "user-1",
+        role: { id: "r", name: "X", ...role },
+      });
+      mockFns.leaveFindFirst.mockResolvedValue(null);
 
-    await expect(
-      getMobileProfileForRoute({ id: "user-1", role: "X", tenantId: "tenant-1" }),
-    ).resolves.toMatchObject({ lingkupRencana: harapan });
-  });
+      await expect(
+        getMobileProfileForRoute({
+          id: "user-1",
+          role: "X",
+          tenantId: "tenant-1",
+        }),
+      ).resolves.toMatchObject({ lingkupRencana: harapan });
+    },
+  );
 
   it("super admin boleh cairkan bonus canvasing, sama dengan route cashout", async () => {
     mockFns.userFindFirst.mockResolvedValue({
@@ -128,7 +152,11 @@ describe("MobileProfileRouteService", () => {
     mockFns.leaveFindFirst.mockResolvedValue(null);
 
     await expect(
-      getMobileProfileForRoute({ id: "user-1", role: "SA", tenantId: "tenant-1" }),
+      getMobileProfileForRoute({
+        id: "user-1",
+        role: "SA",
+        tenantId: "tenant-1",
+      }),
     ).resolves.toMatchObject({ canCashoutCanvasing: true });
   });
 

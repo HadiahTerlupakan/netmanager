@@ -6,7 +6,13 @@ import {
   hasCanvasingCashoutPermission,
 } from "@/modules/marketing";
 import { jenisLingkupDariIzin } from "@/modules/roles";
-import { daftarIzinRole, isSalesPengguna, personaPengguna } from "./peran-sales-pengguna";
+import {
+  daftarIzinRole,
+  isSalesPengguna,
+  personaPengguna,
+} from "./peran-sales-pengguna";
+
+const PERAN_MITRA = "MITRA";
 
 type MobileProfileUser = {
   id?: string;
@@ -37,7 +43,12 @@ type MitraMobileProfile = {
   canvasingTarget: null;
   isSales: boolean;
   departments: null;
-  sites: Array<{ id: string; name: string }>;
+  /**
+   * Satu objek, bukan array — bentuknya harus sama dengan profil karyawan
+   * (`User.sites` adalah relasi tunggal). Aplikasi membaca `sites.name`; array
+   * di sini membuat site mitra selalu terbaca "Belum diatur".
+   */
+  sites: { id: string; name: string } | null;
   role: { id: string; name: string };
   features: string[];
   isOnLeave: boolean;
@@ -52,11 +63,15 @@ export async function getMobileProfileForRoute(user: MobileProfileUser) {
   return getRegularUserProfile(user);
 }
 
-/** Updates editable mobile profile fields for regular users. */
+/** Updates editable mobile profile fields for user and mitra sessions. */
 export async function updateMobileProfileForRoute(options: {
   user: MobileProfileUser;
   input: MobileProfileUpdateInput;
 }) {
+  if (options.user.role === PERAN_MITRA) {
+    return updateMitraProfile(options);
+  }
+
   return prisma.user.update({
     where: {
       id: options.user.id as string,
@@ -75,6 +90,48 @@ export async function updateMobileProfileForRoute(options: {
 
 export function hasMobileProfileUpdate(input: MobileProfileUpdateInput) {
   return input.name !== undefined || input.phone !== undefined;
+}
+
+/**
+ * Mitra tersimpan di database mitra, bukan tabel `User`. Tanpa cabang ini
+ * `prisma.user.update` tidak menemukan barisnya dan PATCH profil mitra
+ * berakhir 500.
+ */
+async function updateMitraProfile(options: {
+  user: MobileProfileUser;
+  input: MobileProfileUpdateInput;
+}) {
+  const mitra = await prismaMitra.mitra.findFirst({
+    where: {
+      id: options.user.id as string,
+      tenantId: options.user.tenantId,
+    },
+    select: { id: true },
+  });
+
+  if (!mitra) {
+    throw new Error("Mitra tidak ditemukan");
+  }
+
+  const updated = await prismaMitra.mitra.update({
+    where: { id: mitra.id },
+    data: buildProfileUpdateData(options.input),
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      fotoDiri: true,
+    },
+  });
+
+  return {
+    id: updated.id,
+    name: updated.name,
+    email: updated.email,
+    phone: updated.phone,
+    image: updated.fotoDiri,
+  };
 }
 
 async function getMitraProfile(
@@ -132,7 +189,7 @@ async function getMitraProfile(
     canvasingTarget: null,
     isSales: mitra.mitraType === "MITRA_SALES",
     departments: null,
-    sites: site ? [site] : [],
+    sites: site,
     role: { id: "mitra", name: "MITRA" },
     features: getMitraMobileFeatures(mitra.mitraType),
     isOnLeave: false,

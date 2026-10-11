@@ -60,12 +60,15 @@ export async function POST(request: Request) {
         userId,
         tenantId,
         imageUrl,
+        role: typeof authResult.role === "string" ? authResult.role : null,
       }),
     );
   } catch (error: unknown) {
     logger.error("Profile photo upload error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Terjadi kesalahan";
-    return apiError(errorMessage, ErrorCodes.INTERNAL_ERROR, { status: 500 });
+    return apiError(
+      "Terjadi kesalahan server. Silakan coba lagi.",
+      ErrorCodes.INTERNAL_ERROR,
+      { status: 500 },
+    );
   }
 }
