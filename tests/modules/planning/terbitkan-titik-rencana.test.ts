@@ -6,10 +6,13 @@ import { describe, it, expect, vi, beforeEach, type Mocked } from "vitest";
  * kewajiban mempertahankan `planningId` sebagai jejak asal-usul).
  */
 
-const { mockNodeUpdateMany, mockEdgeUpdateMany } = vi.hoisted(() => ({
-  mockNodeUpdateMany: vi.fn(),
-  mockEdgeUpdateMany: vi.fn(),
-}));
+const { mockNodeUpdateMany, mockEdgeUpdateMany, mockTransaction } = vi.hoisted(
+  () => ({
+    mockNodeUpdateMany: vi.fn(),
+    mockEdgeUpdateMany: vi.fn(),
+    mockTransaction: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/prisma", () => {
   const klien = {
@@ -19,13 +22,14 @@ vi.mock("@/lib/prisma", () => {
   return {
     prisma: {
       ...klien,
-      $transaction: (kerja: (tx: typeof klien) => unknown) => kerja(klien),
+      $transaction: mockTransaction,
     },
   };
 });
 
 import { PlanningPetaService } from "@/modules/planning/services/PlanningPetaService";
 import { PlanningPetaRepository } from "@/modules/planning/repositories/PlanningPetaRepository";
+import type { IPlanningUnitOfWork } from "@/modules/planning/domain/ports/IPlanningUnitOfWork";
 import type { IPlanningRepository } from "@/modules/planning/domain/ports/IPlanningRepository";
 import type { PlanningAuditService } from "@/modules/planning/services/PlanningAuditService";
 import {
@@ -161,9 +165,46 @@ describe("PlanningPetaService.terbitkan", () => {
   });
 });
 
+describe("PlanningPetaService.terbitkan — satu transaksi", () => {
+  it("meneruskan tx yang sama ke tandaiTerbit dan logChange", async () => {
+    const sentinelTx = { penanda: "tx-sentinel" };
+    const planningRepo = {
+      findById: vi.fn().mockResolvedValue(planning("APPROVED")),
+    } as unknown as Mocked<IPlanningRepository>;
+    const repo = {
+      tandaiTerbit: vi
+        .fn()
+        .mockResolvedValue({ titikTerbit: 1, jalurTerbit: 1 }),
+    } as unknown as Mocked<PlanningPetaRepository>;
+    const audit = {
+      logChange: vi.fn(),
+    } as unknown as Mocked<PlanningAuditService>;
+    const unitOfWork = {
+      runInTransaction: <T>(kerja: (tx: never) => Promise<T>) =>
+        kerja(sentinelTx as never),
+    } as unknown as IPlanningUnitOfWork;
+
+    await new PlanningPetaService(
+      planningRepo,
+      repo,
+      audit,
+      unitOfWork,
+    ).terbitkan("plan-1", "user-1", "tenant-1");
+
+    expect(repo.tandaiTerbit.mock.calls[0][2]).toBe(sentinelTx);
+    expect(audit.logChange.mock.calls[0][1]).toBe(sentinelTx);
+  });
+});
+
 describe("PlanningPetaRepository.tandaiTerbit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTransaction.mockImplementation((kerja: (klien: unknown) => unknown) =>
+      kerja({
+        mappingNode: { updateMany: mockNodeUpdateMany },
+        mappingEdge: { updateMany: mockEdgeUpdateMany },
+      }),
+    );
     mockNodeUpdateMany.mockResolvedValue({ count: 3 });
     mockEdgeUpdateMany.mockResolvedValue({ count: 2 });
   });
@@ -200,5 +241,32 @@ describe("PlanningPetaRepository.tandaiTerbit", () => {
       expect(panggilan[0].data).not.toHaveProperty("planningId");
       expect(panggilan[0].data).toEqual({ isPlanned: false });
     }
+  });
+
+  it("memakai klien tx yang diberikan tanpa membuka transaksi baru", async () => {
+    const txNode = vi.fn().mockResolvedValue({ count: 1 });
+    const txEdge = vi.fn().mockResolvedValue({ count: 1 });
+    const tx = {
+      mappingNode: { updateMany: txNode },
+      mappingEdge: { updateMany: txEdge },
+    };
+
+    await new PlanningPetaRepository().tandaiTerbit(
+      "plan-1",
+      "tenant-1",
+      tx as never,
+    );
+
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(txNode).toHaveBeenCalledTimes(1);
+    expect(txEdge).toHaveBeenCalledTimes(1);
+    expect(mockNodeUpdateMany).not.toHaveBeenCalled();
+    expect(mockEdgeUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("membuka transaksi sendiri bila tx tidak diberikan", async () => {
+    await new PlanningPetaRepository().tandaiTerbit("plan-1", "tenant-1");
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
   });
 });
