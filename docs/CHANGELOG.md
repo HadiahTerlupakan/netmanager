@@ -41,6 +41,39 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — QA perangkat persona SALES: dua perbaikan aplikasi mobile
+
+- **Tipe**: [FIXED]
+- **Scope**: `mobile-netmanager/app/(app)/presurvei/rencana`, `mobile-netmanager/src/utils/presurvei`
+- **Author**: agent
+- **Deskripsi**: Penelusuran fitur persona SALES satu per satu di emulator (login
+  `sales@example.com`, Beranda → Presurvei/Kegiatan·Rencana·Prospek → Canvasing →
+  Absensi → Profil → Pelanggan Saya → Keluhan → Tunggakan → Notifikasi) menemukan
+  dua cacat:
+  (1) **Notifikasi penugasan bisa mendarat di layar buntu.** `rencana/[id]` adalah
+  tujuan deep-link notifikasi "Penugasan kunjungan baru"; bila rencananya sudah
+  dibatalkan, server menjawab 404 dan layar mengembalikan `QueryErrorState`
+  telanjang — tanpa kepala layar (jadi tanpa tombol kembali), tanpa tab bar, dan
+  satu-satunya tombol "Coba Lagi" mengulang 404 yang tidak akan pernah sembuh.
+  Ditambahkan `LayarGalatBerkepala` (kepala + tombol kembali) dan penolong
+  `isTidakDitemukan`; 404 kini berbunyi "Rencana ini sudah tidak ada" tanpa
+  tawaran muat ulang, sementara kegagalan jaringan tetap bisa dicoba lagi.
+  Berlaku untuk layar rincian maupun ubah rencana.
+  (2) **Kartu absen Beranda sales mengabaikan hari libur.** `teksStatusAbsen`
+  menulis "Belum check-in" di hari Minggu bagi sales Senin–Jumat — terbaca sebagai
+  kewajiban yang belum ditunaikan — sementara layar Absensi menampilkan "HARI LIBUR
+  ANDA" dari respons yang sama. Sama persis dengan cacat persona STAFF yang
+  diperbaiki hari ini, di komponen berbeda. Absen yang sudah terjadi tetap
+  diutamakan: masuk di hari libur itu nyata dan jamnya harus terlihat.
+  Keduanya diverifikasi di emulator lewat tangkapan layar dan lewat uji-mutasi.
+- **Files**: `app/(app)/presurvei/rencana/[id]/index.tsx`,
+  `app/(app)/presurvei/rencana/[id]/ubah.tsx`,
+  `src/components/molecules/LayarGalatBerkepala.tsx`, `src/utils/httpStatus.ts`,
+  `src/utils/presurvei/berandaSales.ts`, `src/utils/presurvei/rencana.ts`,
+  `src/hooks/presurvei/useLayarRincianRencana.ts`,
+  `src/hooks/presurvei/useLayarFormRencana.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — QA perangkat persona STAFF: empat perbaikan aplikasi mobile
 
 - **Tipe**: [FIXED]
