@@ -121,6 +121,16 @@ export class PlanningPetaRepository {
     });
   }
 
+  /**
+   * Titik (rencana maupun nyata) menurut daftar id, dibatasi pada tenant.
+   * Dipakai membaca koordinat ujung jalur yang bisa berupa node nyata.
+   */
+  ambilTitikByIds(nodeIds: string[], tenantId: string) {
+    return prisma.mappingNode.findMany({
+      where: { nodeId: { in: nodeIds }, tenantId },
+    });
+  }
+
   /** Titik rencana yang planning induknya sudah dihapus (`onDelete: SetNull`). */
   ambilTitikYatim(tenantId: string) {
     return prisma.mappingNode.findMany({

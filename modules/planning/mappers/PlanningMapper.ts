@@ -59,6 +59,7 @@ export class PlanningMapper {
       createdAt: prisma.createdAt,
       updatedAt: prisma.updatedAt,
       deletedAt: prisma.deletedAt,
+      spareKabelPersen: prisma.spareKabelPersen,
     });
   }
 

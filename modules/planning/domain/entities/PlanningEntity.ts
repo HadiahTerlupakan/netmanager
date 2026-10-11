@@ -46,6 +46,8 @@ export interface PlanningEntityProps {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  /** Persentase cadangan kabel; bawaan 0 bila tidak diisi. */
+  spareKabelPersen?: number;
 }
 
 /**
@@ -83,6 +85,7 @@ export class PlanningEntity {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly deletedAt: Date | null;
+  readonly spareKabelPersen: number;
 
   constructor(props: PlanningEntityProps) {
     this.id = props.id;
@@ -115,6 +118,7 @@ export class PlanningEntity {
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
     this.deletedAt = props.deletedAt;
+    this.spareKabelPersen = props.spareKabelPersen ?? 0;
   }
 
   // Status checks

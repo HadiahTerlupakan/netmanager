@@ -12,6 +12,7 @@ import { PlanningAuditService } from "./PlanningAuditService";
 import { PlanningService } from "./PlanningService";
 import { PlanningItemService } from "./PlanningItemService";
 import { PlanningPetaService } from "./PlanningPetaService";
+import { PlanningMaterialService } from "./PlanningMaterialService";
 import { PlanningDocumentService } from "./PlanningDocumentService";
 import { PlanningMilestoneService } from "./PlanningMilestoneService";
 import { PlanningApprovalService } from "./PlanningApprovalService";
@@ -106,6 +107,25 @@ class PlanningServiceFactory {
       );
     }
     return this.instances.get("peta") as PlanningPetaService;
+  }
+
+  /**
+   * Get PlanningMaterialService singleton
+   */
+  static getMaterialService(): PlanningMaterialService {
+    if (!this.instances.has("material")) {
+      this.instances.set(
+        "material",
+        new PlanningMaterialService(
+          new PlanningRepository(),
+          new PlanningPetaRepository(),
+          new PlanningItemRepository(),
+          this.getAuditService(),
+          this.getUnitOfWork(),
+        ),
+      );
+    }
+    return this.instances.get("material") as PlanningMaterialService;
   }
 
   /**
@@ -234,6 +254,8 @@ export const planningAuditService = PlanningServiceFactory.getAuditService();
 export const planningService = PlanningServiceFactory.getPlanningService();
 export const planningItemService = PlanningServiceFactory.getItemService();
 export const planningPetaService = PlanningServiceFactory.getPetaService();
+export const planningMaterialService =
+  PlanningServiceFactory.getMaterialService();
 export const planningDocumentService =
   PlanningServiceFactory.getDocumentService();
 export const planningMilestoneService =
