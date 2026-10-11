@@ -63,6 +63,14 @@ export class InvestorRepository {
   }
 
   /** Mencabut semua token mobile investor (logout) dengan menaikkan tokenVersion. */
+  async updatePasswordHash(id: string, passwordHash: string) {
+    return this.client.investor.update({
+      where: { id },
+      data: { passwordHash },
+      select: { id: true },
+    });
+  }
+
   async incrementTokenVersion(id: string) {
     return this.client.investor.update({
       where: { id },
@@ -104,7 +112,9 @@ export class InvestorRepository {
       for (const lain of pemilikLain) {
         await tx.investor.update({
           where: { id: lain.id },
-          data: { fcmTokens: { set: lain.fcmTokens.filter((t) => t !== token) } },
+          data: {
+            fcmTokens: { set: lain.fcmTokens.filter((t) => t !== token) },
+          },
         });
       }
 
@@ -129,7 +139,9 @@ export class InvestorRepository {
     if (!investor?.fcmTokens.includes(token)) return;
     await this.client.investor.update({
       where: { id },
-      data: { fcmTokens: { set: investor.fcmTokens.filter((t) => t !== token) } },
+      data: {
+        fcmTokens: { set: investor.fcmTokens.filter((t) => t !== token) },
+      },
     });
   }
 

@@ -1,4 +1,6 @@
-import { compare } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
+
+import { createRouteServiceError } from "@/lib/api/route-service-error";
 
 import {
   INVESTOR_MOBILE_ROLE,
@@ -10,6 +12,9 @@ import { prismaAuth } from "@/modules/database";
 import { InvestorRepository } from "../repositories/InvestorRepository";
 
 const STATUS_TIDAK_AKTIF = 403;
+const STATUS_VALIDASI = 400;
+const PANJANG_PASSWORD_MIN = 6;
+const PUTARAN_HASH_PASSWORD = 10;
 const PESAN_PASSWORD_SALAH = "Password salah";
 const PESAN_TIDAK_AKTIF = "Akun investor dinonaktifkan. Silakan hubungi Admin.";
 
@@ -41,7 +46,11 @@ export type MobileInvestorLoginResult =
   | {
       found: true;
       success: true;
-      data: { token: string; refreshToken: string; user: MobileInvestorProfile };
+      data: {
+        token: string;
+        refreshToken: string;
+        user: MobileInvestorProfile;
+      };
     };
 
 type InvestorRecord = NonNullable<
@@ -62,6 +71,10 @@ function bangunProfil(investor: InvestorRecord): MobileInvestorProfile {
   };
 }
 
+function bacaTeks(nilai: unknown): string {
+  return typeof nilai === "string" ? nilai : "";
+}
+
 function gagal(error: string, status = 401): MobileInvestorLoginResult {
   return { found: true, success: false, error, status };
 }
@@ -76,7 +89,9 @@ export class MobileInvestorAuthService {
    * Login investor. `found: false` bila identitas bukan milik investor, supaya
    * rantai login mobile lanjut/berhenti seperti tipe akun lain.
    */
-  async tryLogin(input: MobileInvestorLoginInput): Promise<MobileInvestorLoginResult> {
+  async tryLogin(
+    input: MobileInvestorLoginInput,
+  ): Promise<MobileInvestorLoginResult> {
     const investor = await this.investorRepository.findByLoginIdentifier(
       input.email.trim(),
     );
@@ -104,6 +119,68 @@ export class MobileInvestorAuthService {
     const investor = await this.investorRepository.findById(session.id);
     if (!investor?.isActive) return null;
     return signInvestorMobileTokens(investor, versi);
+  }
+
+  /**
+   * Ganti password investor dari aplikasi. Sebelumnya investor sama sekali
+   * tidak punya jalan mengganti passwordnya sendiri: layarnya tidak ada dan
+   * `/api/mobile/profile/password` menolak token investor (audience berbeda),
+   * sehingga rotasi hanya bisa lewat admin.
+   *
+   * Seperti jalur karyawan/mitra/pelanggan, seluruh sesi dicabut sesudahnya —
+   * tanpa itu refresh token yang sudah beredar tetap sah sampai 30 hari dan
+   * mengganti password tidak mengusir sesi yang bocor.
+   */
+  async gantiPassword(
+    investorId: string,
+    input: {
+      currentPassword?: unknown;
+      newPassword?: unknown;
+      confirmPassword?: unknown;
+    },
+  ): Promise<void> {
+    const lama = bacaTeks(input.currentPassword);
+    const baru = bacaTeks(input.newPassword);
+    const konfirmasi = bacaTeks(input.confirmPassword);
+
+    if (!lama || !baru || !konfirmasi) {
+      throw createRouteServiceError(
+        "Password lama, password baru, dan konfirmasi password wajib diisi",
+        STATUS_VALIDASI,
+      );
+    }
+    if (baru !== konfirmasi) {
+      throw createRouteServiceError(
+        "Password baru dan konfirmasi password tidak cocok",
+        STATUS_VALIDASI,
+      );
+    }
+    if (baru.length < PANJANG_PASSWORD_MIN) {
+      throw createRouteServiceError(
+        `Password harus minimal ${PANJANG_PASSWORD_MIN} karakter`,
+        STATUS_VALIDASI,
+      );
+    }
+
+    const investor = await this.investorRepository.findById(investorId);
+    if (!investor?.isActive) {
+      throw createRouteServiceError(PESAN_TIDAK_AKTIF, STATUS_TIDAK_AKTIF);
+    }
+    if (!investor.passwordHash) {
+      throw createRouteServiceError(
+        "Password belum diatur, silakan hubungi Admin",
+        STATUS_VALIDASI,
+      );
+    }
+    if (!(await compare(lama, investor.passwordHash))) {
+      throw createRouteServiceError("Password lama salah", STATUS_VALIDASI);
+    }
+
+    await this.investorRepository.updatePasswordHash(
+      investorId,
+      await hash(baru, PUTARAN_HASH_PASSWORD),
+    );
+    await this.investorRepository.incrementTokenVersion(investorId);
   }
 
   /** Logout: semua token mobile investor ini tidak berlaku lagi. */
