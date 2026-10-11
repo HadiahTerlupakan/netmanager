@@ -256,7 +256,15 @@ diperbarui, bukan ditumpuk.
 
 ### `Planning`
 
+```prisma
+spareKabelPersen Float @default(0)  // cadangan kabel untuk seluruh planning
+```
+
 Menerima relasi balik `nodes MappingNode[]`, `edges MappingEdge[]`.
+
+Bawaan `0` dipilih agar planning lama maupun baru tidak pernah mendapat
+cadangan yang tidak diminta siapa pun; menaikkannya adalah tindakan sadar.
+Divalidasi 0–100.
 
 **Catatan**: `Planning.coordinates Json?` yang ada tetap dipertahankan sebagai
 titik pusat area untuk tampilan daftar dan peta awal. Tidak diubah.
@@ -322,18 +330,27 @@ daripada titik yang kosong, karena seluruh perhitungan kabel ikut salah.
 
 Fungsi murni di `modules/planning/domain/kebutuhan-material-osp.ts`.
 
-**Masukan**: daftar titik rencana (`type`, `splitter`) dan daftar garis rencana
-(`fiberType`, `distance`).
+**Masukan**: daftar titik rencana (`type`, `splitter`), daftar garis rencana
+(`fiberType`, `distance`), dan persentase cadangan kabel planning.
 
 **Keluaran**:
 
 ```ts
 interface KebutuhanMaterialOsp {
-  kabel: Array<{ jenisFiber: string; totalMeter: number }>;
+  kabel: Array<{
+    jenisFiber: string;
+    meterTerukur: number; // hasil ukur jalur di peta
+    meterDipesan: number; // setelah cadangan diterapkan
+  }>;
   splitter: Array<{ rasio: string; jumlah: number }>;
   jumlahTitik: { odp: number; odc: number };
+  spareKabelPersen: number;
 }
 ```
+
+Kedua angka kabel disimpan berdampingan, bukan hanya hasil akhirnya, supaya
+pembaca dapat memisahkan "berapa yang terukur" dari "berapa yang dibeli" tanpa
+menghitung mundur.
 
 Aturan:
 
@@ -341,18 +358,50 @@ Aturan:
   feeder, distribusi, dan drop berbeda
 - Garis tanpa `distance` dihitung ulang dari koordinat + titik belok memakai
   `calculateMapDistance` yang sudah ada — bukan diabaikan diam-diam
-- Rekap splitter dikelompokkan per rasio (`1:8`, `1:16`), dihitung dari titik
-  ODC dan ODP rencana
-- Titik tanpa rasio splitter dilaporkan terpisah sebagai "belum ditentukan",
-  tidak diasumsikan `1:8`
+- Rekap splitter dikelompokkan per rasio, dihitung dari titik ODC dan ODP
+  rencana
 
-Keputusan terakhir itu disengaja: diam-diam mengasumsikan `1:8` akan
-menghasilkan angka anggaran yang terlihat benar padahal tidak diisi siapa pun.
+### 7.1 Rasio splitter
 
-**Cadangan kabel** (kabel selalu dibeli lebih panjang dari jarak lurus) tidak
-dihitung otomatis. Angka yang disajikan adalah panjang jalur terukur; kebijakan
-cadangan berbeda tiap perusahaan, dan menyembunyikannya di dalam rumus membuat
-angka sulit ditelusuri. Pengguna menambahkannya sebagai item manual.
+Memakai daftar yang **sudah ada** di `components/map/node-form-utils.ts:17`,
+bukan daftar baru:
+
+| Tipe | Rasio tersedia |
+|---|---|
+| ODC | `1:2`, `1:4`, `1:8`, `1:16`, `1:32`, `1:64` |
+| ODP | `1:2`, `1:4`, `1:8`, `1:16`, `1:32` |
+
+Daftar ini sengaja tidak dipersempit. Bila peta planning dan peta operasional
+menawarkan pilihan berbeda untuk hal yang sama, keduanya jadi sumber kebenaran
+yang bersaing. Kalau rasio di atas `1:16` memang tidak dipakai di lapangan,
+penyempitannya dilakukan di kedua tempat sekaligus, sebagai perubahan
+tersendiri.
+
+**Perbedaan dari form peta operasional**: di sana field splitter sudah
+terpilih `1:8` secara otomatis (`NodeFormModal.tsx:219`). Untuk titik rencana,
+field ini **dimulai kosong dan wajib dipilih**.
+
+Alasannya: di peta operasional nilai bawaan hanyalah tebakan yang bisa
+diperbaiki. Di dokumen anggaran, field yang tidak pernah disentuh perencana
+diam-diam menjadi jumlah barang yang dibeli. Memaksa pilihan eksplisit lebih
+murah daripada menemukan kesalahannya setelah barang dipesan.
+
+### 7.2 Cadangan kabel (spare)
+
+Cadangan **tidak** dihitung per ruas kabel. Ia diterapkan satu kali di akhir,
+sebagai persentase milik planning.
+
+- `Planning.spareKabelPersen` — persentase cadangan untuk seluruh planning
+- Panjang yang dipesan = panjang terukur × (1 + persentase)
+- Berlaku ke semua jenis fiber dalam planning itu
+
+Setiap item kabel tetap **satu baris per jenis** dengan jumlah akhir yang bisa
+langsung dipesan, dan asal angkanya tertulis di `notes` item, misalnya
+`terukur 1.240 m + cadangan 10%`.
+
+Bentuk ini menjaga dua hal sekaligus: yang dibaca bagian pengadaan adalah satu
+angka siap pesan, sementara penurunannya tetap bisa ditelusuri saat ditanya —
+cadangan tidak pernah tersembunyi di dalam rumus.
 
 ## 8. Izin
 
@@ -383,7 +432,9 @@ Isinya:
 - Tombol tambah titik → panel dengan tiga cara input (§6)
 - Penarikan jalur kabel memakai overlay yang sudah ada; panjang tampil langsung
   saat menarik
-- Panel ringkasan: total kabel per jenis, rekap splitter, jumlah titik
+- Panel ringkasan: kabel per jenis (terukur dan setelah cadangan), rekap
+  splitter, jumlah titik, serta field persentase cadangan yang bisa diubah dan
+  langsung memperbarui angka pesanan
 - Tombol **"Perbarui kebutuhan material"** yang menuliskan rekap ke
   `PlanningItem`, dengan pratinjau perubahan sebelum ditulis
 - Unggah foto per titik dari popup titiknya
@@ -395,7 +446,7 @@ planning; detailnya ditentukan saat perencanaan implementasi.
 
 | Lapisan | Yang diuji |
 |---|---|
-| Domain (murni) | perhitungan kabel per jenis, rekap splitter, titik tanpa rasio, garis tanpa `distance` |
+| Domain (murni) | kabel per jenis, rekap splitter, garis tanpa `distance`, cadangan 0% tidak mengubah angka, pembulatan saat cadangan diterapkan |
 | Pengurai tautan | tiap bentuk URL, pengutamaan `!3d`/`!4d`, koordinat di luar rentang, tautan sampah |
 | Penjaga SSRF | host di luar daftar, pengalihan yang berpindah ke host lain di tengah jalan, IP privat, melebihi batas pengalihan, batas waktu |
 | Repository | **node & edge rencana tidak muncul** di pembacaan topologi — node, edge, dan topologi mobile, masing-masing terpisah |
@@ -414,7 +465,7 @@ uji mutasi (balikkan perbaikannya, pastikan tes merah).
 | Jalur pembuatan dari planning lupa menyetel `isPlanned` | satu jalur kode, dikunci tes; bawaan `false` dipilih demi keamanan data lama |
 | Tautan pendek membuka SSRF | daftar host tertutup diperiksa tiap hop, tanpa kredensial, batas waktu & pengalihan |
 | Tile Google tidak resmi diputus | sudah menjadi kondisi hari ini, bukan dampak desain ini; dicatat agar diketahui |
-| Angka anggaran salah karena asumsi tersembunyi | rasio kosong dilaporkan, bukan diasumsikan; cadangan kabel tidak disembunyikan di rumus |
+| Angka anggaran salah karena asumsi tersembunyi | rasio splitter wajib dipilih (tanpa bawaan `1:8`); cadangan berupa persentase eksplisit milik planning, bawaan 0, penurunannya tertulis di item |
 | `MappingNode` dipakai dua konteks sehingga membingungkan | dinamai eksplisit di DTO & UI; tabel mati §3.4 tidak ditambah perannya |
 
 ## 12. Pertanyaan terbuka
