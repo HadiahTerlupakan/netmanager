@@ -2,9 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => {
   const transaction = {
-    mappingEdge: { deleteMany: vi.fn() },
+    mappingEdge: {
+      deleteMany: vi.fn(),
+      findMany: vi.fn(),
+      createMany: vi.fn(),
+      update: vi.fn(),
+    },
     mappingNode: {
       deleteMany: vi.fn(),
+      findMany: vi.fn(),
       createMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -45,6 +51,8 @@ beforeEach(() => {
   prismaMock.mappingEdge.count.mockResolvedValue(0);
   prismaMock.mappingNode.updateMany.mockResolvedValue({ count: 0 });
   prismaMock.mappingEdge.updateMany.mockResolvedValue({ count: 0 });
+  prismaMock.transaction.mappingNode.findMany.mockResolvedValue([]);
+  prismaMock.transaction.mappingEdge.findMany.mockResolvedValue([]);
   prismaMock.$transaction.mockImplementation(
     async (callback: (tx: typeof prismaMock.transaction) => unknown) =>
       callback(prismaMock.transaction),

@@ -6,7 +6,10 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
-    exclude: ["node_modules", ".next"],
+    // `tests/db/` butuh Prisma SUNGGUHAN; `tests/setup.ts` me-mock-nya secara
+    // global. Berkas-berkas itu punya konfigurasi sendiri: vitest.config.db.ts
+    // (`npm run test:db`).
+    exclude: ["node_modules", ".next", "tests/db/**"],
     setupFiles: ["./tests/setup.ts"],
     coverage: {
       provider: "v8",

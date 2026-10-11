@@ -123,6 +123,51 @@ export async function createManyMappingNodes(
   });
 }
 
+/**
+ * Kolom node yang dikuasai payload sinkronisasi peta — tepat kolom yang
+ * ditulis `createManyMappingNodes`, tidak lebih.
+ *
+ * Yang SENGAJA tidak disentuh: `planningId`, `isPlanned`, `siteId`, `photo`,
+ * dan `metadata`. Payload dari UI peta tidak membawanya, sehingga menuliskannya
+ * berarti menghapusnya. Khususnya `planningId` — titik rencana yang sudah
+ * terbit memegang kolom itu, dan `PlanningDocument.nodeId` ber-`SET NULL`,
+ * jadi mencabutnya ikut melepaskan foto survei yang menempel.
+ */
+export function toSyncNodeUpdateData(
+  node: SyncMapDataInput["nodes"][number],
+): Prisma.MappingNodeUncheckedUpdateInput {
+  return {
+    type: normalizeSyncType(node.type as SyncNodeType),
+    name: node.name,
+    latitude: node.latitude,
+    longitude: node.longitude,
+    capacity: node.capacity ?? DEFAULT_SYNC_NODE_CAPACITY,
+    splitter: node.splitter ?? null,
+    pppoe: node.pppoe ?? null,
+    serialNumber: node.serialNumber ?? null,
+    notes: node.notes ?? null,
+  };
+}
+
+/**
+ * Kolom jalur yang dikuasai payload sinkronisasi peta.
+ *
+ * `planningId` dan `isPlanned` tidak disentuh, dengan alasan yang sama seperti
+ * `toSyncNodeUpdateData`.
+ */
+export function toSyncEdgeUpdateData(
+  edge: SyncMapDataInput["edges"][number],
+): Prisma.MappingEdgeUncheckedUpdateInput {
+  return {
+    source: edge.source,
+    target: edge.target,
+    fiberType: edge.fiberType ?? DEFAULT_EDGE_FIBER_TYPE,
+    distance: edge.distance ?? null,
+    waypoints: edge.waypoints ?? null,
+    notes: edge.notes ?? null,
+  };
+}
+
 export async function createManyMappingEdges(
   transaction: MappingTransactionClient,
   edges: SyncMapDataInput["edges"],

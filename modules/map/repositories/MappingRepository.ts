@@ -25,6 +25,8 @@ import {
   toEdgeUpdateData,
   toNodeCreateData,
   toNodeUpdateData,
+  toSyncEdgeUpdateData,
+  toSyncNodeUpdateData,
 } from "./mapping-repository.helpers";
 
 const EDGE_INCLUDE = {
@@ -218,16 +220,103 @@ export class MappingRepository implements IMappingRepository {
     });
   }
 
+  /**
+   * Menyelaraskan seluruh topologi NYATA milik tenant dengan payload.
+   *
+   * Dulu bentuknya hapus-semua lalu tulis-ulang, dan itu menghancurkan
+   * identitas baris. Titik rencana yang SUDAH TERBIT ber-`isPlanned: false`,
+   * jadi ia ikut tersapu — padahal ia tetap memegang `planningId`, dan payload
+   * dari UI peta tidak membawa kolom itu. Setiap sinkronisasi karena itu
+   * mencabut `planningId` dari setiap titik terbit dan, karena
+   * `PlanningDocument.nodeId` ber-`SET NULL`, melepaskan foto survei yang
+   * menempel padanya. Hasil kerja lapangan sebuah planning hilang sebagai efek
+   * samping menekan "sinkronkan".
+   *
+   * Sekarang baris yang masih ada di payload DIPERBARUI di tempat: PK-nya tidak
+   * pernah berganti, sehingga `planningId` dan FK foto bertahan. Yang hilang
+   * dari payload tetap dihapus — itu memang penghapusan yang diminta pengguna.
+   *
+   * Efek samping yang menguntungkan: sebelumnya penghapusan menyeluruh itu
+   * ditolak FK `Restrict` begitu ada satu jalur rencana yang menunjuk node
+   * nyata, sehingga sinkronisasi gagal seluruhnya di tenant yang punya rencana
+   * OSP aktif. Memperbarui di tempat tidak menyentuh FK itu.
+   */
   async syncAllMappingData(ctx: TenantContext, data: SyncMapDataInput) {
+    const tenantWhere = buildTenantWhere(ctx);
+    const lingkupNyata = batasanLingkup("nyata");
+    const nodeIdPayload = data.nodes.map((node) => node.nodeId);
+    const edgeIdPayload = data.edges.map((edge) => edge.edgeId);
+
     await prisma.$transaction(async (transaction) => {
+      // Jalur lebih dulu: ia memegang FK ke node.
+      //
+      // `notIn: []` berarti "tak satu pun dikecualikan", jadi payload kosong
+      // menghapus seluruh topologi nyata — persis arti sinkronisasi dengan peta
+      // kosong. Perilaku itu dikunci di
+      // `tests/integration/map/sinkronisasi-peta-db-nyata.test.ts`.
       await transaction.mappingEdge.deleteMany({
-        where: { ...buildTenantWhere(ctx), ...batasanLingkup("nyata") },
+        where: {
+          ...tenantWhere,
+          ...lingkupNyata,
+          edgeId: { notIn: edgeIdPayload },
+        },
       });
       await transaction.mappingNode.deleteMany({
-        where: { ...buildTenantWhere(ctx), ...batasanLingkup("nyata") },
+        where: {
+          ...tenantWhere,
+          ...lingkupNyata,
+          nodeId: { notIn: nodeIdPayload },
+        },
       });
-      await createManyMappingNodes(transaction, data.nodes, ctx.tenantId);
-      await createManyMappingEdges(transaction, data.edges, ctx.tenantId);
+
+      const nodeBertahan = await transaction.mappingNode.findMany({
+        where: {
+          ...tenantWhere,
+          ...lingkupNyata,
+          nodeId: { in: nodeIdPayload },
+        },
+        select: { nodeId: true },
+      });
+      const nodeSudahAda = new Set(nodeBertahan.map((node) => node.nodeId));
+
+      for (const node of data.nodes) {
+        if (!nodeSudahAda.has(node.nodeId)) continue;
+        await transaction.mappingNode.update({
+          where: { nodeId: node.nodeId },
+          data: toSyncNodeUpdateData(node),
+        });
+      }
+      await createManyMappingNodes(
+        transaction,
+        data.nodes.filter((node) => !nodeSudahAda.has(node.nodeId)),
+        ctx.tenantId,
+      );
+
+      const jalurBertahan = await transaction.mappingEdge.findMany({
+        where: {
+          ...tenantWhere,
+          ...lingkupNyata,
+          edgeId: { in: edgeIdPayload },
+        },
+        select: { edgeId: true },
+      });
+      const jalurSudahAda = new Set(jalurBertahan.map((edge) => edge.edgeId));
+
+      // Jalur diperbarui setelah node dibuat: `source`/`target` sebuah jalur
+      // yang bertahan boleh berpindah ke node yang baru lahir di sinkronisasi
+      // ini.
+      for (const edge of data.edges) {
+        if (!jalurSudahAda.has(edge.edgeId)) continue;
+        await transaction.mappingEdge.update({
+          where: { edgeId: edge.edgeId },
+          data: toSyncEdgeUpdateData(edge),
+        });
+      }
+      await createManyMappingEdges(
+        transaction,
+        data.edges.filter((edge) => !jalurSudahAda.has(edge.edgeId)),
+        ctx.tenantId,
+      );
     });
   }
 
