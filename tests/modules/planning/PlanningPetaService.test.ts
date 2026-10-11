@@ -301,7 +301,7 @@ describe("PlanningPetaService", () => {
         Promise.resolve(node({ nodeId: id, ...peta[id] }))) as never);
     };
     const rencanaIni = { isPlanned: true, planningId: "plan-1" };
-    const nyata = { isPlanned: false, planningId: null };
+    const nyata = { isPlanned: false, planningId: null as string | null };
 
     it("menerima rencana ke rencana (planning yang sama)", async () => {
       ujung({ "n-1": rencanaIni, "n-2": rencanaIni });
