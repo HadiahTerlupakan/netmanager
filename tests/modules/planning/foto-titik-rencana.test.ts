@@ -63,7 +63,7 @@ function foto(name = "odp.jpg", type = "image/jpeg", size = 1024): File {
 describe("foto survei per titik rencana", () => {
   let planningRepo: Mocked<Pick<IPlanningRepository, "findById">>;
   let documentRepo: Mocked<Pick<IPlanningDocumentRepository, "create">>;
-  let petaRepo: Mocked<Pick<PlanningPetaRepository, "ambilTitikMilikPlanning">>;
+  let petaRepo: Mocked<Pick<PlanningPetaRepository, "ambilTitikAsalPlanning">>;
   let simpanGambar: Mocked<SimpanGambarPlanning>;
   let auditService: Mocked<Pick<PlanningAuditService, "logChange">>;
   let service: PlanningDocumentService;
@@ -85,7 +85,7 @@ describe("foto survei per titik rencana", () => {
       ),
     };
     petaRepo = {
-      ambilTitikMilikPlanning: vi
+      ambilTitikAsalPlanning: vi
         .fn()
         .mockResolvedValue({ nodeId: "n-1" } as MappingNode),
     };
@@ -108,7 +108,7 @@ describe("foto survei per titik rencana", () => {
       "tenant-1",
     );
 
-    expect(petaRepo.ambilTitikMilikPlanning).toHaveBeenCalledWith(
+    expect(petaRepo.ambilTitikAsalPlanning).toHaveBeenCalledWith(
       "n-1",
       "plan-1",
     );
@@ -154,8 +154,39 @@ describe("foto survei per titik rencana", () => {
     expect(hasil.success).toBe(false);
   });
 
+  /**
+   * Jalur foto dulu memakai `ambilTitikMilikPlanning`, yang menyaring
+   * `isPlanned: true`. Akibatnya tepat setelah titik diterbitkan tidak ada
+   * cara menempelkan foto ke titik itu lagi — padahal foto hasil pekerjaan
+   * baru ada setelah titiknya dibangun, dan service ini sengaja tidak
+   * mengunci status.
+   */
+  it("tetap menerima foto untuk titik yang sudah diterbitkan", async () => {
+    petaRepo.ambilTitikAsalPlanning.mockResolvedValue({
+      nodeId: "n-1",
+      planningId: "plan-1",
+      isPlanned: false,
+    } as MappingNode);
+
+    const hasil = await service.upload(
+      "plan-1",
+      { file: foto(), nodeId: "n-1" },
+      "user-1",
+      "tenant-1",
+    );
+
+    expect(petaRepo.ambilTitikAsalPlanning).toHaveBeenCalledWith(
+      "n-1",
+      "plan-1",
+    );
+    expect(hasil.nodeId).toBe("n-1");
+    expect(documentRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ nodeId: "n-1", category: "SURVEY_PHOTO" }),
+    );
+  });
+
   it("menolak menautkan foto ke titik milik planning lain", async () => {
-    petaRepo.ambilTitikMilikPlanning.mockResolvedValue(null);
+    petaRepo.ambilTitikAsalPlanning.mockResolvedValue(null);
 
     await expect(
       service.upload(
@@ -178,7 +209,7 @@ describe("foto survei per titik rencana", () => {
       "tenant-1",
     );
 
-    expect(petaRepo.ambilTitikMilikPlanning).not.toHaveBeenCalled();
+    expect(petaRepo.ambilTitikAsalPlanning).not.toHaveBeenCalled();
     expect(documentRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ nodeId: null, category: "NETWORK_DIAGRAM" }),
     );

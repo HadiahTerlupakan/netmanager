@@ -131,6 +131,32 @@ describe("PlanningPetaRepository", () => {
     });
   });
 
+  /**
+   * Saudara di atas tanpa penyaring `isPlanned`. `isPlanned: true` merangkap
+   * dua pertanyaan — "milik planning ini" dan "belum dibangun"; yang ini
+   * hanya menanyakan yang pertama, supaya foto masih bisa ditempelkan setelah
+   * titiknya terbit.
+   */
+  describe("ambilTitikAsalPlanning", () => {
+    it("mengembalikan titik rencana maupun yang sudah terbit dari planning itu", async () => {
+      penyimpanan.nodes = [
+        node({ nodeId: "rencana" }),
+        node({ nodeId: "terbit", isPlanned: false }),
+        node({ nodeId: "lain", planningId: "plan-2" }),
+        node({ nodeId: "yatim", planningId: null }),
+      ];
+
+      expect(
+        await repo.ambilTitikAsalPlanning("rencana", "plan-1"),
+      ).not.toBeNull();
+      expect(
+        await repo.ambilTitikAsalPlanning("terbit", "plan-1"),
+      ).not.toBeNull();
+      expect(await repo.ambilTitikAsalPlanning("lain", "plan-1")).toBeNull();
+      expect(await repo.ambilTitikAsalPlanning("yatim", "plan-1")).toBeNull();
+    });
+  });
+
   describe("ambilNodeNyataInfrastruktur", () => {
     it("hanya node nyata setenant yang bisa menjadi ujung jalur", async () => {
       penyimpanan.nodes = [

@@ -88,12 +88,37 @@ export class PlanningPetaRepository {
   }
 
   /**
-   * Titik rencana milik planning tertentu. Penyaringan ada di query: titik
-   * terbit, titik planning lain, atau yatim tidak pernah ikut terbaca.
+   * Titik **rencana yang belum dibangun** milik planning tertentu. Penyaringan
+   * ada di query: titik terbit, titik planning lain, atau yatim tidak pernah
+   * ikut terbaca.
+   *
+   * `isPlanned: true` di sini merangkap dua pertanyaan: "milik planning ini"
+   * DAN "belum dibangun". Untuk mengubah atau menghapus titik, merangkapnya
+   * benar — titik yang sudah masuk topologi operasional tidak boleh lagi
+   * disentuh lewat jalur planning. Untuk hal yang sah dilakukan setelah titik
+   * terbit (melampirkan foto, misalnya) merangkapnya SALAH: titiknya akan
+   * dianggap tidak ada. Pakai `ambilTitikAsalPlanning` untuk pertanyaan yang
+   * kedua, yang hanya menanyakan asal-usul.
    */
   ambilTitikMilikPlanning(nodeId: string, planningId: string) {
     return prisma.mappingNode.findFirst({
       where: { nodeId, planningId, isPlanned: true },
+    });
+  }
+
+  /**
+   * Titik yang **berasal dari** planning tertentu, terbit maupun belum.
+   *
+   * Saudara `ambilTitikMilikPlanning` tanpa penyaring `isPlanned`: `planningId`
+   * sengaja dipertahankan setelah penerbitan sebagai jejak asal-usul, jadi
+   * kolom itulah jawaban atas "titik ini milik rencana mana". Dipakai jalur
+   * foto titik, yang justru harus tetap bisa dipakai setelah titik dibangun
+   * (`COMPLETION_PHOTO` memang diunggah setelah pekerjaan selesai). Tetap
+   * menolak titik planning lain dan titik yatim.
+   */
+  ambilTitikAsalPlanning(nodeId: string, planningId: string) {
+    return prisma.mappingNode.findFirst({
+      where: { nodeId, planningId },
     });
   }
 

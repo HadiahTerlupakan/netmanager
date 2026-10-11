@@ -60,8 +60,9 @@ export const simpanGambarPlanning: SimpanGambarPlanning = (
  * PlanningDocumentService
  *
  * Unggah gambar dokumen sebuah Planning OSP. Foto dapat ditautkan ke titik
- * rencananya (`nodeId`) sebagai foto survei; tanpa `nodeId` berkas menjadi
- * lampiran tingkat proyek.
+ * yang berasal dari rencana itu (`nodeId`) sebagai foto survei; tanpa
+ * `nodeId` berkas menjadi lampiran tingkat proyek. Titik yang sudah terbit
+ * menjadi node jaringan tetap menerima foto — lihat `assertTitikAsalPlanning`.
  *
  * Tidak ada kunci status rencana pada unggahan: item dan milestone dikunci
  * karena mengubah angka yang sudah disetujui, sedangkan dokumen hanyalah
@@ -79,9 +80,9 @@ export class PlanningDocumentService {
 
   /**
    * Mengunggah gambar ke sebuah planning milik tenant pemanggil.
-   * Bila `nodeId` diisi, titik wajib titik rencana milik planning ini
-   * (disaring di query repository) dan kategorinya dipaksa `SURVEY_PHOTO`,
-   * mengabaikan kategori kiriman klien.
+   * Bila `nodeId` diisi, titik wajib berasal dari planning ini (disaring di
+   * query repository, terbit maupun belum) dan kategorinya dipaksa
+   * `SURVEY_PHOTO`, mengabaikan kategori kiriman klien.
    */
   async upload(
     planningId: string,
@@ -96,7 +97,7 @@ export class PlanningDocumentService {
 
     const nodeId = input.nodeId ?? null;
     if (nodeId) {
-      await this.assertTitikMilikPlanning(nodeId, planningId);
+      await this.assertTitikAsalPlanning(nodeId, planningId);
     }
 
     this.assertBerkasValid(input.file);
@@ -133,12 +134,21 @@ export class PlanningDocumentService {
     return PlanningDocumentMapper.toDTO(created);
   }
 
-  /** Titik yang bukan titik rencana planning ini dianggap tidak ada. */
-  private async assertTitikMilikPlanning(
+  /**
+   * Titik yang tidak berasal dari planning ini dianggap tidak ada.
+   *
+   * Memakai `ambilTitikAsalPlanning` (tanpa penyaring `isPlanned`), bukan
+   * `ambilTitikMilikPlanning`. Yang kedua menyaring titik yang sudah terbit,
+   * sehingga foto mustahil ditempelkan tepat setelah titiknya dibangun —
+   * padahal justru saat itulah foto lapangan ada, dan service ini sengaja
+   * tidak mengunci status (lihat docstring kelas). Penyaring tenant tetap
+   * dijaga lewat pemeriksaan kepemilikan planning di atas.
+   */
+  private async assertTitikAsalPlanning(
     nodeId: string,
     planningId: string,
   ): Promise<void> {
-    const titik = await this.petaRepo.ambilTitikMilikPlanning(
+    const titik = await this.petaRepo.ambilTitikAsalPlanning(
       nodeId,
       planningId,
     );
