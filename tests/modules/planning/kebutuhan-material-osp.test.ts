@@ -272,4 +272,96 @@ describe("hitungKebutuhanMaterialOsp", () => {
     ]);
     expect(hasil.jalurDiabaikan).toBe(2);
   });
+
+  /**
+   * Tiga jalan yang dulu membuat meter kabel hilang tanpa jejak: jalur itu
+   * dihitung sebagai garis lurus (lebih pendek dari kenyataan) atau mencemari
+   * total dengan NaN, dan dalam dua kasus pertama TIDAK masuk
+   * `jalurDiabaikan` — padahal field itu ada persis untuk itu.
+   */
+  describe("jalur yang panjangnya tidak bisa dipercaya", () => {
+    it("mengabaikan jalur yang kolom waypoints-nya rusak, bukan menganggapnya lurus", () => {
+      const hasil = hitungKebutuhanMaterialOsp(
+        [],
+        [
+          {
+            fiberType: "feeder",
+            distance: null,
+            sumber: { latitude: -6.2, longitude: 106.8 },
+            tujuan: { latitude: -6.3, longitude: 106.9 },
+            waypoints: null,
+          },
+        ],
+        0,
+      );
+
+      expect(hasil.kabel).toEqual([]);
+      expect(hasil.jalurDiabaikan).toBe(1);
+    });
+
+    it.each([
+      ["NaN pada sumber", { latitude: Number.NaN, longitude: 106.8 }],
+      [
+        "Infinity pada sumber",
+        { latitude: Number.POSITIVE_INFINITY, longitude: 106.8 },
+      ],
+    ])("mengabaikan jalur dengan %s", (_nama, sumber) => {
+      const hasil = hitungKebutuhanMaterialOsp(
+        [],
+        [
+          {
+            fiberType: "feeder",
+            distance: null,
+            sumber,
+            tujuan: { latitude: -6.3, longitude: 106.9 },
+            waypoints: [],
+          },
+        ],
+        0,
+      );
+
+      expect(hasil.kabel).toEqual([]);
+      expect(hasil.jalurDiabaikan).toBe(1);
+    });
+
+    it("mengabaikan jalur dengan titik belok NaN", () => {
+      const hasil = hitungKebutuhanMaterialOsp(
+        [],
+        [
+          {
+            fiberType: "feeder",
+            distance: null,
+            sumber: { latitude: -6.2, longitude: 106.8 },
+            tujuan: { latitude: -6.3, longitude: 106.9 },
+            waypoints: [[Number.NaN, 106.85]],
+          },
+        ],
+        0,
+      );
+
+      expect(hasil.kabel).toEqual([]);
+      expect(hasil.jalurDiabaikan).toBe(1);
+    });
+
+    it("tetap memakai distance tersimpan walau waypoints rusak", () => {
+      const hasil = hitungKebutuhanMaterialOsp(
+        [],
+        [
+          {
+            fiberType: "feeder",
+            distance: 340,
+            sumber: { latitude: -6.2, longitude: 106.8 },
+            tujuan: { latitude: -6.3, longitude: 106.9 },
+            waypoints: null,
+          },
+        ],
+        0,
+      );
+
+      expect(hasil.kabel).toEqual([
+        { jenisFiber: "feeder", meterTerukur: 340, meterDipesan: 340 },
+      ]);
+      expect(hasil.jalurDiabaikan).toBe(0);
+    });
+  });
 });

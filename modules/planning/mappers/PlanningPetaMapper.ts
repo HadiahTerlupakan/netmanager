@@ -1,22 +1,7 @@
 import type { MappingEdge, MappingNode } from "@prisma/client";
 
 import type { JalurRencanaDTO, TitikRencanaDTO } from "../dto/PlanningPetaDTO";
-
-/**
- * Membaca kolom `waypoints` (JSON string array koordinat, ditulis dengan
- * `JSON.stringify` seperti di editor peta operasional).
- * Isi yang rusak dianggap tanpa waypoint agar satu baris buruk tidak
- * menggagalkan seluruh peta.
- */
-function parseWaypoints(raw: string | null): Array<[number, number]> {
-  if (!raw) return [];
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Array<[number, number]>) : [];
-  } catch {
-    return [];
-  }
-}
+import { uraikanWaypoints } from "./waypoints-rencana";
 
 /** Pemetaan baris topologi rencana ke DTO respons. */
 export const PlanningPetaMapper = {
@@ -43,7 +28,12 @@ export const PlanningPetaMapper = {
       source: edge.source,
       target: edge.target,
       fiberType: edge.fiberType,
-      waypoints: parseWaypoints(edge.waypoints),
+      // Kolom rusak (`null`) diratakan menjadi `[]` di sini dan hanya di
+      // sini: jejaknya tidak diketahui, dan jalur yang tidak bisa digambar
+      // tidak boleh menggagalkan seluruh peta. Perhitungan material memakai
+      // pengurai yang sama tetapi menghormati `null`, sehingga jalur itu
+      // tetap masuk `jalurDiabaikan` alih-alih dihitung sebagai garis lurus.
+      waypoints: uraikanWaypoints(edge.waypoints) ?? [],
       distance: edge.distance,
       notes: edge.notes,
       isPlanned: edge.isPlanned,

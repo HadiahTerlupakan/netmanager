@@ -15,7 +15,7 @@ import {
   PlanningInvalidStateError,
   PlanningNotFoundError,
 } from "@/modules/planning/errors/planning-errors";
-import { uraikanWaypointsUntukHitung } from "@/modules/planning/mappers/PlanningMaterialMapper";
+import { uraikanWaypoints } from "@/modules/planning/mappers/waypoints-rencana";
 import { createFakeUnitOfWork } from "./helpers/fakeUnitOfWork";
 
 const now = new Date("2026-10-11T00:00:00.000Z");
@@ -342,7 +342,12 @@ describe("PlanningMaterialService", () => {
       );
     });
 
-    it("tetap menghitung jalur berwaypoint rusak dari garis lurus", async () => {
+    /**
+     * Dulu jalur ini dihitung sebagai garis lurus ujung-ke-ujung: lebih
+     * pendek dari kenyataan, dan TIDAK masuk `jalurDiabaikan`. Satu-satunya
+     * jalan yang masih membuat meter kabel hilang tanpa jejak.
+     */
+    it("mengabaikan jalur berwaypoint rusak dan mencatatnya di jalurDiabaikan", async () => {
       petaRepo.ambilTitikPerPlanning.mockResolvedValue([
         node({ nodeId: "n-1", latitude: -6.2, longitude: 106.8 }),
         node({ nodeId: "n-2", latitude: -6.21, longitude: 106.8 }),
@@ -356,7 +361,13 @@ describe("PlanningMaterialService", () => {
       const kabel = itemRepo.upsertBySourceKey.mock.calls
         .map((panggilan) => panggilan[0])
         .find((data) => data.sourceKey === "kabel:feeder");
-      expect(kabel?.quantity).toBeGreaterThan(1000);
+      expect(kabel).toBeUndefined();
+      expect(audit.logChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changes: expect.objectContaining({ jalurDiabaikan: 1 }),
+        }),
+        undefined,
+      );
     });
 
     it("membaca koordinat ujung jalur yang berupa node nyata", async () => {
@@ -426,18 +437,32 @@ describe("PlanningMaterialService", () => {
   });
 });
 
-describe("uraikanWaypointsUntukHitung", () => {
+describe("uraikanWaypoints", () => {
   it("menguraikan JSON pasangan koordinat", () => {
-    expect(uraikanWaypointsUntukHitung("[[-6.2,106.8],[-6.3,106.9]]")).toEqual([
+    expect(uraikanWaypoints("[[-6.2,106.8],[-6.3,106.9]]")).toEqual([
       [-6.2, 106.8],
       [-6.3, 106.9],
     ]);
   });
 
-  it.each([null, "", "{bukan json", '{"a":1}', "[[1]]", '[["a","b"]]'])(
-    "memperlakukan %j sebagai tanpa waypoint",
+  it.each([null, "", "[]"])(
+    "memperlakukan %j sebagai jalur tanpa titik belok",
     (mentah) => {
-      expect(uraikanWaypointsUntukHitung(mentah)).toEqual([]);
+      expect(uraikanWaypoints(mentah)).toEqual([]);
     },
   );
+
+  // `null` dibedakan dari `[]` dengan sengaja: baris rusak tidak boleh
+  // diperlakukan sebagai jalur lurus, karena panjangnya akan terhitung lebih
+  // pendek dari kenyataan tanpa ada yang menyadarinya.
+  it.each([
+    "{bukan json",
+    '{"a":1}',
+    "[[1]]",
+    '[["a","b"]]',
+    "[[null,106.8]]",
+    '[["-6.2","106.8"]]',
+  ])("melaporkan %j sebagai rusak, bukan kosong", (mentah) => {
+    expect(uraikanWaypoints(mentah)).toBeNull();
+  });
 });

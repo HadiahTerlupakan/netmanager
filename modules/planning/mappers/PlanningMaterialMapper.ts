@@ -5,37 +5,7 @@ import type {
   KoordinatRencana,
   TitikRencana,
 } from "../domain/kebutuhan-material-osp";
-
-const PANJANG_PASANGAN_KOORDINAT = 2;
-
-/** Apakah nilai berupa pasangan [latitude, longitude] berangka hingga. */
-function isPasanganKoordinat(nilai: unknown): nilai is [number, number] {
-  return (
-    Array.isArray(nilai) &&
-    nilai.length === PANJANG_PASANGAN_KOORDINAT &&
-    nilai.every((angka) => typeof angka === "number" && Number.isFinite(angka))
-  );
-}
-
-/**
- * Menguraikan kolom `waypoints` (String? berisi JSON) untuk perhitungan.
- * Kosong, gagal diurai, atau memuat satu elemen saja yang bukan pasangan
- * koordinat sah, maka seluruh waypoints jalur itu dianggap kosong (bukan hanya
- * elemen rusaknya). Data rusak tidak menggagalkan perhitungan anggaran; panjang
- * jalur tetap terhitung dari garis lurus ujung ke ujung.
- */
-export function uraikanWaypointsUntukHitung(
-  mentah: string | null,
-): Array<[number, number]> {
-  if (!mentah) return [];
-  try {
-    const hasil: unknown = JSON.parse(mentah);
-    if (!Array.isArray(hasil) || !hasil.every(isPasanganKoordinat)) return [];
-    return hasil;
-  } catch {
-    return [];
-  }
-}
+import { uraikanWaypoints } from "./waypoints-rencana";
 
 function koordinatDari(titik: MappingNode | undefined): KoordinatRencana {
   return {
@@ -51,7 +21,15 @@ export const PlanningMaterialMapper = {
     return { type: node.type, splitter: node.splitter };
   },
 
-  /** Baris `MappingEdge` + peta titik menjadi `JalurRencana`; ujung yang hilang berkoordinat null. */
+  /**
+   * Baris `MappingEdge` + peta titik menjadi `JalurRencana`; ujung yang
+   * hilang berkoordinat null.
+   *
+   * `waypoints` rusak diteruskan sebagai `null`, bukan diratakan menjadi
+   * `[]`: domain memakainya untuk menyatakan "panjang tidak bisa ditentukan"
+   * sehingga jalurnya masuk `jalurDiabaikan`, bukan dihitung sebagai garis
+   * lurus yang lebih pendek dari kenyataan.
+   */
   toJalurRencana(
     edge: MappingEdge,
     titikPerId: Map<string, MappingNode>,
@@ -61,7 +39,7 @@ export const PlanningMaterialMapper = {
       distance: edge.distance,
       sumber: koordinatDari(titikPerId.get(edge.source)),
       tujuan: koordinatDari(titikPerId.get(edge.target)),
-      waypoints: uraikanWaypointsUntukHitung(edge.waypoints),
+      waypoints: uraikanWaypoints(edge.waypoints),
     };
   },
 };

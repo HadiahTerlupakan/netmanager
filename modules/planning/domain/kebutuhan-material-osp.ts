@@ -25,7 +25,12 @@ export interface JalurRencana {
   distance: number | null;
   sumber: KoordinatRencana;
   tujuan: KoordinatRencana;
-  waypoints: Array<[number, number]>;
+  /**
+   * Titik belok jalur. `null` berarti kolom `waypoints` di basis data rusak,
+   * jadi jejak jalurnya tidak diketahui — berbeda dari `[]` yang berarti
+   * jalur itu memang lurus dari ujung ke ujung.
+   */
+  waypoints: Array<[number, number]> | null;
 }
 
 export interface KebutuhanMaterialOsp {
@@ -46,6 +51,18 @@ interface HasilJumlahKabel {
   jalurDiabaikan: number;
 }
 
+/**
+ * Wadah panjang kabel untuk jalur tanpa `fiberType`.
+ *
+ * DIPERTAHANKAN meski validator jalur rencana kini menutup `fiberType` dengan
+ * daftar enum bersama, sehingga jalur baru selalu berjenis. Alasannya kolom
+ * `MappingEdge.fiberType` tetap nullable di basis data dan diisi juga oleh
+ * jalur peta operasional serta impor CSV — baris lama tanpa jenis masih
+ * mungkin terbaca di sini. Tanpa wadah ini, baris seperti itu harus dibuang
+ * (meter kabel hilang tanpa jejak) atau membuat perhitungan anggaran melempar.
+ * Keduanya lebih buruk daripada satu baris BOQ bernama "Kabel lainnya" yang
+ * terang-terangan meminta diperiksa.
+ */
 const JENIS_FIBER_TAK_DIKENAL = "lainnya";
 const CADANGAN_PERSEN_MAKSIMAL = 100;
 const PERSEN_PENUH = 100;
@@ -63,9 +80,28 @@ function isDistanceTersedia(distance: number | null): distance is number {
   return distance !== null && Number.isFinite(distance) && distance > 0;
 }
 
-/** Menghitung panjang polyline sumber -> waypoints -> tujuan dalam meter, tanpa pembulatan. */
+/** Apakah pasangan koordinat berisi dua angka hingga (bukan NaN/Infinity). */
+function isPasanganHingga(pasangan: [number, number]): boolean {
+  return Number.isFinite(pasangan[0]) && Number.isFinite(pasangan[1]);
+}
+
+/**
+ * Menghitung panjang polyline sumber -> waypoints -> tujuan dalam meter,
+ * tanpa pembulatan. `null` berarti panjangnya tidak bisa ditentukan.
+ *
+ * Tiga sebab `null`, semuanya berujung di `jalurDiabaikan` supaya tidak ada
+ * meter kabel yang hilang tanpa jejak:
+ * 1. salah satu ujung tidak berkoordinat
+ * 2. kolom `waypoints` rusak, jadi jejak jalurnya tidak diketahui — jalur itu
+ *    TIDAK boleh diperlakukan sebagai garis lurus ujung-ke-ujung
+ * 3. ada koordinat `NaN`/`Infinity`; Haversine atasnya menghasilkan `NaN`
+ *    yang akan mencemari total satu jenis fiber tanpa gejala
+ */
 function hitungPanjangPolyline(jalur: JalurRencana): number | null {
-  const { sumber, tujuan } = jalur;
+  const { sumber, tujuan, waypoints } = jalur;
+  if (waypoints === null) {
+    return null;
+  }
   if (
     sumber.latitude === null ||
     sumber.longitude === null ||
@@ -77,9 +113,12 @@ function hitungPanjangPolyline(jalur: JalurRencana): number | null {
 
   const titik: Array<[number, number]> = [
     [sumber.latitude, sumber.longitude],
-    ...jalur.waypoints,
+    ...waypoints,
     [tujuan.latitude, tujuan.longitude],
   ];
+  if (!titik.every(isPasanganHingga)) {
+    return null;
+  }
 
   let total = 0;
   for (let i = 0; i < titik.length - 1; i += 1) {
@@ -93,7 +132,14 @@ function hitungPanjangPolyline(jalur: JalurRencana): number | null {
   return total;
 }
 
-/** Panjang satu jalur dalam meter: `distance` bila valid, kalau tidak dihitung dari koordinat. Null bila tidak bisa ditentukan. */
+/**
+ * Panjang satu jalur dalam meter: `distance` bila valid, kalau tidak dihitung
+ * dari koordinat. Null bila tidak bisa ditentukan.
+ *
+ * `distance` tetap menang atas waypoints yang rusak: angka itu hasil ukur
+ * yang tersimpan saat jalur digambar, jadi panjangnya memang sudah diketahui
+ * walau jejak beloknya tidak lagi bisa dibaca.
+ */
 function panjangJalur(jalur: JalurRencana): number | null {
   if (isDistanceTersedia(jalur.distance)) {
     return jalur.distance;
