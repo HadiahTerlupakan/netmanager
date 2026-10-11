@@ -27,8 +27,10 @@ if ! docker ps --format '{{.Names}}' | grep -qx "$KONTAINER"; then
   exit 1
 fi
 
+# Tanpa `-i`: SQL dioper lewat `-c`, dan `docker exec -i` akan menelan stdin
+# skrip ini.
 psql_sistem() {
-  docker exec -i "$KONTAINER" psql -U "$PENGGUNA" -d postgres -v ON_ERROR_STOP=1 "$@"
+  docker exec "$KONTAINER" psql -U "$PENGGUNA" -d postgres -v ON_ERROR_STOP=1 "$@" </dev/null
 }
 
 if [[ "${1:-}" == "--recreate" ]]; then

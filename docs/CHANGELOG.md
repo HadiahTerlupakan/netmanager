@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Perbaikan checksum migration dengan penjaga drift skema
+
+- **Tipe**: [INFRA]
+- **Scope**: `scripts/`
+- **Author**: agent
+- **Deskripsi**: Dua migration lama (`20260314015651_init_tenant_schema`,
+  `20261008095038_hapus_tabel_mati_work_order_material_returns`) punya checksum
+  basi di DB dev, yang menghalangi `prisma migrate dev`.
+  `scripts/repair-migration-checksum.sh` memperbaikinya, tapi hanya setelah
+  `prisma migrate diff` membuktikan struktur database sudah sama persis dengan
+  `schema.prisma` — tanpa penjaga itu, memperbarui hash justru MENYEMBUNYIKAN
+  drift skema sungguhan selamanya. Skrip menolak URL non-localhost dan
+  menuntut konfirmasi tertulis. DB dev sudah diperbaiki; `migrate status`
+  bersih.
+- **Files**: `scripts/repair-migration-checksum.sh`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Hapus node peta ditolak bila masih menyangga kabel rencana
 
 - **Tipe**: [FIXED]
