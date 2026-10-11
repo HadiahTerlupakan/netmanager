@@ -44,7 +44,10 @@ vi.mock("next/dynamic", async () => {
 
 import PlanningPetaTab from "@/app/admin/planning/[id]/peta/PlanningPetaTab";
 import { usePetaRencana } from "@/app/admin/planning/[id]/peta/usePetaRencana";
-import type { TitikRencanaDTO } from "@/modules/planning/client";
+import type {
+  BuatTitikRencanaInput,
+  TitikRencanaDTO,
+} from "@/modules/planning/client";
 
 const ID_RENCANA = "plan-1";
 const URL_PETA = `/api/planning/${ID_RENCANA}/peta/titik?lingkup=semua`;
@@ -739,8 +742,8 @@ describe("tab Peta planning OSP", () => {
       await render(panggung, <Penyelidik />);
       await tungguSampai(() => api !== null, "hook terpasang");
 
-      const masukan = {
-        type: "odp" as const,
+      const masukan: BuatTitikRencanaInput = {
+        type: "odp",
         name: "ODP-CPN-01",
         latitude: -6.2,
         longitude: 106.8,
