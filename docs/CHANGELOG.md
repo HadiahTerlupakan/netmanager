@@ -72,7 +72,13 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   jalur mobile menjawab 500 "Terjadi kesalahan pada server" — orang yang
   memotret tidak pernah tahu apa yang salah, dan kejadiannya tercatat sebagai
   galat server. Route web sudah memetakannya ke 400; jalur mobile kini sama,
-  untuk check-in maupun check-out.
+  untuk check-in maupun check-out. Hanya pesan bertipe
+  `AttendanceValidationError` yang diteruskan ke klien — galat sharp,
+  filesystem, atau jaringan membawa detail internal dan dijawab pesan umum
+  (dicatat di log server). Sekalian: medan `photo` pada multipart yang berisi
+  string tidak lagi diproses; `AttendancePhotoService` memperlakukan string
+  sebagai URL lalu mem-`fetch`-nya, sehingga klien bisa menyuruh server
+  menembak alamat internal dan membedakan host hidup/mati dari pesan galat.
 - **Files**: `modules/attendance/services/MobileAttendanceCheckInPayloadParser.ts`,
   `modules/attendance/services/MobileAttendanceCheckoutPayloadParser.ts`,
   `tests/modules/attendance/absensi-foto-tidak-valid.test.ts`

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, ErrorCodes } from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { AttendanceValidationError } from "../domain/errors";
 import { validateCoordinates } from "@/lib/validation-utils";
 import { AttendancePhotoService } from "./AttendancePhotoService";
 
@@ -12,6 +14,17 @@ export type MobileCheckoutPayload = {
   longitude?: number;
   offlineTime?: Date;
 };
+
+/**
+ * Pesan yang boleh dilihat klien. Hanya galat bertipe
+ * `AttendanceValidationError` yang memang ditulis untuk pengguna; sisanya
+ * (sharp, filesystem, jaringan) membawa path server dan detail internal —
+ * termasuk membedakan host yang hidup dan mati bila foto sempat di-`fetch`.
+ */
+function pesanFotoUntukPengguna(error: unknown): string {
+  if (error instanceof AttendanceValidationError) return error.message;
+  return "Foto tidak dapat diproses. Coba ambil ulang fotonya.";
+}
 
 export class MobileAttendanceCheckoutPayloadParser {
   constructor(private readonly photoService = new AttendancePhotoService()) {}
@@ -59,17 +72,25 @@ export class MobileAttendanceCheckoutPayloadParser {
     try {
       return await this.photoService.processPhoto(photo, userId, "checkout");
     } catch (error) {
+      logger.warn("Mobile check-out photo processing failed", {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw apiError(
-        error instanceof Error ? error.message : "Foto tidak valid",
+        pesanFotoUntukPengguna(error),
         ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
   }
 
   private async parseFormPayload(request: NextRequest, userId: string) {
     const formData = await request.formData();
-    const photo = formData.get("photo") as File | null;
+    // Lihat catatan di parser check-in: nilai string akan di-`fetch` server.
+    const photoField = formData.get("photo");
+    const photo = photoField instanceof File ? photoField : null;
     const payload: MobileCheckoutPayload = {
       photoUrl: await this.prosesFoto(photo, userId),
       notes: (formData.get("notes") as string) || "",

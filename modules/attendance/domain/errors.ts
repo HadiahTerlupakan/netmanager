@@ -20,6 +20,7 @@ export enum AttendanceErrorCode {
   OUTSIDE_GEOFENCE = "ATT_OUTSIDE_GEOFENCE",
   COORDINATES_REQUIRED = "ATT_COORDINATES_REQUIRED",
   ALREADY_CHECKED_IN = "ATT_ALREADY_CHECKED_IN",
+  PHOTO_INVALID = "ATT_PHOTO_INVALID",
 }
 
 /**
@@ -81,6 +82,18 @@ export const AttendanceErrors = {
       AttendanceErrorCode.CHECKIN_ELIGIBILITY,
       reason,
       { userId },
+    );
+  },
+
+  /**
+   * Foto absensi ditolak validasi. Bertipe khusus supaya route tahu pesan ini
+   * memang ditulis untuk pengguna — galat lain (sharp, filesystem, jaringan)
+   * membawa detail internal dan tidak boleh ikut dikirim ke klien.
+   */
+  photoInvalid(reason: string): AttendanceValidationError {
+    return new AttendanceValidationError(
+      AttendanceErrorCode.PHOTO_INVALID,
+      reason,
     );
   },
 

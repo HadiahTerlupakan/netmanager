@@ -4,6 +4,7 @@
  * Reduces code duplication across API routes
  */
 
+import { AttendanceErrors } from "../domain/errors";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import { ATTENDANCE_CONSTANTS } from "../utils/constants";
 import { AttendancePhotoValidationService } from "./AttendancePhotoValidationService";
@@ -33,7 +34,7 @@ export class AttendancePhotoService {
     if (photo instanceof File) return this.uploadPhotoFile(photo, userId, type);
     if (typeof photo === "string")
       return this.processBase64Photo(photo, userId, type);
-    throw new Error("Format foto tidak valid");
+    throw AttendanceErrors.photoInvalid("Format foto tidak valid");
   }
 
   /** Validate dan upload file foto absensi. */
@@ -54,7 +55,9 @@ export class AttendancePhotoService {
         fileName: photoFile.name,
         fileSize: photoFile.size,
       });
-      throw new Error(validationResult.error || "Validasi foto gagal");
+      throw AttendanceErrors.photoInvalid(
+        validationResult.error || "Validasi foto gagal",
+      );
     }
 
     logger.info("Photo validated successfully", {
@@ -93,12 +96,12 @@ export class AttendancePhotoService {
   /** Validasi tipe dan ukuran file foto absensi. */
   private validatePhotoFile(photoFile: File): void {
     if (!photoFile.type.startsWith("image/")) {
-      throw new Error("File harus berupa gambar");
+      throw AttendanceErrors.photoInvalid("File harus berupa gambar");
     }
 
     if (photoFile.size <= ATTENDANCE_CONSTANTS.MAX_PHOTO_SIZE) return;
     const maxSizeMB = ATTENDANCE_CONSTANTS.MAX_PHOTO_SIZE / BYTES_PER_MEGABYTE;
-    throw new Error(`Ukuran foto maksimal ${maxSizeMB}MB`);
+    throw AttendanceErrors.photoInvalid(`Ukuran foto maksimal ${maxSizeMB}MB`);
   }
 
   /** Bangun direktori upload harian untuk foto absensi. */

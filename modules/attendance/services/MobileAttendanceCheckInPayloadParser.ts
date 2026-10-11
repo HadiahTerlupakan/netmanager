@@ -1,4 +1,5 @@
 import { ErrorCodes, type ErrorCode } from "@/lib/api";
+import { AttendanceValidationError } from "../domain/errors";
 import { validateCoordinates } from "@/lib/validation-utils";
 import type { AttendancePhotoService } from "./AttendancePhotoService";
 import type {
@@ -53,6 +54,17 @@ function getOptionalString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+/**
+ * Pesan yang boleh dilihat klien. Hanya galat bertipe
+ * `AttendanceValidationError` yang memang ditulis untuk pengguna; sisanya
+ * (sharp, filesystem, jaringan) membawa path server dan detail internal —
+ * termasuk membedakan host yang hidup dan mati bila foto sempat di-`fetch`.
+ */
+function pesanFotoUntukPengguna(error: unknown): string {
+  if (error instanceof AttendanceValidationError) return error.message;
+  return "Foto tidak dapat diproses. Coba ambil ulang fotonya.";
+}
+
 export class MobileAttendanceCheckInPayloadParser {
   constructor(
     private readonly photo: Pick<AttendancePhotoService, "processPhoto">,
@@ -82,7 +94,11 @@ export class MobileAttendanceCheckInPayloadParser {
     );
     if (coordinates.error) return coordinates.error;
 
-    const photo = formData.get("photo") as File | null;
+    // Hanya berkas yang diproses. Nilai string pada medan ini diperlakukan
+    // `AttendancePhotoService` sebagai URL lalu di-`fetch`: klien tidak boleh
+    // bisa menyuruh server menembak alamat pilihannya.
+    const photoField = formData.get("photo");
+    const photo = photoField instanceof File ? photoField : null;
     const fotoTerproses = await this.prosesFoto(photo, userId);
     if (fotoTerproses.error) return fotoTerproses.error;
     const photoUrl = fotoTerproses.data;
@@ -217,13 +233,16 @@ export class MobileAttendanceCheckInPayloadParser {
     try {
       return { data: await this.photo.processPhoto(photo, userId, "checkin") };
     } catch (error) {
-      const pesan = error instanceof Error ? error.message : "Foto tidak valid";
-      logger.warn("Mobile check-in photo validation failed", {
+      logger.warn("Mobile check-in photo processing failed", {
         userId,
-        error: pesan,
+        error: error instanceof Error ? error.message : String(error),
       });
       return {
-        error: this.fail(pesan, ErrorCodes.VALIDATION_ERROR, 400),
+        error: this.fail(
+          pesanFotoUntukPengguna(error),
+          ErrorCodes.VALIDATION_ERROR,
+          400,
+        ),
         data: null,
       };
     }
