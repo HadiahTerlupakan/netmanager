@@ -713,5 +713,50 @@ describe("tab Peta planning OSP", () => {
         permintaanKe(`${URL_TITIK}/${titikRencana.nodeId}`, "DELETE"),
       ).toHaveLength(1);
     });
+
+    /**
+     * Penerbitan peta tidak punya kunci unik di basis data yang bisa
+     * menolak permintaan kedua: `tandaiTerbit` memakai `updateMany` yang
+     * idempoten, tetapi dua permintaan tetap menulis dua entri audit
+     * "diterbitkan" dan dua jejak aktivitas. Penjaga di hook ini yang
+     * mencegahnya, dan ia tidak terbukti lewat tombol karena atribut
+     * `disabled` sudah menahan klik kedua.
+     */
+    it("hanya mengirim satu POST penerbitan peta untuk dua pemanggilan sekaligus", async () => {
+      api = null;
+      await render(panggung, <Penyelidik />);
+      await tungguSampai(() => api !== null, "hook terpasang");
+
+      await act(async () => {
+        await Promise.all([api!.terbitkanPeta(), api!.terbitkanPeta()]);
+      });
+
+      expect(permintaanKe(URL_TERBITKAN_PETA, "POST")).toHaveLength(1);
+    });
+
+    it("hanya mengirim satu PUT untuk dua koreksi titik yang sama", async () => {
+      api = null;
+      await render(panggung, <Penyelidik />);
+      await tungguSampai(() => api !== null, "hook terpasang");
+
+      const masukan = {
+        type: "odp" as const,
+        name: "ODP-CPN-01",
+        latitude: -6.2,
+        longitude: 106.8,
+        splitter: "1:16",
+        notes: null,
+      };
+      await act(async () => {
+        await Promise.all([
+          api!.ubahTitik(titikRencana.nodeId, masukan),
+          api!.ubahTitik(titikRencana.nodeId, masukan),
+        ]);
+      });
+
+      expect(
+        permintaanKe(`${URL_TITIK}/${titikRencana.nodeId}`, "PUT"),
+      ).toHaveLength(1);
+    });
   });
 });
