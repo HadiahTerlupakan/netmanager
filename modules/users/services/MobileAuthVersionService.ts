@@ -1,5 +1,3 @@
-import type { Prisma } from "@prisma/client";
-
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import {
   getMobileTokenDetails,
@@ -137,10 +135,16 @@ export function buildVersionUpdate(input: MasukanVersi): MedanVersiBersama {
   };
 }
 
+/** Medan versi khusus `User`; `Pelanggan` tidak punya kedua kolom tambahan ini. */
+export interface MedanVersiPengguna extends MedanVersiBersama {
+  lastOtaUpdateId: string | null;
+  lastLoginAt: Date;
+}
+
 /** Medan versi untuk `User`: menambah jejak OTA dan waktu login terakhir. */
 export function buildVersionUpdatePengguna(
   input: MasukanVersi,
-): Prisma.UserUpdateInput {
+): MedanVersiPengguna {
   return {
     ...buildVersionUpdate(input),
     lastOtaUpdateId: normalizeOtaUpdateId(input.otaUpdateId),
