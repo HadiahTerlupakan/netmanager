@@ -94,13 +94,17 @@ describe("POST /api/mobile/auth/login", () => {
     );
 
     expect(response.status).toBe(200);
+    // `lastOtaUpdateId` dan `lastLoginAt` TIDAK boleh ada di sini: keduanya
+    // kolom `User`, bukan `Pelanggan`. Dengan Prisma tiruan, menegaskannya
+    // justru mengabadikan bug — di server sungguhan `pelanggan.update`
+    // melempar PrismaClientValidationError dan login pelanggan 500.
+    // Penjaga yang membandingkan kunci dengan kolom asli ada di
+    // `tests/modules/users/mobile-version-update-kolom.test.ts`.
     expect(mockCustomerUpdate).toHaveBeenCalledWith({
       where: { id: "cust-1" },
       data: {
         lastVersionCode: 55,
         lastVersionName: "1.2.3",
-        lastOtaUpdateId: null,
-        lastLoginAt: expect.any(Date),
         lastVersionUpdate: expect.any(Date),
       },
     });

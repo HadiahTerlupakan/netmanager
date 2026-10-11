@@ -52,8 +52,10 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `PrismaClientValidationError` dan route menjawab 500. TypeScript tidak menangkapnya
   dan tidak akan: hasil pemanggilan fungsi tidak kena pemeriksaan properti berlebih,
   dan assignability struktural pun mengizinkan medan tambahan. Masuk sejak
-  `19e43bde2` (2026-07-21) dan tidak ketahuan karena jalur login pelanggan sama sekali
-  tidak punya pengujian — karyawan dan investor punya. Fungsi dipecah: medan bersama
+  `19e43bde2` (2026-07-21). CI tetap hijau karena satu-satunya tes yang menyentuh
+  jalur ini, `tests/api/mobile-auth-login-route.test.ts`, memakai Prisma tiruan dan
+  justru **menegaskan** `lastOtaUpdateId` ikut ditulis — tes itu mengabadikan bugnya,
+  bukan menangkapnya. Sekarang ia menegaskan sebaliknya. Fungsi dipecah: medan bersama
   untuk kedua model, `buildVersionUpdatePengguna` untuk `User`.
   Selain itu `lib/jwt.ts` memakai klien `prisma` yang berpenjaga tenant untuk
   primitif token pelanggan (buat/refresh/invalidate) yang justru berjalan SEBELUM ada
