@@ -15,6 +15,11 @@
  * Daftar host Google yang diizinkan, disebut satu per satu. Dibekukan saat
  * runtime agar tidak bisa diubah diam-diam. Jangan diganti pola wildcard ccTLD,
  * karena daftar ini adalah dasar penjaga SSRF.
+ *
+ * Batas perlindungan: daftar ini hanya memeriksa NAMA host. Ia TIDAK melindungi
+ * dari DNS rebinding atau split-horizon DNS yang membuat nama Google me-resolve
+ * ke alamat internal. Mitigasinya (pin IP hasil resolusi, atau egress proxy)
+ * di luar lingkup saat ini. Jangan menyimpulkan penjaga ini lebih kuat dari itu.
  */
 export const HOST_PETA_DIIZINKAN: readonly string[] = Object.freeze([
   "maps.app.goo.gl",

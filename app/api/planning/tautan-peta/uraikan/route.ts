@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { createHandler, apiSuccess } from "@/lib/api";
+import { apiError, ErrorCodes } from "@/lib/api-response";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { uraikanTautanPeta } from "@/lib/geo/tautan-peta";
 import { selesaikanTautanPendek } from "@/lib/geo/tautan-peta-pendek";
 
@@ -30,6 +32,16 @@ export const POST = createHandler(
     const awal = uraikanTautanPeta(ctx.validated.tautan);
     if (awal.status !== "butuh_resolusi") {
       return apiSuccess(awal);
+    }
+
+    // Hanya jalur yang mengirim permintaan keluar yang dibatasi, per pengguna.
+    const kunciBatas = `tautan-peta-pendek:${ctx.session?.user.id ?? "anonim"}`;
+    if (!rateLimit(kunciBatas, RATE_LIMITS.resolveMapShortLink)) {
+      return apiError(
+        "Terlalu banyak permintaan. Coba lagi dalam 1 menit.",
+        ErrorCodes.RATE_LIMIT_EXCEEDED,
+        { status: 429 },
+      );
     }
     return apiSuccess(await selesaikanTautanPendek(awal.url));
   },

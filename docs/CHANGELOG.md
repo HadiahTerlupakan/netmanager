@@ -54,7 +54,9 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   query dan fragment dibuang sebelum permintaan keluar, badan respons tidak
   dibaca. HEAD dahulu, lalu GET sekali bila tidak ada header `location`. Pesan
   galat ke klien bersifat umum. Endpoint `POST /api/planning/tautan-peta/uraikan`
-  (izin `planning:update`) hanya memanggil pengurai dan penyelesai.
+  (izin `planning:update`) hanya memanggil pengurai dan penyelesai, dengan rate
+  limit 20 penukaran/menit/pengguna (`RATE_LIMITS.resolveMapShortLink`). Batas
+  perlindungan daftar izin (DNS rebinding) dicatat di komentar kode.
 - **Files**: `lib/geo/tautan-peta-pendek.ts`, `lib/geo/tautan-peta.ts`,
   `app/api/planning/tautan-peta/uraikan/route.ts`
 - **Breaking**: ❌ Tidak

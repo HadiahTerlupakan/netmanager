@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { HOST_PETA_DIIZINKAN } from "@/lib/geo/tautan-peta";
 import { selesaikanTautanPendek } from "@/lib/geo/tautan-peta-pendek";
 
 function responsPengalihan(lokasi: string) {
@@ -32,6 +33,7 @@ describe("selesaikanTautanPendek", () => {
     expect((await selesaikanTautanPendek(URL_PENDEK, ambil)).status).toBe(
       "gagal",
     );
+    expect(ambil).toHaveBeenCalledTimes(1);
   });
 
   it("menolak pengalihan ke alamat internal", async () => {
@@ -64,6 +66,24 @@ describe("selesaikanTautanPendek", () => {
     expect((await selesaikanTautanPendek(URL_PENDEK, ambil)).status).toBe(
       "gagal",
     );
+    expect(ambil).toHaveBeenCalledTimes(1);
+  });
+
+  it("tidak pernah mengirim permintaan ke URL di luar daftar izin sepanjang rantai", async () => {
+    const ambil = vi
+      .fn()
+      .mockResolvedValueOnce(responsPengalihan("https://goo.gl/maps/satu"))
+      .mockResolvedValueOnce(responsPengalihan("https://maps.app.goo.gl/dua"))
+      .mockResolvedValueOnce(responsPengalihan("https://goo.gl/maps/tiga"));
+
+    await selesaikanTautanPendek(URL_PENDEK, ambil);
+
+    expect(ambil.mock.calls.length).toBe(3);
+    for (const panggilan of ambil.mock.calls) {
+      const url = new URL(panggilan[0]);
+      expect(url.protocol).toBe("https:");
+      expect(HOST_PETA_DIIZINKAN).toContain(url.hostname);
+    }
   });
 
   it("memeriksa ulang penjaga pada lompatan kedua", async () => {

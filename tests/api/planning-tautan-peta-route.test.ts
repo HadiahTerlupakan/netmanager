@@ -85,4 +85,41 @@ describe("POST /api/planning/tautan-peta/uraikan", () => {
     expect(response.status).toBe(403);
     expect(mockFns.selesaikanTautanPendek).not.toHaveBeenCalled();
   });
+
+  it("menolak permintaan tanpa sesi dan tidak memanggil penyelesai", async () => {
+    mockFns.getServerSession.mockResolvedValue(null);
+
+    const response = await POST(
+      buatRequest("https://maps.app.goo.gl/abc"),
+      KONTEKS_ROUTE,
+    );
+
+    expect(response.status).toBe(401);
+    expect(mockFns.selesaikanTautanPendek).not.toHaveBeenCalled();
+  });
+
+  it("membatasi laju penukaran tautan pendek dengan 429", async () => {
+    mockFns.selesaikanTautanPendek.mockResolvedValue({
+      status: "gagal",
+      alasan: "x",
+    });
+    sesiDenganIzin(["planning:update"]);
+    mockFns.getServerSession.mockResolvedValue({
+      user: {
+        id: "user-batas",
+        email: "b@example.com",
+        permissions: ["planning:update"],
+      },
+    });
+
+    let status = 0;
+    for (let i = 0; i < 25; i += 1) {
+      status = (
+        await POST(buatRequest("https://maps.app.goo.gl/abc"), KONTEKS_ROUTE)
+      ).status;
+    }
+
+    expect(status).toBe(429);
+    expect(mockFns.selesaikanTautanPendek.mock.calls.length).toBeLessThan(25);
+  });
 });
