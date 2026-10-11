@@ -41,6 +41,104 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Pintu masuk UI penerbitan, koreksi, dan foto titik rencana
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/planning/[id]/peta`
+- **Author**: agent
+- **Deskripsi**: Tiga endpoint peta rencana sebelumnya terbit tanpa pemanggil
+  mana pun. Kini tab Peta punya panel "Terbitkan ke peta jaringan" (tombolnya
+  hanya muncul pada status yang diizinkan `STATUS_BOLEH_TERBIT` — daftarnya
+  dipindah ke domain dan dibaca bersama service, bukan disalin; konfirmasi
+  wajib; dinonaktifkan selama permintaan berjalan; 403 dijawab kalimat yang
+  menjelaskan izin `map:create`, bukan gema galat API), popup titik punya
+  tombol "Ubah titik" yang membuka form koreksi (rasio splitter tetap wajib,
+  jenis titik dimatikan karena `ubahTitik` menolak penggantiannya), dan popup
+  titik punya pemilih foto survei (hanya gambar) yang memakai endpoint dokumen
+  planning. Kalimat "Unggah dokumen belum tersedia di aplikasi" di tab Dokumen
+  diperbaiki karena sudah tidak benar.
+- **Files**: `app/admin/planning/[id]/peta/PanelPenerbitanPeta.tsx`,
+  `app/admin/planning/[id]/peta/PopupTitikRencana.tsx`,
+  `app/admin/planning/[id]/peta/usePetaRencana.ts`,
+  `app/admin/planning/[id]/peta/FormTitikRencana.tsx`,
+  `modules/planning/domain/planning-actions.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Kunci unik (planningId, sourceKey) pada item material
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/planning`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: `upsertBySourceKey` berhenti memakai `findFirst` +
+  `create`/`update` dan memakai `upsert` Prisma sungguhan di atas kunci unik
+  baru. Dua penerbitan material yang tumpang-tindih sebelumnya sama-sama tidak
+  menemukan baris lalu sama-sama membuatnya, sehingga item BOQ terduplikasi
+  dan estimasi budget terhitung dobel. Item manual ber-`sourceKey` NULL tidak
+  pernah bentrok (NULL distinct di Postgres). Migration juga membersihkan
+  duplikat item **otomatis** yang mungkin sudah lahir dari balapan itu
+  (menyisakan baris terbaru per kunci) karena index tidak bisa dibuat di atas
+  data yang sudah ganda; item manual tidak tersentuh.
+- **Files**: `modules/planning/repositories/PlanningItemRepository.ts`,
+  `prisma/schema.prisma`
+- **Migration**: `20261012090000_add_unique_planning_item_source_key`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Jenis kabel ditutup satu enum bersama
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/constants`, `modules/planning`, `components/map`, `app/api/map/sync`
+- **Author**: agent
+- **Deskripsi**: `buatJalurRencanaSchema.fiberType` tadinya `z.string()` bebas,
+  padahal nilainya menjadi `sourceKey` item material (`kabel:<jenis>`)
+  sekaligus namanya — satu salah ketik melahirkan baris BOQ permanen yang
+  tidak pernah tersapu penghapusan item otomatis. Daftar yang sama yang sudah
+  tertutup di tiga tempat lain disatukan di `lib/constants/jenis-fiber.ts` dan
+  diimpor oleh validator rencana, `app/api/map/sync`, `getFiberColor`/
+  `determineFiberType`, serta dropdown tab Peta. `JENIS_FIBER_TAK_DIKENAL`
+  ("lainnya") dipertahankan karena kolom `MappingEdge.fiberType` tetap
+  nullable dan diisi juga jalur peta operasional serta impor CSV.
+- **Files**: `lib/constants/jenis-fiber.ts`,
+  `modules/planning/validators/planningPetaSchemas.ts`,
+  `components/map/map-utils.ts`, `app/api/map/sync/route.ts`
+- **Breaking**: ❌ Tidak — nilai di luar daftar sebelumnya tidak pernah
+  ditulis jalur UI mana pun
+
+### [2026-10-12] — Foto titik tetap bisa diunggah setelah titik terbit
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: Jalur foto memakai `ambilTitikMilikPlanning` yang menyaring
+  `isPlanned: true`, sehingga setelah titik diterbitkan tidak ada cara
+  menempelkan foto ke titik itu lagi — padahal service dokumen sengaja tidak
+  mengunci status karena foto lapangan baru ada setelah pekerjaan berjalan.
+  Ditambah saudara `ambilTitikAsalPlanning` yang menyaring `planningId` tanpa
+  `isPlanned`, dipakai jalur foto; `ambilTitikMilikPlanning` mendapat JSDoc
+  yang menjelaskan kapan masing-masing dipakai.
+- **Files**: `modules/planning/repositories/PlanningPetaRepository.ts`,
+  `modules/planning/services/PlanningDocumentService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Waypoints rusak masuk hitungan jalurDiabaikan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/planning`
+- **Author**: agent
+- **Deskripsi**: Kolom `waypoints` yang rusak dulu jatuh ke `[]` tanpa jejak,
+  sehingga jalurnya dihitung sebagai garis lurus (lebih pendek dari kenyataan)
+  dan **tidak** masuk `jalurDiabaikan` — satu-satunya jalan yang masih
+  membuat meter kabel hilang tanpa jejak. `hitungPanjangPolyline` juga hanya
+  menolak koordinat `null`, bukan `NaN`/`Infinity`. Keduanya diperbaiki, dan
+  dua pengurai waypoints (`uraikanWaypointsUntukHitung` yang memvalidasi dan
+  `parseWaypoints` yang melakukan `as` tanpa pemeriksaan sebelum mengirimnya
+  ke `<Polyline>` di browser) disatukan menjadi `uraikanWaypoints`, yang
+  membedakan "kosong" (`[]`) dari "rusak" (`null`).
+- **Files**: `modules/planning/mappers/waypoints-rencana.ts`,
+  `modules/planning/domain/kebutuhan-material-osp.ts`,
+  `modules/planning/mappers/PlanningMaterialMapper.ts`,
+  `modules/planning/mappers/PlanningPetaMapper.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Terbitkan titik rencana OSP menjadi node jaringan nyata
 
 - **Tipe**: [ADDED]
