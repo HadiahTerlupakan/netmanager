@@ -8,6 +8,7 @@ import {
   DEFAULT_MOBILE_PORTAL,
   DEFAULT_PORTAL,
   ensureAnnouncementExists,
+  ensureAnnouncementPeriodValid,
   ensureAnnouncementExistsForTenant,
   getAnnouncementRepositoryMethod,
   logAnnouncementCreation,
@@ -108,10 +109,15 @@ export class AnnouncementService {
 
   /** Update an announcement using the existing route payload shape. */
   async updateAnnouncement(id: string, input: AnnouncementUpdateInput) {
-    await ensureAnnouncementExists(
+    const buildError = (message: string, status: number) =>
+      new AnnouncementServiceError(message, status);
+
+    await ensureAnnouncementExists(this.announcementRepository, id, buildError);
+    await ensureAnnouncementPeriodValid(
       this.announcementRepository,
       id,
-      (message, status) => new AnnouncementServiceError(message, status),
+      input,
+      buildError,
     );
     return getAnnouncementRepositoryMethod(
       this.announcementRepository,

@@ -44,8 +44,15 @@ export async function PUT(
     );
     return NextResponse.json(announcement);
   } catch (error) {
-    if (error instanceof AnnouncementServiceError && error.status === 404) {
-      return ApiErrors.notFound("Pengumuman");
+    if (error instanceof AnnouncementServiceError) {
+      if (error.status === 404) {
+        return ApiErrors.notFound("Pengumuman");
+      }
+      // Penolakan validasi (mis. periode tidak masuk akal) adalah salah input,
+      // bukan kegagalan server: teruskan pesannya apa adanya, jangan 500.
+      if (error.status === 400) {
+        return ApiErrors.badRequest(error.message);
+      }
     }
     logger.error("Failed to update announcement", error as Error, {
       path: "/api/announcements/[id]",

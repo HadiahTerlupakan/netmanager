@@ -77,6 +77,7 @@ export {
   AnnouncementServiceError,
   announcementService,
 } from "./services/AnnouncementService";
+export { RECENT_READER_LIMIT } from "./services/AnnouncementService.helpers";
 export {
   MobileFcmTokenError,
   updateMobileFcmToken,

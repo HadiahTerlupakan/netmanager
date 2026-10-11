@@ -13,6 +13,15 @@ export type AnnouncementTarget = (typeof ANNOUNCEMENT_TARGETS)[number];
 const TITLE_MAX_LENGTH = 200;
 const CONTENT_MAX_LENGTH = 5000;
 
+/**
+ * Tanggal opsional yang membedakan "tidak dikirim" (`undefined`) dari
+ * "dikosongkan" (`null`).
+ *
+ * Perbedaan itu penting: `buildAnnouncementUpdateData` hanya menulis kolom
+ * yang `!== undefined`. Sebelumnya transform ini memetakan `undefined` menjadi
+ * `null`, sehingga PUT yang tidak menyertakan sebuah tanggal terlihat seperti
+ * permintaan mengosongkannya dan periode tersimpan terhapus diam-diam.
+ */
 const optionalIsoDate = z
   .union([
     z.iso.datetime({ offset: true }),
@@ -21,8 +30,7 @@ const optionalIsoDate = z
     }),
     z.null(),
   ])
-  .optional()
-  .transform((v) => (v == null || v === "" ? null : v));
+  .optional();
 
 /** Schema untuk membuat announcement baru. */
 export const createAnnouncementSchema = z

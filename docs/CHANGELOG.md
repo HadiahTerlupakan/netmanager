@@ -41,6 +41,52 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Pengumuman: periode tidak lagi diabaikan dan tidak terhapus diam-diam
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`, `app/admin/announcement`, `app/api/announcements`
+- **Author**: agent
+- **Deskripsi**: QA halaman `/admin/announcement` menemukan lima cacat yang
+  semuanya berakar pada perlakuan periode tayang.
+  (1) Penyaring pengiriman memakai `startDate: { lte: now }` tanpa cabang untuk
+  NULL. Di SQL `NULL <= now()` bernilai NULL, jadi pengumuman tanpa tanggal
+  mulai tidak pernah sampai ke siapa pun — padahal daftar admin menampilkannya
+  sebagai "Sekarang". Sisi `endDate` sudah menangani NULL, sisi `startDate`
+  terlewat. Kedua pembangun filter (`buildMobileAnnouncementWhere` dan
+  `buildPortalAnnouncementWhere`) kini memakai `syaratPeriodeBerjalan()` yang
+  memperlakukan NULL sebagai batas terbuka di kedua sisi.
+  (2) Kolom Status di daftar admin merender `isActive` mentah, sehingga
+  pengumuman yang periodenya sudah lewat tetap hijau "Aktif". Diganti status
+  efektif (Aktif / Terjadwal / Kedaluwarsa / Non-aktif) lewat domain murni
+  `hitungStatusTayang`, diekspos ke client component via barrel baru
+  `modules/notification/client.ts`.
+  (3) **Kehilangan data**: transform `optionalIsoDate` memetakan field yang
+  tidak dikirim (`undefined`) menjadi `null`, sehingga setiap PUT parsial
+  menghapus tanggal tersimpan tanpa jejak. Transform dihapus; `undefined` kini
+  berarti "jangan sentuh kolom", `null` tetap berarti "kosongkan". Cabang
+  string kosong dibuang karena union-nya menolak `""` lebih dulu (kode mati).
+  (4) Validasi silang periode hanya jalan bila kedua tanggal ada di payload.
+  `ensureAnnouncementPeriodValid` kini menggabungkan sisi yang tidak dikirim
+  dengan nilai tersimpan, dan route PUT memetakan galat 400 ke `badRequest`
+  (sebelumnya jatuh ke 500).
+  (5) `GET /api/announcements/[id]/read` membuka nama pembaca hanya dengan
+  modal login; kini butuh izin `announcement:read`. Statistik itu sekaligus
+  ditampilkan di halaman edit lewat komponen `DaftarPembaca` — sebelumnya
+  service sudah menyediakan nama pembaca tapi tidak ada UI yang memakainya.
+  Diverifikasi ganda: 170 tes hijau plus enam uji mutasi, dan ditelusuri
+  langsung di aplikasi (DB dev + halaman admin lokal). Cacat (3) dan (4)
+  justru baru tertangkap saat uji langsung, bukan oleh tes unit.
+- **Files**: `modules/notification/domain/status-tayang.ts`,
+  `modules/notification/client.ts`,
+  `modules/notification/services/AnnouncementService.helpers.ts`,
+  `modules/notification/services/AnnouncementService.ts`,
+  `modules/notification/validators/announcementValidator.ts`,
+  `app/admin/announcement/AnnouncementIndexClient.tsx`,
+  `app/admin/announcement/_components/DaftarPembaca.tsx`,
+  `app/api/announcements/[id]/route.ts`,
+  `app/api/announcements/[id]/read/route.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Registry Cleanup tidak lagi mati di batas 100 versi
 
 - **Tipe**: [INFRA]

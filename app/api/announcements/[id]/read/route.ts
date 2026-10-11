@@ -1,6 +1,8 @@
 import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
+import { hasPermission } from "@/lib/rbac";
+import { ApiErrors } from "@/lib/api-response";
 import {
   announcementService,
   AnnouncementServiceError,
@@ -48,6 +50,12 @@ export async function GET(
     const session = await requireAuth(request);
     if (session instanceof NextResponse) {
       return session;
+    }
+
+    // Statistik ini membuka nama orang yang membaca pengumuman, jadi bukan
+    // untuk sembarang pengguna yang sudah login — hanya pengelola pengumuman.
+    if (!(await hasPermission("announcement:read"))) {
+      return ApiErrors.forbidden();
     }
 
     const { id } = await params;

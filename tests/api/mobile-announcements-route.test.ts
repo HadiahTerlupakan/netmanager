@@ -73,8 +73,14 @@ describe("GET /api/mobile/announcements", () => {
       where: {
         target: { in: ["ALL", "EMPLOYEE"] },
         isActive: true,
-        startDate: { lte: expect.any(Date) },
-        OR: [{ endDate: null }, { endDate: { gte: expect.any(Date) } }],
+        // Kedua sisi periode memperlakukan null sebagai batas terbuka. Tanpa
+        // cabang `startDate: null`, baris tanpa tanggal mulai tidak pernah
+        // lolos (`NULL <= now()` bernilai NULL di SQL) dan pengumumannya tidak
+        // sampai ke siapa pun.
+        AND: [
+          { OR: [{ startDate: null }, { startDate: { lte: expect.any(Date) } }] },
+          { OR: [{ endDate: null }, { endDate: { gte: expect.any(Date) } }] },
+        ],
         tenantId: "tenant-1",
       },
       orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],

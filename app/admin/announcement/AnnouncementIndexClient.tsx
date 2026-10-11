@@ -10,6 +10,12 @@ import { useToast } from "@/components/ui/Toast";
 import { useApi } from "@/lib/hooks/useApi";
 import { fetchWithHandling } from "@/lib/utils/fetch-wrapper";
 import { clientLogger } from "@/lib/client-logger";
+import {
+  hitungStatusTayang,
+  LABEL_STATUS_TAYANG,
+  STATUS_TAYANG,
+  type StatusTayang,
+} from "@/modules/notification/client";
 
 interface Announcement {
   id: string;
@@ -39,6 +45,22 @@ const TARGET_LABEL: Record<Announcement["target"], string> = {
   CUSTOMER: "Pelanggan",
   ADMIN: "Admin",
   EMPLOYEE: "Karyawan",
+};
+
+/**
+ * Warna lencana status. Hanya TAYANG yang hijau: "Terjadwal" dan "Kedaluwarsa"
+ * sama-sama berarti pengumuman itu sedang tidak dibaca siapa pun, jadi tidak
+ * boleh terlihat seperti aktif.
+ */
+const STATUS_BADGE_CLASS: Record<StatusTayang, string> = {
+  [STATUS_TAYANG.TAYANG]:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  [STATUS_TAYANG.TERJADWAL]:
+    "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  [STATUS_TAYANG.KEDALUWARSA]:
+    "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+  [STATUS_TAYANG.NONAKTIF]:
+    "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
 };
 
 export function AnnouncementIndexClient() {
@@ -109,17 +131,16 @@ export function AnnouncementIndexClient() {
       key: "isActive",
       header: "Status",
       priority: "secondary",
-      render: (announcement) => (
-        <span
-          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-            announcement.isActive
-              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-          }`}
-        >
-          {announcement.isActive ? "Aktif" : "Non-aktif"}
-        </span>
-      ),
+      render: (announcement) => {
+        const status = hitungStatusTayang(announcement, new Date());
+        return (
+          <span
+            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${STATUS_BADGE_CLASS[status]}`}
+          >
+            {LABEL_STATUS_TAYANG[status]}
+          </span>
+        );
+      },
     },
     {
       key: "reads",
