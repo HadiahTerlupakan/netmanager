@@ -41,6 +41,44 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Investor bisa mengganti passwordnya sendiri
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/investor`, `app/api/mobile/investor/password`
+- **Author**: agent
+- **Deskripsi**: Investor sama sekali tidak punya jalan mengganti password
+  sendiri: layarnya tidak ada dan `/api/mobile/profile/password` menolak token
+  investor karena audience-nya berbeda, sehingga rotasi hanya mungkin lewat
+  admin. Ditambahkan endpoint `POST /api/mobile/investor/password` dan layar
+  `(investor)/ganti-password`. Validasinya sama dengan jalur karyawan (medan
+  wajib, konfirmasi cocok, minimal 6 karakter, password lama benar) dan
+  seluruh sesi dicabut sesudahnya lewat `tokenVersion` — sejalan dengan
+  perbaikan keamanan hari ini untuk karyawan/mitra/pelanggan. Form ganti
+  password diekstrak jadi satu komponen bersama agar karyawan dan investor
+  tidak menduplikasi layar yang sama.
+- **Files**: `modules/investor/services/MobileInvestorAuthService.ts`,
+  `modules/investor/repositories/InvestorRepository.ts`,
+  `app/api/mobile/investor/password/route.ts`,
+  `mobile-netmanager/src/components/organisms/FormGantiPassword.tsx`,
+  `mobile-netmanager/app/(investor)/ganti-password.tsx`,
+  `tests/modules/investor/MobileInvestorAuthService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Profil investor: kebijakan privasi, versi aplikasi, izin notifikasi
+
+- **Tipe**: [ADDED]
+- **Scope**: `mobile-netmanager/app/(investor)`
+- **Author**: agent
+- **Deskripsi**: Profil investor tidak punya tautan kebijakan privasi maupun
+  keterangan versi aplikasi, padahal persona lain punya keduanya. Selain itu
+  pre-prompt izin notifikasi (`useIzinNotifikasi`) hanya dipasang di grup
+  karyawan, sehingga token FCM investor hanya terdaftar bila izin OS kebetulan
+  sudah diberikan dari sesi lain — kini dipasang juga di layout investor.
+  Catatan: layar daftar notifikasi untuk investor belum dibuat karena server
+  belum punya endpoint notifikasi investor (push-nya langsung menuju layar
+  Uang lewat deep link).
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Lonceng notifikasi ikut menjaga sesi investor
 
 - **Tipe**: [FIXED]
