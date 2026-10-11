@@ -7,8 +7,10 @@ import {
 } from "@/modules/planning/services/PlanningDocumentService";
 import type { IPlanningDocumentRepository } from "@/modules/planning/domain/ports/IPlanningDocumentRepository";
 import type { IPlanningRepository } from "@/modules/planning/domain/ports/IPlanningRepository";
+import type { PlanningAuditService } from "@/modules/planning/services/PlanningAuditService";
 import type { PlanningPetaRepository } from "@/modules/planning/repositories/PlanningPetaRepository";
 import { PlanningDocumentEntity } from "@/modules/planning/domain/entities/PlanningDocumentEntity";
+import { unggahDokumenPlanningSchema } from "@/modules/planning/validators/planningDocumentSchemas";
 import { PlanningEntity } from "@/modules/planning/domain/entities/PlanningEntity";
 import {
   PlanningNotFoundError,
@@ -63,6 +65,7 @@ describe("foto survei per titik rencana", () => {
   let documentRepo: Mocked<Pick<IPlanningDocumentRepository, "create">>;
   let petaRepo: Mocked<Pick<PlanningPetaRepository, "ambilTitikMilikPlanning">>;
   let simpanGambar: Mocked<SimpanGambarPlanning>;
+  let auditService: Mocked<Pick<PlanningAuditService, "logChange">>;
   let service: PlanningDocumentService;
 
   beforeEach(() => {
@@ -86,11 +89,13 @@ describe("foto survei per titik rencana", () => {
         .fn()
         .mockResolvedValue({ nodeId: "n-1" } as MappingNode),
     };
+    auditService = { logChange: vi.fn().mockResolvedValue({}) };
     simpanGambar = vi.fn().mockResolvedValue("/uploads/odp.webp");
     service = new PlanningDocumentService(
       planningRepo as unknown as IPlanningRepository,
       documentRepo as unknown as IPlanningDocumentRepository,
       petaRepo as unknown as PlanningPetaRepository,
+      auditService as unknown as PlanningAuditService,
       simpanGambar,
     );
   });
@@ -117,6 +122,36 @@ describe("foto survei per titik rencana", () => {
       }),
     );
     expect(hasil.nodeId).toBe("n-1");
+  });
+
+  it("mencatat audit DOCUMENT_UPLOADED setelah dokumen dibuat", async () => {
+    await service.upload(
+      "plan-1",
+      { file: foto(), nodeId: "n-1" },
+      "user-1",
+      "tenant-1",
+    );
+
+    expect(auditService.logChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        planningId: "plan-1",
+        tenantId: "tenant-1",
+        action: "DOCUMENT_UPLOADED",
+        performedById: "user-1",
+        changes: expect.objectContaining({
+          documentId: "doc-1",
+          nodeId: "n-1",
+        }),
+      }),
+    );
+  });
+
+  it("menolak kategori berkas dokumen pada skema unggah", () => {
+    const hasil = unggahDokumenPlanningSchema.safeParse({
+      category: "APPROVAL_DOCUMENT",
+    });
+
+    expect(hasil.success).toBe(false);
   });
 
   it("menolak menautkan foto ke titik milik planning lain", async () => {

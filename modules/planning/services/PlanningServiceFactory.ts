@@ -214,6 +214,7 @@ class PlanningServiceFactory {
           new PlanningRepository(),
           new PlanningDocumentRepository(),
           new PlanningPetaRepository(),
+          this.getAuditService(),
         ),
       );
     }

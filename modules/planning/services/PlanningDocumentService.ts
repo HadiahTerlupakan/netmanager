@@ -13,6 +13,7 @@ import {
 } from "../errors/planning-errors";
 import { PlanningDocumentMapper } from "../mappers/PlanningDocumentMapper";
 import type { PlanningPetaRepository } from "../repositories/PlanningPetaRepository";
+import type { PlanningAuditService } from "./PlanningAuditService";
 
 /** Batas ukuran satu foto, sama dengan unggah foto node peta. */
 export const BATAS_UKURAN_FOTO_BYTE = 5 * 1024 * 1024;
@@ -49,9 +50,9 @@ export const simpanGambarPlanning: SimpanGambarPlanning = (
 ) =>
   convertAndSaveImage(
     file,
-    buildTenantUploadDir("public/uploads/planning/documents", tenantId),
+    buildTenantUploadDir(`public/uploads/planning/${planningId}`, tenantId),
     `planning_${Date.now()}_${randomUUID().split("-")[0]}`,
-    "general",
+    "planning",
     planningId,
   );
 
@@ -61,19 +62,26 @@ export const simpanGambarPlanning: SimpanGambarPlanning = (
  * Unggah gambar dokumen sebuah Planning OSP. Foto dapat ditautkan ke titik
  * rencananya (`nodeId`) sebagai foto survei; tanpa `nodeId` berkas menjadi
  * lampiran tingkat proyek.
+ *
+ * Tidak ada kunci status rencana pada unggahan: item dan milestone dikunci
+ * karena mengubah angka yang sudah disetujui, sedangkan dokumen hanyalah
+ * lampiran bukti yang tidak mengubah anggaran, dan `COMPLETION_PHOTO` memang
+ * diunggah setelah pekerjaan selesai. Ini disengaja, bukan kelalaian.
  */
 export class PlanningDocumentService {
   constructor(
     private readonly planningRepo: IPlanningRepository,
     private readonly documentRepo: IPlanningDocumentRepository,
     private readonly petaRepo: PlanningPetaRepository,
+    private readonly auditService: PlanningAuditService,
     private readonly simpanGambar: SimpanGambarPlanning = simpanGambarPlanning,
   ) {}
 
   /**
    * Mengunggah gambar ke sebuah planning milik tenant pemanggil.
    * Bila `nodeId` diisi, titik wajib titik rencana milik planning ini
-   * (disaring di query repository) dan kategorinya dipaksa `SURVEY_PHOTO`.
+   * (disaring di query repository) dan kategorinya dipaksa `SURVEY_PHOTO`,
+   * mengabaikan kategori kiriman klien.
    */
   async upload(
     planningId: string,
@@ -107,6 +115,19 @@ export class PlanningDocumentService {
       description: input.description ?? null,
       uploadedById: userId,
       nodeId,
+    });
+
+    await this.auditService.logChange({
+      planningId,
+      tenantId,
+      action: "DOCUMENT_UPLOADED",
+      performedById: userId,
+      changes: {
+        documentId: created.id,
+        filename: created.filename,
+        category: created.category,
+        nodeId,
+      },
     });
 
     return PlanningDocumentMapper.toDTO(created);

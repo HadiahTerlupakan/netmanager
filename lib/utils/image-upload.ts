@@ -33,7 +33,8 @@ export type UploadType =
   | "presurvei"
   | "app-version"
   | "general"
-  | "map-nodes";
+  | "map-nodes"
+  | "planning";
 
 // OPTIMIZATION: Threshold for streaming vs buffer processing
 const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024; // 50MB

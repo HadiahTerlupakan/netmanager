@@ -569,7 +569,8 @@ export function generateR2Key(
     | "marketing"
     | "presurvei"
     | "general"
-    | "map-nodes",
+    | "map-nodes"
+    | "planning",
   filename: string,
   subFolder?: string,
 ): string {
@@ -659,6 +660,11 @@ export function generateR2Key(
         return `uploads/map-nodes/${subFolder}/${timestamp}-${sanitizedFilename}`;
       }
       return `uploads/map-nodes/${timestamp}-${sanitizedFilename}`;
+    case "planning":
+      if (subFolder) {
+        return `uploads/planning/${subFolder}/${timestamp}-${sanitizedFilename}`;
+      }
+      return `uploads/planning/${timestamp}-${sanitizedFilename}`;
     default:
       return `uploads/${timestamp}-${sanitizedFilename}`;
   }
