@@ -1,8 +1,3 @@
-import {
-  getResourceCapabilities,
-  type ResourceAction,
-} from "@/lib/resource-capabilities";
-
 /**
  * Pembatasan jangkauan data yang boleh tersimpan pada sebuah role.
  *
@@ -23,25 +18,47 @@ import {
  * Penjaga ini membuang pembatasan semacam itu saat role disimpan. Kemampuan
  * (read/create/update/...) tidak disentuh: matriks mobile memakai katalog aksi
  * yang berbeda, dan membuangnya akan mencabut izin yang sah.
+ *
+ * Katalognya sendiri hidup di `lib/resource-capabilities` — di luar domain.
+ * Karena itu ia DISUNTIKKAN sebagai fungsi, bukan diimpor: lapisan domain
+ * tidak boleh bergantung pada apa pun di luar dirinya
+ * (`docs/architecture/clean-architecture.md`), dan aturan itu dijaga
+ * `tests/architecture/domain-purity.test.ts`.
  */
 
-const SCOPE_ACTIONS: readonly ResourceAction[] = [
-  "site_only",
-  "department_only",
-];
+/** Aksi yang dianggap pembatasan lingkup, bukan kemampuan. */
+const AKSI_PEMBATASAN = ["site_only", "department_only"] as const;
 
-function isScopeAction(action: string): action is ResourceAction {
-  return (SCOPE_ACTIONS as readonly string[]).includes(action);
+export type AksiPembatasan = (typeof AKSI_PEMBATASAN)[number];
+
+/**
+ * Pencari aksi yang punya toggle untuk sebuah resource.
+ *
+ * Pemanggil di lapisan service menyuntikkan `getResourceCapabilities` dari
+ * `lib/resource-capabilities`.
+ */
+export type AksiTersediaResource = (resource: string) => readonly string[];
+
+function isAksiPembatasan(action: string): action is AksiPembatasan {
+  return (AKSI_PEMBATASAN as readonly string[]).includes(action);
 }
 
 /** Pembatasan ini punya toggle di halaman Hak Akses, jadi boleh disimpan. */
-export function isPembatasanPunyaToggle(permission: string): boolean {
+export function isPembatasanPunyaToggle(
+  permission: string,
+  aksiTersedia: AksiTersediaResource,
+): boolean {
   const [resource, action] = permission.split(":");
-  if (!resource || !action || !isScopeAction(action)) return true;
-  return getResourceCapabilities(resource).includes(action);
+  if (!resource || !action || !isAksiPembatasan(action)) return true;
+  return aksiTersedia(resource).includes(action);
 }
 
 /** Buang pembatasan yang tidak punya toggle; izin lain diteruskan apa adanya. */
-export function buangPembatasanTanpaToggle(permissions: string[]): string[] {
-  return permissions.filter(isPembatasanPunyaToggle);
+export function buangPembatasanTanpaToggle(
+  permissions: string[],
+  aksiTersedia: AksiTersediaResource,
+): string[] {
+  return permissions.filter((permission) =>
+    isPembatasanPunyaToggle(permission, aksiTersedia),
+  );
 }

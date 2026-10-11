@@ -5,6 +5,7 @@ import { sanitizePermissionsByPanelAccess } from "@/lib/permission-sanitizer";
 import { isMainTenant } from "@/modules/mitra";
 import type { RoleDetailDTO, RoleListItemDTO } from "../dto/RoleDTO";
 import type { RoleEntity } from "../domain/entities/RoleEntity";
+import { getResourceCapabilities } from "@/lib/resource-capabilities";
 import { buangPembatasanTanpaToggle } from "../domain/pembatasan-lingkup";
 import type {
   IRoleRepository,
@@ -210,7 +211,7 @@ export class RoleService {
     input: RoleMutationInput,
   ): Promise<string[]> {
     const sanitized = await sanitizePermissionsByPanelAccess(
-      buangPembatasanTanpaToggle(input.permissions),
+      buangPembatasanTanpaToggle(input.permissions, getResourceCapabilities),
       input.accessAdminPanel ?? false,
       input.accessEmployeePanel ?? false,
     );
