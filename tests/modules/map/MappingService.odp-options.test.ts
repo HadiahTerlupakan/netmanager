@@ -72,6 +72,7 @@ describe("MappingService.getOdpOptions", () => {
     expect(findAllNodes).toHaveBeenCalledWith(ctx, {
       siteId: "site-1",
       type: "odp",
+      lingkup: "nyata",
       includeUnassignedSite: true,
     });
   });
@@ -102,6 +103,7 @@ describe("MappingService.getOdpOptions", () => {
 
     expect(findAllNodes).toHaveBeenCalledWith(superAdminCtx, {
       type: "odp",
+      lingkup: "nyata",
       includeUnassignedSite: true,
     });
   });

@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Tutup jalur topologi mobile dan ODP pelanggan dari node rencana
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/network`, `modules/map`, `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: Titik dan jalur rencana OSP hidup di tabel yang sama dengan
+  topologi nyata. `MobileTopologyRepository` kini menyaring `isPlanned: false`
+  pada node, edge, dan rekap edge. `MappingService.getOdpOptions` memaksa
+  `lingkup: "nyata"`. `Pelanggan.odpId` adalah FK mentah ke `mapping_nodes`
+  tanpa validasi, jadi API pelanggan bisa menyambungkan pelanggan ke ODP yang
+  belum terpasang: service pelanggan (create dan update admin) kini menolak
+  `odpId` yang bukan node nyata bertipe `odp`, lewat
+  `MappingService.isInstalledOdp` di public API `@/modules/map`. Update admin
+  tidak memvalidasi ulang ODP yang tidak berubah.
+- **Files**: `modules/network/repositories/MobileTopologyRepository.ts`,
+  `modules/map/services/MappingService.ts`,
+  `modules/pelanggan/services/pelanggan-odp.validator.ts`,
+  `modules/pelanggan/services/PelangganAdminMutationService.ts`,
+  `modules/pelanggan/services/pelanggan-service.helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Kolom titik rencana peta OSP dan penyaring bawaan
 
 - **Tipe**: [MIGRATION]

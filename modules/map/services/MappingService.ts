@@ -61,6 +61,9 @@ export class MappingService {
     const nodes = await this.repository.findAllNodes(ctx, {
       ...filters,
       type: ODP_NODE_TYPE,
+      // Dropdown pelanggan hanya boleh menawarkan ODP yang sudah terpasang,
+      // apa pun yang dikirim pemanggil lewat `filters`.
+      lingkup: "nyata",
       // ODP hasil sinkronisasi peta dan import CSV tidak pernah punya `siteId`,
       // sedangkan form pelanggan wajib memilih site. Tanpa toleransi ini
       // dropdown tetap kosong justru untuk data yang paling banyak dipakai.
@@ -75,6 +78,18 @@ export class MappingService {
         name: node.name ?? node.nodeId,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Apakah `nodeId` adalah ODP nyata (bertipe `odp`, bukan titik rencana) yang
+   * terlihat oleh tenant pemanggil. Dipakai modul lain sebelum menyambungkan
+   * pelanggan ke sebuah ODP, karena `Pelanggan.odpId` adalah FK mentah yang
+   * tidak membedakan node nyata dari node rencana.
+   */
+  async isInstalledOdp(ctx: TenantContext, nodeId: string): Promise<boolean> {
+    // Lingkup bawaan `"nyata"` sudah menyingkirkan node rencana.
+    const node = await this.repository.findNodeById(ctx, nodeId);
+    return node?.type === ODP_NODE_TYPE;
   }
 
   async getNodeById(ctx: TenantContext, nodeId: string) {

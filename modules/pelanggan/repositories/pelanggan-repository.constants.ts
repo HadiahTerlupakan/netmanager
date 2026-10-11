@@ -12,6 +12,7 @@ export const adminMutationSelect = {
   status: true,
   autoIsolir: true,
   siteId: true,
+  odpId: true,
 } satisfies Prisma.PelangganSelect;
 
 export const adminDeleteSelect = {

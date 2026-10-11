@@ -14,10 +14,13 @@ export class MobileTopologyRepository implements IMobileTopologyRepository {
         this.findOtbs(tenantId),
         this.findPelanggans(tenantId),
         this.findKmzFiles(tenantId),
-        prisma.mappingNode.findMany(),
-        prisma.mappingEdge.findMany(),
+        // Titik dan jalur rencana OSP hidup di tabel yang sama dengan topologi
+        // nyata. Aplikasi mobile hanya boleh melihat yang sudah terpasang.
+        prisma.mappingNode.findMany({ where: { isPlanned: false } }),
+        prisma.mappingEdge.findMany({ where: { isPlanned: false } }),
         prisma.mappingEdge.groupBy({
           by: ["source"],
+          where: { isPlanned: false },
           _count: { source: true },
         }),
       ]);

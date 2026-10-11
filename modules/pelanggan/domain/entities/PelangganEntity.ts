@@ -142,6 +142,7 @@ export interface PelangganAdminMutationEntity {
   status: string;
   autoIsolir: boolean;
   siteId: string | null;
+  odpId: string | null;
 }
 
 export interface PelangganAdminDeleteEntity {

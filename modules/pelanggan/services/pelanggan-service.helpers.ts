@@ -1,5 +1,6 @@
 import { hash } from "bcryptjs";
 
+import { ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
 import { CustomerEventDispatcher } from "@/modules/events";
@@ -13,6 +14,10 @@ import type {
   IPelangganRepository,
 } from "../domain/ports/IPelangganRepository";
 import type { CreatePelangganInput } from "./pelanggan-service.contracts";
+import {
+  ODP_TIDAK_VALID_MESSAGE,
+  isOdpAssignable,
+} from "./pelanggan-odp.validator";
 
 export async function validateCreatePelangganInput(
   repository: IPelangganRepository,
@@ -30,6 +35,11 @@ export async function validateCreatePelangganInput(
   );
   if (!hargaPaketExists) {
     throw new Error("Harga Paket tidak ditemukan");
+  }
+
+  const trimmedOdpId = trimNullable(data.odpId);
+  if (!(await isOdpAssignable(trimmedOdpId, { tenantId: data.tenantId }))) {
+    throw new ValidationError(ODP_TIDAK_VALID_MESSAGE);
   }
 
   await getResellerCustomerRelationService().validateCustomerRelation({

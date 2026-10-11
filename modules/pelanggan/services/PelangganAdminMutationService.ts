@@ -16,6 +16,10 @@ import {
   normalizeUpdatePayload,
   sanitizePelangganResponse,
 } from "./pelanggan-admin-mutation.helpers";
+import {
+  ODP_TIDAK_VALID_MESSAGE,
+  isOdpAssignable,
+} from "./pelanggan-odp.validator";
 
 export class PelangganAdminMutationError extends Error {
   constructor(
@@ -95,6 +99,11 @@ export class PelangganAdminMutationService {
       const existingPelanggan = await this.getExistingPelanggan(input);
       this.assertSiteAccess(input.session, existingPelanggan.siteId);
       this.assertSiteAccess(input.session, normalizedData.siteId);
+      await this.assertOdpAssignable(
+        input.session,
+        normalizedData.odpId,
+        existingPelanggan.odpId,
+      );
       await getResellerCustomerRelationService().validateCustomerRelation({
         tenantId: input.session.user.tenantId ?? null,
         resellerId: normalizedData.resellerId,
@@ -172,6 +181,24 @@ export class PelangganAdminMutationService {
     }
 
     return existingPelanggan;
+  }
+
+  /**
+   * Tolak ODP yang tidak ada, bukan bertipe ODP, atau masih titik rencana.
+   * ODP yang tidak berubah dari data tersimpan dibiarkan, supaya pelanggan lama
+   * tetap bisa diedit tanpa dipaksa mengganti ODP.
+   */
+  private async assertOdpAssignable(
+    session: AdminMutationSession,
+    nextOdpId: string | null,
+    currentOdpId: string | null | undefined,
+  ) {
+    if (nextOdpId === (currentOdpId ?? null)) return;
+    if (await isOdpAssignable(nextOdpId, session.user)) return;
+    throw new PelangganAdminMutationError(
+      ODP_TIDAK_VALID_MESSAGE,
+      "BAD_REQUEST",
+    );
   }
 
   /** Ensure session can access requested pelanggan site. */
