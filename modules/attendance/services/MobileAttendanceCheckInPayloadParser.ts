@@ -83,9 +83,9 @@ export class MobileAttendanceCheckInPayloadParser {
     if (coordinates.error) return coordinates.error;
 
     const photo = formData.get("photo") as File | null;
-    const photoUrl = photo
-      ? await this.photo.processPhoto(photo, userId, "checkin")
-      : null;
+    const fotoTerproses = await this.prosesFoto(photo, userId);
+    if (fotoTerproses.error) return fotoTerproses.error;
+    const photoUrl = fotoTerproses.data;
     const requestIdValue = formData.get("requestId");
 
     return {
@@ -199,6 +199,34 @@ export class MobileAttendanceCheckInPayloadParser {
         offlineCapturedAt: offlineCapturedAt.data,
       },
     };
+  }
+
+  /**
+   * Validasi foto menghasilkan pesan siap-tampil ("Ukuran foto maksimal 5MB",
+   * "Dimensi foto terlalu kecil"), tetapi dilempar sebagai `Error` biasa dan
+   * berakhir 500 "Terjadi kesalahan pada server" di aplikasi — alasannya tidak
+   * pernah sampai ke orang yang memotret. Route web sudah memetakannya ke 400;
+   * jalur mobile menyusul.
+   */
+  private async prosesFoto(
+    photo: File | null,
+    userId: string,
+  ): Promise<ParsedPhotoUrlResult> {
+    if (!photo) return { data: null };
+
+    try {
+      return { data: await this.photo.processPhoto(photo, userId, "checkin") };
+    } catch (error) {
+      const pesan = error instanceof Error ? error.message : "Foto tidak valid";
+      logger.warn("Mobile check-in photo validation failed", {
+        userId,
+        error: pesan,
+      });
+      return {
+        error: this.fail(pesan, ErrorCodes.VALIDATION_ERROR, 400),
+        data: null,
+      };
+    }
   }
 
   private parseCoordinates(

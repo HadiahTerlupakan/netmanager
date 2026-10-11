@@ -48,13 +48,30 @@ export class MobileAttendanceCheckoutPayloadParser {
     return payload;
   }
 
+  /**
+   * Sama seperti check-in: pesan validasi foto harus sampai ke pengguna, bukan
+   * berubah jadi 500. Pemanggil mengembalikan `NextResponse` yang dilempar di
+   * sini apa adanya.
+   */
+  private async prosesFoto(photo: File | null, userId: string) {
+    if (!photo) return null;
+
+    try {
+      return await this.photoService.processPhoto(photo, userId, "checkout");
+    } catch (error) {
+      throw apiError(
+        error instanceof Error ? error.message : "Foto tidak valid",
+        ErrorCodes.VALIDATION_ERROR,
+        { status: 400 },
+      );
+    }
+  }
+
   private async parseFormPayload(request: NextRequest, userId: string) {
     const formData = await request.formData();
     const photo = formData.get("photo") as File | null;
     const payload: MobileCheckoutPayload = {
-      photoUrl: photo
-        ? await this.photoService.processPhoto(photo, userId, "checkout")
-        : null,
+      photoUrl: await this.prosesFoto(photo, userId),
       notes: (formData.get("notes") as string) || "",
       location: (formData.get("location") as string) || "",
       bodyRequestId:
