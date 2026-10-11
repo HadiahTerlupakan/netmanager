@@ -41,6 +41,73 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-11] — Ganti password tidak mencabut sesi lama
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/users`
+- **Author**: agent
+- **Deskripsi**: Setelah password diganti, access token **dan refresh token**
+  sesi lama tetap sah — dibuktikan di QA: refresh token milik sesi sebelum
+  penggantian masih berhasil mencetak access token baru. Karena refresh token
+  berumur 30 hari, mengganti password sama sekali tidak mengusir sesi yang
+  terlanjur bocor. Mekanismenya sebenarnya sudah ada (`tokenVersion`, dipakai
+  saat logout) tetapi tidak dipanggil di jalur ganti password. Pencabutan sesi
+  kini dipakai ulang lewat `revokeMobileSessions` untuk karyawan, mitra, dan
+  pelanggan. Konsekuensi yang disengaja: pemilik akun ikut diminta masuk ulang
+  dengan password barunya — aplikasi menangani ini dengan kembali ke layar
+  masuk (sudah diverifikasi di emulator).
+- **Files**: `modules/users/services/MobilePasswordChangeService.ts`,
+  `modules/users/services/MobileLogoutService.ts`,
+  `tests/modules/users/MobilePasswordChangeService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Foto absensi ditolak berakhir 500 tanpa alasan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: Validasi foto absensi menghasilkan pesan siap-tampil
+  ("Dimensi foto terlalu kecil. Minimal 200x200px", "Ukuran foto maksimal
+  5MB"), tetapi dilempar sebagai `Error` biasa dari parser payload sehingga
+  jalur mobile menjawab 500 "Terjadi kesalahan pada server" — orang yang
+  memotret tidak pernah tahu apa yang salah, dan kejadiannya tercatat sebagai
+  galat server. Route web sudah memetakannya ke 400; jalur mobile kini sama,
+  untuk check-in maupun check-out.
+- **Files**: `modules/attendance/services/MobileAttendanceCheckInPayloadParser.ts`,
+  `modules/attendance/services/MobileAttendanceCheckoutPayloadParser.ts`,
+  `tests/modules/attendance/absensi-foto-tidak-valid.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Kode alasan absensi tampil mentah di layar teknisi
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: `warningMessage` pada status absensi diisi kode alasan
+  evaluasi apa adanya, dan aplikasi menampilkannya verbatim — teknisi melihat
+  banner "WEAK_GEOFENCE_EVIDENCE" di layar Absensi. Kode kini diterjemahkan ke
+  kalimat; kode yang belum punya terjemahan tidak ditampilkan sama sekali
+  (lebih baik senyap daripada memunculkan konstanta). Kolom `reasonCodes`
+  untuk ekspor dan audit admin tidak berubah.
+- **Files**: `modules/attendance/services/attendance-current-status-helpers.ts`,
+  `tests/modules/attendance/pesan-peringatan-absensi.test.ts`,
+  `tests/api/mobile-attendance-status-route.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-11] — Request WO Internal tidak bisa dipakai di instalasi baru
+
+- **Tipe**: [FIXED]
+- **Scope**: `prisma/seed.ts`, `mobile-netmanager/app/(app)/request-work-order.tsx`
+- **Author**: agent
+- **Deskripsi**: Picker departemen di layar "Request WO → Internal (FOC)"
+  kosong total karena endpoint hanya mengirim departemen ber-`showInMobileWO`,
+  dan kolom itu default `false` sementara seed tidak pernah menyalakannya.
+  Layarnya terbaca rusak ("Data tidak ditemukan") padahal admin tinggal
+  mengaktifkan. Seed kini menyalakan Technical & Customer Service (termasuk
+  pada baris lama lewat `update`), dan pesan kosongnya menjelaskan apa yang
+  harus dilakukan.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-11] — Aplikasi mitra: tombol aksi tertutup tab bar & beranda sales selalu Rp 0
 
 - **Tipe**: [FIXED]
