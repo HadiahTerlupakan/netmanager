@@ -1,28 +1,11 @@
 "use client";
 
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import {
-  MapContainer,
-  Marker,
-  Polyline,
-  Popup,
-  TileLayer,
-  ZoomControl,
-  useMapEvents,
-} from "react-leaflet";
-
+import { JalurPratinjau } from "@/components/map/JalurPratinjau";
+import { JalurUniversal } from "@/components/map/JalurUniversal";
+import { PenandaUniversal } from "@/components/map/PenandaUniversal";
+import { PetaUniversal } from "@/components/map/PetaUniversal";
+import { calculateMapDistance } from "@/components/map/map-utils";
 import { Button } from "@/components/ui/Button";
-import { MapDrawingOverlay } from "@/components/map/MapDrawingOverlay";
-import { MAP_CONSTANTS, MAP_TILE_URL } from "@/components/map/map-constants";
-import {
-  createNodeIcon,
-  createTempMarkerIcon,
-} from "@/components/map/map-icon-factory";
-import {
-  calculateMapDistance,
-  getFiberColor,
-} from "@/components/map/map-utils";
 import type {
   JalurRencanaDTO,
   TitikRencanaDTO,
@@ -36,7 +19,7 @@ export interface JalurDraf {
   waypoints: Array<[number, number]>;
 }
 
-interface PetaRencanaLeafletProps {
+interface PetaRencanaProps {
   /** Planning yang petanya digambar; penentu titik nyata mana yang berasal darinya. */
   planningId: string;
   titikRencana: TitikRencanaDTO[];
@@ -65,43 +48,18 @@ interface PetaRencanaLeafletProps {
   onHapusJalur: (jalur: JalurRencanaDTO) => void;
 }
 
-/** Opasitas penanda node nyata: terlihat sebagai latar, tidak bersaing dengan rencana. */
-const OPASITAS_NODE_NYATA = 0.4;
 const ZOOM_AWAL = 16;
 const BOBOT_JALUR_RENCANA = 5;
-
-// Leaflet mencari berkas ikonnya secara relatif terhadap bundel; samakan
-// dengan peta operasional (components/map/NetworkMapInteractive.tsx).
-if (typeof window !== "undefined") {
-  // @ts-expect-error: properti internal Leaflet, dihapus seperti di peta operasional
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: "/images/marker-icon-2x.png",
-    iconUrl: "/images/marker-icon.png",
-    shadowUrl: "/images/marker-shadow.png",
-  });
-}
+/** Penanda rencana harus berada di atas node nyata yang jadi latar. */
+const Z_TITIK_RENCANA = 500;
 
 /** Koordinat lengkap sebuah titik, atau null bila titiknya belum berkoordinat. */
 function koordinatTitik(
   titik: TitikRencanaDTO | undefined,
-): [number, number] | null {
+): { lat: number; lng: number } | null {
   if (!titik || titik.latitude === null || titik.longitude === null)
     return null;
-  return [titik.latitude, titik.longitude];
-}
-
-/** Meneruskan klik pada kanvas peta; Leaflet tidak punya prop untuk ini. */
-function PenangkapKlikPeta({
-  onKlikPeta,
-}: {
-  onKlikPeta: (latitude: number, longitude: number) => void;
-}): null {
-  useMapEvents({
-    click: (peristiwa) =>
-      onKlikPeta(peristiwa.latlng.lat, peristiwa.latlng.lng),
-  });
-  return null;
+  return { lat: titik.latitude, lng: titik.longitude };
 }
 
 /** Panel panjang jalur yang sedang digambar, dihitung ulang tiap titik belok. */
@@ -111,8 +69,8 @@ function PanelPanjangJalur({ jalurDraf }: { jalurDraf: JalurDraf }) {
   const panjang =
     asal && terakhir
       ? calculateMapDistance(
-          asal[0],
-          asal[1],
+          asal.lat,
+          asal.lng,
           terakhir[0],
           terakhir[1],
           jalurDraf.waypoints.slice(0, -1),
@@ -140,10 +98,14 @@ function PanelPanjangJalur({ jalurDraf }: { jalurDraf: JalurDraf }) {
  *
  * Komponen ini tidak menyimpan keadaan: mode, jalur yang sedang digambar, dan
  * koordinat form dikendalikan induknya, supaya form dan panel bisa
- * menampilkan hal yang sama tanpa keadaan ganda. Hanya dimuat lewat
- * `dynamic(..., { ssr: false })` karena Leaflet menyentuh `window`.
+ * menampilkan hal yang sama tanpa keadaan ganda.
+ *
+ * Mesin petanya tidak ditentukan di sini: `PetaUniversal`, `PenandaUniversal`,
+ * dan `JalurUniversal` membacanya dari `useMesinPeta`, sehingga layar ini
+ * berpindah ke Google Maps sendirinya begitu API key terisi — tanpa deploy
+ * ulang dan tanpa satu pun perubahan di berkas ini.
  */
-export default function PetaRencanaLeaflet({
+export default function PetaRencana({
   planningId,
   titikRencana,
   nodeNyata,
@@ -163,29 +125,17 @@ export default function PetaRencanaLeaflet({
   onHapusTitik,
   onUnggahFotoTitik,
   onHapusJalur,
-}: PetaRencanaLeafletProps) {
+}: PetaRencanaProps) {
   const semuaTitik = [...titikRencana, ...nodeNyata];
+  const asalDraf = jalurDraf ? koordinatTitik(jalurDraf.sumber) : null;
 
   return (
     <div className="relative h-[520px] w-full overflow-hidden rounded-xl border border-gray-100 dark:border-gray-700">
-      <MapContainer
-        center={pusat}
+      <PetaUniversal
+        pusat={{ lat: pusat[0], lng: pusat[1] }}
         zoom={ZOOM_AWAL}
-        minZoom={MAP_CONSTANTS.ZOOM.MIN}
-        maxZoom={MAP_CONSTANTS.ZOOM.MAX}
-        zoomControl={false}
-        className="h-full w-full"
-        style={{ height: "100%", width: "100%" }}
+        onKlik={onKlikPeta}
       >
-        <TileLayer
-          url={MAP_TILE_URL.satellite}
-          attribution="© Google Maps"
-          maxZoom={MAP_CONSTANTS.ZOOM.MAX}
-          minZoom={MAP_CONSTANTS.ZOOM.MIN}
-        />
-        <ZoomControl position="topleft" />
-        <PenangkapKlikPeta onKlikPeta={onKlikPeta} />
-
         {jalur.map((satuJalur) => {
           const asal = koordinatTitik(
             semuaTitik.find((titik) => titik.nodeId === satuJalur.source),
@@ -195,35 +145,31 @@ export default function PetaRencanaLeaflet({
           );
           if (!asal || !tujuan) return null;
 
-          const jejak: Array<[number, number]> = [
+          const jejak = [
             asal,
-            ...satuJalur.waypoints,
+            ...satuJalur.waypoints.map(([lat, lng]) => ({ lat, lng })),
             tujuan,
           ];
           const panjang = calculateMapDistance(
-            asal[0],
-            asal[1],
-            tujuan[0],
-            tujuan[1],
+            asal.lat,
+            asal.lng,
+            tujuan.lat,
+            tujuan.lng,
             satuJalur.waypoints,
           );
 
           return (
-            <Polyline
+            <JalurUniversal
               key={satuJalur.edgeId}
-              positions={jejak}
+              jejak={jejak}
               // Seluruh jalur di sini adalah jalur rencana: endpoint peta
               // planning hanya mengembalikan `isPlanned: true`, dan latar
               // node nyata tidak membawa kabelnya. Jadi tidak ada cabang
               // gaya "jalur nyata" — cabang itu tidak akan pernah terpakai.
-              pathOptions={{
-                color: getFiberColor(satuJalur.fiberType),
-                weight: BOBOT_JALUR_RENCANA,
-                opacity: 0.9,
-                dashArray: "10, 10",
-              }}
-            >
-              <Popup>
+              fiberType={satuJalur.fiberType}
+              bobot={BOBOT_JALUR_RENCANA}
+              putus
+              popup={
                 <div className="min-w-[180px] space-y-1 text-sm">
                   <p className="font-semibold">
                     Jalur {satuJalur.fiberType ?? "tanpa jenis"}
@@ -241,8 +187,8 @@ export default function PetaRencanaLeaflet({
                     </Button>
                   )}
                 </div>
-              </Popup>
-            </Polyline>
+              }
+            />
           );
         })}
 
@@ -250,14 +196,14 @@ export default function PetaRencanaLeaflet({
           const posisi = koordinatTitik(titik);
           if (!posisi) return null;
           return (
-            <Marker
+            <PenandaUniversal
               key={titik.nodeId}
-              position={posisi}
-              opacity={OPASITAS_NODE_NYATA}
-              icon={createNodeIcon(titik.type)}
-              eventHandlers={{ click: () => onKlikTitik(titik) }}
-            >
-              <Popup>
+              posisi={posisi}
+              type={titik.type}
+              redup
+              title={titik.name ?? undefined}
+              onKlik={() => onKlikTitik(titik)}
+              popup={
                 <div className="min-w-[180px] space-y-2 text-sm">
                   <div className="space-y-1">
                     <p className="font-semibold">
@@ -282,8 +228,8 @@ export default function PetaRencanaLeaflet({
                     />
                   )}
                 </div>
-              </Popup>
-            </Marker>
+              }
+            />
           );
         })}
 
@@ -292,13 +238,15 @@ export default function PetaRencanaLeaflet({
           if (!posisi) return null;
           const terpilihSebagaiAsal = jalurDraf?.sumber.nodeId === titik.nodeId;
           return (
-            <Marker
+            <PenandaUniversal
               key={titik.nodeId}
-              position={posisi}
-              icon={createNodeIcon(titik.type, terpilihSebagaiAsal)}
-              eventHandlers={{ click: () => onKlikTitik(titik) }}
-            >
-              <Popup>
+              posisi={posisi}
+              type={titik.type}
+              ragam={terpilihSebagaiAsal ? "terpilih" : "biasa"}
+              zIndex={Z_TITIK_RENCANA}
+              title={titik.name ?? undefined}
+              onKlik={() => onKlikTitik(titik)}
+              popup={
                 <PopupTitikRencana
                   titik={titik}
                   dapatDiubah={dapatDiubah}
@@ -310,28 +258,26 @@ export default function PetaRencanaLeaflet({
                   onHapus={onHapusTitik}
                   onUnggahFoto={onUnggahFotoTitik}
                 />
-              </Popup>
-            </Marker>
+              }
+            />
           );
         })}
 
         {koordinatDraf && !sedangGambarJalur && (
-          <Marker position={koordinatDraf} icon={createTempMarkerIcon("odp")} />
+          <PenandaUniversal
+            posisi={{ lat: koordinatDraf[0], lng: koordinatDraf[1] }}
+            type="odp"
+            ragam="sementara"
+            title="Titik baru"
+          />
         )}
 
-        <MapDrawingOverlay
-          fiberLineMode={jalurDraf ? "drawing" : "idle"}
-          fiberSourceNode={
-            jalurDraf && koordinatTitik(jalurDraf.sumber)
-              ? {
-                  latitude: jalurDraf.sumber.latitude!,
-                  longitude: jalurDraf.sumber.longitude!,
-                }
-              : null
-          }
-          fiberWaypoints={jalurDraf?.waypoints ?? []}
+        <JalurPratinjau
+          aktif={Boolean(jalurDraf)}
+          asal={asalDraf}
+          belokan={jalurDraf?.waypoints ?? []}
         />
-      </MapContainer>
+      </PetaUniversal>
 
       {jalurDraf && <PanelPanjangJalur jalurDraf={jalurDraf} />}
     </div>

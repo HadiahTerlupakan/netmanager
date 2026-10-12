@@ -14,15 +14,36 @@ interface JalurKabelProps {
   /** Sumber → titik belok → tujuan, sudah lengkap. */
   jejak: TitikJalur[];
   fiberType?: string | null;
+  /** Warna pengganti warna jenis kabel, untuk garis non-kabel. */
+  warna?: string;
   bobot?: number;
-  /** Garis putus-putus untuk jalur yang masih digambar. */
+  /** Garis putus-putus: jalur rencana, atau jalur yang sedang digambar. */
+  putus?: boolean;
+  /** Garis tipis separuh tembus untuk jalur yang masih digambar. */
   pratinjau?: boolean;
+  opasitas?: number;
   /** Isi info window saat garis diklik; tanpa ini garis tidak bisa diklik. */
   popup?: React.ReactNode;
 }
 
 const BOBOT_BAWAAN = 5;
 const BOBOT_PRATINJAU = 3;
+
+/**
+ * Pola garis putus-putus.
+ *
+ * Google tidak punya `dashArray`: garisnya dibuat tembus pandang, lalu
+ * sederet simbol garis pendek diulang sepanjang jejaknya. `path` ditulis
+ * sebagai string SVG, bukan `google.maps.SymbolPath`, supaya berkas ini tidak
+ * menyentuh global `google` saat dirender — di jsdom global itu tidak ada.
+ */
+const SIMBOL_PUTUS = [
+  {
+    icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 4 },
+    offset: "0",
+    repeat: "20px",
+  },
+];
 
 /**
  * Satu jalur kabel di peta Google.
@@ -38,24 +59,30 @@ const BOBOT_PRATINJAU = 3;
 export function JalurKabel({
   jejak,
   fiberType,
+  warna,
   bobot,
+  putus,
   pratinjau,
+  opasitas,
   popup,
 }: JalurKabelProps) {
   const [popupTerbuka, setPopupTerbuka] = useState(false);
 
   if (jejak.length < 2) return null;
 
-  const warna = getFiberColor(fiberType);
   const tengah = jejak[Math.floor(jejak.length / 2)];
+  const opasitasGaris = opasitas ?? (pratinjau ? 0.7 : 1);
 
   return (
     <>
       <Polyline
         path={jejak}
-        strokeColor={warna}
-        strokeOpacity={pratinjau ? 0.7 : 1}
+        strokeColor={warna ?? getFiberColor(fiberType)}
+        // Garis putus dibentuk oleh simbolnya, jadi garis dasarnya sendiri
+        // harus tak terlihat — bukan sekadar diredupkan.
+        strokeOpacity={putus ? 0 : opasitasGaris}
         strokeWeight={bobot ?? (pratinjau ? BOBOT_PRATINJAU : BOBOT_BAWAAN)}
+        icons={putus ? SIMBOL_PUTUS : undefined}
         clickable={Boolean(popup)}
         onClick={() => {
           if (popup) setPopupTerbuka(true);

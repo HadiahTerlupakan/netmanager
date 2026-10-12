@@ -123,6 +123,20 @@
   box-shadow: 0 16px 64px rgba(0, 0, 0, 0.4);
 }
 
+/* Kabel terpasang di peta jaringan: garis putus yang mengalir.
+   Dulu disuntikkan sebagai <style> dari NetworkMapInteractive saat komponen
+   dipasang; di sini ia ikut kaskade yang sama dengan gaya peta lainnya. */
+.animated-polyline {
+  stroke-dashoffset: 1000;
+  animation: dash 30s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* Leaflet popup — dark mode contrast (popup DOM is outside React tree) */
 .dark .leaflet-popup-content-wrapper,
 .dark .leaflet-popup-tip {

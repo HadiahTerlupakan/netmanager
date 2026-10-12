@@ -85,6 +85,8 @@ interface PropsPolyline {
   strokeColor?: string;
   strokeWeight?: number;
   strokeOpacity?: number;
+  /** Simbol berulang; dipakai Google untuk membentuk garis putus-putus. */
+  icons?: unknown[];
   clickable?: boolean;
   onClick?: () => void;
 }
@@ -162,6 +164,7 @@ export function modulGoogleMapsPalsu() {
     strokeColor,
     strokeWeight,
     strokeOpacity,
+    icons,
     clickable,
     onClick,
   }: PropsPolyline) {
@@ -172,6 +175,7 @@ export function modulGoogleMapsPalsu() {
         data-warna={strokeColor}
         data-bobot={strokeWeight}
         data-opasitas={strokeOpacity}
+        data-putus={icons?.length ? "ya" : undefined}
         data-dapat-diklik={clickable ? "ya" : undefined}
         onClick={onClick}
       />

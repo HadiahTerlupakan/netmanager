@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import type { LeafletMouseEvent, Marker } from "leaflet";
 
 import { determineFiberType } from "./map-utils";
 import { NODE_TOOL_CONFIG, FIBER_MODE_MESSAGES } from "./map-constants";
+import type { TitikSementara } from "./PenandaSementaraPeta";
 import type { FiberFormData, MappingNode } from "./map-types";
 
 type ToastType = "success" | "error" | "info" | "warning";
@@ -128,8 +128,8 @@ export function useMapEditorState({
   }, [handleFiberLineCancel, resetAllNodeToolStates]);
 
   const handleMapClick = useCallback(
-    (e: LeafletMouseEvent) => {
-      const latlng: Position = [e.latlng.lat, e.latlng.lng];
+    (lat: number, lng: number) => {
+      const latlng: Position = [lat, lng];
 
       const activeTool = (Object.keys(nodeToolStates) as NodeTool[]).find(
         (tool) => nodeToolStates[tool].actionMode === "adding",
@@ -156,13 +156,11 @@ export function useMapEditorState({
   );
 
   const handleNodeClick = useCallback(
-    (node: MappingNode, markerRef: Marker | null) => {
+    (node: MappingNode) => {
+      // Di luar mode gambar jalur, mengklik node hanya membuka popup-nya —
+      // itu urusan penandanya sendiri, bukan urusan keadaan editor.
       if (fiberState.mode !== "drawing") {
         return;
-      }
-
-      if (markerRef) {
-        markerRef.closePopup();
       }
 
       if (!fiberState.sourceNode) {
@@ -399,6 +397,30 @@ export function useMapEditorState({
     [updateNodeToolState],
   );
 
+  /**
+   * Penanda yang belum tersimpan, satu per alat yang punya posisi sementara.
+   *
+   * Diturunkan di sini, bukan dirakit ulang oleh layar peta: alat, ikon, dan
+   * label posisinya sudah hidup di `NODE_TOOL_CONFIG`, dan menyalinnya ke
+   * komponen peta berarti menambah alat baru harus diingat di dua tempat.
+   */
+  const titikSementara = useMemo<TitikSementara[]>(
+    () =>
+      (Object.keys(nodeToolStates) as NodeTool[])
+        .filter((alat) => nodeToolStates[alat].tempPosition !== null)
+        .map((alat) => ({
+          alat,
+          jenisIkon: NODE_TOOL_CONFIG[alat].formType,
+          label:
+            nodeToolStates[alat].actionMode === "adding"
+              ? NODE_TOOL_CONFIG[alat].newPositionLabel
+              : LABEL_PINDAH_POSISI,
+          posisi: nodeToolStates[alat].tempPosition!,
+          pindahkan: (posisi: Position) => setTempPosition(alat, posisi),
+        })),
+    [nodeToolStates, setTempPosition],
+  );
+
   return {
     serverActionMode: nodeToolStates.server.actionMode,
     odcActionMode: nodeToolStates.odc.actionMode,
@@ -406,12 +428,6 @@ export function useMapEditorState({
     ontActionMode: nodeToolStates.ont.actionMode,
     poleActionMode: nodeToolStates.pole.actionMode,
     joinboxActionMode: nodeToolStates.joinbox.actionMode,
-    serverTempPosition: nodeToolStates.server.tempPosition,
-    odcTempPosition: nodeToolStates.odc.tempPosition,
-    odpTempPosition: nodeToolStates.odp.tempPosition,
-    ontTempPosition: nodeToolStates.ont.tempPosition,
-    poleTempPosition: nodeToolStates.pole.tempPosition,
-    joinboxTempPosition: nodeToolStates.joinbox.tempPosition,
     selectedServerNode: nodeToolStates.server.selectedNode,
     selectedOdcNode: nodeToolStates.odc.selectedNode,
     selectedOdpNode: nodeToolStates.odp.selectedNode,
@@ -429,17 +445,10 @@ export function useMapEditorState({
     fiberFormData: fiberState.formData,
     isManualAdd: nodeFormState.isManualAdd,
     deleteConfirmation,
+    titikSementara,
     isAnyModeActive,
     activeModeMessage,
     hasPendingTempPosition,
-    setServerTempPosition: (pos: Position | null) =>
-      setTempPosition("server", pos),
-    setOdcTempPosition: (pos: Position | null) => setTempPosition("odc", pos),
-    setOdpTempPosition: (pos: Position | null) => setTempPosition("odp", pos),
-    setOntTempPosition: (pos: Position | null) => setTempPosition("ont", pos),
-    setPoleTempPosition: (pos: Position | null) => setTempPosition("pole", pos),
-    setJoinboxTempPosition: (pos: Position | null) =>
-      setTempPosition("joinbox", pos),
     setNodeFormData: (data: Partial<MappingNode>) =>
       setNodeFormState((prev) => ({ ...prev, data })),
     setFiberFormData: (data: FiberFormData | null) =>
@@ -462,3 +471,6 @@ export function useMapEditorState({
     isNodeBeingEdited,
   };
 }
+
+/** Judul popup penanda yang sedang dipindahkan, bukan yang baru dibuat. */
+const LABEL_PINDAH_POSISI = "Editing Position";

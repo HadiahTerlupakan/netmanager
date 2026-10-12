@@ -25,12 +25,13 @@ import type {
 import { FormTitikRencana, type KoordinatTeks } from "./FormTitikRencana";
 import { PanelPenerbitanPeta } from "./PanelPenerbitanPeta";
 import { PanelRingkasanMaterial } from "./PanelRingkasanMaterial";
-import type { JalurDraf } from "./PetaRencanaLeaflet";
+import type { JalurDraf } from "./PetaRencana";
 import { usePetaRencana, type PesanPeta } from "./usePetaRencana";
 
-// Leaflet menyentuh `window` saat modulnya dimuat, jadi peta hanya boleh
-// dirender di klien — pola yang sama dengan `components/map/MapWrapper.tsx`.
-const PetaRencanaLeaflet = dynamic(() => import("./PetaRencanaLeaflet"), {
+// Mesin peta cadangannya (Leaflet) menyentuh `window` saat modulnya dimuat,
+// jadi peta hanya boleh dirender di klien — pola yang sama dengan
+// `components/map/MapWrapper.tsx`.
+const PetaRencana = dynamic(() => import("./PetaRencana"), {
   ssr: false,
   loading: () => (
     <div className="flex h-[520px] w-full items-center justify-center rounded-xl border border-gray-100 dark:border-gray-700">
@@ -324,7 +325,7 @@ export default function PlanningPetaTab({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">
-          <PetaRencanaLeaflet
+          <PetaRencana
             planningId={planningId}
             titikRencana={titikRencana}
             nodeNyata={nodeNyata}

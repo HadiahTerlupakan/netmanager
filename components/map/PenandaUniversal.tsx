@@ -80,6 +80,7 @@ export function PenandaUniversal({
         zIndex={zIndex}
         title={title}
         onPindah={onPindah}
+        popup={popup}
       />
     );
   }

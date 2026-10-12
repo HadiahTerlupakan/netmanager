@@ -41,6 +41,55 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Semua peta memakai pasangan universal; Street View di titik rencana
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/map`, `app/admin/planning/[id]/peta`
+- **Author**: agent
+- **Deskripsi**: Fase 4–5 migrasi Google Maps. Dua layar terakhir yang masih
+  memanggil `react-leaflet` langsung — peta rencana OSP dan peta jaringan —
+  kini memakai `PetaUniversal`/`PenandaUniversal`/`JalurUniversal`, sehingga
+  seluruh peta aplikasi berpindah ke Google Maps JavaScript API sendirinya
+  begitu API key tenant terisi, tanpa deploy ulang.
+  Primitif baru: `JalurUniversal` (jalur kabel lintas-mesin, termasuk garis
+  putus yang di Google dibentuk dari simbol berulang karena `dashArray` tidak
+  ada di sana) dan `JalurPratinjau` (jalur yang sedang digambar, dipakai kedua
+  peta). `PenandaDapatDiseret` kini punya popup — penanda sementara peta
+  jaringan memerlukannya, dan tanpa itu popup-nya hilang diam-diam di mesin
+  Google.
+  Street View masuk sebagai tombol "Lihat dari jalan" di popup titik rencana,
+  memuat pustaka `streetView` hanya saat dibuka, dan menyatakan dengan jelas
+  bila tidak ada panorama di sekitar titik itu. Tombolnya disembunyikan selama
+  mesin peta masih Leaflet, karena pustakanya memang belum ada di sana.
+  Perapian yang ikut: enam blok penanda sementara yang hampir identik (dua
+  belas prop) menjadi satu daftar `titikSementara` yang diturunkan di
+  `useMapEditorState`; `handleMapClick`/`handleNodeClick` tidak lagi menerima
+  tipe Leaflet; `mapRef` imperatif untuk melompat ke hasil pencarian diganti
+  `titikPas`+`zoomPas`; keyframes animasi kabel pindah dari suntikan `<style>`
+  saat runtime ke `app/styles/components.css`; koordinat kini tampil di popup
+  semua penanda sementara, bukan hanya penanda server.
+- **Files**: `components/map/JalurUniversal.tsx`,
+  `components/map/JalurPratinjau.tsx`, `components/map/PenandaSementaraPeta.tsx`,
+  `components/map/MapFiberLinesLayer.tsx`, `components/map/NetworkMapInteractive.tsx`,
+  `components/map/useMapEditorState.ts`,
+  `app/admin/planning/[id]/peta/PetaRencana.tsx`,
+  `app/admin/planning/[id]/peta/PanelStreetView.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Hapus MapDrawingOverlay dan MapTempMarkers
+
+- **Tipe**: [REMOVED]
+- **Scope**: `components/map`
+- **Author**: agent
+- **Deskripsi**: Keduanya terikat `react-leaflet` dan digantikan
+  `JalurPratinjau` serta `PenandaSementaraPeta` yang mengikuti mesin peta aktif.
+  `PetaRencanaLeaflet.tsx` juga diganti `PetaRencana.tsx` — namanya menyebut
+  mesin yang tidak lagi ditentukannya.
+- **Files**: `components/map/MapDrawingOverlay.tsx`,
+  `components/map/MapTempMarkers.tsx`,
+  `app/admin/planning/[id]/peta/PetaRencanaLeaflet.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Hapus komponen peta mati `NetworkMap.tsx`
 
 - **Tipe**: [REMOVED]

@@ -326,8 +326,8 @@ dalam keadaan rusak.
 | 1 | Setelan: tiga key, service, endpoint baca, kartu di `/admin/pengaturan/api` | Tidak ada peta berubah. Administrator sudah bisa mengisi key |
 | 2 | Primitif bersama `components/map/google/*` + panggung uji | Belum dipakai siapa pun |
 | 3 | ✅ Lima layar OpenLayers (#3–#7) pindah ke `PetaUniversal`; `ol` dicabut | OpenLayers hilang; kelimanya sudah memperlihatkan citra Google lewat cadangan Leaflet |
-| 4 | Peta rencana OSP (#1) + Street View | Fitur terbaru dan paling bernilai sudah pindah |
-| 5 | Peta jaringan (#2), hapus `NetworkMap.tsx` mati | Semua layar memakai pasangan universal |
+| 4 | ✅ Peta rencana OSP (#1) + Street View | Fitur terbaru dan paling bernilai sudah pindah |
+| 5 | ✅ Peta jaringan (#2), hapus `NetworkMap.tsx` mati | Semua layar memakai pasangan universal |
 | 6 | Cabut `leaflet`, `react-leaflet`, `@types/leaflet`; bersihkan CSS `.leaflet-popup-*` | Satu mesin peta, `mt0.google.com` hilang dari web |
 
 Urutannya berubah dari rancangan awal: karena ada cadangan Leaflet (§2.6),

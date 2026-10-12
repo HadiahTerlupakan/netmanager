@@ -32,6 +32,8 @@ interface PetaUniversalProps {
   titikPas?: Array<{ lat: number; lng: number }>;
   /** Dinaikkan untuk meminta peta dipaskan ulang ke `titikPas`. */
   pemicuPas?: number;
+  /** Batas perbesaran saat memaskan; lebih dekat untuk hasil pencarian. */
+  zoomPas?: number;
   children?: React.ReactNode;
 }
 
@@ -57,6 +59,7 @@ export function PetaUniversal({
   ikutiPusat,
   titikPas,
   pemicuPas,
+  zoomPas,
   children,
 }: PetaUniversalProps) {
   const mesin = useMesinPeta();
@@ -74,6 +77,7 @@ export function PetaUniversal({
         ikutiPusat={ikutiPusat}
         titikPas={titikPas}
         pemicuPas={pemicuPas}
+        zoomPas={zoomPas}
       >
         {children}
       </PetaLeafletCadangan>
@@ -92,6 +96,7 @@ export function PetaUniversal({
       ikutiPusat={ikutiPusat}
       titikPas={titikPas}
       pemicuPas={pemicuPas}
+      zoomPas={zoomPas}
     >
       {children}
     </PetaGoogle>

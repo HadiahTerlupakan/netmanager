@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import dynamic from "next/dynamic";
-import "leaflet/dist/leaflet.css";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/Button";
 import { FiberFormModal } from "@/components/map/FiberFormModal";
 import { NodeFormModal } from "@/components/map/NodeFormModal";
@@ -10,20 +8,17 @@ import { MapStatisticsBar } from "@/components/map/MapStatisticsBar";
 import { MapToolbar } from "@/components/map/MapToolbar";
 import { NodeListTab } from "@/components/map/NodeListTab";
 import { NodePopupContent } from "@/components/map/NodePopupContent";
-import { MapDrawingOverlay } from "@/components/map/MapDrawingOverlay";
+import { JalurPratinjau } from "@/components/map/JalurPratinjau";
 import { MapFiberDrawingInfoPanel } from "@/components/map/MapFiberDrawingInfoPanel";
 import { MapFiberLinesLayer } from "@/components/map/MapFiberLinesLayer";
-import { MapTempMarkers } from "@/components/map/MapTempMarkers";
+import { PenandaSementaraPeta } from "@/components/map/PenandaSementaraPeta";
+import { PenandaUniversal } from "@/components/map/PenandaUniversal";
+import { PetaUniversal } from "@/components/map/PetaUniversal";
 import { SettingsTab } from "@/components/map/SettingsTab";
 import type { MappingNode } from "@/components/map/map-types";
 import { useMapData } from "@/components/map/useMapData";
 import { useMapEditorState } from "@/components/map/useMapEditorState";
-import {
-  createNodeIcon,
-  createTempMarkerIcon,
-  getNodeColor,
-} from "@/components/map/map-icon-factory";
-import L from "leaflet";
+import { getNodeColor } from "@/components/map/map-icon-factory";
 import { useToast } from "@/components/ui/Toast";
 import {
   getConnectedDevices,
@@ -31,49 +26,11 @@ import {
 } from "@/components/map/map-utils";
 import { HiMap, HiExclamationTriangle } from "react-icons/hi2";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
-import { MAP_TILE_URL } from "@/components/map/map-constants";
-
-// Dynamically import Leaflet components
-const MapContainer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.MapContainer),
-  { ssr: false },
-);
-const TileLayer = dynamic(
-  () => import("react-leaflet").then((mod) => mod.TileLayer),
-  { ssr: false },
-);
-const Marker = dynamic(
-  () => import("react-leaflet").then((mod) => mod.Marker),
-  { ssr: false },
-);
-const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), {
-  ssr: false,
-});
-const ZoomControl = dynamic(
-  () => import("react-leaflet").then((mod) => mod.ZoomControl),
-  { ssr: false },
-);
-
-// Fix Leaflet icon issue
-if (typeof window !== "undefined") {
-  // @ts-expect-error: Fix Leaflet icon issue
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: "/images/marker-icon-2x.png",
-    iconUrl: "/images/marker-icon.png",
-    shadowUrl: "/images/marker-shadow.png",
-  });
-}
-
-// ============================================
-// TYPES - MATCHING GENIEACS
-// ============================================
-
-// ============================================
-// TYPES - MATCHING GENIEACS
-// ============================================
 
 type ActiveTab = "map" | "list" | "settings";
+
+/** Perbesaran saat melompat ke hasil pencarian node. */
+const ZOOM_HASIL_CARI = 18;
 
 // ============================================
 // MAIN COMPONENT
@@ -141,7 +98,13 @@ export default function NetworkMapInteractive() {
     };
   }, []);
 
-  const mapRef = useRef<L.Map | null>(null);
+  // Hasil pencarian memindahkan peta lewat `titikPas`, bukan lewat pegangan
+  // ke objek peta: `PetaUniversal` menyembunyikan mesinnya, dan satu-satunya
+  // hal yang perlu disampaikan ke sana adalah "paskan ke titik ini".
+  const [titikSorot, setTitikSorot] = useState<
+    Array<{ lat: number; lng: number }> | undefined
+  >(undefined);
+  const [pemicuSorot, setPemicuSorot] = useState(0);
 
   const {
     serverActionMode,
@@ -150,12 +113,6 @@ export default function NetworkMapInteractive() {
     ontActionMode,
     poleActionMode,
     joinboxActionMode,
-    serverTempPosition,
-    odcTempPosition,
-    odpTempPosition,
-    ontTempPosition,
-    poleTempPosition,
-    joinboxTempPosition,
     fiberLineMode,
     fiberSourceNode,
     fiberWaypoints,
@@ -167,15 +124,10 @@ export default function NetworkMapInteractive() {
     fiberFormData,
     isManualAdd,
     deleteConfirmation,
+    titikSementara,
     isAnyModeActive,
     activeModeMessage,
     hasPendingTempPosition,
-    setServerTempPosition,
-    setOdcTempPosition,
-    setOdpTempPosition,
-    setOntTempPosition,
-    setPoleTempPosition,
-    setJoinboxTempPosition,
     setNodeFormData,
     setFiberFormData,
     setDeleteConfirmation,
@@ -194,31 +146,6 @@ export default function NetworkMapInteractive() {
     cancelActiveMode,
     isNodeBeingEdited,
   } = useMapEditorState({ showToast, updateNodePosition });
-
-  // Add CSS for animations
-  useEffect(() => {
-    if (
-      typeof document !== "undefined" &&
-      !document.getElementById("map-animation-styles")
-    ) {
-      const style = document.createElement("style");
-      style.id = "map-animation-styles";
-      style.innerHTML = `
-        .animated-polyline {
-          stroke-dashoffset: 1000;
-          animation: dash 30s linear infinite;
-        }
-        @keyframes dash {
-          to { stroke-dashoffset: 0; }
-        }
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.1); opacity: 0.8; }
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
 
   // ============================================
   // GET CONNECTED DEVICES - EXACT FROM GENIEACS
@@ -276,8 +203,6 @@ export default function NetworkMapInteractive() {
   const maxZoomIn = settings?.maxZoomIn ? parseInt(settings.maxZoomIn) : 22;
   const minZoomOut = settings?.maxZoomOut ? parseInt(settings.maxZoomOut) : 5;
 
-  const tileUrl = MAP_TILE_URL[mapStyle];
-
   const filteredNodes = searchQuery
     ? nodes.filter(
         (n) =>
@@ -324,8 +249,9 @@ export default function NetworkMapInteractive() {
         }
         onSearchQueryChange={setSearchQuery}
         onSelectSearchResult={(node) => {
-          if (mapRef.current && node.latitude && node.longitude) {
-            mapRef.current.setView([node.latitude, node.longitude], 18);
+          if (node.latitude && node.longitude) {
+            setTitikSorot([{ lat: node.latitude, lng: node.longitude }]);
+            setPemicuSorot((nilai) => nilai + 1);
           }
           setShowSearchDropdown(false);
           setSearchQuery("");
@@ -341,75 +267,37 @@ export default function NetworkMapInteractive() {
         {activeTab === "map" && (
           <>
             <div className="flex-1 relative z-[0]">
-              <MapContainer
-                key={`map-${activeTab}-${mapStyle}`} // Add unique key to force remount on tab/style change
-                center={centerPosition}
+              <PetaUniversal
+                pusat={{ lat: centerPosition[0], lng: centerPosition[1] }}
                 zoom={zoomLevel}
+                gaya={mapStyle}
                 minZoom={minZoomOut}
                 maxZoom={maxZoomIn}
-                zoomControl={false}
-                className="w-full h-full"
-                style={{ height: "100%", width: "100%" }}
-                ref={(map) => {
-                  if (map) {
-                    mapRef.current = map;
-                    // Use a timeout to ensure map is fully initialized before attaching events
-                    // This helps prevent "Map container is being reused" issues in some cases
-                    setTimeout(() => {
-                      map.off("click");
-                      map.on("click", handleMapClick);
-                    }, 0);
-                  }
-                }}
+                onKlik={handleMapClick}
+                titikPas={titikSorot}
+                pemicuPas={pemicuSorot}
+                zoomPas={ZOOM_HASIL_CARI}
               >
-                <TileLayer
-                  url={tileUrl}
-                  attribution="© Google Maps"
-                  maxZoom={maxZoomIn}
-                  minZoom={minZoomOut}
-                />
-                <ZoomControl position="topleft" />
-
                 <MapFiberLinesLayer
                   edges={edges}
                   nodes={nodes}
                   onDeleteEdge={deleteEdge}
                 />
 
-                <MapDrawingOverlay
-                  fiberLineMode={fiberLineMode}
-                  fiberSourceNode={
-                    fiberSourceNode
+                <JalurPratinjau
+                  aktif={fiberLineMode === "drawing"}
+                  asal={
+                    fiberSourceNode?.latitude && fiberSourceNode?.longitude
                       ? {
-                          latitude: fiberSourceNode.latitude!,
-                          longitude: fiberSourceNode.longitude!,
+                          lat: fiberSourceNode.latitude,
+                          lng: fiberSourceNode.longitude,
                         }
                       : null
                   }
-                  fiberWaypoints={fiberWaypoints}
+                  belokan={fiberWaypoints}
                 />
 
-                <MapTempMarkers
-                  serverActionMode={serverActionMode}
-                  odcActionMode={odcActionMode}
-                  odpActionMode={odpActionMode}
-                  ontActionMode={ontActionMode}
-                  poleActionMode={poleActionMode}
-                  joinboxActionMode={joinboxActionMode}
-                  serverTempPosition={serverTempPosition}
-                  odcTempPosition={odcTempPosition}
-                  odpTempPosition={odpTempPosition}
-                  ontTempPosition={ontTempPosition}
-                  poleTempPosition={poleTempPosition}
-                  joinboxTempPosition={joinboxTempPosition}
-                  setServerTempPosition={setServerTempPosition}
-                  setOdcTempPosition={setOdcTempPosition}
-                  setOdpTempPosition={setOdpTempPosition}
-                  setOntTempPosition={setOntTempPosition}
-                  setPoleTempPosition={setPoleTempPosition}
-                  setJoinboxTempPosition={setJoinboxTempPosition}
-                  createTempMarkerIcon={createTempMarkerIcon}
-                />
+                <PenandaSementaraPeta titik={titikSementara} />
 
                 {/* Existing Nodes */}
                 {nodes.map((node) => {
@@ -454,16 +342,19 @@ export default function NetworkMapInteractive() {
                   };
 
                   return (
-                    <Marker
+                    <PenandaUniversal
                       key={node.nodeId}
-                      position={[node.latitude, node.longitude]}
-                      icon={createNodeIcon(node.type, isSelected)}
-                      eventHandlers={{
-                        click: (e) => handleNodeClick(node, e.target),
-                      }}
-                    >
-                      {fiberLineMode !== "drawing" && (
-                        <Popup>
+                      posisi={{ lat: node.latitude, lng: node.longitude }}
+                      type={node.type}
+                      ragam={isSelected ? "terpilih" : "biasa"}
+                      title={node.name}
+                      onKlik={() => handleNodeClick(node)}
+                      // Selama menggambar jalur, mengklik node berarti memilih
+                      // ujung kabel — bukan membuka kartunya. Popup yang tidak
+                      // dirender sama sekali membuat maksud itu tidak bisa
+                      // salah dibaca.
+                      popup={
+                        fiberLineMode === "drawing" ? undefined : (
                           <NodePopupContent
                             node={node}
                             connectedFromNodes={
@@ -477,12 +368,12 @@ export default function NetworkMapInteractive() {
                             onEditNodeLocation={onEditNodeLocation}
                             onDeleteNode={deleteNode}
                           />
-                        </Popup>
-                      )}
-                    </Marker>
+                        )
+                      }
+                    />
                   );
                 })}
-              </MapContainer>
+              </PetaUniversal>
 
               <MapFiberDrawingInfoPanel
                 fiberLineMode={fiberLineMode}

@@ -33,6 +33,8 @@ interface PetaGoogleProps {
   titikPas?: Array<{ lat: number; lng: number }>;
   /** Dinaikkan untuk meminta peta dipaskan ulang ke `titikPas`. */
   pemicuPas?: number;
+  /** Batas perbesaran saat memaskan; lebih dekat untuk hasil pencarian. */
+  zoomPas?: number;
   children?: React.ReactNode;
   /**
    * Peta lama yang dipakai selama API key belum terisi.
@@ -68,6 +70,7 @@ export function PetaGoogle({
   ikutiPusat,
   titikPas,
   pemicuPas,
+  zoomPas,
   children,
   cadangan,
 }: PetaGoogleProps) {
@@ -113,7 +116,13 @@ export function PetaGoogle({
       }}
     >
       {ikutiPusat && <IkutiPusat pusat={pusat} zoom={zoom} />}
-      {titikPas && <PasKeTitik titik={titikPas} pemicu={pemicuPas ?? 0} />}
+      {titikPas && (
+        <PasKeTitik
+          titik={titikPas}
+          pemicu={pemicuPas ?? 0}
+          zoomMaks={zoomPas ?? ZOOM_MAKS_PAS}
+        />
+      )}
       {children}
     </Map>
   );
@@ -170,9 +179,11 @@ export function PetaBelumDikonfigurasi({ className }: { className?: string }) {
 function PasKeTitik({
   titik,
   pemicu,
+  zoomMaks,
 }: {
   titik: Array<{ lat: number; lng: number }>;
   pemicu: number;
+  zoomMaks: number;
 }): null {
   const peta = useMap();
   const jumlah = titik.length;
@@ -182,11 +193,20 @@ function PasKeTitik({
     const batas = new google.maps.LatLngBounds();
     for (const satu of titik) batas.extend(satu);
     peta.fitBounds(batas, 50);
+    // Satu titik membuat `fitBounds` memperbesar sampai zoom maksimal peta;
+    // dibatasi setelah peta selesai bergerak, bukan seketika, karena zoom
+    // hasil `fitBounds` baru ada setelah itu.
+    google.maps.event.addListenerOnce(peta, "idle", () => {
+      if ((peta.getZoom() ?? 0) > zoomMaks) peta.setZoom(zoomMaks);
+    });
     // Sengaja TIDAK bergantung pada isi `titik`: live-map menyegarkan posisi
     // tiap beberapa detik, dan memaskan ulang setiap kali akan merebut
     // tampilan dari pemakai yang sedang menggeser peta.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [peta, jumlah, pemicu]);
+  }, [peta, jumlah, pemicu, zoomMaks]);
 
   return null;
 }
+
+/** Batas perbesaran bawaan saat memaskan; disamakan dengan mesin Leaflet. */
+const ZOOM_MAKS_PAS = 16;

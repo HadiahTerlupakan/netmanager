@@ -29,6 +29,8 @@ interface PetaLeafletCadanganProps {
   titikPas?: Array<{ lat: number; lng: number }>;
   /** Dinaikkan untuk meminta peta dipaskan ulang ke `titikPas`. */
   pemicuPas?: number;
+  /** Batas perbesaran saat memaskan; lebih dekat untuk hasil pencarian. */
+  zoomPas?: number;
   children?: React.ReactNode;
 }
 
@@ -54,6 +56,7 @@ export function PetaLeafletCadangan({
   ikutiPusat,
   titikPas,
   pemicuPas,
+  zoomPas,
   children,
 }: PetaLeafletCadanganProps) {
   return (
@@ -70,7 +73,13 @@ export function PetaLeafletCadangan({
       <ZoomControl position="topleft" />
       <PerbaikiUkuran />
       {ikutiPusat && <IkutiPusat pusat={pusat} zoom={zoom} />}
-      {titikPas && <PasKeTitik titik={titikPas} pemicu={pemicuPas ?? 0} />}
+      {titikPas && (
+        <PasKeTitik
+          titik={titikPas}
+          pemicu={pemicuPas ?? 0}
+          zoomMaks={zoomPas ?? ZOOM_MAKS_PAS}
+        />
+      )}
       {onKlik && <PenangkapKlik onKlik={onKlik} />}
       {children}
     </MapContainer>
@@ -142,9 +151,11 @@ function IkutiPusat({
 function PasKeTitik({
   titik,
   pemicu,
+  zoomMaks,
 }: {
   titik: Array<{ lat: number; lng: number }>;
   pemicu: number;
+  zoomMaks: number;
 }): null {
   const peta = useMap();
   const jumlah = titik.length;
@@ -152,18 +163,18 @@ function PasKeTitik({
   useEffect(() => {
     if (jumlah === 0) return;
     const batas = L.latLngBounds(titik.map((t) => [t.lat, t.lng]));
-    peta.fitBounds(batas, { padding: [50, 50], maxZoom: ZOOM_MAKS_PAS });
+    peta.fitBounds(batas, { padding: [50, 50], maxZoom: zoomMaks });
     // Sengaja TIDAK bergantung pada isi `titik`: live-map menyegarkan posisi
     // tiap beberapa detik, dan memaskan ulang setiap kali akan merebut
     // tampilan dari pemakai yang sedang menggeser peta. Hanya jumlah titik
     // dan permintaan eksplisit yang memicunya.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [peta, jumlah, pemicu]);
+  }, [peta, jumlah, pemicu, zoomMaks]);
 
   return null;
 }
 
-/** Batas perbesaran saat memaskan; satu titik tidak perlu zoom maksimal. */
+/** Batas perbesaran bawaan saat memaskan; satu titik tidak perlu zoom maksimal. */
 const ZOOM_MAKS_PAS = 16;
 
 // Leaflet mencari berkas ikon bawaannya relatif terhadap bundel.
