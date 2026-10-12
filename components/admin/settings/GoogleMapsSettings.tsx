@@ -12,13 +12,40 @@ type GoogleMapsSettingsProps = {
   handleToggle: (e: React.ChangeEvent<HTMLInputElement>) => void;
 };
 
-/** Langkah di Google Cloud Console yang harus dikerjakan administrator. */
+/**
+ * Langkah di Google Cloud Console yang harus dikerjakan administrator.
+ *
+ * Tiap langkah membawa tautan langsung ke halamannya. Menyebut jalur menu
+ * saja ("APIs & Services → Library") memaksa pembacanya menelusuri konsol
+ * yang menunya berpindah-pindah; tautan ini mendarat tepat di halaman yang
+ * dimaksud, dan jalur menunya tetap ditulis sebagai penunjuk arah bila
+ * tampilan konsolnya berubah.
+ */
 const LANGKAH_CLOUD_CONSOLE = [
-  "Aktifkan Maps JavaScript API di APIs & Services → Library. Proyeknya harus punya akun penagihan aktif.",
-  "Buat API key, lalu batasi: Application restrictions → HTTP referrers (domain admin Anda dan http://localhost:3000/*), dan API restrictions → Maps JavaScript API saja.",
-  "Buat Map ID di Maps → Map Management, dengan Map type JavaScript.",
-  "Pasang batas kuota harian di APIs & Services → Quotas. Kuota gratis 10.000 pemuatan peta per bulan, setelah itu sekitar $7 per 1.000.",
-];
+  {
+    teks: "Aktifkan Maps JavaScript API di APIs & Services → Library. Proyeknya harus punya akun penagihan aktif.",
+    label: "Buka Library",
+    url: "https://console.cloud.google.com/apis/library/maps-backend.googleapis.com",
+  },
+  {
+    teks: "Buat API key, lalu batasi: Application restrictions → HTTP referrers (domain admin Anda dan http://localhost:3000/*), dan API restrictions → Maps JavaScript API saja.",
+    label: "Buka Credentials",
+    url: "https://console.cloud.google.com/apis/credentials",
+  },
+  {
+    teks: "Buat Map ID di Maps → Map Management, dengan Map type JavaScript.",
+    label: "Buka Map Management",
+    url: "https://console.cloud.google.com/google/maps-apis/studio/maps",
+  },
+  {
+    teks: "Pasang batas kuota harian di APIs & Services → Quotas. Kuota gratis 10.000 pemuatan peta per bulan, setelah itu sekitar $7 per 1.000.",
+    label: "Buka Quotas",
+    url: "https://console.cloud.google.com/google/maps-apis/quotas",
+  },
+] as const;
+
+/** Tautan di bawah medan yang sedang diisi; senada dengan kartu Cloudflare. */
+const KELAS_TAUTAN = "text-emerald-600 dark:text-emerald-400 hover:underline";
 
 const KELAS_INPUT =
   "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-mono text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none disabled:cursor-not-allowed";
@@ -92,7 +119,16 @@ export function GoogleMapsSettings({
               Ditampilkan apa adanya, bukan disamarkan seperti kunci di atas.
               Key ini memang dikirim ke browser setiap kali peta dimuat, jadi
               menyembunyikannya di sini hanya akan menyesatkan — yang
-              mengamankannya adalah pembatasan referrer di Cloud Console.
+              mengamankannya adalah pembatasan referrer di Cloud Console.{" "}
+              <a
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={KELAS_TAUTAN}
+              >
+                Ambil key di Credentials
+              </a>
+              .
             </p>
           </div>
 
@@ -118,7 +154,16 @@ export function GoogleMapsSettings({
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Wajib diisi. Penanda titik ODP/ODC memakai Advanced Marker, yang
               tidak tampil sama sekali bila Map ID kosong — tanpa pesan galat
-              apa pun.
+              apa pun.{" "}
+              <a
+                href="https://console.cloud.google.com/google/maps-apis/studio/maps"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={KELAS_TAUTAN}
+              >
+                Buat Map ID di Map Management
+              </a>
+              .
             </p>
           </div>
         </div>
@@ -132,7 +177,18 @@ export function GoogleMapsSettings({
           </div>
           <ol className="list-decimal space-y-1 pl-5 text-xs text-amber-800 dark:text-amber-300/90">
             {LANGKAH_CLOUD_CONSOLE.map((langkah) => (
-              <li key={langkah}>{langkah}</li>
+              <li key={langkah.url}>
+                {langkah.teks}
+                {" · "}
+                <a
+                  href={langkah.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-200 dark:hover:text-amber-100"
+                >
+                  {langkah.label}
+                </a>
+              </li>
             ))}
           </ol>
         </div>

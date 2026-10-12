@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Tautan langsung ke Cloud Console di setelan Google Maps
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/admin/settings`
+- **Author**: agent
+- **Deskripsi**: Keempat langkah persiapan dan kedua medan isian kini membawa
+  tautan langsung ke halaman Cloud Console-nya: Library (Maps JavaScript API),
+  Credentials, Map Management, dan Quotas. Menyebut jalur menu saja memaksa
+  administrator menelusuri konsol yang menunya berpindah-pindah. Jalur menunya
+  tetap ditulis sebagai penunjuk arah bila tampilan konsol berubah.
+- **Files**: `components/admin/settings/GoogleMapsSettings.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Semua peta memakai pasangan universal; Street View di titik rencana
 
 - **Tipe**: [CHANGED]
