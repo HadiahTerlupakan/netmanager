@@ -31,8 +31,8 @@ import {
   fetchWithHandling,
   isFetchError,
   formatErrorMessage,
+  FetchError,
   type ApiResponse,
-  type FetchError,
 } from "@/lib/utils/fetch-wrapper";
 import {
   formatForDateTimeInput,
@@ -54,12 +54,11 @@ const fullResponseFetcher = async (
 ): Promise<ApiResponse<Attendance[]>> => {
   const res = await fetchWithHandling<Attendance[]>(url);
   if (!res.success) {
-    const err: FetchError = {
+    throw new FetchError({
       status: 0,
       message: res.error || "Unknown error",
       details: res.details,
-    };
-    throw err;
+    });
   }
   return res;
 };

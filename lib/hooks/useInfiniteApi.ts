@@ -18,7 +18,7 @@ import {
   type InfiniteData,
   type QueryKey,
 } from "@tanstack/react-query";
-import { fetchWithHandling, type FetchError } from "@/lib/utils/fetch-wrapper";
+import { fetchWithHandling, FetchError } from "@/lib/utils/fetch-wrapper";
 
 /**
  * Bentuk response yang diharapkan dari endpoint paginated:
@@ -89,12 +89,11 @@ async function paginatedFetcher<T>(
 ): Promise<PaginatedResponse<T>> {
   const res = await fetchWithHandling<unknown>(url);
   if (!res.success) {
-    const err: FetchError = {
+    throw new FetchError({
       status: 0,
       message: res.error || "Unknown error",
       details: res.details,
-    };
-    throw err;
+    });
   }
 
   // Custom mapper untuk endpoint non-standar

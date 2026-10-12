@@ -3,11 +3,39 @@
  * Handles error responses, rate limiting (429), and provides consistent error format
  */
 
-export interface FetchError {
-  status: number;
-  message: string;
-  details?: Record<string, string[]>;
-  retryAfter?: number; // seconds to wait before retry (for 429)
+/**
+ * Galat HTTP dari `fetchWithHandling`.
+ *
+ * Turunan `Error`, bukan objek biasa, dan itu bukan soal gaya: puluhan
+ * pemanggil menulis `err instanceof Error ? err.message : "Terjadi kesalahan"`.
+ * Selama galat ini berupa objek literal, pemeriksaan itu selalu gagal dan
+ * pesan sebenarnya dari server dibuang — layar hanya menampilkan "Terjadi
+ * kesalahan", sementara API sudah menjelaskan persis apa yang salah. Ditemukan
+ * di Stock Opname 2026-10-12: server menolak dengan "Total kondisi (baik +
+ * rusak + expire) tidak boleh melebihi stok fisik", operator tidak pernah
+ * melihat kalimat itu.
+ *
+ * Bentuknya tetap memenuhi `isFetchError`, jadi pemanggil yang sudah memakai
+ * penjaga tipe itu tidak berubah perilakunya.
+ */
+export class FetchError extends Error {
+  readonly status: number;
+  readonly details?: Record<string, string[]>;
+  /** Detik yang harus ditunggu sebelum mencoba lagi (khusus 429). */
+  readonly retryAfter?: number;
+
+  constructor(input: {
+    status: number;
+    message: string;
+    details?: Record<string, string[]>;
+    retryAfter?: number;
+  }) {
+    super(input.message);
+    this.name = "FetchError";
+    this.status = input.status;
+    this.details = input.details;
+    this.retryAfter = input.retryAfter;
+  }
 }
 
 export interface ApiResponse<T = unknown> {
@@ -49,12 +77,11 @@ export async function fetchWithHandling<T = unknown>(
       const retryAfter = response.headers.get("Retry-After");
       const retrySeconds = retryAfter ? parseInt(retryAfter, 10) : 60;
 
-      const error: FetchError = {
+      throw new FetchError({
         status: 429,
         message: `Terlalu banyak permintaan. Coba lagi dalam ${retrySeconds} detik.`,
         retryAfter: retrySeconds,
-      };
-      throw error;
+      });
     }
 
     // Parse response body
@@ -62,12 +89,11 @@ export async function fetchWithHandling<T = unknown>(
 
     // Handle non-OK responses
     if (!response.ok) {
-      const error: FetchError = {
+      throw new FetchError({
         status: response.status,
         message: data.error || data.message || `Error ${response.status}`,
         details: data.details,
-      };
-      throw error;
+      });
     }
 
     // Return successful response
@@ -85,11 +111,10 @@ export async function fetchWithHandling<T = unknown>(
 
     // Handle network errors
     if (error instanceof TypeError && error.message === "Failed to fetch") {
-      const fetchError: FetchError = {
+      throw new FetchError({
         status: 0,
         message: "Gagal terhubung ke server. Periksa koneksi internet Anda.",
-      };
-      throw fetchError;
+      });
     }
 
     // Handle AbortError (Request Cancelled)
@@ -98,14 +123,13 @@ export async function fetchWithHandling<T = unknown>(
     }
 
     // Handle other errors
-    const fetchError: FetchError = {
+    throw new FetchError({
       status: 500,
       message:
         error instanceof Error
           ? error.message
           : "Terjadi kesalahan tidak diketahui",
-    };
-    throw fetchError;
+    });
   }
 }
 

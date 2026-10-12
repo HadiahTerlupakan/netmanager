@@ -17,8 +17,8 @@ import {
 } from "@tanstack/react-query";
 import {
   fetchWithHandling,
+  FetchError,
   type ApiResponse,
-  type FetchError,
 } from "@/lib/utils/fetch-wrapper";
 
 /**
@@ -28,12 +28,11 @@ import {
 export const apiFetcher = async <T>(url: string): Promise<T> => {
   const res = await fetchWithHandling<T>(url);
   if (!res.success) {
-    const err: FetchError = {
+    throw new FetchError({
       status: 0,
       message: res.error || "Unknown error",
       details: res.details,
-    };
-    throw err;
+    });
   }
   return (res.data ?? (res as unknown as T)) as T;
 };
@@ -123,25 +122,28 @@ export function useApi<T>(
     return result.data;
   }, [key, queryRefetch]);
 
-  const mutate = useCallback<UseApiResult<T>["mutate"]>(async (updater, opts) => {
-    if (!key) return undefined;
-    const queryKey = [key] as const;
+  const mutate = useCallback<UseApiResult<T>["mutate"]>(
+    async (updater, opts) => {
+      if (!key) return undefined;
+      const queryKey = [key] as const;
 
-    // Update cache dengan value/updater jika provided
-    if (updater !== undefined) {
-      const next = queryClient.setQueryData<T>(queryKey, (prev) =>
-        typeof updater === "function"
-          ? (updater as (p: T | undefined) => T | undefined)(prev)
-          : updater,
-      );
-      if (opts?.revalidate === false) {
-        return next;
+      // Update cache dengan value/updater jika provided
+      if (updater !== undefined) {
+        const next = queryClient.setQueryData<T>(queryKey, (prev) =>
+          typeof updater === "function"
+            ? (updater as (p: T | undefined) => T | undefined)(prev)
+            : updater,
+        );
+        if (opts?.revalidate === false) {
+          return next;
+        }
       }
-    }
 
-    await queryClient.refetchQueries({ queryKey, type: "active" });
-    return queryClient.getQueryData<T>(queryKey);
-  }, [key, queryClient]);
+      await queryClient.refetchQueries({ queryKey, type: "active" });
+      return queryClient.getQueryData<T>(queryKey);
+    },
+    [key, queryClient],
+  );
 
   return {
     data: query.data,

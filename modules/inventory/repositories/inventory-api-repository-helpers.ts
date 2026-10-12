@@ -152,25 +152,49 @@ export function calculateStockByCondition(
   return { stokBaru, stokBekas, stokRusak };
 }
 
-/** Sesuaikan kalkulasi stok kondisi terhadap stok sistem. */
+/**
+ * Sesuaikan rincian stok per kondisi terhadap stok sistem.
+ *
+ * Stok sistem adalah angka otoritatif; rincian per kondisi direkap dari mutasi
+ * masuk/keluar dan bisa menyimpang darinya. Fungsi ini mengembalikan rincian
+ * yang **selalu berjumlah persis `stokSistem`** — invarian yang bukan sekadar
+ * kerapian: baris opname dikirim ke `POST /api/inventory/opname/batch`, yang
+ * menolak dengan 400 bila baik + rusak + expire melebihi stok fisik. Versi
+ * sebelumnya hanya menambal `kondisiBaik` lalu menjepitnya di nol, sehingga
+ * ketika bekas + rusak hasil rekap sudah melampaui stok sistem, server
+ * menyuguhkan baris yang kemudian ditolaknya sendiri — dan operator tidak bisa
+ * menyimpan opname sama sekali.
+ *
+ * Kelebihan dipangkas berurutan: `kondisiBaik` lebih dulu, lalu `kondisiExpire`,
+ * dan `kondisiRusak` paling akhir. Barang rusak adalah angka yang paling tidak
+ * boleh berkurang diam-diam — ia menjadi dasar klaim dan penghapusan aset,
+ * sedangkan barang baik paling mudah dikoreksi ulang saat perhitungan fisik.
+ */
 export function adjustStockCalculation(
   stokSistem: number,
   stockByCondition: { stokBaru: number; stokBekas: number; stokRusak: number },
 ) {
-  const calculatedTotal =
+  const target = Math.max(0, stokSistem);
+  const rekapTotal =
     stockByCondition.stokBaru +
     stockByCondition.stokBekas +
     stockByCondition.stokRusak;
-  const difference = stokSistem - calculatedTotal;
-  const kondisiBaik =
-    calculatedTotal !== stokSistem && calculatedTotal > 0
-      ? Math.max(0, stockByCondition.stokBaru + difference)
-      : stockByCondition.stokBaru;
-  return {
-    kondisiBaik,
-    kondisiRusak: stockByCondition.stokRusak,
-    kondisiExpire: stockByCondition.stokBekas,
+
+  // Kekurangan ditambahkan ke stok baik; kelebihan dipangkas berurutan.
+  const baikKasar = stockByCondition.stokBaru + (target - rekapTotal);
+  let sisaKelebihan = Math.max(0, -baikKasar);
+
+  const potongDari = (nilai: number) => {
+    const potongan = Math.min(sisaKelebihan, nilai);
+    sisaKelebihan -= potongan;
+    return nilai - potongan;
   };
+
+  const kondisiBaik = Math.max(0, baikKasar);
+  const kondisiExpire = potongDari(stockByCondition.stokBekas);
+  const kondisiRusak = potongDari(stockByCondition.stokRusak);
+
+  return { kondisiBaik, kondisiRusak, kondisiExpire };
 }
 
 /** Ambil penggunaan bulanan dengan label bulan. */

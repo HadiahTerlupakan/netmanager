@@ -41,6 +41,35 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Stock opname tidak bisa disimpan; pesan galat server hilang
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory`, `lib/utils/fetch-wrapper.ts`
+- **Author**: agent
+- **Deskripsi**: Dilaporkan dari produksi: `/admin/inventory/opname` menolak
+  setiap penyimpanan dengan banner "Terjadi kesalahan" tanpa keterangan. Log
+  pod menunjukkan `POST /api/inventory/opname/batch` 400 berulang dengan pesan
+  "Total kondisi (baik + rusak + expire) tidak boleh melebihi stok fisik".
+  Dua cacat terpisah:
+  (1) `adjustStockCalculation` menambal selisih hanya pada `kondisiBaik` lalu
+  menjepitnya di nol. Ketika bekas + rusak hasil rekap mutasi sudah melampaui
+  stok sistem, rincian yang dikirim server berjumlah lebih besar dari stok
+  fisik — baris yang kemudian ditolak oleh validatornya sendiri, sehingga
+  opname mustahil disimpan. Kini kelebihan dipangkas berurutan (baik → expire
+  → rusak) dan jumlah ketiganya tidak pernah melebihi stok sistem.
+  (2) `FetchError` adalah objek literal, bukan turunan `Error`, sementara
+  tujuh layar menulis `err instanceof Error ? err.message : "Terjadi
+  kesalahan"`. Pemeriksaan itu selalu gagal dan pesan server dibuang. Kini
+  `FetchError` adalah class turunan `Error`; penjaga tipe `isFetchError` tetap
+  berlaku, dan ketujuh layar langsung menampilkan pesan sebenarnya tanpa
+  perubahan di masing-masing.
+- **Files**: `modules/inventory/repositories/inventory-api-repository-helpers.ts`,
+  `lib/utils/fetch-wrapper.ts`, `lib/hooks/useApi.ts`,
+  `lib/hooks/useInfiniteApi.ts`, `app/admin/attendance/AttendanceClient.tsx`,
+  `tests/modules/inventory/adjust-stock-calculation.test.ts`,
+  `tests/lib/utils/fetch-wrapper-error.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Naikkan batas heap langkah Typecheck di CI menjadi 8 GB
 
 - **Tipe**: [INFRA]
