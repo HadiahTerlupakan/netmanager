@@ -1,5 +1,7 @@
 # Panduan Integrasi Fitur Network Map ke Next.js & Prisma
 
+> **Status per 2026-10-12 — jangan disalin apa adanya.** Petak `mt0.google.com` yang dicontohkan di dokumen ini adalah endpoint Google yang tidak resmi dan di luar ketentuan layanan. Peta di aplikasi kini melalui `components/map/PetaUniversal.tsx` dan `PenandaUniversal.tsx`, yang memilih mesinnya lewat `useMesinPeta()`: Google Maps JavaScript API bila API key tenant terisi, Leaflet berpetak Google bila belum. URL petak hanya boleh berasal dari `MAP_TILE_URL` di `components/map/map-constants.ts`. Rencana lengkapnya: `docs/superpowers/specs/2026-10-12-migrasi-google-maps-javascript-api-design.md`.
+
 Dokumen ini berisi panduan langkah demi langkah untuk mengimplementasikan fitur mapping (yang di-reverse engineer dari GenieACS Panel) ke dalam project Next.js yang sudah ada.
 
 ## 1. Validasi Kesamaan Teknologi (Reverse Engineering Match)

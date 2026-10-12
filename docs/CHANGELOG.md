@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Hapus komponen peta mati `NetworkMap.tsx`
+
+- **Tipe**: [REMOVED]
+- **Scope**: `components/map`
+- **Author**: agent
+- **Deskripsi**: `components/map/NetworkMap.tsx` (189 baris) tidak diimpor
+  satu file pun sejak peta jaringan pindah ke `NetworkMapInteractive`. Ia
+  menyimpan URL petak `mt0.google.com` yang dituliskan langsung, satu-satunya
+  salinan di luar `MAP_TILE_URL`, sehingga penggantian sumber petak nanti bisa
+  terlewat di file ini tanpa gejala apa pun. Setelah dihapus, seluruh peta di
+  aplikasi membaca sumber petak dari satu tempat.
+- **Files**: `components/map/NetworkMap.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — OpenLayers dicabut; semua peta memakai citra Google
 
 - **Tipe**: [CHANGED]
