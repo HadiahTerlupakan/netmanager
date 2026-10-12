@@ -85,9 +85,16 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         run: npm run lint
 
+      # 8 GB, bukan 4 GB seperti langkah lain: `tsc` memeriksa seluruh pohon
+      # sekaligus (673 ribu baris, 1,9 juta tipe, 7,9 juta instansiasi) dan
+      # memakai 4,65 GB pada 2026-10-12 — persis melewati batas lama, sehingga
+      # langkah ini mati dengan "heap out of memory" (exit 134), bukan dengan
+      # galat tipe. Runner punya 16 GB; angka ini menyisakan ruang tumbuh tanpa
+      # menyentuh setengah kapasitasnya. Lint dan tes tetap 4 GB karena
+      # keduanya bekerja per berkas.
       - name: Typecheck
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm run typecheck
 
   # Tes dipecah ke beberapa runner paralel. Waktu tes didominasi biaya memuat

@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Naikkan batas heap langkah Typecheck di CI menjadi 8 GB
+
+- **Tipe**: [INFRA]
+- **Scope**: `.github/workflows/build-image.yml`
+- **Author**: agent
+- **Deskripsi**: Langkah Typecheck mati dengan exit 134 ("Ineffective
+  mark-compacts near heap limit") pada run 38222636464, bukan karena galat
+  tipe: `tsc` memeriksa seluruh pohon sekaligus dan memakai 4,65 GB, persis
+  melewati batas 4 GB. Diverifikasi dengan menjalankan konfigurasi CI yang sama
+  secara lokal — gagal pada 4 GB, lulus tanpa satu pun galat pada 8 GB
+  (673.612 baris TS, 1.875.476 tipe, 7.903.625 instansiasi). Lint dan tes tetap
+  4 GB karena keduanya bekerja per berkas.
+- **Files**: `.github/workflows/build-image.yml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Tautan langsung ke Cloud Console di setelan Google Maps
 
 - **Tipe**: [CHANGED]
