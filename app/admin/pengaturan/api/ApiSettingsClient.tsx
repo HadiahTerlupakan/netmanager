@@ -4,6 +4,7 @@ import { HiArrowPath, HiCheckCircle } from "react-icons/hi2";
 import { CaptchaSettings } from "@/components/admin/settings/CaptchaSettings";
 import { R2Settings } from "@/components/admin/settings/R2Settings";
 import { GeminiSettings } from "@/components/admin/settings/GeminiSettings";
+import { GoogleMapsSettings } from "@/components/admin/settings/GoogleMapsSettings";
 import { StatusAlert } from "@/components/admin/logo/StatusAlert";
 import { useApiSettings } from "./lib/useApiSettings";
 import { API_SETTINGS_MESSAGES } from "./lib/constants";
@@ -65,6 +66,14 @@ export function ClientComponent() {
               handleToggle={handleInputChange}
               handleTestR2={handleTestR2Connection}
               testing={testing}
+            />
+
+            <GoogleMapsSettings
+              enabled={settings.googleMapsEnabled}
+              apiKey={settings.googleMapsApiKey}
+              mapId={settings.googleMapsMapId}
+              handleChange={handleInputChange}
+              handleToggle={handleInputChange}
             />
 
             <CaptchaSettings />

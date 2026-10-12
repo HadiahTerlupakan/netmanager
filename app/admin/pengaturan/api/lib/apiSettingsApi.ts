@@ -13,6 +13,10 @@ export interface ApiSettings {
   r2BucketName: string;
   r2PublicUrl: string;
   r2Enabled: boolean;
+  googleMapsEnabled: boolean;
+  /** Publik secara desain; tidak pernah disamarkan, jadi tidak lewat keepIfUntouched. */
+  googleMapsApiKey: string;
+  googleMapsMapId: string;
 }
 
 export interface R2TestPayload {
@@ -65,6 +69,9 @@ export async function fetchApiSettings(): Promise<ApiSettings> {
     r2BucketName: data.r2BucketName || "",
     r2PublicUrl: data.r2PublicUrl || "",
     r2Enabled: data.r2Enabled || false,
+    googleMapsEnabled: data.googleMapsEnabled || false,
+    googleMapsApiKey: data.googleMapsApiKey || "",
+    googleMapsMapId: data.googleMapsMapId || "",
   };
 }
 

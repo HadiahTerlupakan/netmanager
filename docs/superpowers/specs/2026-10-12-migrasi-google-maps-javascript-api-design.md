@@ -120,8 +120,14 @@ lebih berbahaya daripada nama domain.
 
 ### 2.4 Pengiriman key ke klien
 
-Endpoint baru `GET /api/settings/maps`, `createHandler({ auth: true })`
-**tanpa `permissions`**.
+Setelan ini **ditulis dari halaman `/admin/pengaturan/api` yang sudah ada**,
+sebagai kartu ketiga di samping Gemini dan Cloudflare R2 — bukan halaman
+pengaturan tersendiri. Ketiga key-nya ikut `API_SETTINGS_KEYS`, jadi satu
+tombol Simpan di halaman itu mengurus semuanya.
+
+Pembacaannya tetap lewat endpoint terpisah `GET /api/settings/maps`,
+`createHandler({ auth: true })` **tanpa `permissions`**, karena penulisannya
+dikunci `api:update` sementara pembacaannya tidak boleh dikunci sama sekali.
 
 Tanpa izin apa pun, dan itu disengaja. Peta dipakai di layar yang penggunanya
 belum tentu punya `map:read` — pemilih koordinat pelanggan PPP, Site Work
@@ -141,7 +147,7 @@ meniru `publicCaptchaSettings` yang menahan site key selama fitur mati.
 ### 2.5 Pemuatan SDK
 
 `APIProvider` dipasang sekali di `app/admin/layout.tsx` lewat pembungkus baru
-`contexts/GoogleMapsContext.tsx`, bukan di tiap komponen peta. Alasannya:
+`contexts/GoogleMapsContext.tsx` (Fase 2), bukan di tiap komponen peta. Alasannya:
 `APIProvider` yang dipasang berulang akan memuat skrip Maps lebih dari sekali,
 dan setiap pemuatan dihitung sebagai *map load* berbayar.
 
@@ -298,7 +304,7 @@ dalam keadaan rusak.
 
 | Fase | Isi | Setelah fase ini |
 |---|---|---|
-| 1 | Setelan: tiga key, service, endpoint, halaman `/admin/pengaturan/peta`, entri menu, `GoogleMapsContext` | Tidak ada peta berubah. Administrator sudah bisa mengisi key |
+| 1 | Setelan: tiga key, service, endpoint baca, kartu di `/admin/pengaturan/api` | Tidak ada peta berubah. Administrator sudah bisa mengisi key |
 | 2 | Primitif bersama `components/map/google/*` + panggung uji | Belum dipakai siapa pun |
 | 3 | `MapPreview` (#7) — permukaan paling sederhana | Pola terbukti pada satu layar nyata |
 | 4 | Peta rencana OSP (#1) + Street View | Fitur terbaru dan paling bernilai sudah pindah |

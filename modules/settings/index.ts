@@ -63,6 +63,10 @@ export {
 } from "./services/captchaSettings";
 export { getPublicCaptchaSettings } from "./services/publicCaptchaSettings";
 export {
+  getGoogleMapsSettingsUntukKlien,
+  type GoogleMapsSettingsPayload,
+} from "./services/googleMapsSettings";
+export {
   getRingtoneSettings,
   saveRingtoneSettings,
 } from "./services/ringtoneSettings";

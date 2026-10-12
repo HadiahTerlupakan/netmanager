@@ -51,6 +51,9 @@ export const apiSettingsSchema = z.object({
   r2BucketName: z.string().optional(),
   r2PublicUrl: z.string().optional(),
   r2Enabled: z.boolean().optional(),
+  googleMapsEnabled: z.boolean().optional(),
+  googleMapsApiKey: z.string().max(200).optional(),
+  googleMapsMapId: z.string().max(200).optional(),
 });
 
 export const googleGeminiTestSchema = z.object({

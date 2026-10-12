@@ -41,6 +41,47 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Pengaturan Google Maps (Fase 1 migrasi peta)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/settings`, `app/api/settings/maps`, `app/admin/pengaturan/peta`
+- **Author**: agent
+- **Deskripsi**: Fase pertama migrasi peta ke Google Maps JavaScript API
+  (spec: `docs/superpowers/specs/2026-10-12-migrasi-google-maps-javascript-api-design.md`).
+  Menambah tiga setelan per-tenant (`GOOGLE_MAPS_ENABLED`, `GOOGLE_MAPS_API_KEY`,
+  `GOOGLE_MAPS_MAP_ID`) di tabel `Settings` yang sudah ada, endpoint
+  `/api/settings/maps`, dan halaman `/admin/pengaturan/peta`. Belum ada satu
+  pun peta yang berubah — Leaflet dan OpenLayers masih berjalan apa adanya.
+  Key sengaja disimpan tanpa enkripsi dan ditampilkan apa adanya karena Maps
+  JavaScript API memang mengirimkannya ke browser; pengamannya pembatasan HTTP
+  referrer di Cloud Console, dan halaman pengaturannya memandu administrator
+  menyiapkannya. Pembacaan setelan sengaja tanpa izin `map:read` supaya layar
+  peta milik modul lain (kehadiran, presurvei, pemilih koordinat) tidak
+  kehilangan peta tanpa sebab yang terbaca.
+- **Files**: `modules/settings/services/googleMapsSettings.ts`,
+  `modules/settings/services/apiSettings.ts`,
+  `app/api/settings/maps/route.ts`,
+  `components/admin/settings/GoogleMapsSettings.tsx`,
+  `app/admin/pengaturan/api/ApiSettingsClient.tsx`,
+  `lib/validations/settings.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Simpan pengaturan API gagal di tenant yang belum punya barisnya
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/settings`
+- **Author**: agent
+- **Deskripsi**: Ditemukan saat menguji kartu Google Maps di halaman
+  `/admin/pengaturan/api`. `updateApiSettings` memakai `repository.updateMany`,
+  yang melempar "not found" bila setelannya belum pernah disimpan; route
+  menerjemahkannya menjadi 404 "Pengaturan tidak ditemukan, gunakan POST untuk
+  create" — padahal form tidak pernah memakai POST. Akibatnya tenant yang
+  belum pernah menyentuh halaman itu tidak bisa menyimpan apa pun. Diganti
+  `upsertMany`, pola yang memang sudah dipakai `saveCaptchaSettings` pada
+  tabel key-value yang sama.
+- **Files**: `modules/settings/services/apiSettings.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Kategori dokumen planning tampil manusiawi, keterangan tidak lagi hilang
 
 - **Tipe**: [FIXED]

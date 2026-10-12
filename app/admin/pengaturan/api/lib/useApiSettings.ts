@@ -23,6 +23,9 @@ const INITIAL_SETTINGS: ApiSettings = {
   r2BucketName: "",
   r2PublicUrl: "",
   r2Enabled: false,
+  googleMapsEnabled: false,
+  googleMapsApiKey: "",
+  googleMapsMapId: "",
 };
 
 /**

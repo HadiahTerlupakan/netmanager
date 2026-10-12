@@ -12,6 +12,7 @@ import {
   KEEP_EXISTING_SECRET_TOKEN,
   SECRET_PLACEHOLDER,
 } from "../constants/secretConstants";
+import { GOOGLE_MAPS_SETTINGS_KEYS } from "./googleMapsSettings";
 
 export type {
   GeminiApiKeyTestResult,
@@ -27,6 +28,9 @@ export type ApiSettingsPayload = {
   r2BucketName: string;
   r2PublicUrl: string;
   r2Enabled: boolean;
+  googleMapsEnabled: boolean;
+  googleMapsApiKey: string;
+  googleMapsMapId: string;
 };
 
 export type ApiSettingsPostPayload = Partial<ApiSettingsPayload>;
@@ -42,7 +46,10 @@ export const API_SETTINGS_KEYS: string[] = [
   "R2_BUCKET_NAME",
   "R2_PUBLIC_URL",
   "R2_ENABLED",
-] as const;
+  // Nama key-nya tinggal di `googleMapsSettings.ts`, yang juga membacanya
+  // untuk komponen peta lewat `/api/settings/maps`. Dua pembaca, satu daftar.
+  ...GOOGLE_MAPS_SETTINGS_KEYS,
+];
 
 /** Maps settings entities into API settings payload. */
 export function mapApiSettingsResponse(
@@ -61,6 +68,9 @@ export function mapApiSettingsResponse(
     r2BucketName: settingsMap.get("R2_BUCKET_NAME") || "",
     r2PublicUrl: settingsMap.get("R2_PUBLIC_URL") || "",
     r2Enabled: settingsMap.get("R2_ENABLED") === "true",
+    googleMapsEnabled: settingsMap.get("GOOGLE_MAPS_ENABLED") === "true",
+    googleMapsApiKey: settingsMap.get("GOOGLE_MAPS_API_KEY")?.trim() || "",
+    googleMapsMapId: settingsMap.get("GOOGLE_MAPS_MAP_ID")?.trim() || "",
   };
 }
 
@@ -86,6 +96,11 @@ export function maskApiSettingsSecrets(
 ): ApiSettingsPayload {
   const mask = (value: string) => (value ? SECRET_PLACEHOLDER : "");
 
+  // `googleMapsApiKey` sengaja TIDAK ikut disamarkan. Maps JavaScript API
+  // memuat skripnya dari browser dengan key di URL, jadi nilainya memang
+  // sudah terbaca di setiap halaman berpeta. Menyamarkannya di form hanya
+  // akan menyiratkan kerahasiaan yang tidak pernah ada, sekaligus memaksa
+  // administrator mengetik ulang key setiap menyentuh halaman ini.
   return {
     ...settings,
     googleGeminiApiKey: mask(settings.googleGeminiApiKey),
@@ -180,6 +195,37 @@ export function buildApiSettingsUpserts(
     });
   }
 
+  if (payload.googleMapsEnabled !== undefined) {
+    upserts.push({
+      key: "GOOGLE_MAPS_ENABLED",
+      value: payload.googleMapsEnabled ? "true" : "false",
+      description: "Aktifkan Google Maps JavaScript API sebagai mesin peta",
+      encrypted: false,
+    });
+  }
+
+  if (payload.googleMapsApiKey !== undefined) {
+    upserts.push({
+      key: "GOOGLE_MAPS_API_KEY",
+      value: payload.googleMapsApiKey?.trim() || null,
+      description:
+        "API key Maps JavaScript API; publik secara desain, amankan dengan pembatasan HTTP referrer di Google Cloud Console",
+      // Tanpa enkripsi, dan tanpa penanganan KEEP_EXISTING_SECRET_TOKEN:
+      // key ini tidak pernah disamarkan saat dibaca, jadi form selalu
+      // mengirim balik nilai yang sebenarnya.
+      encrypted: false,
+    });
+  }
+
+  if (payload.googleMapsMapId !== undefined) {
+    upserts.push({
+      key: "GOOGLE_MAPS_MAP_ID",
+      value: payload.googleMapsMapId?.trim() || null,
+      description: "Map ID berbasis cloud; wajib agar AdvancedMarker tampil",
+      encrypted: false,
+    });
+  }
+
   return upserts;
 }
 
@@ -217,7 +263,14 @@ export async function updateApiSettings(
     return;
   }
 
-  await repository.updateMany(updates.map((entry) => ({ ...entry, tenantId })));
+  // `upsertMany`, bukan `updateMany`. Tabel `Settings` adalah key-value:
+  // sebuah setelan yang belum pernah disimpan tidak punya baris, dan
+  // `updateMany` melemparkan "not found" yang diterjemahkan route menjadi 404
+  // "gunakan POST untuk create" — padahal form tidak pernah memakai POST.
+  // Akibatnya tenant yang belum pernah menyentuh halaman ini tidak bisa
+  // menyimpan apa pun. Pola yang sama di `saveCaptchaSettings` memang sudah
+  // memakai upsert.
+  await repository.upsertMany(updates.map((entry) => ({ ...entry, tenantId })));
 }
 
 export { testCloudflareR2Connection, testGoogleGeminiApiKey };
