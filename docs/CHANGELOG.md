@@ -41,6 +41,46 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — OpenLayers dicabut; semua peta memakai citra Google
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/map`, `components/common`, `components/admin/sites`,
+  `components/attendance`, `app/admin/presurvei/kegiatan`
+- **Author**: agent
+- **Deskripsi**: Lima layar peta memakai OpenLayers berpetak OpenStreetMap,
+  sementara peta jaringan dan peta rencana OSP memakai Leaflet berpetak
+  satelit Google — satu halaman detail planning menampilkan keduanya
+  sekaligus. Kelimanya kini memakai pasangan `PetaUniversal` +
+  `PenandaUniversal`, yang memilih mesinnya sendiri: Google Maps JavaScript
+  API bila API key sudah terisi, Leaflet berpetak Google bila belum. Menempel
+  key di Pengaturan → API cukup untuk membuat seluruh layar berganti tanpa
+  deploy ulang, dan tidak ada peta yang mati selama key belum ada.
+  Dependensi `ol` dihapus dari `package.json`.
+- **Files**: `components/map/PetaUniversal.tsx`,
+  `components/map/PenandaUniversal.tsx`, `components/map/mesin-peta.ts`,
+  `components/map/leaflet/PetaLeafletCadangan.tsx`,
+  `components/map/leaflet/PenandaLeafletCadangan.tsx`,
+  `components/common/MapPreview.tsx`, `components/common/MapPicker.tsx`,
+  `components/admin/sites/MapPicker.tsx`,
+  `components/attendance/EmployeeLocationMap.tsx`,
+  `app/admin/presurvei/kegiatan/KegiatanPeta.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Pencarian alamat di pemilih koordinat dicabut
+
+- **Tipe**: [REMOVED]
+- **Scope**: `components/common/MapPicker.tsx`
+- **Author**: agent
+- **Deskripsi**: `MapPickerWithSearch` menampilkan kotak "Cari alamat atau
+  tempat" yang memanggil `GET /api/geocode/search`. Endpoint itu tidak pernah
+  ada di `app/api` — diverifikasi 404 pada server berjalan — sehingga
+  pencariannya selalu mengembalikan daftar kosong tanpa pesan apa pun.
+  Kotaknya dicabut daripada terus menjanjikan fitur yang tidak berfungsi.
+  Penggantinya, bila diinginkan, adalah Google Places Autocomplete; itu SKU
+  terpisah dengan tagihannya sendiri dan belum dikerjakan.
+- **Breaking**: ✅ Ya — kotak pencarian alamat di modal koordinat pelanggan
+  PPP hilang; pemilihan titik dengan klik dan seret tidak berubah.
+
 ### [2026-10-12] — Primitif peta Google bersama (Fase 2 migrasi peta)
 
 - **Tipe**: [ADDED]

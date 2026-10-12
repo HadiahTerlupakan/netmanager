@@ -25,6 +25,14 @@ interface IkonNodeProps {
   ragam?: RagamIkon;
   /** Diredupkan untuk node nyata yang hanya menjadi latar peta rencana. */
   redup?: boolean;
+  /**
+   * Warna pengganti warna tipe node.
+   *
+   * Untuk penanda yang bukan perangkat jaringan — posisi karyawan di
+   * live-map — yang warnanya menyatakan keadaan, bukan jenis perangkat.
+   * Saat diisi, lambang tipe node tidak digambar.
+   */
+  warna?: string;
 }
 
 const UKURAN: Record<RagamIkon, number> = {
@@ -53,8 +61,14 @@ export function rupaNode(type: string) {
   };
 }
 
-export function IkonNode({ type, ragam = "biasa", redup }: IkonNodeProps) {
-  const { warna, jejak } = rupaNode(type);
+export function IkonNode({
+  type,
+  ragam = "biasa",
+  redup,
+  warna: warnaKustom,
+}: IkonNodeProps) {
+  const { warna: warnaTipe, jejak } = rupaNode(type);
+  const warna = warnaKustom ?? warnaTipe;
   const ukuran = UKURAN[ragam];
 
   return (
@@ -75,21 +89,23 @@ export function IkonNode({ type, ragam = "biasa", redup }: IkonNodeProps) {
         opacity: redup ? OPASITAS_REDUP : 1,
       }}
     >
-      <svg
-        width={UKURAN_SVG}
-        height={UKURAN_SVG}
-        viewBox="0 0 24 24"
-        fill="none"
-      >
-        <path
-          d={jejak}
-          stroke="white"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {!warnaKustom && (
+        <svg
+          width={UKURAN_SVG}
+          height={UKURAN_SVG}
+          viewBox="0 0 24 24"
           fill="none"
-        />
-      </svg>
+        >
+          <path
+            d={jejak}
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </svg>
+      )}
     </div>
   );
 }

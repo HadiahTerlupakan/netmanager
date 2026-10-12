@@ -11,6 +11,8 @@ interface PenandaNodeProps {
   ragam?: RagamIkon;
   /** Diredupkan untuk node nyata yang hanya menjadi latar peta rencana. */
   redup?: boolean;
+  /** Warna pengganti warna tipe node; lihat `IkonNode`. */
+  warna?: string;
   /** Urutan tumpuk; penanda rencana harus berada di atas node latar. */
   zIndex?: number;
   title?: string;
@@ -36,6 +38,7 @@ export function PenandaNode({
   type,
   ragam = "biasa",
   redup,
+  warna,
   zIndex,
   title,
   onKlik,
@@ -54,7 +57,7 @@ export function PenandaNode({
           onKlik?.();
         }}
       >
-        <IkonNode type={type} ragam={ragam} redup={redup} />
+        <IkonNode type={type} ragam={ragam} redup={redup} warna={warna} />
       </AdvancedMarker>
 
       {popup && popupTerbuka && (

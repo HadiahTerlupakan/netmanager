@@ -1,6 +1,7 @@
 "use client";
 
-import { Map } from "@vis.gl/react-google-maps";
+import { Map, useMap } from "@vis.gl/react-google-maps";
+import { useEffect } from "react";
 import { HiOutlineMapPin } from "react-icons/hi2";
 
 import { useGoogleMaps } from "@/contexts/GoogleMapsContext";
@@ -26,16 +27,35 @@ interface PetaGoogleProps {
   maxZoom?: number;
   className?: string;
   onKlik?: (lat: number, lng: number) => void;
+  /** Peta ikut berpindah saat `pusat` berubah dari luar. */
+  ikutiPusat?: boolean;
+  /** Titik yang harus semuanya masuk layar. */
+  titikPas?: Array<{ lat: number; lng: number }>;
+  /** Dinaikkan untuk meminta peta dipaskan ulang ke `titikPas`. */
+  pemicuPas?: number;
   children?: React.ReactNode;
+  /**
+   * Peta lama yang dipakai selama API key belum terisi.
+   *
+   * Ada hanya selama masa migrasi. Tanpa ini, layar yang sudah dipindahkan
+   * akan kehilangan petanya sampai administrator menempel key — padahal peta
+   * itu hari ini berfungsi. Dengan ini, menempel key cukup untuk membuat
+   * setiap layar berganti sendiri, tanpa deploy ulang.
+   *
+   * Dicabut di fase terakhir bersama Leaflet dan OpenLayers; sejak itu
+   * `PetaBelumDikonfigurasi` menjadi satu-satunya keadaan pengganti.
+   */
+  cadangan?: React.ReactNode;
 }
 
 /**
  * Kanvas peta Google untuk seluruh layar peta aplikasi.
  *
- * Menangani sendiri keadaan "belum dikonfigurasi". Sejak Leaflet dan
- * OpenLayers dicabut tidak ada peta cadangan, jadi instalasi tanpa API key
- * harus mengatakannya — bukan menampilkan kotak abu-abu yang tidak bisa
- * dibedakan dari peta rusak atau data kosong.
+ * Satu tempat yang memutuskan apa yang tampil saat API key belum terisi:
+ * peta lama bila pemanggil memberi `cadangan` (keadaan selama migrasi), atau
+ * panel yang menyebutkan sebabnya bila tidak. Yang tidak pernah terjadi:
+ * kotak abu-abu kosong yang tidak bisa dibedakan dari peta rusak atau data
+ * yang memang tidak ada.
  */
 export function PetaGoogle({
   pusat,
@@ -45,11 +65,21 @@ export function PetaGoogle({
   maxZoom = MAP_CONSTANTS.ZOOM.MAX,
   className = "w-full h-full",
   onKlik,
+  ikutiPusat,
+  titikPas,
+  pemicuPas,
   children,
+  cadangan,
 }: PetaGoogleProps) {
   const { siap, mapId, memuat } = useGoogleMaps();
 
+  // Selama setelan masih diambil, peta cadangan langsung dirender alih-alih
+  // kerangka pemuatan: ia sudah bisa dipakai, dan berkedip dari kerangka ke
+  // peta lama lalu (mungkin) ke peta Google lebih mengganggu daripada
+  // menunggu sebentar.
   if (memuat) {
+    if (cadangan) return <>{cadangan}</>;
+
     return (
       <div
         className={`${className} flex items-center justify-center bg-gray-100 dark:bg-gray-800`}
@@ -60,7 +90,10 @@ export function PetaGoogle({
     );
   }
 
-  if (!siap) return <PetaBelumDikonfigurasi className={className} />;
+  if (!siap) {
+    if (cadangan) return <>{cadangan}</>;
+    return <PetaBelumDikonfigurasi className={className} />;
+  }
 
   return (
     <Map
@@ -79,9 +112,33 @@ export function PetaGoogle({
         if (posisi && onKlik) onKlik(posisi.lat, posisi.lng);
       }}
     >
+      {ikutiPusat && <IkutiPusat pusat={pusat} zoom={zoom} />}
+      {titikPas && <PasKeTitik titik={titikPas} pemicu={pemicuPas ?? 0} />}
       {children}
     </Map>
   );
+}
+
+/** Memindahkan peta mengikuti koordinat yang berubah dari luar. */
+function IkutiPusat({
+  pusat,
+  zoom,
+}: {
+  pusat: { lat: number; lng: number };
+  zoom: number;
+}): null {
+  const peta = useMap();
+  const { lat, lng } = pusat;
+
+  useEffect(() => {
+    if (!peta) return;
+    peta.panTo({ lat, lng });
+    // Tidak memperkecil zoom yang sudah diperbesar pemakai.
+    const sekarang = peta.getZoom() ?? zoom;
+    if (sekarang < zoom) peta.setZoom(zoom);
+  }, [peta, lat, lng, zoom]);
+
+  return null;
 }
 
 /**
@@ -107,4 +164,29 @@ export function PetaBelumDikonfigurasi({ className }: { className?: string }) {
       </p>
     </div>
   );
+}
+
+/** Memaskan tampilan agar seluruh titik masuk layar. */
+function PasKeTitik({
+  titik,
+  pemicu,
+}: {
+  titik: Array<{ lat: number; lng: number }>;
+  pemicu: number;
+}): null {
+  const peta = useMap();
+  const jumlah = titik.length;
+
+  useEffect(() => {
+    if (!peta || jumlah === 0) return;
+    const batas = new google.maps.LatLngBounds();
+    for (const satu of titik) batas.extend(satu);
+    peta.fitBounds(batas, 50);
+    // Sengaja TIDAK bergantung pada isi `titik`: live-map menyegarkan posisi
+    // tiap beberapa detik, dan memaskan ulang setiap kali akan merebut
+    // tampilan dari pemakai yang sedang menggeser peta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [peta, jumlah, pemicu]);
+
+  return null;
 }

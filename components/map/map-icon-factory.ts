@@ -94,3 +94,37 @@ export function getNodeColor(type: string): string {
   const nodeType = type as NodeType;
   return NODE_ICON_COLORS[nodeType] || NODE_ICON_COLORS.odp;
 }
+
+/**
+ * Ikon bulat polos berwarna bebas, tanpa lambang tipe node.
+ *
+ * Untuk penanda yang bukan perangkat jaringan — posisi karyawan di live-map,
+ * misalnya — yang warnanya menyatakan keadaan (diam/bergerak), bukan jenis
+ * perangkat. Padanan Leaflet dari prop `warna` pada `IkonNode`.
+ */
+export function createDotIcon(warna: string, terpilih = false): L.DivIcon {
+  const size = terpilih
+    ? MAP_CONSTANTS.ICON_SIZE.SELECTED
+    : MAP_CONSTANTS.ICON_SIZE.DEFAULT;
+  const border = terpilih
+    ? MAP_CONSTANTS.BORDER.SELECTED
+    : MAP_CONSTANTS.BORDER.DEFAULT;
+
+  return L.divIcon({
+    className: "custom-dot-icon",
+    html: `
+      <div style="
+        background-color: ${warna};
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 50%;
+        border: ${border};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        cursor: pointer;
+      "></div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -15],
+  });
+}

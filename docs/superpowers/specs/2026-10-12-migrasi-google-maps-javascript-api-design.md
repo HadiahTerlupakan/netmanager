@@ -156,22 +156,31 @@ lalu memasang `APIProvider` begitu key ada. Ia juga mengekspos
 `useGoogleMapsSiap()` supaya komponen peta bisa membedakan "sedang memuat"
 dari "belum dikonfigurasi".
 
-### 2.6 Perilaku saat belum dikonfigurasi
+#### 2.6 Perilaku saat belum dikonfigurasi
 
-Karena Leaflet dan OpenLayers dicabut, tidak ada lagi peta cadangan. Setiap
-permukaan peta menampilkan satu panel kosong yang jujur:
+**Direvisi 2026-10-12 atas keputusan pemilik produk.** Rancangan awal
+memadamkan peta sampai API key terisi. Yang dipakai sekarang: **setiap layar
+peta jatuh ke Leaflet berpetak Google** selama key belum ada.
 
-> **Peta belum dikonfigurasi.** Google Maps API key belum diisi.
-> Buka Pengaturan → Peta untuk mengisinya. (tautan, hanya untuk yang punya izin)
+Alasannya dua. Pertama, memadamkan peta yang hari ini berfungsi — peta
+jaringan dan peta rencana OSP — adalah kemunduran nyata demi kerapian yang
+tidak dirasakan siapa pun. Kedua, dengan cadangan itu, lima layar yang dulu
+memakai OpenLayers berpetak OpenStreetMap **langsung ikut memperlihatkan
+citra Google hari ini juga**, tanpa menunggu key: masalah "satu halaman, dua
+dunia" selesai lebih dulu daripada migrasinya sendiri.
 
-Ini **bukan** kemunduran yang disembunyikan, dan konsekuensinya harus
-dipahami sebelum migrasi dimulai: begitu Leaflet dicabut, instalasi tanpa API
-key kehilangan seluruh fungsi petanya. Karena itu Fase 1 (pengaturan) harus
-tayang dan terisi lebih dulu, sebelum satu komponen peta pun disentuh.
+Mekanismenya satu titik keputusan, `useMesinPeta()` di
+`components/map/mesin-peta.ts`, dibaca bersama oleh `PetaUniversal` dan
+`PenandaUniversal`. Keduanya tidak boleh memutuskan sendiri-sendiri: penanda
+Google di dalam kanvas Leaflet (atau sebaliknya) tidak tampil sama sekali dan
+tidak melaporkan galat apa pun.
 
-Satu penyangga sudah ada: form titik rencana OSP menerima koordinat ketikan
-manual dan tautan Google Maps, jadi pencatatan titik tidak sepenuhnya mati
-meski kanvasnya kosong.
+Ongkosnya: dua implementasi hidup berdampingan sampai fase terakhir. Itu
+diterima karena keduanya tipis — kanvas dan penanda saja — dan call site-nya
+hanya satu bentuk.
+
+`PetaBelumDikonfigurasi` tetap ada untuk pemanggil yang tidak memberi
+cadangan, dan menjadi satu-satunya keadaan pengganti setelah Leaflet dicabut.
 
 ## 3. Arsitektur
 
@@ -316,14 +325,15 @@ dalam keadaan rusak.
 |---|---|---|
 | 1 | Setelan: tiga key, service, endpoint baca, kartu di `/admin/pengaturan/api` | Tidak ada peta berubah. Administrator sudah bisa mengisi key |
 | 2 | Primitif bersama `components/map/google/*` + panggung uji | Belum dipakai siapa pun |
-| 3 | `MapPreview` (#7) — permukaan paling sederhana | Pola terbukti pada satu layar nyata |
+| 3 | ✅ Lima layar OpenLayers (#3–#7) pindah ke `PetaUniversal`; `ol` dicabut | OpenLayers hilang; kelimanya sudah memperlihatkan citra Google lewat cadangan Leaflet |
 | 4 | Peta rencana OSP (#1) + Street View | Fitur terbaru dan paling bernilai sudah pindah |
-| 5 | Peta jaringan (#2), hapus `NetworkMap.tsx` mati | Leaflet tidak dipakai lagi |
-| 6 | Lima pemilih OpenLayers (#3–#6) | OpenLayers tidak dipakai lagi |
-| 7 | Cabut `leaflet`, `react-leaflet`, `@types/leaflet`, `ol`; bersihkan CSS `.leaflet-popup-*` | Satu mesin peta, `mt0.google.com` hilang dari web |
+| 5 | Peta jaringan (#2), hapus `NetworkMap.tsx` mati | Semua layar memakai pasangan universal |
+| 6 | Cabut `leaflet`, `react-leaflet`, `@types/leaflet`; bersihkan CSS `.leaflet-popup-*` | Satu mesin peta, `mt0.google.com` hilang dari web |
 
-**Fase 1 harus tayang dan terisi key sebelum Fase 3 dimulai.** Begitu peta
-pertama dimigrasikan, instalasi tanpa key kehilangan peta itu.
+Urutannya berubah dari rancangan awal: karena ada cadangan Leaflet (§2.6),
+Fase 3 tidak lagi menunggu API key. Yang masih menunggu key adalah
+**pembuktiannya** — sampai key terpasang, yang bisa diuji hanyalah jalur
+cadangan dan tiruan SDK di test.
 
 ## 9. Risiko
 
