@@ -186,14 +186,24 @@ Folder baru `components/map/google/`, dipakai ketujuh permukaan:
 | `PenandaDapatDiseret.tsx` | `AdvancedMarker draggable` untuk pemilih koordinat dan penanda sementara |
 | `JalurKabel.tsx` | `Polyline` + `InfoWindow`, berwarna menurut jenis fiber |
 | `ikon-node.tsx` | Ikon node sebagai JSX, menggantikan pabrik string HTML |
-| `useKlikPeta.ts` | Hook klik kanvas, menggantikan `useMapEvents` dan penanganan imperatif |
+
+`useKlikPeta.ts` yang semula direncanakan **tidak jadi dibuat**. `Map` milik
+vis.gl sudah menerima prop `onClick`, jadi hook pembungkusnya hanya akan
+menjadi lapisan tanpa isi — berbeda dari Leaflet, yang memaksa klik kanvas
+lewat `useMapEvents` atau `ref` imperatif justru karena tidak punya prop itu.
+`PetaGoogle` meneruskannya langsung sebagai `onKlik(lat, lng)`.
 
 **Pabrik ikon menjadi lebih sederhana, bukan lebih rumit.**
 `components/map/map-icon-factory.ts` hari ini merakit HTML sebagai *string
 template* untuk `L.divIcon`. `AdvancedMarker` menerima `children` React, jadi
 ikon yang sama menjadi komponen biasa yang bisa dibaca, diuji, dan diberi
-properti — sementara tabel warna dan SVG di `map-icon-config.ts` tetap dipakai
-apa adanya.
+properti.
+
+Supaya ikon JSX itu tidak perlu `dangerouslySetInnerHTML`, jejak gambarnya
+dipisahkan menjadi `NODE_ICON_PATH` (hanya atribut `d`) di
+`map-icon-config.ts`, dan markup string `NODE_ICON_SVG` yang masih dipakai
+Leaflet diturunkan dari daftar yang sama. Satu salinan jejak gambar, dua
+bentuk keluaran — dan tidak ada HTML yang disuntikkan ke DOM.
 
 ### 3.2 Peta migrasi per permukaan
 

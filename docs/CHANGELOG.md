@@ -41,6 +41,45 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-12] — Primitif peta Google bersama (Fase 2 migrasi peta)
+
+- **Tipe**: [ADDED]
+- **Scope**: `components/map/google`, `contexts/GoogleMapsContext.tsx`
+- **Author**: agent
+- **Deskripsi**: Fase kedua migrasi peta
+  (spec: `docs/superpowers/specs/2026-10-12-migrasi-google-maps-javascript-api-design.md`).
+  Menambah `@vis.gl/react-google-maps` dan empat primitif yang akan dipakai
+  ketujuh permukaan peta: `PetaGoogle` (kanvas, termasuk keadaan "belum
+  dikonfigurasi"), `PenandaNode`, `PenandaDapatDiseret`, dan `JalurKabel`.
+  `GoogleMapsProvider` memasang `APIProvider` sekali untuk seluruh portal
+  admin — tiap pemasangan memuat skrip Maps sendiri dan dihitung sebagai map
+  load berbayar — dan tidak memasangnya sama sekali selama API key belum ada.
+  Belum ada peta yang memakainya; Leaflet dan OpenLayers masih berjalan apa
+  adanya. `useKlikPeta` yang direncanakan dibatalkan: `Map` milik vis.gl sudah
+  punya prop `onClick`, jadi hook pembungkusnya akan kosong.
+- **Files**: `contexts/GoogleMapsContext.tsx`,
+  `components/map/google/PetaGoogle.tsx`,
+  `components/map/google/PenandaNode.tsx`,
+  `components/map/google/PenandaDapatDiseret.tsx`,
+  `components/map/google/JalurKabel.tsx`,
+  `components/map/google/ikon-node.tsx`,
+  `tests/app/google-maps-harness.tsx`, `app/admin/layout.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-12] — Jejak gambar ikon node dipisah dari markup-nya
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/map`
+- **Author**: agent
+- **Deskripsi**: `NODE_ICON_SVG` menyimpan `<path>` lengkap sebagai string
+  HTML, satu-satunya bentuk yang diterima `L.divIcon`. Merendernya sebagai
+  ikon React menuntut `dangerouslySetInnerHTML`. Atribut `d`-nya dipisahkan
+  menjadi `NODE_ICON_PATH`, dan markup string untuk Leaflet diturunkan dari
+  daftar itu — satu salinan jejak gambar, dua bentuk keluaran, tanpa HTML yang
+  disuntikkan ke DOM. Ikon Leaflet tidak berubah tampilannya.
+- **Files**: `components/map/map-icon-config.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Pengaturan Google Maps (Fase 1 migrasi peta)
 
 - **Tipe**: [ADDED]

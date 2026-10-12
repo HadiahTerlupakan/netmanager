@@ -9,6 +9,7 @@ import ForceLogoutListener from "@/components/auth/ForceLogoutListener";
 import { PushNotificationManager } from "@/components/notifications/PushNotificationManager";
 import { PushNotificationProvider } from "@/components/notifications/PushNotificationContext";
 import { FeatureFlagsProvider } from "@/contexts/FeatureFlagsContext";
+import { GoogleMapsProvider } from "@/contexts/GoogleMapsContext";
 import { PermissionProvider } from "@/contexts/PermissionContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { ensureAdminAccess } from "@/lib/server-auth";
@@ -39,24 +40,29 @@ export default async function AdminLayout({
         <SettingsProvider>
           <PermissionProvider>
             <FeatureFlagsProvider>
-              <ForceLogoutListener />
-              <div className="min-h-screen w-full overflow-x-hidden bg-gray-50 dark:bg-gray-950 flex">
-                <Sidebar />
-                <div className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden md:pl-72">
-                  <AnnouncementBanner portal="admin" />
-                  <PushNotificationProvider>
-                    <Navbar />
-                    {/* Di bawah Navbar: Navbar sticky (z-30) menimpa banner bila banner di atasnya. */}
-                    <PushNotificationManager className="mx-3 sm:mx-6 mt-4" />
-                  </PushNotificationProvider>
-                  <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
-                    <div className="p-6 w-full max-w-full overflow-x-hidden">
-                      <ErrorBoundary>{children}</ErrorBoundary>
-                    </div>
-                  </main>
-                  <Footer />
+              {/* Sekali untuk seluruh portal admin: tiap pemasangan
+                  APIProvider memuat skrip Maps sendiri, dan tiap pemuatan
+                  dihitung sebagai map load berbayar. */}
+              <GoogleMapsProvider>
+                <ForceLogoutListener />
+                <div className="min-h-screen w-full overflow-x-hidden bg-gray-50 dark:bg-gray-950 flex">
+                  <Sidebar />
+                  <div className="flex-1 flex flex-col min-w-0 w-full overflow-x-hidden md:pl-72">
+                    <AnnouncementBanner portal="admin" />
+                    <PushNotificationProvider>
+                      <Navbar />
+                      {/* Di bawah Navbar: Navbar sticky (z-30) menimpa banner bila banner di atasnya. */}
+                      <PushNotificationManager className="mx-3 sm:mx-6 mt-4" />
+                    </PushNotificationProvider>
+                    <main className="flex-1 overflow-y-auto overflow-x-hidden w-full">
+                      <div className="p-6 w-full max-w-full overflow-x-hidden">
+                        <ErrorBoundary>{children}</ErrorBoundary>
+                      </div>
+                    </main>
+                    <Footer />
+                  </div>
                 </div>
-              </div>
+              </GoogleMapsProvider>
             </FeatureFlagsProvider>
           </PermissionProvider>
         </SettingsProvider>
