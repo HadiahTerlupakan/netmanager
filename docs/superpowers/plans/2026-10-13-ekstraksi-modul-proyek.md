@@ -293,6 +293,18 @@ grep -rl '@/modules/finance/client' modules app lib tests \
   | xargs sed -i '' 's#@/modules/finance/client#@/modules/proyek/client#g'
 ```
 
+**Jebakan terverifikasi:** `app/admin/pengeluaran/ExpensesClient.tsx:36` mengimpor
+`buildDailyExpenseIndicators` dari `@/modules/finance/client` — fungsi itu TETAP di finance.
+Sed di atas akan salah mengarahkannya. Setelah menjalankan sed, kembalikan baris itu:
+
+```bash
+sed -i '' 's#import { buildDailyExpenseIndicators } from "@/modules/proyek/client";#import { buildDailyExpenseIndicators } from "@/modules/finance/client";#' \
+  app/admin/pengeluaran/ExpensesClient.tsx
+grep -n "modules/finance/client\|modules/proyek/client" app/admin/pengeluaran/ExpensesClient.tsx
+```
+Expected: satu baris `@/modules/finance/client` untuk `buildDailyExpenseIndicators`, dan tidak ada
+`@/modules/proyek/client` di file itu (impor RAB-nya dihapus di Task 3).
+
 Lalu arahkan 14 route (13 route RAB + 1 cron) dan test API: ganti `from "@/modules/finance"` menjadi `from "@/modules/proyek"` **hanya** di file yang mengimpor simbol RAB:
 
 ```bash
@@ -387,15 +399,25 @@ describe("pintu publik module proyek", () => {
 });
 ```
 
-- [ ] **Step 15: Verifikasi seluruh lapisan**
+- [ ] **Step 15: Perbarui allowlist arsitektur untuk path modul yang baru**
+
+Di `tests/architecture/module-public-api.test.ts`, ganti tiga path:
+`modules/finance/services/RabStatusEvaluationService.ts` → `modules/proyek/services/RabStatusEvaluationService.ts`,
+`modules/finance/services/RabProjectRouteService.ts` → `modules/proyek/services/RabProjectRouteService.ts`,
+`modules/finance/repositories/RabProjectRepository.ts` → `modules/proyek/repositories/RabProjectRepository.ts`.
+
+Allowlist diperbarui di task yang memindahkan filenya, bukan ditunda — kalau ditunda, suite penuh
+merah sepanjang task-task berikutnya dan kehilangan daya sebagai gerbang.
+
+- [ ] **Step 16: Verifikasi seluruh lapisan**
 
 ```bash
 npm run typecheck
-npx vitest run tests/modules/proyek tests/modules/finance tests/modules/investor tests/api/finance
+npx vitest run tests/modules/proyek tests/modules/finance tests/modules/investor tests/api/finance tests/architecture
 ```
 Expected: typecheck tanpa error; seluruh test lulus. Dua kegagalan yang wajar muncul di sini dan harus diperbaiki sekarang, bukan ditunda: impor `@/modules/finance` yang masih menunjuk simbol RAB, dan mock `vi.mock("@/modules/finance/public-queries")` di test investor yang belum ikut diarahkan.
 
-- [ ] **Step 16: Commit**
+- [ ] **Step 17: Commit**
 
 ```bash
 git add -A
@@ -482,14 +504,25 @@ npx vitest run tests/api/proyek/cron-rab-status-eval.test.ts
 ```
 Expected: 1 passed.
 
-- [ ] **Step 6: Pastikan tidak ada sisa pemanggil endpoint lama di sisi server**
+- [ ] **Step 6: Perbarui peta otorisasi route**
+
+Di `tests/architecture/financial-route-authorization.test.ts`, ganti 4 path route RAB dari
+`app/api/finance/rab-projects/...` menjadi `app/api/proyek/...`, lalu jalankan:
+
+```bash
+npx vitest run tests/architecture/financial-route-authorization.test.ts
+```
+Expected: lulus. Diperbarui di task ini, bukan ditunda ke Task 5, supaya gerbang suite penuh
+tidak merah sepanjang task berikutnya.
+
+- [ ] **Step 7: Pastikan tidak ada sisa pemanggil endpoint lama di sisi server**
 
 ```bash
 grep -rn "finance/rab-projects" --include="*.ts" --include="*.tsx" app modules lib worker scripts tests || echo "BERSIH"
 ```
 Sisa yang muncul hanya boleh di `app/admin/pengeluaran/**` (diselesaikan Task 3). Selain itu harus "BERSIH".
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
@@ -601,16 +634,24 @@ grep -rl 'admin/pengeluaran' tests/ui/proyek \
   | xargs sed -i '' 's#app/admin/pengeluaran#app/admin/proyek#g'
 ```
 
-- [ ] **Step 9: Verifikasi**
+- [ ] **Step 9: Perbarui allowlist arsitektur untuk path UI yang baru**
+
+Di `tests/architecture/module-public-api.test.ts`, ganti tiga path UI:
+`app/admin/pengeluaran/RABForm.tsx` → `app/admin/proyek/RABForm.tsx`,
+`app/admin/pengeluaran/RABView.tsx` → `app/admin/proyek/RABView.tsx`,
+`app/admin/pengeluaran/RABList.tsx` → `app/admin/proyek/RABList.tsx`.
+Tambahkan `app/admin/proyek/ProyekClient.tsx` bila ukurannya melewati batas yang dipakai file itu.
+
+- [ ] **Step 10: Verifikasi**
 
 ```bash
 npm run typecheck
-npx vitest run tests/ui
+npx vitest run tests/ui tests/architecture
 grep -rn "finance/rab-projects" --include="*.ts" --include="*.tsx" app modules lib worker scripts tests || echo "BERSIH"
 ```
-Expected: typecheck bersih, test UI lulus, grep "BERSIH".
+Expected: typecheck bersih, test UI dan arsitektur lulus, grep "BERSIH".
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
 git add -A
@@ -740,7 +781,7 @@ MSG
 
 **Files:**
 - Create: `tests/architecture/proyek-finance-boundary.test.ts`
-- Modify: `tests/architecture/module-public-api.test.ts`, `tests/architecture/financial-route-authorization.test.ts`, `docs/CHANGELOG.md`, `docs/project-memory/04-modules.md`
+- Modify: `docs/CHANGELOG.md`, `docs/project-memory/04-modules.md` (path di `tests/architecture/**` sudah diperbarui di Task 1–3)
 - Test: file baru di atas
 
 **Interfaces:**
@@ -791,9 +832,13 @@ describe("batas modul proyek dan finance", () => {
   });
 
   it("tidak ada sisa pintu RAB di finance maupun endpoint lama", () => {
+    // modules/proyek dikecualikan: ia satu-satunya pemilik sah pintu
+    // @/modules/finance/public-queries (aturan kedua di atas yang menjaganya).
     const productionFiles = [
       ...collectSourceFiles("app"),
-      ...collectSourceFiles("modules"),
+      ...collectSourceFiles("modules").filter(
+        (filePath) => !filePath.startsWith(join("modules", "proyek")),
+      ),
       ...collectSourceFiles("lib"),
       ...collectSourceFiles("components"),
     ];
@@ -813,7 +858,7 @@ describe("batas modul proyek dan finance", () => {
 });
 ```
 
-Catatan: aturan ketiga sengaja melarang `@/modules/finance/public-queries` **dari sisi app/lib/components** — pintu itu hanya untuk `modules/proyek`, dan file di `modules/` yang sah (`modules/proyek/**`) sudah dikecualikan oleh aturan kedua. Jika aturan ketiga ternyata menangkap `modules/proyek`, perketat daftar direktorinya menjadi `app`, `lib`, `components`, dan `modules` minus `modules/proyek`.
+Catatan: pengecualian `modules/proyek` di aturan ketiga sudah diputuskan di pre-flight, bukan ditinggalkan sebagai pilihan — `modules/proyek` adalah satu-satunya pemilik sah pintu `@/modules/finance/public-queries`, dan aturan kedua yang menjaga arah impornya.
 
 - [ ] **Step 2: Jalankan test batas, pastikan lulus**
 
@@ -822,18 +867,17 @@ npx vitest run tests/architecture/proyek-finance-boundary.test.ts
 ```
 Expected: 3 passed. Kalau gagal, yang diperbaiki adalah kodenya (sisa impor), bukan test-nya.
 
-- [ ] **Step 3: Perbarui dua test arsitektur yang meng-hardcode path**
+- [ ] **Step 3: Pastikan allowlist arsitektur sudah bersih**
 
-Di `tests/architecture/module-public-api.test.ts`, ganti path allowlist:
-`app/admin/pengeluaran/RABForm.tsx` → `app/admin/proyek/RABForm.tsx`,
-`app/admin/pengeluaran/RABView.tsx` → `app/admin/proyek/RABView.tsx`,
-`app/admin/pengeluaran/RABList.tsx` → `app/admin/proyek/RABList.tsx`,
-`modules/finance/services/RabStatusEvaluationService.ts` → `modules/proyek/services/RabStatusEvaluationService.ts`,
-`modules/finance/services/RabProjectRouteService.ts` → `modules/proyek/services/RabProjectRouteService.ts`,
-`modules/finance/repositories/RabProjectRepository.ts` → `modules/proyek/repositories/RabProjectRepository.ts`.
-Tambahkan juga `app/admin/proyek/ProyekClient.tsx` bila ukurannya melewati batas yang dipakai file itu.
+Pembaruan path di `tests/architecture/module-public-api.test.ts` dan
+`tests/architecture/financial-route-authorization.test.ts` dikerjakan di task yang memindahkan
+filenya (Task 1 untuk service/repo, Task 2 untuk route, Task 3 untuk UI). Di sini hanya verifikasi
+tidak ada path lama yang tertinggal:
 
-Di `tests/architecture/financial-route-authorization.test.ts`, ganti 4 path route RAB dari `app/api/finance/rab-projects/...` menjadi `app/api/proyek/...`.
+```bash
+grep -rn "modules/finance/services/Rab\|modules/finance/repositories/Rab\|admin/pengeluaran/RAB\|finance/rab-projects" tests/architecture || echo "BERSIH"
+```
+Expected: "BERSIH".
 
 - [ ] **Step 4: Jalankan gerbang penuh**
 
