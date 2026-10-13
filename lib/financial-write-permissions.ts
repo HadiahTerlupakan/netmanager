@@ -38,8 +38,8 @@ export const TREASURY_ACCOUNT_UPDATE_PERMISSIONS: string[] = [
 /**
  * Membaca daftar akun kas/bank.
  *
- * Halaman Pengeluaran (`/admin/pengeluaran`) digerbangi `expense:read`, bukan
- * `finance:read`, sedangkan formnya perlu daftar akun untuk menautkan
+ * Halaman Pengeluaran (`/admin/pengeluaran`) dan Proyek/RAB (`/admin/proyek`)
+ * digerbangi `expense:read`, bukan `finance:read`, sedangkan formnya perlu daftar akun untuk menautkan
  * pengeluaran ke sumber dananya. Tanpa `expense:*` di sini, role Chief
  * Financial Officer — yang memegang `expense:*` tanpa `finance:read` — melihat
  * pilihan akun kosong. Semua role pada daftar ini adalah peran keuangan.

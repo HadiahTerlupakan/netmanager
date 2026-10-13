@@ -1,4 +1,5 @@
 import {
+  buildRABTrackingDataset,
   calculateRabUnitCosts,
   getRabTargetBasisLabel,
   type RabTargetBasis,
@@ -7,7 +8,6 @@ import { escapeCsvCell } from "@/lib/csv";
 import { formatCurrency } from "@/lib/utils";
 
 import { calculateRealisticBEP } from "./rabCalculations";
-import { buildRABTrackingDataset } from "@/modules/proyek/client";
 import {
   formatRabGrowthModelDescription,
   formatRabItemCategory,

@@ -5,19 +5,13 @@ import { HiOutlineClipboardDocumentList, HiOutlinePlus } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import { usePermission } from "@/hooks/use-permission";
 import { useApi } from "@/lib/hooks/useApi";
+import type { RabBottleneckMetrics } from "@/modules/proyek/client";
 import type { SiteOption } from "@/types/admin-options";
 import RABForm from "./RABForm";
 import RABList from "./RABList";
 import RABRevisionForm from "./RABRevisionForm";
 import RABView from "./RABView";
 import type { RABProject } from "./rabTypes";
-
-interface RabBottleneckMetrics {
-  pendingApprovalCount: number;
-  oldestPendingDays: number;
-  oldestPendingProjectName: string | null;
-  averageApprovalLeadHours: number;
-}
 
 export default function ProyekClient() {
   const { hasPermission } = usePermission();

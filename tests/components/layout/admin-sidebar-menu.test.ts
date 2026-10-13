@@ -74,7 +74,7 @@ describe("adminSidebarMenu", () => {
     ]);
   });
 
-  it("menampilkan menu Pengeluaran bagi pemegang expense:read tanpa finance:read", () => {
+  it("menampilkan menu Pengeluaran dan Proyek bagi pemegang expense:read tanpa finance:read", () => {
     const financeMenu = ADMIN_MENU_CONFIG.find(
       (item) => item.code === "FINANCE",
     );
@@ -89,6 +89,10 @@ describe("adminSidebarMenu", () => {
       expect.objectContaining({
         code: "FINANCE.EXPENSE",
         path: "/admin/pengeluaran",
+      }),
+      expect.objectContaining({
+        code: "FINANCE.PROYEK",
+        path: "/admin/proyek",
       }),
     ]);
   });

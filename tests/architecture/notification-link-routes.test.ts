@@ -140,4 +140,12 @@ describe("tautan notifikasi menunjuk rute yang ada", () => {
       "tautan notifikasi menunjuk rute yang tidak ada",
     ).toEqual([]);
   });
+
+  it("pengingat approval RAB menunjuk halaman Proyek, bukan Pengeluaran", () => {
+    const reminderLinks = notificationLinks.filter(({ file }) =>
+      file.endsWith("RabApprovalReminderRouteService.ts"),
+    );
+
+    expect(reminderLinks.map(({ link }) => link)).toEqual(["/admin/proyek"]);
+  });
 });

@@ -11231,6 +11231,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 <!-- Entry baru ditambah DI SINI, di bawah [Unreleased] -->
 
+### [2026-10-13] — Daftarkan menu Proyek (RAB) dan perbaiki tautan pengingat
+
+- **Tipe**: [ADDED]
+- **Scope**: `lib/menu-config.ts`, `components/layout/admin-sidebar`, `modules/proyek`
+- **Author**: agent
+- **Deskripsi**: Menu `FINANCE.PROYEK` ("Proyek (RAB)") menuju `/admin/proyek`, dipetakan ke izin `expense` lewat `specialMappings`. Tautan notifikasi pengingat approval RAB diubah dari `/admin/pengeluaran` ke `/admin/proyek` (dikunci test arsitektur). Subjudul halaman Pengeluaran tidak lagi menyebut rencana anggaran, impor duplikat dirapikan, dan tipe `RabBottleneckMetrics` diekspor dari barrel client sehingga deklarasi lokal dihapus.
+- **Files**: `lib/menu-config.ts`, `components/layout/admin-sidebar/adminSidebarMenu.ts`, `modules/proyek/services/RabApprovalReminderRouteService.ts`, `modules/proyek/client.ts`, `tests/admin/menu-proyek.test.ts`
+- **Breaking**: ❌ Tidak
+
+
 ### [2026-06-26] — Preventif WorkOrder: tenantId NOT NULL, global unique number, dan distributed lock
 
 - **Tipe**: [CHANGED]

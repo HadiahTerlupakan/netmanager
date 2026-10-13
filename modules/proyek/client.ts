@@ -28,3 +28,6 @@ export type {
   RabTrackingItem,
   RabTrackingProject,
 } from "./utils/rab-tracking";
+
+// Hanya tipe: file sumbernya tidak mengimpor apa pun, aman untuk komponen client.
+export type { RabBottleneckMetrics } from "./utils/rab-bottleneck-metrics";

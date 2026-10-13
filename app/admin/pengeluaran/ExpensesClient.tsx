@@ -697,7 +697,7 @@ export default function ExpensesClient() {
             Keuangan & Pengeluaran
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manajemen biaya operasional, modal, dan rencana anggaran
+            Manajemen biaya operasional, modal, dan kategori pengeluaran
           </p>
         </div>
 

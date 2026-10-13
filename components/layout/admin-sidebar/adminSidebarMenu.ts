@@ -192,6 +192,7 @@ function getPermissionResource(code: string): string {
 
   // Special handling for ambiguous child codes that should inherit parent resource
   const specialMappings: Record<string, string> = {
+    "FINANCE.PROYEK": "expense",
     "MITRA.LIST": "mitra",
     "MITRA.WITHDRAWALS": "withdrawals",
     "INVESTORS.LIST": "investors",

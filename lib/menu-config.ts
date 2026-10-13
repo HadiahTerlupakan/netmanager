@@ -603,6 +603,14 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineCreditCard",
       },
       {
+        // Di luar /admin/finance: halaman ini cukup `expense:read`, sama seperti
+        // FINANCE.EXPENSE, tidak ikut gerbang `finance:read` milik layout finance.
+        code: "FINANCE.PROYEK",
+        name: "Proyek (RAB)",
+        path: "/admin/proyek",
+        icon: "HiOutlineClipboardDocumentList",
+      },
+      {
         code: "FINANCE.MANUAL_PAYMENTS",
         name: "Verifikasi Manual",
         path: "/admin/finance/manual-payments",

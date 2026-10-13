@@ -16,10 +16,12 @@ import {
   HiOutlineBanknotes,
 } from "react-icons/hi2";
 import { useSession } from "next-auth/react";
-import { calculateRabUnitCosts } from "@/modules/proyek/client";
+import {
+  buildRABTrackingDataset,
+  calculateRabUnitCosts,
+} from "@/modules/proyek/client";
 import { useApi } from "@/lib/hooks/useApi";
 import { calculateRealisticBEP } from "./rabCalculations";
-import { buildRABTrackingDataset } from "@/modules/proyek/client";
 import type {
   RABProject,
   LinearGrowthSettings,
