@@ -41,7 +41,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
-### [2026-10-13] — Spec ekstraksi RAB (Proyek) menjadi modul proyek
+### [2026-10-13] — Spec dan rencana ekstraksi RAB (Proyek) menjadi modul proyek
 
 - **Tipe**: [DOCS]
 - **Scope**: `docs/superpowers/specs`
@@ -53,7 +53,8 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   adalah modul investor (dua arah). Tahap pertama sengaja nol migration Prisma
   dan nol migrasi data role — nama model tetap `Rab*`, gate tetap `expense:*`.
   Menyiapkan tautan proyek ↔ Planning OSP sebagai tahap terpisah.
-- **Files**: `docs/superpowers/specs/2026-10-13-ekstraksi-modul-proyek-design.md`
+- **Files**: `docs/superpowers/specs/2026-10-13-ekstraksi-modul-proyek-design.md`,
+  `docs/superpowers/plans/2026-10-13-ekstraksi-modul-proyek.md`
 - **Breaking**: ❌ Tidak
 
 ### [2026-10-13] — Gudang nonaktif hilang dari daftar, bukan berubah status
