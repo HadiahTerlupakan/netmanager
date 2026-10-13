@@ -49,7 +49,7 @@ const SERVICE_ENFORCED_AUTHORIZATION: Record<string, string> = {
 };
 
 const FINANCIAL_PATH =
-  /(finance|invoice|payment|billing|tagihan|accounting|withdrawal|treasury|tax)/i;
+  /(finance|proyek|invoice|payment|billing|tagihan|accounting|withdrawal|treasury|tax)/i;
 
 const ROUTE_HANDLER =
   /export\s+(?:const|async\s+function)\s+(GET|POST|PUT|PATCH|DELETE)\b/g;
