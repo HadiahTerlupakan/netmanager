@@ -277,8 +277,10 @@ const nextConfig: NextConfig = {
     return config;
   },
 
-  // Halaman Pengeluaran/RAB pindah ke /admin/pengeluaran. URL lama masih
-  // tersimpan di notifikasi pengingat approval RAB dan bookmark pengguna.
+  // Halaman Pengeluaran pindah ke /admin/pengeluaran; RAB kemudian pindah lagi
+  // ke /admin/proyek (ekstraksi modul proyek, 2026-10-13) sehingga tautan
+  // pengingat approval RAB sekarang menunjuk ke sana. Redirect di bawah tetap
+  // berlaku untuk bookmark pengguna yang masih memakai URL lama.
   async redirects() {
     return [
       {

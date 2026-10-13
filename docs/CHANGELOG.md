@@ -41,54 +41,47 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
-### [2026-10-13] — Pindahkan UI RAB ke /admin/proyek dan ramping ExpensesClient
+### [2026-10-13] — Ekstraksi RAB (Proyek) menjadi modul proyek mandiri
 
 - **Tipe**: [CHANGED]
-- **Scope**: `app/admin/proyek`, `app/admin/pengeluaran`, `types/`
+- **Scope**: `modules/proyek`, `modules/finance`, `modules/investor`,
+  `app/admin/proyek`, `app/api/proyek`, `lib/menu-config.ts`
 - **Author**: agent
-- **Deskripsi**: Lanjutan ekstraksi subsistem RAB. 30 file UI RAB dipindah apa adanya
-  dari `app/admin/pengeluaran/` ke halaman baru `app/admin/proyek/` (`git mv`, tanpa
-  rewrite komponen), dan `ExpensesClient.tsx` dipecah mengikuti batas `activeTab`:
-  cabang `activeTab === "rab"` beserta state/handler-nya menjadi `ProyekClient.tsx`.
-  Tab RAB di halaman pengeluaran dihapus (`activeTab` kini `"daily" | "coa"`); tautan
-  pengeluaran ke proyek/item RAB tetap ada di modal pengeluaran. 22 pemanggilan
-  `fetch("/api/finance/rab-projects/**")` yang menggantung sejak route lama dihapus
-  kini menunjuk `/api/proyek/**`. `SiteOption` dan `CategoryOption` dinaikkan ke
-  `types/admin-options.ts` karena dipakai dua halaman admin; re-export
-  `app/admin/pengeluaran/rabTracking.ts` dihapus dan pemakainya menunjuk langsung
-  `@/modules/proyek/client`. Halaman baru memakai izin yang sama (`expense:read`),
-  tanpa permission baru dan tanpa perubahan skema DB.
-- **Files**: `app/admin/proyek/ProyekClient.tsx`, `app/admin/proyek/page.tsx`,
-  `app/admin/pengeluaran/ExpensesClient.tsx`, `app/admin/pengeluaran/expenses.types.ts`,
-  `types/admin-options.ts`, `tests/ui/proyek/**`,
-  `tests/architecture/module-public-api.test.ts`
-- **Breaking**: ❌ Tidak
-
-### [2026-10-13] — Ekstraksi lapisan modul RAB ke modules/proyek
-
-- **Tipe**: [CHANGED]
-- **Scope**: `modules/proyek`, `modules/finance`, `modules/investor`, `app/api/finance/rab-projects`, `lib/validations`
-- **Author**: agent
-- **Deskripsi**: Tahap pertama ekstraksi subsistem RAB dari `modules/finance` menjadi
-  `modules/proyek` mandiri. 39 file (domain, repositories, services, utils, validators,
-  types) dipindah dengan `git mv`, ditambah empat pintu publik baru:
-  `modules/proyek/index.ts`, `modules/proyek/client.ts`, `modules/proyek/public-queries.ts`,
-  dan `modules/proyek/repositories/prisma-boundary.ts`. `FinanceRabFacadeService` berganti
-  nama menjadi `ProyekService`. Enum RAB (`RabExpenseType`, `RabRevisionStatus`, `RabStatus`)
-  pindah dari `modules/finance/types/invoice.enums.ts` ke `modules/proyek/types/rab.enums.ts`.
-  `modules/finance/public-queries.ts` ditulis ulang menjadi pintu baca sempit
-  (`getExpensesByRabProject`) supaya arah ketergantungan proyek → finance tetap satu arah
-  dan bebas siklus. Tidak ada perubahan skema Prisma (model tetap `Rab*`) dan tidak ada
-  perubahan izin. Route API, UI, dan menu belum dipindah — menyusul di task berikutnya.
-- **Files**: `modules/proyek/**` (39 file dipindah + 5 file baru),
-  `modules/finance/index.ts`, `modules/finance/client.ts`, `modules/finance/public-queries.ts`,
-  `modules/finance/repositories/index.ts`, `modules/finance/repositories/prisma-boundary.ts`,
-  `modules/finance/services/FinanceService.ts`, `modules/finance/types/invoice.enums.ts`,
-  `lib/validations/rab-project.ts`, `tests/modules/proyek/**`
-- **Breaking**: ✅ Ya — simbol RAB tidak lagi diekspor dari `@/modules/finance`,
-  `@/modules/finance/client`, dan `modules/finance/validation.ts` (dihapus); konsumen
-  wajib memakai `@/modules/proyek` atau `@/modules/proyek/client`.
-  `FinanceService.getRabProjects`/`createRabProject` dihapus, pindah ke `ProyekService`.
+- **Deskripsi**: Subsistem RAB (Proyek) dipindahkan keluar dari `modules/finance`
+  dan `app/admin/pengeluaran` menjadi `modules/proyek` dengan halaman
+  `/admin/proyek`. 39 file modul (domain, repositories, services, utils,
+  validators, types) dan 30 file UI dipindah dengan `git mv` tanpa rewrite;
+  `FinanceRabFacadeService` berganti nama menjadi `ProyekService`, enum RAB
+  pindah ke `modules/proyek/types/rab.enums.ts`, dan `rabTracking.ts`
+  (re-export 7 baris) dihapus. 13 route RAB pindah dari
+  `app/api/finance/rab-projects/**` ke `app/api/proyek/**`; cron evaluasi status
+  tetap di `app/api/cron/rab-status-eval`. Kopling dua arah diselesaikan lewat
+  pintu `public-queries` di tiap sisi: investor membaca RAB lewat
+  `modules/proyek/public-queries` dan `modules/proyek/client`, sedangkan proyek
+  membaca realisasi pengeluaran hanya lewat `modules/finance/public-queries`
+  (`getExpensesByRabProject`) — satu arah dan bebas siklus.
+  `ExpensesClient.tsx` susut dari ~2.100 baris menjadi dua tab
+  (`"daily" | "coa"`), dan menu `FINANCE.PROYEK` → `/admin/proyek` terdaftar di
+  sidebar admin dengan resource izin `expense`. `SiteOption`/`CategoryOption`
+  dinaikkan ke `types/admin-options.ts` karena dipakai dua halaman admin.
+  Perilaku tidak berubah; nama model Prisma tetap `Rab*` dan gate izin tetap
+  `expense:*`, sehingga tidak ada migration maupun migrasi data role. Batas
+  modul dikunci oleh `tests/architecture/proyek-finance-boundary.test.ts`.
+- **Files**: `modules/proyek/**`, `app/admin/proyek/**`, `app/api/proyek/**`,
+  `modules/finance/{index,client,public-queries}.ts`,
+  `modules/finance/repositories/{index,prisma-boundary}.ts`,
+  `modules/finance/services/FinanceService.ts`,
+  `modules/finance/types/invoice.enums.ts`,
+  `app/admin/pengeluaran/ExpensesClient.tsx`, `types/admin-options.ts`,
+  `lib/menu-config.ts`, `lib/validations/rab-project.ts`,
+  `tests/modules/proyek/**`, `tests/ui/proyek/**`,
+  `tests/architecture/{proyek-finance-boundary,module-public-api,financial-route-authorization}.test.ts`
+- **Breaking**: ✅ Ya — endpoint `/api/finance/rab-projects/**` diganti
+  `/api/proyek/**` (konsumennya hanya UI admin yang ikut dipindahkan). Simbol
+  RAB tidak lagi diekspor dari `@/modules/finance` maupun
+  `@/modules/finance/client`, `modules/finance/validation.ts` dihapus, dan
+  `FinanceService.getRabProjects`/`createRabProject` pindah ke `ProyekService`;
+  konsumen wajib memakai `@/modules/proyek` atau `@/modules/proyek/client`.
 
 ### [2026-10-13] — Spec dan rencana ekstraksi RAB (Proyek) menjadi modul proyek
 

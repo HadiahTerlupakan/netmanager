@@ -1,7 +1,7 @@
 # Module Overview — Domain Modules
 
-**Last Updated:** 2026-08-09  
-**Total Modules:** 38
+**Last Updated:** 2026-10-13  
+**Total Modules:** 39
 
 ---
 
@@ -478,6 +478,49 @@ PR → PO → GRN → Stock In
 
 ### 38. Overtime (Already covered above)
 
+### 39. Proyek (RAB — Rencana Anggaran Biaya) 🆕
+
+**Status:** Modul mandiri sejak 2026-10-13 (hasil ekstraksi dari `finance`)
+**Complexity:** High
+**Business Criticality:** HIGH
+
+**Structure:**
+```
+modules/proyek/
+├── domain/{entities,ports}/
+├── repositories/        # Rab*Repository + prisma-boundary.ts
+├── services/            # ProyekService + Rab*RouteService
+├── types/rab.enums.ts
+├── utils/               # rab-tracking, rab-approval-reminder, variance
+├── validators/rabProjectSchemas.ts
+├── index.ts             # pintu server
+├── client.ts            # pintu komponen klien
+└── public-queries.ts    # pintu baca untuk modul lain (investor)
+```
+
+**Purpose:**
+- Rencana Anggaran Biaya proyek: item, WBS, target pendapatan, growth model
+- Alur approval dan revisi RAB (`canApproveRab`), pengingat approval
+- Realisasi bulanan, tracking varians, disbursement investor
+- Evaluasi status RAB otomatis via `app/api/cron/rab-status-eval`
+
+**Surfaces:**
+- UI: `app/admin/proyek/**` (menu `FINANCE.PROYEK`, gate izin `expense:*`)
+- API: `app/api/proyek/**` (13 route)
+
+**Dependencies:**
+- `finance` — hanya baca realisasi pengeluaran lewat
+  `@/modules/finance/public-queries` (`getExpensesByRabProject`); satu arah
+- `investor` — membaca RAB lewat `@/modules/proyek/public-queries` dan
+  `@/modules/proyek/client`
+
+**Database Tables:**
+- `RabProject`, `RabItem`, `RabWbs`, `RabProjectUpdate`, `RabInvestor`,
+  `RabDisbursement` (nama model tetap `Rab*`, tanpa migration saat ekstraksi)
+
+**Boundary Guard:**
+- `tests/architecture/proyek-finance-boundary.test.ts`
+
 ---
 
 ## Module Dependency Matrix
@@ -486,6 +529,10 @@ PR → PO → GRN → Stock In
 - `finance` → pelanggan, accounting, payment-gateway, notification
 - `pelanggan` → finance, network, olt, work-order
 - `work-order` → pelanggan, inventory, attendance
+
+### Pintu Publik (Komunikasi Lewat `public-queries`)
+- `proyek` → finance (baca realisasi pengeluaran)
+- `investor` → proyek (baca RAB)
 
 ### Low Coupling (Isolated)
 - `website` — Independent CMS

@@ -1548,7 +1548,9 @@ Tidak ada integrasi pihak ketiga yang aktif.
 Integrasi **MixRadius** (ISP billing eksternal) dihapus pada 2026-09-17: panelnya memakai
 CAPTCHA sehingga login otomatis tidak mungkin, dan remote sudah dimatikan sejak 2026-09-13.
 Fitur lokal yang dulu menumpang di bawah menu MixRadius — RAB, pengeluaran harian, dan COA
-pengeluaran — dipindah ke `/admin/pengeluaran` (menu Keuangan). Tabel `mix_radius_*` dan kolom
+pengeluaran — dipindah ke `/admin/pengeluaran` (menu Keuangan); sejak ekstraksi modul
+`proyek` pada 2026-10-13, RAB berdiri sendiri di `/admin/proyek` sementara pengeluaran
+harian dan COA pengeluaran tetap di `/admin/pengeluaran`. Tabel `mix_radius_*` dan kolom
 `mixRadius*` sudah di-drop pada 2026-09-18 beserta izin, pengaturan, dan kolom fee mitra terkait.
 Detail: `docs/CHANGELOG.md`.
 
