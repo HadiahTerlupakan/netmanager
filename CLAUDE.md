@@ -404,8 +404,8 @@ modules/<domain>/
 
 **Available Modules:**
 accounting, admin, app-version, attendance, chat, coupons, finance, integrations, inventory,
-map, marketing, mitra, network, notification, overtime, pelanggan, procurement,
-registration, roles, salary, settings, shift, users, work-order
+investor, map, marketing, mitra, network, notification, overtime, pelanggan, planning,
+procurement, proyek, registration, roles, salary, settings, shift, users, work-order
 
 ### App Layer (Next.js)
 - **`app/api/`**: Thin controllers — hanya parse request, panggil service, return DTO

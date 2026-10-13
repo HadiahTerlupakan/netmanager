@@ -69,8 +69,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   dinaikkan ke `types/admin-options.ts` karena dipakai dua halaman admin.
   Perilaku tidak berubah; nama model Prisma tetap `Rab*` dan gate izin tetap
   `expense:*`, sehingga tidak ada migration maupun migrasi data role. Batas
-  modul dikunci oleh `tests/architecture/proyek-finance-boundary.test.ts`.
+  modul dikunci oleh `tests/architecture/proyek-finance-boundary.test.ts`, yang
+  kini menutup keempat aturan kontrak §6 — termasuk kedua arah kopling
+  investor ↔ proyek, bukan hanya proyek ↔ finance.
+  **Audit log pembacaan data uang RAB dipulihkan**: `SENSITIVE_READ_PATHS` di
+  `lib/middleware/request-logger.ts` hanya memuat `/api/finance`, sehingga
+  setelah URL pindah ke `/api/proyek/**` tidak ada lagi baris `READ` di
+  `SystemLog` untuk anggaran, porsi modal investor, dan laba/rugi revisi —
+  operasi tulis tetap terekam. Prefix `/api/proyek` ditambahkan dan dikunci
+  test, memulihkan perilaku ke keadaan sebelum ekstraksi. Ikut dibersihkan:
+  lima berkas warisan tanpa importir di `modules/proyek` dihapus (empat
+  repository `Rab*Repository` yang dulu hanya tampak hidup lewat re-export
+  `modules/finance/repositories/index.ts`, plus `types/rab-revision.types.ts`;
+  143 baris) agar tidak ada jalan masuk yang melewati validasi dan penyaringan
+  tenant di `RabProjectRepository`.
 - **Files**: `modules/proyek/**`, `app/admin/proyek/**`, `app/api/proyek/**`,
+  `lib/middleware/request-logger.ts`, `lib/financial-write-permissions.ts`,
   `modules/finance/{index,client,public-queries}.ts`,
   `modules/finance/repositories/{index,prisma-boundary}.ts`,
   `modules/finance/services/FinanceService.ts`,

@@ -77,6 +77,10 @@ const SENSITIVE_READ_PATHS = [
   "/api/finance",
   "/api/mobile/salary",
   "/api/pelanggan-ppp",
+  // Anggaran RAB, porsi modal investor, dan laba/rugi revisi. Sebelum subsistem
+  // RAB pindah ke /api/proyek, pembacaannya ikut terjaring prefix "/api/finance"
+  // di atas; prefix ini yang meneruskan jejak itu setelah URL-nya berubah.
+  "/api/proyek",
   "/api/tagihan",
 ];
 

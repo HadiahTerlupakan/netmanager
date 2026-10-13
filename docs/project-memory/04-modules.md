@@ -1,7 +1,8 @@
 # Module Overview — Domain Modules
 
 **Last Updated:** 2026-10-13  
-**Total Modules:** 39
+**Total Modules:** 39 domain (41 direktori di `modules/` — dua di antaranya
+infrastruktur bersama, bukan domain: `database` dan `events`)
 
 ---
 
@@ -598,4 +599,4 @@ tetap `Rab*` — tanpa migration saat ekstraksi)
 
 **Module Documentation:** COMPLETED (High-level)  
 **Deep Dive:** Each module deserves dedicated documentation  
-**Total Modules:** 38 domains
+**Total Modules:** 39 domains (41 direktori − `database` − `events`)

@@ -324,7 +324,7 @@ const rupiahCapaianOpsional = z
   .optional()
   .transform((value) => (typeof value === "bigint" ? value : null));
 
-/** Isian capaian bulan ke-n proyek RAB (POST `/rab-projects/[id]/actuals`). */
+/** Isian capaian bulan ke-n proyek RAB (POST `/api/proyek/[id]/actuals`). */
 export const rabActualAchievementSchema = z.object({
   month: z.number().int().min(1).max(DURASI_PROYEK_MAKS_BULAN),
   /** Diabaikan bila proyek punya tanggal mulai (tahun dihitung server). */

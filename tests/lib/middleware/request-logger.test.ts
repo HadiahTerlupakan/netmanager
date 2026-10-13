@@ -1,93 +1,142 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { NextRequest, NextResponse } from 'next/server'
-import { logAuditActivity } from '@/lib/middleware/request-logger'
-import { logger } from '@/lib/logger'
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { NextRequest, NextResponse } from "next/server";
+import { logAuditActivity } from "@/lib/middleware/request-logger";
+import { logger } from "@/lib/logger";
 
-vi.mock('@/lib/logger', () => ({
+vi.mock("@/lib/logger", () => ({
   logger: {
     logActivity: vi.fn().mockResolvedValue(undefined),
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
-    debug: vi.fn()
-  }
-}))
+    debug: vi.fn(),
+  },
+}));
 
-describe('logAuditActivity', () => {
+describe("logAuditActivity", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-  })
+    vi.clearAllMocks();
+  });
 
   const createReq = (method: string, pathname: string) => {
-    return new NextRequest(new URL(`http://localhost${pathname}`), { method })
-  }
+    return new NextRequest(new URL(`http://localhost${pathname}`), { method });
+  };
 
   const createRes = (status: number) => {
-    return { status } as NextResponse
-  }
+    return { status } as NextResponse;
+  };
 
-  it('audits POST requests (write operation)', async () => {
-    const req = createReq('POST', '/api/any-resource')
-    const res = createRes(201)
-    const body = { name: 'test' }
+  it("audits POST requests (write operation)", async () => {
+    const req = createReq("POST", "/api/any-resource");
+    const res = createRes(201);
+    const body = { name: "test" };
 
-    await logAuditActivity(req, res, 'user-1', 'tenant-1', body)
+    await logAuditActivity(req, res, "user-1", "tenant-1", body);
 
-    expect(logger.logActivity).toHaveBeenCalledWith(expect.objectContaining({
-      action: 'CREATE',
-      userId: 'user-1',
-      tenantId: 'tenant-1',
-      details: body
-    }))
-  })
+    expect(logger.logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CREATE",
+        userId: "user-1",
+        tenantId: "tenant-1",
+        details: body,
+      }),
+    );
+  });
 
-  it('audits sensitive GET requests', async () => {
-    const req = createReq('GET', '/api/admin/salary/123')
-    const res = createRes(200)
+  it("audits sensitive GET requests", async () => {
+    const req = createReq("GET", "/api/admin/salary/123");
+    const res = createRes(200);
 
-    await logAuditActivity(req, res, 'user-1', 'tenant-1')
+    await logAuditActivity(req, res, "user-1", "tenant-1");
 
-    expect(logger.logActivity).toHaveBeenCalledWith(expect.objectContaining({
-      action: 'READ',
-      subject: 'Admin Salary 123'
-    }))
-  })
+    expect(logger.logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "READ",
+        subject: "Admin Salary 123",
+      }),
+    );
+  });
 
-  it('does NOT audit normal GET requests', async () => {
-    const req = createReq('GET', '/api/public-info')
-    const res = createRes(200)
+  // Regresi: sebelum ekstraksi, GET /api/finance/rab-projects/** masuk
+  // audit-read lewat prefix "/api/finance". Setelah URL pindah ke /api/proyek/**,
+  // prefix barunya harus terdaftar atau jejak pembacaan data uang RAB hilang
+  // senyap. Tiga kasus di bawah mengunci prefix itu beserta batasnya.
+  it("audits GET /api/proyek (daftar RAB) sebagai audit-read", async () => {
+    const req = createReq("GET", "/api/proyek");
+    const res = createRes(200);
 
-    await logAuditActivity(req, res, 'user-1', 'tenant-1')
+    await logAuditActivity(req, res, "user-1", "tenant-1");
 
-    expect(logger.logActivity).not.toHaveBeenCalled()
-  })
+    expect(logger.logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "READ",
+        subject: "Proyek",
+      }),
+    );
+  });
 
-  it('redacts sensitive fields in body', async () => {
-    const req = createReq('POST', '/api/users')
-    const res = createRes(201)
-    const body = { 
-      username: 'john', 
-      password: 'secret123',
-      nested: { secretRadius: 'key123' }
-    }
+  it("audits GET sub-path uang RAB (revision-profit-loss)", async () => {
+    const req = createReq("GET", "/api/proyek/rab-1/revision-profit-loss");
+    const res = createRes(200);
 
-    await logAuditActivity(req, res, 'user-1', 'tenant-1', body)
+    await logAuditActivity(req, res, "user-1", "tenant-1");
 
-    expect(logger.logActivity).toHaveBeenCalledWith(expect.objectContaining({
-      details: {
-        username: 'john',
-        password: '[REDACTED]',
-        nested: { secretRadius: '[REDACTED]' }
-      }
-    }))
-  })
+    expect(logger.logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "READ",
+        subject: "Proyek Rab 1 Revision profit loss",
+      }),
+    );
+  });
 
-  it('does NOT audit failed requests (status >= 400)', async () => {
-    const req = createReq('POST', '/api/any')
-    const res = createRes(400)
+  it("does NOT audit GET path non-sensitif yang dipakai halaman proyek", async () => {
+    // /api/sites dipanggil halaman /admin/proyek tapi tidak memuat angka uang,
+    // jadi ia harus tetap di luar audit-read.
+    const req = createReq("GET", "/api/sites?resource=expense");
+    const res = createRes(200);
 
-    await logAuditActivity(req, res, 'user-1', 'tenant-1', { data: 'fail' })
+    await logAuditActivity(req, res, "user-1", "tenant-1");
 
-    expect(logger.logActivity).not.toHaveBeenCalled()
-  })
-})
+    expect(logger.logActivity).not.toHaveBeenCalled();
+  });
+
+  it("does NOT audit normal GET requests", async () => {
+    const req = createReq("GET", "/api/public-info");
+    const res = createRes(200);
+
+    await logAuditActivity(req, res, "user-1", "tenant-1");
+
+    expect(logger.logActivity).not.toHaveBeenCalled();
+  });
+
+  it("redacts sensitive fields in body", async () => {
+    const req = createReq("POST", "/api/users");
+    const res = createRes(201);
+    const body = {
+      username: "john",
+      password: "secret123",
+      nested: { secretRadius: "key123" },
+    };
+
+    await logAuditActivity(req, res, "user-1", "tenant-1", body);
+
+    expect(logger.logActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: {
+          username: "john",
+          password: "[REDACTED]",
+          nested: { secretRadius: "[REDACTED]" },
+        },
+      }),
+    );
+  });
+
+  it("does NOT audit failed requests (status >= 400)", async () => {
+    const req = createReq("POST", "/api/any");
+    const res = createRes(400);
+
+    await logAuditActivity(req, res, "user-1", "tenant-1", { data: "fail" });
+
+    expect(logger.logActivity).not.toHaveBeenCalled();
+  });
+});

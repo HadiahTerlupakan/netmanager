@@ -36,6 +36,31 @@ describe("batas modul proyek dan finance", () => {
     expect(offenders).toEqual([]);
   });
 
+  // Aturan §6 #3: investor hanya boleh lewat dua pintu sempit modul proyek.
+  // Impor `@/modules/proyek` (index) sekalipun dilarang — index memuat seluruh
+  // route service RAB, jadi membukanya mengembalikan kopling dua arah yang
+  // ekstraksi ini hapus.
+  it("investor menyentuh RAB hanya lewat public-queries dan client", () => {
+    const offenders = collectSourceFiles("modules/investor").filter(
+      (filePath) =>
+        /@\/modules\/proyek(?!\/public-queries|\/client)/.test(
+          readFile(filePath),
+        ),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  // Aturan §6 #4: arah sebaliknya. `modules/investor` (index) membawa service
+  // portal investor; proyek hanya butuh pintu bacanya.
+  it("proyek menyentuh investor hanya lewat public-queries", () => {
+    const offenders = collectSourceFiles("modules/proyek").filter((filePath) =>
+      /@\/modules\/investor(?!\/public-queries)/.test(readFile(filePath)),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
   it("tidak ada sisa pintu RAB di finance maupun endpoint lama", () => {
     // modules/proyek dikecualikan: ia satu-satunya pemilik sah pintu
     // @/modules/finance/public-queries (aturan kedua di atas yang menjaganya).

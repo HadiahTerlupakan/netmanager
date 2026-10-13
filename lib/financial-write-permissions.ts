@@ -43,6 +43,17 @@ export const TREASURY_ACCOUNT_UPDATE_PERMISSIONS: string[] = [
  * pengeluaran ke sumber dananya. Tanpa `expense:*` di sini, role Chief
  * Financial Officer — yang memegang `expense:*` tanpa `finance:read` — melihat
  * pilihan akun kosong. Semua role pada daftar ini adalah peran keuangan.
+ *
+ * Halaman Proyek (`/admin/proyek`, hasil ekstraksi RAB ke `modules/proyek`)
+ * memakai gerbang yang sama, `expense:read`. Diverifikasi 2026-10-13: halaman
+ * itu **belum** membaca daftar akun kas — ia hanya memanggil `/api/proyek/**`,
+ * `/api/finance/expense-categories` (auth saja), `/api/sites?resource=expense`,
+ * dan `/api/admin/investors` (`investors:read`) — jadi hari ini ia tidak
+ * bergantung pada daftar ini. Catatan ini ada supaya kebergantungan itu tidak
+ * muncul tanpa sengaja: begitu form RAB menautkan pencairan investor ke akun
+ * kas, ia akan memanggil `GET /api/finance/accounts` dan ikut tunduk pada
+ * daftar di bawah — yang sudah memuat `expense:read`, sehingga tidak ada entri
+ * baru yang perlu ditambahkan.
  */
 export const CASH_ACCOUNT_READ_PERMISSIONS: string[] = [
   "finance:read",
