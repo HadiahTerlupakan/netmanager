@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-13] — Spec ekstraksi RAB (Proyek) menjadi modul proyek
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/superpowers/specs`
+- **Author**: agent
+- **Deskripsi**: Spec desain pemindahan subsistem RAB (Proyek) keluar dari
+  `modules/finance` dan `app/admin/pengeluaran` menjadi `modules/proyek` mandiri
+  dengan halaman `/admin/proyek`. Terverifikasi: ~20.300 baris di 123 file bisa
+  pindah utuh, 11 file shared perlu dibedah, dan satu-satunya kopling nyata
+  adalah modul investor (dua arah). Tahap pertama sengaja nol migration Prisma
+  dan nol migrasi data role — nama model tetap `Rab*`, gate tetap `expense:*`.
+  Menyiapkan tautan proyek ↔ Planning OSP sebagai tahap terpisah.
+- **Files**: `docs/superpowers/specs/2026-10-13-ekstraksi-modul-proyek-design.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-13] — Gudang nonaktif hilang dari daftar, bukan berubah status
 
 - **Tipe**: [FIXED]
