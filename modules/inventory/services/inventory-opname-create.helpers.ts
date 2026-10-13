@@ -20,6 +20,8 @@ import {
   resolveNegativeMovementCondition,
   resolvePositiveMovementCondition,
 } from "./inventory-opname-movement-mapping.helpers";
+import { namaPelaku, ringkasPembuatan } from "../domain/riwayat-stock-opname";
+import { getStockOpnameRiwayatRepository } from "../repositories/StockOpnameRiwayatRepository";
 
 const DEFAULT_EMPTY_TOTAL = 0;
 const DEFAULT_ADMIN_PIC = "Admin";
@@ -75,6 +77,8 @@ async function runOpnameTransaction(
   const selisih = calculateStockDifference(input.stokFisik, stokSistem);
   const opnameRecord = await createOpnameRecord(tx, input, stokSistem, selisih);
 
+  await catatPembuatanKeRiwayat(tx, input, references.barang, opnameRecord);
+
   await syncOpnameAdjustment(tx, {
     input,
     opnameId: opnameRecord.id,
@@ -87,6 +91,32 @@ async function runOpnameTransaction(
     newStock: input.stokFisik,
     selisih,
   };
+}
+
+/** Catat pembuatan catatan opname ke jejak perubahan, dalam transaksi yang sama. */
+async function catatPembuatanKeRiwayat(
+  tx: Prisma.TransactionClient,
+  input: CreateInventoryOpnameInput,
+  barang: { nama: string },
+  opnameRecord: { id: string; tenantId: string | null },
+) {
+  await getStockOpnameRiwayatRepository().catat(tx, {
+    opnameId: opnameRecord.id,
+    gudangId: input.gudangId,
+    barangId: input.barangId,
+    tenantId: opnameRecord.tenantId,
+    aksi: "DIBUAT",
+    dilakukanOlehId: input.user.id,
+    namaPelaku: namaPelaku(
+      input.user.name,
+      input.user.email,
+      DEFAULT_ADMIN_PIC,
+    ),
+    namaBarang: barang.nama,
+    perubahan: ringkasPembuatan(
+      opnameRecord as unknown as Record<string, unknown>,
+    ),
+  });
 }
 
 async function findOpnameReferences(

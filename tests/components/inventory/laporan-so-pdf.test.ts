@@ -1,16 +1,30 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTanggalSo, type LaporanKepatuhanSo } from "@/components/inventory/opname/jadwal/jadwalSoTypes";
+import {
+  formatTanggalSo,
+  type LaporanKepatuhanSo,
+} from "@/components/inventory/opname/jadwal/jadwalSoTypes";
 import { susunIsiLaporanSoPdf } from "@/components/inventory/opname/jadwal/laporanSoPdf";
 
 const LAPORAN: LaporanKepatuhanSo = {
   periode: "2026-10",
-  jumlahPerStatus: { LENGKAP: 1, SEBAGIAN: 0, DI_LUAR_JADWAL: 0, BELUM: 1, TANPA_STOK: 1 },
+  jumlahPerStatus: {
+    LENGKAP: 1,
+    SEBAGIAN: 0,
+    DI_LUAR_JADWAL: 0,
+    BELUM: 1,
+    TANPA_STOK: 1,
+  },
   site: [
     {
       siteId: "site-a",
       namaSite: "Site A",
-      jendela: { periode: "2026-10", mulai: "2026-10-25", selesai: "2026-10-31", sumber: "BAWAAN" },
+      jendela: {
+        periode: "2026-10",
+        mulai: "2026-10-25",
+        selesai: "2026-10-31",
+        sumber: "BAWAAN",
+      },
       keadaan: "TERBUKA",
       isPengingatAktif: false,
       gudang: [
@@ -21,7 +35,12 @@ const LAPORAN: LaporanKepatuhanSo = {
           status: "LENGKAP",
           jumlahBarangBerstok: 4,
           jumlahDihitungDalamJadwal: 4,
-          soTerakhir: { tanggal: "2026-10-26T03:00:00.000Z", pic: "Budi" },
+          soTerakhir: {
+            tanggal: "2026-10-26T03:00:00.000Z",
+            pic: "Budi",
+            diubahOleh: "Siti",
+            diubahPada: "2026-10-27T03:00:00.000Z",
+          },
         },
         {
           id: "g2",
@@ -37,7 +56,12 @@ const LAPORAN: LaporanKepatuhanSo = {
     {
       siteId: null,
       namaSite: "Tanpa site",
-      jendela: { periode: "2026-10", mulai: "2026-10-01", selesai: "2026-10-31", sumber: "TANPA_JADWAL" },
+      jendela: {
+        periode: "2026-10",
+        mulai: "2026-10-01",
+        selesai: "2026-10-31",
+        sumber: "TANPA_JADWAL",
+      },
       keadaan: "TERBUKA",
       isPengingatAktif: false,
       gudang: [
@@ -56,7 +80,10 @@ const LAPORAN: LaporanKepatuhanSo = {
 };
 
 describe("susunIsiLaporanSoPdf", () => {
-  const isi = susunIsiLaporanSoPdf(LAPORAN, new Date("2026-10-28T18:00:00.000Z"));
+  const isi = susunIsiLaporanSoPdf(
+    LAPORAN,
+    new Date("2026-10-28T18:00:00.000Z"),
+  );
 
   it("memberi judul bulan, ringkasan status, dan nama file per periode", () => {
     expect(isi.judul).toBe("Laporan Stock Opname Oktober 2026");
@@ -67,7 +94,10 @@ describe("susunIsiLaporanSoPdf", () => {
   });
 
   it("membuat satu bagian per site dengan jadwal dan keadaannya", () => {
-    expect(isi.bagian.map((bagian) => bagian.judul)).toEqual(["Site A", "Tanpa site"]);
+    expect(isi.bagian.map((bagian) => bagian.judul)).toEqual([
+      "Site A",
+      "Tanpa site",
+    ]);
     expect(isi.bagian[0].keterangan).toContain("Sedang berjalan");
     expect(isi.bagian[0].keterangan).toContain("Pengingat mati");
     expect(isi.bagian[1].keterangan).not.toContain("Pengingat mati");
@@ -75,7 +105,9 @@ describe("susunIsiLaporanSoPdf", () => {
 
   it("mengisi baris gudang: status, hitungan, dan SO terakhir", () => {
     expect(isi.bagian[0].baris).toEqual([
-      ["Gudang Utama", "GD-01", "Lengkap", "4/4", "26 Okt 2026 · Budi"],
+      // Nama di laporan mengikuti layar: orang yang terakhir mengubah catatan,
+      // bukan PIC yang tertulis pada catatan opname.
+      ["Gudang Utama", "GD-01", "Lengkap", "4/4", "26 Okt 2026 · Siti"],
       ["Gudang Cabang", "GD-02", "Belum SO", "0/3", "-"],
     ]);
     expect(isi.bagian[1].baris[0][3]).toBe("-");

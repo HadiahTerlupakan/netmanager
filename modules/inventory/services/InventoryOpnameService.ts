@@ -22,6 +22,8 @@ import {
   findPagedOpnameRecords,
   type OpnameHistoryStats,
 } from "./inventory-opname-list.helpers";
+import { namaPelaku } from "../domain/riwayat-stock-opname";
+import type { PelakuPerubahanOpname } from "../domain/ports/IInventoryOperationRepository";
 
 /**
  * SO bulanan mencatat seluruh barang gudang dalam satu transaksi; default
@@ -108,6 +110,17 @@ async function ensureTenantContextForNonSuperAdmin(user: InventoryUserContext) {
   }
 }
 
+/**
+ * Pelaku perubahan untuk jejak audit opname.
+ *
+ * Diambil dari sesi, bukan dari body permintaan: field `pic` pada catatan
+ * opname adalah teks bebas yang ikut disunting operator, jadi ia tidak bisa
+ * dipakai untuk menjawab siapa yang sebenarnya mengubah.
+ */
+function pelakuDari(user: InventoryUserContext): PelakuPerubahanOpname {
+  return { id: user.id, nama: namaPelaku(user.name, user.email) };
+}
+
 export class InventoryOpnameService {
   constructor(
     private readonly inventoryRepository: InventoryRepository = new InventoryRepository(),
@@ -147,14 +160,17 @@ export class InventoryOpnameService {
     input: UpdateInventoryOpnameInput,
   ): Promise<UpdatedStockOpnameResult> {
     await ensureTenantContextForNonSuperAdmin(input.user);
-    const { user: _user, ...payload } = input;
-    return this.inventoryRepository.updateOpname(payload);
+    const { user, ...payload } = input;
+    return this.inventoryRepository.updateOpname(payload, pelakuDari(user));
   }
 
   /** Hapus opname dan kembalikan stok ke kondisi sebelum opname. */
   async deleteOpname(input: DeleteInventoryOpnameInput): Promise<void> {
     await ensureTenantContextForNonSuperAdmin(input.user);
-    await this.inventoryRepository.deleteOpname(input.id);
+    await this.inventoryRepository.deleteOpname(
+      input.id,
+      pelakuDari(input.user),
+    );
   }
 
   /** Buat stock opname dan sinkronkan selisih stok. */

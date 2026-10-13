@@ -28,6 +28,7 @@ export type {
   InventoryTransferRecord,
   UpdateBarangMasukInput,
   UpdateStockOpnameInput,
+  PelakuPerubahanOpname,
   InventoryRecordSite,
   InventoryMasukRecord,
   InventoryOpnameRecord,
@@ -56,6 +57,7 @@ import type {
   InventoryOpnameRecord,
   UpdateStockOpnameInput,
   UpdatedStockOpnameResult,
+  PelakuPerubahanOpname,
   MobileActorUserRecord,
   MobileActorMitraRecord,
   MobileGudangRecord,
@@ -105,7 +107,10 @@ export interface IInventoryOperationRepository {
   ): Promise<BarangMasuk>;
   removeStock(data: CreateBarangKeluarInput): Promise<BarangKeluar>;
   getStockLevel(barangId: string, gudangId: string): Promise<number>;
-  getAllGudang(params?: { siteId?: string }): Promise<Gudang[]>;
+  getAllGudang(params?: {
+    siteId?: string;
+    includeInactive?: boolean;
+  }): Promise<Gudang[]>;
   findMobileActorUser(input: {
     actorId: string;
     tenantId: string;
@@ -145,6 +150,7 @@ export interface IInventoryOperationRepository {
   getOpnameRecord(id: string): Promise<InventoryOpnameRecord | null>;
   updateOpname(
     input: UpdateStockOpnameInput,
+    pelaku: PelakuPerubahanOpname,
   ): Promise<UpdatedStockOpnameResult>;
-  deleteOpname(id: string): Promise<void>;
+  deleteOpname(id: string, pelaku: PelakuPerubahanOpname): Promise<void>;
 }

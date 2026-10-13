@@ -80,6 +80,7 @@ export type {
   KepatuhanGudang,
   KepatuhanSite,
   LaporanKepatuhanSo,
+  RiwayatPerubahanOpname,
 } from "./services/StockOpnameJadwalService";
 export {
   StockOpnamePengingatService,

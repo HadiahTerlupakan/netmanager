@@ -18,11 +18,18 @@ import {
   type StatusSoGudang,
 } from "../domain/jadwal-stock-opname";
 import { StockOpnameJadwalRepository } from "../repositories/StockOpnameJadwalRepository";
+import { StockOpnameRiwayatRepository } from "../repositories/StockOpnameRiwayatRepository";
+import type {
+  AksiRiwayatOpname,
+  RingkasanPerubahan,
+} from "../domain/riwayat-stock-opname";
 
 const HTTP_BAD_REQUEST = 400;
 const HTTP_NOT_FOUND = 404;
 /** Kelompok untuk gudang yang belum dikaitkan ke site mana pun. */
 const NAMA_TANPA_SITE = "Tanpa site";
+/** Cukup untuk sebulan penuh satu gudang tanpa membuat respons membengkak. */
+const BATAS_RIWAYAT = 200;
 
 /** Jadwal SO satu site untuk satu bulan. */
 export interface JadwalSoSite {
@@ -47,8 +54,30 @@ export interface KepatuhanGudang extends RingkasanSoGudang {
   id: string;
   kode: string;
   nama: string;
-  /** SO terakhir bulan ini (di dalam atau di luar jadwal). */
-  soTerakhir: { tanggal: Date; pic: string | null } | null;
+  /**
+   * SO terakhir bulan ini (di dalam atau di luar jadwal).
+   *
+   * `pic` adalah teks bebas pada catatan opname — ia ikut tersunting dan tidak
+   * menjawab siapa yang benar-benar mengubah. `diubahOleh` datang dari jejak
+   * perubahan dan itulah nama yang ditampilkan; `pic` hanya cadangan untuk
+   * data lama yang belum punya jejak.
+   */
+  soTerakhir: {
+    tanggal: Date;
+    pic: string | null;
+    diubahOleh: string | null;
+    diubahPada: Date | null;
+  } | null;
+}
+
+/** Satu peristiwa pada jejak perubahan catatan opname. */
+export interface RiwayatPerubahanOpname {
+  id: string;
+  aksi: AksiRiwayatOpname;
+  namaPelaku: string;
+  namaBarang: string;
+  dilakukanPada: Date;
+  perubahan: RingkasanPerubahan;
 }
 
 /** Gudang-gudang satu site beserta jadwal site itu. */
@@ -69,8 +98,12 @@ export interface LaporanKepatuhanSo {
   site: KepatuhanSite[];
 }
 
-type GudangLaporan = Awaited<ReturnType<StockOpnameJadwalRepository["findGudangAktif"]>>[number];
-type BarisOpname = Awaited<ReturnType<StockOpnameJadwalRepository["findOpnameDalamRentang"]>>[number];
+type GudangLaporan = Awaited<
+  ReturnType<StockOpnameJadwalRepository["findGudangAktif"]>
+>[number];
+type BarisOpname = Awaited<
+  ReturnType<StockOpnameJadwalRepository["findOpnameDalamRentang"]>
+>[number];
 
 function keTanggal(tanggal: string): Date {
   return new Date(`${tanggal}T00:00:00.000Z`);
@@ -90,7 +123,10 @@ function tolakPeriode(periode: string): void {
 
 /** Jadwal stock opname per site dan laporan gudang yang sudah/belum di-SO. */
 export class StockOpnameJadwalService {
-  constructor(private readonly repository = new StockOpnameJadwalRepository()) {}
+  constructor(
+    private readonly repository = new StockOpnameJadwalRepository(),
+    private readonly riwayatRepository = new StockOpnameRiwayatRepository(),
+  ) {}
 
   /** Jadwal SO bulan `periode` untuk beberapa site sekaligus. */
   async getJadwalSites(
@@ -106,7 +142,9 @@ export class StockOpnameJadwalService {
     ]);
     return new Map(
       sites.map((site) => {
-        const tersimpan = aturanList.find((aturan) => aturan.siteId === site.id);
+        const tersimpan = aturanList.find(
+          (aturan) => aturan.siteId === site.id,
+        );
         const khusus = khususList.find((jadwal) => jadwal.siteId === site.id);
         const aturan = tersimpan
           ? {
@@ -143,7 +181,11 @@ export class StockOpnameJadwalService {
   async getJadwalSite(tenantId: string, siteId: string, periode: string) {
     const site = await this.pastikanSite(tenantId, siteId);
     const jadwal = await this.getJadwalSites(tenantId, [site], periode);
-    const khusus = await this.repository.findJadwalKhususSite(tenantId, siteId, periode);
+    const khusus = await this.repository.findJadwalKhususSite(
+      tenantId,
+      siteId,
+      periode,
+    );
     return {
       ...(jadwal.get(siteId) as JadwalSoSite),
       jadwalKhusus: khusus.map(
@@ -158,7 +200,11 @@ export class StockOpnameJadwalService {
   }
 
   /** Simpan jadwal bawaan site "tanggal X–Y setiap bulan" dan saklar pengingat. */
-  async simpanAturanSite(tenantId: string, siteId: string, aturan: AturanJadwalSo) {
+  async simpanAturanSite(
+    tenantId: string,
+    siteId: string,
+    aturan: AturanJadwalSo,
+  ) {
     await this.pastikanSite(tenantId, siteId);
     tolak(validasiAturan(aturan));
     return this.repository.upsertAturan(tenantId, siteId, aturan);
@@ -183,14 +229,21 @@ export class StockOpnameJadwalService {
   }
 
   /** Hapus jadwal khusus site bulan itu (kembali ke jadwal bawaan site). */
-  async hapusJadwalKhususSite(tenantId: string, siteId: string, periode: string) {
+  async hapusJadwalKhususSite(
+    tenantId: string,
+    siteId: string,
+    periode: string,
+  ) {
     await this.pastikanSite(tenantId, siteId);
     tolakPeriode(periode);
     await this.repository.deleteJadwal(tenantId, siteId, periode);
   }
 
   /** Site yang boleh dilihat pengguna `opname:site_only`. */
-  async getSiteIdsPengguna(tenantId: string, userId: string): Promise<string[]> {
+  async getSiteIdsPengguna(
+    tenantId: string,
+    userId: string,
+  ): Promise<string[]> {
     return this.repository.findSiteIdsPengguna(tenantId, userId);
   }
 
@@ -213,17 +266,39 @@ export class StockOpnameJadwalService {
     const jadwalPerSite = await this.getJadwalSites(tenantId, sites, periode);
     const gudangIds = gudangList.map((gudang) => gudang.id);
     const bulan = rentangWaktuPeriode(periode);
-    const [berstok, opnameBulanIni] = await Promise.all([
+    const [berstok, opnameBulanIni, peristiwaTerakhir] = await Promise.all([
       this.repository.findBarangBerstok(tenantId, gudangIds),
-      this.repository.findOpnameDalamRentang(tenantId, gudangIds, bulan.dari, bulan.sampai),
+      this.repository.findOpnameDalamRentang(
+        tenantId,
+        gudangIds,
+        bulan.dari,
+        bulan.sampai,
+      ),
+      this.riwayatRepository.peristiwaTerakhirPerGudang({
+        tenantId,
+        gudangIds,
+        dari: bulan.dari,
+        sampai: bulan.sampai,
+      }),
     ]);
+    const perubahanTerakhir = new Map(
+      peristiwaTerakhir.map((peristiwa) => [peristiwa.gudangId, peristiwa]),
+    );
     const nilaiGudang = (gudang: GudangLaporan, jendela: JendelaSo) =>
-      nilaiKepatuhanGudang(gudang, jendela, berstok, opnameBulanIni);
+      nilaiKepatuhanGudang(
+        gudang,
+        jendela,
+        berstok,
+        opnameBulanIni,
+        perubahanTerakhir.get(gudang.id) ?? null,
+      );
 
     const hasil: KepatuhanSite[] = sites
       .map((site) => {
         const jadwal = jadwalPerSite.get(site.id) as JadwalSoSite;
-        const gudang = gudangList.filter((item) => item.sites.some((s) => s.id === site.id));
+        const gudang = gudangList.filter((item) =>
+          item.sites.some((s) => s.id === site.id),
+        );
         return {
           siteId: site.id,
           namaSite: site.name,
@@ -251,9 +326,52 @@ export class StockOpnameJadwalService {
     return { periode, jumlahPerStatus: hitungPerStatus(hasil), site: hasil };
   }
 
+  /**
+   * Jejak perubahan catatan opname sebuah gudang pada satu bulan.
+   *
+   * Gudang di luar jangkauan site pengguna ditolak dengan pesan yang sama
+   * seperti gudang yang tidak ada, supaya daftar gudang tenant lain tidak
+   * bocor lewat beda pesan galat.
+   */
+  async getRiwayatGudang(input: {
+    tenantId: string;
+    gudangId: string;
+    periode: string;
+    siteIds: string[] | null;
+    batas?: number;
+  }): Promise<RiwayatPerubahanOpname[]> {
+    tolakPeriode(input.periode);
+    const gudangTerjangkau = await this.repository.findGudangAktif(
+      input.tenantId,
+      input.siteIds,
+    );
+    if (!gudangTerjangkau.some((gudang) => gudang.id === input.gudangId)) {
+      throw createRouteServiceError("Gudang tidak ditemukan", HTTP_NOT_FOUND);
+    }
+
+    const bulan = rentangWaktuPeriode(input.periode);
+    const baris = await this.riwayatRepository.riwayatGudang({
+      tenantId: input.tenantId,
+      gudangId: input.gudangId,
+      dari: bulan.dari,
+      sampai: bulan.sampai,
+      batas: input.batas ?? BATAS_RIWAYAT,
+    });
+
+    return baris.map((item) => ({
+      id: item.id,
+      aksi: item.aksi as AksiRiwayatOpname,
+      namaPelaku: item.namaPelaku,
+      namaBarang: item.namaBarang,
+      dilakukanPada: item.dilakukanPada,
+      perubahan: (item.perubahan ?? {}) as unknown as RingkasanPerubahan,
+    }));
+  }
+
   private async pastikanSite(tenantId: string, siteId: string) {
     const site = await this.repository.findSite(tenantId, siteId);
-    if (!site) throw createRouteServiceError("Site tidak ditemukan", HTTP_NOT_FOUND);
+    if (!site)
+      throw createRouteServiceError("Site tidak ditemukan", HTTP_NOT_FOUND);
     return site;
   }
 }
@@ -264,6 +382,7 @@ function nilaiKepatuhanGudang(
   jendela: JendelaSo,
   berstok: { gudangId: string; barangId: string }[],
   opnameBulanIni: BarisOpname[],
+  perubahanTerakhir: { namaPelaku: string; dilakukanPada: Date } | null,
 ): KepatuhanGudang {
   const jadwal = rentangWaktuJendela(jendela);
   const opname = opnameBulanIni.filter((baris) => baris.gudangId === gudang.id);
@@ -272,9 +391,13 @@ function nilaiKepatuhanGudang(
   );
   const ringkasan = nilaiStatusGudang({
     barangBerstok: new Set(
-      berstok.filter((baris) => baris.gudangId === gudang.id).map((baris) => baris.barangId),
+      berstok
+        .filter((baris) => baris.gudangId === gudang.id)
+        .map((baris) => baris.barangId),
     ),
-    barangDihitungDalamJadwal: new Set(dalamJadwal.map((baris) => baris.barangId)),
+    barangDihitungDalamJadwal: new Set(
+      dalamJadwal.map((baris) => baris.barangId),
+    ),
     barangDihitungBulanIni: new Set(opname.map((baris) => baris.barangId)),
   });
   const terakhir = opname[0];
@@ -283,11 +406,20 @@ function nilaiKepatuhanGudang(
     kode: gudang.kode,
     nama: gudang.nama,
     ...ringkasan,
-    soTerakhir: terakhir ? { tanggal: terakhir.tanggal, pic: terakhir.pic } : null,
+    soTerakhir: terakhir
+      ? {
+          tanggal: terakhir.tanggal,
+          pic: terakhir.pic,
+          diubahOleh: perubahanTerakhir?.namaPelaku ?? null,
+          diubahPada: perubahanTerakhir?.dilakukanPada ?? null,
+        }
+      : null,
   };
 }
 
-function hitungPerStatus(site: KepatuhanSite[]): Record<StatusSoGudang, number> {
+function hitungPerStatus(
+  site: KepatuhanSite[],
+): Record<StatusSoGudang, number> {
   const jumlah: Record<StatusSoGudang, number> = {
     LENGKAP: 0,
     SEBAGIAN: 0,

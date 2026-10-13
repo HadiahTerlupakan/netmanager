@@ -15,6 +15,7 @@ import type {
   BarangDetail,
   UpdateBarangMasukInput,
   UpdateStockOpnameInput,
+  PelakuPerubahanOpname,
   InventoryMasukRecord,
   InventoryOpnameRecord,
   InventoryTransferRecord,
@@ -289,10 +290,11 @@ export class InventoryRepository
   }
   async updateOpname(
     input: UpdateStockOpnameInput,
+    pelaku: PelakuPerubahanOpname,
   ): Promise<UpdatedStockOpnameResult> {
-    return this.opnameRepository.updateOpname(input);
+    return this.opnameRepository.updateOpname(input, pelaku);
   }
-  async deleteOpname(id: string): Promise<void> {
-    await this.opnameRepository.deleteOpname(id);
+  async deleteOpname(id: string, pelaku: PelakuPerubahanOpname): Promise<void> {
+    await this.opnameRepository.deleteOpname(id, pelaku);
   }
 }

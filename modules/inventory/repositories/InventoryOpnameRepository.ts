@@ -2,9 +2,16 @@ import type { PrismaClient } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import type {
   InventoryOpnameRecord,
+  PelakuPerubahanOpname,
   UpdateStockOpnameInput,
   UpdatedStockOpnameResult,
 } from "../domain/ports/IInventoryOperationRepository";
+import {
+  ringkasPenghapusan,
+  ringkasPerubahan,
+} from "../domain/riwayat-stock-opname";
+import { getStockOpnameRiwayatRepository } from "./StockOpnameRiwayatRepository";
+import type { Prisma } from "./prisma-boundary";
 
 export class InventoryOpnameRepository {
   constructor(private readonly db: PrismaClient) {}
@@ -24,6 +31,7 @@ export class InventoryOpnameRepository {
   /** Update opname record and synchronize physical stock delta. */
   async updateOpname(
     input: UpdateStockOpnameInput,
+    pelaku: PelakuPerubahanOpname,
   ): Promise<UpdatedStockOpnameResult> {
     await this.ensureOpnameBelongsToTenant(input.id);
 
@@ -41,6 +49,13 @@ export class InventoryOpnameRepository {
         ),
       });
 
+      await this.catatPerubahan(tx, {
+        pelaku,
+        sebelum: context.existingRecord,
+        sesudah: updatedRecord,
+        namaBarang: context.existingRecord.barang.nama,
+      });
+
       await this.applyStockDelta(tx, context, input.stokFisik, selisihFisik);
       return {
         record: updatedRecord as unknown as Record<string, unknown>,
@@ -51,12 +66,13 @@ export class InventoryOpnameRepository {
   }
 
   /** Delete opname record and restore stock delta, scoped to tenant. */
-  async deleteOpname(id: string): Promise<void> {
+  async deleteOpname(id: string, pelaku: PelakuPerubahanOpname): Promise<void> {
     await this.ensureOpnameBelongsToTenant(id);
 
     await this.db.$transaction(async (tx) => {
       const existingRecord = await tx.stockOpname.findUnique({
         where: { id: id.trim() },
+        include: { barang: { select: { nama: true } } },
       });
       if (!existingRecord)
         throw new Error("Record stock opname tidak ditemukan");
@@ -83,6 +99,57 @@ export class InventoryOpnameRepository {
         });
       }
       await tx.stockOpname.delete({ where: { id: id.trim() } });
+
+      await getStockOpnameRiwayatRepository().catat(tx, {
+        opnameId: existingRecord.id,
+        gudangId: existingRecord.gudangId,
+        barangId: existingRecord.barangId,
+        tenantId: existingRecord.tenantId,
+        aksi: "DIHAPUS",
+        dilakukanOlehId: pelaku.id,
+        namaPelaku: pelaku.nama,
+        namaBarang: existingRecord.barang.nama,
+        perubahan: ringkasPenghapusan(
+          existingRecord as unknown as Record<string, unknown>,
+        ),
+      });
+    });
+  }
+
+  /**
+   * Catat satu penyuntingan ke jejak perubahan.
+   *
+   * Hanya ditulis bila ada yang benar-benar berubah: menyimpan baris untuk
+   * penyimpanan yang tidak mengubah apa pun membuat riwayat penuh derau dan
+   * menutupi perubahan yang sebenarnya.
+   */
+  private async catatPerubahan(
+    tx: Prisma.TransactionClient,
+    input: {
+      pelaku: PelakuPerubahanOpname;
+      sebelum: Record<string, unknown> & {
+        id: string;
+        gudangId: string;
+        barangId: string;
+        tenantId: string | null;
+      };
+      sesudah: Record<string, unknown>;
+      namaBarang: string;
+    },
+  ): Promise<void> {
+    const perubahan = ringkasPerubahan(input.sebelum, input.sesudah);
+    if (Object.keys(perubahan).length === 0) return;
+
+    await getStockOpnameRiwayatRepository().catat(tx, {
+      opnameId: input.sebelum.id,
+      gudangId: input.sebelum.gudangId,
+      barangId: input.sebelum.barangId,
+      tenantId: input.sebelum.tenantId,
+      aksi: "DIUBAH",
+      dilakukanOlehId: input.pelaku.id,
+      namaPelaku: input.pelaku.nama,
+      namaBarang: input.namaBarang,
+      perubahan,
     });
   }
 

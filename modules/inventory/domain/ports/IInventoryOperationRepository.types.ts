@@ -219,6 +219,18 @@ export interface UpdateStockOpnameInput {
   catatanDetail?: string | null;
 }
 
+/**
+ * Orang yang melakukan perubahan, untuk jejak audit stock opname.
+ *
+ * Wajib pada update dan delete: tanpa ini riwayat tidak bisa menjawab
+ * "siapa yang terakhir mengubah", dan field `pic` tidak bisa menggantikannya
+ * karena `pic` adalah teks bebas yang ikut disunting operator.
+ */
+export interface PelakuPerubahanOpname {
+  id: string;
+  nama: string;
+}
+
 export interface InventoryRecordSite {
   id: string;
 }

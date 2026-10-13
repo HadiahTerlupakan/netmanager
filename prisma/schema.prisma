@@ -1481,6 +1481,7 @@ model User {
   pelanggan                                  Pelanggan[]
   session                                    Session[]
   systemLog                                  SystemLog[]
+  stockOpnameAuditLog                        StockOpnameAuditLog[]
   departments                                Departments?                @relation(fields: [departmentId], references: [id])
   role                                       Role?                       @relation(fields: [roleId], references: [id])
   shift                                      Shift?                      @relation(fields: [shiftId], references: [id])
@@ -1873,6 +1874,7 @@ model Gudang {
   restockAlerts           RestockAlerts[]
   restockSettings         RestockSettings[]
   stockOpname             StockOpname[]
+  stockOpnameAuditLog     StockOpnameAuditLog[]
   transferAntarGudangDari TransferAntarGudang[] @relation("transfer_antar_gudang_dariGudangIdTogudang")
   transferAntarGudangKe   TransferAntarGudang[] @relation("transfer_antar_gudang_keGudangIdTogudang")
   usageAnalytics          UsageAnalytics[]
@@ -2300,6 +2302,43 @@ model StockOpname {
   @@index([tanggal])
   @@index([tenantId])
   @@map("stock_opname")
+}
+
+/// Jejak perubahan tiap catatan stock opname.
+///
+/// Append-only: dipakai untuk menjawab "siapa terakhir mengubah SO gudang ini,
+/// dan apa yang diubahnya". Tidak ber-relasi ke StockOpname supaya baris
+/// penghapusan tetap hidup setelah catatannya dihapus, dan menyimpan nama
+/// pelaku serta nama barang sebagai snapshot — riwayat harus tetap terbaca
+/// walau user atau barangnya berubah nama di kemudian hari.
+model StockOpnameAuditLog {
+  id       String  @id @default(dbgenerated("gen_random_uuid()"))
+  opnameId String
+  gudangId String
+  barangId String
+  tenantId String?
+
+  aksi            StockOpnameAuditAksi
+  dilakukanOlehId String?
+  namaPelaku      String
+  namaBarang      String
+  perubahan       Json?
+  dilakukanPada   DateTime             @default(now())
+
+  gudang        Gudang  @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  tenant        Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  dilakukanOleh User?   @relation(fields: [dilakukanOlehId], references: [id])
+
+  @@index([gudangId, dilakukanPada])
+  @@index([opnameId])
+  @@index([tenantId])
+  @@map("stock_opname_audit_log")
+}
+
+enum StockOpnameAuditAksi {
+  DIBUAT
+  DIUBAH
+  DIHAPUS
 }
 
 model SupportTickets {
@@ -4243,6 +4282,7 @@ model Tenant {
   sites                     Sites[]
   sla                       Sla[]
   stockOpname               StockOpname[]
+  stockOpnameAuditLog       StockOpnameAuditLog[]
   stockOpnameAturan         StockOpnameAturan[]
   stockOpnameJadwal         StockOpnameJadwal[]
   supplier                  Supplier[]

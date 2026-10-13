@@ -11,12 +11,17 @@ const FORBIDDEN_MESSAGE_PREFIX = "Akses ditolak";
 
 function toUserContext(user: {
   id: string;
+  name?: string | null;
+  email?: string | null;
   role?: string;
   siteId?: string;
   tenantId?: string;
 }) {
   return {
     id: user.id,
+    // Nama & email ikut: jejak perubahan opname menyimpan nama pelaku.
+    name: user.name,
+    email: user.email,
     role: user.role,
     siteId: user.siteId,
     tenantId: user.tenantId,

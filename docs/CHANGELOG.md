@@ -60,6 +60,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `app/admin/inventory/gudang/GudangList.tsx`
 - **Breaking**: ❌ Tidak
 
+### [2026-10-13] — Jejak perubahan stock opname
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/inventory`, `app/api/inventory/opname/riwayat`,
+  `components/inventory/opname/jadwal`
+- **Author**: agent
+- **Deskripsi**: Kolom "SO terakhir bulan ini" pada laporan kepatuhan menyebut
+  `pic` — teks bebas pada catatan opname yang ikut tersunting operator, jadi ia
+  tidak menjawab siapa yang terakhir mengubah. Penyuntingan dan penghapusan
+  catatan opname juga sama sekali tidak terekam. Ditambahkan jejak audit
+  append-only `stock_opname_audit_log`: pembuatan, penyuntingan, dan
+  penghapusan dicatat di dalam transaksi yang sama dengan perubahannya, berisi
+  nama pelaku dari sesi (bukan dari body permintaan) serta field apa saja yang
+  berubah beserta nilai sebelum dan sesudahnya. Nama pada kolom itu sekarang
+  diambil dari jejak tersebut dan bisa diklik untuk membuka riwayat
+  perubahannya; `pic` tinggal menjadi cadangan untuk catatan lama.
+- **Files**: `prisma/schema.prisma`,
+  `modules/inventory/domain/riwayat-stock-opname.ts`,
+  `modules/inventory/repositories/StockOpnameRiwayatRepository.ts`,
+  `modules/inventory/repositories/InventoryOpnameRepository.ts`,
+  `modules/inventory/services/StockOpnameJadwalService.ts`,
+  `app/api/inventory/opname/riwayat/route.ts`,
+  `components/inventory/opname/jadwal/ModalRiwayatSo.tsx`
+- **Migration**: `20261013013514_add_stock_opname_audit_log`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Stock opname tidak bisa disimpan; pesan galat server hilang
 
 - **Tipe**: [FIXED]
