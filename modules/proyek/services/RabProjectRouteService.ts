@@ -82,9 +82,17 @@ const investorProfitShareLookup: RabInvestorProfitShareLookup = {
   isProjectMonthShared: isRabProjectMonthShared,
 };
 
+/**
+ * Pembacaan realisasi pengeluaran sebuah proyek RAB (data milik module finance,
+ * diakses lewat pintu publiknya). Disuntikkan supaya service ini bisa diuji
+ * tanpa menyentuh singleton repository di pintu tersebut.
+ */
+export type RabProjectExpenseLookup = typeof getExpensesByRabProject;
+
 export class RabProjectRouteService {
   constructor(
     private readonly rabProjectRepository = new RabProjectRepository(),
+    private readonly expenseLookup: RabProjectExpenseLookup = getExpensesByRabProject,
     private readonly profitShareLookup: RabInvestorProfitShareLookup = investorProfitShareLookup,
   ) {}
 
@@ -217,7 +225,7 @@ export class RabProjectRouteService {
       "Proyek RAB",
     );
 
-    const expenses = await getExpensesByRabProject(project.id);
+    const expenses = await this.expenseLookup(project.id);
     const originalCapex = calculateOriginalRabCapex(project.items);
     const originalOpex = project.projectedOpex;
     const finalRevision = project.finalApprovedRevision;

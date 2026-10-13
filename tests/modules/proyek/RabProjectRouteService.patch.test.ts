@@ -50,6 +50,7 @@ describe("RabProjectRouteService PATCH", () => {
     };
     const service = new RabProjectRouteService(
       repository as never,
+      undefined,
       bagiHasil(false),
     );
 
@@ -91,6 +92,7 @@ describe("RabProjectRouteService PATCH", () => {
     };
     const service = new RabProjectRouteService(
       repository as never,
+      undefined,
       bagiHasil(false),
     );
 
@@ -108,6 +110,7 @@ describe("RabProjectRouteService PATCH", () => {
     };
     const service = new RabProjectRouteService(
       repository as never,
+      undefined,
       bagiHasil(true),
     );
 
@@ -141,6 +144,7 @@ describe("RabProjectRouteService PATCH", () => {
     };
     const service = new RabProjectRouteService(
       repository as never,
+      undefined,
       bagiHasil(true),
     );
 
