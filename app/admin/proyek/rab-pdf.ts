@@ -1,6 +1,6 @@
 import { formatCurrency } from "@/lib/utils";
 
-import { buildRABTrackingDataset } from "./rabTracking";
+import { buildRABTrackingDataset } from "@/modules/proyek/client";
 import type { RABProject } from "./rabTypes";
 
 export function getRABPdfDocumentOptions() {

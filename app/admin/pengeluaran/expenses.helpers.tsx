@@ -1,6 +1,6 @@
 import type { ComboboxOption } from "@/components/ui/Combobox";
+import type { CategoryOption } from "@/types/admin-options";
 import type {
-  CategoryOption,
   ExpenseItem,
   ExpenseFormItem,
   ExpensesFormState,

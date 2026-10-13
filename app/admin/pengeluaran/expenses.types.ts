@@ -56,26 +56,6 @@ export interface ExpenseItem {
   };
 }
 
-export interface SiteOption {
-  id: string;
-  name: string;
-}
-
-export interface CategoryOption {
-  id: string;
-  name: string;
-  type: string;
-  parentId?: string | null;
-  _count?: { children: number };
-}
-
-export interface RabBottleneckMetrics {
-  pendingApprovalCount: number;
-  oldestPendingDays: number;
-  oldestPendingProjectName: string | null;
-  averageApprovalLeadHours: number;
-}
-
 export interface ExpensesFormState {
   date: string;
   category: string;
@@ -84,4 +64,16 @@ export interface ExpensesFormState {
   invoiceFile: string;
   /** Akun kas/bank sumber dana; menentukan jurnal otomatis. */
   accountId: string;
+}
+
+/** Bentuk minimal proyek RAB untuk menautkan pengeluaran ke item RAB. */
+export interface RabProjectLinkOption {
+  id: string;
+  name: string;
+  items?: Array<{
+    id: string;
+    name: string;
+    quantity?: number;
+    expenseType?: string;
+  }>;
 }

@@ -2,7 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import RABRevisionSummaryCards from "@/app/admin/pengeluaran/RABRevisionSummaryCards";
+import RABRevisionSummaryCards from "@/app/admin/proyek/RABRevisionSummaryCards";
 
 describe("RABRevisionSummaryCards", () => {
   it("renders original, final, actual, and variance totals", () => {

@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   calculateMonthlySubscribers,
   calculateRealisticBEP,
-} from "@/app/admin/pengeluaran/rabCalculations";
-import { buildRABTrackingDataset } from "@/app/admin/pengeluaran/rabTracking";
+} from "@/app/admin/proyek/rabCalculations";
+import { buildRABTrackingDataset } from "@/modules/proyek/client";
 import type {
   RABActualAchievement,
   RABProject,
-} from "@/app/admin/pengeluaran/rabTypes";
+} from "@/app/admin/proyek/rabTypes";
 
 describe("rab tracking calculations helpers", () => {
   const createBaseProject = (): RABProject => ({

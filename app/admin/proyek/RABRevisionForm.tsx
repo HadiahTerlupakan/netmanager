@@ -50,9 +50,7 @@ export default function RABRevisionForm({
   // Fetch revisions list saat modal open. useApi skip kalau modal tutup
   // atau projectId belum ada.
   const revisionsUrl =
-    open && projectId
-      ? `/api/finance/rab-projects/${projectId}/revisions`
-      : null;
+    open && projectId ? `/api/proyek/${projectId}/revisions` : null;
   const {
     data: revisionsData,
     error: revisionsError,
@@ -63,14 +61,11 @@ export default function RABRevisionForm({
   // Mutation untuk create draft revision baru kalau tidak ada DRAFT existing.
   const createDraftMutation = useMutation<RABRevisionRecord, Error, void>({
     mutationFn: async () => {
-      const res = await fetch(
-        `/api/finance/rab-projects/${projectId}/revisions`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({}),
-        },
-      );
+      const res = await fetch(`/api/proyek/${projectId}/revisions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
       const body = await res.json();
       if (!res.ok) {
         throw new Error(body.error || "Gagal membuat draft revisi");
@@ -174,7 +169,7 @@ export default function RABRevisionForm({
     }
 
     const response = await fetch(
-      `/api/finance/rab-projects/${projectId}/revisions/${revision.id}`,
+      `/api/proyek/${projectId}/revisions/${revision.id}`,
       {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -234,7 +229,7 @@ export default function RABRevisionForm({
       await persistDraft();
 
       const response = await fetch(
-        `/api/finance/rab-projects/${projectId}/revisions/${revision.id}/submit`,
+        `/api/proyek/${projectId}/revisions/${revision.id}/submit`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },

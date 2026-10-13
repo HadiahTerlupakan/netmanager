@@ -19,7 +19,7 @@ import { useSession } from "next-auth/react";
 import { calculateRabUnitCosts } from "@/modules/proyek/client";
 import { useApi } from "@/lib/hooks/useApi";
 import { calculateRealisticBEP } from "./rabCalculations";
-import { buildRABTrackingDataset } from "./rabTracking";
+import { buildRABTrackingDataset } from "@/modules/proyek/client";
 import type {
   RABProject,
   LinearGrowthSettings,
@@ -102,9 +102,7 @@ export default function RABView({
     isLoading: isLoadingRevisions,
     mutate: refetchRevisions,
   } = useApi<RABRevisionRecord[]>(
-    shouldFetchRevisions
-      ? `/api/finance/rab-projects/${projectId}/revisions`
-      : null,
+    shouldFetchRevisions ? `/api/proyek/${projectId}/revisions` : null,
   );
 
   const {
@@ -114,7 +112,7 @@ export default function RABView({
     mutate: refetchSummary,
   } = useApi<RABRevisionProfitLossSummary | null>(
     shouldFetchRevisions
-      ? `/api/finance/rab-projects/${projectId}/revision-profit-loss`
+      ? `/api/proyek/${projectId}/revision-profit-loss`
       : null,
   );
 
@@ -164,7 +162,7 @@ export default function RABView({
 
     try {
       const response = await fetch(
-        `/api/finance/rab-projects/${data.id}/revisions/${revision.id}/approve`,
+        `/api/proyek/${data.id}/revisions/${revision.id}/approve`,
         { method: "POST" },
       );
       const body = await response.json();
@@ -200,7 +198,7 @@ export default function RABView({
 
     try {
       const response = await fetch(
-        `/api/finance/rab-projects/${data.id}/revisions/${rejectingRevision.id}/reject`,
+        `/api/proyek/${data.id}/revisions/${rejectingRevision.id}/reject`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -311,7 +309,7 @@ export default function RABView({
     }
     setIsSavingActual(true);
     try {
-      const res = await fetch(`/api/finance/rab-projects/${data.id}/actuals`, {
+      const res = await fetch(`/api/proyek/${data.id}/actuals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Tahun dihitung server dari tanggal mulai proyek.
@@ -338,7 +336,7 @@ export default function RABView({
   const handleStatusTransition = async (newStatus: string) => {
     setIsApproving(true);
     try {
-      const res = await fetch(`/api/finance/rab-projects/${data.id}`, {
+      const res = await fetch(`/api/proyek/${data.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -360,7 +358,7 @@ export default function RABView({
   const handleSendReminder = async () => {
     setIsSendingReminder(true);
     try {
-      const res = await fetch(`/api/finance/rab-projects/${data.id}/reminder`, {
+      const res = await fetch(`/api/proyek/${data.id}/reminder`, {
         method: "POST",
       });
       const json = await res.json();
@@ -391,10 +389,9 @@ export default function RABView({
                 onClick={async () => {
                   setIsApproving(true);
                   try {
-                    const res = await fetch(
-                      `/api/finance/rab-projects/${data.id}/approve`,
-                      { method: "POST" },
-                    );
+                    const res = await fetch(`/api/proyek/${data.id}/approve`, {
+                      method: "POST",
+                    });
                     const json = await res.json();
                     if (res.ok) {
                       toast.success(json.message);

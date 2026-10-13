@@ -41,6 +41,29 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-13] — Pindahkan UI RAB ke /admin/proyek dan ramping ExpensesClient
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/proyek`, `app/admin/pengeluaran`, `types/`
+- **Author**: agent
+- **Deskripsi**: Lanjutan ekstraksi subsistem RAB. 30 file UI RAB dipindah apa adanya
+  dari `app/admin/pengeluaran/` ke halaman baru `app/admin/proyek/` (`git mv`, tanpa
+  rewrite komponen), dan `ExpensesClient.tsx` dipecah mengikuti batas `activeTab`:
+  cabang `activeTab === "rab"` beserta state/handler-nya menjadi `ProyekClient.tsx`.
+  Tab RAB di halaman pengeluaran dihapus (`activeTab` kini `"daily" | "coa"`); tautan
+  pengeluaran ke proyek/item RAB tetap ada di modal pengeluaran. 22 pemanggilan
+  `fetch("/api/finance/rab-projects/**")` yang menggantung sejak route lama dihapus
+  kini menunjuk `/api/proyek/**`. `SiteOption` dan `CategoryOption` dinaikkan ke
+  `types/admin-options.ts` karena dipakai dua halaman admin; re-export
+  `app/admin/pengeluaran/rabTracking.ts` dihapus dan pemakainya menunjuk langsung
+  `@/modules/proyek/client`. Halaman baru memakai izin yang sama (`expense:read`),
+  tanpa permission baru dan tanpa perubahan skema DB.
+- **Files**: `app/admin/proyek/ProyekClient.tsx`, `app/admin/proyek/page.tsx`,
+  `app/admin/pengeluaran/ExpensesClient.tsx`, `app/admin/pengeluaran/expenses.types.ts`,
+  `types/admin-options.ts`, `tests/ui/proyek/**`,
+  `tests/architecture/module-public-api.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-13] — Ekstraksi lapisan modul RAB ke modules/proyek
 
 - **Tipe**: [CHANGED]

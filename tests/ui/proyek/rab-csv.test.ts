@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildRABCsvContent } from "@/app/admin/pengeluaran/rab-csv";
-import type { RABProject } from "@/app/admin/pengeluaran/rabTypes";
+import { buildRABCsvContent } from "@/app/admin/proyek/rab-csv";
+import type { RABProject } from "@/app/admin/proyek/rabTypes";
 
 describe("buildRABCsvContent", () => {
   it("memisahkan gross revenue, npl, dan net revenue untuk export investor", () => {

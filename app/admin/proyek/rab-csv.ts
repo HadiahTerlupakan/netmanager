@@ -7,7 +7,7 @@ import { escapeCsvCell } from "@/lib/csv";
 import { formatCurrency } from "@/lib/utils";
 
 import { calculateRealisticBEP } from "./rabCalculations";
-import { buildRABTrackingDataset } from "./rabTracking";
+import { buildRABTrackingDataset } from "@/modules/proyek/client";
 import {
   formatRabGrowthModelDescription,
   formatRabItemCategory,

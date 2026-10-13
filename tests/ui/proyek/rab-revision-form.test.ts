@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import RABRevisionForm from "@/app/admin/pengeluaran/RABRevisionForm";
+import RABRevisionForm from "@/app/admin/proyek/RABRevisionForm";
 
 describe("RABRevisionForm", () => {
   it("requires a revision reason before submission", () => {

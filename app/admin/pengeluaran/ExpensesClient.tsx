@@ -17,7 +17,6 @@ import {
   HiOutlineBuildingOffice,
   HiOutlineTag,
   HiOutlineDocumentArrowDown,
-  HiOutlineClipboardDocumentList,
   HiOutlineArrowRight,
   HiOutlineArrowLeft,
   HiOutlineCheckCircle,
@@ -45,12 +44,8 @@ import {
   filterCategoryOptionsByType,
   mapExpenseToFormState,
 } from "./expenses.helpers";
-import type { SiteOption } from "./expenses.types";
-import RABList from "./RABList";
-import type { RABProject } from "./rabTypes";
-import RABForm from "./RABForm";
-import RABRevisionForm from "./RABRevisionForm";
-import RABView from "./RABView";
+import type { RabProjectLinkOption } from "./expenses.types";
+import type { CategoryOption, SiteOption } from "@/types/admin-options";
 import CategoryList from "./CategoryList";
 
 interface FormItem {
@@ -117,21 +112,6 @@ interface FormItem {
   depreciation: string;
 }
 
-interface CategoryOption {
-  id: string;
-  name: string;
-  type: string;
-  parentId?: string | null;
-  _count?: { children: number };
-}
-
-interface RabBottleneckMetrics {
-  pendingApprovalCount: number;
-  oldestPendingDays: number;
-  oldestPendingProjectName: string | null;
-  averageApprovalLeadHours: number;
-}
-
 export default function ExpensesClient() {
   const { hasPermission } = usePermission();
 
@@ -176,15 +156,7 @@ export default function ExpensesClient() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // RAB State
-  const [activeTab, setActiveTab] = useState<"daily" | "rab" | "coa">("daily");
-  const [isRABModalOpen, setIsRABModalOpen] = useState(false);
-  const [editingRAB, setEditingRAB] = useState<RABProject | null>(null);
-  const [isRABViewOpen, setIsRABViewOpen] = useState(false);
-  const [viewingRAB, setViewingRAB] = useState<RABProject | null>(null);
-  const [isRABRevisionModalOpen, setIsRABRevisionModalOpen] = useState(false);
-  const [revisioningRAB, setRevisioningRAB] = useState<RABProject | null>(null);
-  const [rabRefreshKey, setRabRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<"daily" | "coa">("daily");
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -256,24 +228,14 @@ export default function ExpensesClient() {
     [categoriesResp],
   );
 
-  // RAB Projects
-  const rabProjectsKey = rabRefreshKey
-    ? `/api/finance/rab-projects?refreshKey=${rabRefreshKey}`
-    : "/api/finance/rab-projects";
-  const { data: rabProjectsResp, mutate: refetchRabProjects } =
-    useApi<RABProject[]>(rabProjectsKey);
-  const rabProjects: RABProject[] = useMemo(
+  // Daftar proyek RAB hanya untuk dropdown penautan di modal pengeluaran.
+  // Pengelolaan RAB sendiri ada di halaman /admin/proyek.
+  const { data: rabProjectsResp } =
+    useApi<RabProjectLinkOption[]>("/api/proyek");
+  const rabProjects: RabProjectLinkOption[] = useMemo(
     () => (Array.isArray(rabProjectsResp) ? rabProjectsResp : []),
     [rabProjectsResp],
   );
-
-  // RAB Bottleneck Metrics: only when activeTab === "rab"
-  const { data: rabMetricsResp, isLoading: isLoadingRabMetrics } =
-    useApi<RabBottleneckMetrics>(
-      activeTab === "rab" ? "/api/finance/rab-projects/dashboard" : null,
-    );
-  const rabBottleneckMetrics: RabBottleneckMetrics | null =
-    rabMetricsResp ?? null;
 
   // Build expenses fetch URL
   const expensesUrl = useMemo(() => {
@@ -328,11 +290,6 @@ export default function ExpensesClient() {
   const fetchData = useCallback(() => {
     void refetchExpenses();
   }, [refetchExpenses]);
-
-  const fetchRabProjects = useCallback(() => {
-    void refetchRabProjects();
-  }, [refetchRabProjects]);
-  void fetchRabProjects;
 
   // Debounce search
   useEffect(() => {
@@ -731,52 +688,6 @@ export default function ExpensesClient() {
     );
   };
 
-  // RAB Handlers
-  const handleOpenRABModal = () => {
-    setEditingRAB(null);
-    setIsRABModalOpen(true);
-  };
-
-  const handleEditRAB = (project: RABProject) => {
-    setEditingRAB(project);
-    setIsRABModalOpen(true);
-  };
-
-  const handleViewRAB = (project: RABProject) => {
-    setViewingRAB(project);
-    setIsRABViewOpen(true);
-  };
-
-  const handleOpenRABRevision = (project: RABProject) => {
-    setRevisioningRAB(project);
-    setIsRABRevisionModalOpen(true);
-  };
-
-  const handleRABSaved = () => {
-    setRabRefreshKey((prev) => prev + 1);
-    setIsRABModalOpen(false);
-  };
-
-  const handleRABRevisionSaved = async () => {
-    setRabRefreshKey((prev) => prev + 1);
-    if (viewingRAB) {
-      try {
-        const res = await fetch(
-          `/api/finance/rab-projects?refreshKey=${Date.now()}`,
-        );
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          const updated = json.data.find(
-            (p: RABProject) => p.id === viewingRAB.id,
-          );
-          if (updated) setViewingRAB(updated);
-        }
-      } catch {
-        // fallback: list will refresh via rabRefreshKey
-      }
-    }
-  };
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -815,17 +726,10 @@ export default function ExpensesClient() {
               </span>
             </button>
           )}
-          {canCreate && activeTab !== "coa" && (
-            <Button
-              onClick={() =>
-                activeTab === "daily" ? handleOpenModal() : handleOpenRABModal()
-              }
-              variant="default"
-            >
+          {canCreate && activeTab === "daily" && (
+            <Button onClick={() => handleOpenModal()} variant="default">
               <HiOutlinePlus className="w-5 h-5" />
-              <span className="hidden sm:inline">
-                {activeTab === "daily" ? "Tambah Pengeluaran" : "Buat RAB Baru"}
-              </span>
+              <span className="hidden sm:inline">Tambah Pengeluaran</span>
               <span className="sm:hidden">Tambah</span>
             </Button>
           )}
@@ -849,21 +753,6 @@ export default function ExpensesClient() {
           >
             <HiOutlineCurrencyDollar className="w-5 h-5" />
             Pengeluaran Harian
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("rab")}
-            className={`
-                                          whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2
-                                          ${
-                                            activeTab === "rab"
-                                              ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                                              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-                                          }
-                                      `}
-          >
-            <HiOutlineClipboardDocumentList className="w-5 h-5" />
-            RAB (Proyek)
           </button>
           <button
             type="button"
@@ -2005,92 +1894,6 @@ export default function ExpensesClient() {
             </ModalBody>
           </Modal>
         </>
-      ) : activeTab === "rab" ? (
-        /* RAB View */
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-amber-100 dark:border-amber-900/40 bg-white dark:bg-gray-900 p-4">
-              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
-                Pending Approval
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                {isLoadingRabMetrics
-                  ? "..."
-                  : (rabBottleneckMetrics?.pendingApprovalCount ?? 0)}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                RAB sedang menunggu approver
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-gray-900 p-4">
-              <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wide">
-                Oldest Pending
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                {isLoadingRabMetrics
-                  ? "..."
-                  : `${rabBottleneckMetrics?.oldestPendingDays ?? 0} hari`}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                {rabBottleneckMetrics?.oldestPendingProjectName ||
-                  "Belum ada antrian pending"}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-emerald-100 dark:border-emerald-900/40 bg-white dark:bg-gray-900 p-4">
-              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
-                Rata-rata Approval
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
-                {isLoadingRabMetrics
-                  ? "..."
-                  : `${rabBottleneckMetrics?.averageApprovalLeadHours ?? 0} jam`}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Lead time approval dari pengajuan
-              </p>
-            </div>
-          </div>
-
-          <RABList
-            initialData={rabProjects}
-            refreshKey={rabRefreshKey}
-            onEdit={handleEditRAB}
-            onView={handleViewRAB}
-            onRevise={handleOpenRABRevision}
-            onRefreshRequested={handleRABRevisionSaved}
-          />
-
-          <RABForm
-            isOpen={isRABModalOpen}
-            onClose={() => setIsRABModalOpen(false)}
-            onSaved={handleRABSaved}
-            initialData={editingRAB}
-            sites={sites}
-          />
-
-          <RABView
-            isOpen={isRABViewOpen}
-            data={viewingRAB}
-            onRefresh={handleRABRevisionSaved}
-            onOpenRevision={canUpdate ? handleOpenRABRevision : undefined}
-            onClose={() => setIsRABViewOpen(false)}
-          />
-
-          {revisioningRAB && (
-            <RABRevisionForm
-              open={isRABRevisionModalOpen}
-              projectId={revisioningRAB.id}
-              projectName={revisioningRAB.name}
-              onClose={() => {
-                setIsRABRevisionModalOpen(false);
-                setRevisioningRAB(null);
-              }}
-              onSaved={handleRABRevisionSaved}
-            />
-          )}
-        </div>
       ) : (
         /* COA View */
         <CategoryList />

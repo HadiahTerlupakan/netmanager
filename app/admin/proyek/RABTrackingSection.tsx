@@ -8,7 +8,10 @@ import {
   HiOutlineUsers,
   HiOutlineXMark,
 } from "react-icons/hi2";
-import type { RABTrackingRow, RABTrackingTotals } from "./rabTracking";
+import type {
+  RABTrackingRow,
+  RABTrackingTotals,
+} from "@/modules/proyek/client";
 
 interface RABTrackingEditForm {
   actualSubscribers: number;
@@ -377,7 +380,9 @@ export default function RABTrackingSection({
                           onStartEdit(
                             monthIndex,
                             row.targetSubscribers,
-                            row.isBelumDiisi ? row.projectedRevenue : row.displayRevenue,
+                            row.isBelumDiisi
+                              ? row.projectedRevenue
+                              : row.displayRevenue,
                           )
                         }
                         className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"

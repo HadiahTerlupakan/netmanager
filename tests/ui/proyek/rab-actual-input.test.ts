@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { keTeksIsian, susunIsianCapaian } from "@/app/admin/pengeluaran/rabActualInput";
+import {
+  keTeksIsian,
+  susunIsianCapaian,
+} from "@/app/admin/proyek/rabActualInput";
 
 const FORM = {
   actualSubscribers: 7,
@@ -19,7 +22,11 @@ describe("isian capaian bulanan RAB", () => {
   });
 
   it("kolom kosong = tidak diisi (null); OPEX aktual 0 tetap 0", () => {
-    const hasil = susunIsianCapaian({ ...FORM, actualRevenue: "5000000", actualOpex: "0" });
+    const hasil = susunIsianCapaian({
+      ...FORM,
+      actualRevenue: "5000000",
+      actualOpex: "0",
+    });
     expect(hasil).toEqual({
       ok: true,
       data: {
@@ -35,17 +42,33 @@ describe("isian capaian bulanan RAB", () => {
   });
 
   it("menolak pendapatan kosong, angka negatif, dan persen di luar 0–100", () => {
-    expect(susunIsianCapaian(FORM)).toEqual({ ok: false, pesan: "Pendapatan wajib diisi" });
-    expect(susunIsianCapaian({ ...FORM, actualRevenue: "-1" })).toMatchObject({ ok: false });
+    expect(susunIsianCapaian(FORM)).toEqual({
+      ok: false,
+      pesan: "Pendapatan wajib diisi",
+    });
+    expect(susunIsianCapaian({ ...FORM, actualRevenue: "-1" })).toMatchObject({
+      ok: false,
+    });
     expect(
-      susunIsianCapaian({ ...FORM, actualRevenue: "1", manualInvestorProfitSharePercent: "150" }),
+      susunIsianCapaian({
+        ...FORM,
+        actualRevenue: "1",
+        manualInvestorProfitSharePercent: "150",
+      }),
     ).toEqual({ ok: false, pesan: "Persen bagi hasil harus 0–100" });
   });
 
   it("persen manual 0% tidak hilang saat disunting ulang", () => {
     expect(keTeksIsian(0)).toBe("0");
     expect(keTeksIsian(null)).toBe("");
-    const hasil = susunIsianCapaian({ ...FORM, actualRevenue: "1", manualInvestorProfitSharePercent: "0" });
-    expect(hasil).toMatchObject({ ok: true, data: { manualInvestorProfitSharePercent: 0 } });
+    const hasil = susunIsianCapaian({
+      ...FORM,
+      actualRevenue: "1",
+      manualInvestorProfitSharePercent: "0",
+    });
+    expect(hasil).toMatchObject({
+      ok: true,
+      data: { manualInvestorProfitSharePercent: 0 },
+    });
   });
 });

@@ -62,9 +62,7 @@ export default function RABList({
   // Fetch via useApi only when initialData not provided
   const fetchKey = useMemo(() => {
     if (initialData) return null;
-    return refreshKey
-      ? `/api/finance/rab-projects?refreshKey=${refreshKey}`
-      : "/api/finance/rab-projects";
+    return refreshKey ? `/api/proyek?refreshKey=${refreshKey}` : "/api/proyek";
   }, [initialData, refreshKey]);
 
   const {
@@ -722,7 +720,7 @@ export default function RABList({
     if (!confirm("Apakah anda yakin ingin menghapus RAB ini?")) return;
 
     try {
-      const res = await fetch(`/api/finance/rab-projects/${id}`, {
+      const res = await fetch(`/api/proyek/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -749,7 +747,7 @@ export default function RABList({
 
     setIsDuplicating(true);
     try {
-      const res = await fetch(`/api/finance/rab-projects/${id}/copy`, {
+      const res = await fetch(`/api/proyek/${id}/copy`, {
         method: "POST",
       });
       const json = await res.json();

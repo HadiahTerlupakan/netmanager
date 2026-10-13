@@ -20,7 +20,7 @@ import {
   calculateMonthlySubscribers,
   calculateRealisticBEP,
 } from "./rabCalculations";
-import { buildRABTrackingDataset } from "./rabTracking";
+import { buildRABTrackingDataset } from "@/modules/proyek/client";
 import type {
   CustomGrowthSettings,
   GrowthSettings,
@@ -48,7 +48,7 @@ import { useRABItems } from "./RABForm/hooks/useRABItems";
 import { useRABCalculations } from "./RABForm/hooks/useRABCalculations";
 import RABFormGrowthTab from "./RABForm/tabs/RABFormGrowthTab";
 import RABFormItemsTab from "./RABForm/tabs/RABFormItemsTab";
-import type { SiteOption } from "./expenses.types";
+import type { SiteOption } from "@/types/admin-options";
 
 interface RABFormProps {
   isOpen: boolean;
@@ -439,9 +439,7 @@ export default function RABForm({
         items,
       });
 
-      const url = initialData
-        ? `/api/finance/rab-projects/${initialData.id}`
-        : "/api/finance/rab-projects";
+      const url = initialData ? `/api/proyek/${initialData.id}` : "/api/proyek";
 
       const method = initialData ? "PATCH" : "POST";
 

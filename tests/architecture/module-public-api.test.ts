@@ -88,12 +88,12 @@ const concreteRepositoryDependencyPattern =
   /(constructor\([^)]*=\s*new\s+\w+Repository\(|private\s+(?:readonly\s+)?\w+\s*=\s*new\s+\w+Repository\()/m;
 
 const largeUiFileBaseline = new Set([
-  "app/admin/pengeluaran/RABForm.tsx",
+  "app/admin/proyek/RABForm.tsx",
   "app/admin/pengeluaran/ExpensesClient.tsx",
-  "app/admin/pengeluaran/RABView.tsx",
+  "app/admin/proyek/RABView.tsx",
   "app/admin/workorders/list/WoListClient.tsx",
   "app/admin/attendance/AttendanceClient.tsx",
-  "app/admin/pengeluaran/RABList.tsx",
+  "app/admin/proyek/RABList.tsx",
   "app/admin/workorders/WoIndexClient.tsx",
   "app/admin/workorders/new/WoNewClient.tsx",
   "app/admin/chat/ChatPageClient.tsx",
