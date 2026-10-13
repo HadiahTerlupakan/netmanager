@@ -56,6 +56,38 @@ describe("InventoryGudangRouteService", () => {
     expect(result).toEqual([gudang]);
   });
 
+  it("tidak meminta gudang nonaktif untuk pemilih gudang biasa", async () => {
+    const { repository, service } = createService();
+
+    await service.listGudang({
+      userId: "user-1",
+      permissions: ["gudang:site_only"],
+      isSuperAdmin: false,
+      viewAll: false,
+    });
+
+    expect(repository.getAllGudang).toHaveBeenCalledWith({ siteId: "site-1" });
+  });
+
+  it("menyertakan gudang nonaktif saat layar manajemen memintanya", async () => {
+    // Tanpa ini, menonaktifkan gudang membuatnya lenyap dari daftar dan
+    // mustahil diaktifkan lagi lewat antarmuka.
+    const { repository, service } = createService();
+
+    await service.listGudang({
+      userId: "user-1",
+      permissions: ["gudang:site_only"],
+      isSuperAdmin: false,
+      viewAll: false,
+      includeInactive: true,
+    });
+
+    expect(repository.getAllGudang).toHaveBeenCalledWith({
+      siteId: "site-1",
+      includeInactive: true,
+    });
+  });
+
   it("menolak create gudang tanpa nama", async () => {
     const { repository, service } = createService();
 

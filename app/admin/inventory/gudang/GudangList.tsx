@@ -36,11 +36,14 @@ export default function GudangPage() {
     error,
     isLoading: loading,
     mutate,
-  } = useApi<GudangListResponse>("/api/inventory/gudang?view=all", {
-    onError: (err) => {
-      clientLogger.error("Failed to fetch gudangs:", err);
+  } = useApi<GudangListResponse>(
+    "/api/inventory/gudang?view=all&includeInactive=true",
+    {
+      onError: (err) => {
+        clientLogger.error("Failed to fetch gudangs:", err);
+      },
     },
-  });
+  );
 
   const gudangs = data?.gudangs ?? [];
 

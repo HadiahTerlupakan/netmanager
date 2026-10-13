@@ -149,6 +149,7 @@ export class InventoryRepository
   async getAllGudang(params?: {
     siteId?: string;
     tenantId?: string;
+    includeInactive?: boolean;
   }): Promise<Gudang[]> {
     return this.stockQueryRepository.getAllGudang(params);
   }

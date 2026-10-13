@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-13] — Gudang nonaktif hilang dari daftar, bukan berubah status
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory`, `app/admin/inventory/gudang`
+- **Author**: agent
+- **Deskripsi**: Dilaporkan dari produksi: menonaktifkan gudang di
+  `/admin/inventory/gudang` membuat barisnya lenyap, bukan berubah menjadi
+  "Tidak Aktif" — dan tanpa baris itu gudang mustahil diaktifkan kembali lewat
+  antarmuka. Penyebabnya `getAllGudang` mengunci `isActive: true` di dalam
+  query, sehingga layar manajemen gudang pun ikut tersaring. Filter sekarang
+  opt-out lewat `includeInactive`, dan hanya layar manajemen yang memintanya:
+  seluruh pemilih gudang (opname, restock, penerimaan barang) tetap hanya
+  menawarkan gudang aktif.
+- **Files**: `modules/inventory/repositories/InventoryStockQueryRepository.ts`,
+  `modules/inventory/services/InventoryGudangRouteService.ts`,
+  `app/api/inventory/gudang/route.ts`,
+  `app/admin/inventory/gudang/GudangList.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-12] — Stock opname tidak bisa disimpan; pesan galat server hilang
 
 - **Tipe**: [FIXED]

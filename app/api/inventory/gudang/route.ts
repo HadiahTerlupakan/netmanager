@@ -29,6 +29,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   const { searchParams } = req.nextUrl;
   const viewAll = searchParams.get("view") === "all";
+  // Khusus layar manajemen gudang: tampilkan juga yang nonaktif, supaya
+  // menonaktifkan gudang mengubah statusnya dan bukan menghilangkannya.
+  const includeInactive = searchParams.get("includeInactive") === "true";
   const permissions = await getUserPermissions(user.id);
 
   try {
@@ -38,6 +41,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       permissions,
       isSuperAdmin: isSuperAdmin(user),
       viewAll,
+      includeInactive,
     });
 
     logger.dbOperation("findMany", "Gudang", Date.now() - dbStart);

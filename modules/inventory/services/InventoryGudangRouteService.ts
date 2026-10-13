@@ -15,7 +15,10 @@ interface InventoryGudangRecord {
 }
 
 interface InventoryGudangRepositoryPort {
-  getAllGudang(params?: { siteId?: string }): Promise<unknown[]>;
+  getAllGudang(params?: {
+    siteId?: string;
+    includeInactive?: boolean;
+  }): Promise<unknown[]>;
   createGudang(data: {
     kode: string;
     nama: string;
@@ -50,6 +53,8 @@ interface GudangRouteUserInput {
 
 interface ListGudangRouteInput extends GudangRouteUserInput {
   viewAll: boolean;
+  /** Sertakan gudang nonaktif; hanya layar manajemen gudang yang memintanya. */
+  includeInactive?: boolean;
 }
 
 interface CreateGudangRouteInput extends GudangRouteUserInput {
@@ -77,9 +82,10 @@ export class InventoryGudangRouteService {
     const siteId = await this.resolveGudangSiteId(input);
     const shouldRestrict = !!siteId && !(input.viewAll && input.isSuperAdmin);
 
-    return this.repository.getAllGudang(
-      shouldRestrict ? { siteId } : undefined,
-    );
+    return this.repository.getAllGudang({
+      ...(shouldRestrict ? { siteId } : {}),
+      ...(input.includeInactive ? { includeInactive: true } : {}),
+    });
   }
 
   /** Ambil detail gudang berdasarkan id. */

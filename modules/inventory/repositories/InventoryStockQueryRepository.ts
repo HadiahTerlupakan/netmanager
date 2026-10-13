@@ -11,13 +11,27 @@ export class InventoryStockQueryRepository {
     return record?.stok || 0;
   }
 
-  /** Ambil daftar gudang aktif dengan filter site atau tenant. */
+  /**
+   * Ambil daftar gudang dengan filter site atau tenant.
+   *
+   * Default-nya hanya gudang aktif, karena hampir semua pemanggil adalah
+   * pemilih gudang (opname, restock, penerimaan barang) yang tidak boleh
+   * menawarkan gudang nonaktif. Layar manajemen gudang adalah pengecualian:
+   * ia memakai `includeInactive` supaya gudang yang baru dinonaktifkan tetap
+   * terlihat dengan status "Tidak Aktif" — bukan lenyap dari daftar dan
+   * mustahil diaktifkan lagi lewat antarmuka.
+   */
   async getAllGudang(params?: {
     siteId?: string;
     tenantId?: string;
+    includeInactive?: boolean;
   }): Promise<Gudang[]> {
-    const { siteId, tenantId } = params || {};
-    const where: Prisma.GudangWhereInput = { isActive: true, tenantId };
+    const { siteId, tenantId, includeInactive } = params || {};
+    const where: Prisma.GudangWhereInput = { tenantId };
+
+    if (!includeInactive) {
+      where.isActive = true;
+    }
 
     if (siteId) {
       (where as Record<string, unknown>).sites = { some: { id: siteId } };
