@@ -4,13 +4,15 @@ import {
   findRabInvestmentList,
   findRabInvestmentSummaries,
   type RabInvestmentFilter,
-} from "@/modules/finance/public-queries";
+} from "@/modules/proyek/public-queries";
 import { type Prisma, type RabStatus, type Status } from "@prisma/client";
 
 import { STATUS_PROYEK_TERLIHAT_INVESTOR } from "../domain/porsi-investor-proyek";
 
 /** Proyek yang belum disetujui, ditolak, atau dibatalkan tidak tampil ke investor. */
-const STATUS_PROYEK_TERLIHAT = [...STATUS_PROYEK_TERLIHAT_INVESTOR] as RabStatus[];
+const STATUS_PROYEK_TERLIHAT = [
+  ...STATUS_PROYEK_TERLIHAT_INVESTOR,
+] as RabStatus[];
 
 const INTERNAL_CUSTOMER_SELECT = {
   siteId: true,
@@ -28,13 +30,16 @@ export type InvestorPortalInternalCustomer = {
   hargaPaket: { harga: Prisma.Decimal | number | bigint | string } | null;
 };
 
-function filterInvestasi(investorId: string, tenantId?: string): RabInvestmentFilter {
+function filterInvestasi(
+  investorId: string,
+  tenantId?: string,
+): RabInvestmentFilter {
   return { investorId, tenantId, visibleStatuses: STATUS_PROYEK_TERLIHAT };
 }
 
 /**
  * Data portal investor. Proyek RAB milik module finance, jadi dibaca lewat
- * `@/modules/finance/public-queries` — bukan query tabel RAB langsung.
+ * `@/modules/proyek/public-queries` — bukan query tabel RAB langsung.
  */
 export class InvestorPortalRepository {
   /** Mengambil proyek investor untuk halaman dashboard. */
@@ -53,7 +58,10 @@ export class InvestorPortalRepository {
     investorId: string,
     tenantId?: string,
   ) {
-    return findRabInvestmentDetail(projectId, filterInvestasi(investorId, tenantId));
+    return findRabInvestmentDetail(
+      projectId,
+      filterInvestasi(investorId, tenantId),
+    );
   }
 
   /** Mengambil pelanggan internal berdasarkan site. */

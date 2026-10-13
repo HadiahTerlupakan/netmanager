@@ -5,7 +5,7 @@ import { isRouteServiceError } from "@/lib/api/route-service-error";
 import {
   rabActualAchievementSchema,
   RabProjectRouteService,
-} from "@/modules/finance";
+} from "@/modules/proyek";
 
 const rabProjectRouteService = new RabProjectRouteService();
 
@@ -38,7 +38,8 @@ export const POST = createHandler(
         manualRecoveryInstallment: data.manualRecoveryInstallment,
         manualInvestorShare: data.manualInvestorShare,
         manualCompanyShare: data.manualCompanyShare,
-        manualInvestorProfitSharePercent: data.manualInvestorProfitSharePercent ?? null,
+        manualInvestorProfitSharePercent:
+          data.manualInvestorProfitSharePercent ?? null,
         notes: data.notes,
       });
 

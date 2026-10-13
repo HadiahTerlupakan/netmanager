@@ -1,7 +1,7 @@
 import {
   buildRABTrackingDataset,
   getInvestorProfitSharePercent,
-} from "@/modules/finance/client";
+} from "@/modules/proyek/client";
 
 import { bulatkanRupiah } from "../domain/bagi-hasil-proyek";
 import {

@@ -1,4 +1,4 @@
-import { FinanceService } from "@/modules/finance";
+import { ProyekService } from "@/modules/proyek";
 import { rabProjectCreateSchema } from "@/lib/validations/rab-project";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -24,8 +24,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     status: searchParams.get("status"),
   };
 
-  const financeService = new FinanceService();
-  const projects = await financeService.getRabProjects(params);
+  const proyekService = new ProyekService();
+  const projects = await proyekService.getRabProjects(params);
 
   return apiSuccess(projects);
 });
@@ -47,10 +47,10 @@ export const POST = createHandler(
       );
     }
 
-    const financeService = new FinanceService();
+    const proyekService = new ProyekService();
     try {
-      const project = await financeService.createRabProject(
-        ctx.validated as Parameters<typeof financeService.createRabProject>[0],
+      const project = await proyekService.createRabProject(
+        ctx.validated as Parameters<typeof proyekService.createRabProject>[0],
         user.id,
       );
       return apiSuccess(project, { status: 201 });

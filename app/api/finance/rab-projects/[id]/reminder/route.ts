@@ -1,8 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import {
-  RabApprovalReminderRouteService,
-  isRouteServiceError,
-} from "@/modules/finance";
+import { isRouteServiceError } from "@/lib/api/route-service-error";
+import { RabApprovalReminderRouteService } from "@/modules/proyek";
 
 const rabApprovalReminderRouteService = new RabApprovalReminderRouteService();
 

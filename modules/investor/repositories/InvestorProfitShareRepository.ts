@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   findRabProjectsForProfitShare,
   type RabProjectForProfitShare,
-} from "@/modules/finance/public-queries";
+} from "@/modules/proyek/public-queries";
 import type {
   InvestorProfitShareStatus,
   Prisma,

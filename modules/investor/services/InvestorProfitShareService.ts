@@ -1,7 +1,7 @@
 import { createRouteServiceError } from "@/lib/api/route-service-error";
 import { logger } from "@/lib/logger";
 import { isPrismaUniqueConstraintError } from "@/lib/prisma-errors";
-import { buildRABTrackingDataset } from "@/modules/finance/client";
+import { buildRABTrackingDataset } from "@/modules/proyek/client";
 import type { InvestorProfitShareStatus } from "@prisma/client";
 
 import { bagianInvestor, barisDalamPeriode } from "../domain/bagi-hasil-proyek";
@@ -20,7 +20,8 @@ export interface ProyekDilewati {
 }
 
 const ALASAN_TANPA_TANGGAL_MULAI = "Tanggal mulai proyek belum diisi di RAB";
-const ALASAN_TANPA_CAPAIAN = "Belum ada capaian bulanan (aktual) di periode ini";
+const ALASAN_TANPA_CAPAIAN =
+  "Belum ada capaian bulanan (aktual) di periode ini";
 const PESAN_TIDAK_DITEMUKAN = "Profit share tidak ditemukan";
 const HTTP_NOT_FOUND = 404;
 const HTTP_BAD_REQUEST = 400;
@@ -45,13 +46,25 @@ export class InvestorProfitShareService {
    * ke investor itu dilewati — aman diulang dan periode boleh tumpang tindih
    * tanpa membayar dua kali.
    */
-  async calculateForPeriod(tenantId: string, periodStart: Date, periodEnd: Date) {
-    const proyekList = await this.profitShareRepo.findProjectsForProfitShare(tenantId);
-    const dibuat: Awaited<ReturnType<InvestorProfitShareRepository["create"]>>[] = [];
+  async calculateForPeriod(
+    tenantId: string,
+    periodStart: Date,
+    periodEnd: Date,
+  ) {
+    const proyekList =
+      await this.profitShareRepo.findProjectsForProfitShare(tenantId);
+    const dibuat: Awaited<
+      ReturnType<InvestorProfitShareRepository["create"]>
+    >[] = [];
     const dilewati: ProyekDilewati[] = [];
 
     for (const proyek of proyekList) {
-      const hasil = await this.hitungProyek(proyek, tenantId, periodStart, periodEnd);
+      const hasil = await this.hitungProyek(
+        proyek,
+        tenantId,
+        periodStart,
+        periodEnd,
+      );
       if ("alasan" in hasil) dilewati.push(hasil);
       else dibuat.push(...hasil.dibuat);
     }
@@ -63,7 +76,10 @@ export class InvestorProfitShareService {
     tenantId: string,
     periodStart: Date,
     periodEnd: Date,
-  ): Promise<ProyekDilewati | { dibuat: Awaited<ReturnType<InvestorProfitShareRepository["create"]>>[] }> {
+  ): Promise<
+    | ProyekDilewati
+    | { dibuat: Awaited<ReturnType<InvestorProfitShareRepository["create"]>>[] }
+  > {
     const lewati = (alasan: string): ProyekDilewati => ({
       rabProjectId: proyek.id,
       namaProyek: proyek.name,
@@ -71,23 +87,37 @@ export class InvestorProfitShareService {
     });
     if (!proyek.startDate) return lewati(ALASAN_TANPA_TANGGAL_MULAI);
 
-    const { rows } = buildRABTrackingDataset(keInputTracking(proyek), keCapaianTracking(proyek));
-    const barisPeriode = barisDalamPeriode(rows, proyek.startDate, periodStart, periodEnd);
+    const { rows } = buildRABTrackingDataset(
+      keInputTracking(proyek),
+      keCapaianTracking(proyek),
+    );
+    const barisPeriode = barisDalamPeriode(
+      rows,
+      proyek.startDate,
+      periodStart,
+      periodEnd,
+    );
     if (barisPeriode.length === 0) return lewati(ALASAN_TANPA_CAPAIAN);
 
-    const semuaModal = proyek.investors.map((investor) => investor.investmentAmount);
-    // Satu query untuk bulan yang sudah dibayar semua investor aktif proyek.
-    const bulanDibayarPerInvestor = await this.profitShareRepo.findPaidProjectMonthsByInvestor(
-      proyek.id,
-      proyek.investors
-        .filter((anggota) => anggota.investor.isActive)
-        .map((anggota) => anggota.investorId),
+    const semuaModal = proyek.investors.map(
+      (investor) => investor.investmentAmount,
     );
+    // Satu query untuk bulan yang sudah dibayar semua investor aktif proyek.
+    const bulanDibayarPerInvestor =
+      await this.profitShareRepo.findPaidProjectMonthsByInvestor(
+        proyek.id,
+        proyek.investors
+          .filter((anggota) => anggota.investor.isActive)
+          .map((anggota) => anggota.investorId),
+      );
     const dibuat = [];
     for (const anggota of proyek.investors) {
       if (!anggota.investor.isActive) continue;
-      const sudahDibayar = bulanDibayarPerInvestor.get(anggota.investorId) ?? new Set<number>();
-      const barisBaru = barisPeriode.filter((baris) => !sudahDibayar.has(baris.month));
+      const sudahDibayar =
+        bulanDibayarPerInvestor.get(anggota.investorId) ?? new Set<number>();
+      const barisBaru = barisPeriode.filter(
+        (baris) => !sudahDibayar.has(baris.month),
+      );
       if (barisBaru.length === 0) continue;
 
       const bagian = bagianInvestor(
@@ -115,16 +145,21 @@ export class InvestorProfitShareService {
    * Simpan bagi hasil satu investor. Bila kalkulasi lain yang berjalan bersamaan sudah
    * membagikan salah satu bulannya, penjaga unique di DB menolak (P2002) → dilewati.
    */
-  private async simpanBagiHasilSekaliSaja(data: Parameters<InvestorProfitShareRepository["create"]>[0]) {
+  private async simpanBagiHasilSekaliSaja(
+    data: Parameters<InvestorProfitShareRepository["create"]>[0],
+  ) {
     try {
       return await this.profitShareRepo.create(data);
     } catch (error) {
       if (!isPrismaUniqueConstraintError(error)) throw error;
-      logger.warn("[InvestorProfitShare] Bulan sudah dibagikan oleh kalkulasi lain, dilewati", {
-        investorId: data.investorId,
-        rabProjectId: data.rabProjectId,
-        projectMonths: data.projectMonths,
-      });
+      logger.warn(
+        "[InvestorProfitShare] Bulan sudah dibagikan oleh kalkulasi lain, dilewati",
+        {
+          investorId: data.investorId,
+          rabProjectId: data.rabProjectId,
+          projectMonths: data.projectMonths,
+        },
+      );
       return null;
     }
   }
@@ -134,7 +169,9 @@ export class InvestorProfitShareService {
     const record = await this.profitShareRepo.findById(id, tenantId);
     if (!record) throw galatBagiHasil(PESAN_TIDAK_DITEMUKAN, HTTP_NOT_FOUND);
     if (record.status !== "CALCULATED") {
-      throw galatBagiHasil(`Profit share tidak bisa di-approve, status: ${record.status}`);
+      throw galatBagiHasil(
+        `Profit share tidak bisa di-approve, status: ${record.status}`,
+      );
     }
 
     const approvedAt = new Date();
@@ -159,7 +196,10 @@ export class InvestorProfitShareService {
         approvedAt: approvedAt.toISOString(),
       })
       .catch((error: unknown) =>
-        logger.warn("[InvestorProfitShareService] Publish profit_share.approved gagal:", error),
+        logger.warn(
+          "[InvestorProfitShareService] Publish profit_share.approved gagal:",
+          error,
+        ),
       );
 
     return approved;
@@ -173,18 +213,27 @@ export class InvestorProfitShareService {
     const record = await this.profitShareRepo.findById(id, tenantId);
     if (!record) throw galatBagiHasil(PESAN_TIDAK_DITEMUKAN, HTTP_NOT_FOUND);
     if (record.status === "PAID") {
-      throw galatBagiHasil("Bagi hasil yang sudah dibayar tidak bisa dibatalkan");
+      throw galatBagiHasil(
+        "Bagi hasil yang sudah dibayar tidak bisa dibatalkan",
+      );
     }
     if (record.status === "CANCELLED") return record;
     return this.profitShareRepo.batalkan(id, tenantId);
   }
 
   /** Tandai profit share sebagai dibayar: APPROVED → PAID. */
-  async markPaid(id: string, tenantId: string, paidById: string, payoutId?: string) {
+  async markPaid(
+    id: string,
+    tenantId: string,
+    paidById: string,
+    payoutId?: string,
+  ) {
     const record = await this.profitShareRepo.findById(id, tenantId);
     if (!record) throw galatBagiHasil(PESAN_TIDAK_DITEMUKAN, HTTP_NOT_FOUND);
     if (record.status !== "APPROVED") {
-      throw galatBagiHasil(`Profit share tidak bisa dibayar, status: ${record.status}`);
+      throw galatBagiHasil(
+        `Profit share tidak bisa dibayar, status: ${record.status}`,
+      );
     }
 
     return this.profitShareRepo.updateStatus(id, tenantId, {

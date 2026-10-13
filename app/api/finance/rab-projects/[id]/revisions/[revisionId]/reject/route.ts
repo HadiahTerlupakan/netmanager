@@ -4,10 +4,8 @@ import { getServerSession } from "next-auth/next";
 import * as z from "zod";
 
 import { authOptions } from "@/lib/auth";
-import {
-  RabRevisionRouteService,
-  isRouteServiceError,
-} from "@/modules/finance";
+import { isRouteServiceError } from "@/lib/api/route-service-error";
+import { RabRevisionRouteService } from "@/modules/proyek";
 
 const rabRevisionRouteService = new RabRevisionRouteService();
 

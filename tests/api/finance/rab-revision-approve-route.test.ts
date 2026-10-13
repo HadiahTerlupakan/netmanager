@@ -35,13 +35,16 @@ vi.mock("@/lib/auth", () => ({
   authOptions: {},
 }));
 
-vi.mock("@/modules/finance", () => ({
+vi.mock("@/lib/api/route-service-error", () => ({
+  isRouteServiceError: mockIsRouteServiceError,
+}));
+
+vi.mock("@/modules/proyek", () => ({
   approveRabRevision: mockApproveRabRevision,
   RabRevisionApprovalError: MockRabRevisionApprovalError,
   RabRevisionRouteService: class MockRabRevisionRouteService {
     rejectRevision = mockRejectRevision;
   },
-  isRouteServiceError: mockIsRouteServiceError,
 }));
 
 import { POST as APPROVE } from "@/app/api/finance/rab-projects/[id]/revisions/[revisionId]/approve/route";

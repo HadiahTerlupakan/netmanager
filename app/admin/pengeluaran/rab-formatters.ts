@@ -1,4 +1,4 @@
-import { PERSEN_BAGI_HASIL_RAB_BAWAAN } from "@/modules/finance/client";
+import { PERSEN_BAGI_HASIL_RAB_BAWAAN } from "@/modules/proyek/client";
 
 import type {
   LinearGrowthSettings,

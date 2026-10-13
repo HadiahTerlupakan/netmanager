@@ -1,4 +1,4 @@
-import type { RabTargetBasis } from "@/modules/finance/client";
+import type { RabTargetBasis } from "@/modules/proyek/client";
 import type { GrowthSettings } from "../../rabTypes";
 import type { LocalItem } from "../../ItemDisbursementModal";
 

@@ -1,4 +1,4 @@
-import type { RabTargetBasis } from "@/modules/finance/client";
+import type { RabTargetBasis } from "@/modules/proyek/client";
 
 import type { RABRevisionVarianceLabel } from "./rabRevisionTypes";
 
@@ -36,7 +36,7 @@ import type {
   GrowthSettings,
   RABInvestorProfitShareMode,
   RABOpexBufferFundingMode,
-} from "@/modules/finance/client";
+} from "@/modules/proyek/client";
 
 export type {
   CustomGrowthSettings,
@@ -46,7 +46,7 @@ export type {
   PercentageGrowthSettings,
   RABInvestorProfitShareMode,
   RABOpexBufferFundingMode,
-} from "@/modules/finance/client";
+} from "@/modules/proyek/client";
 
 export interface RABActualAchievement {
   id: string;

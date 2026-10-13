@@ -2,7 +2,7 @@ import {
   calculateRabUnitCosts,
   getRabTargetBasisLabel,
   type RabTargetBasis,
-} from "@/modules/finance/client";
+} from "@/modules/proyek/client";
 import { escapeCsvCell } from "@/lib/csv";
 import { formatCurrency } from "@/lib/utils";
 

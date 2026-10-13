@@ -21,7 +21,7 @@ vi.mock("@/lib/auth", () => ({
   authOptions: {},
 }));
 
-vi.mock("@/modules/finance", () => ({
+vi.mock("@/modules/proyek", () => ({
   rabApprovalService: {
     canUserApproveRab: mockCanUserApproveRab,
     approveRabWithRetry: mockApproveRabWithRetry,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 
 import { authOptions } from "@/lib/auth";
-import { rabApprovalService } from "@/modules/finance";
+import { rabApprovalService } from "@/modules/proyek";
 
 export async function POST(
   _req: NextRequest,

@@ -4,7 +4,7 @@ import {
   calculateRabProjectedRevenue,
   calculateRabUnitCosts,
   type RabTargetBasis,
-} from "@/modules/finance/client";
+} from "@/modules/proyek/client";
 import type {
   RABProject,
   GrowthSettings,
@@ -105,7 +105,11 @@ export function useRABCalculations(params: UseRABCalculationsParams) {
 
   // Profit Calculation (simple - at full capacity)
   const profitPerMonth = realisticRevenue - totalOpex;
-  const simpleBepMonths = hitungBepSederhana(totalCapex, profitPerMonth, paymentType);
+  const simpleBepMonths = hitungBepSederhana(
+    totalCapex,
+    profitPerMonth,
+    paymentType,
+  );
   const margin =
     realisticRevenue > 0 ? (profitPerMonth / realisticRevenue) * 100 : 0;
 

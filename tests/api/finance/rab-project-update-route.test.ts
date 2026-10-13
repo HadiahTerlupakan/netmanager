@@ -24,51 +24,27 @@ vi.mock("@/lib/rbac", () => ({
   hasPermission: mockHasPermission,
 }));
 
-vi.mock("@/modules/finance", async () => {
-  const { z } = await import("zod");
+vi.mock("@/lib/api/route-service-error", () => ({
+  isRouteServiceError: (
+    error: unknown,
+  ): error is { status: number; message: string } =>
+    error instanceof Error && "status" in error,
+}));
 
-  return {
-    isRouteServiceError: (
-      error: unknown,
-    ): error is { status: number; message: string } =>
-      error instanceof Error && "status" in error,
-    rabProjectUpdateSchema: z
-      .object({
-        status: z.enum(["DRAFT", "APPROVED"]).optional(),
-        opexBufferFundingMode: z.string().optional(),
-        opexBufferInvestorPercent: z.number().optional(),
-        opexBufferCompanyPercent: z.number().optional(),
-        targetBasis: z.string().optional(),
-        targetHomepass: z.number().optional(),
-        targetTakeUpRatePercent: z.number().optional(),
-        targetSubscribers: z.number().optional(),
-        projectedRevenue: z.number().optional(),
-      })
-      .superRefine((value, ctx) => {
-        if (
-          value.opexBufferFundingMode === "SHARED_PERCENTAGE" &&
-          (value.opexBufferInvestorPercent ?? 0) +
-            (value.opexBufferCompanyPercent ?? 0) !==
-            100
-        ) {
-          ctx.addIssue({
-            code: "custom",
-            message: "Total persentase harus 100",
-          });
-        }
+vi.mock("@/modules/proyek", () => ({
+  RabProjectRouteService: class MockRabProjectRouteService {
+    updateProject = mockUpdateProject;
+  },
+}));
 
-        if (value.status === "APPROVED") {
-          ctx.addIssue({
-            code: "custom",
-            message: "Perubahan approval harus melalui endpoint approval",
-          });
-        }
-      }),
-    RabProjectRouteService: class MockRabProjectRouteService {
-      updateProject = mockUpdateProject;
-    },
-  };
-});
+// Route mengambil schema lewat `@/lib/validations/rab-project`, yang meneruskan
+// ke `@/modules/proyek`. Karena index proyek dimock di atas, schema diarahkan
+// langsung ke validator aslinya supaya coercion bigint tetap diuji.
+vi.mock("@/lib/validations/rab-project", async () => ({
+  rabProjectUpdateSchema: (
+    await import("@/modules/proyek/validators/rabProjectSchemas")
+  ).rabProjectUpdateSchema,
+}));
 
 vi.mock("@/lib/api", () => ({
   createHandler:

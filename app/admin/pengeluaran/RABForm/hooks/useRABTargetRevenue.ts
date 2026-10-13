@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { RabTargetBasis } from "@/modules/finance/client";
+import type { RabTargetBasis } from "@/modules/proyek/client";
 
 export function useRABTargetRevenue() {
   const [targetBasis, setTargetBasis] = useState<RabTargetBasis>("HOMECONNECT");

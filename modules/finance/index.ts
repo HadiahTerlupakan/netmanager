@@ -43,25 +43,12 @@ export * from "./services/ManualPaymentAdminRouteService";
 export * from "./services/CustomerPaymentFinanceService";
 export * from "./services/CustomerPaymentMethodService";
 export * from "./services/FinanceExpenseBridgeService";
-export * from "./services/RabApprovalService";
-export * from "./services/RabRevisionApprovalService";
-export * from "./services/RabStatusEvaluationService";
-export * from "./services/RabRevisionRouteService";
-export * from "./services/RabApprovalReminderRouteService";
 export * from "./services/ExpenseRouteService";
 export * from "./services/ExpenseCategoryRouteService";
-export * from "./services/RabProjectRouteService";
 export * from "./services/ReceivablesPageService";
 export * from "./dto/ReceivableDTO";
 export * from "./services/RouteServiceError";
-export {
-  buildDailyExpenseIndicators,
-  calculateEffectiveRabTargetSubscribers,
-  calculateRabProjectedRevenue,
-  calculateRabUnitCosts,
-  getRabTargetBasisLabel,
-  type RabTargetBasis,
-} from "./client";
+export { buildDailyExpenseIndicators } from "./client";
 
 // Repository Facade - Public API for other modules
 export { FinanceRepositoryFacade } from "./services/FinanceRepositoryFacade";
@@ -83,11 +70,6 @@ export type {
 // Payment Gateway - Re-export from new module
 export * from "@/modules/payment-gateway";
 export * from "./services/PaymentGatewayTestService";
-export {
-  rabActualAchievementSchema,
-  rabProjectCreateSchema,
-  rabProjectUpdateSchema,
-} from "./validation";
 
 // Kesalahan domain kas & bank, dipetakan route ke status HTTP yang tepat.
 export * from "./domain/errors";

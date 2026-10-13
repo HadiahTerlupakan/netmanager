@@ -41,6 +41,32 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-13] — Ekstraksi lapisan modul RAB ke modules/proyek
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/proyek`, `modules/finance`, `modules/investor`, `app/api/finance/rab-projects`, `lib/validations`
+- **Author**: agent
+- **Deskripsi**: Tahap pertama ekstraksi subsistem RAB dari `modules/finance` menjadi
+  `modules/proyek` mandiri. 39 file (domain, repositories, services, utils, validators,
+  types) dipindah dengan `git mv`, ditambah empat pintu publik baru:
+  `modules/proyek/index.ts`, `modules/proyek/client.ts`, `modules/proyek/public-queries.ts`,
+  dan `modules/proyek/repositories/prisma-boundary.ts`. `FinanceRabFacadeService` berganti
+  nama menjadi `ProyekService`. Enum RAB (`RabExpenseType`, `RabRevisionStatus`, `RabStatus`)
+  pindah dari `modules/finance/types/invoice.enums.ts` ke `modules/proyek/types/rab.enums.ts`.
+  `modules/finance/public-queries.ts` ditulis ulang menjadi pintu baca sempit
+  (`getExpensesByRabProject`) supaya arah ketergantungan proyek → finance tetap satu arah
+  dan bebas siklus. Tidak ada perubahan skema Prisma (model tetap `Rab*`) dan tidak ada
+  perubahan izin. Route API, UI, dan menu belum dipindah — menyusul di task berikutnya.
+- **Files**: `modules/proyek/**` (39 file dipindah + 5 file baru),
+  `modules/finance/index.ts`, `modules/finance/client.ts`, `modules/finance/public-queries.ts`,
+  `modules/finance/repositories/index.ts`, `modules/finance/repositories/prisma-boundary.ts`,
+  `modules/finance/services/FinanceService.ts`, `modules/finance/types/invoice.enums.ts`,
+  `lib/validations/rab-project.ts`, `tests/modules/proyek/**`
+- **Breaking**: ✅ Ya — simbol RAB tidak lagi diekspor dari `@/modules/finance`,
+  `@/modules/finance/client`, dan `modules/finance/validation.ts` (dihapus); konsumen
+  wajib memakai `@/modules/proyek` atau `@/modules/proyek/client`.
+  `FinanceService.getRabProjects`/`createRabProject` dihapus, pindah ke `ProyekService`.
+
 ### [2026-10-13] — Spec dan rencana ekstraksi RAB (Proyek) menjadi modul proyek
 
 - **Tipe**: [DOCS]

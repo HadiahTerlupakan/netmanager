@@ -16,7 +16,7 @@ import {
   HiOutlineBanknotes,
 } from "react-icons/hi2";
 import { useSession } from "next-auth/react";
-import { calculateRabUnitCosts } from "@/modules/finance/client";
+import { calculateRabUnitCosts } from "@/modules/proyek/client";
 import { useApi } from "@/lib/hooks/useApi";
 import { calculateRealisticBEP } from "./rabCalculations";
 import { buildRABTrackingDataset } from "./rabTracking";
@@ -292,7 +292,9 @@ export default function RABView({
         Math.round(existing ? Number(existing.actualRevenue) : defaultRev),
       ),
       actualOpex: keTeksIsian(existing?.actualOpex),
-      manualRecoveryInstallment: keTeksIsian(existing?.manualRecoveryInstallment),
+      manualRecoveryInstallment: keTeksIsian(
+        existing?.manualRecoveryInstallment,
+      ),
       manualInvestorShare: keTeksIsian(existing?.manualInvestorShare),
       manualCompanyShare: keTeksIsian(existing?.manualCompanyShare),
       manualInvestorProfitSharePercent: keTeksIsian(

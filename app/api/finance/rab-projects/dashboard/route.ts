@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { RabProjectRouteService } from "@/modules/finance";
+import { RabProjectRouteService } from "@/modules/proyek";
 
 const rabProjectRouteService = new RabProjectRouteService();
 

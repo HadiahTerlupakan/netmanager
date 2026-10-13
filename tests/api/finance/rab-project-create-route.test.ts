@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ZodError, z } from "zod";
+import { ZodError } from "zod";
 
 const { mockCreateRabProject, mockHasPermission, mockIsSuperAdmin } =
   vi.hoisted(() => ({
@@ -17,13 +17,21 @@ vi.mock("@/lib/rbac", () => ({
   hasPermission: mockHasPermission,
 }));
 
-vi.mock("@/modules/finance", () => ({
-  FinanceService: vi.fn(function FinanceService() {
+vi.mock("@/modules/proyek", () => ({
+  ProyekService: vi.fn(function ProyekService() {
     return {
       createRabProject: mockCreateRabProject,
     };
   }),
-  rabProjectCreateSchema: z.record(z.string(), z.unknown()),
+}));
+
+// Route mengambil schema lewat `@/lib/validations/rab-project`, yang meneruskan
+// ke `@/modules/proyek`. Karena index proyek dimock di atas, schema diarahkan
+// langsung ke validator aslinya supaya coercion bigint tetap diuji.
+vi.mock("@/lib/validations/rab-project", async () => ({
+  rabProjectCreateSchema: (
+    await import("@/modules/proyek/validators/rabProjectSchemas")
+  ).rabProjectCreateSchema,
 }));
 
 vi.mock("@/lib/api", () => ({

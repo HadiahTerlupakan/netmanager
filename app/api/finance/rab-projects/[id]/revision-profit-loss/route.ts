@@ -1,6 +1,7 @@
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { RabProjectRouteService, isRouteServiceError } from "@/modules/finance";
+import { isRouteServiceError } from "@/lib/api/route-service-error";
+import { RabProjectRouteService } from "@/modules/proyek";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";

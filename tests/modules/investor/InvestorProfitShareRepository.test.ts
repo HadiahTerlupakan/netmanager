@@ -2,14 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
   prisma: {
-    investorProfitShare: { findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+    investorProfitShare: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
+    },
     investor: { findMany: vi.fn() },
   },
 }));
-const financeQueries = vi.hoisted(() => ({ findRabProjectsForProfitShare: vi.fn() }));
+const financeQueries = vi.hoisted(() => ({
+  findRabProjectsForProfitShare: vi.fn(),
+}));
 
 vi.mock("@/lib/prisma", () => db);
-vi.mock("@/modules/finance/public-queries", () => financeQueries);
+vi.mock("@/modules/proyek/public-queries", () => financeQueries);
 
 import { InvestorProfitShareRepository } from "@/modules/investor/repositories/InvestorProfitShareRepository";
 
@@ -31,17 +37,23 @@ describe("InvestorProfitShareRepository", () => {
     db.prisma.investorProfitShare.findFirst.mockResolvedValue(RECORD);
     db.prisma.investorProfitShare.update.mockResolvedValue(RECORD);
 
-    await expect(repo.findById("ph-1", "t-1")).resolves.toMatchObject({ projectName: "Proyek A" });
+    await expect(repo.findById("ph-1", "t-1")).resolves.toMatchObject({
+      projectName: "Proyek A",
+    });
     await repo.updateStatus("ph-1", "t-1", { status: "APPROVED" });
 
-    expect(db.prisma.investorProfitShare.findFirst.mock.calls[0][0].where).toEqual({
+    expect(
+      db.prisma.investorProfitShare.findFirst.mock.calls[0][0].where,
+    ).toEqual({
       id: "ph-1",
       tenantId: "t-1",
     });
-    expect(db.prisma.investorProfitShare.update.mock.calls[0][0].where).toEqual({
-      id: "ph-1",
-      tenantId: "t-1",
-    });
+    expect(db.prisma.investorProfitShare.update.mock.calls[0][0].where).toEqual(
+      {
+        id: "ph-1",
+        tenantId: "t-1",
+      },
+    );
   });
 
   it("bulan dibayar semua investor proyek dibaca dalam satu query dan dikelompokkan", async () => {
@@ -51,10 +63,16 @@ describe("InvestorProfitShareRepository", () => {
       { investorId: "inv-b", projectMonths: [2] },
     ]);
 
-    const hasil = await repo.findPaidProjectMonthsByInvestor("rab-1", ["inv-a", "inv-b", "inv-c"]);
+    const hasil = await repo.findPaidProjectMonthsByInvestor("rab-1", [
+      "inv-a",
+      "inv-b",
+      "inv-c",
+    ]);
 
     expect(db.prisma.investorProfitShare.findMany).toHaveBeenCalledTimes(1);
-    expect(db.prisma.investorProfitShare.findMany.mock.calls[0][0].where).toEqual({
+    expect(
+      db.prisma.investorProfitShare.findMany.mock.calls[0][0].where,
+    ).toEqual({
       rabProjectId: "rab-1",
       investorId: { in: ["inv-a", "inv-b", "inv-c"] },
       status: { not: "CANCELLED" },
@@ -65,7 +83,9 @@ describe("InvestorProfitShareRepository", () => {
   });
 
   it("tanpa investor tidak menyentuh database", async () => {
-    await expect(repo.findPaidProjectMonthsByInvestor("rab-1", [])).resolves.toEqual(new Map());
+    await expect(
+      repo.findPaidProjectMonthsByInvestor("rab-1", []),
+    ).resolves.toEqual(new Map());
     expect(db.prisma.investorProfitShare.findMany).not.toHaveBeenCalled();
   });
 
@@ -83,13 +103,16 @@ describe("InvestorProfitShareRepository", () => {
 
     const [proyek] = await repo.findProjectsForProfitShare("t-1");
 
-    const [tenantId, statuses] = financeQueries.findRabProjectsForProfitShare.mock.calls[0];
+    const [tenantId, statuses] =
+      financeQueries.findRabProjectsForProfitShare.mock.calls[0];
     expect(tenantId).toBe("t-1");
     expect(statuses).not.toContain("DRAFT");
     expect(db.prisma.investor.findMany.mock.calls[0][0].where).toEqual({
       id: { in: ["inv-a", "inv-b"] },
       isActive: true,
     });
-    expect(proyek.investors.map((anggota) => anggota.investor.isActive)).toEqual([true, false]);
+    expect(
+      proyek.investors.map((anggota) => anggota.investor.isActive),
+    ).toEqual([true, false]);
   });
 });

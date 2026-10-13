@@ -1,7 +1,7 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
 
-import { calculateRabUnitCosts } from "@/modules/finance/client";
+import { calculateRabUnitCosts } from "@/modules/proyek/client";
 import {
   calculateMonthlySubscribers,
   calculateRealisticBEP,

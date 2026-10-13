@@ -1,7 +1,7 @@
 /** Mesin tracking RAB dipindah ke modul finance agar server memakai hitungan yang sama. */
-export { buildRABTrackingDataset } from "@/modules/finance/client";
+export { buildRABTrackingDataset } from "@/modules/proyek/client";
 export type {
   RABTrackingDataset,
   RABTrackingRow,
   RABTrackingTotals,
-} from "@/modules/finance/client";
+} from "@/modules/proyek/client";

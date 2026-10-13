@@ -1,4 +1,4 @@
-import { findRabInvestmentsWithSite } from "@/modules/finance/public-queries";
+import { findRabInvestmentsWithSite } from "@/modules/proyek/public-queries";
 
 import { InvestorPayoutRepository } from "../repositories/InvestorPayoutRepository";
 import { InvestorRepository } from "../repositories/InvestorRepository";
@@ -87,7 +87,8 @@ export class InvestorPayoutAdminService {
    * milik module finance, jadi dibaca lewat public query finance.
    */
   async getInvestorDetail(investorId: string) {
-    const investor = await this.investorRepository.findByIdWithRecentPayouts(investorId);
+    const investor =
+      await this.investorRepository.findByIdWithRecentPayouts(investorId);
 
     if (!investor) {
       return null;

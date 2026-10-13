@@ -1,4 +1,7 @@
-import { buildRABTrackingDataset, calculateMonthlySubscribers } from "@/modules/finance/client";
+import {
+  buildRABTrackingDataset,
+  calculateMonthlySubscribers,
+} from "@/modules/proyek/client";
 import type { RABProject } from "./rabTypes";
 
 /** Penagihan pascabayar baru masuk sebulan setelah pelanggan aktif. */
@@ -48,7 +51,8 @@ export function calculateRealisticBEP(project: RABProject): {
 
   const simpleBep = hitungBepSederhana(totalCapex, simpleProfit, paymentType);
   const bepMesin =
-    buildRABTrackingDataset(project, project.actualAchievements ?? []).totals.bepMonth ?? Infinity;
+    buildRABTrackingDataset(project, project.actualAchievements ?? []).totals
+      .bepMonth ?? Infinity;
 
   if (!targetSubscribers || !arpu || !growthSettings) {
     return {

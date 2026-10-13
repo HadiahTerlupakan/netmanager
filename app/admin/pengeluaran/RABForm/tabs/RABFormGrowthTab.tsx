@@ -10,7 +10,7 @@ import {
   HiOutlineUsers,
 } from "react-icons/hi2";
 import { formatCurrency } from "@/lib/utils";
-import type { RabTargetBasis } from "@/modules/finance/client";
+import type { RabTargetBasis } from "@/modules/proyek/client";
 import type {
   CustomMilestone,
   LinearGrowthSettings,

@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import { headers } from "next/headers";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { getEnv } from "@/lib/env";
-import { getRabStatusEvaluationService } from "@/modules/finance";
+import { getRabStatusEvaluationService } from "@/modules/proyek";
 
 export const dynamic = "force-dynamic";
 

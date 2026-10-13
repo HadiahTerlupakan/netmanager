@@ -2,10 +2,8 @@ import * as z from "zod";
 
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import {
-  RabRevisionRouteService,
-  isRouteServiceError,
-} from "@/modules/finance";
+import { isRouteServiceError } from "@/lib/api/route-service-error";
+import { RabRevisionRouteService } from "@/modules/proyek";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
