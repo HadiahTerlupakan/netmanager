@@ -47,8 +47,8 @@ vi.mock("@/modules/proyek", () => ({
   },
 }));
 
-import { POST as APPROVE } from "@/app/api/finance/rab-projects/[id]/revisions/[revisionId]/approve/route";
-import { POST as REJECT } from "@/app/api/finance/rab-projects/[id]/revisions/[revisionId]/reject/route";
+import { POST as APPROVE } from "@/app/api/proyek/[id]/revisions/[revisionId]/approve/route";
+import { POST as REJECT } from "@/app/api/proyek/[id]/revisions/[revisionId]/reject/route";
 
 describe("rab revision approval route", () => {
   beforeEach(() => {

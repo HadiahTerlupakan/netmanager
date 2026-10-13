@@ -55,7 +55,7 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-import { POST } from "@/app/api/finance/rab-projects/[id]/actuals/route";
+import { POST } from "@/app/api/proyek/[id]/actuals/route";
 
 const payload = {
   month: 1,
@@ -98,14 +98,11 @@ describe("rab project actuals route", () => {
     );
 
     const response = await POST(
-      new NextRequest(
-        "http://localhost/api/finance/rab-projects/rab-1/actuals",
-        {
-          method: "POST",
-          body: JSON.stringify(payload),
-          headers: { "content-type": "application/json" },
-        },
-      ),
+      new NextRequest("http://localhost/api/proyek/rab-1/actuals", {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "content-type": "application/json" },
+      }),
       { params: Promise.resolve({ id: "rab-1" }) },
     );
 
@@ -119,7 +116,7 @@ describe("rab project actuals route", () => {
 
     // Proyek mulai Nov 2026 → bulan ke-3 = Januari 2027 (klien mengirim 2026).
     await POST(
-      new NextRequest("http://localhost/api/finance/rab-projects/rab-1/actuals", {
+      new NextRequest("http://localhost/api/proyek/rab-1/actuals", {
         method: "POST",
         body: JSON.stringify({ ...payload, month: 3, year: 2026 }),
         headers: { "content-type": "application/json" },
@@ -128,13 +125,20 @@ describe("rab project actuals route", () => {
     );
 
     expect(prismaMock.rabActualAchievement.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ rabProjectId: "rab-1", month: 3, year: 2027 }),
+      data: expect.objectContaining({
+        rabProjectId: "rab-1",
+        month: 3,
+        year: 2027,
+      }),
     });
   });
 
   it("baris ganda bulan yang sama (data lama) dirapikan: terbaru diperbarui, sisanya dihapus", async () => {
     mockHasPermission.mockResolvedValue(true);
-    prismaMock.rabActualAchievement.findMany.mockResolvedValue([{ id: "baru" }, { id: "lama" }]);
+    prismaMock.rabActualAchievement.findMany.mockResolvedValue([
+      { id: "baru" },
+      { id: "lama" },
+    ]);
     prismaMock.rabActualAchievement.update.mockResolvedValue({
       id: "baru",
       actualRevenue: 120000n,
@@ -146,7 +150,7 @@ describe("rab project actuals route", () => {
     });
 
     const response = await POST(
-      new NextRequest("http://localhost/api/finance/rab-projects/rab-1/actuals", {
+      new NextRequest("http://localhost/api/proyek/rab-1/actuals", {
         method: "POST",
         body: JSON.stringify(payload),
         headers: { "content-type": "application/json" },
@@ -168,7 +172,7 @@ describe("rab project actuals route", () => {
     prismaMock.investorProfitShare.findFirst.mockResolvedValue({ id: "ph-1" });
 
     const response = await POST(
-      new NextRequest("http://localhost/api/finance/rab-projects/rab-1/actuals", {
+      new NextRequest("http://localhost/api/proyek/rab-1/actuals", {
         method: "POST",
         body: JSON.stringify(payload),
         headers: { "content-type": "application/json" },
@@ -184,7 +188,7 @@ describe("rab project actuals route", () => {
     // Validasi skema dijalankan oleh createHandler (mock memanggil schema.parse).
     const kirim = (body: unknown) =>
       POST(
-        new NextRequest("http://localhost/api/finance/rab-projects/rab-1/actuals", {
+        new NextRequest("http://localhost/api/proyek/rab-1/actuals", {
           method: "POST",
           body: JSON.stringify(body),
           headers: { "content-type": "application/json" },
@@ -193,7 +197,9 @@ describe("rab project actuals route", () => {
       );
     return Promise.all([
       expect(kirim({ ...payload, actualRevenue: -5 })).rejects.toThrow(),
-      expect(kirim({ ...payload, manualInvestorProfitSharePercent: 150 })).rejects.toThrow(),
+      expect(
+        kirim({ ...payload, manualInvestorProfitSharePercent: 150 }),
+      ).rejects.toThrow(),
     ]);
   });
 
@@ -203,14 +209,11 @@ describe("rab project actuals route", () => {
     );
 
     const response = await POST(
-      new NextRequest(
-        "http://localhost/api/finance/rab-projects/rab-1/actuals",
-        {
-          method: "POST",
-          body: JSON.stringify(payload),
-          headers: { "content-type": "application/json" },
-        },
-      ),
+      new NextRequest("http://localhost/api/proyek/rab-1/actuals", {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "content-type": "application/json" },
+      }),
       { params: Promise.resolve({ id: "rab-1" }) },
     );
 

@@ -52,7 +52,7 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-import { GET, POST } from "@/app/api/finance/rab-projects/[id]/revisions/route";
+import { GET, POST } from "@/app/api/proyek/[id]/revisions/route";
 
 describe("rab project revisions route", () => {
   beforeEach(() => {
@@ -125,10 +125,9 @@ describe("rab project revisions route", () => {
     });
 
     const response = await POST(
-      new NextRequest(
-        "http://localhost/api/finance/rab-projects/rab-1/revisions",
-        { method: "POST" },
-      ),
+      new NextRequest("http://localhost/api/proyek/rab-1/revisions", {
+        method: "POST",
+      }),
       {
         params: Promise.resolve({ id: "rab-1" }),
       },
@@ -182,9 +181,7 @@ describe("rab project revisions route", () => {
     ]);
 
     const response = await GET(
-      new NextRequest(
-        "http://localhost/api/finance/rab-projects/rab-1/revisions",
-      ),
+      new NextRequest("http://localhost/api/proyek/rab-1/revisions"),
       {
         params: Promise.resolve({ id: "rab-1" }),
       },

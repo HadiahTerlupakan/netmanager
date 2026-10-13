@@ -91,7 +91,7 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-import { PATCH } from "@/app/api/finance/rab-projects/[id]/route";
+import { PATCH } from "@/app/api/proyek/[id]/route";
 
 describe("rab project update route", () => {
   beforeEach(() => {
@@ -102,7 +102,7 @@ describe("rab project update route", () => {
 
   it("rejects inconsistent shared OPEX buffer percentage", async () => {
     const response = await PATCH(
-      new NextRequest("http://localhost/api/finance/rab-projects/rab-1", {
+      new NextRequest("http://localhost/api/proyek/rab-1", {
         method: "PATCH",
         body: JSON.stringify({
           opexBufferFundingMode: "SHARED_PERCENTAGE",
@@ -133,7 +133,7 @@ describe("rab project update route", () => {
     });
 
     const response = await PATCH(
-      new NextRequest("http://localhost/api/finance/rab-projects/rab-1", {
+      new NextRequest("http://localhost/api/proyek/rab-1", {
         method: "PATCH",
         body: JSON.stringify({
           targetBasis: "HOMEPASS",
@@ -172,7 +172,7 @@ describe("rab project update route", () => {
     });
 
     const response = await PATCH(
-      new NextRequest("http://localhost/api/finance/rab-projects/rab-1", {
+      new NextRequest("http://localhost/api/proyek/rab-1", {
         method: "PATCH",
         body: JSON.stringify({ status: "APPROVED" }),
         headers: { "content-type": "application/json" },

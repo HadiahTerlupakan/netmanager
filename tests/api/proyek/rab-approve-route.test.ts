@@ -29,7 +29,7 @@ vi.mock("@/modules/proyek", () => ({
   },
 }));
 
-import { POST as APPROVE } from "@/app/api/finance/rab-projects/[id]/approve/route";
+import { POST as APPROVE } from "@/app/api/proyek/[id]/approve/route";
 
 describe("rab approve route", () => {
   beforeEach(() => {

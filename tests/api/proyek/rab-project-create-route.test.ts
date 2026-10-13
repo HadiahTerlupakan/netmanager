@@ -78,7 +78,7 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-import { POST } from "@/app/api/finance/rab-projects/route";
+import { POST } from "@/app/api/proyek/route";
 
 describe("rab project create route", () => {
   beforeEach(() => {
@@ -97,7 +97,7 @@ describe("rab project create route", () => {
     });
 
     const response = await POST(
-      new NextRequest("http://localhost/api/finance/rab-projects", {
+      new NextRequest("http://localhost/api/proyek", {
         method: "POST",
         body: JSON.stringify({
           name: "RAB Homepass",

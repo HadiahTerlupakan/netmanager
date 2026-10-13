@@ -52,11 +52,8 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-import {
-  GET,
-  PATCH,
-} from "@/app/api/finance/rab-projects/[id]/revisions/[revisionId]/route";
-import { POST } from "@/app/api/finance/rab-projects/[id]/revisions/[revisionId]/submit/route";
+import { GET, PATCH } from "@/app/api/proyek/[id]/revisions/[revisionId]/route";
+import { POST } from "@/app/api/proyek/[id]/revisions/[revisionId]/submit/route";
 
 describe("rab project revision detail route", () => {
   beforeEach(() => {
@@ -113,28 +110,25 @@ describe("rab project revision detail route", () => {
     });
 
     const response = await PATCH(
-      new NextRequest(
-        "http://localhost/api/finance/rab-projects/rab-1/revisions/rev-1",
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            projectedOpex: 35_000,
-            notes: "Update vendor pricing",
-            items: [
-              {
-                rabItemId: "item-1",
-                name: "ODP",
-                description: null,
-                quantity: 2,
-                unitPrice: 60_000,
-                category: "HARDWARE",
-                expenseType: "CAPEX",
-              },
-            ],
-          }),
-          headers: { "content-type": "application/json" },
-        },
-      ),
+      new NextRequest("http://localhost/api/proyek/rab-1/revisions/rev-1", {
+        method: "PATCH",
+        body: JSON.stringify({
+          projectedOpex: 35_000,
+          notes: "Update vendor pricing",
+          items: [
+            {
+              rabItemId: "item-1",
+              name: "ODP",
+              description: null,
+              quantity: 2,
+              unitPrice: 60_000,
+              category: "HARDWARE",
+              expenseType: "CAPEX",
+            },
+          ],
+        }),
+        headers: { "content-type": "application/json" },
+      }),
       { params: Promise.resolve({ id: "rab-1", revisionId: "rev-1" }) },
     );
 
@@ -160,7 +154,7 @@ describe("rab project revision detail route", () => {
 
     const response = await POST(
       new NextRequest(
-        "http://localhost/api/finance/rab-projects/rab-1/revisions/rev-1/submit",
+        "http://localhost/api/proyek/rab-1/revisions/rev-1/submit",
         {
           method: "POST",
           body: JSON.stringify({ reason: "" }),
@@ -197,9 +191,7 @@ describe("rab project revision detail route", () => {
     });
 
     const response = await GET(
-      new NextRequest(
-        "http://localhost/api/finance/rab-projects/rab-1/revisions/rev-1",
-      ),
+      new NextRequest("http://localhost/api/proyek/rab-1/revisions/rev-1"),
       {
         params: Promise.resolve({ id: "rab-1", revisionId: "rev-1" }),
       },

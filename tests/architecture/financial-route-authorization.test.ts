@@ -22,7 +22,7 @@ const API_ROOT = join(process.cwd(), "app/api");
  * keberadaan gerbangnya tidak pernah diperiksa sama sekali.
  */
 const FINANCIAL_BEHAVIOUR =
-  /@\/modules\/finance|prisma-billing|prismaBilling|client-billing|InvoiceRepository|PaymentRepository|BillingRepository/;
+  /@\/modules\/finance|@\/modules\/proyek|prisma-billing|prismaBilling|client-billing|InvoiceRepository|PaymentRepository|BillingRepository/;
 
 /**
  * Route yang otorisasinya ditegakkan di service, bukan di berkas route.
@@ -38,13 +38,13 @@ const FINANCIAL_BEHAVIOUR =
 const SERVICE_ENFORCED_AUTHORIZATION: Record<string, string> = {
   "app/api/webhooks/[provider]/route.ts":
     "WebhookProcessingService.verifySignature — webhook diautentikasi tanda tangan provider, bukan sesi",
-  "app/api/finance/rab-projects/[id]/approve/route.ts":
+  "app/api/proyek/[id]/approve/route.ts":
     "rabApprovalService.canUserApproveRab — flag Role.canApproveRab",
-  "app/api/finance/rab-projects/[id]/reminder/route.ts":
+  "app/api/proyek/[id]/reminder/route.ts":
     "RabApprovalReminderRouteService — cek canApproveRab/isSuperAdmin lalu balas 403",
-  "app/api/finance/rab-projects/[id]/revisions/[revisionId]/approve/route.ts":
+  "app/api/proyek/[id]/revisions/[revisionId]/approve/route.ts":
     "approveRabRevision -> assertUserCanApproveRab",
-  "app/api/finance/rab-projects/[id]/revisions/[revisionId]/reject/route.ts":
+  "app/api/proyek/[id]/revisions/[revisionId]/reject/route.ts":
     "rejectRabRevision -> assertUserCanApproveRab",
 };
 
