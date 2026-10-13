@@ -46,6 +46,13 @@ describe("batas modul proyek dan finance", () => {
       ),
       ...collectSourceFiles("lib"),
       ...collectSourceFiles("components"),
+      // types/ dan hooks/ ikut disapu: kode bersama proyek ↔ pengeluaran
+      // mendarat di sana (mis. types/admin-options.ts), jadi konstanta endpoint
+      // atau impor pintu lama bisa bersembunyi di luar empat direktori di atas.
+      ...collectSourceFiles("types"),
+      ...collectSourceFiles("hooks"),
+      // server.ts file tunggal di root, bukan direktori yang bisa disapu.
+      "server.ts",
     ];
 
     const staleGateImports = productionFiles.filter((filePath) =>

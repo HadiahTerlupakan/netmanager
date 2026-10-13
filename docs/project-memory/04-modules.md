@@ -514,9 +514,13 @@ modules/proyek/
 - `investor` — membaca RAB lewat `@/modules/proyek/public-queries` dan
   `@/modules/proyek/client`
 
-**Database Tables:**
-- `RabProject`, `RabItem`, `RabWbs`, `RabProjectUpdate`, `RabInvestor`,
-  `RabDisbursement` (nama model tetap `Rab*`, tanpa migration saat ekstraksi)
+**Database Tables:** (sepuluh model `Rab*` di `prisma/schema.prisma`, nama model
+tetap `Rab*` — tanpa migration saat ekstraksi)
+- `RabProject`, `RabItem`, `RabWbs` — RAB dan rinciannya
+- `RabRevision`, `RabRevisionItem`, `RabRevisionApproval` — alur revisi
+- `RabApproval` — approval RAB awal
+- `RabActualAchievement` — realisasi bulanan
+- `RabInvestor`, `RabDisbursement` — porsi dan pencairan investor
 
 **Boundary Guard:**
 - `tests/architecture/proyek-finance-boundary.test.ts`

@@ -45,7 +45,8 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 - **Tipe**: [CHANGED]
 - **Scope**: `modules/proyek`, `modules/finance`, `modules/investor`,
-  `app/admin/proyek`, `app/api/proyek`, `lib/menu-config.ts`
+  `app/admin/proyek`, `app/admin/pengeluaran`, `app/api/proyek`, `types/`,
+  `lib/menu-config.ts`
 - **Author**: agent
 - **Deskripsi**: Subsistem RAB (Proyek) dipindahkan keluar dari `modules/finance`
   dan `app/admin/pengeluaran` menjadi `modules/proyek` dengan halaman
@@ -60,9 +61,11 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `modules/proyek/public-queries` dan `modules/proyek/client`, sedangkan proyek
   membaca realisasi pengeluaran hanya lewat `modules/finance/public-queries`
   (`getExpensesByRabProject`) — satu arah dan bebas siklus.
-  `ExpensesClient.tsx` susut dari ~2.100 baris menjadi dua tab
-  (`"daily" | "coa"`), dan menu `FINANCE.PROYEK` → `/admin/proyek` terdaftar di
-  sidebar admin dengan resource izin `expense`. `SiteOption`/`CategoryOption`
+  Tab RAB di halaman pengeluaran dihapus sehingga `activeTab` tinggal dua nilai
+  (`"daily" | "coa"`), dan `ExpensesClient.tsx` susut 2.100 → 1.903 baris (−197)
+  dengan cabang RAB-nya menjadi `ProyekClient.tsx` (208 baris). Menu
+  `FINANCE.PROYEK` → `/admin/proyek` terdaftar di sidebar admin dengan resource
+  izin `expense`. `SiteOption`/`CategoryOption`
   dinaikkan ke `types/admin-options.ts` karena dipakai dua halaman admin.
   Perilaku tidak berubah; nama model Prisma tetap `Rab*` dan gate izin tetap
   `expense:*`, sehingga tidak ada migration maupun migrasi data role. Batas
