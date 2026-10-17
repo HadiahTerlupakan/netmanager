@@ -124,3 +124,26 @@ export const AttendanceErrors = {
     );
   },
 };
+
+/** Pesan bawaan bila alasan sesi tidak aktif tidak diketahui. */
+export const DEFAULT_NO_ACTIVE_SESSION_MESSAGE =
+  "Anda belum melakukan check-in atau sudah check-out hari ini";
+
+/**
+ * Check-out tanpa sesi aktif. `message` tetap "NO_ACTIVE_SESSION" agar
+ * pengecekan lama tetap berlaku; `userMessage` menjelaskan alasannya ke
+ * karyawan (mis. sesi kemarin sudah ditutup otomatis → silakan check-in).
+ */
+export class NoActiveSessionError extends Error {
+  constructor(public readonly userMessage: string) {
+    super("NO_ACTIVE_SESSION");
+    this.name = "NoActiveSessionError";
+  }
+}
+
+/** Pesan untuk karyawan dari galat NO_ACTIVE_SESSION (baru maupun lama). */
+export function getNoActiveSessionMessage(error: unknown): string {
+  return error instanceof NoActiveSessionError
+    ? error.userMessage
+    : DEFAULT_NO_ACTIVE_SESSION_MESSAGE;
+}

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, ErrorCodes } from "@/lib/api";
 import { AttendanceIdempotencyService } from "./AttendanceIdempotencyService";
 import { AttendanceService } from "./AttendanceService";
+import { getNoActiveSessionMessage } from "../domain/errors";
 import {
   MobileAttendanceCheckoutPayloadParser,
   type MobileCheckoutPayload,
@@ -214,7 +215,7 @@ export class MobileAttendanceCheckoutRouteService {
       }
       if (error instanceof Error && error.message === "NO_ACTIVE_SESSION") {
         throw apiError(
-          "Anda belum melakukan check-in atau sudah check-out hari ini",
+          getNoActiveSessionMessage(error),
           ErrorCodes.NO_ACTIVE_SESSION,
           { status: 400 },
         );

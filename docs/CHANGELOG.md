@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Pesan check-out tanpa sesi aktif sesuai keadaan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance` | `app/api/attendance`
+- **Author**: agent
+- **Deskripsi**: Karyawan yang aplikasinya masih menampilkan status kemarin
+  menekan check-out dan hanya menerima "Anda belum melakukan check-in atau sudah
+  check-out hari ini", lalu tidak check-in sehingga tercatat ABSENT (11% kasus
+  setelah NO_CHECKOUT vs 2% normal). Kini check-out tanpa sesi aktif melempar
+  `NoActiveSessionError` dengan pesan sesuai keadaan: sesi tanggal sebelumnya
+  sudah ditutup otomatis (diminta check-in), sudah check-out hari ini, atau
+  belum check-in. Berlaku untuk web dan mobile. Akar masalah (aplikasi tidak
+  memuat ulang status saat kembali aktif) diperbaiki di aplikasi mobile.
+- **Files**: `modules/attendance/domain/errors.ts`,
+  `modules/attendance/services/AttendanceMutationService.ts`,
+  `modules/attendance/services/MobileAttendanceCheckoutRouteService.ts`,
+  `app/api/attendance/check-out/route.ts`, `lib/api-response.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-17] — Halaman Mobile Error Reports tampilkan request yang gagal
 
 - **Tipe**: [CHANGED]

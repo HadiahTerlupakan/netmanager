@@ -2,6 +2,8 @@ export {
   AttendanceValidationError,
   AttendanceErrors,
   AttendanceErrorCode,
+  getNoActiveSessionMessage,
+  NoActiveSessionError,
 } from "./domain/errors";
 export type { AttendanceErrorDetails } from "./domain/errors";
 export * from "./services/AttendanceService";

@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { AttendanceService } from "@/modules/attendance";
+import {
+  AttendanceService,
+  getNoActiveSessionMessage,
+} from "@/modules/attendance";
 import { AttendancePhotoService } from "@/modules/attendance";
 
 export async function POST(request: NextRequest) {
@@ -81,8 +84,7 @@ export async function POST(request: NextRequest) {
       if (error instanceof Error && error.message === "NO_ACTIVE_SESSION") {
         return NextResponse.json(
           {
-            error:
-              "Anda belum melakukan check-in atau sudah check-out hari ini",
+            error: getNoActiveSessionMessage(error),
             code: "NO_ACTIVE_SESSION",
           },
           { status: 400 },

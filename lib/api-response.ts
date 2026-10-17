@@ -181,8 +181,13 @@ export function withErrorHandler(
       if (error instanceof Error) {
         // Check for known error types
         if (error.message === "NO_ACTIVE_SESSION") {
+          // Pesan spesifik dari modul attendance (duck typing: lib tidak
+          // boleh bergantung pada modul).
+          const userMessage = (error as { userMessage?: unknown }).userMessage;
           return apiError(
-            "Tidak ada sesi aktif",
+            typeof userMessage === "string"
+              ? userMessage
+              : "Tidak ada sesi aktif",
             ErrorCodes.NO_ACTIVE_SESSION,
             { status: 404 },
           );

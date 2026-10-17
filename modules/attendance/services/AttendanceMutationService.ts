@@ -5,12 +5,13 @@ import { UserLookupService } from "@/modules/users";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AttendanceValidationService } from "./AttendanceValidationService";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
-import { AttendanceErrors } from "../domain/errors";
+import { AttendanceErrors, NoActiveSessionError } from "../domain/errors";
 import {
   buildFixedCheckoutWarning,
   buildFlexibleCheckoutWarning,
   buildShiftCheckoutWarning,
   getCachedUserAttendanceSettings,
+  isSameAttendanceDay,
   mergeAttendanceNotes,
   resolveCheckInStatus,
   resolveCheckInTimeContext,
@@ -128,7 +129,7 @@ export class AttendanceMutationService {
       userId: params.userId,
       tenantId: params.tenantId,
     });
-    if (!attendance) throw new Error("NO_ACTIVE_SESSION");
+    if (!attendance) throw await this.buildNoActiveSessionError(params);
     const checkOutTime = params.offlineTime || new Date();
     const geofence = await this.geofenceService.resolveCheckOutGeofence(
       params,
@@ -181,6 +182,36 @@ export class AttendanceMutationService {
         ...(result.warning ? { warning: result.warning } : {}),
       },
     });
+  }
+
+  /** Jelaskan ke karyawan kenapa tidak ada sesi yang bisa di-check-out. */
+  private async buildNoActiveSessionError(
+    params: CheckoutParams,
+  ): Promise<NoActiveSessionError> {
+    const [latest, timezone] = await Promise.all([
+      this.attendanceRepo.findFirstForCurrentStatus({
+        userId: params.userId,
+        tenantId: params.tenantId,
+      }),
+      this.timezoneService.getTimezone(params.tenantId),
+    ]);
+    const now = new Date();
+
+    if (latest && !isSameAttendanceDay(latest.checkIn, now, timezone)) {
+      if (latest.status === "NO_CHECKOUT") {
+        const tanggal = latest.checkIn.toLocaleDateString("en-CA", {
+          timeZone: timezone,
+        });
+        return new NoActiveSessionError(
+          `Sesi absen tanggal ${tanggal} sudah ditutup otomatis karena belum check-out. Silakan check-in untuk hari ini.`,
+        );
+      }
+    } else if (latest?.checkOut) {
+      return new NoActiveSessionError("Anda sudah check-out hari ini.");
+    }
+    return new NoActiveSessionError(
+      "Anda belum check-in hari ini. Silakan check-in terlebih dahulu.",
+    );
   }
 
   private async prepareCheckInContext(params: CheckInParams) {
