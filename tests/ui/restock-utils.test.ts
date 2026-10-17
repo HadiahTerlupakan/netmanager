@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildInitialReceivedItems,
+  getToggledReceivedQuantity,
   canApprovePurchaseRequest,
   canDeletePurchaseRequest,
   canEditPurchaseRequest,
@@ -181,6 +182,61 @@ describe("restock utils", () => {
     expect(buildInitialReceivedItems(request)).toEqual({
       "barang-1": 8,
     });
+  });
+
+  it("excludes cancelled quantities from the initial received items", () => {
+    const request: PurchaseRequest = {
+      id: "pr-1",
+      nomorRequest: "PR-001",
+      status: "ORDERED",
+      createdAt: "2026-04-19T00:00:00.000Z",
+      requester: { name: "Rohadim" },
+      gudangId: "gudang-a",
+      gudang: { id: "gudang-a", nama: "Gudang A" },
+      items: [
+        {
+          id: "item-1",
+          barangId: "barang-1",
+          jumlah: 10,
+          receivedQuantity: 4,
+          cancelledQuantity: 2,
+          barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
+        },
+        {
+          id: "item-2",
+          barangId: "barang-2",
+          jumlah: 5,
+          receivedQuantity: 3,
+          cancelledQuantity: 2,
+          barang: { nama: "Pigtail", kode: "BRG-002", satuan: "pcs" },
+        },
+      ],
+    };
+
+    expect(buildInitialReceivedItems(request)).toEqual({
+      "barang-1": 4,
+      "barang-2": 0,
+    });
+  });
+
+  it("fills a re-checked item with its remaining quantity only", () => {
+    const item = {
+      id: "item-1",
+      barangId: "barang-1",
+      jumlah: 10,
+      receivedQuantity: 4,
+      cancelledQuantity: 2,
+      barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
+    };
+    const fullyReceivedItem = {
+      ...item,
+      receivedQuantity: 10,
+      cancelledQuantity: 0,
+    };
+
+    expect(getToggledReceivedQuantity(item, true)).toBe(4);
+    expect(getToggledReceivedQuantity(item, false)).toBe(0);
+    expect(getToggledReceivedQuantity(fullyReceivedItem, true)).toBe(0);
   });
 
   it("allows deletion for all statuses except RECEIVED", () => {

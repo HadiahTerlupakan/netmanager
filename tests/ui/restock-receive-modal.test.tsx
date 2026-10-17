@@ -80,6 +80,20 @@ describe("RestockReceiveModal", () => {
     expect(markup).toContain('aria-label="Jumlah Kabel Fiber diterima"');
   });
 
+  it("disables including an item that has nothing left to receive", () => {
+    const markup = renderReceiveModal({
+      request: {
+        ...request,
+        items: [{ ...request.items[0], receivedQuantity: 10 }],
+      },
+      receivedItems: { "barang-1": 0 },
+    });
+
+    expect(markup).toMatch(
+      /<input type="checkbox"[^>]*disabled=""[^>]*aria-label="Sertakan Kabel Fiber"/,
+    );
+  });
+
   it("explains why submit is disabled when proof photo is missing", () => {
     const markup = renderReceiveModal({ receivedPhotos: [] });
 

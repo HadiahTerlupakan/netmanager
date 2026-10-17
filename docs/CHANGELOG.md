@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Jumlah awal verifikasi barang sampai menghormati anuliran
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Jumlah diterima yang terisi otomatis di modal Verifikasi Barang Sampai
+  mengabaikan jumlah yang sudah dianulir, sehingga melebihi sisa dan ditolak server
+  ("melebihi sisa"). Centang ulang barang yang sudah diterima penuh juga mengisi 1
+  yang pasti ditolak. Kini nilai awal dan centang memakai sisa pesanan
+  (`getRestockItemRemaining`, tidak pernah negatif), dan barang tanpa sisa tidak
+  bisa dicentang.
+- **Files**: `app/admin/inventory/restock/utils.ts`,
+  `app/admin/inventory/restock/RestockReceiveItemRow.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-17] — Tolak foto bukti 0 byte di Verifikasi Barang Sampai
 
 - **Tipe**: [FIXED]

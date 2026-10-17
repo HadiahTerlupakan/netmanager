@@ -109,7 +109,7 @@ export function buildInitialReceivedItems(
   request: PurchaseRequest,
 ): Record<string, number> {
   return request.items.reduce<Record<string, number>>((acc, item) => {
-    const remainingQuantity = item.jumlah - item.receivedQuantity;
+    const remainingQuantity = Math.max(getRestockItemRemaining(item), 0);
     acc[item.barangId] = (acc[item.barangId] || 0) + remainingQuantity;
     return acc;
   }, {});
@@ -118,6 +118,17 @@ export function buildInitialReceivedItems(
 /** Sisa pesanan yang belum diterima dan belum dianulir. */
 export function getRestockItemRemaining(item: PurchaseRequestItem): number {
   return item.jumlah - item.receivedQuantity - (item.cancelledQuantity ?? 0);
+}
+
+/**
+ * Jumlah diterima saat checkbox item dicentang/dilepas: centang mengisi sisa
+ * pesanan (tidak pernah melebihinya), lepas centang mengosongkannya.
+ */
+export function getToggledReceivedQuantity(
+  item: PurchaseRequestItem,
+  isChecked: boolean,
+): number {
+  return isChecked ? Math.max(getRestockItemRemaining(item), 0) : 0;
 }
 
 /**

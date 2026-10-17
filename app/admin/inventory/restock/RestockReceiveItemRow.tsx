@@ -7,7 +7,11 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 import { RestockCancelReasonField } from "./RestockCancelReasonField";
 import type { Barang, PurchaseRequestItem } from "./types";
-import { canSubstituteRestockItem, getRestockItemRemaining } from "./utils";
+import {
+  canSubstituteRestockItem,
+  getRestockItemRemaining,
+  getToggledReceivedQuantity,
+} from "./utils";
 
 interface RestockReceiveItemRowProps {
   item: PurchaseRequestItem;
@@ -39,6 +43,7 @@ export function RestockReceiveItemRow({
 }: RestockReceiveItemRowProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const isExcluded = receivedQuantity <= 0;
+  const hasRemaining = getRestockItemRemaining(item) > 0;
   const canSubstitute = canSubstituteRestockItem(item);
   const substituteBarang = substituteBarangId
     ? barangs.find((barang) => barang.id === substituteBarangId)
@@ -74,16 +79,13 @@ export function RestockReceiveItemRow({
           <input
             type="checkbox"
             checked={!isExcluded}
+            disabled={!hasRemaining && isExcluded}
             aria-label={`Sertakan ${item.barang.nama}`}
-            onChange={(event) => {
-              const remaining = item.jumlah - item.receivedQuantity;
-              const nextValue = event.target.checked
-                ? remaining > 0
-                  ? remaining
-                  : 1
-                : 0;
-              onReceivedQuantityChange(nextValue);
-            }}
+            onChange={(event) =>
+              onReceivedQuantityChange(
+                getToggledReceivedQuantity(item, event.target.checked),
+              )
+            }
             className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           <div className="min-w-0">
