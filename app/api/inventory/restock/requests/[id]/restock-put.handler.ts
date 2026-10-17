@@ -72,6 +72,7 @@ export async function handleRestockPutRequest(req: NextRequest, id: string) {
     const result = await inventoryRouteService.updatePurchaseRequest({
       id,
       tenantId,
+      actorId: session.user.id as string,
       gudangId,
       keterangan,
       items: (items || []).map((item: RestockItemInput) => ({

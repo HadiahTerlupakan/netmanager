@@ -7,6 +7,11 @@ import {
   buildStockBreakdownResponse,
   buildUsageAnalyticsResponse,
 } from "./inventory-route.helpers";
+import {
+  INVENTORY_ACTIVITY_ACTIONS,
+  INVENTORY_ACTIVITY_SUBJECTS,
+  recordInventoryActivity,
+} from "./inventory-activity-log";
 
 const DEFAULT_RESTOCK_PAGE = 1;
 const DEFAULT_RESTOCK_LIMIT = 20;
@@ -178,10 +183,11 @@ export class InventoryRouteService {
     return this.repository.findPurchaseRequestById(input);
   }
 
-  /** Perbarui purchase request draft atau submitted. */
+  /** Perbarui purchase request draft atau submitted dan catat pelakunya. */
   async updatePurchaseRequest(input: {
     id: string;
     tenantId: string;
+    actorId: string;
     gudangId: string;
     keterangan?: string;
     items: Array<{
@@ -196,17 +202,60 @@ export class InventoryRouteService {
       keterangan?: string | null;
     }>;
   }) {
-    return this.repository.updatePurchaseRequest(input);
+    const { actorId, ...payload } = input;
+    const updated = await this.repository.updatePurchaseRequest(payload);
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.UPDATE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.RESTOCK_REQUEST,
+      reference: updated?.nomorRequest ?? input.id,
+      actorId,
+      tenantId: input.tenantId,
+      details: {
+        purchaseRequestId: input.id,
+        gudangId: input.gudangId,
+        jumlahBarang: input.items.length,
+        jumlahJasa: input.jasaItems?.length ?? 0,
+        keterangan: input.keterangan,
+      },
+    });
+    return updated;
   }
 
-  /** Hapus purchase request. */
-  async deletePurchaseRequest(id: string) {
-    return this.repository.deletePurchaseRequest(id);
+  /** Hapus purchase request dan catat pelakunya. */
+  async deletePurchaseRequest(input: {
+    id: string;
+    nomorRequest: string;
+    purchaseOrderId?: string | null;
+    actorId: string;
+    tenantId: string;
+  }) {
+    const result = await this.repository.deletePurchaseRequest(input.id);
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.DELETE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.RESTOCK_REQUEST,
+      reference: input.nomorRequest,
+      actorId: input.actorId,
+      tenantId: input.tenantId,
+      details: {
+        purchaseRequestId: input.id,
+        purchaseOrderId: input.purchaseOrderId ?? null,
+      },
+    });
+    return result;
   }
 
-  /** Setujui purchase request. */
+  /** Setujui purchase request dan catat penyetujunya. */
   async approvePurchaseRequest(input: { id: string; approverId: string }) {
-    return this.repository.approvePurchaseRequest(input);
+    const approved = await this.repository.approvePurchaseRequest(input);
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.APPROVE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.RESTOCK_REQUEST,
+      reference: approved.nomorRequest,
+      actorId: input.approverId,
+      tenantId: approved.tenantId,
+      details: { purchaseRequestId: input.id },
+    });
+    return approved;
   }
 
   /** Ambil info proses purchase request milik tenant tertentu. */

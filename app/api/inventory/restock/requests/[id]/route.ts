@@ -144,6 +144,12 @@ export async function DELETE(
     }
   }
 
-  await inventoryRouteService.deletePurchaseRequest(id);
+  await inventoryRouteService.deletePurchaseRequest({
+    id,
+    nomorRequest: existing.nomorRequest,
+    purchaseOrderId: existing.purchaseOrderId,
+    actorId: session.user.id as string,
+    tenantId,
+  });
   return NextResponse.json({ message: "Pengajuan berhasil dihapus" });
 }

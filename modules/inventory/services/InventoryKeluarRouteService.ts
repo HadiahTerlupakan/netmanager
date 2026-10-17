@@ -4,6 +4,11 @@ import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
 import { PEMBATASAN_SITE_GUDANG } from "../utils/validation";
+import {
+  INVENTORY_ACTIVITY_ACTIONS,
+  INVENTORY_ACTIVITY_SUBJECTS,
+  recordInventoryActivity,
+} from "./inventory-activity-log";
 
 const KELUAR_RESTRICTED_PERMISSIONS = [
   "keluar:site_only",
@@ -180,6 +185,18 @@ export class InventoryKeluarRouteService {
       jumlah,
       keterangan: input.body.keterangan as string | undefined,
     });
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.UPDATE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.BARANG_KELUAR,
+      reference: result.barangNama,
+      actorId: input.userId,
+      details: {
+        barangKeluarId: input.id,
+        jumlahLama: result.jumlahLama,
+        jumlahBaru: jumlah,
+        keterangan: input.body.keterangan,
+      },
+    });
     return { success: true as const, data: { result, jumlah } };
   }
 
@@ -193,6 +210,13 @@ export class InventoryKeluarRouteService {
     const result = await this.inventoryRouteService.deleteKeluarRecord(
       input.id,
     );
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.DELETE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.BARANG_KELUAR,
+      reference: result.barangNama,
+      actorId: input.userId,
+      details: { barangKeluarId: input.id, jumlah: result.jumlah },
+    });
     return { success: true as const, data: result };
   }
 

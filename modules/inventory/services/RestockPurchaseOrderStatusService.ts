@@ -3,6 +3,11 @@ import { Prisma } from "../repositories/prisma-boundary";
 import { PurchaseOrderStatus } from "../types/asset.enums";
 import { prisma } from "@/modules/database";
 import { RestockStockReceiptService } from "./RestockStockReceiptService";
+import {
+  INVENTORY_ACTIVITY_ACTIONS,
+  INVENTORY_ACTIVITY_SUBJECTS,
+  recordInventoryActivity,
+} from "./inventory-activity-log";
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -30,11 +35,7 @@ export class RestockPurchaseOrderStatusService {
         );
       }
       if (input.action === "START_SHOPPING") {
-        return this.startPurchaseOrderShopping(
-          purchaseOrder.id,
-          purchaseOrder.status,
-          input.actorId,
-        );
+        return this.startPurchaseOrderShopping(purchaseOrder, input.actorId);
       }
       const validationError = this.validateReceiveInput(
         input,
@@ -58,22 +59,38 @@ export class RestockPurchaseOrderStatusService {
   }
 
   private async startPurchaseOrderShopping(
-    id: string,
-    status: PurchaseOrderStatus,
+    purchaseOrder: {
+      id: string;
+      poNumber: string;
+      status: PurchaseOrderStatus;
+      tenantId: string | null;
+    },
     actorId: string,
   ) {
-    if (status !== "DRAFT") {
+    if (purchaseOrder.status !== "DRAFT") {
       return NextResponse.json(
         { error: "Hanya PO Draft yang bisa mulai diproses" },
         { status: 400 },
       );
     }
     const updatedPurchaseOrder = await prisma.purchaseOrder.update({
-      where: { id },
+      where: { id: purchaseOrder.id },
       data: {
         status: "ORDERED",
         processedById: actorId,
         updatedAt: new Date(),
+      },
+    });
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.START_SHOPPING,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.PURCHASE_ORDER,
+      reference: purchaseOrder.poNumber,
+      actorId,
+      tenantId: purchaseOrder.tenantId,
+      details: {
+        purchaseOrderId: purchaseOrder.id,
+        statusLama: purchaseOrder.status,
+        statusBaru: "ORDERED",
       },
     });
     return NextResponse.json(updatedPurchaseOrder);

@@ -3,6 +3,11 @@ import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { validateInventoryMutationCreateBody } from "./inventory-route-validation.helpers";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import type { InventoryMasukRecord } from "../domain/ports/IInventoryOperationRepository";
+import {
+  INVENTORY_ACTIVITY_ACTIONS,
+  INVENTORY_ACTIVITY_SUBJECTS,
+  recordInventoryActivity,
+} from "./inventory-activity-log";
 import { getInventoryRouteService } from "./InventoryRouteService";
 import {
   getInventoryStockMovementService,
@@ -201,6 +206,19 @@ export class InventoryMasukRouteService {
       return this.mapMutationError(error, "Gagal memperbarui barang masuk");
     }
 
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.UPDATE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.BARANG_MASUK,
+      reference: masuk.data.barang.nama,
+      actorId: input.userId,
+      details: {
+        ...describeMasukRecord(masuk.data),
+        jumlahLama: masuk.data.jumlah,
+        jumlahBaru: payload.data.jumlah,
+        kondisi: payload.data.kondisi,
+        keterangan: payload.data.keterangan,
+      },
+    });
     return { success: true, data: { jumlah: payload.data.jumlah } };
   }
 
@@ -220,6 +238,16 @@ export class InventoryMasukRouteService {
       );
     }
 
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.DELETE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.BARANG_MASUK,
+      reference: masuk.data.barang.nama,
+      actorId: input.userId,
+      details: {
+        ...describeMasukRecord(masuk.data),
+        jumlah: masuk.data.jumlah,
+      },
+    });
     return { success: true, data: null };
   }
 
@@ -295,6 +323,15 @@ export class InventoryMasukRouteService {
   private validateCreateBody(body: Record<string, unknown>) {
     return validateInventoryMutationCreateBody(body);
   }
+}
+
+/** Identitas barang masuk yang ditulis ke Log Aktivitas. */
+function describeMasukRecord(masuk: InventoryMasukRecord) {
+  return {
+    barangMasukId: masuk.id,
+    barang: masuk.barang.nama,
+    gudang: masuk.gudang.nama,
+  };
 }
 
 export const inventoryMasukRouteService = new InventoryMasukRouteService();

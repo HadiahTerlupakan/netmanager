@@ -8,6 +8,11 @@ import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
 import { PEMBATASAN_SITE_GUDANG } from "../utils/validation";
+import {
+  INVENTORY_ACTIVITY_ACTIONS,
+  INVENTORY_ACTIVITY_SUBJECTS,
+  recordInventoryActivity,
+} from "./inventory-activity-log";
 
 const TRANSFER_RESTRICTED_PERMISSIONS = [
   "transfer:site_only",
@@ -161,6 +166,18 @@ export class InventoryTransferRouteService {
       keterangan: input.body.keterangan as string | undefined,
     });
 
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.UPDATE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.TRANSFER,
+      reference: accessible.data.kodeTransfer,
+      actorId: input.userId,
+      tenantId: accessible.data.tenantId,
+      details: {
+        transferId: input.id,
+        keteranganLama: accessible.data.keterangan,
+        keteranganBaru: transfer.keterangan,
+      },
+    });
     return { success: true, data: transfer };
   }
 
@@ -172,6 +189,22 @@ export class InventoryTransferRouteService {
     if (accessible.success === false) return accessible;
 
     await this.repository.deleteTransfer(input.id);
+    const deleted = accessible.data;
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.DELETE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.TRANSFER,
+      reference: deleted.kodeTransfer,
+      actorId: input.userId,
+      tenantId: deleted.tenantId,
+      details: {
+        transferId: deleted.id,
+        barangId: deleted.barangId,
+        dariGudangId: deleted.dariGudangId,
+        keGudangId: deleted.keGudangId,
+        jumlah: deleted.jumlah,
+        kondisi: deleted.kondisi,
+      },
+    });
     return { success: true, data: null };
   }
 

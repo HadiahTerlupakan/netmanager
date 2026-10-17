@@ -23,6 +23,11 @@ import {
   type OpnameHistoryStats,
 } from "./inventory-opname-list.helpers";
 import { namaPelaku } from "../domain/riwayat-stock-opname";
+import {
+  INVENTORY_ACTIVITY_ACTIONS,
+  INVENTORY_ACTIVITY_SUBJECTS,
+  recordInventoryActivity,
+} from "./inventory-activity-log";
 import type { PelakuPerubahanOpname } from "../domain/ports/IInventoryOperationRepository";
 
 /**
@@ -161,16 +166,37 @@ export class InventoryOpnameService {
   ): Promise<UpdatedStockOpnameResult> {
     await ensureTenantContextForNonSuperAdmin(input.user);
     const { user, ...payload } = input;
-    return this.inventoryRepository.updateOpname(payload, pelakuDari(user));
+    const opname = await this.inventoryRepository.getOpnameRecord(input.id);
+    const result = await this.inventoryRepository.updateOpname(
+      payload,
+      pelakuDari(user),
+    );
+    if (opname) {
+      recordOpnameActivity(INVENTORY_ACTIVITY_ACTIONS.UPDATE, opname, user, {
+        stokFisik: input.stokFisik,
+        stokSistem: result.stokSistem,
+        selisih: result.selisih,
+        keterangan: input.keterangan,
+      });
+    }
+    return result;
   }
 
   /** Hapus opname dan kembalikan stok ke kondisi sebelum opname. */
   async deleteOpname(input: DeleteInventoryOpnameInput): Promise<void> {
     await ensureTenantContextForNonSuperAdmin(input.user);
+    const opname = await this.inventoryRepository.getOpnameRecord(input.id);
     await this.inventoryRepository.deleteOpname(
       input.id,
       pelakuDari(input.user),
     );
+    if (opname) {
+      recordOpnameActivity(
+        INVENTORY_ACTIVITY_ACTIONS.DELETE,
+        opname,
+        input.user,
+      );
+    }
   }
 
   /** Buat stock opname dan sinkronkan selisih stok. */
@@ -206,6 +232,30 @@ export class InventoryOpnameService {
 }
 
 let inventoryOpnameServiceInstance: InventoryOpnameService | null = null;
+
+/** Catat ubah/hapus stock opname ke Log Aktivitas. */
+function recordOpnameActivity(
+  action:
+    | typeof INVENTORY_ACTIVITY_ACTIONS.UPDATE
+    | typeof INVENTORY_ACTIVITY_ACTIONS.DELETE,
+  opname: InventoryOpnameRecord,
+  user: InventoryUserContext,
+  details: Record<string, unknown> = {},
+) {
+  recordInventoryActivity({
+    action,
+    subject: INVENTORY_ACTIVITY_SUBJECTS.STOCK_OPNAME,
+    reference: opname.barang.nama,
+    actorId: user.id,
+    tenantId: user.tenantId,
+    details: {
+      opnameId: opname.id,
+      barang: opname.barang.nama,
+      gudang: opname.gudang.nama,
+      ...details,
+    },
+  });
+}
 
 export function getInventoryOpnameService(): InventoryOpnameService {
   if (!inventoryOpnameServiceInstance) {

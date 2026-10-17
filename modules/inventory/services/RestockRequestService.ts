@@ -4,6 +4,11 @@ import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import { RestockPurchaseOrderStatusService } from "./RestockPurchaseOrderStatusService";
 import { RestockRequestLifecycleService } from "./RestockRequestLifecycleService";
+import {
+  INVENTORY_ACTIVITY_ACTIONS,
+  INVENTORY_ACTIVITY_SUBJECTS,
+  recordInventoryActivity,
+} from "./inventory-activity-log";
 
 const REQUEST_NUMBER_PAD_LENGTH = 4;
 const ONE_DAY_OFFSET = 1;
@@ -72,6 +77,20 @@ export async function createRestockRequest(input: CreateRestockRequestInput) {
     );
 
     logSuccessfulRequestCreation(input, purchaseRequest.id, startTime);
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.CREATE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.RESTOCK_REQUEST,
+      reference: nomorRequest,
+      actorId: input.requesterId,
+      tenantId: input.tenantId,
+      details: {
+        purchaseRequestId: purchaseRequest.id,
+        gudangId: input.gudangId,
+        jumlahBarang: input.items.length,
+        jumlahJasa: input.jasaItems?.length ?? 0,
+        keterangan: input.keterangan,
+      },
+    });
     return NextResponse.json(purchaseRequest, { status: 201 });
   } catch (error: unknown) {
     return handleRequestCreationError(error, input.apiPath);

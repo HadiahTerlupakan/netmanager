@@ -237,6 +237,7 @@ export interface InventoryRecordSite {
 
 export interface InventoryMasukRecord {
   id: string;
+  jumlah?: number;
   gudang: {
     id: string;
     kode: string;

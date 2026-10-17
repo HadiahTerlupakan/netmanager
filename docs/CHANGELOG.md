@@ -41,6 +41,34 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Log Aktivitas lengkap untuk semua aksi inventory
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/inventory` | `app/api/inventory`
+- **Author**: agent
+- **Deskripsi**: Aksi inventory yang sebelumnya tidak tercatat kini masuk Log Aktivitas
+  dengan subjek `<jenis dokumen> <referensi>`: buat/ubah/hapus/approve Pengajuan
+  Restock, mulai belanja (Purchase Order), verifikasi barang sampai (RECEIVE + nomor
+  GRN), ubah/hapus Barang Masuk, Barang Keluar, Transfer Barang, dan Stock Opname.
+  Helper baru `recordInventoryActivity`.
+- **Files**: `modules/inventory/services/inventory-activity-log.ts`,
+  `modules/inventory/services/InventoryRouteService.ts`,
+  `modules/inventory/services/RestockGoodsReceiptService.ts`,
+  `modules/inventory/services/InventoryOpnameService.ts`
+- **Breaking**: ❌ Tidak (signature `deletePurchaseRequest` dan
+  `updatePurchaseRequest` di `InventoryRouteService` kini butuh data pelaku)
+
+### [2026-10-17] — Log Aktivitas mengisi tenantId dari user pelaku
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: `logger.logActivity` kini memakai tenantId milik user pelaku bila
+  pemanggil tidak menyertakannya. Sebelumnya banyak log domain (inventory, work
+  order, dll.) tersimpan dengan tenantId kosong.
+- **Files**: `lib/logger.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-17] — Log Aktivitas lengkap untuk aksi daftar work order
 
 - **Tipe**: [CHANGED]

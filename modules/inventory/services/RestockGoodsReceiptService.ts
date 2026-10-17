@@ -19,6 +19,11 @@ import {
   RestockSubstitutionInvalidError,
   type RestockSubstitutionMap,
 } from "./RestockItemSubstitutionService";
+import {
+  INVENTORY_ACTIVITY_ACTIONS,
+  INVENTORY_ACTIVITY_SUBJECTS,
+  recordInventoryActivity,
+} from "./inventory-activity-log";
 
 export interface ReceiveRestockRequestInput {
   purchaseRequestId: string;
@@ -154,6 +159,25 @@ export class RestockGoodsReceiptService {
       input,
     );
 
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.RECEIVE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.RESTOCK_REQUEST,
+      reference: purchaseRequest.nomorRequest,
+      actorId: input.actorId,
+      tenantId: input.tenantId,
+      details: {
+        purchaseRequestId: input.purchaseRequestId,
+        purchaseOrderId,
+        goodsReceiptId: goodsReceipt.id,
+        grnNumber: goodsReceipt.grnNumber,
+        items: grnItems.map((item) => ({
+          barangId: item.barangId,
+          quantity: item.quantity,
+        })),
+        jumlahFoto: input.fotoBukti.length,
+        tutupPesanan: input.closePO,
+      },
+    });
     return goodsReceipt;
   }
 
