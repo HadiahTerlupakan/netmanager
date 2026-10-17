@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Traefik mempertahankan IP asli pengunjung
+
+- **Tipe**: [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Service Traefik k3s memakai `externalTrafficPolicy: Cluster`
+  sehingga kube-proxy menyamarkan setiap koneksi menjadi IP node `10.42.0.1`;
+  kolom IP di Log Aktivitas dan log request selalu berisi IP itu. Kini
+  `HelmChartConfig` traefik menyetel `externalTrafficPolicy: Local` (aman di
+  cluster satu node). Diterapkan ke produksi 2026-10-17 dan terverifikasi: log
+  aplikasi mencatat IP publik pengirim request uji.
+- **Files**: `k8s/production/traefik-helmchartconfig.yaml`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-17] — Log Aktivitas untuk aksi work order dari mobile
 
 - **Tipe**: [CHANGED]
