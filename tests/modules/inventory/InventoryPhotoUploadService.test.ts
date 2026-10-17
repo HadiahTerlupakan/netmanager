@@ -26,6 +26,25 @@ describe("InventoryPhotoUploadService", () => {
     });
   });
 
+  it("menjelaskan bahwa foto kosong ketika semua file berukuran 0 byte", async () => {
+    const service = new InventoryPhotoUploadService();
+
+    const result = await service.upload({
+      photos: [createFile({ size: 0 })],
+      transactionId: "temp-1",
+      transactionType: "inventory-masuk",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      body: {
+        error:
+          "File foto kosong (0 byte). Simpan foto ke perangkat terlebih dahulu, lalu pilih ulang.",
+      },
+    });
+  });
+
   it("menolak transaksi inventory yang tidak ditemukan", async () => {
     const routeService = {
       verifyInventoryTransaction: vi.fn().mockResolvedValue(null),

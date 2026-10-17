@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Tolak foto bukti 0 byte di Verifikasi Barang Sampai
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/inventory` | `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Staf tidak bisa memverifikasi barang sampai karena foto yang dipilih
+  berukuran 0 byte (mis. di-drag dari Telegram sebelum selesai terunduh). Browser
+  menerimanya, lalu server membuangnya dan menjawab "Minimal 1 foto harus diunggah"
+  sehingga penyebabnya tidak terlihat. Kini `PhotoUpload` menolak file 0 byte saat
+  dipilih dengan pesan yang jelas, dan server memberi pesan spesifik "File foto kosong".
+- **Files**: `components/inventory/PhotoUpload.tsx`,
+  `modules/inventory/services/InventoryPhotoUploadService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-13] — Ekstraksi RAB (Proyek) menjadi modul proyek mandiri
 
 - **Tipe**: [CHANGED]

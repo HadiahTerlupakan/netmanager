@@ -136,4 +136,23 @@ describe("Verifikasi Barang Sampai — kontrak ref PhotoUpload", () => {
     );
     expect(urls).toEqual([UPLOADED_URL]);
   });
+
+  it("menolak file foto 0 byte sebelum masuk daftar unggahan", async () => {
+    const photoUploadRef = createRef<PhotoUploadRef>();
+
+    await act(async () => {
+      root.render(<ReceiveModalHarness photoUploadRef={photoUploadRef} />);
+    });
+
+    await act(async () => {
+      selectPhoto(new File([], "photo_2026-10-15.jpg", { type: "image/jpeg" }));
+    });
+    await waitFor(() => document.body.textContent?.includes("kosong (0 byte)"));
+
+    expect(document.body.textContent).not.toContain("Foto (1/3)");
+    expect(photoUploadRef.current!.getPhotos()).toHaveLength(0);
+    expect(document.body.textContent).toContain(
+      "Unggah foto bukti terlebih dahulu",
+    );
+  });
 });

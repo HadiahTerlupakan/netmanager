@@ -7,6 +7,8 @@ import { getInventoryRouteService } from "./InventoryRouteService";
 
 const MAX_PHOTO_COUNT = 5;
 const MAX_PHOTO_SIZE_MB = 5;
+const EMPTY_PHOTO_FILE_MESSAGE =
+  "File foto kosong (0 byte). Simpan foto ke perangkat terlebih dahulu, lalu pilih ulang.";
 const VALID_TRANSACTION_TYPES = [
   "inventory-masuk",
   "inventory-keluar",
@@ -88,6 +90,9 @@ export class InventoryPhotoUploadService {
     if (invalidInput) return invalidInput;
 
     const validPhotos = this.getValidPhotos(input.photos);
+    if (validPhotos.length === 0 && this.hasEmptyPhotoFile(input.photos)) {
+      return this.createError(400, EMPTY_PHOTO_FILE_MESSAGE);
+    }
     const invalidPhotos = this.validatePhotoFiles(validPhotos);
     if (invalidPhotos) return invalidPhotos;
 
@@ -141,6 +146,10 @@ export class InventoryPhotoUploadService {
     }
 
     return "inventory-masuk";
+  }
+
+  private hasEmptyPhotoFile(photos: File[]) {
+    return photos.some((file) => file instanceof File && file.size === 0);
   }
 
   private getValidPhotos(photos: File[]) {

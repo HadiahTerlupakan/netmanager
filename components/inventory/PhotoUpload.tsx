@@ -80,6 +80,15 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
             return;
           }
 
+          // File 0 byte (mis. di-drag dari Telegram sebelum selesai terunduh)
+          // akan dibuang server dan memicu "Minimal 1 foto harus diunggah".
+          if (file.size === 0) {
+            errors.push(
+              `File "${file.name}" kosong (0 byte). Simpan foto ke perangkat terlebih dahulu, lalu pilih ulang.`,
+            );
+            return;
+          }
+
           // Check file size
           const maxSizeBytes = maxSizeMB * 1024 * 1024;
           if (file.size > maxSizeBytes) {
