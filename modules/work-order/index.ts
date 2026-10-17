@@ -23,6 +23,14 @@ export {
 } from "./domain/errors";
 export type { WorkOrderErrorDetails } from "./domain/errors";
 export { validateMobileMaterialPayload } from "./services/work-order-mobile-material-validator";
+export {
+  workOrderExportLogSchema,
+  type WorkOrderExportLogInput,
+} from "./validators/workOrderValidators";
+export {
+  recordWorkOrderExport,
+  WORK_ORDER_ACTIVITY_ACTIONS,
+} from "./services/work-order-activity-log";
 export type { IWorkOrderRepository } from "./services/work-order.contracts";
 export { buildWorkOrderListSummary } from "./client";
 export type {

@@ -171,6 +171,7 @@ export class AdminWorkOrderRouteService {
     workOrderId: string;
     customMessage?: string;
     targetDepartmentId?: string;
+    actorId: string;
   }) {
     return this.actionService.sendReminder(input);
   }

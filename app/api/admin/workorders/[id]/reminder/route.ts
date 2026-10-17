@@ -31,6 +31,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     workOrderId: ctx.params.id,
     customMessage,
     targetDepartmentId,
+    actorId: ctx.session!.user.id,
   });
 
   if (!result.success) {

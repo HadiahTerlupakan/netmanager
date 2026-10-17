@@ -41,6 +41,26 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Log Aktivitas lengkap untuk aksi daftar work order
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/work-order` | `app/api/admin/workorders`
+- **Author**: agent
+- **Deskripsi**: Semua aksi di `/admin/workorders/list` kini tercatat jelas di Log
+  Aktivitas dengan subjek `Work Order <nomor WO>` dan tenantId. Aksi baru:
+  `VERIFY`, `REJECT_RESULT` (dengan alasan), `CANCEL` (dengan alasan),
+  `SEND_REMINDER` (departemen, jumlah penerima, pengirim), `APPROVE_REQUEST`,
+  `REJECT_REQUEST`, dan `EXPORT_PDF` (jumlah & filter) lewat endpoint baru
+  `POST /api/admin/workorders/exports`. Pembatalan tidak lagi menulis dua log
+  (STATUS_CHANGE + DELETE). Helper `logWorkOrderActivity` diganti
+  `recordWorkOrderActivity`.
+- **Files**: `modules/work-order/services/work-order-activity-log.ts`,
+  `modules/work-order/services/work-order-mutation.helpers.ts`,
+  `modules/work-order/services/AdminWorkOrderActionRouteService.ts`,
+  `app/api/admin/workorders/exports/route.ts`, `app/admin/workorders/list/pdf.ts`
+- **Breaking**: ❌ Tidak (nama aksi APPROVE/REJECT pada log WO baru menjadi
+  APPROVE_REQUEST/REJECT_REQUEST; log lama tidak diubah)
+
 ### [2026-10-17] — Jumlah awal verifikasi barang sampai menghormati anuliran
 
 - **Tipe**: [FIXED]

@@ -1,10 +1,12 @@
-import { logActivitySafe } from "@/lib/logger";
-
 import { AdminWorkOrderRouteRepository } from "../repositories/AdminWorkOrderRouteRepository";
 import { AdminWorkOrderNotificationRouteService } from "./AdminWorkOrderNotificationRouteService";
 import { workOrderCacheService } from "./WorkOrderCacheService";
 import { sendWorkOrderReminder } from "./WorkOrderNotifications";
 import { getWorkOrderService } from "./WorkOrderService";
+import {
+  recordWorkOrderActivity,
+  WORK_ORDER_ACTIVITY_ACTIONS,
+} from "./work-order-activity-log";
 import type { UserContext } from "./WorkOrderService";
 import {
   canSendWorkOrderReminder,
@@ -194,11 +196,12 @@ export class AdminWorkOrderActionRouteService {
     );
   }
 
-  /** Kirim reminder manual untuk work order aktif. */
+  /** Kirim reminder manual untuk work order aktif dan catat pengirimnya. */
   async sendReminder(input: {
     workOrderId: string;
     customMessage?: string;
     targetDepartmentId?: string;
+    actorId: string;
   }) {
     const workOrder = await this.repository.findReminderWorkOrderById(
       input.workOrderId,
@@ -208,6 +211,7 @@ export class AdminWorkOrderActionRouteService {
       return { success: false as const, code: "INVALID_STATUS" };
     }
 
+    const departmentId = input.targetDepartmentId || workOrder.departmentId;
     const sentCount = await sendWorkOrderReminder(
       {
         id: workOrder.id,
@@ -215,12 +219,22 @@ export class AdminWorkOrderActionRouteService {
         title: workOrder.title,
         type: workOrder.type,
         priority: workOrder.priority,
-        departmentId: input.targetDepartmentId || workOrder.departmentId,
+        departmentId,
         siteId: workOrder.siteId,
         assignedToId: workOrder.assignedToId,
       },
       input.customMessage,
     );
+    recordWorkOrderActivity({
+      action: WORK_ORDER_ACTIVITY_ACTIONS.SEND_REMINDER,
+      workOrder,
+      actorId: input.actorId,
+      details: {
+        departmentId,
+        sentCount,
+        ...(input.customMessage ? { message: input.customMessage } : {}),
+      },
+    });
 
     return { success: true as const, data: { sentCount } };
   }
@@ -273,7 +287,6 @@ export class AdminWorkOrderActionRouteService {
     input: {
       workOrderId: string;
       reason?: string;
-      actor: { id: string };
     },
     userContext: UserContext,
   ) {
@@ -286,12 +299,6 @@ export class AdminWorkOrderActionRouteService {
     );
     if (!result.success) return result;
 
-    logActivitySafe({
-      action: "DELETE",
-      subject: "Work Order",
-      userId: input.actor.id,
-      details: { id: input.workOrderId, reason, type: "CANCEL" },
-    });
     await workOrderCacheService.invalidateAllCaches();
 
     return result;

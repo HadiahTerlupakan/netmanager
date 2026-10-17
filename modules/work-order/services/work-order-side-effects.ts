@@ -265,16 +265,6 @@ function buildAssignedWorkOrderEventPayload(input: {
   };
 }
 
-/** Write work order activity log safely. */
-export function logWorkOrderActivity(
-  action: string,
-  subject: string,
-  userId: string,
-  details: Record<string, unknown>,
-): void {
-  logActivitySafe({ action, subject, userId, details });
-}
-
 /** Invalidate all cached work-order views. */
 export async function invalidateWorkOrderCaches(): Promise<void> {
   await workOrderCacheService.invalidateAllCaches();

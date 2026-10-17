@@ -35,3 +35,18 @@ export function validateMobileMaterialPayload(
 ): MobileMaterialPayload {
   return mobileMaterialPayloadSchema.parse(payload);
 }
+
+const MAX_EXPORT_FILTER_COUNT = 20;
+const MAX_EXPORT_FILTER_LENGTH = 200;
+
+/** Body pencatatan unduhan daftar work order ke Log Aktivitas. */
+export const workOrderExportLogSchema = z.object({
+  format: z.literal("PDF"),
+  exportedCount: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  filters: z
+    .array(z.string().max(MAX_EXPORT_FILTER_LENGTH))
+    .max(MAX_EXPORT_FILTER_COUNT),
+});
+
+export type WorkOrderExportLogInput = z.infer<typeof workOrderExportLogSchema>;

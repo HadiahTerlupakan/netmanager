@@ -24,6 +24,7 @@ export interface ReminderWorkOrderData {
   departmentId: string | null;
   siteId: string | null;
   assignedToId: string | null;
+  tenantId: string | null;
 }
 
 /** Repository pendukung route admin work order. */
@@ -81,6 +82,7 @@ export class AdminWorkOrderRouteRepository {
         departmentId: true,
         siteId: true,
         assignedToId: true,
+        tenantId: true,
       },
     }) as Promise<ReminderWorkOrderData | null>;
   }

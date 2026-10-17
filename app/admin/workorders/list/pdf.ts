@@ -1,6 +1,7 @@
 import { format, formatDuration, intervalToDuration } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
+import { clientLogger } from "@/lib/client-logger";
 import { apiFetcher } from "@/lib/hooks/useApi";
 import { getWorkOrderCustomerInfo } from "@/modules/work-order/client";
 
@@ -44,8 +45,16 @@ interface HalamanWorkOrder {
 
 function formatDurasi(wo: WorkOrder): string {
   if (!wo.startedAt || !wo.completedAt) return "-";
-  const durasi = intervalToDuration({ start: new Date(wo.startedAt), end: new Date(wo.completedAt) });
-  return formatDuration(durasi, { format: ["days", "hours", "minutes"], locale: localeId }) || "< 1 mnt";
+  const durasi = intervalToDuration({
+    start: new Date(wo.startedAt),
+    end: new Date(wo.completedAt),
+  });
+  return (
+    formatDuration(durasi, {
+      format: ["days", "hours", "minutes"],
+      locale: localeId,
+    }) || "< 1 mnt"
+  );
 }
 
 function formatCustomer(wo: WorkOrder): string {
@@ -59,7 +68,8 @@ function formatCustomer(wo: WorkOrder): string {
 
 function formatPenugasan(wo: WorkOrder): string {
   if (wo.assignedMitra) return `${wo.assignedMitra.name} (Mitra)`;
-  if (wo.assignedTo) return `${wo.assignedTo.name} (${wo.assignedTo.role?.isTechnical ? "Teknis" : "Internal"})`;
+  if (wo.assignedTo)
+    return `${wo.assignedTo.name} (${wo.assignedTo.role?.isTechnical ? "Teknis" : "Internal"})`;
   return "Unassigned";
 }
 
@@ -92,12 +102,38 @@ export async function ambilSemuaWorkOrder(
     const params = new URLSearchParams(filterParams);
     params.set("page", String(page));
     params.set("limit", String(UKURAN_HALAMAN_EKSPOR));
-    const halaman = await apiFetcher<HalamanWorkOrder>(`/api/admin/workorders?${params}`);
+    const halaman = await apiFetcher<HalamanWorkOrder>(
+      `/api/admin/workorders?${params}`,
+    );
     workOrders.push(...(halaman.workOrders ?? []));
     total = halaman.total ?? workOrders.length;
-    if (page >= (halaman.totalPages ?? 1) || (halaman.workOrders ?? []).length === 0) break;
+    if (
+      page >= (halaman.totalPages ?? 1) ||
+      (halaman.workOrders ?? []).length === 0
+    )
+      break;
   }
   return { workOrders: workOrders.slice(0, BATAS_BARIS_PDF), total };
+}
+
+/**
+ * Laporkan unduhan PDF ke Log Aktivitas. Kegagalan hanya dicatat di konsol:
+ * PDF sudah tersimpan, jadi unduhan tidak boleh dianggap gagal.
+ */
+export async function catatUnduhanPdf(input: {
+  exportedCount: number;
+  total: number;
+  filters: string[];
+}): Promise<void> {
+  try {
+    await fetch("/api/admin/workorders/exports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ format: "PDF", ...input }),
+    });
+  } catch (error) {
+    clientLogger.error("Gagal mencatat unduhan PDF work order", error);
+  }
 }
 
 /** Buat dan unduh PDF daftar work order sesuai filter aktif. */
@@ -105,11 +141,13 @@ export async function unduhWorkOrderPdf(
   filterParams: URLSearchParams,
   keteranganFilter: string[],
 ): Promise<void> {
-  const [{ default: jsPDF }, { default: autoTable }, hasil] = await Promise.all([
-    import("jspdf"),
-    import("jspdf-autotable"),
-    ambilSemuaWorkOrder(filterParams),
-  ]);
+  const [{ default: jsPDF }, { default: autoTable }, hasil] = await Promise.all(
+    [
+      import("jspdf"),
+      import("jspdf-autotable"),
+      ambilSemuaWorkOrder(filterParams),
+    ],
+  );
   const sekarang = new Date();
   const jumlah =
     hasil.total > hasil.workOrders.length
@@ -124,7 +162,9 @@ export async function unduhWorkOrderPdf(
   doc.setFontSize(UKURAN_JUDUL);
   doc.text("Daftar Work Order", MARGIN_KIRI, Y_JUDUL);
   doc.setFontSize(UKURAN_KETERANGAN);
-  keterangan.forEach((baris, i) => doc.text(baris, MARGIN_KIRI, Y_KETERANGAN + i * JARAK_BARIS_KETERANGAN));
+  keterangan.forEach((baris, i) =>
+    doc.text(baris, MARGIN_KIRI, Y_KETERANGAN + i * JARAK_BARIS_KETERANGAN),
+  );
 
   autoTable(doc, {
     head: [KOLOM_WORK_ORDER_PDF],
@@ -136,4 +176,9 @@ export async function unduhWorkOrderPdf(
   });
 
   doc.save(`work-order_${format(sekarang, "yyyy-MM-dd")}.pdf`);
+  await catatUnduhanPdf({
+    exportedCount: hasil.workOrders.length,
+    total: hasil.total,
+    filters: keteranganFilter,
+  });
 }

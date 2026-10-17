@@ -27,7 +27,6 @@ import {
   broadcastWorkOrderCreatedSafely,
   invalidateWorkOrderCaches,
   linkWorkOrderToTicketSafely,
-  logWorkOrderActivity,
   notifyWorkOrderCreatedSafely,
   publishWorkOrderCreatedEvent,
 } from "./work-order-side-effects";
@@ -38,6 +37,10 @@ import {
   resolveWorkOrderRequest,
 } from "./work-order-mutation-access";
 import { buildWorkOrderUpdatePayload } from "./work-order-service-guards";
+import {
+  recordWorkOrderActivity,
+  WORK_ORDER_ACTIVITY_ACTIONS,
+} from "./work-order-activity-log";
 
 type MutationDependencies = {
   repository: WorkOrderRepository;
@@ -81,10 +84,11 @@ export class WorkOrderMutationService {
         id,
         buildWorkOrderUpdatePayload(input),
       );
-      logWorkOrderActivity("UPDATE", "Work Order", userContext.id, {
-        id: updated.id,
-        number: updated.workOrderNumber,
-        changes: input,
+      recordWorkOrderActivity({
+        action: WORK_ORDER_ACTIVITY_ACTIONS.UPDATE,
+        workOrder: updated,
+        actorId: userContext.id,
+        details: { changes: input },
       });
       await invalidateWorkOrderCaches();
       return findSuccessResult({
@@ -132,6 +136,7 @@ export class WorkOrderMutationService {
         previousStatus: existing.data.status,
         status,
         userId: userContext.id,
+        note: resolutionNotes,
       });
       await invalidateWorkOrderCaches();
       return findSuccessResult({
@@ -247,9 +252,10 @@ export class WorkOrderMutationService {
       }
 
       await this.dependencies.repository.delete(id);
-      logWorkOrderActivity("DELETE", "Work Order", userContext.id, {
-        id,
-        number: existing.data.workOrderNumber,
+      recordWorkOrderActivity({
+        action: WORK_ORDER_ACTIVITY_ACTIONS.DELETE,
+        workOrder: existing.data,
+        actorId: userContext.id,
       });
       await invalidateWorkOrderCaches();
       return { success: true };
@@ -292,10 +298,10 @@ export class WorkOrderMutationService {
       });
     }
 
-    logWorkOrderActivity("CREATE", "Work Order", createdById, {
-      id: workOrder.id,
-      number: workOrder.workOrderNumber,
-      title: workOrder.title,
+    recordWorkOrderActivity({
+      action: WORK_ORDER_ACTIVITY_ACTIONS.CREATE,
+      workOrder,
+      actorId: createdById,
     });
     await invalidateWorkOrderCaches();
     return { success: true, data: workOrder as WorkOrderWithRelations };

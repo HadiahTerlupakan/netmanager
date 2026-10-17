@@ -3,11 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkOrder } from "@/app/admin/workorders/list/types";
 
 const apiFetcher = vi.fn();
-vi.mock("@/lib/hooks/useApi", () => ({ apiFetcher: (url: string) => apiFetcher(url) }));
+vi.mock("@/lib/hooks/useApi", () => ({
+  apiFetcher: (url: string) => apiFetcher(url),
+}));
 
-const { ambilSemuaWorkOrder, susunBarisWorkOrderPdf, BATAS_BARIS_PDF } = await import(
-  "@/app/admin/workorders/list/pdf"
-);
+const {
+  ambilSemuaWorkOrder,
+  catatUnduhanPdf,
+  susunBarisWorkOrderPdf,
+  BATAS_BARIS_PDF,
+} = await import("@/app/admin/workorders/list/pdf");
 
 function workOrder(overrides: Partial<WorkOrder> = {}): WorkOrder {
   return {
@@ -45,10 +50,14 @@ describe("susunBarisWorkOrderPdf", () => {
   });
 
   it("menandai mitra, belum ditugaskan, dan WO yang belum selesai", () => {
-    expect(susunBarisWorkOrderPdf(workOrder({ assignedTo: null, assignedMitra: { name: "CV Jaya" } }))[6]).toBe(
-      "CV Jaya (Mitra)",
+    expect(
+      susunBarisWorkOrderPdf(
+        workOrder({ assignedTo: null, assignedMitra: { name: "CV Jaya" } }),
+      )[6],
+    ).toBe("CV Jaya (Mitra)");
+    const belum = susunBarisWorkOrderPdf(
+      workOrder({ assignedTo: null, completedAt: null, site: null }),
     );
-    const belum = susunBarisWorkOrderPdf(workOrder({ assignedTo: null, completedAt: null, site: null }));
     expect(belum[6]).toBe("Unassigned");
     expect(belum[8]).toBe("-");
     expect(belum[3]).toBe("-");
@@ -60,10 +69,20 @@ describe("ambilSemuaWorkOrder", () => {
 
   it("mengambil semua halaman dengan filter yang sama", async () => {
     apiFetcher
-      .mockResolvedValueOnce({ workOrders: [workOrder({ id: "a" })], total: 2, totalPages: 2 })
-      .mockResolvedValueOnce({ workOrders: [workOrder({ id: "b" })], total: 2, totalPages: 2 });
+      .mockResolvedValueOnce({
+        workOrders: [workOrder({ id: "a" })],
+        total: 2,
+        totalPages: 2,
+      })
+      .mockResolvedValueOnce({
+        workOrders: [workOrder({ id: "b" })],
+        total: 2,
+        totalPages: 2,
+      });
 
-    const hasil = await ambilSemuaWorkOrder(new URLSearchParams({ status: "COMPLETED" }));
+    const hasil = await ambilSemuaWorkOrder(
+      new URLSearchParams({ status: "COMPLETED" }),
+    );
 
     expect(hasil.workOrders.map((wo) => wo.id)).toEqual(["a", "b"]);
     expect(hasil.total).toBe(2);
@@ -73,12 +92,56 @@ describe("ambilSemuaWorkOrder", () => {
   });
 
   it("berhenti di batas baris PDF", async () => {
-    const penuh = Array.from({ length: 100 }, (_, i) => workOrder({ id: String(i) }));
-    apiFetcher.mockResolvedValue({ workOrders: penuh, total: 9999, totalPages: 100 });
+    const penuh = Array.from({ length: 100 }, (_, i) =>
+      workOrder({ id: String(i) }),
+    );
+    apiFetcher.mockResolvedValue({
+      workOrders: penuh,
+      total: 9999,
+      totalPages: 100,
+    });
 
     const hasil = await ambilSemuaWorkOrder(new URLSearchParams());
 
     expect(hasil.workOrders).toHaveLength(BATAS_BARIS_PDF);
     expect(hasil.total).toBe(9999);
+  });
+});
+
+describe("catatUnduhanPdf", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  it("melaporkan jumlah dan filter unduhan ke Log Aktivitas", async () => {
+    fetchMock.mockResolvedValue({ ok: true });
+
+    await catatUnduhanPdf({
+      exportedCount: 120,
+      total: 135,
+      filters: ["Status: Selesai"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/admin/workorders/exports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        format: "PDF",
+        exportedCount: 120,
+        total: 135,
+        filters: ["Status: Selesai"],
+      }),
+    });
+  });
+
+  it("tidak menggagalkan unduhan bila pencatatan gagal", async () => {
+    fetchMock.mockRejectedValue(new Error("offline"));
+
+    await expect(
+      catatUnduhanPdf({ exportedCount: 1, total: 1, filters: [] }),
+    ).resolves.toBeUndefined();
   });
 });

@@ -16,10 +16,12 @@ import type {
   ServiceResult,
   UserContext,
 } from "./work-order-service.contracts";
+import { invalidateWorkOrderCaches } from "./work-order-side-effects";
 import {
-  invalidateWorkOrderCaches,
-  logWorkOrderActivity,
-} from "./work-order-side-effects";
+  recordWorkOrderActivity,
+  WORK_ORDER_ACTIVITY_ACTIONS,
+  type WorkOrderActivityTarget,
+} from "./work-order-activity-log";
 
 type AccessibleRepository = Pick<WorkOrderRepository, "findById">;
 type RequestRepository = Pick<
@@ -95,7 +97,7 @@ async function resolveRequestMutation(params: {
   }
 
   return completeRequestResolution(
-    buildRequestResolutionInput(params, workOrder.data.workOrderNumber),
+    buildRequestResolutionInput(params, workOrder.data),
   );
 }
 
@@ -107,7 +109,7 @@ function buildRequestResolutionInput(
     action: "approve" | "reject";
     reason?: string;
   },
-  workOrderNumber: string,
+  workOrder: WorkOrderActivityTarget,
 ) {
   return {
     repository: params.repository,
@@ -115,7 +117,7 @@ function buildRequestResolutionInput(
     userId: params.userContext.id,
     action: params.action,
     reason: params.reason,
-    workOrderNumber,
+    workOrder,
   };
 }
 
@@ -125,7 +127,7 @@ async function completeRequestResolution(params: {
   userId: string;
   action: "approve" | "reject";
   reason?: string;
-  workOrderNumber: string;
+  workOrder: WorkOrderActivityTarget;
 }) {
   await persistRequestDecision(params);
   await finalizeRequestDecision(params);
@@ -155,18 +157,17 @@ async function finalizeRequestDecision(params: {
   userId: string;
   action: "approve" | "reject";
   reason?: string;
-  workOrderNumber: string;
+  workOrder: WorkOrderActivityTarget;
 }) {
-  logWorkOrderActivity(
-    params.action === "approve" ? "APPROVE" : "REJECT",
-    "Work Order",
-    params.userId,
-    {
-      id: params.id,
-      number: params.workOrderNumber,
-      ...(params.reason ? { reason: params.reason } : {}),
-    },
-  );
+  recordWorkOrderActivity({
+    action:
+      params.action === "approve"
+        ? WORK_ORDER_ACTIVITY_ACTIONS.APPROVE_REQUEST
+        : WORK_ORDER_ACTIVITY_ACTIONS.REJECT_REQUEST,
+    workOrder: params.workOrder,
+    actorId: params.userId,
+    details: params.reason ? { reason: params.reason } : undefined,
+  });
   await invalidateWorkOrderCaches();
 }
 

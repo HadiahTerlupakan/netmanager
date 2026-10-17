@@ -76,11 +76,12 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const workOrderService = getWorkOrderService();
+  const rejectionReason: string | undefined = body.rejectionReason;
 
-  if (body.rejectionReason) {
+  if (rejectionReason) {
     await workOrderService.addComment(
       ctx.params.id,
-      `[REJECTED] ${body.rejectionReason}`,
+      `[REJECTED] ${rejectionReason}`,
       userContext,
     );
     delete body.rejectionReason;
@@ -91,6 +92,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
       ctx.params.id,
       body.status,
       userContext,
+      rejectionReason,
     );
 
     if (!statusResult.success) {
