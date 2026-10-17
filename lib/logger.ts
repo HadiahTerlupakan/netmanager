@@ -330,10 +330,11 @@ class Logger {
       const { prisma } = await import("@/lib/prisma");
 
       // Skip DB logging if userId is provided but doesn't exist
+      let actorTenantId: string | null = null;
       if (actor.userId) {
         const userExists = await prisma.user.findUnique({
           where: { id: actor.userId },
-          select: { id: true },
+          select: { id: true, tenantId: true },
         });
 
         if (!userExists) {
@@ -342,6 +343,7 @@ class Logger {
           );
           return;
         }
+        actorTenantId = userExists.tenantId ?? null;
       }
 
       // Skip DB logging if tenantId is provided but doesn't exist
@@ -373,7 +375,9 @@ class Logger {
             actorId: actor.actorId,
             ipAddress: data.ipAddress || null,
             userAgent: data.userAgent || null,
-            tenantId: data.tenantId || null,
+            // Pemanggil yang tidak menyertakan tenant tetap tercatat di
+            // tenant pelaku, supaya log bisa disaring per tenant.
+            tenantId: data.tenantId || actorTenantId,
           },
         });
       });
