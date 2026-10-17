@@ -4,13 +4,14 @@ import { createRequire as nodeCreateRequire } from "module";
 
 /**
  * Konteks satu request API untuk Log Aktivitas: IP & user agent pelaku, serta
- * penanda apakah aksi request ini sudah dicatat oleh log domain. Bila sudah,
- * log generik middleware dilewati supaya satu aksi = satu baris log.
+ * penulisan log domain selama request. Log generik middleware hanya dilewati
+ * bila minimal satu log domain benar-benar tersimpan (fail-closed: log domain
+ * yang dilewati/gagal tidak menghilangkan jejak aksi).
  */
 export interface ActivityRequestContext {
   ipAddress: string | null;
   userAgent: string | null;
-  hasDomainActivity: boolean;
+  pendingDomainLogs: Promise<boolean>[];
 }
 
 type ActivityContextStorage = {
@@ -39,7 +40,25 @@ export function createActivityRequestContext(input: {
   ipAddress: string | null;
   userAgent: string | null;
 }): ActivityRequestContext {
-  return { ...input, hasDomainActivity: false };
+  return { ...input, pendingDomainLogs: [] };
+}
+
+/** Daftarkan penulisan log domain; nilai `true` berarti log tersimpan. */
+export function trackDomainActivity(
+  context: ActivityRequestContext,
+  write: Promise<boolean>,
+): void {
+  context.pendingDomainLogs.push(write);
+}
+
+/** Tunggu semua log domain request selesai; `true` bila ada yang tersimpan. */
+export async function hasRecordedDomainActivity(
+  context: ActivityRequestContext,
+): Promise<boolean> {
+  const results = await Promise.allSettled(context.pendingDomainLogs);
+  return results.some(
+    (result) => result.status === "fulfilled" && result.value === true,
+  );
 }
 
 /** Jalankan handler request di dalam konteks Log Aktivitas. */
@@ -57,16 +76,20 @@ export function getActivityRequestContext():
   return getActivityContextStorage().getStore();
 }
 
-/** Ambil IP dan user agent klien dari header request. */
+/**
+ * Ambil IP dan user agent klien dari header request. `X-Real-Ip` diset proxy
+ * (Traefik) dari alamat koneksi, sedangkan entri awal `X-Forwarded-For` bisa
+ * dikirim sendiri oleh klien — jadi dipakai entri terakhir yang ditambahkan
+ * proxy tepercaya.
+ */
 export function readClientInfo(headers: Headers): {
   ipAddress: string | null;
   userAgent: string | null;
 } {
+  const forwardedFor = headers.get("x-forwarded-for")?.split(",") ?? [];
+  const proxyAppendedIp = forwardedFor.at(-1)?.trim();
   return {
-    ipAddress:
-      headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      headers.get("x-real-ip") ||
-      null,
+    ipAddress: headers.get("x-real-ip")?.trim() || proxyAppendedIp || null,
     userAgent: headers.get("user-agent") || null,
   };
 }

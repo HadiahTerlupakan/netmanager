@@ -52,7 +52,9 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   konteks request (`lib/activity-request-context.ts`); log domain otomatis membawa
   IP & user agent dari konteks dan menandai request, lalu log generik dilewati
   bila aksi sudah dicatat log domain. Route tanpa log domain tetap tercatat lewat
-  log generik.
+  log generik. Fail-closed: log generik hanya dilewati bila log domain benar-benar
+  tersimpan (bukan sekadar dipanggil), dan IP diambil dari `X-Real-Ip`/entri
+  terakhir `X-Forwarded-For` agar tidak bisa dipalsukan klien.
 - **Files**: `lib/activity-request-context.ts`, `lib/api/handler.ts`,
   `lib/logger.ts`, `lib/middleware/request-logger.ts`
 - **Breaking**: ❌ Tidak

@@ -21,7 +21,10 @@ vi.mock("@/lib/middleware/request-logger", () => ({
   logAuditActivity: mocks.logAuditActivity,
 }));
 
-import { getActivityRequestContext } from "@/lib/activity-request-context";
+import {
+  getActivityRequestContext,
+  trackDomainActivity,
+} from "@/lib/activity-request-context";
 import { createHandler } from "@/lib/api/handler";
 
 function postRequest() {
@@ -43,16 +46,17 @@ describe("createHandler: satu aksi satu baris log", () => {
     let seenContext: ReturnType<typeof getActivityRequestContext>;
     const route = createHandler({ auth: false }, async () => {
       seenContext = getActivityRequestContext();
-      seenContext!.hasDomainActivity = true;
+      trackDomainActivity(seenContext!, Promise.resolve(true));
       return NextResponse.json({ ok: true });
     });
 
     await route(postRequest(), ROUTE_CONTEXT);
 
     expect(seenContext!).toMatchObject({
-      ipAddress: "10.0.0.7",
+      ipAddress: "10.42.0.1",
       userAgent: "okhttp/4.12.0",
     });
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(mocks.logAuditActivity).not.toHaveBeenCalled();
   });
 
@@ -63,6 +67,22 @@ describe("createHandler: satu aksi satu baris log", () => {
 
     await route(postRequest(), ROUTE_CONTEXT);
 
-    expect(mocks.logAuditActivity).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() =>
+      expect(mocks.logAuditActivity).toHaveBeenCalledTimes(1),
+    );
   });
+});
+
+it("tetap menulis log generik bila log domain request gagal tersimpan", async () => {
+  mocks.logAuditActivity.mockClear();
+  const route = createHandler({ auth: false }, async () => {
+    trackDomainActivity(getActivityRequestContext()!, Promise.resolve(false));
+    return NextResponse.json({ ok: true });
+  });
+
+  await route(postRequest(), ROUTE_CONTEXT);
+
+  await vi.waitFor(() =>
+    expect(mocks.logAuditActivity).toHaveBeenCalledTimes(1),
+  );
 });

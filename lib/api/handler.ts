@@ -1,5 +1,6 @@
 import {
   createActivityRequestContext,
+  hasRecordedDomainActivity,
   readClientInfo,
   runWithActivityRequestContext,
 } from "@/lib/activity-request-context";
@@ -351,18 +352,21 @@ export function createHandler<T = unknown>(
       logResponse(request, response, duration);
 
       // Log generik hanya jaring pengaman: dilewati bila aksi ini sudah
-      // dicatat log domain (yang membawa IP & user agent dari konteks).
-      if (!activityContext.hasDomainActivity) {
-        logAuditActivity(
-          request,
-          response,
-          ctx.session?.user?.id,
-          ctx.session?.user?.tenantId,
-          ctx.validated, // Use validated body for audit log
-        ).catch((err) =>
-          logger.error("[Audit Log Fire-and-Forget Error]", err),
-        );
-      }
+      // tersimpan sebagai log domain. Diputuskan di latar belakang agar
+      // respons tidak menunggu penulisan log.
+      void hasRecordedDomainActivity(activityContext)
+        .then((isRecorded) =>
+          isRecorded
+            ? undefined
+            : logAuditActivity(
+                request,
+                response,
+                ctx.session?.user?.id,
+                ctx.session?.user?.tenantId,
+                ctx.validated, // Use validated body for audit log
+              ),
+        )
+        .catch((err) => logger.error("[Audit Log Fire-and-Forget Error]", err));
 
       return response;
     } catch (error) {

@@ -4,7 +4,11 @@
  */
 
 import { randomUUID } from "crypto";
-import { getActivityRequestContext } from "./activity-request-context";
+import {
+  getActivityRequestContext,
+  trackDomainActivity,
+  type ActivityRequestContext,
+} from "./activity-request-context";
 
 export enum LogLevel {
   DEBUG = "debug",
@@ -321,11 +325,20 @@ class Logger {
   }
 
   // Database Logging Methods
-  async logActivity(data: ActivityLogInput) {
-    // Ditandai sinkron (sebelum await) agar middleware tahu aksi request ini
-    // sudah punya log domain saat handler selesai.
+  async logActivity(data: ActivityLogInput): Promise<void> {
+    // Didaftarkan sinkron (sebelum await) ke konteks request agar middleware
+    // bisa menunggu hasilnya sebelum memutuskan perlu log generik atau tidak.
     const requestContext = getActivityRequestContext();
-    if (requestContext) requestContext.hasDomainActivity = true;
+    const write = this.writeActivity(data, requestContext);
+    if (requestContext) trackDomainActivity(requestContext, write);
+    await write;
+  }
+
+  /** Tulis log aktivitas ke DB; `true` bila tersimpan, `false` bila dilewati/gagal. */
+  private async writeActivity(
+    data: ActivityLogInput,
+    requestContext: ActivityRequestContext | undefined,
+  ): Promise<boolean> {
     this.info(
       `[ACTIVITY] ${data.action} ${data.subject}`,
       data as unknown as LogContext,
@@ -346,7 +359,7 @@ class Logger {
           this.warn(
             `[ACTIVITY] Skipping DB log - userId not found: ${actor.userId}`,
           );
-          return;
+          return false;
         }
         actorTenantId = userExists.tenantId ?? null;
       }
@@ -362,7 +375,7 @@ class Logger {
           this.warn(
             `[ACTIVITY] Skipping DB log - tenantId not found: ${data.tenantId}`,
           );
-          return;
+          return false;
         }
       }
 
@@ -386,8 +399,10 @@ class Logger {
           },
         });
       });
+      return true;
     } catch (error) {
       this.error("Failed to save activity log to DB", error as Error);
+      return false;
     }
   }
 
