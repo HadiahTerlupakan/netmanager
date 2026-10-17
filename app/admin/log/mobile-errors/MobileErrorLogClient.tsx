@@ -1,6 +1,10 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
+import {
+  describeMobileErrorRequest,
+  formatMobileErrorRequest,
+} from "./mobile-error-request";
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 
@@ -184,19 +188,28 @@ export default function MobileErrorLogClient() {
               const screen = item.parsedDetails.screen;
               const route = item.parsedDetails.route;
               const hasLocation = screen || route;
+              const request = describeMobileErrorRequest(item.parsedDetails);
 
               return (
                 <div className="space-y-1">
                   <p className="font-medium">
-                    {item.parsedDetails.message || item.subject}
+                    {request?.serverMessage ||
+                      item.parsedDetails.message ||
+                      item.subject}
                   </p>
-                  {hasLocation ? (
+                  {request && (
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {formatMobileErrorRequest(request)}
+                    </p>
+                  )}
+                  {hasLocation && (
                     <p className="text-xs text-muted-foreground">
                       {screen || "-"} • {route || "-"}
                     </p>
-                  ) : (
+                  )}
+                  {!request && !hasLocation && (
                     <p className="text-xs text-muted-foreground italic">
-                      No screen/route info
+                      Tidak ada info layar atau endpoint
                     </p>
                   )}
                 </div>
@@ -284,6 +297,7 @@ export default function MobileErrorLogClient() {
               <>
                 <ModalBody>
                   <div className="space-y-4 text-sm">
+                    <MobileErrorRequestSection details={details} />
                     <div>
                       <h4 className="font-semibold">Message</h4>
                       <p className="mt-1 text-muted-foreground">
@@ -409,6 +423,30 @@ export default function MobileErrorLogClient() {
             );
           })()}
       </Modal>
+    </div>
+  );
+}
+
+/** Bagian detail: request yang gagal beserta status & pesan server. */
+function MobileErrorRequestSection({
+  details,
+}: {
+  details: MobileErrorDetails;
+}) {
+  const request = describeMobileErrorRequest(details);
+  if (!request) return null;
+
+  return (
+    <div>
+      <h4 className="font-semibold">Request</h4>
+      <p className="mt-1 font-mono text-muted-foreground">
+        {formatMobileErrorRequest(request)}
+      </p>
+      {request.serverMessage && (
+        <p className="mt-1 text-muted-foreground">
+          Pesan server: {request.serverMessage}
+        </p>
+      )}
     </div>
   );
 }

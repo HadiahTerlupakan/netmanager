@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Halaman Mobile Error Reports tampilkan request yang gagal
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/log/mobile-errors`
+- **Author**: agent
+- **Deskripsi**: Laporan error mobile menyimpan endpoint (dan, mulai aplikasi
+  versi berikutnya, status HTTP serta pesan server) di `context.extra`, tetapi
+  halaman hanya menampilkan "No screen/route info". Kini daftar & detail
+  menampilkan `METHOD endpoint · status` dan pesan server sebagai judul.
+- **Files**: `app/admin/log/mobile-errors/MobileErrorLogClient.tsx`,
+  `app/admin/log/mobile-errors/mobile-error-request.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-17] — Traefik mempertahankan IP asli pengunjung
 
 - **Tipe**: [INFRA]
