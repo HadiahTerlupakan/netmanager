@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readClientInfo } from "@/lib/activity-request-context";
 import { logger } from "@/lib/logger";
+
+const UNKNOWN_CLIENT_VALUE = "unknown";
 
 /**
  * Request/Response Logging Middleware
@@ -109,11 +112,9 @@ export async function logAuditActivity(
     return;
   }
 
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0] ||
-    req.headers.get("x-real-ip") ||
-    "unknown";
-  const userAgent = req.headers.get("user-agent") || "unknown";
+  const clientInfo = readClientInfo(req.headers);
+  const ip = clientInfo.ipAddress ?? UNKNOWN_CLIENT_VALUE;
+  const userAgent = clientInfo.userAgent ?? UNKNOWN_CLIENT_VALUE;
 
   let action = "UNKNOWN";
   switch (method) {
@@ -208,10 +209,7 @@ function logRequestInternal(
 
   const method = req.method || "UNKNOWN";
   const url = req.nextUrl?.href || "unknown";
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0] ||
-    req.headers.get("x-real-ip") ||
-    "unknown";
+  const ip = readClientInfo(req.headers).ipAddress ?? UNKNOWN_CLIENT_VALUE;
 
   const logContext: Record<string, unknown> = {
     method,

@@ -1,3 +1,8 @@
+import {
+  createActivityRequestContext,
+  readClientInfo,
+  runWithActivityRequestContext,
+} from "@/lib/activity-request-context";
 import { logger } from "@/lib/logger";
 /**
  * Unified API Route Handler
@@ -326,26 +331,38 @@ export function createHandler<T = unknown>(
       }
 
       // 4. Execute handler
-      const response = await runWithRequestTenantContext(
-        {
-          tenantId: ctx.session?.user?.tenantId || null,
-          isSuperAdmin: !!ctx.session?.user?.isSuperAdmin,
-        },
-        async () => handler(request, ctx),
+      const activityContext = createActivityRequestContext(
+        readClientInfo(request.headers),
+      );
+      const response = await runWithActivityRequestContext(
+        activityContext,
+        () =>
+          runWithRequestTenantContext(
+            {
+              tenantId: ctx.session?.user?.tenantId || null,
+              isSuperAdmin: !!ctx.session?.user?.isSuperAdmin,
+            },
+            async () => handler(request, ctx),
+          ),
       );
 
       // 5. Automatic logging & audit
       const duration = Date.now() - startTime;
       logResponse(request, response, duration);
 
-      // Audit write operations asynchronously (fire-and-forget)
-      logAuditActivity(
-        request,
-        response,
-        ctx.session?.user?.id,
-        ctx.session?.user?.tenantId,
-        ctx.validated, // Use validated body for audit log
-      ).catch((err) => logger.error("[Audit Log Fire-and-Forget Error]", err));
+      // Log generik hanya jaring pengaman: dilewati bila aksi ini sudah
+      // dicatat log domain (yang membawa IP & user agent dari konteks).
+      if (!activityContext.hasDomainActivity) {
+        logAuditActivity(
+          request,
+          response,
+          ctx.session?.user?.id,
+          ctx.session?.user?.tenantId,
+          ctx.validated, // Use validated body for audit log
+        ).catch((err) =>
+          logger.error("[Audit Log Fire-and-Forget Error]", err),
+        );
+      }
 
       return response;
     } catch (error) {

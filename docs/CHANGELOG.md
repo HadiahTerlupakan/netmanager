@@ -41,6 +41,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Satu aksi satu baris di Log Aktivitas
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: Log generik middleware menamai aksi dari metode HTTP (POST selalu
+  "CREATE"), sehingga check-out, update WO, dan approve tampil sebagai CREATE dan
+  setiap aksi tercatat dua kali. Kini `createHandler` menjalankan handler di
+  konteks request (`lib/activity-request-context.ts`); log domain otomatis membawa
+  IP & user agent dari konteks dan menandai request, lalu log generik dilewati
+  bila aksi sudah dicatat log domain. Route tanpa log domain tetap tercatat lewat
+  log generik.
+- **Files**: `lib/activity-request-context.ts`, `lib/api/handler.ts`,
+  `lib/logger.ts`, `lib/middleware/request-logger.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-17] — Pisahkan izin dan menu Master Jasa dari Barang
 
 - **Tipe**: [MIGRATION]

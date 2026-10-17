@@ -4,6 +4,7 @@
  */
 
 import { randomUUID } from "crypto";
+import { getActivityRequestContext } from "./activity-request-context";
 
 export enum LogLevel {
   DEBUG = "debug",
@@ -321,6 +322,10 @@ class Logger {
 
   // Database Logging Methods
   async logActivity(data: ActivityLogInput) {
+    // Ditandai sinkron (sebelum await) agar middleware tahu aksi request ini
+    // sudah punya log domain saat handler selesai.
+    const requestContext = getActivityRequestContext();
+    if (requestContext) requestContext.hasDomainActivity = true;
     this.info(
       `[ACTIVITY] ${data.action} ${data.subject}`,
       data as unknown as LogContext,
@@ -373,8 +378,8 @@ class Logger {
             userId: actor.userId,
             actorType: actor.actorType,
             actorId: actor.actorId,
-            ipAddress: data.ipAddress || null,
-            userAgent: data.userAgent || null,
+            ipAddress: data.ipAddress || requestContext?.ipAddress || null,
+            userAgent: data.userAgent || requestContext?.userAgent || null,
             // Pemanggil yang tidak menyertakan tenant tetap tercatat di
             // tenant pelaku, supaya log bisa disaring per tenant.
             tenantId: data.tenantId || actorTenantId,
