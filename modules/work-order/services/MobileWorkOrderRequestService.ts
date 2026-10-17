@@ -6,6 +6,10 @@ import { createNotification, sendPushToUsers } from "@/modules/notification";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import type { CreateWorkOrderData } from "../domain/ports/IWorkOrderRepository";
 import { findRequestsByRequester } from "../repositories/work-order-repository-requests";
+import {
+  recordWorkOrderActivity,
+  WORK_ORDER_ACTIVITY_ACTIONS,
+} from "./work-order-activity-log";
 
 export interface MobileWorkOrderRequestBody {
   type: CreateWorkOrderData["type"];
@@ -115,6 +119,12 @@ export class MobileWorkOrderRequestService {
 
     await this.broadcastNewWorkOrder(workOrder, departmentId);
     void this.notifyAdmins(workOrder, userName, tenantId);
+    recordWorkOrderActivity({
+      action: WORK_ORDER_ACTIVITY_ACTIONS.CREATE_REQUEST,
+      workOrder,
+      actorId: userId,
+      details: { type: body.type, priority: body.priority || "NORMAL" },
+    });
 
     return workOrder;
   }

@@ -9,6 +9,10 @@ import {
   getScheduledTimeStart,
   validateEmployeeClaimAccess,
 } from "./mobile-available-work-order.helpers";
+import {
+  recordWorkOrderActivity,
+  WORK_ORDER_ACTIVITY_ACTIONS,
+} from "./work-order-activity-log";
 
 export interface MobileAvailableSessionUser {
   id: string;
@@ -131,6 +135,13 @@ export class MobileAvailableWorkOrderService {
         undefined,
       );
     }
+    recordWorkOrderActivity({
+      action: WORK_ORDER_ACTIVITY_ACTIONS.CLAIM,
+      workOrder: { ...workOrder, tenantId },
+      actorId: user.id,
+      actorType: isMitra ? "mitra" : "user",
+      details: { sumber: "daftar WO tersedia", pelaku: triggeredByName },
+    });
 
     const updatedWorkOrder = await this.repository.findWorkOrderById(
       workOrderId,

@@ -44,6 +44,8 @@ export function findWorkOrder(workOrderId: string, tenantId: string) {
     select: {
       id: true,
       workOrderNumber: true,
+      title: true,
+      tenantId: true,
       status: true,
       createdById: true,
       assignedToId: true,
@@ -81,7 +83,14 @@ export function findAssignmentForRemoval(
     where: { id: assignmentId, tenantId },
     include: {
       workOrders: {
-        select: { id: true, createdById: true, assignedToId: true },
+        select: {
+          id: true,
+          workOrderNumber: true,
+          title: true,
+          tenantId: true,
+          createdById: true,
+          assignedToId: true,
+        },
       },
     },
   });

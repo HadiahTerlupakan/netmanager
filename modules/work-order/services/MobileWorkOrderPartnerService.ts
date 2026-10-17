@@ -1,4 +1,8 @@
 import { prisma } from "@/modules/database";
+import {
+  recordWorkOrderActivity,
+  WORK_ORDER_ACTIVITY_ACTIONS,
+} from "./work-order-activity-log";
 
 import {
   canInvitePartnerToday,
@@ -77,7 +81,14 @@ export class MobileWorkOrderPartnerService {
     );
     await this.ensurePartnerAvailableToday(input.partnerUserId, input.tenantId);
 
-    return createPartnerAssignment(input);
+    const assignment = await createPartnerAssignment(input);
+    recordWorkOrderActivity({
+      action: WORK_ORDER_ACTIVITY_ACTIONS.ADD_PARTNER,
+      workOrder,
+      actorId: input.actorId,
+      details: { partnerId: targetUser.id, partnerName: targetUser.name },
+    });
+    return assignment;
   }
 
   async removePartner(input: RemovePartnerInput) {
@@ -102,6 +113,15 @@ export class MobileWorkOrderPartnerService {
 
     await prisma.workOrderAssignments.delete({
       where: { id: input.assignmentId, tenantId: input.tenantId },
+    });
+    recordWorkOrderActivity({
+      action: WORK_ORDER_ACTIVITY_ACTIONS.REMOVE_PARTNER,
+      workOrder: assignment.workOrders,
+      actorId: input.actorId,
+      details: {
+        assignmentId: input.assignmentId,
+        partnerId: assignment.userId,
+      },
     });
   }
 
@@ -131,6 +151,12 @@ export class MobileWorkOrderPartnerService {
       assignmentId: assignment.id,
       tenantId: input.tenantId,
       response: input.response,
+    });
+    recordWorkOrderActivity({
+      action: WORK_ORDER_ACTIVITY_ACTIONS.PARTNER_RESPONSE,
+      workOrder,
+      actorId: input.actorId,
+      details: { assignmentId: assignment.id, jawaban: input.response },
     });
 
     return {

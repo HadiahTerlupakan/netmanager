@@ -16,6 +16,18 @@ export const WORK_ORDER_ACTIVITY_ACTIONS = {
   APPROVE_REQUEST: "APPROVE_REQUEST",
   REJECT_REQUEST: "REJECT_REQUEST",
   EXPORT_PDF: "EXPORT_PDF",
+  START: "START",
+  CLAIM: "CLAIM",
+  COMPLETE: "COMPLETE",
+  PAUSE: "PAUSE",
+  COMMENT: "COMMENT",
+  NOTE: "NOTE",
+  UPDATE_TASK: "UPDATE_TASK",
+  MATERIAL_PICKUP: "MATERIAL_PICKUP",
+  ADD_PARTNER: "ADD_PARTNER",
+  REMOVE_PARTNER: "REMOVE_PARTNER",
+  PARTNER_RESPONSE: "PARTNER_RESPONSE",
+  CREATE_REQUEST: "CREATE_REQUEST",
 } as const;
 
 export type WorkOrderActivityAction =
@@ -40,13 +52,19 @@ export function recordWorkOrderActivity(input: {
   action: WorkOrderActivityAction;
   workOrder: WorkOrderActivityTarget;
   actorId: string;
+  /** Mitra bukan baris User, jadi dicatat sebagai pelaku bertipe mitra. */
+  actorType?: "user" | "mitra";
   details?: Record<string, unknown>;
 }): void {
   const { workOrder } = input;
+  const actor =
+    input.actorType === "mitra"
+      ? { actor: { type: "mitra", id: input.actorId } }
+      : { userId: input.actorId };
   logActivitySafe({
     action: input.action,
     subject: `${WORK_ORDER_SUBJECT} ${workOrder.workOrderNumber}`,
-    userId: input.actorId,
+    ...actor,
     tenantId: workOrder.tenantId ?? undefined,
     details: {
       workOrderId: workOrder.id,

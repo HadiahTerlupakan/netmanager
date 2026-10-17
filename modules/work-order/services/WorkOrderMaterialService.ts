@@ -27,6 +27,10 @@ import {
   notifyMobileWorkOrderMaterialActionSafely,
   notifyMobileWorkOrderMaterialReturnSafely,
 } from "./work-order-side-effects";
+import {
+  recordWorkOrderActivity,
+  WORK_ORDER_ACTIVITY_ACTIONS,
+} from "./work-order-activity-log";
 import type {
   MobileWorkOrderMaterialReturnInput,
   MobileWorkOrderMaterialReturnResult,
@@ -104,6 +108,12 @@ export class WorkOrderMaterialService {
             actorId: userContext.id,
           },
         );
+      recordWorkOrderActivity({
+        action: WORK_ORDER_ACTIVITY_ACTIONS.MATERIAL_PICKUP,
+        workOrder,
+        actorId: userContext.id,
+        details: { items: results },
+      });
       await notifyMobileWorkOrderMaterialActionSafely({
         workOrderId: workOrder.id,
         workOrderNumber: workOrder.workOrderNumber,

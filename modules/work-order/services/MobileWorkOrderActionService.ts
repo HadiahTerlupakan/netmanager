@@ -32,6 +32,10 @@ import type {
   WorkOrderUpdateType,
 } from "./work-order-mobile-action.types";
 import { catatPemakaianMaterial } from "./work-order-pemakaian-material";
+import {
+  recordWorkOrderActivity,
+  WORK_ORDER_ACTIVITY_ACTIONS,
+} from "./work-order-activity-log";
 
 const UNKNOWN_USER_NAME = "Unknown";
 const MOBILE_ALLOWED_WORK_ORDER_STATUSES = [
@@ -82,6 +86,18 @@ export class MobileWorkOrderActionService {
       input.workOrderId,
     );
     socketEmitter.updateWorkOrder(updatedWorkOrder);
+    if (updatedWorkOrder) {
+      recordWorkOrderActivity({
+        action: WORK_ORDER_ACTIVITY_ACTIONS.UPDATE_TASK,
+        workOrder: updatedWorkOrder,
+        actorId: input.actor.id,
+        details: {
+          taskId: input.taskId,
+          tugas: task.title,
+          status: input.isCompleted ? "COMPLETED" : "PENDING",
+        },
+      });
+    }
     await notifyMobileTaskUpdate({
       updatedWorkOrder,
       taskTitle: task.title,
@@ -121,6 +137,20 @@ export class MobileWorkOrderActionService {
     };
 
     await this.runAction(actionInput);
+    if (workOrder) {
+      recordWorkOrderActivity({
+        action: WORK_ORDER_ACTIVITY_ACTIONS[input.payload.action],
+        workOrder,
+        actorId: input.actor.id,
+        details: {
+          statusSebelum: workOrder.status,
+          notes: input.payload.notes,
+          ...(input.payload.materials?.length
+            ? { jumlahMaterialTerpasang: input.payload.materials.length }
+            : {}),
+        },
+      });
+    }
     await notifyMobileWorkOrderAction({
       workOrder,
       actionInput: input,

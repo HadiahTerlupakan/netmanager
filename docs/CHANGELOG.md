@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Log Aktivitas untuk aksi work order dari mobile
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/work-order`
+- **Author**: agent
+- **Deskripsi**: Aksi WO dari aplikasi mobile sebelumnya hanya tercatat lewat log
+  generik berlabel "CREATE". Kini tercatat sebagai log domain bernomor WO dengan
+  nama aksinya: START, CLAIM, COMPLETE, PAUSE, COMMENT, NOTE (update WO), CLAIM
+  dari daftar WO tersedia (mitra dicatat sebagai pelaku mitra), UPDATE_TASK,
+  MATERIAL_PICKUP, ADD_PARTNER, REMOVE_PARTNER, PARTNER_RESPONSE, dan
+  CREATE_REQUEST. Log generik untuk aksi ini otomatis tidak ditulis lagi.
+- **Files**: `modules/work-order/services/MobileWorkOrderActionService.ts`,
+  `modules/work-order/services/MobileAvailableWorkOrderService.ts`,
+  `modules/work-order/services/MobileWorkOrderPartnerService.ts`,
+  `modules/work-order/services/work-order-activity-log.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-17] — Satu aksi satu baris di Log Aktivitas
 
 - **Tipe**: [CHANGED]
