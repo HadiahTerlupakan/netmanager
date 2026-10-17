@@ -52,7 +52,10 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `HelmChartConfig` traefik menyetel `externalTrafficPolicy: Local` (aman di
   cluster satu node). Diterapkan ke produksi 2026-10-17 dan terverifikasi: log
   aplikasi mencatat IP publik pengirim request uji.
-- **Files**: `k8s/production/traefik-helmchartconfig.yaml`
+- **Files**: `k8s/cluster/traefik-helmchartconfig.yaml` (manifes tingkat cluster,
+  diterapkan manual; tidak boleh di `k8s/production` karena skrip deploy
+  menerapkan folder itu ke namespace `netmanager-production`),
+  `tests/ci/production-manifest-namespace.test.ts`
 - **Breaking**: ❌ Tidak
 
 ### [2026-10-17] — Log Aktivitas untuk aksi work order dari mobile

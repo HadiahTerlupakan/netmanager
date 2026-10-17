@@ -8,7 +8,9 @@
 # Aman karena cluster hanya punya satu node dan pod Traefik berjalan di node itu
 # (policy Local hanya meneruskan trafik ke pod di node penerima).
 #
-# Terapkan: sudo kubectl apply -f k8s/production/traefik-helmchartconfig.yaml
+# Manifes tingkat cluster (namespace kube-system): TIDAK diterapkan skrip deploy,
+# yang hanya menerapkan k8s/production ke namespace netmanager-production.
+# Terapkan manual: sudo kubectl apply -f k8s/cluster/traefik-helmchartconfig.yaml
 # k3s helm-controller lalu menjalankan helm upgrade chart Traefik otomatis.
 apiVersion: helm.cattle.io/v1
 kind: HelmChartConfig
