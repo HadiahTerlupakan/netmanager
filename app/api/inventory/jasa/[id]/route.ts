@@ -19,9 +19,9 @@ export async function GET(
     );
   }
 
-  if (!(await hasPermission("barang:read"))) {
+  if (!(await hasPermission("jasa:read"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin barang:read" },
+      { error: "Akses ditolak. Butuh izin jasa:read" },
       { status: 403 },
     );
   }
@@ -55,9 +55,9 @@ export async function PUT(
     );
   }
 
-  if (!(await hasPermission("barang:update"))) {
+  if (!(await hasPermission("jasa:update"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin barang:update" },
+      { error: "Akses ditolak. Butuh izin jasa:update" },
       { status: 403 },
     );
   }
@@ -102,9 +102,9 @@ export async function DELETE(
     );
   }
 
-  if (!(await hasPermission("barang:delete"))) {
+  if (!(await hasPermission("jasa:delete"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin barang:delete" },
+      { error: "Akses ditolak. Butuh izin jasa:delete" },
       { status: 403 },
     );
   }

@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  if (!(await hasPermission("barang:read"))) {
+  if (!(await hasPermission("jasa:read"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin barang:read" },
+      { error: "Akses ditolak. Butuh izin jasa:read" },
       { status: 403 },
     );
   }
@@ -57,9 +57,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!(await hasPermission("barang:create"))) {
+  if (!(await hasPermission("jasa:create"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin barang:create" },
+      { error: "Akses ditolak. Butuh izin jasa:create" },
       { status: 403 },
     );
   }

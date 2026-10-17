@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Pisahkan izin dan menu Master Jasa dari Barang
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `app/admin/inventory/jasa` | `app/api/inventory/jasa` | `lib/`
+- **Author**: agent
+- **Deskripsi**: Master Jasa sebelumnya memakai izin `barang:*` dan tidak punya menu
+  sendiri (hanya tombol pintas di dashboard inventory). Kini halaman & API jasa
+  memakai `jasa:read|create|update|delete`, ada menu "Master Jasa" sendiri di
+  bawah Inventory, dan resource `jasa` masuk grup izin Inventory serta template
+  role. Migration data memberi `jasa:<aksi>` ke setiap role yang memegang
+  `barang:<aksi>` sehingga akses tidak berubah.
+- **Files**: `lib/menu-config.ts`, `app/api/inventory/jasa/route.ts`,
+  `app/admin/inventory/jasa/JasaList.tsx`, `components/inventory/QuickActions.tsx`
+- **Migration**: `20261017120000_split_jasa_permissions_from_barang`
+- **Breaking**: ❌ Tidak (role baru yang dibuat manual perlu diberi izin `jasa:*`
+  bila harus mengelola jasa)
+
 ### [2026-10-17] — Log Aktivitas lengkap untuk fitur kehadiran
 
 - **Tipe**: [CHANGED]

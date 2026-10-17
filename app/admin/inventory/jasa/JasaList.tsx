@@ -19,9 +19,9 @@ function formatRupiah(value: number): string {
 
 export default function JasaList() {
   const { hasPermission } = usePermission();
-  const canCreate = hasPermission("barang:create");
-  const canUpdate = hasPermission("barang:update");
-  const canDelete = hasPermission("barang:delete");
+  const canCreate = hasPermission("jasa:create");
+  const canUpdate = hasPermission("jasa:update");
+  const canDelete = hasPermission("jasa:delete");
 
   const [jasaList, setJasaList] = useState<Jasa[]>([]);
   const [loading, setLoading] = useState(true);

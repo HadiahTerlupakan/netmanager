@@ -15,6 +15,7 @@ export const PERMISSION_GROUPS = {
   INVENTORY: [
     "inventory",
     "barang",
+    "jasa",
     "masuk",
     "keluar",
     "transfer",

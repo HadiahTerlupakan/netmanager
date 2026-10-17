@@ -226,6 +226,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineCube",
       },
       {
+        code: "INVENTORY.JASA",
+        name: "Master Jasa",
+        path: "/admin/inventory/jasa",
+        icon: "HiOutlineWrench",
+      },
+      {
         code: "INVENTORY.GUDANG",
         name: "Gudang",
         path: "/admin/inventory/gudang",

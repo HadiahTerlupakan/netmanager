@@ -28,7 +28,7 @@ export function QuickActions() {
       icon: <FiTool className="w-5 h-5 text-white" />,
       color:
         "bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-400",
-      permission: "barang:read",
+      permission: "jasa:read",
     },
     {
       href: "/admin/inventory/masuk",

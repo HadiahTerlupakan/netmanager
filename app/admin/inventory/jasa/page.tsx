@@ -4,7 +4,7 @@ import JasaList from "./JasaList";
 export const dynamic = "force-dynamic";
 
 export default async function JasaPage() {
-  await ensurePermission("barang:read");
+  await ensurePermission("jasa:read");
 
   return <JasaList />;
 }
