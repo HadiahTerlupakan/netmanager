@@ -1,4 +1,8 @@
 import { OvertimeStatus } from "../types/overtime.enums";
+import {
+  OVERTIME_ACTIVITY_ACTIONS,
+  recordOvertimeActivity,
+} from "./overtime-activity-log";
 
 import type {
   IOvertimeRepository,
@@ -85,6 +89,13 @@ export class OvertimeService {
       request,
       tenantId: data.tenantId,
     });
+    await recordOvertimeActivity({
+      action: OVERTIME_ACTIVITY_ACTIONS.CREATE,
+      date: data.date,
+      actor: { userId },
+      tenantId: data.tenantId,
+      details: { overtimeId: request.id, reason: data.reason },
+    });
 
     return request;
   }
@@ -133,6 +144,18 @@ export class OvertimeService {
 
     ensureStartTimeExists(updatedOvertime);
     await this.schedulerService.schedule(updatedOvertime);
+    await recordOvertimeActivity({
+      action: OVERTIME_ACTIVITY_ACTIONS.START,
+      date: updatedOvertime.startTime!,
+      actor: { userId },
+      tenantId: data.tenantId ?? overtime.tenantId,
+      details: {
+        overtimeId,
+        waktu: updatedOvertime.startTime!.toISOString(),
+        location: data.location,
+        lemburHariLibur: holidayState.isHolidayOvertime,
+      },
+    });
 
     return updatedOvertime;
   }
@@ -159,6 +182,18 @@ export class OvertimeService {
     });
 
     await this.schedulerService.cancel(overtimeId);
+    await recordOvertimeActivity({
+      action: OVERTIME_ACTIVITY_ACTIONS.STOP,
+      date: overtime.startTime!,
+      actor: { userId },
+      tenantId: overtime.tenantId,
+      details: {
+        overtimeId,
+        waktu: completion.endTime.toISOString(),
+        location: data.location,
+        durasiMenit: completion.duration,
+      },
+    });
 
     return completedOvertime;
   }

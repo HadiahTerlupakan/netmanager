@@ -2,6 +2,11 @@ import type { OvertimeAutoCheckoutJobData } from "@/lib/event-bus/queues";
 
 import type { IOvertimeRepository } from "../domain/ports/IOvertimeRepository";
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
+import {
+  OVERTIME_ACTIVITY_ACTIONS,
+  OVERTIME_AUTO_CHECKOUT_ACTOR,
+  recordOvertimeActivity,
+} from "./overtime-activity-log";
 
 export const MAX_OVERTIME_DURATION_MINUTES = 8 * 60;
 
@@ -42,8 +47,24 @@ export class OvertimeAutoCheckoutService {
       endTime: schedule.scheduledFor,
       duration: MAX_OVERTIME_DURATION_MINUTES,
     });
+    if (!isCompleted) return "skipped";
 
-    return isCompleted ? "completed" : "skipped";
+    await recordOvertimeActivity({
+      action: OVERTIME_ACTIVITY_ACTIONS.AUTO_STOP,
+      date: overtime.startTime ?? schedule.scheduledFor,
+      actor: {
+        systemId: OVERTIME_AUTO_CHECKOUT_ACTOR,
+        employeeName: overtime.user?.name || overtime.userId,
+      },
+      tenantId: overtime.tenantId,
+      details: {
+        overtimeId: job.overtimeId,
+        employeeId: overtime.userId,
+        endTime: schedule.scheduledFor.toISOString(),
+        durasiMenit: MAX_OVERTIME_DURATION_MINUTES,
+      },
+    });
+    return "completed";
   }
 
   /** Check whether schedule still matches the current job. */

@@ -41,6 +41,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       tenantId,
       startDate: parseResult.data.startDate,
       endDate: parseResult.data.endDate,
+      actorId: user.id,
     });
 
     return NextResponse.json({

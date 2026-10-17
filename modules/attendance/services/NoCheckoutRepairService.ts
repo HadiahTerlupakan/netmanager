@@ -3,6 +3,11 @@ import type { AttendanceStatus } from "../types/attendance.enums";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
 import { AttendanceService } from "./AttendanceService";
 import { PrismaNoCheckoutRepairRepository } from "../repositories/NoCheckoutRepairRepository";
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_SYSTEM_ACTORS,
+  recordAutomaticAttendance,
+} from "./attendance-activity-log";
 
 const AUTO_CHECKOUT_NOTE = "Auto-Checkout: Lupa Absen Pulang";
 
@@ -23,6 +28,7 @@ export type NoCheckoutRepairRecord = {
   status: AttendanceStatus;
   notes: string | null;
   user: {
+    name?: string | null;
     workingHourMode: string | null;
     startWorkTime: string | null;
     shift: {
@@ -124,6 +130,20 @@ export class NoCheckoutRepairService {
       await this.repository.updateStatus({
         attendanceId: record.id,
         status,
+      });
+      recordAutomaticAttendance({
+        action: ATTENDANCE_ACTIVITY_ACTIONS.AUTO_STATUS_REPAIR,
+        systemId: ATTENDANCE_SYSTEM_ACTORS.NO_CHECKOUT_REPAIR,
+        employee: { id: record.userId, name: record.user.name },
+        date: record.checkIn,
+        timeZone: input.timezone,
+        tenantId: input.tenantId,
+        details: {
+          attendanceId: record.id,
+          statusLama: record.status,
+          statusBaru: status,
+          operatorId: input.actorId,
+        },
       });
       await this.evaluator.recompute({
         userId: record.userId,

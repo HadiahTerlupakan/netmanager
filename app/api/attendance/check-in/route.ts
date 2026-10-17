@@ -83,19 +83,6 @@ export async function POST(request: NextRequest) {
       },
     );
 
-    // Log activity for user report
-    await logger.logActivity({
-      action: "CREATE",
-      subject: "Attendance Check-In",
-      details: {
-        attendanceId: result.attendance.id,
-        location,
-        status: result.attendance.status,
-        timestamp: new Date().toISOString(),
-      },
-      userId,
-    });
-
     return NextResponse.json({ success: true, data: result.attendance });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));

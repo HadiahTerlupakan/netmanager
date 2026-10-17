@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
         requesterTenantId: session.user.tenantId,
         isSuperAdmin: session.user.isSuperAdmin,
       },
+      actorId: session.user.id,
     });
 
     return apiSuccess(result, { message: "Kuota cuti berhasil diperbarui" });

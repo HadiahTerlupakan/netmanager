@@ -4,6 +4,11 @@ import {
   DEFAULT_LEAVE_QUOTAS,
   LeaveBalanceRepository,
 } from "../repositories/LeaveBalanceRepository";
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_ACTIVITY_SUBJECTS,
+  recordAttendanceActivity,
+} from "./attendance-activity-log";
 
 const DEFAULT_YEAR_OFFSET = 0;
 
@@ -23,6 +28,7 @@ interface LeaveQuotaUpdateInput {
   year?: number;
   quotas: Partial<Record<LeaveType, number>>;
   access: LeaveBalanceAccessContext;
+  actorId: string;
 }
 
 export class AdminLeaveBalanceRouteService {
@@ -52,12 +58,33 @@ export class AdminLeaveBalanceRouteService {
     const targetYear = input.year || this.getCurrentYear();
     const tenantId = this.resolveTenantId(input.access);
     await this.upsertQuotas(input.userId, targetYear, input.quotas, tenantId);
+    await this.recordQuotaChange(input, targetYear);
     const balances = await this.leaveBalanceRepository.getUserBalances(
       input.userId,
       targetYear,
       tenantId,
     );
     return { balances };
+  }
+
+  private async recordQuotaChange(input: LeaveQuotaUpdateInput, year: number) {
+    const employee = await this.userRepository
+      .findById(input.userId)
+      .catch((): null => null);
+    const employeeName = employee?.name ?? null;
+    recordAttendanceActivity({
+      action: ATTENDANCE_ACTIVITY_ACTIONS.UPDATE,
+      subject: ATTENDANCE_ACTIVITY_SUBJECTS.LEAVE_QUOTA,
+      reference: `${employeeName ?? input.userId} ${year}`,
+      actor: { userId: input.actorId },
+      tenantId: employee?.tenantId ?? input.access.requesterTenantId,
+      details: {
+        employeeId: input.userId,
+        employeeName,
+        tahun: year,
+        kuotaBaru: input.quotas,
+      },
+    });
   }
 
   /** Inisialisasi kuota cuti bawaan untuk user baru. */

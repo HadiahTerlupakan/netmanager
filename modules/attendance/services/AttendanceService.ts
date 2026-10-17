@@ -1,3 +1,9 @@
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_ACTIVITY_SUBJECTS,
+  formatAttendanceDate,
+  recordAttendanceActivity,
+} from "./attendance-activity-log";
 import type { CachedUserAttendanceSettings } from "./attendance-service-helpers";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import { type CurrentAttendanceStatusResult } from "./attendance-current-status-helpers";
@@ -133,6 +139,14 @@ export class AttendanceService {
       userDetails,
     });
 
+    recordAttendanceActivity({
+      action: ATTENDANCE_ACTIVITY_ACTIONS.RECOMPUTE,
+      subject: ATTENDANCE_ACTIVITY_SUBJECTS.ATTENDANCE,
+      reference: `${formatAttendanceDate(startDate, timezone)} s.d. ${formatAttendanceDate(endDate, timezone)}`,
+      actor: { userId: actorId },
+      tenantId,
+      details: { employeeId: userId, processedCount: evaluations.length },
+    });
     return {
       processedCount: evaluations.length,
       evaluations,

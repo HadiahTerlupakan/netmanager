@@ -10,6 +10,12 @@ import {
 } from "./attendance-service-helpers";
 import type { ActiveAttendanceSessionRow } from "./attendance-current-status-helpers";
 import type { CheckInParams } from "./attendance-service.contracts";
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_ACTIVITY_SUBJECTS,
+  formatAttendanceDate,
+  recordAttendanceActivity,
+} from "./attendance-activity-log";
 
 export class AttendanceSessionGuardService {
   constructor(private readonly attendanceRepo: AttendanceRepository) {}
@@ -35,6 +41,8 @@ export class AttendanceSessionGuardService {
       staleSessions.map((session) =>
         this.closeStaleSession({
           session,
+          userId: input.userId,
+          tenantId: input.tenantId,
           sessionPolicyService,
           userDetails: input.userDetails,
           policyNow: input.checkInTime,
@@ -93,6 +101,8 @@ export class AttendanceSessionGuardService {
       status: string;
       notes: string | null;
     };
+    userId: string;
+    tenantId?: string;
     sessionPolicyService: AttendanceSessionPolicyService;
     userDetails: CachedUserAttendanceSettings | null;
     policyNow: Date;
@@ -115,8 +125,21 @@ export class AttendanceSessionGuardService {
       decision,
       existingNotes: input.session.notes,
     });
-    if (updateData)
-      await this.attendanceRepo.update(input.session.id, updateData);
+    if (!updateData) return;
+    await this.attendanceRepo.update(input.session.id, updateData);
+    recordAttendanceActivity({
+      action: ATTENDANCE_ACTIVITY_ACTIONS.AUTO_CHECKOUT,
+      subject: ATTENDANCE_ACTIVITY_SUBJECTS.ATTENDANCE,
+      reference: formatAttendanceDate(input.session.checkIn, input.timezone),
+      actor: { userId: input.userId },
+      tenantId: input.tenantId,
+      details: {
+        attendanceId: input.session.id,
+        status: updateData.status,
+        checkOut: updateData.checkOut,
+        alasan: "Sesi lama ditutup otomatis saat check-in berikutnya",
+      },
+    });
   }
 
   private buildSessionPolicyAttendance(

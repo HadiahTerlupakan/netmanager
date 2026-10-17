@@ -29,6 +29,12 @@ import { AttendanceEvaluationRecomputeService } from "./AttendanceEvaluationReco
 import { AttendanceMutationGeofenceService } from "./AttendanceMutationGeofenceService";
 import { AttendanceMutationEventService } from "./AttendanceMutationEventService";
 import { AttendanceSessionGuardService } from "./AttendanceSessionGuardService";
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_ACTIVITY_SUBJECTS,
+  formatAttendanceDate,
+  recordAttendanceActivity,
+} from "./attendance-activity-log";
 
 export class AttendanceMutationService {
   constructor(
@@ -94,6 +100,23 @@ export class AttendanceMutationService {
       status,
     );
     this.eventService.publishCheckInEvent(params, context, result.id);
+    recordAttendanceActivity({
+      action: ATTENDANCE_ACTIVITY_ACTIONS.CHECK_IN,
+      subject: ATTENDANCE_ACTIVITY_SUBJECTS.ATTENDANCE,
+      reference: formatAttendanceDate(context.checkInTime, context.timezone),
+      actor: { userId: params.userId },
+      tenantId: params.tenantId,
+      details: {
+        attendanceId: result.id,
+        status: result.status,
+        waktu: context.checkInTime.toISOString(),
+        location: params.location,
+        geofenceStatus: result.geofenceStatus,
+        geofenceSiteName: result.geofenceSiteName,
+        geofenceDistance: result.geofenceDistance,
+        offline: Boolean(params.offlineTime),
+      },
+    });
     return {
       attendance: result,
       evaluation: await this.evaluateCreatedAttendance(result, params, context),
@@ -123,12 +146,41 @@ export class AttendanceMutationService {
       updatedAttendance,
     );
     this.eventService.publishCheckOutEvent(params, attendance, checkOutTime);
-    return this.buildCheckoutResult(
+    const result = this.buildCheckoutResult(
       attendance,
       updatedAttendance,
       evaluation,
       checkOutTime,
     );
+    await this.recordCheckOutActivity(params, result);
+    return result;
+  }
+
+  private async recordCheckOutActivity(
+    params: CheckoutParams,
+    result: CheckoutResult,
+  ) {
+    const checkedOut = result.attendance;
+    const timezone = await this.timezoneService
+      .getTimezone(params.tenantId)
+      .catch((): undefined => undefined);
+    recordAttendanceActivity({
+      action: ATTENDANCE_ACTIVITY_ACTIONS.CHECK_OUT,
+      subject: ATTENDANCE_ACTIVITY_SUBJECTS.ATTENDANCE,
+      reference: formatAttendanceDate(checkedOut.checkIn, timezone),
+      actor: { userId: params.userId },
+      tenantId: params.tenantId,
+      details: {
+        attendanceId: checkedOut.id,
+        status: checkedOut.status,
+        waktu: checkedOut.checkOut?.toISOString() ?? null,
+        location: params.location,
+        geofenceStatus: checkedOut.checkOutGeofenceStatus,
+        geofenceDistance: checkedOut.checkOutGeofenceDistance,
+        offline: Boolean(params.offlineTime),
+        ...(result.warning ? { warning: result.warning } : {}),
+      },
+    });
   }
 
   private async prepareCheckInContext(params: CheckInParams) {

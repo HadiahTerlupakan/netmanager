@@ -8,7 +8,9 @@ export class LeaveNotificationService {
   logActivity(input: {
     action: string;
     subject: string;
-    userId: string;
+    userId?: string;
+    actor?: { type: string; id: string };
+    tenantId?: string;
     details: Record<string, unknown>;
   }): void {
     logActivitySafe(input);

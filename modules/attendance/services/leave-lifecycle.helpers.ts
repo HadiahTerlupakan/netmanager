@@ -63,18 +63,6 @@ export function insufficientBalanceResult() {
   };
 }
 
-export function logLeaveActivity(
-  notificationService: LeaveNotificationService,
-  input: {
-    action: string;
-    subject: string;
-    userId: string;
-    details: Record<string, unknown>;
-  },
-) {
-  notificationService.logActivity(input);
-}
-
 export async function sendLeaveNotification(
   notificationService: LeaveNotificationService,
   input: { userId: string; title: string; message: string; sourceId: string },
@@ -182,14 +170,31 @@ export function createDecisionDetails(input: {
   };
 }
 
+/** ID pelaku yang dipakai cron saat menyetujui/menolak izin otomatis. */
+export const SYSTEM_AUTO_ACTOR_ID = "SYSTEM_AUTO";
+
+/**
+ * Catat perubahan izin. Keputusan cron (`SYSTEM_AUTO`) dicatat sebagai pelaku
+ * sistem; bila dikirim sebagai userId, logger membuangnya karena user tidak ada.
+ */
 export function logLeaveMutation(
   notificationService: LeaveNotificationService,
-  input: { action: string; userId: string; details: Record<string, unknown> },
+  input: {
+    action: string;
+    userId: string;
+    tenantId?: string;
+    details: Record<string, unknown>;
+  },
 ) {
-  logLeaveActivity(notificationService, {
+  const actor =
+    input.userId === SYSTEM_AUTO_ACTOR_ID
+      ? { actor: { type: "system", id: SYSTEM_AUTO_ACTOR_ID } }
+      : { userId: input.userId };
+  notificationService.logActivity({
     action: input.action,
     subject: "LeaveRequest",
-    userId: input.userId,
+    ...actor,
+    tenantId: input.tenantId,
     details: input.details,
   });
 }

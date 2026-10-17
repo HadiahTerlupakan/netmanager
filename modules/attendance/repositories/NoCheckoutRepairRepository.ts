@@ -35,6 +35,7 @@ export class PrismaNoCheckoutRepairRepository implements NoCheckoutRepairReposit
       include: {
         user: {
           select: {
+            name: true,
             workingHourMode: true,
             startWorkTime: true,
             shift: {

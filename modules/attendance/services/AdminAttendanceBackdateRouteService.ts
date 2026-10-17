@@ -1,4 +1,9 @@
 import { randomUUID } from "crypto";
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_ACTIVITY_SUBJECTS,
+  recordAttendanceActivity,
+} from "./attendance-activity-log";
 
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
@@ -17,6 +22,7 @@ interface BackdateAttendanceInput {
   tenantId: string;
   startDate: string;
   endDate: string;
+  actorId: string;
 }
 
 interface BackdateAttendanceResult {
@@ -60,6 +66,14 @@ export class AdminAttendanceBackdateRouteService {
       );
     }
 
+    recordAttendanceActivity({
+      action: ATTENDANCE_ACTIVITY_ACTIONS.BACKDATE,
+      subject: ATTENDANCE_ACTIVITY_SUBJECTS.ATTENDANCE,
+      reference: `${input.startDate} s.d. ${input.endDate}`,
+      actor: { userId: input.actorId },
+      tenantId: input.tenantId,
+      details: { generatedCount, timezone },
+    });
     return {
       message: `Berhasil backfill! ${generatedCount} data absensi (ABSENT) telah ditambahkan.`,
       generatedCount,

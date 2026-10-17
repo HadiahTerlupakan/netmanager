@@ -11,6 +11,11 @@ import { LeaveBalanceRepository } from "../repositories/LeaveBalanceRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { calculateWorkingDays } from "../utils/calculateWorkingDays";
 import { validateTukarLiburRules } from "./LeaveService";
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_ACTIVITY_SUBJECTS,
+  recordAttendanceActivity,
+} from "./attendance-activity-log";
 
 const LEAVE_UPLOAD_DIR = "public/uploads/employee-leave";
 const BAD_REQUEST_STATUS = 400;
@@ -116,6 +121,20 @@ export class MobileLeaveRequestService {
       this.createLeaveCreateInput({ input, leaveType, dateRange, attachments }),
     );
 
+    recordAttendanceActivity({
+      action: ATTENDANCE_ACTIVITY_ACTIONS.CREATE,
+      subject: ATTENDANCE_ACTIVITY_SUBJECTS.LEAVE,
+      reference: `${input.startDate} s.d. ${input.endDate}`,
+      actor: { userId: input.userId },
+      tenantId: input.tenantId,
+      details: {
+        leaveId: requestData.id,
+        type: input.type,
+        jumlahHari: leaveDays,
+        reason: input.reason,
+        jumlahLampiran: attachments.length,
+      },
+    });
     await this.notificationHelper.notifyApprovers({
       tenantId: input.tenantId,
       requestId: requestData.id,

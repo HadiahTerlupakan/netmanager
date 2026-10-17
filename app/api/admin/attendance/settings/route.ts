@@ -56,6 +56,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const updatedSettings = await settingsService.updateAutoRejectSettings(
     tenantId,
     body,
+    ctx.session.user.id,
   );
 
   return apiSuccess(updatedSettings);

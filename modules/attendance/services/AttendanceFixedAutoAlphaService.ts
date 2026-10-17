@@ -15,6 +15,11 @@ import {
 } from "./AttendanceAlertDependencies";
 import { acquireReminderLock } from "./AttendanceAlertLockService";
 import type { FixedAlphaResult } from "./AttendanceAlertTypes";
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_SYSTEM_ACTORS,
+  recordAutomaticAttendance,
+} from "./attendance-activity-log";
 
 /** Auto-mark ABSENT untuk user fixed-hour setelah jam kerja selesai tanpa check-in. */
 export async function processFixedHourAutoAlpha(): Promise<FixedAlphaResult> {
@@ -130,8 +135,9 @@ async function createAutoAlphaAttendance(
   );
   const currentDateKey = getDateKeyInTimezone(context.now, timezone);
   const startOfDay = toStartOfDay(currentDateKey, timezone);
+  const attendanceId = randomUUID();
   await getAttendanceRepository().createWithId({
-    id: randomUUID(),
+    id: attendanceId,
     userId: user.id,
     tenantId: user.tenantId!,
     checkIn: new Date(startOfDay),
@@ -140,6 +146,15 @@ async function createAutoAlphaAttendance(
     notes: "Tidak Masuk Kerja (Absent) - Auto Generated",
     location: "System",
     updatedAt: new Date(),
+  });
+  recordAutomaticAttendance({
+    action: ATTENDANCE_ACTIVITY_ACTIONS.AUTO_ABSENT,
+    systemId: ATTENDANCE_SYSTEM_ACTORS.FIXED_AUTO_ALPHA,
+    employee: user,
+    date: new Date(startOfDay),
+    timeZone: timezone,
+    tenantId: user.tenantId,
+    details: { attendanceId },
   });
 }
 

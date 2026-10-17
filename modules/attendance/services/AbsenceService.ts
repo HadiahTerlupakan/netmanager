@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
+import { getTimezoneSync } from "@/lib/utils/get-timezone";
 import { AttendanceEventDispatcher } from "@/modules/events";
 import { UserLookupService } from "@/modules/users";
 import {
@@ -10,6 +11,11 @@ import {
 } from "../factories/AttendanceRepositoryFactory";
 import { AbsenceDayOffSyncService } from "./AbsenceDayOffSyncService";
 import { AttendanceWorkdayService } from "./AttendanceWorkdayService";
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_SYSTEM_ACTORS,
+  recordAutomaticAttendance,
+} from "./attendance-activity-log";
 
 const DAY_OFF_HOLIDAY_NOTE = "Hari Libur (Day Off) - Auto Generated";
 const DAY_OFF_REGULAR_NOTE = "Hari Off (Day Off) - Auto Generated";
@@ -179,8 +185,9 @@ export class AbsenceService {
   }) {
     try {
       const dayOffTime = new Date(toStartOfDay(input.startOfDay));
+      const attendanceId = randomUUID();
       await this.attendanceRepo.create({
-        id: randomUUID(),
+        id: attendanceId,
         userId: input.user.id,
         tenantId: input.tenantId,
         checkIn: dayOffTime,
@@ -189,6 +196,15 @@ export class AbsenceService {
         notes: input.isHoliday ? DAY_OFF_HOLIDAY_NOTE : DAY_OFF_REGULAR_NOTE,
         location: SYSTEM_LOCATION,
         updatedAt: new Date(),
+      });
+      recordAutomaticAttendance({
+        action: ATTENDANCE_ACTIVITY_ACTIONS.AUTO_DAY_OFF,
+        systemId: ATTENDANCE_SYSTEM_ACTORS.DAILY_ABSENCE,
+        employee: input.user,
+        date: dayOffTime,
+        timeZone: getTimezoneSync(),
+        tenantId: input.tenantId,
+        details: { attendanceId, hariLibur: input.isHoliday },
       });
       return "dayOff";
     } catch (error) {
@@ -225,6 +241,15 @@ export class AbsenceService {
         alphaTime,
         input.tenantId,
       );
+      recordAutomaticAttendance({
+        action: ATTENDANCE_ACTIVITY_ACTIONS.AUTO_ABSENT,
+        systemId: ATTENDANCE_SYSTEM_ACTORS.DAILY_ABSENCE,
+        employee: input.user,
+        date: alphaTime,
+        timeZone: getTimezoneSync(),
+        tenantId: input.tenantId,
+        details: { attendanceId },
+      });
       return "absent";
     } catch (error) {
       logger.error(

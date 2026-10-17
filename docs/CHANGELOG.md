@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-17] — Log Aktivitas lengkap untuk fitur kehadiran
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/attendance` | `modules/overtime`
+- **Author**: agent
+- **Deskripsi**: Semua aksi kehadiran kini tercatat di Log Aktivitas. Check-in/out
+  web & mobile dicatat di servis inti (status, geofence, site, offline). Proses
+  otomatis dicatat dengan pelaku "System": ABSENT/DAY_OFF harian, auto-alpha jam
+  tetap, auto-checkout (job & saat check-in berikutnya), perbaikan NO_CHECKOUT,
+  auto-approve/auto-reject izin (sebelumnya dibuang logger karena pelaku
+  `SYSTEM_AUTO` bukan user), dan auto-stop lembur. Juga: ubah kuota cuti, izin
+  dari mobile, pengajuan/mulai/selesai lembur, pengaturan auto-reject, backdate,
+  dan recompute evaluasi. Log check-in/out lama di route web dihapus agar tidak
+  dobel.
+- **Files**: `modules/attendance/services/attendance-activity-log.ts`,
+  `modules/overtime/services/overtime-activity-log.ts`,
+  `modules/attendance/services/AttendanceMutationService.ts`,
+  `modules/attendance/services/leave-lifecycle.helpers.ts`
+- **Breaking**: ❌ Tidak (subjek log check-in/out berubah dari
+  "Attendance Check-In/Out" menjadi "Absensi <tanggal>")
+
 ### [2026-10-17] — Log Aktivitas lengkap untuk semua aksi inventory
 
 - **Tipe**: [CHANGED]

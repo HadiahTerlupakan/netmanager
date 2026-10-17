@@ -9,6 +9,11 @@ import {
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { getInactiveSessionStatuses } from "../repositories/attendance-repository-helpers";
 import { AttendanceSessionPolicyService } from "./AttendanceSessionPolicyService";
+import {
+  ATTENDANCE_ACTIVITY_ACTIONS,
+  ATTENDANCE_SYSTEM_ACTORS,
+  recordAutomaticAttendance,
+} from "./attendance-activity-log";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -87,9 +92,21 @@ export async function processAttendanceAutoCheckoutJob(input: {
   const updateData = resolveAutoCheckoutUpdate(input);
   if (!updateData) return createNoopResult(input.attendance.id);
   const updatedCount = await updateAutoCheckoutAttendance(input, updateData);
-  return updatedCount === 0
-    ? createNoopResult(input.attendance.id)
-    : { attendanceId: input.attendance.id, status: "processed" as const };
+  if (updatedCount === 0) return createNoopResult(input.attendance.id);
+  recordAutomaticAttendance({
+    action: ATTENDANCE_ACTIVITY_ACTIONS.AUTO_CHECKOUT,
+    systemId: ATTENDANCE_SYSTEM_ACTORS.AUTO_CHECKOUT,
+    employee: { id: input.attendance.userId, name: input.attendance.user.name },
+    date: input.attendance.checkIn,
+    timeZone: input.timezone,
+    tenantId: input.data.tenantId,
+    details: {
+      attendanceId: input.attendance.id,
+      status: updateData.status,
+      checkOut: updateData.checkOut,
+    },
+  });
+  return { attendanceId: input.attendance.id, status: "processed" as const };
 }
 
 function resolveAutoCheckoutUpdate(input: {

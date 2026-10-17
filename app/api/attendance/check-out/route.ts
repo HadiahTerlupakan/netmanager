@@ -72,18 +72,6 @@ export async function POST(request: NextRequest) {
         },
       );
 
-      // Log activity for user report
-      await logger.logActivity({
-        action: "UPDATE",
-        subject: "Attendance Check-Out",
-        details: {
-          attendanceId: result.attendance.id,
-          location,
-          timestamp: new Date().toISOString(),
-        },
-        userId,
-      });
-
       return NextResponse.json({
         success: true,
         data: result.attendance,

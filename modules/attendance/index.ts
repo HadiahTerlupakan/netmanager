@@ -61,3 +61,4 @@ export * from "./services/LeaveReminderCronService";
 export * from "./services/TenantSettingsService";
 export { calculateWorkingDays } from "./utils/calculateWorkingDays";
 export * from "./services/presence-report-scope";
+export { formatAttendanceDate } from "./services/attendance-activity-log";

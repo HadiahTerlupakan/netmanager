@@ -111,6 +111,7 @@ export class LeaveLifecycleService {
       logLeaveMutation(this.notificationService, {
         action: "UPDATE",
         userId: approverId,
+        tenantId,
         details: createDecisionDetails({
           id,
           status: "APPROVED",
@@ -165,6 +166,7 @@ export class LeaveLifecycleService {
       logLeaveMutation(this.notificationService, {
         action: "UPDATE",
         userId: approverId,
+        tenantId,
         details: createDecisionDetails({
           id,
           status: "REJECTED",
@@ -216,6 +218,7 @@ export class LeaveLifecycleService {
       logLeaveMutation(this.notificationService, {
         action: "DELETE",
         userId: deletedById,
+        tenantId,
         details: { id, employeeName: existing.data.user?.name },
       });
       return { success: true };
@@ -265,6 +268,7 @@ export class LeaveLifecycleService {
     logLeaveMutation(this.notificationService, {
       action: "CREATE",
       userId: context.actorId,
+      tenantId: context.tenantId,
       details: {
         id: leave.id,
         userId: data.userId,
