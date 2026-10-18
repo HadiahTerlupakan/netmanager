@@ -291,10 +291,14 @@ describe("mobile-auth logout mobile terpisah dari web", () => {
     mobileTokenVersion: 2,
     isActive: true,
     isSales: false,
-    siteId: null,
+    siteId: null as string | null,
     tenantId: "tenant-1",
-    userSites: [],
-    role: { name: "ADMIN", isSuperAdmin: false, permission: [] },
+    userSites: [] as { siteId: string }[],
+    role: {
+      name: "ADMIN",
+      isSuperAdmin: false,
+      permission: [] as { resource: string; action: string }[],
+    },
   };
 
   beforeEach(() => {
