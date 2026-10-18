@@ -8,6 +8,11 @@ import { MobileCustomerAuthService } from "./MobileCustomerAuthService";
 import { MobileEmployeeAuthService } from "./MobileEmployeeAuthService";
 import { MobileAuthVersionService } from "./MobileAuthVersionService";
 import {
+  recordMobileLogin,
+  recordOutdatedAppRejected,
+  type RequestOrigin,
+} from "./MobileLoginAudit";
+import {
   isSalesPengguna,
   personaPengguna,
   type PersonaKaryawan,
@@ -33,6 +38,7 @@ export interface MobileLoginPayload {
 
 export interface MobileLoginRouteInput extends MobileLoginPayload {
   loginType: string;
+  origin?: RequestOrigin;
 }
 
 export type MobileLoginResult =
@@ -97,12 +103,23 @@ export async function loginMobileRoute(input: MobileLoginRouteInput) {
     );
   }
 
-  const unsupportedResponse =
-    await mobileAuthVersionService.buildUnsupportedVersionResponse(
+  const version = {
+    versionCode: input.versionCode,
+    versionName: input.versionName,
+  };
+  const { response: unsupportedResponse, minimum } =
+    await mobileAuthVersionService.checkVersion(
       input.versionCode,
       input.versionName,
     );
   if (unsupportedResponse) {
+    recordOutdatedAppRejected({
+      stage: "login",
+      identifier: input.email,
+      version,
+      minimum,
+      origin: input.origin ?? {},
+    });
     return unsupportedResponse;
   }
 
@@ -123,6 +140,11 @@ export async function loginMobileRoute(input: MobileLoginRouteInput) {
     });
   }
 
+  recordMobileLogin({
+    user: (result.data.user ?? {}) as Record<string, unknown>,
+    version,
+    origin: input.origin ?? {},
+  });
   return NextResponse.json({ success: true, ...result.data });
 }
 

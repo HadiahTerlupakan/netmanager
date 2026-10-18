@@ -41,6 +41,30 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-18] — Log Login mencatat lagi login web, login mobile, dan versi aplikasi yang ditolak
+
+- **Tipe**: [FIXED] [ADDED]
+- **Scope**: `lib/auth` | `modules/users` | `app/api/mobile/auth` | `app/admin/log/login`
+- **Author**: agent
+- **Deskripsi**:
+  - Login web kembali tercatat. Event `signIn` NextAuth hilang dalam refactor
+    auth 2026-05-11 (b0b894e30), sehingga sejak itu Log Login kosong dan
+    `lastLoginAt` web tidak diperbarui.
+  - Login aplikasi mobile yang berhasil kini tercatat untuk semua jenis akun
+    (karyawan, mitra, pelanggan, investor) beserta versi aplikasinya.
+  - Login dan refresh token yang ditolak karena versi aplikasi di bawah versi
+    minimum tercatat sebagai `LOGIN_REJECTED_OUTDATED_APP` (versi yang
+    dipakai, versi wajib, IP, perangkat). Penolakan per request tidak
+    dicatat agar log tidak banjir.
+  - Halaman Log Login menampilkan aksi itu sebagai "Ditolak: versi aplikasi
+    lama" dan detail versi aplikasi.
+- **Files**: `lib/auth/sign-in-event.ts`, `lib/auth/config.ts`,
+  `modules/users/services/MobileLoginAudit.ts`,
+  `modules/users/services/MobileAuthRouteService.ts`,
+  `app/api/mobile/auth/login/route.ts`, `app/api/mobile/auth/refresh/route.ts`,
+  `app/admin/log/login/*`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-18] — Hanya versi Play Store terbaru yang boleh memakai aplikasi mobile
 
 - **Tipe**: [ADDED] [MIGRATION] [INFRA]

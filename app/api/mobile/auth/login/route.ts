@@ -66,6 +66,7 @@ export async function POST(req: Request) {
       otaUpdateId:
         typeof body.otaUpdateId === "string" ? body.otaUpdateId : null,
       loginType: body.loginType || "EMPLOYEE",
+      origin: { ipAddress: ip, userAgent },
     });
   } catch (error) {
     logger.error("Mobile Login Error:", error);

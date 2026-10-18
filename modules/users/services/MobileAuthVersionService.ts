@@ -48,23 +48,29 @@ export class MobileAuthVersionService {
     versionCode: number,
     versionName?: string | null,
   ) {
+    return (await this.checkVersion(versionCode, versionName)).response;
+  }
+
+  /** Respons 426 bila versi ditolak (null bila didukung) dan versi minimumnya. */
+  async checkVersion(versionCode: number, versionName?: string | null) {
     const { isSupported, minimum } = await evaluateMobileVersion({
       versionCode,
       versionName: versionName ?? null,
     });
-    if (isSupported) return null;
-
-    return apiError(
-      "Aplikasi harus diperbarui ke versi terbaru.",
-      ErrorCodes.APP_VERSION_UNSUPPORTED,
-      {
-        status: 426,
-        details: {
-          currentVersionCode: versionCode,
-          minimumVersionCode: minimum?.versionCode ?? 0,
-        },
-      },
-    );
+    const response = isSupported
+      ? null
+      : apiError(
+          "Aplikasi harus diperbarui ke versi terbaru.",
+          ErrorCodes.APP_VERSION_UNSUPPORTED,
+          {
+            status: 426,
+            details: {
+              currentVersionCode: versionCode,
+              minimumVersionCode: minimum?.versionCode ?? 0,
+            },
+          },
+        );
+    return { response, minimum };
   }
 
   /** Resolve detail refresh token dengan optional version override. */

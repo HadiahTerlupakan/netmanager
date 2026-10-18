@@ -3,9 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { getMobileRequestVersionReport } from "@/lib/mobile-api-auth";
-import { evaluateMobileVersion } from "@/modules/app-version";
+import { getClientIP } from "@/lib/rate-limit";
+import {
+  evaluateMobileVersion,
+  getMinimumMobileVersion,
+} from "@/modules/app-version";
 import { getMobileInvestorAuthService } from "@/modules/investor";
 import {
+  recordOutdatedAppRejected,
   tryRefreshCustomerToken,
   tryRefreshMobileToken,
 } from "@/modules/users";
@@ -57,6 +62,16 @@ export async function POST(request: NextRequest) {
         versionName: versionReport.versionName ?? null,
       });
       if (!isSupported) {
+        recordOutdatedAppRejected({
+          stage: "refresh",
+          account: null,
+          version: {
+            versionCode: versionReport.versionCode ?? 0,
+            versionName: versionReport.versionName,
+          },
+          minimum,
+          origin: requestOrigin(request),
+        });
         return apiError(
           "Aplikasi harus diperbarui untuk melanjutkan.",
           ErrorCodes.APP_VERSION_UNSUPPORTED,
@@ -78,6 +93,24 @@ export async function POST(request: NextRequest) {
       versionReport,
     );
     if (mobileTokens.kind === "unsupported") {
+      const claims = mobileTokens.details.payload;
+      recordOutdatedAppRejected({
+        stage: "refresh",
+        identifier: typeof claims.email === "string" ? claims.email : null,
+        account: {
+          id: String(claims.sub ?? claims.id ?? ""),
+          role: claims.role,
+        },
+        version: {
+          versionCode: mobileTokens.details.versionCode,
+          versionName:
+            typeof claims.appVersionName === "string"
+              ? claims.appVersionName
+              : versionReport.versionName,
+        },
+        minimum: await getMinimumMobileVersion(),
+        origin: requestOrigin(request),
+      });
       return apiError(
         "Aplikasi harus diperbarui untuk melanjutkan.",
         ErrorCodes.APP_VERSION_UNSUPPORTED,
@@ -111,4 +144,11 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+function requestOrigin(request: NextRequest) {
+  return {
+    ipAddress: getClientIP(request),
+    userAgent: request.headers.get("user-agent") ?? undefined,
+  };
 }

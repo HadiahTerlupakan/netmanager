@@ -16,6 +16,7 @@ import { id } from "date-fns/locale";
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { useApi } from "@/lib/hooks/useApi";
+import { loginActionBadge } from "./login-log-action";
 
 interface SystemLog {
   id: string;
@@ -38,6 +39,9 @@ interface LogDetails {
   provider?: string;
   isNewUser?: boolean;
   loginTime?: string;
+  accountType?: string;
+  appVersion?: string;
+  requiredVersion?: string;
   [key: string]: string | boolean | undefined;
 }
 
@@ -171,10 +175,14 @@ export function ClientComponent() {
                       </div>
                       <div>
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {item.user?.name || "-"}
+                          {item.user?.name ||
+                            parseDetails(item.details).name ||
+                            "-"}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {item.user?.email || "-"}
+                          {item.user?.email ||
+                            parseDetails(item.details).email ||
+                            "-"}
                         </div>
                       </div>
                     </div>
@@ -185,8 +193,10 @@ export function ClientComponent() {
                   header: "Aksi",
                   priority: "primary",
                   render: (item) => (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                      {item.action}
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${loginActionBadge(item.action).className}`}
+                    >
+                      {loginActionBadge(item.action).label}
                     </span>
                   ),
                 },
@@ -306,8 +316,10 @@ export function ClientComponent() {
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           Status
                         </p>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                          {selectedLog.action}
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${loginActionBadge(selectedLog.action).className}`}
+                        >
+                          {loginActionBadge(selectedLog.action).label}
                         </span>
                       </div>
                       <div>
@@ -332,6 +344,32 @@ export function ClientComponent() {
                       </div>
                     </div>
                   </div>
+
+                  {details.appVersion && (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
+                      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        Aplikasi Mobile
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          ["Jenis Akun", details.accountType],
+                          ["Versi Aplikasi", details.appVersion],
+                          ["Versi Wajib", details.requiredVersion],
+                        ]
+                          .filter(([, value]) => value)
+                          .map(([label, value]) => (
+                            <div key={label}>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {label}
+                              </p>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {value}
+                              </p>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Technical Info */}
                   {(selectedLog.ipAddress || selectedLog.userAgent) && (

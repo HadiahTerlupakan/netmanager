@@ -16,6 +16,10 @@ export * from "./services/AdminUserPerformanceRouteService";
 export * from "./services/AdminProfileRouteService";
 export * from "./services/MobilePasswordChangeService";
 export * from "./services/MobileAuthRouteService";
+export {
+  OUTDATED_APP_REJECTED_ACTION,
+  recordOutdatedAppRejected,
+} from "./services/MobileLoginAudit";
 export * from "./services/MobileProfileRouteService";
 export * from "./services/MobileProfilePhotoRouteService";
 export * from "./services/MobilePartnerRouteService";

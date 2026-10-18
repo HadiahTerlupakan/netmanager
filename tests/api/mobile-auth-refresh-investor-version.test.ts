@@ -13,6 +13,7 @@ vi.mock("@/modules/investor", () => ({
 vi.mock("@/modules/users", () => ({
   tryRefreshCustomerToken: vi.fn(async () => null),
   tryRefreshMobileToken: vi.fn(async () => ({ kind: "invalid" })),
+  recordOutdatedAppRejected: vi.fn(),
 }));
 
 vi.mock("@/modules/app-version", () => ({
