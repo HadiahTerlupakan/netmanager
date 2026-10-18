@@ -5,12 +5,18 @@ const mockInvestorSession = vi.hoisted(() => vi.fn());
 const mockMobilePayload = vi.hoisted(() => vi.fn());
 const mockCheck = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/mobile-investor-auth", () => ({ getInvestorMobileSession: mockInvestorSession }));
-vi.mock("@/lib/mobile-api-auth", () => ({ getMobileAuthPayload: mockMobilePayload }));
+vi.mock("@/lib/mobile-investor-auth", () => ({
+  getInvestorMobileSession: mockInvestorSession,
+}));
+vi.mock("@/lib/mobile-api-auth", () => ({
+  getMobileAuthPayload: mockMobilePayload,
+}));
 vi.mock("@/modules/app-version", async () => {
   const { z } = await import("zod");
   return {
-    getAppReleaseServices: async () => ({ versionCheckService: { check: mockCheck } }),
+    getAppReleaseServices: async () => ({
+      versionCheckService: { check: mockCheck },
+    }),
     versionCheckQuerySchema: z.object({
       platform: z.string(),
       currentVersion: z.string(),
@@ -36,15 +42,29 @@ describe("GET /api/mobile/app-version/check — akun investor", () => {
     const response = await GET(new Request(URL_CEK) as never);
 
     expect(response.status).toBe(200);
-    expect(mockCheck).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "t-inv" }));
+    expect(mockCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "t-inv" }),
+    );
     expect(mockMobilePayload).not.toHaveBeenCalled();
   });
 
-  it("bukan investor → jalur token mobile biasa, 401 tetap diteruskan", async () => {
+  it("bukan investor tanpa token sah → tetap dijawab tanpa tenant", async () => {
+    // Aplikasi di layar login (atau yang versinya ditolak) harus tetap tahu
+    // versi apa yang wajib dipasang.
     mockInvestorSession.mockResolvedValue(null);
     mockMobilePayload.mockResolvedValue(NextResponse.json({}, { status: 401 }));
 
-    expect((await GET(new Request(URL_CEK) as never)).status).toBe(401);
+    expect((await GET(new Request(URL_CEK) as never)).status).toBe(200);
+    expect(mockCheck).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: undefined }),
+    );
+  });
+
+  it("galat lain dari jalur token mobile tetap diteruskan", async () => {
+    mockInvestorSession.mockResolvedValue(null);
+    mockMobilePayload.mockResolvedValue(NextResponse.json({}, { status: 403 }));
+
+    expect((await GET(new Request(URL_CEK) as never)).status).toBe(403);
     expect(mockCheck).not.toHaveBeenCalled();
   });
 });

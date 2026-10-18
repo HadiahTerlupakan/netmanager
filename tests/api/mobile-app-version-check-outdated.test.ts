@@ -7,9 +7,11 @@ vi.mock("@/lib/mobile-investor-auth", () => ({
   getInvestorMobileSession: vi.fn(async () => null),
 }));
 
+const authStatus = vi.hoisted(() => ({ value: 426 }));
+
 vi.mock("@/lib/mobile-api-auth", () => ({
   getMobileAuthPayload: vi.fn(async () =>
-    NextResponse.json({ success: false }, { status: 426 }),
+    NextResponse.json({ success: false }, { status: authStatus.value }),
   ),
 }));
 
@@ -42,5 +44,24 @@ describe("GET /api/mobile/app-version/check for an outdated app", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ isForceUpdate: true });
+  });
+
+  it("answers an app sitting on the login screen, so it can show Update Wajib", async () => {
+    // Pengguna yang ditolak justru berada di layar login, tanpa token.
+    authStatus.value = 401;
+    mocks.check.mockResolvedValue({
+      updateAvailable: true,
+      isForceUpdate: true,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/mobile/app-version/check?platform=android&currentVersion=1.0.9&currentVersionCode=48",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ isForceUpdate: true });
+    authStatus.value = 426;
   });
 });

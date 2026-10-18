@@ -8,7 +8,12 @@ import {
   versionCheckQuerySchema,
 } from "@/modules/app-version";
 
+const UNAUTHENTICATED_STATUS = 401;
 const APP_VERSION_UNSUPPORTED_STATUS = 426;
+const ANONYMOUS_STATUSES = new Set([
+  UNAUTHENTICATED_STATUS,
+  APP_VERSION_UNSUPPORTED_STATUS,
+]);
 
 /** Tenant pemanggil: akun investor (token sendiri) atau karyawan/mitra/pelanggan. */
 async function resolveTenantPemanggil(
@@ -17,11 +22,14 @@ async function resolveTenantPemanggil(
   const investor = await getInvestorMobileSession(request);
   if (investor) return investor.tenantId ?? undefined;
   const auth = await getMobileAuthPayload(request);
-  // Aplikasi yang versinya sudah ditolak (426) justru harus tetap bisa
-  // menanyakan apa yang perlu dipasang; tanpa tenant, kontak admin global
-  // yang dipakai.
+  // Aplikasi yang versinya sudah ditolak (426) atau sedang di layar login
+  // (401) justru harus tetap bisa menanyakan apa yang perlu dipasang: tanpa
+  // jawaban ini build lama tidak pernah menampilkan Update Wajib dan
+  // penggunanya terus menekan Sign In sampai terkena batas login (429).
+  // Isinya publik (versi terbaru, tautan Play Store); tanpa tenant, kontak
+  // admin global yang dipakai.
   if (auth instanceof NextResponse) {
-    return auth.status === APP_VERSION_UNSUPPORTED_STATUS ? undefined : auth;
+    return ANONYMOUS_STATUSES.has(auth.status) ? undefined : auth;
   }
   return auth.tenantId as string | undefined;
 }
