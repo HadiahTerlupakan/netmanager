@@ -18,10 +18,20 @@ export interface MobileLogoutInput {
   role: MobileLogoutRole;
 }
 
+/**
+ * Logout dari aplikasi hanya mencabut token mobile karyawan: menaikkan
+ * `tokenVersion` ikut mengeluarkan sesi web akun yang sama.
+ */
 export async function performMobileLogout(
   input: MobileLogoutInput,
 ): Promise<void> {
-  return revokeMobileSessions(input);
+  if (input.role === "CUSTOMER" || input.role === "MITRA") {
+    return revokeMobileSessions(input);
+  }
+  await prismaAuth.user.update({
+    where: { id: input.userId },
+    data: { mobileTokenVersion: { increment: 1 } },
+  });
 }
 
 /**

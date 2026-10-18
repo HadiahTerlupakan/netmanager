@@ -7,7 +7,7 @@
  * (termasuk pencabutan super admin) tidak pernah berlaku pada jalur itu sampai
  * cookie kedaluwarsa sendiri — praktis membuat akses tidak bisa dicabut.
  *
- * `tokenVersion` hanya dinaikkan saat force-logout dan logout mobile, jadi
+ * `tokenVersion` hanya dinaikkan saat force-logout dan ganti password, jadi
  * token pengguna normal selalu sepadan dan tidak terdampak.
  *
  * Bila pembanding tidak tersedia (cache atau DB gagal), fungsi ini memilih

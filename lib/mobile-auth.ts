@@ -36,7 +36,14 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(raw);
 }
 
-async function getMobileTokenVersion(payload: Record<string, unknown>) {
+interface MobileTokenVersions {
+  tokenVersion: number;
+  mobileTokenVersion?: number;
+}
+
+async function getMobileTokenVersion(
+  payload: Record<string, unknown>,
+): Promise<MobileTokenVersions> {
   try {
     const id = (payload.id || payload.sub) as string;
     const role = payload.role as string | undefined;
@@ -46,7 +53,7 @@ async function getMobileTokenVersion(payload: Record<string, unknown>) {
         where: { id },
         select: { tokenVersion: true },
       });
-      return mitra?.tokenVersion ?? 0;
+      return { tokenVersion: mitra?.tokenVersion ?? 0 };
     }
 
     if (role === "CUSTOMER") {
@@ -54,23 +61,26 @@ async function getMobileTokenVersion(payload: Record<string, unknown>) {
         where: { id },
         select: { tokenVersion: true },
       });
-      return customer?.tokenVersion ?? 0;
+      return { tokenVersion: customer?.tokenVersion ?? 0 };
     }
 
     const user = await prismaAuth.user.findUnique({
       where: { id },
-      select: { tokenVersion: true },
+      select: { tokenVersion: true, mobileTokenVersion: true },
     });
-    return user?.tokenVersion ?? 0;
+    return {
+      tokenVersion: user?.tokenVersion ?? 0,
+      mobileTokenVersion: user?.mobileTokenVersion ?? 0,
+    };
   } catch (error) {
     logger.error("[MOBILE_AUTH] Error fetching tokenVersion:", error);
-    return 0;
+    return { tokenVersion: 0 };
   }
 }
 
 function buildMobileJwtPayload(
   payload: Record<string, unknown>,
-  tokenVersion: number,
+  versions: MobileTokenVersions,
   type?: "access" | "refresh",
 ) {
   const { type: _existingType, ...basePayload } = payload;
@@ -79,7 +89,7 @@ function buildMobileJwtPayload(
     ...basePayload,
     ...(type ? { type } : {}),
     sub: (payload.sub || payload.id) as string,
-    tokenVersion,
+    ...versions,
   };
 }
 
@@ -87,8 +97,8 @@ export const MOBILE_JWT_ISSUER = "netmanager";
 const MOBILE_JWT_AUDIENCE = "netmanager-mobile";
 
 export async function signMobileToken(payload: Record<string, unknown>) {
-  const tokenVersion = await getMobileTokenVersion(payload);
-  const jwtPayload = buildMobileJwtPayload(payload, tokenVersion);
+  const versions = await getMobileTokenVersion(payload);
+  const jwtPayload = buildMobileJwtPayload(payload, versions);
 
   return await new SignJWT(jwtPayload)
     .setProtectedHeader({ alg: "HS256" })
@@ -100,8 +110,8 @@ export async function signMobileToken(payload: Record<string, unknown>) {
 }
 
 export async function signMobileRefreshToken(payload: Record<string, unknown>) {
-  const tokenVersion = await getMobileTokenVersion(payload);
-  const jwtPayload = buildMobileJwtPayload(payload, tokenVersion, "refresh");
+  const versions = await getMobileTokenVersion(payload);
+  const jwtPayload = buildMobileJwtPayload(payload, versions, "refresh");
 
   return await new SignJWT(jwtPayload)
     .setProtectedHeader({ alg: "HS256" })
@@ -120,6 +130,7 @@ export interface MobileTokenPayload {
   email?: string;
   type?: string;
   tokenVersion?: number;
+  mobileTokenVersion?: number;
   appVersionCode?: number;
   appVersionName?: string | null;
   role?: string;
@@ -417,6 +428,7 @@ async function verifyValidatedMobileToken(
       where: { id: userId },
       select: {
         tokenVersion: true,
+        mobileTokenVersion: true,
         isActive: true,
         isSales: true,
         siteId: true,
@@ -441,7 +453,12 @@ async function verifyValidatedMobileToken(
 
     const userTokenVersion = dbUser.tokenVersion ?? 0;
     const tokenVersion = (payload.tokenVersion as number) ?? 0;
-    if (!dbUser.isActive || userTokenVersion > tokenVersion) {
+    const mobileTokenVersion = (payload.mobileTokenVersion as number) ?? 0;
+    if (
+      !dbUser.isActive ||
+      userTokenVersion > tokenVersion ||
+      (dbUser.mobileTokenVersion ?? 0) > mobileTokenVersion
+    ) {
       return null;
     }
 

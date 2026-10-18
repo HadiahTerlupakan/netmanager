@@ -1429,6 +1429,8 @@ model User {
   pushToken                                  String?
   pushTokenUpdatedAt                         DateTime?
   tokenVersion                               Int                         @default(0)
+  /// Dinaikkan saat logout mobile; hanya mencabut token mobile, sesi web tetap.
+  mobileTokenVersion                         Int                         @default(0)
   lastVersionCode                            Int?
   lastVersionName                            String?
   lastVersionUpdate                          DateTime?

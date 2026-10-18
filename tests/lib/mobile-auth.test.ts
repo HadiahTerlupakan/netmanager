@@ -4,14 +4,24 @@ const mockJwtVerify = vi.hoisted(() => vi.fn());
 const mockUserFindUnique = vi.hoisted(() => vi.fn());
 const mockPelangganFindUnique = vi.hoisted(() => vi.fn());
 const mockMitraFindUnique = vi.hoisted(() => vi.fn());
+const signedPayloads = vi.hoisted(() => [] as Record<string, unknown>[]);
 
 vi.mock("jose", () => ({
   jwtVerify: mockJwtVerify,
   SignJWT: class {
+    constructor(payload: Record<string, unknown>) {
+      signedPayloads.push(payload);
+    }
     setProtectedHeader() {
       return this;
     }
     setIssuedAt() {
+      return this;
+    }
+    setIssuer() {
+      return this;
+    }
+    setAudience() {
       return this;
     }
     setExpirationTime() {
@@ -60,6 +70,7 @@ import {
   getMobileTokenDetails,
   hasAnyMobilePermission,
   hasMobilePermission,
+  signMobileToken,
   verifyMobileRefreshToken,
   verifyMobileToken,
 } from "@/lib/mobile-auth";
@@ -271,5 +282,67 @@ describe("mobile-auth permission aliases", () => {
     expect(
       hasMobilePermission(["m_barang_keluar"], "m_barang_keluar:create"),
     ).toBe(true);
+  });
+});
+
+describe("mobile-auth logout mobile terpisah dari web", () => {
+  const activeUser = {
+    tokenVersion: 1,
+    mobileTokenVersion: 2,
+    isActive: true,
+    isSales: false,
+    siteId: null,
+    tenantId: "tenant-1",
+    userSites: [],
+    role: { name: "ADMIN", isSuperAdmin: false, permission: [] },
+  };
+
+  beforeEach(() => {
+    mockJwtVerify.mockReset();
+    mockUserFindUnique.mockReset();
+  });
+
+  it("rejects a user token issued before the last mobile logout", async () => {
+    mockJwtVerify.mockResolvedValueOnce({
+      payload: {
+        sub: "user-1",
+        tokenVersion: 1,
+        mobileTokenVersion: 1,
+        type: "access",
+        appVersionCode: 100,
+      },
+    });
+    mockUserFindUnique.mockResolvedValueOnce(activeUser);
+
+    expect(await verifyMobileToken("token-1", 100)).toBeNull();
+  });
+
+  it("accepts a user token issued after the last mobile logout", async () => {
+    mockJwtVerify.mockResolvedValueOnce({
+      payload: {
+        sub: "user-1",
+        tokenVersion: 1,
+        mobileTokenVersion: 2,
+        type: "access",
+        appVersionCode: 100,
+      },
+    });
+    mockUserFindUnique.mockResolvedValueOnce(activeUser);
+
+    expect((await verifyMobileToken("token-1", 100))?.userId).toBe("user-1");
+  });
+
+  it("signs new user tokens with the current mobile logout version", async () => {
+    mockUserFindUnique.mockResolvedValueOnce({
+      tokenVersion: 1,
+      mobileTokenVersion: 2,
+    });
+
+    await signMobileToken({ sub: "user-1", role: "ADMIN" });
+
+    expect(signedPayloads.at(-1)).toMatchObject({
+      tokenVersion: 1,
+      mobileTokenVersion: 2,
+    });
   });
 });
