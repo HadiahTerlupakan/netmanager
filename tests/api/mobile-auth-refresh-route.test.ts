@@ -118,13 +118,14 @@ describe("POST /api/mobile/auth/refresh", () => {
       "refresh-token-value",
       99,
     );
-    expect(mockSignMobileToken).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "refresh",
-        appVersionCode: 55,
-        appVersionName: "1.2.3",
-      }),
-    );
+    expect(mockSignMobileToken).toHaveBeenCalledWith({
+      sub: "user-1",
+      id: "user-1",
+      email: "user@example.com",
+      role: "USER",
+      appVersionCode: 55,
+      appVersionName: "1.2.3",
+    });
   });
 
   it("returns refreshed customer tokens for valid customer refresh token", async () => {

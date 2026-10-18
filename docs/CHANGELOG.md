@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-18] — Token mobile hasil refresh tidak lagi membawa seluruh izin
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/users`
+- **Author**: agent
+- **Deskripsi**: Refresh token mobile menandatangani ulang payload hasil
+  verifikasi, lengkap dengan seluruh izin peran yang dibaca dari database.
+  Peran "admin" (1.046 izin) menghasilkan header Authorization ~43 KB,
+  melewati batas header Node 16 KB, sehingga setiap request sesudah refresh
+  pertama (15 menit sesudah login) dibalas 431 "Request Header Fields Too
+  Large". Token kini hanya membawa klaim identitas seperti saat login; izin
+  dan site tetap dibaca dari database di setiap request.
+- **Files**: `modules/users/services/MobileAuthVersionService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-18] — Tracking lokasi mati terlihat, tercatat, dan diingatkan
 
 - **Tipe**: [ADDED] [MIGRATION]

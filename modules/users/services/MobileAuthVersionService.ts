@@ -7,6 +7,35 @@ import {
 } from "@/lib/mobile-auth";
 import type { MobileLoginPayload } from "./MobileAuthRouteService";
 
+/**
+ * Klaim yang dibawa token mobile: sama dengan yang ditulis saat login
+ * karyawan dan mitra. Izin, site, dan data lain dibaca ulang dari database di
+ * setiap request, jadi tidak perlu ikut ditandatangani. Dulu payload hasil
+ * verifikasi (lengkap dengan seluruh izin peran) ikut ke token baru; peran
+ * dengan 1.046 izin menghasilkan header Authorization ~43 KB dan server
+ * membalas 431 untuk setiap request sesudah refresh pertama.
+ */
+const IDENTITY_CLAIMS = [
+  "sub",
+  "id",
+  "email",
+  "name",
+  "role",
+  "mitraType",
+  "tenantId",
+  "isSuperAdmin",
+  "accessAdminPanel",
+  "appVersionName",
+] as const;
+
+function pickIdentityClaims(payload: Record<string, unknown>) {
+  return Object.fromEntries(
+    IDENTITY_CLAIMS.filter((claim) => payload[claim] !== undefined).map(
+      (claim) => [claim, payload[claim]],
+    ),
+  );
+}
+
 const MIN_NATIVE_VERSION_CODE = Number(
   process.env.MOBILE_MIN_NATIVE_VERSION_CODE ?? "0",
 );
@@ -80,7 +109,7 @@ export class MobileAuthVersionService {
     }
 
     const tokenPayload = {
-      ...payload,
+      ...pickIdentityClaims(payload),
       appVersionCode: trustedVersionCode || payload.appVersionCode || 0,
       appVersionName: payload.appVersionName ?? null,
     };
