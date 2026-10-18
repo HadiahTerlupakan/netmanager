@@ -14,6 +14,7 @@ type SystemLogInput = {
   limit?: number;
   requestedSiteId?: string | null;
   restrictedSiteIds?: string[];
+  tenantId?: string;
 };
 
 function resolveType(typeKey?: string | null) {
@@ -45,6 +46,7 @@ export class SystemLogRouteService {
       skip: pagination.skip,
       take: pagination.limit,
       userSiteIds: resolveUserSiteIds(input),
+      tenantId: input.tenantId,
     });
 
     return {

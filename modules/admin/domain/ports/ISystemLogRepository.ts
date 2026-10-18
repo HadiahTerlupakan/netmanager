@@ -11,6 +11,8 @@ export interface SystemLogFilters {
   action?: string;
   userId?: string;
   userSiteIds?: string[];
+  /** Batasi ke log tenant ini (milik tenant atau pengguna tenant itu). */
+  tenantId?: string;
   startDate?: Date;
   endDate?: Date;
   search?: string;

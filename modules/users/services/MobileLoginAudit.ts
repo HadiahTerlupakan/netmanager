@@ -47,7 +47,13 @@ function record(entry: Parameters<typeof logger.logAuth>[0]) {
 
 /** Login aplikasi mobile yang berhasil, untuk semua jenis akun. */
 export function recordMobileLogin(input: {
-  user: { id?: unknown; name?: unknown; email?: unknown; role?: unknown };
+  user: {
+    id?: unknown;
+    name?: unknown;
+    email?: unknown;
+    role?: unknown;
+    tenantId?: unknown;
+  };
   version: AppVersion;
   origin: RequestOrigin;
 }) {
@@ -56,6 +62,10 @@ export function recordMobileLogin(input: {
   record({
     action: "LOGIN",
     ...ownerOf(accountType, input.user.id),
+    // Tenant karyawan dibaca logger dari akunnya; akun lain hanya bila
+    // profil loginnya membawa tenant (investor).
+    tenantId:
+      typeof input.user.tenantId === "string" ? input.user.tenantId : undefined,
     ipAddress: input.origin.ipAddress,
     userAgent: input.origin.userAgent,
     details: {

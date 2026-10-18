@@ -111,6 +111,19 @@ export class SystemLogRepository implements ISystemLogRepository {
         : {}),
       ...this.buildDateRangeWhere(filters.startDate, filters.endDate),
       ...this.buildSearchWhere(filters.search),
+      // Di AND agar tidak bertabrakan dengan OR pencarian.
+      ...(filters.tenantId
+        ? {
+            AND: [
+              {
+                OR: [
+                  { tenantId: filters.tenantId },
+                  { user: { tenantId: filters.tenantId } },
+                ],
+              },
+            ],
+          }
+        : {}),
     };
   }
 

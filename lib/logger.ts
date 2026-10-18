@@ -413,10 +413,11 @@ class Logger {
       const { prisma } = await import("@/lib/prisma");
 
       // Skip DB logging if userId is provided but doesn't exist
+      let tenantId = data.tenantId || null;
       if (actor.userId) {
         const userExists = await prisma.user.findUnique({
           where: { id: actor.userId },
-          select: { id: true },
+          select: { id: true, tenantId: true },
         });
 
         if (!userExists) {
@@ -425,6 +426,9 @@ class Logger {
           );
           return;
         }
+        // Tanpa tenant, log login hanya terlihat tenant utama; dengan tenant
+        // pengguna, admin tenant itu bisa melihat login karyawannya sendiri.
+        tenantId ??= userExists.tenantId;
       }
 
       const { runAsSystemContext } = await import("@/lib/tenant-context");
@@ -441,7 +445,7 @@ class Logger {
             actorId: actor.actorId,
             ipAddress: data.ipAddress || null,
             userAgent: data.userAgent || null,
-            tenantId: data.tenantId || null,
+            tenantId,
           },
         });
       });

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { logger } from "@/lib/logger";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { hasPermission } from "@/lib/rbac";
+import { MAIN_TENANT_ID } from "@/modules/mitra";
 import { checkSiteRestriction } from "@/modules/roles";
 import { SystemLogRouteService, systemLogQuerySchema } from "@/modules/admin";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
@@ -64,6 +65,7 @@ export async function GET(req: NextRequest) {
       limit: query.limit,
       requestedSiteId: query.siteId,
       restrictedSiteIds: isRestricted ? siteIds : undefined,
+      tenantId: tenantScope(session.user),
     });
 
     return apiSuccess(result);
@@ -72,3 +74,18 @@ export async function GET(req: NextRequest) {
     return ApiErrors.internalError("Gagal mengambil system log");
   }
 }
+
+/**
+ * Log berisi data pribadi (nama, email, IP) semua tenant. Hanya super admin
+ * dan tenant utama yang melihat semuanya; admin tenant lain dibatasi ke
+ * tenantnya sendiri, dan tanpa tenant tidak melihat apa pun.
+ */
+function tenantScope(user: {
+  tenantId?: string | null;
+  isSuperAdmin?: boolean;
+}): string | undefined {
+  if (user.isSuperAdmin || user.tenantId === MAIN_TENANT_ID) return undefined;
+  return user.tenantId || NO_TENANT;
+}
+
+const NO_TENANT = "__tanpa-tenant__";
