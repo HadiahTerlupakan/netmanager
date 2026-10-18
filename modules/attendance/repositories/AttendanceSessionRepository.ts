@@ -129,6 +129,78 @@ export class AttendanceSessionRepository {
     });
   }
 
+  /** Sesi terbuka yang dimulai sejak `since`, beserta data karyawan untuk live map. */
+  async findOpenSessionsForLiveMap(input: {
+    since: Date;
+    tenantId?: string;
+    userFilter?: { siteId?: string; departmentId?: string };
+  }) {
+    const hasUserFilter =
+      input.userFilter && Object.keys(input.userFilter).length > 0;
+    return prisma.attendance.findMany({
+      where: {
+        checkOut: null,
+        correctedAt: null,
+        status: { notIn: [...AUTO_CHECKOUT_INACTIVE_STATUSES] },
+        checkIn: { gte: input.since },
+        ...(input.tenantId ? { tenantId: input.tenantId } : {}),
+        ...(hasUserFilter ? { user: input.userFilter } : {}),
+      },
+      orderBy: { checkIn: "desc" },
+      select: {
+        id: true,
+        userId: true,
+        checkIn: true,
+        checkOut: true,
+        status: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            sites: { select: { name: true } },
+            departments: { select: { name: true } },
+            ...this.sessionPolicyUserSelect(),
+          },
+        },
+      },
+    });
+  }
+
+  /** Sesi user yang beririsan dengan rentang waktu `from`..`to`. */
+  async findSessionsOverlapping(input: {
+    userId: string;
+    from: Date;
+    to: Date;
+    tenantId?: string;
+  }) {
+    return prisma.attendance.findMany({
+      where: {
+        userId: input.userId,
+        correctedAt: null,
+        status: { notIn: [...AUTO_CHECKOUT_INACTIVE_STATUSES] },
+        checkIn: { lte: input.to },
+        OR: [{ checkOut: null }, { checkOut: { gte: input.from } }],
+        ...(input.tenantId ? { tenantId: input.tenantId } : {}),
+      },
+      select: {
+        id: true,
+        checkIn: true,
+        checkOut: true,
+        status: true,
+        user: { select: this.sessionPolicyUserSelect() },
+      },
+    });
+  }
+
+  private sessionPolicyUserSelect() {
+    return {
+      workingHourMode: true,
+      flexibleTargetHour: true,
+      shift: { select: { startTime: true, endTime: true } },
+    } satisfies Prisma.UserSelect;
+  }
+
   private buildOpenSessionWhere(input: {
     endOfToday: Date;
     twentyFourHoursAgo: Date;

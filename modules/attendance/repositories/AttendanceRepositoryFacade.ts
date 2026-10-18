@@ -34,6 +34,23 @@ export class AttendanceRepositoryFacade
     });
   }
 
+  async findOpenSessionsForLiveMap(params: {
+    since: Date;
+    tenantId?: string;
+    userFilter?: { siteId?: string; departmentId?: string };
+  }) {
+    return this.sessionRepository.findOpenSessionsForLiveMap(params);
+  }
+
+  async findSessionsOverlapping(params: {
+    userId: string;
+    from: Date;
+    to: Date;
+    tenantId?: string;
+  }) {
+    return this.sessionRepository.findSessionsOverlapping(params);
+  }
+
   async findOpenSessionForAutoCheckout(params: {
     attendanceId: string;
     tenantId: string;

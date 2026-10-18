@@ -155,7 +155,28 @@ function getOvernightShiftEnd(
   });
 }
 
+/**
+ * Apakah sesi yang belum check-out masih berjalan menurut keputusan policy.
+ * Satu definisi untuk status absen, live map, dan penerimaan lokasi: dulu
+ * live map memakai "check-in sejak awal hari ini", sehingga shift malam
+ * lenyap dari peta lewat tengah malam padahal status absennya masih aktif.
+ */
+export function isSessionDecisionActive(
+  decision: AttendanceSessionPolicyDecision,
+): boolean {
+  return (
+    decision.isOvernightShiftActive ||
+    (!decision.isStaleFlexibleSession && !decision.shouldAutoCheckout)
+  );
+}
+
 export class AttendanceSessionPolicyService {
+  /** Apakah sesi absen masih berjalan pada saat `input.now`. */
+  isSessionActive(input: AttendanceSessionPolicyInput): boolean {
+    if (input.attendance.checkOut) return false;
+    return isSessionDecisionActive(this.resolve(input));
+  }
+
   buildAutoCheckoutUpdate(params: {
     decision: AttendanceSessionPolicyDecision;
     existingNotes: string | null;

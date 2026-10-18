@@ -41,6 +41,66 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-18] — Live map mengikuti sesi kerja, bukan "check-in hari ini"
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/attendance` | `app/api/mobile/location` | `app/admin/kehadiran/live-map`
+- **Author**: agent
+- **Deskripsi**: Live map dan `POST /api/mobile/location` kini memakai aturan
+  sesi yang sama dengan status absen mobile (`ActiveAttendanceSessionService`
+  di atas `AttendanceSessionPolicyService`). Sebelumnya, shift malam dan sesi
+  fleksibel hilang dari peta lewat tengah malam, dan tracking-nya dihentikan
+  lalu dinyalakan ulang bolak-balik. Baris ALPHA atau yang terkoreksi
+  (`correctedAt`) juga sempat tampil sebagai karyawan aktif. Perubahan lain:
+  - Lokasi terakhir harus terekam di sesi berjalan, jadi posisi kemarin tidak
+    tampil sebagai posisi live.
+  - Status "bergerak" padam bila titiknya lebih tua dari 15 menit.
+  - Antrean offline (batch) diterima untuk titik yang terekam di dalam sesi
+    mana pun, termasuk sesudah check-out, dengan batas 200 titik.
+  - Titik ganda (`userId` + `recordedAt` yang sama) dilewati.
+  - `recordedAt` yang lebih dari 15 menit di depan jam server diganti waktu
+    server.
+  - Satu jam shift yang tidak berformat HH:mm tidak lagi menggagalkan seluruh
+    peta.
+  - Peta web tetap polling setiap 60 detik walau realtime tersambung, karena
+    check-in dan check-out tidak punya event. Polling menjadi 15 detik bila
+    tidak ada kanal (super admin tanpa tenant).
+  - Popup peta menampilkan waktu update terakhir.
+- **Files**: `modules/attendance/services/ActiveAttendanceSessionService.ts`,
+  `modules/attendance/services/LocationLiveMapService.ts`,
+  `modules/attendance/services/LocationTrackingService.ts`,
+  `modules/attendance/services/location-session-window.ts`,
+  `modules/attendance/repositories/LocationTrackingRepository.ts`,
+  `modules/attendance/repositories/AttendanceSessionRepository.ts`,
+  `app/api/mobile/location/route.ts`,
+  `app/admin/kehadiran/live-map/useLiveLocations.ts`,
+  `components/attendance/EmployeeLocationMap.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-18] — Event realtime lokasi tanpa koordinat
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/attendance` | `app/admin/kehadiran/live-map`
+- **Author**: agent
+- **Deskripsi**: Event `admin.location.update` di
+  `admins/location:<tenant>/events` dulu membawa koordinat, padahal aturan
+  Firestore hanya mensyaratkan akses panel admin. Akibatnya, admin tenant lain
+  dan pemegang panel tanpa izin `live_tracking:read` bisa membacanya, dan batas
+  site atau departemen tidak berlaku. Sekarang:
+  - Payload event hanya `{userId, recordedAt}`.
+  - Peta mengambil posisi ulang dari `/api/admin/location/live`, digabung
+    per 5 detik, dan hanya untuk karyawan yang sedang tampil, sehingga admin
+    berlingkup sempit tidak lagi memicu refetch untuk setiap event di
+    tenantnya.
+  - Aturan Firestore di repo `mobile-netmanager` (`firestore.rules`) membatasi
+    kanal `location:*` ke tenant sendiri atau super admin. Aturan ini perlu
+    di-deploy terpisah.
+  - Tab live map yang terbuka saat deploy perlu dimuat ulang. Kode lama
+    mengharapkan koordinat di event.
+- **Files**: `modules/attendance/services/LocationRealtimePublisher.ts`,
+  `app/admin/kehadiran/live-map/useLiveLocations.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-17] — Pesan check-out tanpa sesi aktif sesuai keadaan
 
 - **Tipe**: [FIXED]

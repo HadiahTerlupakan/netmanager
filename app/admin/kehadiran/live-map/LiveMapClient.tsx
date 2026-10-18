@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   HiOutlineMapPin,
   HiOutlineUsers,
@@ -13,12 +13,9 @@ import {
 import { formatDistanceToNow, format } from "date-fns";
 import { id } from "date-fns/locale";
 import { Button } from "@/components/ui/Button";
-import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
-import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
-import { useRealtime } from "@/lib/realtime/RealtimeContext";
-import { useApi } from "@/lib/hooks/useApi";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import { useLiveLocations } from "./useLiveLocations";
 
 // Dynamic import untuk Map component (OpenLayers needs client-side only)
 const EmployeeLocationMap = dynamic(
@@ -33,23 +30,6 @@ const EmployeeLocationMap = dynamic(
   },
 );
 
-interface EmployeeLocation {
-  userId: string;
-  userName: string;
-  userImage: string | null;
-  siteName: string | null;
-  departmentName: string | null;
-  latitude: number;
-  longitude: number;
-  accuracy: number | null;
-  speed?: number | null;
-  heading?: number | null;
-  isMoving: boolean;
-  batteryLevel: number | null;
-  recordedAt: string;
-  checkInTime: string;
-}
-
 function getBatteryPercentage(batteryLevel: number): number {
   return batteryLevel <= 1
     ? Math.round(batteryLevel * 100)
@@ -57,92 +37,27 @@ function getBatteryPercentage(batteryLevel: number): number {
 }
 
 export default function LiveMapClient() {
-  const { isConnected } = useRealtime();
   const [searchQuery, setSearchQuery] = useState("");
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<"map" | "cards">("map"); // Default to map view
 
   const {
-    data,
+    locations,
+    lastUpdated,
     isLoading: loading,
-    isFetching,
+    isFetching: isRefreshing,
     error: fetchError,
-    mutate,
     refetch,
-  } = useApi<{ locations?: EmployeeLocation[]; tenantId?: string | null }>(
-    "/api/admin/location/live",
-    {
-      staleTime: 0,
-      refreshInterval: isConnected ? undefined : 15_000,
-      queryOptions: {
-        refetchOnWindowFocus: true,
-      },
-    },
-  );
-  const locations = data?.locations ?? [];
-  const tenantId = data?.tenantId ?? null;
+  } = useLiveLocations();
   const error = fetchError
     ? fetchError.message || "Gagal mengambil lokasi"
     : null;
-  const isRefreshing = isFetching;
 
-  useEffect(() => {
-    if (data) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLastUpdated(new Date());
-    }
-  }, [data]);
-
-  const fetchLocations = useCallback(() => {
+  const fetchLocations = () => {
     void refetch();
-  }, [refetch]);
-
-  useRealtimeScope(
-    tenantId ? { kind: "admin", id: `location:${tenantId}` } : null,
-  );
-
-  const handleLocationUpdate = useCallback(
-    (incoming: EmployeeLocation) => {
-      void mutate(
-        (prev) => {
-          const prevList = prev?.locations ?? [];
-          const index = prevList.findIndex((p) => p.userId === incoming.userId);
-          if (index === -1) {
-            void mutate();
-            return prev;
-          }
-          const newLocations = [...prevList];
-          const existingLocation = newLocations[index];
-          if (existingLocation) {
-            newLocations[index] = {
-              ...existingLocation,
-              latitude: incoming.latitude,
-              longitude: incoming.longitude,
-              heading: incoming.heading,
-              isMoving: incoming.isMoving,
-              batteryLevel: incoming.batteryLevel,
-              recordedAt: incoming.recordedAt,
-              accuracy: incoming.accuracy,
-              speed: incoming.speed,
-            };
-          }
-          return prev ? { ...prev, locations: newLocations } : prev;
-        },
-        { revalidate: false },
-      );
-      setLastUpdated(new Date());
-    },
-    [mutate],
-  );
-
-  useRealtimeEvent<EmployeeLocation>(
-    "admin.location.update",
-    handleLocationUpdate,
-  );
+  };
 
   // Filter locations by search
-  const safeLocations = Array.isArray(locations) ? locations : [];
-  const filteredLocations = safeLocations.filter(
+  const filteredLocations = locations.filter(
     (loc) =>
       loc.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       loc.siteName?.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -15,15 +15,13 @@ import { useApi as useApiMock } from "@/lib/hooks/useApi";
 
 describe("realtime page clients", () => {
   it("subscribes live map through realtime scope and event boundaries", async () => {
-    const setSearchQuery = vi.fn();
-    const setLastUpdated = vi.fn();
-    const setViewMode = vi.fn();
-
-    // useState order setelah migrasi: searchQuery, lastUpdated, viewMode.
+    // useState order: searchQuery, viewMode (LiveMapClient), lalu
+    // lastUpdated, hasChannel (useLiveLocations).
     mockUseState
-      .mockReturnValueOnce(["", setSearchQuery])
-      .mockReturnValueOnce([null, setLastUpdated])
-      .mockReturnValueOnce(["map", setViewMode]);
+      .mockReturnValueOnce(["", vi.fn()])
+      .mockReturnValueOnce(["map", vi.fn()])
+      .mockReturnValueOnce([null, vi.fn()])
+      .mockReturnValueOnce([true, vi.fn()]);
 
     // tenantId sekarang dari useApi data, bukan useState.
     (useApiMock as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({

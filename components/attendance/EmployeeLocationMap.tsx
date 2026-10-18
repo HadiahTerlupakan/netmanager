@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { formatDistanceToNow } from "date-fns";
+import { id } from "date-fns/locale";
 
 import { PenandaUniversal } from "@/components/map/PenandaUniversal";
 import { PetaUniversal } from "@/components/map/PetaUniversal";
@@ -123,6 +125,13 @@ function RingkasanKaryawan({ lokasi }: { lokasi: EmployeeLocation }) {
       {lokasi.isMoving && (
         <div className="text-xs text-green-600 mt-1">📍 Bergerak</div>
       )}
+      <div className="text-xs text-gray-400 mt-1">
+        Update:{" "}
+        {formatDistanceToNow(new Date(lokasi.recordedAt), {
+          addSuffix: true,
+          locale: id,
+        })}
+      </div>
     </div>
   );
 }

@@ -105,12 +105,11 @@ describe("LiveMapClient battery display", () => {
       refetch: vi.fn(),
     });
 
-    // useState mocks untuk state lokal sisa: searchQuery, lastUpdated,
-    // viewMode, didHydrateRevision dll. Kita biarkan default behavior.
     mockUseState
       .mockReturnValueOnce(["", vi.fn()]) // searchQuery
+      .mockReturnValueOnce(["cards", vi.fn()]) // viewMode
       .mockReturnValueOnce([null, vi.fn()]) // lastUpdated
-      .mockReturnValueOnce(["cards", vi.fn()]); // viewMode
+      .mockReturnValueOnce([false, vi.fn()]); // hasChannel
 
     const liveMapClientModule =
       await import("@/app/admin/kehadiran/live-map/LiveMapClient");

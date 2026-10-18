@@ -8,50 +8,55 @@ import { toEmployeeLocationEntity } from "../mappers/AttendanceDomainMapper";
 export type LocationData = LocationDataEntity;
 
 export class LocationTrackingRepository implements ILocationTrackingRepository {
-  /** Persist a single location point. */
+  /**
+   * Persist a single location point. A point the user already sent (same
+   * `recordedAt`) is not stored twice: a request that timed out on the phone
+   * after the server saved it comes back through the offline queue.
+   * Returns null for such a duplicate.
+   */
   async createLocation(
     userId: string,
     tenantId: string | null | undefined,
     data: LocationData,
   ) {
+    const recordedAt = data.recordedAt ?? new Date();
+    const existing = await prisma.employeeLocation.findFirst({
+      where: { userId, recordedAt },
+      select: { id: true },
+    });
+    if (existing) return null;
+
     const location = await prisma.employeeLocation.create({
-      data: {
-        userId,
-        tenantId,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        accuracy: data.accuracy ?? null,
-        altitude: data.altitude ?? null,
-        speed: data.speed ?? null,
-        heading: data.heading ?? null,
-        batteryLevel: data.batteryLevel ?? null,
-        isMoving: data.isMoving ?? false,
-        recordedAt: data.recordedAt ?? new Date(),
-      },
+      data: toLocationRow(userId, tenantId, { ...data, recordedAt }),
     });
 
     return toEmployeeLocationEntity(location);
   }
 
+  /** Persist multiple location points, skipping ones already stored. */
   async createLocationsBatch(
     userId: string,
     tenantId: string | null | undefined,
     locations: LocationData[],
   ) {
-    return prisma.employeeLocation.createMany({
-      data: locations.map((loc) => ({
+    const rows = uniqueByRecordedAt(locations);
+    if (rows.length === 0) return { count: 0 };
+
+    const stored = await prisma.employeeLocation.findMany({
+      where: {
         userId,
-        tenantId,
-        latitude: loc.latitude,
-        longitude: loc.longitude,
-        accuracy: loc.accuracy ?? null,
-        altitude: loc.altitude ?? null,
-        speed: loc.speed ?? null,
-        heading: loc.heading ?? null,
-        batteryLevel: loc.batteryLevel ?? null,
-        isMoving: loc.isMoving ?? false,
-        recordedAt: loc.recordedAt ?? new Date(),
-      })),
+        recordedAt: { in: rows.map((row) => row.recordedAt) },
+      },
+      select: { recordedAt: true },
+    });
+    const storedTimes = new Set(stored.map((row) => row.recordedAt.getTime()));
+    const fresh = rows.filter(
+      (row) => !storedTimes.has(row.recordedAt.getTime()),
+    );
+    if (fresh.length === 0) return { count: 0 };
+
+    return prisma.employeeLocation.createMany({
+      data: fresh.map((row) => toLocationRow(userId, tenantId, row)),
     });
   }
 
@@ -60,6 +65,7 @@ export class LocationTrackingRepository implements ILocationTrackingRepository {
     userIds: string[],
     effectiveTenantId: string | null | undefined,
     isSuperAdmin: boolean,
+    recordedSince: Date,
   ) {
     const locations = await prisma.$queryRaw<
       Array<{
@@ -79,6 +85,7 @@ export class LocationTrackingRepository implements ILocationTrackingRepository {
                 heading, "isMoving", "batteryLevel", "recordedAt"
             FROM "employee_locations"
             WHERE "userId" = ANY(${userIds})
+            AND "recordedAt" >= ${recordedSince}
             ${!isSuperAdmin && effectiveTenantId ? Prisma.sql`AND "tenantId" = ${effectiveTenantId}` : Prisma.empty}
             ORDER BY "userId", "recordedAt" DESC
         `;
@@ -126,4 +133,36 @@ export class LocationTrackingRepository implements ILocationTrackingRepository {
       },
     });
   }
+}
+
+type LocationRowInput = LocationData & { recordedAt: Date };
+
+function toLocationRow(
+  userId: string,
+  tenantId: string | null | undefined,
+  data: LocationRowInput,
+) {
+  return {
+    userId,
+    tenantId,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    accuracy: data.accuracy ?? null,
+    altitude: data.altitude ?? null,
+    speed: data.speed ?? null,
+    heading: data.heading ?? null,
+    batteryLevel: data.batteryLevel ?? null,
+    isMoving: data.isMoving ?? false,
+    recordedAt: data.recordedAt,
+  };
+}
+
+/** Satu titik per `recordedAt`; titik tanpa waktu dicap sekarang. */
+function uniqueByRecordedAt(locations: LocationData[]): LocationRowInput[] {
+  const byTime = new Map<number, LocationRowInput>();
+  for (const location of locations) {
+    const recordedAt = location.recordedAt ?? new Date();
+    byTime.set(recordedAt.getTime(), { ...location, recordedAt });
+  }
+  return [...byTime.values()];
 }

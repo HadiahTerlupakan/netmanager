@@ -1,6 +1,5 @@
 import { calculateHaversineDistance } from "@/lib/geo-utils";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
-import { getTimezone } from "@/lib/utils/get-timezone";
 import type { ILocationTrackingRepository } from "../domain/ports/ILocationTrackingRepository";
 import {
   LocationTrackingRepository,
@@ -8,22 +7,26 @@ import {
 } from "../repositories/LocationTrackingRepository";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { UserLookupService } from "@/modules/users";
+import { ActiveAttendanceSessionService } from "./ActiveAttendanceSessionService";
 import { LocationLiveMapService } from "./LocationLiveMapService";
 import { LocationRealtimePublisher } from "./LocationRealtimePublisher";
+import { isWithinSessionWindows } from "./location-session-window";
 
 const LOCATION_RETENTION_DAYS = 30;
 
 export class LocationTrackingService {
   private readonly liveMapService: LocationLiveMapService;
+  private readonly sessionService: ActiveAttendanceSessionService;
   private readonly realtimePublisher = new LocationRealtimePublisher();
 
   constructor(
     private readonly locationRepo: ILocationTrackingRepository = new LocationTrackingRepository(),
-    private readonly attendanceRepo: AttendanceRepository = new AttendanceRepository(),
+    attendanceRepo: AttendanceRepository = new AttendanceRepository(),
     private readonly userRepo: UserLookupService = new UserLookupService(),
   ) {
+    this.sessionService = new ActiveAttendanceSessionService(attendanceRepo);
     this.liveMapService = new LocationLiveMapService(
-      attendanceRepo,
+      this.sessionService,
       locationRepo,
     );
   }
@@ -41,14 +44,19 @@ export class LocationTrackingService {
       effectiveTenantId,
       data,
     );
+    if (!location) return;
     await this.realtimePublisher.publishLocationUpdate(
       userId,
       effectiveTenantId,
-      location,
+      location.recordedAt,
     );
   }
 
-  /** Batch save lokasi untuk sync offline. */
+  /**
+   * Simpan antrean lokasi offline. Hanya titik yang terekam di dalam salah
+   * satu sesi kerja user yang disimpan: antrean biasanya baru terkirim sesudah
+   * check-out, jadi syarat "sedang check-in" akan membuang semuanya.
+   */
   async saveLocations(
     userId: string,
     locations: LocationData[],
@@ -56,32 +64,36 @@ export class LocationTrackingService {
   ): Promise<number> {
     const effectiveTenantId =
       tenantId ?? (await this.userRepo.findById(userId))?.tenantId;
+    const withinSessions = await this.filterWithinSessions(
+      userId,
+      locations,
+      effectiveTenantId,
+    );
+    if (withinSessions.length === 0) return 0;
+
     const result = await this.locationRepo.createLocationsBatch(
       userId,
       effectiveTenantId,
-      locations,
+      withinSessions,
     );
-    const latest = this.findLatestLocation(locations);
-    if (latest) {
+    const latest = this.findLatestLocation(withinSessions);
+    if (result.count > 0 && latest?.recordedAt) {
       await this.realtimePublisher.publishLocationUpdate(
         userId,
         effectiveTenantId,
-        latest,
+        latest.recordedAt,
       );
     }
     return result.count;
   }
 
-  /** Cek apakah user sedang check-in aktif hari ini. */
+  /** Cek apakah user sedang dalam sesi kerja yang masih berjalan. */
   async isUserCurrentlyCheckedIn(userId: string): Promise<boolean> {
     const user = await this.userRepo.findById(userId);
-    const todayUTC = await this.getTodayTenantStartUTC(
+    return this.sessionService.isUserInActiveSession(
+      userId,
       user?.tenantId || undefined,
     );
-    const activeAttendance = await this.attendanceRepo.findFirst({
-      where: { userId, checkIn: { gte: todayUTC }, checkOut: null },
-    });
-    return !!activeAttendance;
   }
 
   /** Ambil lokasi terakhir untuk semua karyawan yang sedang aktif. */
@@ -127,9 +139,26 @@ export class LocationTrackingService {
     };
   }
 
-  private async getTodayTenantStartUTC(tenantId?: string): Promise<Date> {
-    const timezone = await getTimezone(tenantId);
-    return toStartOfDay(new Date(), timezone);
+  private async filterWithinSessions(
+    userId: string,
+    locations: LocationData[],
+    tenantId: string | null | undefined,
+  ): Promise<LocationData[]> {
+    const timed = locations.filter(
+      (location): location is LocationData & { recordedAt: Date } =>
+        location.recordedAt instanceof Date,
+    );
+    if (timed.length === 0) return [];
+    const times = timed.map((location) => location.recordedAt.getTime());
+    const windows = await this.sessionService.findSessionWindows({
+      userId,
+      from: new Date(Math.min(...times)),
+      to: new Date(Math.max(...times)),
+      tenantId: tenantId || undefined,
+    });
+    return timed.filter((location) =>
+      isWithinSessionWindows(location.recordedAt, windows),
+    );
   }
 
   private findLatestLocation(locations: LocationData[]) {

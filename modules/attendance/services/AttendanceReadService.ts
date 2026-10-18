@@ -1,4 +1,7 @@
-import { AttendanceSessionPolicyService } from "./AttendanceSessionPolicyService";
+import {
+  AttendanceSessionPolicyService,
+  isSessionDecisionActive,
+} from "./AttendanceSessionPolicyService";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
 import { getAttendanceAnalytics } from "./attendance-analytics-helpers";
 import {
@@ -133,10 +136,7 @@ export class AttendanceReadService {
       return this.mapStaleSession(attendance, evaluation, timezone);
     }
 
-    // Konsisten dengan guard: cek apakah sesi masih aktif
-    const isSessionStillActive =
-      decision.isOvernightShiftActive ||
-      (!decision.isStaleFlexibleSession && !decision.shouldAutoCheckout);
+    const isSessionStillActive = isSessionDecisionActive(decision);
 
     const sameDay = isSameAttendanceDay(
       attendance.checkIn,

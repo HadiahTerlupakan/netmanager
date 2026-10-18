@@ -18,14 +18,33 @@ const locationSchema = z.object({
   recordedAt: z.iso.datetime().optional(),
 });
 
+/** Antrean offline di HP dibatasi 100 titik; ruang dua kali lipat untuk versi lama. */
+const MAX_BATCH_LOCATIONS = 200;
+
+/** Jam HP boleh lebih cepat dari server sebanyak ini sebelum dianggap salah. */
+const MAX_CLOCK_AHEAD_MS = 15 * 60 * 1000;
+
 const batchLocationSchema = z.object({
-  locations: z.array(locationSchema),
+  locations: z.array(locationSchema).max(MAX_BATCH_LOCATIONS),
 });
+
+/**
+ * Waktu rekam titik. Titik dari HP berjam lebih cepat akan menjadi "lokasi
+ * terakhir" selamanya dan membekukan marker-nya, jadi waktu yang jauh di depan
+ * jam server diganti waktu server.
+ */
+function resolveRecordedAt(recordedAt: string | undefined): Date {
+  const now = new Date();
+  if (!recordedAt) return now;
+  const parsed = new Date(recordedAt);
+  return parsed.getTime() > now.getTime() + MAX_CLOCK_AHEAD_MS ? now : parsed;
+}
 
 /**
  * POST /api/mobile/location
  * Menerima update lokasi dari mobile app
- * Hanya menyimpan jika user sedang dalam status check-in
+ * Titik tunggal hanya disimpan selama sesi kerja berjalan; antrean offline
+ * disimpan bila titiknya terekam di dalam salah satu sesi kerja.
  */
 export async function POST(request: NextRequest) {
   const timestamp = new Date().toISOString();
@@ -54,17 +73,8 @@ export async function POST(request: NextRequest) {
 
     const locationService = new LocationTrackingService();
 
-    // Cek apakah user sedang check-in
-    const isCheckedIn = await locationService.isUserCurrentlyCheckedIn(userId);
-
-    if (!isCheckedIn) {
-      return apiSuccess(
-        { shouldStopTracking: true },
-        { message: "User belum melakukan check-in" },
-      );
-    }
-
-    // Handle batch locations (offline sync)
+    // Antrean offline: disaring per sesi kerja di service, tidak digerbang
+    // status check-in saat ini karena biasanya terkirim sesudah check-out.
     if (
       typeof body === "object" &&
       body !== null &&
@@ -84,11 +94,19 @@ export async function POST(request: NextRequest) {
         userId,
         parsed.data.locations.map((loc) => ({
           ...loc,
-          recordedAt: loc.recordedAt ? new Date(loc.recordedAt) : new Date(),
+          recordedAt: resolveRecordedAt(loc.recordedAt),
         })),
       );
 
       return apiSuccess({ count }, { message: `Saved ${count} locations` });
+    }
+
+    const isCheckedIn = await locationService.isUserCurrentlyCheckedIn(userId);
+    if (!isCheckedIn) {
+      return apiSuccess(
+        { shouldStopTracking: true },
+        { message: "User belum melakukan check-in" },
+      );
     }
 
     // Handle single location
@@ -102,9 +120,7 @@ export async function POST(request: NextRequest) {
 
     await locationService.saveLocation(userId, {
       ...parsed.data,
-      recordedAt: parsed.data.recordedAt
-        ? new Date(parsed.data.recordedAt)
-        : new Date(),
+      recordedAt: resolveRecordedAt(parsed.data.recordedAt),
     });
 
     return apiSuccess(null, { message: "Lokasi tersimpan" });
