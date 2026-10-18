@@ -1,4 +1,15 @@
 export { AppVersionCheckService } from "./services/AppVersionCheckService";
+export { PlayStoreReleaseService } from "./services/PlayStoreReleaseService";
+export type { PlayStoreReleaseStatus } from "./services/PlayStoreReleaseService";
+export {
+  evaluateMobileVersion,
+  getMinimumMobileVersion,
+  resetMinimumMobileVersionCache,
+} from "./services/MobileVersionGate";
+export type {
+  MinimumMobileVersion,
+  ReportedMobileVersion,
+} from "./services/mobile-version-policy";
 export type {
   ContactAdminInfo,
   LatestVersionInfo,

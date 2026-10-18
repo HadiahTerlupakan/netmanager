@@ -3,6 +3,24 @@ import type {
   AppReleasePlatform,
 } from "../domain/entities/AppReleaseEntity";
 import type { IAppReleaseRepository } from "../domain/ports/IAppReleaseRepository";
+import {
+  isMobileVersionSupported,
+  type MinimumMobileVersion,
+} from "./mobile-version-policy";
+
+/** Halaman aplikasi di Play Store; satu-satunya jalan resmi untuk upgrade. */
+export const PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.netmanager.mobile";
+
+/** Rilis produksi Play terbaru dan versi minimum yang sedang berlaku. */
+export type PlayStoreLookup = () => Promise<{
+  latest: {
+    versionCode: number;
+    versionName: string | null;
+    firstSeenAt: Date;
+  } | null;
+  minimum: MinimumMobileVersion | null;
+}>;
 
 export interface VersionCheckInput {
   platform: AppReleasePlatform;
@@ -42,10 +60,14 @@ export class AppVersionCheckService {
   constructor(
     private readonly repository: IAppReleaseRepository,
     private readonly contactLookup: TenantContactLookup,
+    private readonly playStoreLookup?: PlayStoreLookup,
   ) {}
 
   /** Periksa apakah versi saat ini perlu diupdate berdasarkan release terbaru. */
   async check(input: VersionCheckInput): Promise<VersionCheckResult> {
+    const playResult = await this.checkPlayStore(input);
+    if (playResult) return playResult;
+
     const [latest, tenantContact] = await Promise.all([
       this.repository.findLatestActive({
         platform: input.platform,
@@ -74,6 +96,46 @@ export class AppVersionCheckService {
       isForceUpdate,
       tenantContact,
     );
+  }
+
+  /**
+   * Rilis produksi Play Store didahulukan dari rilis APK manual: aplikasi di
+   * bawah versi minimum diwajibkan update (server juga menolak API-nya), dan
+   * yang tertinggal tetapi masih dalam masa tenggang diberi tahu. Null bila
+   * tidak ada yang perlu diberitahukan dari Play.
+   */
+  private async checkPlayStore(
+    input: VersionCheckInput,
+  ): Promise<VersionCheckResult | null> {
+    if (input.platform !== "android" || !this.playStoreLookup) return null;
+    const { latest, minimum } = await this.playStoreLookup();
+    if (!latest) return null;
+
+    const current = {
+      versionCode: input.currentVersionCode,
+      versionName: input.currentVersion,
+    };
+    const isForceUpdate = !isMobileVersionSupported(current, minimum);
+    const isBehind = !isMobileVersionSupported(current, latest);
+    if (!isForceUpdate && !isBehind) return null;
+
+    const tenantContact = await this.contactLookup(input.tenantId);
+    return {
+      updateAvailable: true,
+      isForceUpdate,
+      currentVersion: input.currentVersion,
+      latestVersion: {
+        version: latest.versionName ?? "",
+        versionCode: latest.versionCode,
+        releaseNotes: null,
+        downloadUrl: PLAY_STORE_URL,
+        apkSizeBytes: null,
+        releasedAt: latest.firstSeenAt.toISOString(),
+      },
+      contactAdmin: tenantContact.url
+        ? { url: tenantContact.url, label: tenantContact.label }
+        : null,
+    };
   }
 
   /** Tentukan apakah update bersifat wajib berdasarkan flag atau minSupportedVersion. */

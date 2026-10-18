@@ -18,12 +18,14 @@ export async function getAppReleaseServices(): Promise<AppReleaseServiceBundle> 
       { AppReleaseMutationService },
       { AppVersionCheckService },
       { getAppUpdateContact },
+      { getPlayStoreStatus },
     ] = await Promise.all([
       import("../repositories/AppReleaseRepository"),
       import("./AppReleaseQueryService"),
       import("./AppReleaseMutationService"),
       import("./AppVersionCheckService"),
       import("@/modules/settings"),
+      import("./MobileVersionGate"),
     ]);
 
     const repository = new AppReleaseRepository();
@@ -33,6 +35,7 @@ export async function getAppReleaseServices(): Promise<AppReleaseServiceBundle> 
       versionCheckService: new AppVersionCheckService(
         repository,
         getAppUpdateContact,
+        getPlayStoreStatus,
       ),
     };
   }

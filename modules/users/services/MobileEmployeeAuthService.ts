@@ -70,6 +70,7 @@ export class MobileEmployeeAuthService {
     const unsupportedResponse =
       await this.versionService.buildUnsupportedVersionResponse(
         input.versionCode,
+        input.versionName,
       );
     if (unsupportedResponse) {
       return { found: true, success: false, response: unsupportedResponse };

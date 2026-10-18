@@ -5,6 +5,7 @@ import {
   signMobileToken,
   verifyMobileRefreshToken,
 } from "@/lib/mobile-auth";
+import { evaluateMobileVersion } from "@/modules/app-version";
 import type { MobileLoginPayload } from "./MobileAuthRouteService";
 
 /**
@@ -36,10 +37,6 @@ function pickIdentityClaims(payload: Record<string, unknown>) {
   );
 }
 
-const MIN_NATIVE_VERSION_CODE = Number(
-  process.env.MOBILE_MIN_NATIVE_VERSION_CODE ?? "0",
-);
-
 /** Mengelola validasi versi native aplikasi mobile dan refresh token. */
 export class MobileAuthVersionService {
   /**
@@ -47,13 +44,15 @@ export class MobileAuthVersionService {
    * Update OTA (JS bundle) di-handle oleh expo-updates di sisi mobile;
    * server hanya gating versi native (Play Store / sideload APK) lewat env var.
    */
-  async buildUnsupportedVersionResponse(versionCode: number) {
-    if (
-      MIN_NATIVE_VERSION_CODE <= 0 ||
-      versionCode >= MIN_NATIVE_VERSION_CODE
-    ) {
-      return null;
-    }
+  async buildUnsupportedVersionResponse(
+    versionCode: number,
+    versionName?: string | null,
+  ) {
+    const { isSupported, minimum } = await evaluateMobileVersion({
+      versionCode,
+      versionName: versionName ?? null,
+    });
+    if (isSupported) return null;
 
     return apiError(
       "Aplikasi harus diperbarui ke versi terbaru.",
@@ -62,7 +61,7 @@ export class MobileAuthVersionService {
         status: 426,
         details: {
           currentVersionCode: versionCode,
-          minimumVersionCode: MIN_NATIVE_VERSION_CODE,
+          minimumVersionCode: minimum?.versionCode ?? 0,
         },
       },
     );
@@ -99,8 +98,10 @@ export class MobileAuthVersionService {
       payload.appVersionCode,
       details.versionCode,
     );
-    const unsupportedResponse =
-      await this.buildUnsupportedVersionResponse(trustedVersionCode);
+    const unsupportedResponse = await this.buildUnsupportedVersionResponse(
+      trustedVersionCode,
+      payload.appVersionName,
+    );
     if (unsupportedResponse) {
       return {
         kind: "unsupported" as const,

@@ -41,6 +41,31 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-18] — Hanya versi Play Store terbaru yang boleh memakai aplikasi mobile
+
+- **Tipe**: [ADDED] [MIGRATION] [INFRA]
+- **Scope**: `modules/app-version` | `lib/mobile-auth` | `lib/google-play` | `app/api/cron/play-store-sync` | `app/admin/pengaturan/app-update`
+- **Author**: agent
+- **Deskripsi**: Versi minimum aplikasi mobile kini otomatis mengikuti rilis
+  produksi Google Play, tanpa angka yang diatur manual.
+  - Job `play-store-sync` (tiap jam, crontab) membaca jalur produksi lewat
+    akun layanan `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` dan mencatat rilis yang
+    baru terlihat di `play_store_releases`.
+  - Rilis terbaru diwajibkan 2 hari sesudah terlihat; selama itu versi
+    sebelumnya masih boleh. Nomor build dan nomor versi sama-sama dicek.
+  - Ditegakkan di login, setiap request, dan refresh token untuk semua jenis
+    akun; refresh investor yang sebelumnya tidak dicek kini ikut.
+  - `/api/mobile/app-version/check` tetap menjawab aplikasi yang sudah
+    ditolak dan memberinya update wajib dengan tautan Play Store.
+  - Tab baru "Versi Minimum" di Pengaturan → Update Aplikasi: status rilis,
+    batalkan/aktifkan kembali penguncian, dan sinkronisasi manual.
+  - Tanpa kredensial terpasang tidak ada yang dikunci;
+    `MOBILE_MIN_NATIVE_VERSION_CODE` tetap berlaku sebagai lantai manual.
+- **Migration**: `prisma/migrations/20261018130000_add_play_store_releases`
+  (tabel baru, global).
+- **Breaking**: ⚠️ Sesudah kredensial terpasang, aplikasi di bawah rilis
+  produksi terbaru ditolak 2 hari setelah rilis itu terlihat.
+
 ### [2026-10-18] — Token mobile hasil refresh tidak lagi membawa seluruh izin
 
 - **Tipe**: [FIXED]

@@ -100,6 +100,7 @@ export async function loginMobileRoute(input: MobileLoginRouteInput) {
   const unsupportedResponse =
     await mobileAuthVersionService.buildUnsupportedVersionResponse(
       input.versionCode,
+      input.versionName,
     );
   if (unsupportedResponse) {
     return unsupportedResponse;

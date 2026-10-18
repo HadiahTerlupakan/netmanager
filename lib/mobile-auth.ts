@@ -3,27 +3,30 @@ import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { SignJWT, jwtVerify } from "jose";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaMitraAuth } from "@/lib/prisma-mitra";
-
-const MIN_NATIVE_VERSION_CODE = Number(
-  process.env.MOBILE_MIN_NATIVE_VERSION_CODE ?? "0",
-);
+import { evaluateMobileVersion } from "@/modules/app-version";
 
 /** Hasil evaluasi versi native mobile.
- * OTA (JS bundle) di-handle oleh expo-updates di sisi mobile;
- * server hanya gating versi native (Play Store / sideload APK) lewat env var. */
+ * OTA (JS bundle) di-handle oleh expo-updates di sisi mobile; server hanya
+ * gating versi native: rilis produksi Play Store terbaru (lihat
+ * MobileVersionGate) dan lantai manual dari env. */
 export interface VersionAccessResult {
   isSupported: boolean;
   currentVersionCode: number;
   minimumVersionCode: number;
 }
 
-function evaluateVersionAccess(versionCode: number): VersionAccessResult {
-  const isSupported =
-    MIN_NATIVE_VERSION_CODE <= 0 || versionCode >= MIN_NATIVE_VERSION_CODE;
+async function evaluateVersionAccess(
+  versionCode: number,
+  versionName: string | null,
+): Promise<VersionAccessResult> {
+  const { isSupported, minimum } = await evaluateMobileVersion({
+    versionCode,
+    versionName,
+  });
   return {
     isSupported,
     currentVersionCode: versionCode,
-    minimumVersionCode: MIN_NATIVE_VERSION_CODE,
+    minimumVersionCode: minimum?.versionCode ?? 0,
   };
 }
 
@@ -268,7 +271,12 @@ export async function getMobileTokenDetails(
     }
     const mobilePayload = payload;
     const versionCode = resolveVersionCode(mobilePayload, versionCodeOverride);
-    const versionAccess = evaluateVersionAccess(versionCode);
+    const versionAccess = await evaluateVersionAccess(
+      versionCode,
+      typeof mobilePayload.appVersionName === "string"
+        ? mobilePayload.appVersionName
+        : null,
+    );
 
     return {
       payload: mobilePayload,

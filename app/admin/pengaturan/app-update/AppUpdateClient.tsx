@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { AppReleasesTab } from "./AppReleasesTab";
+import { MobileMinVersionTab } from "./MobileMinVersionTab";
 import { OtaUpdatesTab } from "./OtaUpdatesTab";
 
-type TabKey = "ota" | "releases";
+type TabKey = "ota" | "releases" | "min-version";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "ota", label: "OTA (JS Bundle)" },
   { key: "releases", label: "Rilis APK (Play Store)" },
+  { key: "min-version", label: "Versi Minimum" },
 ];
 
 export function AppUpdateClient() {
@@ -50,6 +52,7 @@ export function AppUpdateClient() {
 
       {activeTab === "ota" && <OtaUpdatesTab />}
       {activeTab === "releases" && <AppReleasesTab />}
+      {activeTab === "min-version" && <MobileMinVersionTab />}
     </div>
   );
 }

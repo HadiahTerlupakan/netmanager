@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { getMobileRequestVersionReport } from "@/lib/mobile-api-auth";
+import { evaluateMobileVersion } from "@/modules/app-version";
 import { getMobileInvestorAuthService } from "@/modules/investor";
 import {
   tryRefreshCustomerToken,
@@ -49,6 +50,25 @@ export async function POST(request: NextRequest) {
       versionReport,
     );
     if (investorTokens) {
+      // Akses investor hanya 15 menit, jadi menolak refresh sudah cukup untuk
+      // menghentikan aplikasi investor versi lama.
+      const { isSupported, minimum } = await evaluateMobileVersion({
+        versionCode: versionReport.versionCode ?? 0,
+        versionName: versionReport.versionName ?? null,
+      });
+      if (!isSupported) {
+        return apiError(
+          "Aplikasi harus diperbarui untuk melanjutkan.",
+          ErrorCodes.APP_VERSION_UNSUPPORTED,
+          {
+            status: 426,
+            details: {
+              currentVersionCode: versionReport.versionCode ?? 0,
+              minimumVersionCode: minimum?.versionCode ?? 0,
+            },
+          },
+        );
+      }
       return NextResponse.json({ success: true, ...investorTokens });
     }
 

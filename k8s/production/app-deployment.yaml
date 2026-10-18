@@ -168,6 +168,14 @@ spec:
                   name: netmanager-secrets
                   key: MOBILE_MIN_NATIVE_VERSION_CODE
                   optional: true
+            # Akun layanan Google Play (JSON mentah atau base64) untuk membaca
+            # jalur produksi; tanpa ini versi minimum mobile tidak pernah naik.
+            - name: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+                  optional: true
             - name: ALLOWED_ORIGINS
               valueFrom:
                 configMapKeyRef:

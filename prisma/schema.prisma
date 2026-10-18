@@ -6725,3 +6725,15 @@ model LegalTemplate {
   @@unique([tenantId, name])
   @@index([tenantId])
 }
+
+/// Rilis produksi aplikasi mobile yang terlihat di Google Play (global, bukan
+/// per tenant). Dasar versi minimum yang boleh memakai API mobile.
+model PlayStoreRelease {
+  versionCode   Int       @id
+  versionName   String?
+  firstSeenAt   DateTime  @default(now())
+  cancelledAt   DateTime?
+  cancelledById String?
+
+  @@map("play_store_releases")
+}

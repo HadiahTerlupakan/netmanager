@@ -17,6 +17,7 @@ const ignoreModels = [
   "JournalLine",
   "BankReconciliationLine",
   "OvertimeAutoCheckoutSchedule",
+  "PlayStoreRelease",
   "LandingHero",
   "LandingFeature",
   "LandingPricing",
