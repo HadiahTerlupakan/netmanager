@@ -153,6 +153,8 @@ export class AttendanceSessionRepository {
         checkIn: true,
         checkOut: true,
         status: true,
+        trackingStatus: true,
+        trackingStatusAt: true,
         user: {
           select: {
             id: true,
@@ -190,6 +192,18 @@ export class AttendanceSessionRepository {
         status: true,
         user: { select: this.sessionPolicyUserSelect() },
       },
+    });
+  }
+
+  /** Catat status tracking yang dilaporkan aplikasi pada sesinya. */
+  async updateTrackingStatus(input: {
+    attendanceId: string;
+    status: string;
+    at: Date;
+  }) {
+    await prisma.attendance.update({
+      where: { id: input.attendanceId },
+      data: { trackingStatus: input.status, trackingStatusAt: input.at },
     });
   }
 

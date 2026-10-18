@@ -3,18 +3,17 @@ import { useState } from "react";
 import {
   HiOutlineMapPin,
   HiOutlineUsers,
-  HiOutlineClock,
   HiOutlineArrowPath,
   HiMagnifyingGlass,
-  HiOutlineSignal,
   HiOutlineMap,
   HiOutlineSquares2X2,
+  HiOutlineExclamationTriangle,
 } from "react-icons/hi2";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { id } from "date-fns/locale";
 import { Button } from "@/components/ui/Button";
 import dynamic from "next/dynamic";
-import Image from "next/image";
+import { LiveLocationCard } from "./LiveLocationCard";
 import { useLiveLocations } from "./useLiveLocations";
 
 // Dynamic import untuk Map component (OpenLayers needs client-side only)
@@ -29,12 +28,6 @@ const EmployeeLocationMap = dynamic(
     ),
   },
 );
-
-function getBatteryPercentage(batteryLevel: number): number {
-  return batteryLevel <= 1
-    ? Math.round(batteryLevel * 100)
-    : Math.round(batteryLevel);
-}
 
 export default function LiveMapClient() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,6 +48,8 @@ export default function LiveMapClient() {
   const fetchLocations = () => {
     void refetch();
   };
+
+  const trackingOffCount = locations.filter((loc) => loc.trackingOff).length;
 
   // Filter locations by search
   const filteredLocations = locations.filter(
@@ -113,6 +108,14 @@ export default function LiveMapClient() {
                 {locations.length} Aktif
               </span>
             </div>
+            {trackingOffCount > 0 && (
+              <div className="flex items-center gap-2 bg-red-100 dark:bg-red-900/30 px-4 py-2 rounded-full">
+                <HiOutlineExclamationTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                <span className="font-semibold text-red-800 dark:text-red-200">
+                  {trackingOffCount} Tracking mati
+                </span>
+              </div>
+            )}
 
             <Button onClick={fetchLocations} disabled={isRefreshing}>
               <HiOutlineArrowPath
@@ -179,7 +182,10 @@ export default function LiveMapClient() {
               </p>
             </div>
           ) : (
-            <EmployeeLocationMap locations={filteredLocations} height={500} />
+            <>
+              <EmployeeLocationMap locations={filteredLocations} height={500} />
+              <WithoutPositionNote locations={filteredLocations} />
+            </>
           )}
         </div>
       )}
@@ -203,97 +209,28 @@ export default function LiveMapClient() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredLocations.map((loc) => (
-                <div
-                  key={loc.userId}
-                  className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-5 hover:shadow-md transition border border-gray-100 dark:border-gray-700"
-                >
-                  {/* Header with Avatar */}
-                  <div className="flex items-center gap-3 mb-4">
-                    {loc.userImage ? (
-                      <div className="relative w-12 h-12">
-                        <Image
-                          src={loc.userImage}
-                          alt={loc.userName}
-                          fill
-                          className="rounded-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">
-                          {loc.userName[0]}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 dark:text-white truncate">
-                        {loc.userName}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                        {loc.departmentName || "-"}
-                      </p>
-                    </div>
-                    {loc.isMoving && (
-                      <span className="flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
-                        <HiOutlineSignal className="w-3 h-3" />
-                        Moving
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Location Info */}
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                      <HiOutlineMapPin className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                      <span className="truncate">
-                        {loc.siteName || "Unknown"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
-                      <HiOutlineClock className="w-4 h-4 text-green-500 dark:text-green-400" />
-                      <span>
-                        Check-in: {format(new Date(loc.checkInTime), "HH:mm")}
-                      </span>
-                    </div>
-
-                    {/* Coordinates */}
-                    <div className="flex items-center gap-2 text-gray-400 text-xs">
-                      <span>
-                        📍 {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-400">
-                    <span>
-                      Update:{" "}
-                      {formatDistanceToNow(new Date(loc.recordedAt), {
-                        addSuffix: true,
-                        locale: id,
-                      })}
-                    </span>
-                    {loc.batteryLevel !== null && (
-                      <span
-                        className={`px-2 py-1 rounded ${
-                          getBatteryPercentage(loc.batteryLevel) > 50
-                            ? "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
-                            : getBatteryPercentage(loc.batteryLevel) > 20
-                              ? "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400"
-                              : "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        🔋 {getBatteryPercentage(loc.batteryLevel)}%
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <LiveLocationCard key={loc.userId} loc={loc} />
               ))}
             </div>
           )}
         </>
       )}
     </div>
+  );
+}
+
+/** Karyawan yang bekerja tanpa satu titik pun tidak punya posisi di peta. */
+function WithoutPositionNote({
+  locations,
+}: {
+  locations: { userId: string; userName: string; latitude: number | null }[];
+}) {
+  const withoutPosition = locations.filter((loc) => loc.latitude === null);
+  if (withoutPosition.length === 0) return null;
+  return (
+    <p className="mt-3 text-sm text-red-700 dark:text-red-300">
+      Tidak tampil di peta karena belum mengirim lokasi:{" "}
+      {withoutPosition.map((loc) => loc.userName).join(", ")}
+    </p>
   );
 }

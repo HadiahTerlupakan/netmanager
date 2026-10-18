@@ -38,6 +38,7 @@ export type MockPrismaClient = {
   canvasing: MockModel;
   conversation: MockModel;
   employeeLoan: MockModel;
+  employeeLocation: MockModel;
   emailDeliveryLog: MockModel;
   expense: MockModel;
   gudang: MockModel;

@@ -359,4 +359,53 @@ describe("admin attendance export parity", () => {
     expect(csv).not.toContain("Before Join");
     expect(csv).toContain("After Join");
   });
+
+  it("exports how long location tracking was off in each working session", async () => {
+    prismaMock.attendance.findMany.mockResolvedValue([
+      {
+        id: "attendance-tracking-gap",
+        tenantId: "tenant-1",
+        userId: "user-tracking",
+        checkIn: new Date("2026-10-20T01:00:00.000Z"),
+        checkOut: new Date("2026-10-20T09:00:00.000Z"),
+        status: "ON_TIME",
+        notes: null,
+        user: {
+          name: "Tracking Gap User",
+          email: "gap@example.com",
+          image: null,
+          workingHourMode: "FIXED",
+          workDays: ["MONDAY"],
+          departments: { name: "Ops" },
+          sites: { name: "HQ" },
+        },
+      },
+    ] as never);
+    prismaMock.employeeLocation.findMany.mockResolvedValue([
+      {
+        userId: "user-tracking",
+        recordedAt: new Date("2026-10-20T01:20:00.000Z"),
+      },
+      {
+        userId: "user-tracking",
+        recordedAt: new Date("2026-10-20T08:20:00.000Z"),
+      },
+      {
+        userId: "user-tracking",
+        recordedAt: new Date("2026-10-20T08:50:00.000Z"),
+      },
+    ] as never);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/admin/attendance?export=true&page=1&limit=20",
+      ),
+      { session: { user: { id: "admin-1", tenantId: "tenant-1" } } } as never,
+    );
+
+    const [header, row] = (await response.text()).split("\n");
+    expect(header).toContain('"Tracking Mati (menit)"');
+    // 01:20 → 08:20 tanpa titik.
+    expect(row.endsWith('"420"')).toBe(true);
+  });
 });

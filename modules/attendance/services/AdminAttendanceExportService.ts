@@ -32,6 +32,7 @@ export function toCsvResponse(rows: string[][]) {
 export function buildExportRows(
   attendances: Array<
     AdminAttendanceRow & {
+      id: string;
       user: {
         name: string | null;
         sites?: { name: string } | null;
@@ -41,6 +42,7 @@ export function buildExportRows(
   >,
   evaluationMap: Map<string, AttendanceEvaluationLookupRow>,
   timezone: string,
+  trackingOffMinutes: Map<string, number | null>,
 ) {
   const rows = [
     [
@@ -54,6 +56,7 @@ export function buildExportRows(
       "Status",
       "Keterangan",
       "Evidence Quality",
+      "Tracking Mati (menit)",
     ],
   ];
 
@@ -61,7 +64,13 @@ export function buildExportRows(
     const evaluation = evaluationMap.get(
       buildAttendanceEvaluationKey(item, timezone),
     );
-    rows.push(buildExportRow(item, evaluation, timezone, index));
+    const offMinutes = trackingOffMinutes.get(item.id);
+    rows.push([
+      ...buildExportRow(item, evaluation, timezone, index),
+      offMinutes === null || offMinutes === undefined
+        ? "-"
+        : String(offMinutes),
+    ]);
   });
 
   return rows;

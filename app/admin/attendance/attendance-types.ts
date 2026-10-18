@@ -14,6 +14,8 @@ export interface Attendance {
   correctionReplacementAttendanceId?: string | null;
   correctionSourceAttendanceId?: string | null;
   correctionSource?: string | null;
+  /** Menit tanpa lokasi selama sesi; null bila sesi ini tidak dinilai. */
+  trackingOffMinutes?: number | null;
   user: {
     name: string | null;
     email: string;

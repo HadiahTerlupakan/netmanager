@@ -4,6 +4,7 @@ import {
 } from "./AttendanceAlertService";
 import { AutoCheckoutService } from "./AutoCheckoutService";
 import { AbsenceService } from "./AbsenceService";
+import { runTrackingGapAlerts } from "./TrackingGapAlertService";
 import { TenantSettingsRepository } from "../repositories/TenantSettingsRepository";
 import { DEFAULT_TIMEZONE } from "@/lib/constants/timezone-constants";
 
@@ -11,6 +12,7 @@ export type AttendanceCronJobName =
   | "attendance-alert:auto"
   | "attendance-alert:process"
   | "process-absence"
+  | "tracking-gap-alert"
   | "auto-checkout";
 
 function getLocalTimeParts(now: Date, timezone: string) {
@@ -36,6 +38,10 @@ export function getDueAttendanceCronJobs(
   );
   const jobs: AttendanceCronJobName[] = ["auto-checkout"];
 
+  if (shouldRunTrackingGapAlert(currentMinute)) {
+    jobs.unshift("tracking-gap-alert");
+  }
+
   if (shouldRunAutoAlert(currentMinute)) {
     jobs.unshift("attendance-alert:auto");
   }
@@ -54,6 +60,11 @@ export function getDueAttendanceCronJobs(
 /** Tentukan apakah reminder auto attendance perlu dijalankan. */
 function shouldRunAutoAlert(minute: number): boolean {
   return minute % 15 === 0;
+}
+
+/** Tracking yang mati dicek tiap 5 menit; batas jedanya sendiri 45 menit. */
+function shouldRunTrackingGapAlert(minute: number): boolean {
+  return minute % 5 === 0;
 }
 
 /** Tentukan apakah job terjadwal berjalan pada jam tertentu. */
@@ -108,6 +119,7 @@ async function runAttendanceCronJob(jobName: AttendanceCronJobName, now: Date) {
   if (jobName === "attendance-alert:process")
     return processIncompleteAttendance();
   if (jobName === "process-absence") return runProcessAbsence(now);
+  if (jobName === "tracking-gap-alert") return runTrackingGapAlerts();
   return AutoCheckoutService.runAutoCheckout();
 }
 

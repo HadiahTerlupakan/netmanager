@@ -113,6 +113,9 @@ model Attendance {
   correctionReplacementAttendanceId String?
   correctionSourceAttendanceId      String?
   correctionSource                  String?
+  /// Status tracking lokasi terakhir yang dilaporkan aplikasi untuk sesi ini.
+  trackingStatus                    String?
+  trackingStatusAt                  DateTime?
   tenant                            Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user                              User             @relation(fields: [userId], references: [id])
   correctedBy                       User?            @relation("AttendanceCorrectedBy", fields: [correctedById], references: [id])

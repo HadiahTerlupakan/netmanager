@@ -6,6 +6,11 @@ const mockFns = vi.hoisted(() => ({
   runAutoCheckout: vi.fn(),
   processDailyAbsence: vi.fn(),
   tenantFindMany: vi.fn(),
+  runTrackingGapAlerts: vi.fn(),
+}));
+
+vi.mock("@/modules/attendance/services/TrackingGapAlertService", () => ({
+  runTrackingGapAlerts: mockFns.runTrackingGapAlerts,
 }));
 
 vi.mock("@/modules/attendance/services/AttendanceAlertService", () => ({
@@ -41,6 +46,7 @@ describe("AttendanceCronOrchestratorService", () => {
     mockFns.runAutoCheckout.mockResolvedValue(2);
     mockFns.processDailyAbsence.mockResolvedValue({ processed: 4, absent: 1 });
     mockFns.tenantFindMany.mockResolvedValue([{ id: "tenant-1" }]);
+    mockFns.runTrackingGapAlerts.mockResolvedValue({ notified: 0 });
   });
 
   it("returns auto-checkout on every orchestrator tick", async () => {
@@ -52,8 +58,24 @@ describe("AttendanceCronOrchestratorService", () => {
     ]);
     expect(getDueAttendanceCronJobs(new Date("2026-04-21T10:15:00"))).toEqual([
       "attendance-alert:auto",
+      "tracking-gap-alert",
       "auto-checkout",
     ]);
+  });
+
+  it("checks for silent location tracking every five minutes", async () => {
+    const { getDueAttendanceCronJobs, runAttendanceCronOrchestrator } =
+      await import("@/modules/attendance/services/AttendanceCronOrchestratorService");
+
+    expect(getDueAttendanceCronJobs(new Date("2026-04-21T10:05:00"))).toEqual([
+      "tracking-gap-alert",
+      "auto-checkout",
+    ]);
+
+    await runAttendanceCronOrchestrator({
+      now: new Date("2026-04-21T10:05:00"),
+    });
+    expect(mockFns.runTrackingGapAlerts).toHaveBeenCalledOnce();
   });
 
   it("runs process-incomplete job at 22:00 alongside auto attendance check and auto-checkout", async () => {
@@ -71,6 +93,7 @@ describe("AttendanceCronOrchestratorService", () => {
     expect(result.jobs.map((job: { name: string }) => job.name)).toEqual([
       "attendance-alert:process",
       "attendance-alert:auto",
+      "tracking-gap-alert",
       "auto-checkout",
     ]);
   });
@@ -95,6 +118,7 @@ describe("AttendanceCronOrchestratorService", () => {
     expect(result.jobs.map((job: { name: string }) => job.name)).toEqual([
       "process-absence",
       "attendance-alert:auto",
+      "tracking-gap-alert",
       "auto-checkout",
     ]);
   });

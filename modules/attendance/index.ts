@@ -10,6 +10,7 @@ export * from "./services/AttendanceService";
 export * from "./services/AbsenceService";
 export * from "./services/LeaveService";
 export * from "./services/LocationTrackingService";
+export { AttendanceTrackingStatusService } from "./services/AttendanceTrackingStatusService";
 export * from "./services/AttendancePhotoService";
 export * from "./services/AttendancePhotoValidationService";
 export * from "./services/AttendanceAlertService";
@@ -24,6 +25,7 @@ export {
   AttendanceStatus,
   checkInSchema,
   checkOutSchema,
+  trackingStatusReportSchema,
 } from "./validation";
 export type {
   AttendanceBulkDelete,

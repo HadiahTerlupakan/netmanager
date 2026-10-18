@@ -118,4 +118,52 @@ describe("LiveMapClient battery display", () => {
     expect(markup).toContain("🔋 90%");
     expect(markup).not.toContain("🔋 9000%");
   });
+
+  it("lists an employee with tracking off even without coordinates", async () => {
+    mockUseApi.mockReturnValue({
+      data: {
+        locations: [
+          {
+            userId: "user-2",
+            userName: "Tatang",
+            userImage: null,
+            siteName: "Subang",
+            departmentName: "Technical",
+            latitude: null,
+            longitude: null,
+            accuracy: null,
+            speed: null,
+            heading: null,
+            isMoving: false,
+            batteryLevel: null,
+            recordedAt: null,
+            checkInTime: "2026-04-21T00:34:00.000Z",
+            trackingOff: true,
+            trackingOffSince: "2026-04-21T00:34:00.000Z",
+            trackingOffReason: "NO_POINT",
+          },
+        ],
+        tenantId: null,
+      },
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      mutate: vi.fn(),
+      refetch: vi.fn(),
+    });
+
+    mockUseState
+      .mockReturnValueOnce(["", vi.fn()]) // searchQuery
+      .mockReturnValueOnce(["cards", vi.fn()]) // viewMode
+      .mockReturnValueOnce([null, vi.fn()]) // lastUpdated
+      .mockReturnValueOnce([false, vi.fn()]); // hasChannel
+
+    const liveMapClientModule =
+      await import("@/app/admin/kehadiran/live-map/LiveMapClient");
+    const markup = renderToStaticMarkup(<liveMapClientModule.default />);
+
+    expect(markup).toContain("Tatang");
+    expect(markup).toContain("Belum mengirim lokasi sejak check-in");
+    expect(markup).toContain("1 Tracking mati");
+  });
 });

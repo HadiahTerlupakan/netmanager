@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { REPORTED_TRACKING_STATUSES } from "../services/tracking-gap";
 
 /**
  * Attendance Status enum values
@@ -166,3 +167,8 @@ export const checkOutSchema = z.object({
 });
 
 export type CheckOutRequest = z.infer<typeof checkOutSchema>;
+
+/** Laporan status tracking lokasi dari aplikasi mobile. */
+export const trackingStatusReportSchema = z.object({
+  status: z.enum(REPORTED_TRACKING_STATUSES),
+});

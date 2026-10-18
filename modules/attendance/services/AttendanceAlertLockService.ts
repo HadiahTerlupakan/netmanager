@@ -17,3 +17,15 @@ export async function acquireReminderLock(
     return false;
   }
 }
+
+/** Lepas lock agar reminder yang gagal terkirim dicoba lagi pada run berikutnya. */
+export async function releaseReminderLock(key: string): Promise<void> {
+  try {
+    await redis.del(key);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(
+      `[AttendanceAlert] Reminder lock release failed for "${key}": ${message}`,
+    );
+  }
+}

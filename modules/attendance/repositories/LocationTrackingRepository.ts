@@ -93,6 +93,18 @@ export class LocationTrackingRepository implements ILocationTrackingRepository {
     return locations.map(toEmployeeLocationEntity);
   }
 
+  /** Waktu titik satu user dalam satu rentang, untuk laporan jeda tracking. */
+  async findRecordedAtForUser(input: { userId: string; from: Date; to: Date }) {
+    const rows = await prisma.employeeLocation.findMany({
+      where: {
+        userId: input.userId,
+        recordedAt: { gte: input.from, lte: input.to },
+      },
+      select: { recordedAt: true },
+    });
+    return rows.map((row) => row.recordedAt);
+  }
+
   /** Read ordered location history for a user. */
   async findLocationsByUserIdAndDateRange(
     userId: string,

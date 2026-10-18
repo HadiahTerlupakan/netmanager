@@ -56,13 +56,26 @@ export class ActiveAttendanceSessionService {
     userId: string,
     tenantId?: string,
   ): Promise<boolean> {
+    return (await this.findCurrentSessionId(userId, tenantId)) !== null;
+  }
+
+  /** Id sesi kerja user yang masih berjalan, atau null. */
+  async findCurrentSessionId(
+    userId: string,
+    tenantId?: string,
+  ): Promise<string | null> {
     const attendance = await this.attendanceRepo.findFirstForCurrentStatus({
       userId,
       tenantId,
     });
-    if (!attendance) return false;
+    if (!attendance) return null;
     const timezone = await getTimezone(tenantId);
-    return this.isActive(attendance as PolicyAttendance, new Date(), timezone);
+    const isActive = this.isActive(
+      attendance as PolicyAttendance,
+      new Date(),
+      timezone,
+    );
+    return isActive ? attendance.id : null;
   }
 
   /**

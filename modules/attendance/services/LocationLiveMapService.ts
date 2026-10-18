@@ -6,6 +6,7 @@ import {
   LOCATION_CLOCK_SKEW_MS,
   isRecordedInSession,
 } from "./location-session-window";
+import { evaluateTracking } from "./tracking-gap";
 
 /**
  * Batas umur titik "bergerak". HP yang berhenti tidak mengirim titik "diam"
@@ -24,10 +25,23 @@ export class LocationLiveMapService {
     private readonly locationRepo: ILocationTrackingRepository,
   ) {}
 
-  /** Ambil lokasi terakhir sesi berjalan untuk karyawan yang sedang aktif. */
+  /** Karyawan yang sedang bekerja, dengan lokasi terakhir sesi berjalannya. */
   async getLiveLocations(filters?: { siteId?: string; departmentId?: string }) {
     const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
     if (!isSuperAdmin && !tenantId) return [];
+    return this.getLiveLocationsForTenant({ tenantId, isSuperAdmin, filters });
+  }
+
+  /** Sama dengan `getLiveLocations`, untuk pemanggil tanpa konteks request. */
+  async getLiveLocationsForTenant({
+    tenantId,
+    isSuperAdmin,
+    filters,
+  }: {
+    tenantId: string | null;
+    isSuperAdmin: boolean;
+    filters?: { siteId?: string; departmentId?: string };
+  }) {
     const sessions = await this.sessionService.findActiveSessions({
       timezoneTenantId: tenantId || undefined,
       tenantId: isSuperAdmin ? undefined : tenantId || undefined,
@@ -46,12 +60,9 @@ export class LocationLiveMapService {
     );
     const now = Date.now();
 
-    return sessions
-      .map((session) => mapLiveLocation(session, locationMap, now))
-      .filter(
-        (location): location is NonNullable<typeof location> =>
-          location !== null,
-      );
+    return sessions.map((session) =>
+      mapLiveLocation(session, locationMap, now),
+    );
   }
 }
 
@@ -63,33 +74,47 @@ function earliestSessionStart(sessions: ActiveSession[]): Date {
 }
 
 /**
- * Posisi live satu karyawan, atau null bila sesi ini belum mengirim titik:
- * titik dari sesi sebelumnya bukan posisinya sekarang.
+ * Posisi live satu karyawan. Titik dari sesi sebelumnya bukan posisinya
+ * sekarang, jadi sesi yang belum mengirim titik tampil tanpa koordinat dan
+ * ditandai tracking mati begitu jedanya melewati batas.
  */
 function mapLiveLocation(
   session: ActiveSession,
   locationMap: Map<string, EmployeeLocationEntity>,
   now: number,
 ) {
-  const location = locationMap.get(session.userId);
-  if (!location || !isRecordedInSession(location.recordedAt, session.checkIn)) {
-    return null;
-  }
-  const isFresh = now - location.recordedAt.getTime() <= MOVING_FRESHNESS_MS;
+  const stored = locationMap.get(session.userId);
+  const location =
+    stored && isRecordedInSession(stored.recordedAt, session.checkIn)
+      ? stored
+      : null;
+  const tracking = evaluateTracking({
+    checkIn: session.checkIn,
+    lastPointAt: location?.recordedAt ?? null,
+    reportedStatus: session.trackingStatus,
+    reportedAt: session.trackingStatusAt,
+    now: new Date(now),
+  });
+  const isFresh =
+    location !== null &&
+    now - location.recordedAt.getTime() <= MOVING_FRESHNESS_MS;
   return {
     userId: session.userId,
     userName: session.user.name || "Unknown",
     userImage: session.user.image,
     siteName: session.user.sites?.name || null,
     departmentName: session.user.departments?.name || null,
-    latitude: location.latitude,
-    longitude: location.longitude,
-    accuracy: location.accuracy,
-    speed: location.speed,
-    heading: location.heading,
-    isMoving: location.isMoving && isFresh,
-    batteryLevel: location.batteryLevel,
-    recordedAt: location.recordedAt,
+    latitude: location?.latitude ?? null,
+    longitude: location?.longitude ?? null,
+    accuracy: location?.accuracy ?? null,
+    speed: location?.speed ?? null,
+    heading: location?.heading ?? null,
+    isMoving: Boolean(location?.isMoving) && isFresh && !tracking.isOff,
+    batteryLevel: location?.batteryLevel ?? null,
+    recordedAt: location?.recordedAt ?? null,
     checkInTime: session.checkIn,
+    trackingOff: tracking.isOff,
+    trackingOffSince: tracking.offSince,
+    trackingOffReason: tracking.reason,
   };
 }

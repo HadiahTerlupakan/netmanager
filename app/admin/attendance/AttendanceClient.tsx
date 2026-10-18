@@ -48,6 +48,7 @@ import {
 } from "@/app/admin/attendance/attendance-selection";
 import { canCorrectMissedCheckInAttendance } from "./attendance-helpers";
 import type { Attendance, AttendanceOption } from "./attendance-types";
+import { TrackingOffNote } from "./TrackingOffNote";
 
 const fullResponseFetcher = async (
   url: string,
@@ -827,6 +828,7 @@ export function ClientComponent() {
                 </div>
               )
             )}
+            <TrackingOffNote minutes={item.trackingOffMinutes ?? null} />
           </div>
         );
       },

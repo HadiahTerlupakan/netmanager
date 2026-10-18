@@ -9,6 +9,7 @@ import {
   isCanonicalStatusDetail,
 } from "./AdminAttendanceEvaluationHelper";
 import { buildExportRows, toCsvResponse } from "./AdminAttendanceExportService";
+import { AttendanceTrackingReportService } from "./AttendanceTrackingReportService";
 import {
   buildAdminAttendanceWhere,
   buildIncludeUser,
@@ -21,7 +22,10 @@ import type {
 
 /** Bangun response list/export attendance admin. */
 export class AdminAttendanceListService {
-  constructor(private readonly attendanceRepository: AttendanceRepository) {}
+  constructor(
+    private readonly attendanceRepository: AttendanceRepository,
+    private readonly trackingReport: AttendanceTrackingReportService = new AttendanceTrackingReportService(),
+  ) {}
 
   /** Ambil data attendance admin sesuai filter, pagination, dan mode export. */
   async getAdminAttendances(
@@ -92,10 +96,17 @@ export class AdminAttendanceListService {
       input.statusDetail,
       timezone,
     );
+    const trackingOffMinutes =
+      await this.trackingReport.trackingOffMinutes(filteredAttendances);
     return {
       type: "response" as const,
       response: toCsvResponse(
-        buildExportRows(filteredAttendances, evaluationMap, timezone),
+        buildExportRows(
+          filteredAttendances,
+          evaluationMap,
+          timezone,
+          trackingOffMinutes,
+        ),
       ),
     };
   }
@@ -129,16 +140,18 @@ export class AdminAttendanceListService {
       input.statusDetail,
       timezone,
     );
+    const page = filteredAttendances.slice(skip, skip + input.limit);
+    const trackingOffMinutes =
+      await this.trackingReport.trackingOffMinutes(page);
     return {
       type: "paginated" as const,
-      data: filteredAttendances
-        .slice(skip, skip + input.limit)
-        .map((item) =>
-          enrichAttendanceRow(
-            item,
-            evaluationMap.get(buildAttendanceEvaluationKey(item, timezone)),
-          ),
+      data: page.map((item) => ({
+        ...enrichAttendanceRow(
+          item,
+          evaluationMap.get(buildAttendanceEvaluationKey(item, timezone)),
         ),
+        trackingOffMinutes: trackingOffMinutes.get(item.id) ?? null,
+      })),
       meta: {
         page: input.page,
         limit: input.limit,
@@ -171,11 +184,15 @@ export class AdminAttendanceListService {
       this.attendanceRepository.groupByStatus(activeAttendanceWhere),
     ]);
 
+    const page = filterAttendancesByJoinDate(rawPaginatedData);
+    const trackingOffMinutes =
+      await this.trackingReport.trackingOffMinutes(page);
     return {
       type: "paginated" as const,
-      data: filterAttendancesByJoinDate(rawPaginatedData).map((item) =>
-        enrichAttendanceRow(item, null),
-      ),
+      data: page.map((item) => ({
+        ...enrichAttendanceRow(item, null),
+        trackingOffMinutes: trackingOffMinutes.get(item.id) ?? null,
+      })),
       meta: {
         page: input.page,
         limit: input.limit,

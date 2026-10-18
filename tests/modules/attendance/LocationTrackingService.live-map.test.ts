@@ -44,6 +44,8 @@ function session(overrides: {
   checkIn: string;
   shift?: { startTime: string; endTime: string };
   workingHourMode?: "FIXED" | "SHIFT" | "FLEXIBLE";
+  trackingStatus?: string;
+  trackingStatusAt?: string;
 }) {
   return {
     id: `att-${overrides.userId}`,
@@ -51,6 +53,10 @@ function session(overrides: {
     checkIn: new Date(overrides.checkIn),
     checkOut: null as Date | null,
     status: "PRESENT",
+    trackingStatus: overrides.trackingStatus ?? null,
+    trackingStatusAt: overrides.trackingStatusAt
+      ? new Date(overrides.trackingStatusAt)
+      : null,
     user: {
       id: overrides.userId,
       name: overrides.userId,
@@ -151,11 +157,80 @@ describe("LocationTrackingService live map", () => {
       location("fresh", "2026-04-09T10:00:00.000Z"),
     ]);
 
-    const result = await getLiveLocations();
+    const [entry] = await getLiveLocations();
 
-    expect(result).toEqual([]);
+    expect(entry).toMatchObject({
+      userId: "fresh",
+      latitude: null,
+      longitude: null,
+      recordedAt: null,
+    });
     const recordedSince = mockFns.getLatestLocationsForUsers.mock.calls[0][3];
     expect(recordedSince).toEqual(new Date("2026-04-10T16:45:00.000Z"));
+  });
+
+  it("lists a working employee who never sent a point as tracking off", async () => {
+    mockFns.findOpenSessionsForLiveMap.mockResolvedValue([
+      session({
+        userId: "silent",
+        checkIn: "2026-04-10T17:00:00.000Z",
+        workingHourMode: "FLEXIBLE",
+      }),
+    ]);
+
+    const [entry] = await getLiveLocations();
+
+    expect(entry).toMatchObject({
+      userId: "silent",
+      latitude: null,
+      trackingOff: true,
+      trackingOffSince: new Date("2026-04-10T17:00:00.000Z"),
+      trackingOffReason: "NO_POINT",
+    });
+  });
+
+  it("keeps the last position of an employee whose points stopped", async () => {
+    mockFns.findOpenSessionsForLiveMap.mockResolvedValue([
+      session({
+        userId: "quiet",
+        checkIn: "2026-04-10T16:00:00.000Z",
+        workingHourMode: "FLEXIBLE",
+      }),
+    ]);
+    mockFns.getLatestLocationsForUsers.mockResolvedValue([
+      location("quiet", "2026-04-10T16:30:00.000Z"),
+    ]);
+
+    const [entry] = await getLiveLocations();
+
+    expect(entry).toMatchObject({
+      latitude: -6.2,
+      trackingOff: true,
+      trackingOffSince: new Date("2026-04-10T16:30:00.000Z"),
+      trackingOffReason: "STALE",
+    });
+  });
+
+  it("shows at once a permission the app reported as revoked", async () => {
+    mockFns.findOpenSessionsForLiveMap.mockResolvedValue([
+      session({
+        userId: "revoked",
+        checkIn: "2026-04-10T17:00:00.000Z",
+        workingHourMode: "FLEXIBLE",
+        trackingStatus: "BACKGROUND_DENIED",
+        trackingStatusAt: "2026-04-10T17:50:00.000Z",
+      }),
+    ]);
+    mockFns.getLatestLocationsForUsers.mockResolvedValue([
+      location("revoked", "2026-04-10T17:45:00.000Z"),
+    ]);
+
+    const [entry] = await getLiveLocations();
+
+    expect(entry).toMatchObject({
+      trackingOff: true,
+      trackingOffReason: "BACKGROUND_DENIED",
+    });
   });
 
   it("stops reporting an employee as moving once the moving point is stale", async () => {

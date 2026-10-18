@@ -51,6 +51,14 @@ export class AttendanceRepositoryFacade
     return this.sessionRepository.findSessionsOverlapping(params);
   }
 
+  async updateTrackingStatus(params: {
+    attendanceId: string;
+    status: string;
+    at: Date;
+  }) {
+    return this.sessionRepository.updateTrackingStatus(params);
+  }
+
   async findOpenSessionForAutoCheckout(params: {
     attendanceId: string;
     tenantId: string;

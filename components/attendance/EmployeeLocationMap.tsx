@@ -13,16 +13,23 @@ interface EmployeeLocation {
   userImage: string | null;
   siteName: string | null;
   departmentName: string | null;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   accuracy: number | null;
   speed?: number | null;
   heading?: number | null;
   isMoving: boolean;
   batteryLevel: number | null;
-  recordedAt: string;
+  recordedAt: string | null;
   checkInTime: string;
+  trackingOff?: boolean;
 }
+
+type PositionedLocation = EmployeeLocation & {
+  latitude: number;
+  longitude: number;
+  recordedAt: string;
+};
 
 interface EmployeeLocationMapProps {
   locations: EmployeeLocation[];
@@ -32,6 +39,7 @@ interface EmployeeLocationMapProps {
 
 const WARNA_BERGERAK = "#22c55e";
 const WARNA_DIAM = "#2563eb";
+const WARNA_TRACKING_MATI = "#dc2626";
 
 /** Monas; dipakai saat belum ada satu pun karyawan aktif. */
 const PUSAT_BAWAAN = { lat: -6.2, lng: 106.816666 };
@@ -51,7 +59,13 @@ export default function EmployeeLocationMap({
 }: EmployeeLocationMapProps) {
   const [pemicuPas, setPemicuPas] = useState(0);
 
-  const titik = locations.map((lokasi) => ({
+  const berposisi = locations.filter(
+    (lokasi): lokasi is PositionedLocation =>
+      lokasi.latitude !== null &&
+      lokasi.longitude !== null &&
+      lokasi.recordedAt !== null,
+  );
+  const titik = berposisi.map((lokasi) => ({
     lat: lokasi.latitude,
     lng: lokasi.longitude,
   }));
@@ -64,12 +78,12 @@ export default function EmployeeLocationMap({
         className="border border-gray-200 dark:border-gray-800"
       >
         <PetaUniversal pusat={pusat} titikPas={titik} pemicuPas={pemicuPas}>
-          {locations.map((lokasi) => (
+          {berposisi.map((lokasi) => (
             <PenandaUniversal
               key={lokasi.userId}
               posisi={{ lat: lokasi.latitude, lng: lokasi.longitude }}
               type="ont"
-              warna={lokasi.isMoving ? WARNA_BERGERAK : WARNA_DIAM}
+              warna={warnaPenanda(lokasi)}
               title={lokasi.userName}
               onKlik={() => onEmployeeClick?.(lokasi)}
               popup={<RingkasanKaryawan lokasi={lokasi} />}
@@ -91,6 +105,10 @@ export default function EmployeeLocationMap({
             <span className="w-3 h-3 rounded-full bg-green-500 dark:bg-green-400"></span>
             <span>Bergerak</span>
           </div>
+          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
+            <span className="w-3 h-3 rounded-full bg-red-600 dark:bg-red-500"></span>
+            <span>Tracking mati</span>
+          </div>
         </div>
 
         <button
@@ -109,8 +127,13 @@ export default function EmployeeLocationMap({
   );
 }
 
+function warnaPenanda(lokasi: EmployeeLocation): string {
+  if (lokasi.trackingOff) return WARNA_TRACKING_MATI;
+  return lokasi.isMoving ? WARNA_BERGERAK : WARNA_DIAM;
+}
+
 /** Isi popup satu karyawan. */
-function RingkasanKaryawan({ lokasi }: { lokasi: EmployeeLocation }) {
+function RingkasanKaryawan({ lokasi }: { lokasi: PositionedLocation }) {
   return (
     <div className="min-w-[180px]">
       <div className="font-semibold text-gray-800 text-sm">
@@ -124,6 +147,11 @@ function RingkasanKaryawan({ lokasi }: { lokasi: EmployeeLocation }) {
       </div>
       {lokasi.isMoving && (
         <div className="text-xs text-green-600 mt-1">📍 Bergerak</div>
+      )}
+      {lokasi.trackingOff && (
+        <div className="text-xs font-medium text-red-600 mt-1">
+          ⚠ Tracking mati — posisi terakhir
+        </div>
       )}
       <div className="text-xs text-gray-400 mt-1">
         Update:{" "}

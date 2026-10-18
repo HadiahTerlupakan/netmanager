@@ -41,6 +41,42 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-18] — Tracking lokasi mati terlihat, tercatat, dan diingatkan
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/attendance` | `app/api/mobile/attendance/tracking-status` | `app/admin/kehadiran/live-map` | `app/admin/attendance`
+- **Author**: agent
+- **Deskripsi**: Karyawan yang sedang bekerja tetapi lokasinya tidak terkirim
+  sebelumnya hilang begitu saja dari live map. Sekarang:
+  - Aplikasi melaporkan status tracking sesinya (izin latar belakang dicabut,
+    GPS mati, gagal dimulai, aktif) lewat
+    `POST /api/mobile/attendance/tracking-status`, disimpan di
+    `Attendance.trackingStatus`/`trackingStatusAt`.
+  - Tracking dianggap mati bila aplikasi melaporkan kendala, atau tidak ada
+    titik lebih dari 45 menit (`tracking-gap.ts`).
+  - Live map menampilkan setiap sesi aktif, termasuk yang belum pernah
+    mengirim titik (tanpa koordinat), dengan penanda merah, kartu
+    "Tracking mati", dan penghitung di header.
+  - Job `tracking-gap-alert` (tiap 5 menit, di orchestrator absensi)
+    mengirim satu notifikasi per jeda ke karyawannya saja, tidak ke admin.
+  - Daftar dan ekspor CSV absensi admin mendapat total menit tracking mati
+    per sesi. Sesi sebelum 2026-10-19 (WIB) tidak dinilai karena aplikasi
+    lama tidak mengirim heartbeat saat diam.
+- **Migration**: `prisma/migrations/20261018120000_add_attendance_tracking_status`
+  (dua kolom nullable, tanpa default).
+- **Files**: `modules/attendance/services/tracking-gap.ts`,
+  `modules/attendance/services/AttendanceTrackingStatusService.ts`,
+  `modules/attendance/services/TrackingGapAlertService.ts`,
+  `modules/attendance/services/AttendanceTrackingReportService.ts`,
+  `modules/attendance/services/LocationLiveMapService.ts`,
+  `modules/attendance/services/AttendanceCronOrchestratorService.ts`,
+  `modules/attendance/services/AdminAttendanceListService.ts`,
+  `modules/attendance/services/AdminAttendanceExportService.ts`,
+  `app/api/mobile/attendance/tracking-status/route.ts`,
+  `app/admin/kehadiran/live-map/*`, `app/admin/attendance/TrackingOffNote.tsx`,
+  `components/attendance/EmployeeLocationMap.tsx`
+- **Breaking**: ❌ Tidak (kolom ekspor CSV bertambah satu di akhir)
+
 ### [2026-10-18] — Live map mengikuti sesi kerja, bukan "check-in hari ini"
 
 - **Tipe**: [FIXED]
