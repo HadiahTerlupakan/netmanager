@@ -62,6 +62,17 @@ export class AppReleaseRepository implements IAppReleaseRepository {
     return prisma.appRelease.count({ where: this.buildWhere(filters) });
   }
 
+  /** Rilis satu platform dengan versionCode tertentu, aktif atau tidak. */
+  async findByVersionCode(
+    platform: AppReleasePlatform,
+    versionCode: number,
+  ): Promise<AppRelease | null> {
+    const record = await prisma.appRelease.findFirst({
+      where: { platform, versionCode },
+    });
+    return record ? toEntity(record) : null;
+  }
+
   /** Buat entri rilis baru. */
   async create(data: AppReleaseCreateInput): Promise<AppRelease> {
     const record = await prisma.appRelease.create({ data });

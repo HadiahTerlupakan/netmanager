@@ -46,6 +46,7 @@ interface Props {
   canUpdate: boolean;
   busy: boolean;
   onToggle: (release: MinVersionRelease) => void;
+  onEnforceNow: (release: MinVersionRelease) => void;
   onSync: () => void;
 }
 
@@ -55,6 +56,7 @@ export function MinVersionPanel({
   canUpdate,
   busy,
   onToggle,
+  onEnforceNow,
   onSync,
 }: Props) {
   return (
@@ -109,11 +111,18 @@ export function MinVersionPanel({
               </p>
             </div>
             {canUpdate && release.status !== "LOCKED_OUT" && (
-              <Button onClick={() => onToggle(release)} disabled={busy}>
-                {release.status === "CANCELLED"
-                  ? "Aktifkan kembali"
-                  : "Batalkan penguncian"}
-              </Button>
+              <div className="flex gap-2">
+                {release.status === "GRACE" && (
+                  <Button onClick={() => onEnforceNow(release)} disabled={busy}>
+                    Wajibkan sekarang
+                  </Button>
+                )}
+                <Button onClick={() => onToggle(release)} disabled={busy}>
+                  {release.status === "CANCELLED"
+                    ? "Aktifkan kembali"
+                    : "Batalkan penguncian"}
+                </Button>
+              </div>
             )}
           </div>
         ))}

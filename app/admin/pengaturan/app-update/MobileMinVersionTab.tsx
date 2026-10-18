@@ -26,6 +26,7 @@ export function MobileMinVersionTab() {
   } = useApi<MinVersionOverview>(ENDPOINT);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<MinVersionRelease | null>(null);
+  const [enforcing, setEnforcing] = useState<MinVersionRelease | null>(null);
 
   const run = async (request: () => Promise<Response>, success: string) => {
     setBusy(true);
@@ -58,6 +59,21 @@ export function MobileMinVersionTab() {
     );
   };
 
+  const confirmEnforce = async () => {
+    if (!enforcing) return;
+    const versionCode = enforcing.versionCode;
+    setEnforcing(null);
+    await run(
+      () =>
+        fetch(`${ENDPOINT}/${versionCode}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ enforceNow: true }),
+        }),
+      "Versi ini sekarang wajib",
+    );
+  };
+
   if (error) {
     return (
       <p className="text-sm text-red-600">
@@ -77,6 +93,7 @@ export function MobileMinVersionTab() {
         canUpdate={hasPermission("app_version:update")}
         busy={busy}
         onToggle={setPending}
+        onEnforceNow={setEnforcing}
         onSync={() =>
           void run(
             () => fetch(ENDPOINT, { method: "POST" }),
@@ -98,6 +115,19 @@ export function MobileMinVersionTab() {
         cancelText="Tutup"
         onConfirm={() => void confirmToggle()}
         onCancel={() => setPending(null)}
+      />
+      <ConfirmDialog
+        open={!!enforcing}
+        title="Wajibkan sekarang"
+        description={
+          enforcing
+            ? `Mulai sekarang hanya build ${enforcing.versionCode} ke atas yang bisa login di aplikasi mobile; semua versi lebih lama langsung ditolak, termasuk yang sedang login. Lanjutkan hanya bila rilis ini sudah lolos review Google dan bisa diunduh dari Play Store.`
+            : ""
+        }
+        confirmText="Wajibkan sekarang"
+        cancelText="Tutup"
+        onConfirm={() => void confirmEnforce()}
+        onCancel={() => setEnforcing(null)}
       />
     </>
   );

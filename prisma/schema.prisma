@@ -6734,6 +6734,8 @@ model PlayStoreRelease {
   firstSeenAt   DateTime  @default(now())
   cancelledAt   DateTime?
   cancelledById String?
+  enforcedFrom  DateTime?
+  enforcedById  String?
 
   @@map("play_store_releases")
 }

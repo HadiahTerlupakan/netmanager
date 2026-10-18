@@ -11,6 +11,8 @@ export interface ProductionRelease {
   versionName: string | null;
   firstSeenAt: Date;
   cancelledAt: Date | null;
+  /** Diisi admin bila rilis sudah disetujui Google dan tak perlu menunggu. */
+  enforcedFrom?: Date | null;
 }
 
 export interface MinimumMobileVersion {
@@ -24,8 +26,14 @@ export interface ReportedMobileVersion {
 }
 
 /** Saat sebuah rilis mulai diwajibkan. */
-export function enforcementStartsAt(release: { firstSeenAt: Date }): Date {
-  return new Date(release.firstSeenAt.getTime() + ENFORCEMENT_GRACE_MS);
+export function enforcementStartsAt(release: {
+  firstSeenAt: Date;
+  enforcedFrom?: Date | null;
+}): Date {
+  return (
+    release.enforcedFrom ??
+    new Date(release.firstSeenAt.getTime() + ENFORCEMENT_GRACE_MS)
+  );
 }
 
 /**

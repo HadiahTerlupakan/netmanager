@@ -11,7 +11,9 @@ import { denyUnlessMainTenant } from "../guard";
 
 export const dynamic = "force-dynamic";
 
-// PATCH /api/admin/app-update/min-version/[versionCode] — batalkan/pulihkan penguncian
+// PATCH /api/admin/app-update/min-version/[versionCode]
+// Body `{ cancelled: boolean }` membatalkan/memulihkan penguncian;
+// `{ enforceNow: true }` mewajibkan rilis sekarang tanpa menunggu tenggang.
 export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   const denied = await denyUnlessMainTenant(
     ctx.session!.user.tenantId,
@@ -22,27 +24,39 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   const versionCode = Number(ctx.params.versionCode);
   const body = (await req.json().catch((): unknown => null)) as {
     cancelled?: unknown;
+    enforceNow?: unknown;
   } | null;
-  if (!Number.isInteger(versionCode) || typeof body?.cancelled !== "boolean") {
+  const enforceNow = body?.enforceNow === true;
+  if (
+    !Number.isInteger(versionCode) ||
+    (!enforceNow && typeof body?.cancelled !== "boolean")
+  ) {
     return apiError(
-      "versionCode dan cancelled (boolean) wajib",
+      "versionCode dan cancelled (boolean) atau enforceNow wajib",
       ErrorCodes.VALIDATION_ERROR,
       { status: 400 },
     );
   }
 
-  const updated = await new PlayStoreReleaseService().setCancelled(
-    versionCode,
-    body.cancelled,
-    ctx.session!.user.id,
-  );
-  if (!updated) return ApiErrors.notFound("Rilis Play Store");
+  const service = new PlayStoreReleaseService();
+  const userId = ctx.session!.user.id;
+  const updated = enforceNow
+    ? await service.enforceNow(versionCode, userId)
+    : await service.setCancelled(
+        versionCode,
+        body!.cancelled as boolean,
+        userId,
+      );
+  if (!updated) return ApiErrors.notFound("Rilis Play Store aktif");
 
+  const change = enforceNow
+    ? { enforceNow: true }
+    : { cancelled: body!.cancelled };
   logActivitySafe({
     action: "UPDATE",
     subject: "PlayStoreRelease",
-    userId: ctx.session!.user.id,
-    details: { versionCode, cancelled: body.cancelled },
+    userId,
+    details: { versionCode, ...change },
   });
-  return apiSuccess({ versionCode, cancelled: body.cancelled });
+  return apiSuccess({ versionCode, ...change });
 });

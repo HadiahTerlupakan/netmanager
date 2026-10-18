@@ -5,6 +5,7 @@ import {
   type ServiceAccount,
 } from "@/lib/google-play/production-track";
 import { PlayStoreReleaseRepository } from "../repositories/PlayStoreReleaseRepository";
+import { PlayApkReleaseRecorder } from "./PlayApkReleaseRecorder";
 import { resetMinimumMobileVersionCache } from "./MobileVersionGate";
 import {
   enforcementStartsAt,
@@ -26,10 +27,11 @@ export type PlayStoreReleaseStatus =
 interface Dependencies {
   repository: Pick<
     PlayStoreReleaseRepository,
-    "findAll" | "recordSeen" | "setCancelled"
+    "findAll" | "recordSeen" | "setCancelled" | "setEnforcedFrom"
   >;
   readAccount: () => ServiceAccount | null;
   fetchReleases: (account: ServiceAccount) => Promise<PlayProductionRelease[]>;
+  apkReleases: Pick<PlayApkReleaseRecorder, "ensure">;
   onChange: () => void;
   now: () => Date;
 }
@@ -39,6 +41,7 @@ const defaultDependencies = (): Dependencies => ({
   readAccount: () =>
     readServiceAccount(process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON),
   fetchReleases: (account) => fetchProductionReleases(account),
+  apkReleases: new PlayApkReleaseRecorder(),
   onChange: () => resetMinimumMobileVersionCache({ keepLastKnown: true }),
   now: () => new Date(),
 });
@@ -62,6 +65,7 @@ export class PlayStoreReleaseService {
       if (await this.deps.repository.recordSeen(release)) {
         recorded.push(release.versionCode);
       }
+      await this.deps.apkReleases.ensure(release);
     }
     if (recorded.length > 0) this.deps.onChange();
     return { configured: true, recorded };
@@ -79,6 +83,20 @@ export class PlayStoreReleaseService {
         status: statusOf(release, minimum),
       })),
     };
+  }
+
+  /**
+   * Wajibkan rilis sekarang, tanpa menunggu masa tenggang habis. Untuk rilis
+   * yang sudah dipastikan lolos review Google dan bisa diunduh semua orang.
+   */
+  async enforceNow(versionCode: number, userId: string): Promise<boolean> {
+    const updated = await this.deps.repository.setEnforcedFrom({
+      versionCode,
+      enforcedFrom: this.deps.now(),
+      enforcedById: userId,
+    });
+    if (updated) this.deps.onChange();
+    return updated;
   }
 
   /** Batalkan (atau pulihkan) penguncian berdasarkan satu rilis. */

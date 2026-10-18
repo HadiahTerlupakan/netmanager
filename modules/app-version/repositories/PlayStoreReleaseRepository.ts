@@ -10,6 +10,7 @@ export class PlayStoreReleaseRepository {
         versionName: true,
         firstSeenAt: true,
         cancelledAt: true,
+        enforcedFrom: true,
       },
       orderBy: { versionCode: "desc" },
     });
@@ -37,6 +38,22 @@ export class PlayStoreReleaseRepository {
       data: {
         cancelledAt: input.cancelledAt,
         cancelledById: input.cancelledById,
+      },
+    });
+    return result.count > 0;
+  }
+
+  async setEnforcedFrom(input: {
+    versionCode: number;
+    enforcedFrom: Date;
+    enforcedById: string;
+  }): Promise<boolean> {
+    // Rilis yang dibatalkan tidak bisa dipercepat: pulihkan dulu.
+    const result = await prisma.playStoreRelease.updateMany({
+      where: { versionCode: input.versionCode, cancelledAt: null },
+      data: {
+        enforcedFrom: input.enforcedFrom,
+        enforcedById: input.enforcedById,
       },
     });
     return result.count > 0;

@@ -19,7 +19,9 @@ describe("PlayStoreReleaseService", () => {
     findAll: vi.fn(),
     recordSeen: vi.fn(),
     setCancelled: vi.fn(),
+    setEnforcedFrom: vi.fn(),
   };
+  const apkReleases = { ensure: vi.fn() };
   const fetchReleases = vi.fn();
   const onChange = vi.fn();
 
@@ -30,6 +32,7 @@ describe("PlayStoreReleaseService", () => {
       repository,
       readAccount: () => account as never,
       fetchReleases,
+      apkReleases,
       onChange,
       now: () => NOW,
     });
@@ -110,5 +113,31 @@ describe("PlayStoreReleaseService", () => {
       cancelledById: null,
     });
     expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the APK release list in step with the Play production track", async () => {
+    fetchReleases.mockResolvedValue([
+      { versionCode: 49, versionName: "1.0.9" },
+    ]);
+    repository.recordSeen.mockResolvedValue(false);
+
+    await service().sync();
+
+    expect(apkReleases.ensure).toHaveBeenCalledWith({
+      versionCode: 49,
+      versionName: "1.0.9",
+    });
+  });
+
+  it("enforces a release in its grace right away when the admin asks", async () => {
+    repository.setEnforcedFrom.mockResolvedValue(true);
+
+    expect(await service().enforceNow(49, "admin-1")).toBe(true);
+    expect(repository.setEnforcedFrom).toHaveBeenCalledWith({
+      versionCode: 49,
+      enforcedFrom: NOW,
+      enforcedById: "admin-1",
+    });
+    expect(onChange).toHaveBeenCalledOnce();
   });
 });

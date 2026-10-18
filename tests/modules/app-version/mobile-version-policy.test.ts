@@ -56,6 +56,21 @@ describe("resolveMinimumMobileVersion", () => {
     expect(minimum).toEqual({ versionCode: 48, versionName: "1.0.9" });
   });
 
+  it("requires a release right away once an admin enforced it early", () => {
+    const minimum = resolveMinimumMobileVersion(
+      [
+        release(48, "1.0.9", 400),
+        {
+          ...release(49, "1.0.9", 1),
+          enforcedFrom: new Date(NOW.getTime() - HOUR),
+        },
+      ],
+      NOW,
+    );
+
+    expect(minimum).toEqual({ versionCode: 49, versionName: "1.0.9" });
+  });
+
   it("locks nothing before any release is known", () => {
     expect(resolveMinimumMobileVersion([], NOW)).toBeNull();
   });

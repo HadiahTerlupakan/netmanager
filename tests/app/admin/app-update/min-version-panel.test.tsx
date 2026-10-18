@@ -26,6 +26,7 @@ const render = (overview: object, canUpdate = true) =>
       canUpdate={canUpdate}
       busy={false}
       onToggle={vi.fn()}
+      onEnforceNow={vi.fn()}
       onSync={vi.fn()}
     />,
   );
@@ -75,5 +76,15 @@ describe("MinVersionPanel", () => {
 
     expect(html).not.toContain("Batalkan penguncian");
     expect(html).not.toContain("Sinkronkan sekarang");
+  });
+
+  it("offers to enforce early only a release still in its grace", () => {
+    const html = render({
+      credentialConfigured: true,
+      minimum: { versionCode: 48, versionName: "1.0.9" },
+      releases: [release(49, "GRACE"), release(48, "REQUIRED")],
+    });
+
+    expect(html.match(/Wajibkan sekarang/g)).toHaveLength(1);
   });
 });

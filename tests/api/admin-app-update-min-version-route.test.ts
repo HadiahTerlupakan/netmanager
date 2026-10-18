@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   overview: vi.fn(),
   setCancelled: vi.fn(),
+  enforceNow: vi.fn(),
   sync: vi.fn(),
 }));
 
@@ -29,6 +30,7 @@ vi.mock("@/modules/app-version", () => ({
   PlayStoreReleaseService: class {
     overview = mocks.overview;
     setCancelled = mocks.setCancelled;
+    enforceNow = mocks.enforceNow;
     sync = mocks.sync;
   },
 }));
@@ -95,6 +97,22 @@ describe("admin mobile minimum version API", () => {
     )) as NextResponse;
 
     expect(response.status).toBe(403);
+    expect(mocks.setCancelled).not.toHaveBeenCalled();
+  });
+
+  it("enforces a release now when the admin confirms it is approved", async () => {
+    mocks.enforceNow.mockResolvedValue(true);
+
+    const response = (await PATCH(
+      new NextRequest("http://localhost/api/admin/app-update/min-version/49", {
+        method: "PATCH",
+        body: JSON.stringify({ enforceNow: true }),
+      }),
+      ctx("main-tenant", { versionCode: "49" }),
+    )) as NextResponse;
+
+    expect(response.status).toBe(200);
+    expect(mocks.enforceNow).toHaveBeenCalledWith(49, "admin-1");
     expect(mocks.setCancelled).not.toHaveBeenCalled();
   });
 });
