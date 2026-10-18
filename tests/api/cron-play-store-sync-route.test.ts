@@ -24,7 +24,7 @@ const request = (secret?: string) =>
 describe("GET /api/cron/play-store-sync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.CRON_SECRET = "cron-secret-at-least-32-characters-long";
+    process.env.CRON_SECRET = "cron-secret";
     mocks.acquireCronLock.mockResolvedValue("acquired");
     mocks.sync.mockResolvedValue({ configured: true, recorded: [49] });
   });
