@@ -3,6 +3,7 @@ import { logger } from "@/lib/logger";
 import { apiError, ErrorCodes } from "@/lib/api-response";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { getInvestorMobileSession } from "@/lib/mobile-investor-auth";
+import { runAsSystemContext } from "@/lib/tenant-context";
 import {
   getAppReleaseServices,
   versionCheckQuerySchema,
@@ -54,12 +55,20 @@ export async function GET(request: NextRequest) {
     }
 
     const { versionCheckService } = await getAppReleaseServices();
-    const result = await versionCheckService.check({
-      platform: parsed.data.platform,
-      currentVersion: parsed.data.currentVersion,
-      currentVersionCode: parsed.data.currentVersionCode,
-      tenantId,
-    });
+    const check = () =>
+      versionCheckService.check({
+        platform: parsed.data.platform,
+        currentVersion: parsed.data.currentVersion,
+        currentVersionCode: parsed.data.currentVersionCode,
+        tenantId,
+      });
+    // Tanpa sesi tidak ada konteks tenant, dan isolasi tenant Prisma menolak
+    // membaca rilis APK; yang dibaca di sini hanya data rilis yang publik.
+    const result = tenantId
+      ? await check()
+      : await runAsSystemContext("anonymous app version check", check, {
+          silent: true,
+        });
 
     return NextResponse.json(result);
   } catch (error) {

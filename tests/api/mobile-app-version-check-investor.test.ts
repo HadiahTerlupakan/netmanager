@@ -8,6 +8,9 @@ const mockCheck = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/mobile-investor-auth", () => ({
   getInvestorMobileSession: mockInvestorSession,
 }));
+vi.mock("@/lib/tenant-context", () => ({
+  runAsSystemContext: (_reason: string, run: () => Promise<unknown>) => run(),
+}));
 vi.mock("@/lib/mobile-api-auth", () => ({
   getMobileAuthPayload: mockMobilePayload,
 }));

@@ -8,6 +8,18 @@ vi.mock("@/lib/mobile-investor-auth", () => ({
 }));
 
 const authStatus = vi.hoisted(() => ({ value: 426 }));
+const systemContext = vi.hoisted(() => ({ active: false }));
+
+vi.mock("@/lib/tenant-context", () => ({
+  runAsSystemContext: async (_reason: string, run: () => Promise<unknown>) => {
+    systemContext.active = true;
+    try {
+      return await run();
+    } finally {
+      systemContext.active = false;
+    }
+  },
+}));
 
 vi.mock("@/lib/mobile-api-auth", () => ({
   getMobileAuthPayload: vi.fn(async () =>
@@ -62,6 +74,26 @@ describe("GET /api/mobile/app-version/check for an outdated app", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ isForceUpdate: true });
+    authStatus.value = 426;
+  });
+
+  it("reads the release list without a tenant when the caller has no session", async () => {
+    // Tanpa konteks tenant, isolasi tenant Prisma menolak membaca rilis APK.
+    authStatus.value = 401;
+    let checkedInSystemContext = false;
+    mocks.check.mockImplementation(async () => {
+      checkedInSystemContext = systemContext.active;
+      return { updateAvailable: false, isForceUpdate: false };
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/mobile/app-version/check?platform=android&currentVersion=1.0.9&currentVersionCode=49",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(checkedInSystemContext).toBe(true);
     authStatus.value = 426;
   });
 });
