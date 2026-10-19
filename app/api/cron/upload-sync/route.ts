@@ -14,7 +14,9 @@ import { sinkronkanUploadTertunda } from "@/lib/upload/upload-sync";
 
 export const dynamic = "force-dynamic";
 
-const CRON_LOCK_TTL_SECONDS = 600;
+// Lock tidak dilepas setelah selesai; ia harus kedaluwarsa sebelum jadwal
+// berikutnya (tiap 10 menit), atau setiap jalan kedua terlewat.
+const CRON_LOCK_TTL_SECONDS = 540;
 const UPLOAD_SYNC_BATCH = 200;
 
 /**

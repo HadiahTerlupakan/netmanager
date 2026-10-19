@@ -51,4 +51,11 @@ describe("GET /api/cron/upload-sync", () => {
     expect((await GET(request("cron-secret"))).status).toBe(409);
     expect(mocks.sinkron).not.toHaveBeenCalled();
   });
+
+  it("lets its lock expire before the next 10-minute run", async () => {
+    await GET(request("cron-secret"));
+
+    const [, ttlSeconds] = mocks.acquireCronLock.mock.calls[0] ?? [];
+    expect(ttlSeconds).toBeLessThan(10 * 60);
+  });
 });
