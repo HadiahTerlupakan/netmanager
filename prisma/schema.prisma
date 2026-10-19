@@ -6741,3 +6741,17 @@ model PlayStoreRelease {
 
   @@map("play_store_releases")
 }
+
+/// Berkas yang tersimpan di volume lokal saat R2 gangguan, menunggu cron
+/// upload-sync mengunggahnya ke R2. Global, tanpa tenant: kuncinya sendiri
+/// sudah membawa namespace tenant.
+model UploadSyncPending {
+  key           String    @id
+  contentType   String
+  createdAt     DateTime  @default(now())
+  attempts      Int       @default(0)
+  lastError     String?
+  lastAttemptAt DateTime?
+
+  @@map("upload_sync_pending")
+}

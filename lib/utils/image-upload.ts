@@ -1,8 +1,9 @@
 import { logger } from "@/lib/logger";
+import { tenantDariDirektoriUpload } from "@/lib/upload/upload-policy";
 import {
-  isR2KeyPublic,
-  tenantDariDirektoriUpload,
-} from "@/lib/upload/upload-policy";
+  jalurSalinanLokal,
+  simpanBerkasUpload,
+} from "@/lib/upload/mirrored-upload";
 import sharp from "sharp";
 import { writeFile, mkdir, rm } from "fs/promises";
 import path from "path";
@@ -10,7 +11,6 @@ import {
   deleteFromR2,
   getR2Settings,
   isR2Enabled,
-  uploadToR2,
   generateR2Key,
 } from "./r2-client";
 
@@ -160,20 +160,6 @@ export async function convertAndSaveBase64(
  * penanda tenant sama sekali, sehingga file lintas tenant berbagi satu
  * namespace dan tidak ada yang bisa ditegakkan di sisi pembacaan.
  */
-/**
- * URL yang dipakai klien untuk sebuah objek R2.
- *
- * Bucket R2 disajikan lewat URL publik tanpa autentikasi apa pun, jadi
- * mengembalikan URL itu untuk berkas pribadi berarti KTP pelanggan bisa dibuka
- * siapa saja yang tahu alamatnya — tanpa login, apalagi tanpa pemeriksaan
- * tenant. Berkas pribadi karena itu dirujuk lewat jalur `/uploads/...` milik
- * aplikasi sendiri, yang sudah menegakkan sesi dan tenant lalu mengalirkan
- * isinya dari R2.
- */
-function urlObjekR2(key: string, urlPublik: string): string {
-  return isR2KeyPublic(key) ? urlPublik : `/${key}`;
-}
-
 function kunciR2BerNamespace(uploadDir: string, key: string): string {
   const tenantId = tenantDariDirektoriUpload(uploadDir);
   if (!tenantId || !key.startsWith("uploads/")) return key;
@@ -224,9 +210,7 @@ async function processAndSaveBuffer(
       ),
     );
 
-    const url = await uploadToR2(webpBuffer, key, "image/webp");
-    logger.info("Image uploaded to R2:", { key, url });
-    return urlObjekR2(key, url);
+    return simpanBerkasUpload(webpBuffer, key, "image/webp");
   }
 
   // Fallback to local storage
@@ -286,13 +270,11 @@ export async function saveFile(
         generateR2Key(uploadType || "pelanggan", fileName, subFolder),
       );
 
-      const url = await uploadToR2(
+      return await simpanBerkasUpload(
         buffer,
         key,
         file.type || "application/octet-stream",
       );
-      logger.info("File uploaded to R2:", { key, url });
-      return urlObjekR2(key, url);
     }
 
     // Fallback to local storage
@@ -460,7 +442,13 @@ export async function deleteUploadedFile(url: string): Promise<boolean> {
       return false;
     }
 
-    return deleteFromR2(objectPath.slice(1));
+    const key = objectPath.slice(1);
+    const deleted = await deleteFromR2(key);
+    // `server.ts` membaca salinan lokal lebih dulu: tanpa ini berkas yang
+    // sudah dihapus dari R2 tetap tersaji.
+    const salinan = jalurSalinanLokal(key);
+    if (deleted && salinan) await rm(salinan, { force: true });
+    return deleted;
   }
 
   const filePath = path.join(

@@ -46,6 +46,9 @@ cat > /etc/crontabs/root <<CRON_EOF
 0 2 * * * curl -s -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/cleanup-stale-fcm-tokens" >> /var/log/cron.log 2>&1
 15 * * * * curl -s -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/play-store-sync" >> /var/log/cron.log 2>&1
 
+# Upload yang tersimpan lokal saat R2 gangguan - unggah ke R2 tiap 10 menit
+*/10 * * * * curl -s -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/upload-sync" >> /var/log/cron.log 2>&1
+
 # Surat Pengesahan - tandai surat yang lewat masa berlaku, sekali sehari jam 03:00
 0 3 * * * curl -s -X POST -H "Authorization: Bearer \$CRON_SECRET" "\$APP_URL/api/cron/endorsement-expire" >> /var/log/cron.log 2>&1
 
