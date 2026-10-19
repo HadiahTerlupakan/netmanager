@@ -11,12 +11,16 @@ const r2 = vi.hoisted(() => ({
   getR2Settings: vi.fn(),
 }));
 const tandaiTertunda = vi.hoisted(() => vi.fn());
+const hapusTertunda = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/utils/r2-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/utils/r2-client")>()),
   ...r2,
 }));
-vi.mock("@/lib/upload/upload-sync-queue", () => ({ tandaiTertunda }));
+vi.mock("@/lib/upload/upload-sync-queue", () => ({
+  tandaiTertunda,
+  hapusTertunda,
+}));
 
 import {
   convertAndSaveImage,
@@ -103,5 +107,44 @@ describe("hapus berkas yang punya salinan lokal", () => {
 
     expect(r2.deleteFromR2).toHaveBeenCalledWith(keyTersimpan);
     await expect(lokal(`/${keyTersimpan}`)).rejects.toThrow();
+  });
+});
+
+describe("hapus berkas yang dirujuk lewat jalur aplikasi", () => {
+  async function unggahSaatR2Gagal() {
+    const file = new File(["%PDF"], "ktp.pdf", { type: "application/pdf" });
+    return saveFile(file, "public/uploads/general", "ktp.pdf", "general");
+  }
+
+  it("removes a file stored while R2 was down and keeps it from being synced later", async () => {
+    const jalur = await unggahSaatR2Gagal();
+    r2.deleteFromR2.mockResolvedValue(false);
+
+    const deleted = await deleteUploadedFile(`https://admin.radpro.id${jalur}`);
+
+    expect(deleted).toBe(true);
+    await expect(lokal(jalur)).rejects.toThrow();
+    expect(hapusTertunda).toHaveBeenCalledWith(jalur.slice(1));
+  });
+
+  it("removes a private file from R2 and from the local copy", async () => {
+    r2.uploadToR2.mockImplementation(
+      async (_isi: Buffer, key: string) => `https://cdn.radpro.id/${key}`,
+    );
+    const file = new File(["%PDF"], "ktp.pdf", { type: "application/pdf" });
+    const jalur = await saveFile(
+      file,
+      "public/uploads/marketing",
+      "ktp.pdf",
+      "marketing",
+    );
+    r2.deleteFromR2.mockResolvedValue(true);
+
+    expect(await deleteUploadedFile(`https://admin.radpro.id${jalur}`)).toBe(
+      true,
+    );
+
+    expect(r2.deleteFromR2).toHaveBeenCalledWith(jalur.slice(1));
+    await expect(lokal(jalur)).rejects.toThrow();
   });
 });

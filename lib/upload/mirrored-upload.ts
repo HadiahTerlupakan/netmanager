@@ -1,9 +1,9 @@
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, rm, stat, writeFile } from "fs/promises";
 import path from "path";
 
 import { logger } from "@/lib/logger";
 import { isR2KeyPublic } from "@/lib/upload/upload-policy";
-import { tandaiTertunda } from "@/lib/upload/upload-sync-queue";
+import { hapusTertunda, tandaiTertunda } from "@/lib/upload/upload-sync-queue";
 import { uploadToR2 } from "@/lib/utils/r2-client";
 
 /**
@@ -100,4 +100,28 @@ export async function simpanBerkasUpload(
     }
     return `/${key}`;
   }
+}
+
+/**
+ * Hapus salinan lokal sebuah kunci beserta antrean sinkronnya. `server.ts`
+ * membaca salinan lokal lebih dulu, dan cron upload-sync mengunggah ulang yang
+ * masih di antrean: tanpa keduanya berkas yang dihapus tetap tersaji atau
+ * kembali ke R2. True bila salinan lokalnya memang ada.
+ */
+export async function hapusSalinanLokal(key: string): Promise<boolean> {
+  const target = jalurSalinanLokal(key);
+  if (!target) return false;
+
+  const ada = await stat(target).then(
+    (info) => info.isFile(),
+    () => false,
+  );
+  await rm(target, { force: true });
+  try {
+    await hapusTertunda(key);
+  } catch (error) {
+    // Tanpa salinan lokal, cron upload-sync membuang baris ini sendiri.
+    logger.warn("[Upload] Gagal menghapus antrean sinkron", { key, error });
+  }
+  return ada;
 }

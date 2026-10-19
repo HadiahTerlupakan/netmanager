@@ -1,18 +1,13 @@
 import { logger } from "@/lib/logger";
 import { tenantDariDirektoriUpload } from "@/lib/upload/upload-policy";
 import {
-  jalurSalinanLokal,
+  hapusSalinanLokal,
   simpanBerkasUpload,
 } from "@/lib/upload/mirrored-upload";
 import sharp from "sharp";
 import { writeFile, mkdir, rm } from "fs/promises";
 import path from "path";
-import {
-  deleteFromR2,
-  getR2Settings,
-  isR2Enabled,
-  generateR2Key,
-} from "./r2-client";
+import { deleteFromR2, isR2Enabled, generateR2Key } from "./r2-client";
 
 export type UploadType =
   | "pelanggan"
@@ -427,28 +422,12 @@ export async function deleteUploadedFile(url: string): Promise<boolean> {
   }
 
   if (await isR2Enabled()) {
-    const settings = await getR2Settings();
-    if (!settings) {
-      return false;
-    }
-
-    const publicPrefix = settings.publicUrl?.replace(/\/$/, "");
-    const isCustomPublicUrl = publicPrefix
-      ? url.startsWith(`${publicPrefix}/`)
-      : false;
-    const isDefaultR2Url = url.includes(".r2.cloudflarestorage.com/");
-
-    if (!isCustomPublicUrl && !isDefaultR2Url) {
-      return false;
-    }
-
+    // Pemanggil sudah memastikan host dan tenant-nya; berkas pribadi dan yang
+    // tersimpan saat R2 gangguan dirujuk lewat jalur aplikasi, bukan URL CDN.
     const key = objectPath.slice(1);
-    const deleted = await deleteFromR2(key);
-    // `server.ts` membaca salinan lokal lebih dulu: tanpa ini berkas yang
-    // sudah dihapus dari R2 tetap tersaji.
-    const salinan = jalurSalinanLokal(key);
-    if (deleted && salinan) await rm(salinan, { force: true });
-    return deleted;
+    const deletedFromR2 = await deleteFromR2(key);
+    const deletedLocal = await hapusSalinanLokal(key);
+    return deletedFromR2 || deletedLocal;
   }
 
   const filePath = path.join(
