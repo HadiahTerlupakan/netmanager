@@ -43,6 +43,31 @@ function ambilBearerToken(
 }
 
 /**
+ * `server.ts` meneruskan request Node mentah yang tidak punya `req.cookies`,
+ * dan `getToken` next-auth v4 tidak mengurai header `cookie` sendiri: tanpa
+ * ini setiap file privat yang dibuka dari web balas 401 walau sedang login.
+ */
+function uraiCookie(
+  header: string | string[] | undefined,
+): Record<string, string> {
+  const nilai = Array.isArray(header) ? header.join("; ") : (header ?? "");
+  const cookies: Record<string, string> = {};
+  for (const bagian of nilai.split(";")) {
+    const pemisah = bagian.indexOf("=");
+    if (pemisah < 1) continue;
+    const nama = bagian.slice(0, pemisah).trim();
+    const isi = bagian.slice(pemisah + 1).trim();
+    try {
+      cookies[nama] = decodeURIComponent(isi);
+    } catch {
+      // Cookie milik situs lain bisa memuat `%` lepas; jangan gagalkan sesi.
+      cookies[nama] = isi;
+    }
+  }
+  return cookies;
+}
+
+/**
  * Identitas pembaca dari sesi yang sah — cookie web atau token mobile; null
  * bila tidak ada sesi.
  *
@@ -70,7 +95,10 @@ export async function pembacaUploadDariSesi(
   }
 
   const token = await getToken({
-    req: req as unknown as import("next-auth/jwt").GetTokenParams["req"],
+    req: {
+      headers: req.headers,
+      cookies: uraiCookie(req.headers.cookie),
+    } as unknown as import("next-auth/jwt").GetTokenParams["req"],
     secret: process.env.NEXTAUTH_SECRET,
   });
 
