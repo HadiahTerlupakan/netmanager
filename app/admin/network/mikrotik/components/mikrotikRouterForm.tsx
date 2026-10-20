@@ -1,14 +1,14 @@
 import Link from "next/link";
+import { useState, type ReactNode } from "react";
+import { HiOutlineClipboardDocument, HiOutlineEye } from "react-icons/hi2";
+import { copyToClipboard } from "@/app/admin/tenants/vpn/vpnShared";
+import type { MikrotikVpnFormFields } from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
 type PppConnectionMode = "RADIUS" | "MIKROTIK_API";
 
-export type MikrotikRouterFormData = {
+export type MikrotikRouterFormData = MikrotikVpnFormFields & {
   name: string;
-  ipAddress: string;
   timezone: string;
-  apiPort: number;
-  apiUsername: string;
-  apiPassword: string;
   isolirUrl: string;
   description: string;
 };
@@ -28,6 +28,10 @@ type MikrotikRouterFormProps = {
   submitDisabled?: boolean;
   submitDisabledTitle?: string;
   cancelHref: string;
+  /** Pilihan RouterOS/VPN, dirender di atas field IP. */
+  connectionSection?: ReactNode;
+  /** Mode VPN: IP, port, username, password diisi script VPN dan tidak bisa diketik. */
+  isConnectionLocked?: boolean;
 };
 
 const TIMEZONE_OPTIONS = [
@@ -35,6 +39,9 @@ const TIMEZONE_OPTIONS = [
   { value: "+08:00 Asia/Makassar", label: "+08:00 Asia/Makassar" },
   { value: "+09:00 Asia/Jayapura", label: "+09:00 Asia/Jayapura" },
 ];
+
+const ICON_BUTTON_CLASS =
+  "p-2 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700";
 
 export function MikrotikRouterForm({
   title,
@@ -48,7 +55,10 @@ export function MikrotikRouterForm({
   submitDisabled,
   submitDisabledTitle,
   cancelHref,
+  connectionSection,
+  isConnectionLocked = false,
 }: MikrotikRouterFormProps) {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   return (
     <form
       onSubmit={onSubmit}
@@ -94,6 +104,8 @@ export function MikrotikRouterForm({
         </select>
       </div>
 
+      {connectionSection}
+
       <div>
         <label
           htmlFor="mikrotik-ip-address"
@@ -106,6 +118,7 @@ export function MikrotikRouterForm({
           type="text"
           value={formData.ipAddress}
           onChange={(event) => onChange("ipAddress", event.target.value)}
+          readOnly={isConnectionLocked}
           required
           placeholder="Masukkan IP Address atau domain"
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -126,6 +139,7 @@ export function MikrotikRouterForm({
           onChange={(event) =>
             onChange("apiPort", parseInt(event.target.value, 10) || 8728)
           }
+          readOnly={isConnectionLocked}
           required
           placeholder="8728"
           min="1"
@@ -146,6 +160,7 @@ export function MikrotikRouterForm({
           type="text"
           value={formData.apiUsername}
           onChange={(event) => onChange("apiUsername", event.target.value)}
+          readOnly={isConnectionLocked}
           required
           placeholder="Username API"
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -159,15 +174,40 @@ export function MikrotikRouterForm({
         >
           ! Password API
         </label>
-        <input
-          id="mikrotik-api-password"
-          type="password"
-          value={formData.apiPassword}
-          onChange={(event) => onChange("apiPassword", event.target.value)}
-          required
-          placeholder="Password API"
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            id="mikrotik-api-password"
+            type={isPasswordVisible ? "text" : "password"}
+            value={formData.apiPassword}
+            onChange={(event) => onChange("apiPassword", event.target.value)}
+            readOnly={isConnectionLocked}
+            required
+            placeholder="Password API"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {isConnectionLocked && formData.apiPassword && (
+            <>
+              <button
+                type="button"
+                aria-label="Tampilkan password"
+                onClick={() => setIsPasswordVisible((isVisible) => !isVisible)}
+                className={ICON_BUTTON_CLASS}
+              >
+                <HiOutlineEye className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Salin password"
+                onClick={() =>
+                  copyToClipboard(formData.apiPassword, "Password disalin")
+                }
+                className={ICON_BUTTON_CLASS}
+              >
+                <HiOutlineClipboardDocument className="w-5 h-5" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div>

@@ -4,13 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ScriptGeneratorModal from "@/components/mikrotik/ScriptGeneratorModal";
 import TestConnectionModal from "@/components/mikrotik/TestConnectionModal";
+import VpnScriptModal from "@/components/mikrotik/VpnScriptModal";
 import { Button } from "@/components/ui/Button";
 import {
   MikrotikRouterForm,
   type MikrotikRouterFormData,
 } from "@/app/admin/network/mikrotik/components/mikrotikRouterForm";
+import { VpnConnectionSection } from "@/app/admin/network/mikrotik/components/VpnConnectionSection";
 import { useMikrotikConnectionTest } from "@/app/admin/network/mikrotik/hooks/useMikrotikConnectionTest";
 import { useMikrotikFormSettings } from "@/app/admin/network/mikrotik/hooks/useMikrotikFormSettings";
+import { useVpnRouterMode } from "@/app/admin/network/mikrotik/hooks/useVpnRouterMode";
 
 export function ClientComponent() {
   const router = useRouter();
@@ -29,6 +32,9 @@ export function ClientComponent() {
     isolirUrl: "",
     description: "",
     autoConfigure: true,
+    rosVersion: "V6",
+    connectionMode: "PUBLIC",
+    vpnServerIds: [],
   });
 
   const { pppConnectionMode } = useMikrotikFormSettings();
@@ -36,11 +42,18 @@ export function ClientComponent() {
     useMikrotikConnectionTest({
       formData,
     });
+  const vpn = useVpnRouterMode({
+    formData,
+    setFormData,
+    testResult,
+    isTesting,
+  });
+  const isSubmitAllowed = vpn.isVpnMode ? vpn.isVpnTestPassed : testPassed;
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
-    if (!testPassed) {
+    if (!isSubmitAllowed) {
       alert(
         "Silakan test koneksi terlebih dahulu dan pastikan test berhasil sebelum menyimpan router.",
       );
@@ -74,6 +87,7 @@ export function ClientComponent() {
   };
 
   const handleTestConnection = async () => {
+    if (vpn.isVpnMode) vpn.markTestStarted();
     const success = await runTest();
     setTestPassed(success);
   };
@@ -113,13 +127,25 @@ export function ClientComponent() {
         }}
         isSubmitting={loading}
         submitLabel="Tambahkan Router"
-        submitDisabled={!testPassed}
+        submitDisabled={!isSubmitAllowed}
         submitDisabledTitle={
-          !testPassed
+          !isSubmitAllowed
             ? "Silakan test koneksi terlebih dahulu dan pastikan test berhasil"
             : undefined
         }
         cancelHref="/admin/network/mikrotik"
+        isConnectionLocked={vpn.isVpnMode}
+        connectionSection={
+          <VpnConnectionSection
+            rosVersion={formData.rosVersion ?? "V6"}
+            connectionMode={formData.connectionMode ?? "PUBLIC"}
+            selectedServerIds={formData.vpnServerIds ?? []}
+            isDraftOutdated={vpn.isDraftOutdated}
+            onRosVersionChange={vpn.handleRosVersionChange}
+            onConnectionModeChange={vpn.handleConnectionModeChange}
+            onServerIdsChange={vpn.handleServerIdsChange}
+          />
+        }
       />
 
       <TestConnectionModal
@@ -129,8 +155,20 @@ export function ClientComponent() {
         isLoading={isTesting}
       />
 
+      {vpn.isVpnMode && showScriptModal && (
+        <VpnScriptModal
+          request={vpn.draftRequest}
+          apiCheck={vpn.apiCheck}
+          onClose={() => setShowScriptModal(false)}
+          onDraftReady={vpn.handleDraftReady}
+          onTunnelUp={() => {
+            void handleTestConnection();
+          }}
+        />
+      )}
+
       <ScriptGeneratorModal
-        open={showScriptModal}
+        open={showScriptModal && !vpn.isVpnMode}
         onClose={() => setShowScriptModal(false)}
       />
     </div>

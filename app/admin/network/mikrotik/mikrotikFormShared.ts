@@ -147,3 +147,125 @@ export async function submitMikrotikConnectionTest(
     message: "Terjadi kesalahan saat test koneksi",
   };
 }
+
+/** Versi RouterOS yang dipilih di form router. */
+export type RouterOsVersion = "V6" | "V7";
+
+/** Cara aplikasi menjangkau router: IP publik atau tunnel VPN. */
+export type RouterConnectionMode = "PUBLIC" | "VPN";
+
+/** Port API RouterOS yang dibuka script VPN; mode VPN tidak bisa memakai port lain. */
+export const VPN_API_PORT = 8728;
+
+/** Versi mayor RouterOS minimum: script VPN memakai WireGuard (RouterOS v7). */
+const MIN_VPN_ROUTEROS_MAJOR = 7;
+
+/** Pesan gagal bila router yang tersambung lewat VPN bukan RouterOS v7. */
+export const VPN_ROUTEROS_VERSION_ERROR = "RouterOS harus versi 7";
+
+/** Server VPN yang boleh dipakai tenant (`GET /api/vpn-servers`). */
+export type VpnServerOption = {
+  id: string;
+  name: string;
+  publicHost: string;
+  status: string;
+};
+
+/** Draft VPN dari `POST /api/mikrotik-routers/vpn-draft`. */
+export type VpnDraft = {
+  draftId: string;
+  address: string;
+  apiUsername: string;
+  apiPassword: string;
+  script: string;
+};
+
+/** Field form router yang diatur mode VPN. */
+export type MikrotikVpnFormFields = MikrotikFormConnectionData & {
+  rosVersion?: RouterOsVersion;
+  connectionMode?: RouterConnectionMode;
+  vpnServerIds?: string[];
+  vpnDraftId?: string;
+};
+
+/** Hasil penilaian test koneksi mode VPN. */
+export type VpnApiCheck = {
+  status: "passed" | "failed";
+  message: string;
+};
+
+/**
+ * Menyalakan/mematikan mode VPN. Kredensial selalu dikosongkan: saat nyala
+ * diisi draft (nilai publik lama ditolak whitelist rute draft), saat mati
+ * kredensial VPN tidak berlaku untuk IP publik.
+ */
+export function applyVpnMode<T extends MikrotikVpnFormFields>(
+  form: T,
+  isVpn: boolean,
+  serverIds: string[],
+): T {
+  return {
+    ...form,
+    connectionMode: isVpn ? "VPN" : "PUBLIC",
+    vpnServerIds: isVpn ? serverIds : [],
+    vpnDraftId: undefined,
+    ipAddress: "",
+    apiPort: VPN_API_PORT,
+    apiUsername: "",
+    apiPassword: "",
+  };
+}
+
+/** Mengganti versi RouterOS; mematikan v7 ikut mematikan mode VPN. */
+export function applyRosVersion<T extends MikrotikVpnFormFields>(
+  form: T,
+  isV7: boolean,
+): T {
+  const next = { ...form, rosVersion: isV7 ? "V7" : "V6" } as T;
+  if (isV7 || next.connectionMode !== "VPN") return next;
+  return applyVpnMode(next, false, []);
+}
+
+/** Mengisi form dengan alamat tunnel dan kredensial API dari draft. */
+export function applyVpnDraft<T extends MikrotikVpnFormFields>(
+  form: T,
+  draft: VpnDraft,
+): T {
+  return {
+    ...form,
+    vpnDraftId: draft.draftId,
+    ipAddress: draft.address,
+    apiPort: VPN_API_PORT,
+    apiUsername: draft.apiUsername,
+    apiPassword: draft.apiPassword,
+  };
+}
+
+/** Isi hasil test koneksi; rute membungkusnya sebagai `{success, data}`. */
+function unwrapTestConnectionResult(
+  result: MikrotikTestConnectionResult,
+): MikrotikTestConnectionResult {
+  const inner = (result as { data?: unknown }).data;
+  return inner && typeof inner === "object"
+    ? (inner as MikrotikTestConnectionResult)
+    : result;
+}
+
+/** Menilai test koneksi mode VPN: API harus tersambung dan RouterOS minimal v7. */
+export function evaluateVpnConnectionTest(
+  result: MikrotikTestConnectionResult,
+): VpnApiCheck {
+  const inner = unwrapTestConnectionResult(result);
+  if (!inner.success) {
+    return {
+      status: "failed",
+      message: inner.api?.message || inner.message || "Koneksi API gagal",
+    };
+  }
+  // "7.16.2 (stable)" → 7; versi tak terbaca dianggap belum terbukti v7.
+  const major = Number.parseInt(inner.routerInfo?.version ?? "", 10);
+  if (!(major >= MIN_VPN_ROUTEROS_MAJOR)) {
+    return { status: "failed", message: VPN_ROUTEROS_VERSION_ERROR };
+  }
+  return { status: "passed", message: "API tersambung" };
+}
