@@ -111,12 +111,14 @@ router masih memakainya, dan router terputus sampai auto switch memindahkannya.
 ## Integrasi netmanager
 
 Aplikasi netmanager memanggil API core lewat `VpnCoreClient`
-(`modules/network/vpn/`). Tiga variabel mengaturnya:
+(`modules/network/vpn/`). Tiga variabel mengaturnya. Fitur VPN tersembunyi
+kecuali `VPN_CORE_API_URL` **dan** `VPN_API_TOKEN` sama-sama terisi; salah
+satu kosong berarti layanan VPN dianggap belum dikonfigurasi.
 
 | Variabel | Letak | Isi |
 | --- | --- | --- |
 | `VPN_CORE_API_URL` | ConfigMap `netmanager-config` | URL API core. Kosong (default) menyembunyikan fitur VPN |
-| `VPN_API_TOKEN` | Secret `netmanager-secrets`, `optional: true` | Sama dengan `NMVPN_API_TOKEN` core. `optional` agar pod tetap start sebelum Secret diisi |
+| `VPN_API_TOKEN` | Secret `netmanager-secrets`, `optional: true`, hanya di pod app dan worker | Sama dengan `NMVPN_API_TOKEN` core. Kosong juga menyembunyikan fitur VPN. `optional` agar pod tetap start sebelum Secret diisi |
 | `VPN_CORE_ADDRESS` | ConfigMap | Alamat core di backhaul, default `10.99.0.1`; hanya IPv4 |
 
 Urutan rollout:
