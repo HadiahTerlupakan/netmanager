@@ -10,6 +10,7 @@ import {
   HiOutlineBuildingOffice,
   HiOutlineGlobeAlt,
   HiOutlineSquares2X2,
+  HiOutlineServerStack,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
 import { toast } from "react-hot-toast";
@@ -240,6 +241,14 @@ export default function TenantList({
       >
         <HiOutlineGlobeAlt className="w-4 h-4" />
         Domain
+      </Link>
+      <Link
+        href={`/admin/tenants/${tenant.id}/vpn`}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded-md hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-colors"
+        title="Atur Server VPN"
+      >
+        <HiOutlineServerStack className="w-4 h-4" />
+        Server VPN
       </Link>
       <button
         onClick={() => setDeleteId(tenant.id)}

@@ -1,12 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { HiOutlineBuildingOffice, HiOutlineShieldCheck } from 'react-icons/hi2'
+import {
+    HiOutlineBuildingOffice,
+    HiOutlineServerStack,
+    HiOutlineShieldCheck,
+} from 'react-icons/hi2'
 import TenantList from './TenantList'
 import TenantAdminList from './TenantAdminList'
+import VpnServerPanel from './vpn/VpnServerPanel'
 
 export default function TenantsClient() {
-    const [activeTab, setActiveTab] = useState<'tenants' | 'admins'>('tenants')
+    const [activeTab, setActiveTab] = useState<'tenants' | 'admins' | 'vpn'>('tenants')
     const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null)
 
     const handleViewAdmins = (tenantId: string) => {
@@ -42,14 +47,28 @@ export default function TenantsClient() {
                         <HiOutlineShieldCheck className="w-5 h-5" />
                         Administrator Tenant
                     </button>
+                    <button
+                        onClick={() => setActiveTab('vpn')}
+                        className={`
+                            whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2
+                            ${activeTab === 'vpn'
+                                ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'}
+                        `}
+                    >
+                        <HiOutlineServerStack className="w-5 h-5" />
+                        Server VPN
+                    </button>
                 </nav>
             </div>
 
             <div className="mt-4 transition-all duration-300 ease-in-out">
                 {activeTab === 'tenants' ? (
                     <TenantList onViewAdmins={handleViewAdmins} />
-                ) : (
+                ) : activeTab === 'admins' ? (
                     <TenantAdminList initialTenantId={selectedTenantId} />
+                ) : (
+                    <VpnServerPanel />
                 )}
             </div>
         </div>
