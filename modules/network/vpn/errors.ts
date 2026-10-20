@@ -68,3 +68,11 @@ export class VpnRouterUnreachableError extends Error {
     this.name = "VpnRouterUnreachableError";
   }
 }
+
+/** Satu langkah pindah PUBLIC ⇄ VPN gagal; langkah sebelumnya sudah dibatalkan. */
+export class VpnRouterMigrationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "VpnRouterMigrationError";
+  }
+}

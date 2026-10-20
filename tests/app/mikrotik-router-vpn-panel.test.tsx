@@ -99,7 +99,14 @@ describe("RouterVpnPanel", () => {
   });
 
   async function mount() {
-    await render(panggung, <RouterVpnPanel routerId="r1" />);
+    await render(
+      panggung,
+      <RouterVpnPanel
+        routerId="r1"
+        publicIpAddress={null}
+        onReverted={vi.fn()}
+      />,
+    );
     await tungguSampai(
       () => document.body.textContent.includes("Server aktif"),
       "panel termuat",

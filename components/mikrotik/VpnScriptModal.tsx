@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { clientLogger } from "@/lib/client-logger";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import VpnCommandBox from "@/app/admin/tenants/vpn/VpnCommandBox";
@@ -24,12 +24,19 @@ export type VpnDraftRequest = {
 /** Status test API: `testing` selama test otomatis berjalan, null bila belum. */
 export type VpnApiCheckState = VpnApiCheck | { status: "testing" } | null;
 
-type VpnScriptModalProps = {
+/** Bagian draft yang dipakai modal; rute draft bisa mengembalikan lebih banyak. */
+export type VpnScriptDraft = Pick<VpnDraft, "draftId" | "address" | "script">;
+
+type VpnScriptModalProps<D extends VpnScriptDraft> = {
   request: VpnDraftRequest;
   apiCheck: VpnApiCheckState;
   onClose: () => void;
-  onDraftReady: (draft: VpnDraft) => void;
+  onDraftReady: (draft: D) => void;
   onTunnelUp: () => void;
+  /** Rute pembuat draft; bawaan rute draft router baru. */
+  draftUrl?: string;
+  /** Tombol tambahan di samping "Tutup". */
+  footerAction?: ReactNode;
 };
 
 /** Hanya kirim nilai yang ada; field kosong ditolak validasi rute draft. */
@@ -40,15 +47,17 @@ function buildDraftBody(request: VpnDraftRequest) {
 }
 
 /** Membuat draft sekali per pemasangan modal; dipasang ulang tiap kali dibuka. */
-function useVpnDraft(
+function useVpnDraft<D extends VpnScriptDraft>(
+  draftUrl: string,
   request: VpnDraftRequest,
-  onDraftReady: (draft: VpnDraft) => void,
+  onDraftReady: (draft: D) => void,
 ) {
-  const [draft, setDraft] = useState<VpnDraft | null>(null);
+  const [draft, setDraft] = useState<D | null>(null);
   const [error, setError] = useState<string | null>(
     request.serverIds.length === 0 ? NO_SERVER_SELECTED_MESSAGE : null,
   );
   const initialRequest = useRef(request);
+  const initialUrl = useRef(draftUrl);
   const onReady = useRef(onDraftReady);
 
   useEffect(() => {
@@ -56,7 +65,7 @@ function useVpnDraft(
     let isCancelled = false;
     const createDraft = async () => {
       try {
-        const res = await fetch(DRAFT_URL, {
+        const res = await fetch(initialUrl.current, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(buildDraftBody(initialRequest.current)),
@@ -67,7 +76,7 @@ function useVpnDraft(
           setError(body.error || "Gagal membuat script VPN");
           return;
         }
-        const created: VpnDraft = body.data ?? body;
+        const created: D = body.data ?? body;
         setDraft(created);
         onReady.current(created);
       } catch (err) {
@@ -113,14 +122,16 @@ function ApiCheckLine({ apiCheck }: { apiCheck: VpnApiCheckState }) {
  * Modal script VPN: membuat draft saat dibuka, menampilkan script tempel,
  * memantau tunnel, lalu meminta test koneksi sekali begitu tunnel hidup.
  */
-export default function VpnScriptModal({
+export default function VpnScriptModal<D extends VpnScriptDraft = VpnDraft>({
   request,
   apiCheck,
   onClose,
   onDraftReady,
   onTunnelUp,
-}: VpnScriptModalProps) {
-  const { draft, error } = useVpnDraft(request, onDraftReady);
+  draftUrl = DRAFT_URL,
+  footerAction,
+}: VpnScriptModalProps<D>) {
+  const { draft, error } = useVpnDraft(draftUrl, request, onDraftReady);
   const { stage, isHintVisible } = useVpnDraftStatus(draft?.draftId ?? null);
   const isTunnelUp = stage === "tunnel_up";
   const hasReportedTunnel = useRef(false);
@@ -168,6 +179,7 @@ export default function VpnScriptModal({
           </>
         )}
         <ModalFooter>
+          {footerAction}
           <button
             type="button"
             onClick={onClose}

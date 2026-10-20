@@ -1,6 +1,7 @@
 import type { IRouterAccessRepository } from "../domain/ports/IRouterAccessRepository";
 import type {
   MikroTikRouterCreateData,
+  MikroTikRouterEntity,
   MikroTikRouterUpdateData,
 } from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
@@ -159,8 +160,19 @@ async function resolveUpdateRouterData(
   });
 }
 
-async function ensureRouterAccess(params: UpdateRouterInput): Promise<void> {
-  await getAuthorizedRouter({
+// Router VPN harus tetap RouterOS v7; versinya hanya diubah lewat form saat publik.
+function withoutVpnLockedFields(
+  router: { connectionMode: string },
+  data: MikroTikRouterUpdateData,
+): MikroTikRouterUpdateData {
+  if (router.connectionMode !== "VPN") return data;
+  return { ...data, rosVersion: undefined };
+}
+
+async function ensureRouterAccess(
+  params: UpdateRouterInput,
+): Promise<MikroTikRouterEntity> {
+  return getAuthorizedRouter({
     ...params,
     routerRepository: params.routerRepository,
     networkRepository: params.networkRepository,
@@ -287,8 +299,11 @@ export async function createRouterMutation(
 export async function updateRouterMutation(
   params: UpdateRouterInput,
 ): Promise<void> {
-  await ensureRouterAccess(params);
-  const updateData = await resolveUpdateRouterData(params);
+  const router = await ensureRouterAccess(params);
+  const updateData = await resolveUpdateRouterData({
+    ...params,
+    data: withoutVpnLockedFields(router, params.data),
+  });
   await params.routerRepository.update(params.id, updateData, params.tenantId);
   logRouterUpdateActivity(params.userId, params.id, params.data);
 }

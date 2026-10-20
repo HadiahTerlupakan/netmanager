@@ -119,6 +119,7 @@ export {
   VpnDraftInvalidError,
   VpnRouterActivationError,
   VpnRouterInvalidError,
+  VpnRouterMigrationError,
   VpnRouterUnreachableError,
   VpnServerInUseError,
   VpnServerNotAvailableError,
@@ -141,4 +142,5 @@ export { createVpnDraftService } from "./factories/VpnDraftServiceFactory";
 export { createVpnServerService } from "./factories/VpnServerServiceFactory";
 export { routerVpnAccessGuard } from "./vpn/routerAccessGuard";
 export { createVpnRouterService } from "./factories/VpnRouterServiceFactory";
+export { createVpnRouterMigrationService } from "./factories/VpnRouterMigrationServiceFactory";
 export type { RouterVpnDetail } from "./services/VpnRouterService";

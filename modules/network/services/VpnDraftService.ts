@@ -50,6 +50,12 @@ export interface VpnDraftResult {
   script: string;
 }
 
+/** Draft untuk router yang sudah ada; tanpa kredensial karena user API lama dipakai. */
+export type VpnExtendDraftResult = Pick<
+  VpnDraftResult,
+  "draftId" | "address" | "script"
+>;
+
 export interface VpnDraftStatus {
   stage: "waiting" | "tunnel_up";
   lastHandshakeAt: string | null;
@@ -69,6 +75,12 @@ function orderedHubIds(router: CoreRouter): string[] {
  */
 export function isUnclaimedDraft(router: CoreRouter): boolean {
   return router.status === "pending" && router.ref === "";
+}
+
+/** True bila handshake terakhir router core masih dalam `VPN_HANDSHAKE_FRESH_MS`. */
+export function isHandshakeFresh(router: CoreRouter, now: number): boolean {
+  if (!router.lastHandshakeAt) return false;
+  return now - Date.parse(router.lastHandshakeAt) <= VPN_HANDSHAKE_FRESH_MS;
 }
 
 /** True bila hub router core, diurutkan menurut prioritas, sama persis dengan `hubIds`. */
@@ -97,22 +109,13 @@ export class VpnDraftService {
     tenantId: string,
     input: VpnDraftInput,
   ): Promise<VpnDraftResult> {
-    await this.assertServersAvailable(tenantId, input.serverIds);
-    const core = getVpnCoreClient();
-    const reused = await this.reusePrevious(tenantId, input);
-    const router =
-      reused ??
-      (await core.createRouter({
-        label: vpnDraftLabel(tenantId),
-        hubIds: input.serverIds,
-      }));
+    const { router, coreScript } = await this.prepareDraft(tenantId, input);
     const apiUsername =
       input.apiUsername ??
       `${API_USERNAME_PREFIX}${randomBytes(API_USERNAME_BYTES).toString("hex")}`;
     const apiPassword =
       input.apiPassword ??
       randomBytes(API_PASSWORD_BYTES).toString("base64url");
-    const coreScript = await core.routerScript(router.id, "full");
     const apiScript = buildVpnApiUserScript({
       username: apiUsername,
       password: apiPassword,
@@ -128,21 +131,55 @@ export class VpnDraftService {
     };
   }
 
+  /**
+   * Draft untuk router publik yang sudah tersimpan: skripnya hanya menambah
+   * alamat core ke user API `apiUsername` yang sudah dipakai netmanager, tanpa
+   * membuat user atau menyentuh password.
+   */
+  async createExtendDraft(
+    tenantId: string,
+    input: Pick<VpnDraftInput, "serverIds" | "previousDraftId">,
+    apiUsername: string,
+  ): Promise<VpnExtendDraftResult> {
+    const { router, coreScript } = await this.prepareDraft(tenantId, input);
+    const apiScript = buildVpnApiUserScript({
+      username: apiUsername,
+      coreAddress: getVpnCoreAddress(),
+      mode: "extend",
+    });
+    return {
+      draftId: router.id,
+      address: router.address,
+      script: `${coreScript}\n${apiScript}`,
+    };
+  }
+
   /** Status tunnel sebuah draft milik tenant. */
   async getStatus(tenantId: string, draftId: string): Promise<VpnDraftStatus> {
     const router = await getVpnCoreClient().getRouter(draftId);
     assertDraftOwned(router, tenantId);
-    const handshakeAt = router.lastHandshakeAt
-      ? Date.parse(router.lastHandshakeAt)
-      : null;
-    const fresh =
-      handshakeAt !== null &&
-      this.now() - handshakeAt <= VPN_HANDSHAKE_FRESH_MS;
     return {
-      stage: fresh ? "tunnel_up" : "waiting",
+      stage: isHandshakeFresh(router, this.now()) ? "tunnel_up" : "waiting",
       lastHandshakeAt: router.lastHandshakeAt,
       activeServerId: router.activeHubId,
     };
+  }
+
+  private async prepareDraft(
+    tenantId: string,
+    input: Pick<VpnDraftInput, "serverIds" | "previousDraftId">,
+  ): Promise<{ router: CoreRouter; coreScript: string }> {
+    await this.assertServersAvailable(tenantId, input.serverIds);
+    const core = getVpnCoreClient();
+    const reused = await this.reusePrevious(tenantId, input);
+    const router =
+      reused ??
+      (await core.createRouter({
+        label: vpnDraftLabel(tenantId),
+        hubIds: input.serverIds,
+      }));
+    const coreScript = await core.routerScript(router.id, "full");
+    return { router, coreScript };
   }
 
   private async assertServersAvailable(
@@ -163,7 +200,7 @@ export class VpnDraftService {
   /** Mengembalikan draft sebelumnya bila hub-nya sama; bila beda, menghapusnya. */
   private async reusePrevious(
     tenantId: string,
-    input: VpnDraftInput,
+    input: Pick<VpnDraftInput, "serverIds" | "previousDraftId">,
   ): Promise<CoreRouter | null> {
     if (!input.previousDraftId) return null;
     const core = getVpnCoreClient();

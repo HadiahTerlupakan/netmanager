@@ -42,7 +42,8 @@ function requireVpnRequest(request: VpnRouterRequest): ValidVpnRequest {
   return { vpnDraftId: request.vpnDraftId, vpnServerIds: request.vpnServerIds };
 }
 
-async function fetchDraft(draftId: string): Promise<CoreRouter> {
+/** Router core sebuah draft; 404 dari core menjadi `VpnDraftInvalidError`. */
+export async function fetchDraft(draftId: string): Promise<CoreRouter> {
   try {
     return await getVpnCoreClient().getRouter(draftId);
   } catch (error) {

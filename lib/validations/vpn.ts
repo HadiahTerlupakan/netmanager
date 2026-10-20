@@ -33,6 +33,20 @@ export const routerVpnServersSchema = z.object({
   serverIds: orderedVpnServerIdsSchema,
 });
 
+export const routerVpnEnableSchema = z.object({
+  serverIds: orderedVpnServerIdsSchema,
+  previousDraftId: vpnIdSchema.optional(),
+});
+
+export const routerVpnTunnelTestSchema = z.object({
+  draftId: vpnIdSchema,
+});
+
+export const routerVpnMigrateSchema = z.object({
+  draftId: vpnIdSchema,
+  serverIds: orderedVpnServerIdsSchema,
+});
+
 export const vpnAdminPeerCreateSchema = z.object({
   label: z.string().trim().min(1, "Label wajib diisi").max(MAX_NAME_LENGTH),
 });

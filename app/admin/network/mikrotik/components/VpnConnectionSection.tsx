@@ -54,7 +54,14 @@ type ToggleProps = {
   onChange: (isChecked: boolean) => void;
 };
 
-function Toggle({ id, label, isChecked, isDisabled, onChange }: ToggleProps) {
+/** Saklar berlabel untuk pilihan form router. */
+export function Toggle({
+  id,
+  label,
+  isChecked,
+  isDisabled,
+  onChange,
+}: ToggleProps) {
   return (
     <div className="flex items-center justify-between gap-4">
       <label

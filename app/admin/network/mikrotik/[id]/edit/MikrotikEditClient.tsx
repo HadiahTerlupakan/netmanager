@@ -12,6 +12,12 @@ import {
 } from "@/app/admin/network/mikrotik/components/mikrotikRouterForm";
 import { useMikrotikConnectionTest } from "@/app/admin/network/mikrotik/hooks/useMikrotikConnectionTest";
 import { RouterVpnPanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnPanel";
+import { RouterVpnEnablePanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnEnablePanel";
+import { Toggle } from "@/app/admin/network/mikrotik/components/VpnConnectionSection";
+import {
+  evaluateVpnConnectionTest,
+  type RouterOsVersion,
+} from "@/app/admin/network/mikrotik/mikrotikFormShared";
 import { useMikrotikFormSettings } from "@/app/admin/network/mikrotik/hooks/useMikrotikFormSettings";
 
 export function ClientComponent() {
@@ -22,6 +28,8 @@ export function ClientComponent() {
   const [saving, setSaving] = useState(false);
   const [showScriptModal, setShowScriptModal] = useState(false);
   const [isVpnRouter, setIsVpnRouter] = useState(false);
+  const [savedRosVersion, setSavedRosVersion] = useState<RouterOsVersion>("V6");
+  const [publicIpAddress, setPublicIpAddress] = useState<string | null>(null);
   const [formData, setFormData] = useState<MikrotikRouterFormData>({
     name: "",
     ipAddress: "",
@@ -47,6 +55,8 @@ export function ClientComponent() {
       const responseData = await res.json();
       const routerData = responseData.data?.router;
       setIsVpnRouter(routerData.connectionMode === "VPN");
+      setSavedRosVersion(routerData.rosVersion);
+      setPublicIpAddress(routerData.publicIpAddress ?? null);
       setFormData({
         name: routerData.name,
         ipAddress: routerData.ipAddress,
@@ -56,6 +66,7 @@ export function ClientComponent() {
         apiPassword: routerData.apiPassword,
         isolirUrl: routerData.isolirUrl || "",
         description: routerData.description || "",
+        rosVersion: routerData.rosVersion,
       });
     } catch (error) {
       clientLogger.error("Error loading router:", error);
@@ -78,8 +89,11 @@ export function ClientComponent() {
       formData,
       routerId,
       onSuccess: async (result) => {
-        if (result.success) {
-          await loadRouter();
+        if (!result.success) return;
+        await loadRouter();
+        // Test yang membuktikan RouterOS v7 menyalakan toggle; tetap perlu disimpan.
+        if (evaluateVpnConnectionTest(result).status === "passed") {
+          setFormData((prev) => ({ ...prev, rosVersion: "V7" }));
         }
       },
     });
@@ -162,9 +176,40 @@ export function ClientComponent() {
         submitLabel="Update Router"
         cancelHref="/admin/network/mikrotik"
         isConnectionLocked={isVpnRouter}
+        connectionSection={
+          !isVpnRouter && (
+            <Toggle
+              id="mikrotik-ros-v7"
+              label="RouterOS v7"
+              isChecked={formData.rosVersion === "V7"}
+              onChange={(isV7) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  rosVersion: isV7 ? "V7" : "V6",
+                }))
+              }
+            />
+          )
+        }
       />
 
-      {isVpnRouter && <RouterVpnPanel routerId={routerId} />}
+      {isVpnRouter && (
+        <RouterVpnPanel
+          routerId={routerId}
+          publicIpAddress={publicIpAddress}
+          onReverted={loadRouter}
+        />
+      )}
+      {!isVpnRouter && savedRosVersion === "V7" && (
+        <RouterVpnEnablePanel routerId={routerId} onMigrated={loadRouter} />
+      )}
+      {!isVpnRouter &&
+        savedRosVersion !== "V7" &&
+        formData.rosVersion === "V7" && (
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Simpan router sebagai RouterOS v7 untuk mengaktifkan VPN.
+          </p>
+        )}
 
       <TestConnectionModal
         open={showTestModal}

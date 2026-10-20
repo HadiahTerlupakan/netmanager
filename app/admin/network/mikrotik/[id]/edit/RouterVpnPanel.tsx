@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { VpnServerList } from "@/app/admin/network/mikrotik/components/VpnServerList";
 import { VpnLockdownGuide } from "@/app/admin/network/mikrotik/[id]/edit/VpnLockdownGuide";
 import type { VpnServerOption } from "@/app/admin/network/mikrotik/mikrotikFormShared";
+import { sendRequest } from "@/app/admin/network/mikrotik/[id]/edit/routerVpnRequest";
+import { RevertToPublicButton } from "@/app/admin/network/mikrotik/[id]/edit/RevertToPublicButton";
 
 /** Jumlah riwayat perpindahan server yang ditampilkan, terbaru lebih dulu. */
 const MAX_EVENTS_SHOWN = 10;
@@ -28,24 +30,6 @@ type RouterVpnDetail = {
   scriptStale: boolean;
 };
 
-type ApiBody = { error?: string; message?: string; data?: unknown };
-
-/** Mengirim request JSON dan mengembalikan body-nya; melempar bila gagal. */
-async function sendRequest(
-  url: string,
-  method: string,
-  body?: unknown,
-): Promise<ApiBody> {
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const json = (await res.json().catch(() => ({}))) as ApiBody;
-  if (!res.ok) throw new Error(json.error || json.message || "Gagal");
-  return json;
-}
-
 /** Server tenant ditambah server router yang sudah tidak ada di daftar tenant. */
 function buildOptions(
   tenantServers: VpnServerOption[],
@@ -62,8 +46,19 @@ function buildOptions(
   return [...tenantServers, ...missing];
 }
 
+type RouterVpnPanelProps = {
+  routerId: string;
+  publicIpAddress: string | null;
+  /** Dipanggil setelah router kembali ke IP publik. */
+  onReverted: () => Promise<void> | void;
+};
+
 /** Panel VPN halaman edit: daftar server berurut, server aktif, riwayat, dan panduan. */
-export function RouterVpnPanel({ routerId }: { routerId: string }) {
+export function RouterVpnPanel({
+  routerId,
+  publicIpAddress,
+  onReverted,
+}: RouterVpnPanelProps) {
   const vpnUrl = `/api/mikrotik-routers/${routerId}/vpn`;
   const { data, error, refetch } = useApi<RouterVpnDetail>(vpnUrl);
   const { data: tenantData } = useApi<{ servers: VpnServerOption[] }>(
@@ -154,6 +149,11 @@ export function RouterVpnPanel({ routerId }: { routerId: string }) {
         >
           Kembalikan ke server pertama
         </Button>
+        <RevertToPublicButton
+          routerId={routerId}
+          publicIpAddress={publicIpAddress}
+          onReverted={onReverted}
+        />
       </div>
       {data.events.length > 0 && (
         <div>

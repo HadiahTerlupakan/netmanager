@@ -57,6 +57,52 @@ export function shouldSyncNasOnUpdate(
   );
 }
 
+/**
+ * Terapkan perubahan router ke entri NAS-nya (dibuat bila belum ada). Melempar
+ * bila gagal, untuk pemanggil yang harus membatalkan perubahan router.
+ */
+export async function applyNasOnRouterUpdate(
+  radiusRepo: RadiusRepository,
+  existingRouter: RouterNasSnapshot,
+  data: MikroTikRouterUpdateData,
+): Promise<void> {
+  if (!existingRouter.tenantId) {
+    return;
+  }
+
+  const existingNas = await radiusRepo.getNasByIp(
+    existingRouter.ipAddress,
+    existingRouter.tenantId,
+  );
+  const newNasData = {
+    nasname: data.ipAddress ?? existingRouter.ipAddress,
+    secret: data.secretRadius ?? existingRouter.secretRadius,
+    shortname: data.name ?? existingRouter.name,
+    ...(data.description !== undefined
+      ? { description: data.description ?? "" }
+      : {}),
+  };
+
+  if (existingNas?.id) {
+    await radiusRepo.updateNas(
+      existingNas.id,
+      newNasData,
+      existingRouter.tenantId,
+    );
+    return;
+  }
+
+  await radiusRepo.createNas(
+    {
+      ...newNasData,
+      type: "other",
+      ports: data.apiPort ?? 8728,
+      community: "public",
+    },
+    existingRouter.tenantId,
+  );
+}
+
 /** Sync NAS changes after router update. */
 export async function syncNasOnRouterUpdate(
   radiusRepo: RadiusRepository,
@@ -64,41 +110,7 @@ export async function syncNasOnRouterUpdate(
   data: MikroTikRouterUpdateData,
 ): Promise<void> {
   try {
-    if (!existingRouter.tenantId) {
-      return;
-    }
-
-    const existingNas = await radiusRepo.getNasByIp(
-      existingRouter.ipAddress,
-      existingRouter.tenantId,
-    );
-    const newNasData = {
-      nasname: data.ipAddress ?? existingRouter.ipAddress,
-      secret: data.secretRadius ?? existingRouter.secretRadius,
-      shortname: data.name ?? existingRouter.name,
-      ...(data.description !== undefined
-        ? { description: data.description ?? "" }
-        : {}),
-    };
-
-    if (existingNas?.id) {
-      await radiusRepo.updateNas(
-        existingNas.id,
-        newNasData,
-        existingRouter.tenantId,
-      );
-      return;
-    }
-
-    await radiusRepo.createNas(
-      {
-        ...newNasData,
-        type: "other",
-        ports: data.apiPort ?? 8728,
-        community: "public",
-      },
-      existingRouter.tenantId,
-    );
+    await applyNasOnRouterUpdate(radiusRepo, existingRouter, data);
   } catch (error) {
     logger.error(
       `Failed to sync NAS update for router ${existingRouter.ipAddress}:`,

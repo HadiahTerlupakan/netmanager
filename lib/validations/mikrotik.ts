@@ -57,5 +57,6 @@ export const mikrotikRouterUpdateSchema = z.object({
   isolirUrl: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   siteId: z.string().optional().nullable(),
+  rosVersion: z.enum(['V6', 'V7']).optional(),
 })
 

@@ -236,6 +236,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         }),
         ...(data.siteId !== undefined && { siteId: data.siteId }),
         ...(data.tenantId !== undefined && { tenantId: data.tenantId }),
+        ...(data.rosVersion !== undefined && { rosVersion: data.rosVersion }),
       },
     });
 
