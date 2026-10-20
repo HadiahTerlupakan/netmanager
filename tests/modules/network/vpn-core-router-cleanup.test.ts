@@ -1,0 +1,90 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  deleteCoreRouter: vi.fn(),
+  isConfigured: vi.fn(),
+}));
+
+vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
+  ...(await importActual<object>()),
+  getVpnCoreClient: () => ({ deleteRouter: mocks.deleteCoreRouter }),
+  isVpnConfigured: mocks.isConfigured,
+}));
+vi.mock("@/lib/logger", () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+import {
+  retryVpnCoreRouterDeletes,
+  VPN_TOMBSTONE_BATCH_SIZE,
+} from "@/modules/network/services/VpnCoreRouterCleanup";
+import { VpnCoreRouterTombstoneRepository } from "@/modules/network/repositories/VpnCoreRouterTombstoneRepository";
+import { VpnCoreError } from "@/modules/network/vpn/VpnCoreClient";
+
+function fakeRepo(ids: string[]) {
+  return {
+    listOldest: vi.fn(async (_limit: number) => ids),
+    add: vi.fn(async (_id: string) => {}),
+    remove: vi.fn(async (_id: string) => {}),
+  };
+}
+
+describe("retryVpnCoreRouterDeletes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.isConfigured.mockReturnValue(true);
+  });
+
+  it("menghapus baris saat core sukses atau 404, membiarkannya pada error lain", async () => {
+    const repo = fakeRepo(["ok", "gone", "down"]);
+    mocks.deleteCoreRouter.mockImplementation(async (id: string) => {
+      if (id === "gone") throw new VpnCoreError(404, "not_found");
+      if (id === "down") throw new VpnCoreError(500, "internal");
+    });
+
+    await retryVpnCoreRouterDeletes(repo);
+
+    expect(repo.listOldest).toHaveBeenCalledWith(VPN_TOMBSTONE_BATCH_SIZE);
+    expect(repo.remove.mock.calls.map((c) => c[0])).toEqual(["ok", "gone"]);
+  });
+
+  it("tidak memanggil core maupun database bila VPN belum dikonfigurasi", async () => {
+    mocks.isConfigured.mockReturnValue(false);
+    const repo = fakeRepo(["a"]);
+
+    await retryVpnCoreRouterDeletes(repo);
+
+    expect(repo.listOldest).not.toHaveBeenCalled();
+    expect(mocks.deleteCoreRouter).not.toHaveBeenCalled();
+  });
+});
+
+describe("VpnCoreRouterTombstoneRepository", () => {
+  it("add idempoten lewat upsert, listOldest urut createdAt, remove tidak gagal bila baris hilang", async () => {
+    const client = {
+      vpnCoreRouterTombstone: {
+        upsert: vi.fn(async () => ({})),
+        findMany: vi.fn(async () => [{ coreRouterId: "a" }]),
+        deleteMany: vi.fn(async () => ({ count: 0 })),
+      },
+    };
+    const repo = new VpnCoreRouterTombstoneRepository(client as never);
+
+    await repo.add("a");
+    expect(await repo.listOldest(5)).toEqual(["a"]);
+    await repo.remove("a");
+
+    expect(client.vpnCoreRouterTombstone.upsert).toHaveBeenCalledWith({
+      where: { coreRouterId: "a" },
+      create: { coreRouterId: "a" },
+      update: {},
+    });
+    expect(client.vpnCoreRouterTombstone.findMany).toHaveBeenCalledWith({
+      orderBy: { createdAt: "asc" },
+      take: 5,
+    });
+    expect(client.vpnCoreRouterTombstone.deleteMany).toHaveBeenCalledWith({
+      where: { coreRouterId: "a" },
+    });
+  });
+});

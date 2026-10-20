@@ -7,6 +7,8 @@ import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterR
 import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
+import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
+import { VpnCoreRouterTombstoneRepository } from "../repositories/VpnCoreRouterTombstoneRepository";
 import { VpnServerRepository } from "../repositories/VpnServerRepository";
 import { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import {
@@ -63,6 +65,10 @@ export class MikroTikRouterService {
       IVpnServerRepository,
       "tenantServerIds"
     > = new VpnServerRepository(),
+    private readonly tombstoneRepository: Pick<
+      IVpnCoreRouterTombstoneRepository,
+      "add"
+    > = new VpnCoreRouterTombstoneRepository(),
   ) {}
 
   getRouterRepository() {
@@ -129,6 +135,7 @@ export class MikroTikRouterService {
       networkRepository: this.networkRepository,
       provisioningService: this.provisioningService,
       vpnServerRepository: this.vpnServerRepository,
+      tombstoneRepository: this.tombstoneRepository,
     });
   }
 
@@ -159,6 +166,7 @@ export class MikroTikRouterService {
       routerRepository: this.routerRepository,
       networkRepository: this.networkRepository,
       provisioningService: this.provisioningService,
+      tombstoneRepository: this.tombstoneRepository,
     });
   }
 

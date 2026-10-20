@@ -11,6 +11,7 @@ import type {
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import { checkAllMikroTikRouterStatus } from "./mikrotik-ping-check";
+import { retryVpnCoreRouterDeletes } from "./VpnCoreRouterCleanup";
 
 const ROUTER_CHECK_INTERVAL_MS = 60000 * 5;
 const MAX_CONSECUTIVE_ERRORS = 5;
@@ -177,7 +178,19 @@ class MikroTikMonitor {
     }, interval);
   }
 
+  private async retryPendingCoreDeletes() {
+    try {
+      await retryVpnCoreRouterDeletes();
+    } catch (error) {
+      logger.error(
+        "[MikroTikMonitor] Gagal mengulang hapus router core:",
+        error,
+      );
+    }
+  }
+
   public async checkStatus() {
+    await this.retryPendingCoreDeletes();
     try {
       const updatedCount = await checkAllMikroTikRouterStatus();
       await publishTenantStats(

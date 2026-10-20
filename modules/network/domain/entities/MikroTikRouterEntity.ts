@@ -53,6 +53,8 @@ export interface MikroTikRouterEntity {
   id: string;
   name: string;
   ipAddress: string;
+  connectionMode: "PUBLIC" | "VPN";
+  vpnCoreRouterId: string | null;
   timezone: string;
   apiPort: number;
   apiUsername: string;

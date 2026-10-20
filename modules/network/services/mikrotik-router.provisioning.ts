@@ -41,6 +41,7 @@ type DeprovisionRouterParams = {
   provisioningService: Pick<MikroTikProvisioningService, "deprovisionRadius">;
   router: StoredRouterCredentials & {
     isolirUrl: string | null;
+    connectionMode?: string | null;
   };
 };
 
@@ -254,7 +255,7 @@ export async function deprovisionRouter(
   try {
     const result = await params.provisioningService.deprovisionRadius(
       createStoredRouterProvisioningConnection(params.router),
-      null,
+      resolveRadiusRouting(params.router).radiusServerIp,
       params.router.isolirUrl,
     );
 

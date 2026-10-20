@@ -9,6 +9,8 @@ import {
 } from "../vpn/errors";
 import { getVpnCoreClient, VpnCoreError } from "../vpn/VpnCoreClient";
 import type { CoreRouter } from "../vpn/types";
+import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
+import { tombstoneCoreRouter } from "./VpnCoreRouterCleanup";
 import {
   assertDraftOwned,
   hasSameHubOrder,
@@ -28,6 +30,7 @@ type CreateVpnRouterParams = {
   request: VpnRouterRequest;
   routerRepository: Pick<IMikroTikRouterRepository, "create" | "delete">;
   vpnServerRepository: Pick<IVpnServerRepository, "tenantServerIds">;
+  tombstoneRepository: Pick<IVpnCoreRouterTombstoneRepository, "add">;
 };
 
 type ValidVpnRequest = { vpnDraftId: string; vpnServerIds: string[] };
@@ -108,6 +111,9 @@ async function claimDraft(
   } catch (error) {
     logger.error(`[VPN] Claim draft ${request.vpnDraftId} gagal:`, error);
     await removeUnclaimedRouter(params, routerId);
+    // Claim yang timeout bisa saja sudah berhasil di core; tanpa ini router
+    // aktif yatim tertinggal di core.
+    await tombstoneCoreRouter(request.vpnDraftId, params.tombstoneRepository);
     throw new VpnRouterActivationError();
   }
 }
@@ -116,7 +122,7 @@ async function claimDraft(
  * Buat router mode VPN: validasi draft core (milik tenant, belum dipakai,
  * alamat dan urutan server cocok, server masih di-assign) sebelum menulis apa
  * pun, simpan router beserta urutan servernya, lalu claim draft. Claim gagal
- * menghapus router yang baru dibuat dan melempar `VpnRouterActivationError`.
+ * menghapus router yang baru dibuat, menjadwalkan penghapusan draft di core, dan melempar `VpnRouterActivationError`.
  */
 export async function createVpnRouter(
   params: CreateVpnRouterParams,

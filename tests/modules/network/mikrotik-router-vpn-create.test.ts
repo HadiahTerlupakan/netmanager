@@ -121,6 +121,7 @@ function setup() {
   const vpnServerRepository = {
     tenantServerIds: vi.fn(async () => ["aa", "bb"]),
   };
+  const tombstoneRepository = { add: vi.fn(async () => {}) };
   const run = (data: object) =>
     createRouterMutation({
       data: data as never,
@@ -132,9 +133,11 @@ function setup() {
       networkRepository,
       provisioningService,
       vpnServerRepository,
+      tombstoneRepository,
     });
   return {
     client,
+    tombstoneRepository,
     routerRepository,
     provisioningService,
     networkRepository,
@@ -267,6 +270,7 @@ describe("createRouterMutation mode VPN", () => {
     });
     expect(mocks.deleteNas).toHaveBeenCalledWith(77, TENANT);
     expect(t.provisioningService.provisionRadius).not.toHaveBeenCalled();
+    expect(t.tombstoneRepository.add).toHaveBeenCalledWith("ab01");
   });
 });
 

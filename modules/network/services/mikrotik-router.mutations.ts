@@ -5,6 +5,7 @@ import type {
 } from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
 import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
+import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
 import type { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import {
   logGeneratedApiUserActivity,
@@ -26,6 +27,7 @@ import {
   resolveCreateSiteId,
   resolveUpdateSiteId,
 } from "./mikrotik-router.payloads";
+import { deleteCoreRouterOrTombstone } from "./VpnCoreRouterCleanup";
 import {
   createVpnRouter,
   type VpnRouterRequest,
@@ -54,6 +56,7 @@ type CreateRouterInput = {
     "provisionRadius" | "createApiUser"
   >;
   vpnServerRepository: Pick<IVpnServerRepository, "tenantServerIds">;
+  tombstoneRepository: Pick<IVpnCoreRouterTombstoneRepository, "add">;
 };
 
 type UpdateRouterInput = {
@@ -77,6 +80,7 @@ type DeleteRouterInput = {
   routerRepository: Pick<IMikroTikRouterRepository, "findById" | "delete">;
   networkRepository: Pick<IRouterAccessRepository, "findUserSite">;
   provisioningService: Pick<MikroTikProvisioningService, "deprovisionRadius">;
+  tombstoneRepository: Pick<IVpnCoreRouterTombstoneRepository, "add">;
 };
 
 type GenerateRouterApiUserInput = {
@@ -177,9 +181,8 @@ async function resolveRouterForDeletion(params: DeleteRouterInput) {
 
 async function deprovisionExistingRouter(
   params: DeleteRouterInput,
+  router: Awaited<ReturnType<typeof resolveRouterForDeletion>>,
 ): Promise<void> {
-  const router = await resolveRouterForDeletion(params);
-
   if (!router) {
     return;
   }
@@ -256,6 +259,7 @@ function saveCreatedRouter(
     request: vpnRequest,
     routerRepository: params.routerRepository,
     vpnServerRepository: params.vpnServerRepository,
+    tombstoneRepository: params.tombstoneRepository,
   });
 }
 
@@ -289,12 +293,22 @@ export async function updateRouterMutation(
   logRouterUpdateActivity(params.userId, params.id, params.data);
 }
 
-/** Hapus router setelah deprovisioning bila router masih dapat ditemukan. */
+/**
+ * Hapus router setelah deprovisioning bila router masih dapat ditemukan.
+ * Router VPN juga dihapus di core setelah penghapusan lokal berhasil.
+ */
 export async function deleteRouterMutation(
   params: DeleteRouterInput,
 ): Promise<void> {
-  await deprovisionExistingRouter(params);
+  const router = await resolveRouterForDeletion(params);
+  await deprovisionExistingRouter(params, router);
   await params.routerRepository.delete(params.id, params.tenantId);
+  if (router?.connectionMode === "VPN" && router.vpnCoreRouterId) {
+    await deleteCoreRouterOrTombstone(
+      router.vpnCoreRouterId,
+      params.tombstoneRepository,
+    );
+  }
   logRouterDeleteActivity(params.userId, params.id);
 }
 
