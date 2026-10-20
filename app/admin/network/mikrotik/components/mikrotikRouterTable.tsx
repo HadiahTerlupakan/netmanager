@@ -13,6 +13,30 @@ import ResponsiveTable from "@/components/ui/ResponsiveTable";
 import type { MikrotikRouterListItem } from "@/app/admin/network/mikrotik/hooks/useMikrotikRouterList";
 import { MIKROTIK_PAGINATION } from "../constants";
 
+const STATUS_TONES: Record<
+  string,
+  { label: string; badge: string; dot: string }
+> = {
+  online: {
+    label: "Online",
+    badge:
+      "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
+    dot: "bg-green-500",
+  },
+  offline: {
+    label: "Offline",
+    badge:
+      "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
+    dot: "bg-red-500",
+  },
+  tunnel_down: {
+    label: "Tunnel putus",
+    badge:
+      "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800",
+    dot: "bg-orange-500",
+  },
+};
+
 type MikrotikRouterTableProps = {
   routers: MikrotikRouterListItem[];
   total: number;
@@ -147,22 +171,22 @@ export function MikrotikRouterTable({
               key: "status",
               header: "Status",
               priority: "primary",
-              render: (router: MikrotikRouterListItem) => (
-                <div className="text-center">
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
-                      router.pingStatus === "online"
-                        ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
-                        : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800"
-                    }`}
-                  >
+              render: (router: MikrotikRouterListItem) => {
+                const tone =
+                  STATUS_TONES[router.pingStatus] ?? STATUS_TONES.offline;
+                return (
+                  <div className="text-center">
                     <span
-                      className={`w-1.5 h-1.5 rounded-full ${router.pingStatus === "online" ? "bg-green-500" : "bg-red-500"}`}
-                    ></span>
-                    {router.pingStatus === "online" ? "Online" : "Offline"}
-                  </span>
-                </div>
-              ),
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${tone.badge}`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${tone.dot}`}
+                      ></span>
+                      {tone.label}
+                    </span>
+                  </div>
+                );
+              },
             },
             {
               key: "name",

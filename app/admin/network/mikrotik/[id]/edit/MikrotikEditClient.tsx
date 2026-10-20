@@ -11,6 +11,7 @@ import {
   type MikrotikRouterFormData,
 } from "@/app/admin/network/mikrotik/components/mikrotikRouterForm";
 import { useMikrotikConnectionTest } from "@/app/admin/network/mikrotik/hooks/useMikrotikConnectionTest";
+import { RouterVpnPanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnPanel";
 import { useMikrotikFormSettings } from "@/app/admin/network/mikrotik/hooks/useMikrotikFormSettings";
 
 export function ClientComponent() {
@@ -20,6 +21,7 @@ export function ClientComponent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showScriptModal, setShowScriptModal] = useState(false);
+  const [isVpnRouter, setIsVpnRouter] = useState(false);
   const [formData, setFormData] = useState<MikrotikRouterFormData>({
     name: "",
     ipAddress: "",
@@ -44,6 +46,7 @@ export function ClientComponent() {
 
       const responseData = await res.json();
       const routerData = responseData.data?.router;
+      setIsVpnRouter(routerData.connectionMode === "VPN");
       setFormData({
         name: routerData.name,
         ipAddress: routerData.ipAddress,
@@ -158,7 +161,10 @@ export function ClientComponent() {
         isSubmitting={saving}
         submitLabel="Update Router"
         cancelHref="/admin/network/mikrotik"
+        isConnectionLocked={isVpnRouter}
       />
+
+      {isVpnRouter && <RouterVpnPanel routerId={routerId} />}
 
       <TestConnectionModal
         open={showTestModal}
