@@ -49,28 +49,28 @@ describe("admin tenant vpn-servers route", () => {
   });
 
   it("GET returns the tenant's server ids", async () => {
-    mocks.getTenantServerIds.mockResolvedValue(["h1"]);
+    mocks.getTenantServerIds.mockResolvedValue(["a1"]);
     const res = await GET(req(), route);
-    expect((await res.json()).data).toEqual({ serverIds: ["h1"] });
+    expect((await res.json()).data).toEqual({ serverIds: ["a1"] });
   });
 
   it("PUT rejects duplicate ids with 400", async () => {
-    const res = await PUT(req({ serverIds: ["h1", "h1"] }), route);
+    const res = await PUT(req({ serverIds: ["a1", "a1"] }), route);
     expect(res.status).toBe(400);
     expect(mocks.setTenantServers).not.toHaveBeenCalled();
   });
 
   it("PUT maps an unknown server to 400 and an in-use revoke to 409", async () => {
     mocks.setTenantServers.mockRejectedValueOnce(new VpnServerUnknownError());
-    expect((await PUT(req({ serverIds: ["g"] }), route)).status).toBe(400);
+    expect((await PUT(req({ serverIds: ["ee"] }), route)).status).toBe(400);
     mocks.setTenantServers.mockRejectedValueOnce(new VpnServerInUseError([]));
     expect((await PUT(req({ serverIds: [] }), route)).status).toBe(409);
   });
 
   it("PUT saves the assignment", async () => {
     mocks.setTenantServers.mockResolvedValue(undefined);
-    const res = await PUT(req({ serverIds: ["h1"] }), route);
+    const res = await PUT(req({ serverIds: ["a1"] }), route);
     expect(res.status).toBe(200);
-    expect(mocks.setTenantServers).toHaveBeenCalledWith("t1", ["h1"]);
+    expect(mocks.setTenantServers).toHaveBeenCalledWith("t1", ["a1"]);
   });
 });
