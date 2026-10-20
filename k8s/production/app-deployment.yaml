@@ -105,6 +105,7 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: VPN_API_TOKEN
+                  optional: true
             - name: ENABLE_INTERNAL_CRON
               value: "false"
             - name: ENABLE_EVENT_BUS_WORKERS

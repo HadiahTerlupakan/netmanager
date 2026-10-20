@@ -91,6 +91,7 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: VPN_API_TOKEN
+                  optional: true
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:
