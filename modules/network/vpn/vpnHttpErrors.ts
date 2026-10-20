@@ -6,11 +6,14 @@ import {
   VpnDraftForbiddenError,
   VpnDraftInvalidError,
   VpnRouterActivationError,
+  VpnRouterInvalidError,
+  VpnRouterUnreachableError,
   VpnServerInUseError,
   VpnServerNotAvailableError,
   VpnServerUnknownError,
 } from "./errors";
 import { isVpnConfigured, VpnCoreError } from "./VpnCoreClient";
+import { RouterNotFoundError } from "../services/mikrotik-router.access";
 
 const HTTP_BAD_REQUEST = 400;
 const HTTP_NOT_FOUND = 404;
@@ -27,6 +30,8 @@ export function isVpnError(error: unknown): boolean {
     error instanceof VpnDraftInvalidError ||
     error instanceof VpnDraftForbiddenError ||
     error instanceof VpnRouterActivationError ||
+    error instanceof VpnRouterInvalidError ||
+    error instanceof VpnRouterUnreachableError ||
     error instanceof VpnCoreError
   );
 }
@@ -42,14 +47,19 @@ export function vpnErrorResponse(error: unknown): NextResponse {
   if (
     error instanceof VpnServerUnknownError ||
     error instanceof VpnServerNotAvailableError ||
-    error instanceof VpnDraftInvalidError
+    error instanceof VpnDraftInvalidError ||
+    error instanceof VpnRouterInvalidError
   ) {
     return ApiErrors.badRequest(error.message);
   }
+  if (error instanceof RouterNotFoundError) return ApiErrors.notFound("Router");
   if (error instanceof VpnDraftForbiddenError) {
     return ApiErrors.forbidden(error.message);
   }
-  if (error instanceof VpnRouterActivationError) {
+  if (
+    error instanceof VpnRouterActivationError ||
+    error instanceof VpnRouterUnreachableError
+  ) {
     return apiError(error.message, ErrorCodes.EXTERNAL_SERVICE_ERROR, {
       status: HTTP_BAD_GATEWAY,
     });

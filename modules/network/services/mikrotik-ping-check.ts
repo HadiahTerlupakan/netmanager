@@ -7,6 +7,11 @@ import { RouterOSAPI } from "node-routeros-v2";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import { RadiusConnectionError } from "../utils/errors";
+import {
+  createCoreLookupBreaker,
+  resolveFailedRouterStatus,
+  type CoreLookupBreaker,
+} from "./mikrotik-ping-check.vpn";
 
 const DEFAULT_MIKROTIK_TIMEOUT_MS = 5000;
 
@@ -14,6 +19,18 @@ interface MikroTikPingResult {
   success: boolean;
   userOnline?: number;
 }
+
+type CheckedRouter = {
+  id: string;
+  ipAddress: string;
+  apiPort: number;
+  apiUsername: string;
+  apiPassword: string;
+  apiUsernameGenerated: string | null;
+  apiPasswordGenerated: string | null;
+  connectionMode: string;
+  vpnCoreRouterId: string | null;
+};
 
 async function testMikroTikAPI(
   ipAddress: string,
@@ -82,11 +99,12 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
   );
 
   let totalUpdatedCount = 0;
+  const breaker = createCoreLookupBreaker();
 
   for (const tenant of tenants) {
     totalUpdatedCount += await runWithRequestTenantContext(
       { tenantId: tenant.id, isSuperAdmin: false },
-      () => checkTenantRouters(routerRepository, tenant.id),
+      () => checkTenantRouters(routerRepository, tenant.id, breaker),
     );
   }
 
@@ -96,12 +114,13 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
 async function checkTenantRouters(
   routerRepository: MikroTikRouterRepository,
   tenantId: string,
+  breaker: CoreLookupBreaker,
 ): Promise<number> {
   try {
     const routers = await routerRepository.findAll(tenantId);
     const results = await Promise.all(
       routers.map((router) =>
-        checkAndPersistRouter(routerRepository, router, tenantId),
+        checkAndPersistRouter(routerRepository, router, tenantId, breaker),
       ),
     );
 
@@ -114,16 +133,9 @@ async function checkTenantRouters(
 
 async function checkAndPersistRouter(
   routerRepository: MikroTikRouterRepository,
-  router: {
-    id: string;
-    ipAddress: string;
-    apiPort: number;
-    apiUsername: string;
-    apiPassword: string;
-    apiUsernameGenerated: string | null;
-    apiPasswordGenerated: string | null;
-  },
+  router: CheckedRouter,
   tenantId: string,
+  breaker: CoreLookupBreaker,
 ) {
   try {
     const apiResult = await testMikroTikAPI(
@@ -133,7 +145,13 @@ async function checkAndPersistRouter(
       router.apiPasswordGenerated || router.apiPassword,
     );
 
-    await updateRouterHealth(routerRepository, router.id, tenantId, apiResult);
+    await updateRouterHealth(
+      routerRepository,
+      router.id,
+      tenantId,
+      apiResult,
+      await resolvePingStatus(router, apiResult, breaker),
+    );
     return {
       id: router.id,
       success: apiResult.success,
@@ -146,16 +164,26 @@ async function checkAndPersistRouter(
   }
 }
 
+async function resolvePingStatus(
+  router: CheckedRouter,
+  apiResult: MikroTikPingResult,
+  breaker: CoreLookupBreaker,
+): Promise<string> {
+  if (apiResult.success) return "online";
+  return resolveFailedRouterStatus(router, breaker);
+}
+
 async function updateRouterHealth(
   routerRepository: MikroTikRouterRepository,
   routerId: string,
   tenantId: string,
   apiResult: MikroTikPingResult,
+  pingStatus: string,
 ) {
   await routerRepository.update(
     routerId,
     {
-      pingStatus: apiResult.success ? "online" : "offline",
+      pingStatus,
       userOnline: apiResult.userOnline ?? 0,
       lastStatusCheck: new Date(),
     },
@@ -169,10 +197,13 @@ async function markRouterOffline(
   tenantId: string,
 ) {
   try {
-    await updateRouterHealth(routerRepository, routerId, tenantId, {
-      success: false,
-      userOnline: 0,
-    });
+    await updateRouterHealth(
+      routerRepository,
+      routerId,
+      tenantId,
+      { success: false, userOnline: 0 },
+      "offline",
+    );
   } catch (error) {
     logger.error(`Error updating router ${routerId}:`, error);
   }
@@ -215,27 +246,6 @@ function getRouterApiCredentials(router: {
   };
 }
 
-function createRouterHealthUpdate(apiResult: MikroTikPingResult) {
-  return {
-    pingStatus: apiResult.success ? "online" : "offline",
-    userOnline: apiResult.userOnline ?? 0,
-    lastStatusCheck: new Date(),
-  } as const;
-}
-
-async function persistRouterHealth(
-  routerRepository: MikroTikRouterRepository,
-  routerId: string,
-  tenantId: string,
-  apiResult: MikroTikPingResult,
-) {
-  await routerRepository.update(
-    routerId,
-    createRouterHealthUpdate(apiResult),
-    tenantId,
-  );
-}
-
 async function getRouterStatusCheckResult(
   router: Awaited<ReturnType<typeof getRouterForStatusCheck>> extends {
     router: infer T;
@@ -260,11 +270,16 @@ async function runRouterStatusCheck(
   }
 
   const apiResult = await getRouterStatusCheckResult(statusCheck.router);
-  await persistRouterHealth(
+  await updateRouterHealth(
     statusCheck.routerRepository,
     statusCheck.router.id,
     statusCheck.tenantId,
     apiResult,
+    await resolvePingStatus(
+      statusCheck.router,
+      apiResult,
+      createCoreLookupBreaker(),
+    ),
   );
   return apiResult.success;
 }

@@ -12,6 +12,7 @@ import { MikroTikRouterRepository } from "../repositories/MikroTikRouterReposito
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import { checkAllMikroTikRouterStatus } from "./mikrotik-ping-check";
 import { retryVpnCoreRouterDeletes } from "./VpnCoreRouterCleanup";
+import { retryStaleVpnScripts } from "./VpnRouterScriptRetry";
 
 const ROUTER_CHECK_INTERVAL_MS = 60000 * 5;
 const MAX_CONSECUTIVE_ERRORS = 5;
@@ -189,6 +190,17 @@ class MikroTikMonitor {
     }
   }
 
+  private async retryStaleSwitchScripts() {
+    try {
+      await retryStaleVpnScripts();
+    } catch (error) {
+      logger.error(
+        "[MikroTikMonitor] Gagal mengirim ulang skrip switch VPN:",
+        error,
+      );
+    }
+  }
+
   public async checkStatus() {
     try {
       const updatedCount = await checkAllMikroTikRouterStatus();
@@ -213,6 +225,7 @@ class MikroTikMonitor {
     }
 
     await this.retryPendingCoreDeletes();
+    await this.retryStaleSwitchScripts();
     this.scheduleNext();
   }
 }

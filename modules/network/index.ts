@@ -118,6 +118,8 @@ export {
   VpnDraftForbiddenError,
   VpnDraftInvalidError,
   VpnRouterActivationError,
+  VpnRouterInvalidError,
+  VpnRouterUnreachableError,
   VpnServerInUseError,
   VpnServerNotAvailableError,
   VpnServerUnknownError,
@@ -137,3 +139,6 @@ export {
 export { buildVpnApiUserScript } from "./services/vpn-api-user-script";
 export { createVpnDraftService } from "./factories/VpnDraftServiceFactory";
 export { createVpnServerService } from "./factories/VpnServerServiceFactory";
+export { routerVpnAccessGuard } from "./vpn/routerAccessGuard";
+export { createVpnRouterService } from "./factories/VpnRouterServiceFactory";
+export type { RouterVpnDetail } from "./services/VpnRouterService";

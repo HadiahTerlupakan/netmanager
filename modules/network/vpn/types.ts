@@ -11,6 +11,8 @@ export interface CoreHub {
   name: string;
   publicHost: string;
   listenPort: number;
+  /** Kunci publik WireGuard hub, untuk endpoint peer router. */
+  publicKey: string;
   status: CoreHubStatus;
   routerCount: number;
   lastSeenAt: string | null;

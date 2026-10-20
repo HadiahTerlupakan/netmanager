@@ -11,6 +11,8 @@ export {
   VpnDraftForbiddenError,
   VpnDraftInvalidError,
   VpnRouterActivationError,
+  VpnRouterInvalidError,
+  VpnRouterUnreachableError,
   VpnServerInUseError,
   VpnServerNotAvailableError,
   VpnServerUnknownError,

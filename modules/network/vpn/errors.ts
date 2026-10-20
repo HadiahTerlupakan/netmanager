@@ -52,3 +52,19 @@ export class VpnRouterActivationError extends Error {
     this.name = "VpnRouterActivationError";
   }
 }
+
+/** Permintaan VPN untuk router tersimpan ditolak; pesan ditampilkan ke pengguna. */
+export class VpnRouterInvalidError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "VpnRouterInvalidError";
+  }
+}
+
+/** Router VPN tidak bisa dihubungi lewat API RouterOS. */
+export class VpnRouterUnreachableError extends Error {
+  constructor() {
+    super("Router tidak dapat dihubungi");
+    this.name = "VpnRouterUnreachableError";
+  }
+}

@@ -7,6 +7,12 @@ const MAX_HOST_LENGTH = 253;
 /** Id dari core netmanager-vpn: heksadesimal huruf kecil. */
 export const vpnIdSchema = z.string().regex(/^[0-9a-f]{1,64}$/);
 
+// Urutan = prioritas: elemen pertama server utama.
+const orderedVpnServerIdsSchema = z
+  .array(vpnIdSchema)
+  .min(1, "Pilih minimal satu server VPN")
+  .refine((ids) => new Set(ids).size === ids.length, "Server VPN harus unik");
+
 export const vpnServerCreateSchema = z.object({
   name: z.string().trim().min(1, "Nama wajib diisi").max(MAX_NAME_LENGTH),
   publicHost: z
@@ -23,6 +29,10 @@ export const tenantVpnServersSchema = z.object({
     .refine((ids) => new Set(ids).size === ids.length, "Server VPN harus unik"),
 });
 
+export const routerVpnServersSchema = z.object({
+  serverIds: orderedVpnServerIdsSchema,
+});
+
 export const vpnAdminPeerCreateSchema = z.object({
   label: z.string().trim().min(1, "Label wajib diisi").max(MAX_NAME_LENGTH),
 });
@@ -31,10 +41,7 @@ const API_PASSWORD_PATTERN = /^[A-Za-z0-9_-]{24,64}$/;
 const API_USERNAME_PATTERN = /^netmanager-[0-9a-f]{8}$/;
 
 export const vpnDraftCreateSchema = z.object({
-  serverIds: z
-    .array(vpnIdSchema)
-    .min(1, "Pilih minimal satu server VPN")
-    .refine((ids) => new Set(ids).size === ids.length, "Server VPN harus unik"),
+  serverIds: orderedVpnServerIdsSchema,
   previousDraftId: vpnIdSchema.optional(),
   apiUsername: z.string().regex(API_USERNAME_PATTERN).optional(),
   apiPassword: z.string().regex(API_PASSWORD_PATTERN).optional(),
