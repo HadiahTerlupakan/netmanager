@@ -108,6 +108,40 @@ satu `PUT`:
 Bila hub lama dicabut lebih dulu, peer router di hub itu dihapus sementara
 router masih memakainya, dan router terputus sampai auto switch memindahkannya.
 
+## Integrasi netmanager
+
+Aplikasi netmanager memanggil API core lewat `VpnCoreClient`
+(`modules/network/vpn/`). Tiga variabel mengaturnya:
+
+| Variabel | Letak | Isi |
+| --- | --- | --- |
+| `VPN_CORE_API_URL` | ConfigMap `netmanager-config` | URL API core. Kosong (default) menyembunyikan fitur VPN |
+| `VPN_API_TOKEN` | Secret `netmanager-secrets`, `optional: true` | Sama dengan `NMVPN_API_TOKEN` core. `optional` agar pod tetap start sebelum Secret diisi |
+| `VPN_CORE_ADDRESS` | ConfigMap | Alamat core di backhaul, default `10.99.0.1`; hanya IPv4 |
+
+Urutan rollout:
+
+1. Deploy core netmanager-vpn (bagian "Deploy core").
+2. Isi token API core ke `netmanager-secrets` sebagai `VPN_API_TOKEN`.
+3. Isi `VPN_CORE_API_URL` di ConfigMap.
+4. Deploy netmanager; migrasi `20261020090000_add_vpn_servers` dijalankan job migrasi.
+5. Tambahkan server di `/admin/tenants`.
+6. Tetapkan server itu ke tenant.
+
+Set `RADIUS_PUBLIC_IP`. Tombol "Kembali ke publik" menolak alamat yang hanya
+ditebak dari interface lokal (sumber `local` di deteksi IP publik), karena
+alamat itu bisa salah dan router akan menunjuk ke IP yang tak terjangkau.
+
+`VpnServer`, `MikroTikRouterVpnServer`, dan `VpnCoreRouterTombstone` ada di
+`lib/prisma-ignore-models.ts`, jadi tidak diisolasi per tenant oleh
+`withTenantIsolation`. Ketiganya tidak punya kolom `tenantId`: server VPN dipakai
+bersama oleh beberapa tenant lewat `TenantVpnServer`, dan dua lainnya mengikuti
+router. Akses dari rute tenant selalu lewat induk yang sudah difilter tenant
+(`TenantVpnServer` atau `MikroTikRouter`); sisanya hanya dari rute admin.
+
+Belum selesai: snippet RouterOS yang dibuat netmanager masih sementara sampai
+spike selesai (`docs/superpowers/plans/2026-10-19-vpn-spike.md`).
+
 ## Firewall provider
 
 - radpro: buka UDP 51822 (wg-core).

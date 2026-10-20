@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-20] — Integrasi VPN WireGuard untuk router MikroTik
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/network` | `app/admin` | `app/api` | `k8s`
+- **Author**: agent
+- **Deskripsi**:
+  - Tab VPN di halaman server admin untuk menambah hub, membuat ulang perintah instal, dan mengelola perangkat admin.
+  - Mode koneksi VPN di Tambah Router, dengan pilihan server dan script RouterOS.
+  - Panel VPN di halaman router, serta pindah ke VPN atau kembali ke publik dari halaman edit.
+  - Status "Tunnel putus" untuk router VPN yang tidak punya handshake.
+  - Env `VPN_CORE_API_URL`, `VPN_API_TOKEN`, `VPN_CORE_ADDRESS`; fitur tersembunyi selama URL kosong. Urutan rollout di `docs/deployment/netmanager-vpn.md`.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-20] — Skema server VPN dan kolom VPN router
 
 - **Tipe**: [ADDED] [MIGRATION]
