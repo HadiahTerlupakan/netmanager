@@ -53,7 +53,7 @@ export function vpnAdminGuard(
   if (!isSuperAdmin(user)) return ApiErrors.forbidden();
   if (needsCore && !isVpnConfigured()) {
     return apiError(
-      "Server VPN belum dikonfigurasi",
+      "Layanan VPN belum dikonfigurasi",
       ErrorCodes.INTERNAL_ERROR,
       {
         status: HTTP_SERVICE_UNAVAILABLE,

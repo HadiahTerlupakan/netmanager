@@ -90,6 +90,7 @@ describe("admin VPN routes", () => {
       delete process.env.VPN_CORE_API_URL;
       const res = await handler(req({}), route as never);
       expect(res.status).toBe(503);
+      expect((await res.json()).error).toBe("Layanan VPN belum dikonfigurasi");
     },
   );
 
