@@ -1,6 +1,14 @@
 import type { CoreHub } from "../../vpn/types";
 import type { VpnServerRouterUsage } from "../../vpn/errors";
 
+/** Ringkasan server VPN untuk tenant. */
+export interface VpnServerSummary {
+  id: string;
+  name: string;
+  publicHost: string;
+  status: string;
+}
+
 export interface IVpnServerRepository {
   /** Menyimpan hub dari core; baris yang ada diperbarui. */
   upsertHub(hub: CoreHub): Promise<void>;
@@ -25,4 +33,7 @@ export interface IVpnServerRepository {
 
   /** Mengganti seluruh assignment server VPN sebuah tenant. */
   replaceTenantServers(tenantId: string, ids: string[]): Promise<void>;
+
+  /** Server VPN yang di-assign ke tenant beserta statusnya. */
+  tenantServers(tenantId: string): Promise<VpnServerSummary[]>;
 }

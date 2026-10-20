@@ -2,7 +2,12 @@ import type { NextResponse } from "next/server";
 import { apiError, ApiErrors, ErrorCodes } from "@/lib/api-response";
 import { isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
-import { VpnServerInUseError, VpnServerUnknownError } from "./errors";
+import {
+  VpnDraftForbiddenError,
+  VpnServerInUseError,
+  VpnServerNotAvailableError,
+  VpnServerUnknownError,
+} from "./errors";
 import { isVpnConfigured, VpnCoreError } from "./VpnCoreClient";
 
 const HTTP_BAD_REQUEST = 400;
@@ -19,8 +24,14 @@ export function vpnErrorResponse(error: unknown): NextResponse {
       details: { routers: error.routers },
     });
   }
-  if (error instanceof VpnServerUnknownError) {
+  if (
+    error instanceof VpnServerUnknownError ||
+    error instanceof VpnServerNotAvailableError
+  ) {
     return ApiErrors.badRequest(error.message);
+  }
+  if (error instanceof VpnDraftForbiddenError) {
+    return ApiErrors.forbidden(error.message);
   }
   if (error instanceof VpnCoreError) {
     if (error.status === HTTP_BAD_REQUEST) {
@@ -42,6 +53,16 @@ export function vpnErrorResponse(error: unknown): NextResponse {
   });
 }
 
+function notConfiguredResponse(): NextResponse {
+  return apiError(
+    "Layanan VPN belum dikonfigurasi",
+    ErrorCodes.INTERNAL_ERROR,
+    {
+      status: HTTP_SERVICE_UNAVAILABLE,
+    },
+  );
+}
+
 /**
  * Pemeriksaan awal route admin VPN: hanya superadmin, dan bila `needsCore`
  * core VPN harus sudah dikonfigurasi. Mengembalikan respons penolakan atau null.
@@ -51,14 +72,11 @@ export function vpnAdminGuard(
   needsCore = true,
 ): NextResponse | null {
   if (!isSuperAdmin(user)) return ApiErrors.forbidden();
-  if (needsCore && !isVpnConfigured()) {
-    return apiError(
-      "Layanan VPN belum dikonfigurasi",
-      ErrorCodes.INTERNAL_ERROR,
-      {
-        status: HTTP_SERVICE_UNAVAILABLE,
-      },
-    );
-  }
+  if (needsCore && !isVpnConfigured()) return notConfiguredResponse();
   return null;
+}
+
+/** Pemeriksaan awal route VPN tenant: core VPN harus sudah dikonfigurasi. */
+export function vpnConfiguredGuard(): NextResponse | null {
+  return isVpnConfigured() ? null : notConfiguredResponse();
 }

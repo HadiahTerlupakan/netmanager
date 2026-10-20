@@ -1,6 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
+import type {
+  IVpnServerRepository,
+  VpnServerSummary,
+} from "../domain/ports/IVpnServerRepository";
 import type { CoreHub } from "../vpn/types";
 import type { VpnServerRouterUsage } from "../vpn/errors";
 
@@ -93,5 +96,18 @@ export class VpnServerRepository implements IVpnServerRepository {
         data: ids.map((vpnServerId) => ({ tenantId, vpnServerId })),
       }),
     ]);
+  }
+
+  /** Server VPN yang di-assign ke tenant beserta statusnya. */
+  async tenantServers(tenantId: string): Promise<VpnServerSummary[]> {
+    const rows = await this.client.tenantVpnServer.findMany({
+      where: { tenantId },
+      select: {
+        vpnServer: {
+          select: { id: true, name: true, publicHost: true, status: true },
+        },
+      },
+    });
+    return rows.map((r) => r.vpnServer);
   }
 }

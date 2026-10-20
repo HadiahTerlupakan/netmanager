@@ -1,0 +1,34 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildVpnApiUserScript > create mode builds group, user and api service access 1`] = `
+":if ([:len [/user group find name="netmanager-api"]] = 0) do={ /user group add name="netmanager-api" policy=read,write,api,test,policy,sensitive } else={ /user group set [find name="netmanager-api"] policy=read,write,api,test,policy,sensitive }
+:if ([:len [/user find name="netmanager-0a1b2c3d"]] = 0) do={ /user add name="netmanager-0a1b2c3d" group="netmanager-api" address=10.99.0.1/32 password="pw-abc" } else={ /user set [find name="netmanager-0a1b2c3d"] group="netmanager-api" address=10.99.0.1/32 password="pw-abc" }
+/ip service set [find name=api] disabled=no port=8728
+:if ([:len [/ip service find name=api]] > 0) do={
+  :local nmApiAddr [/ip service get [find name=api] address]
+  :if (([:len $nmApiAddr] > 0) && ([:len [:find $nmApiAddr "10.99.0.1/32"]] = 0)) do={
+    :set nmApiAddr ($nmApiAddr, "10.99.0.1/32")
+    /ip service set [find name=api] address=$nmApiAddr
+  }
+}
+"
+`;
+
+exports[`buildVpnApiUserScript > extend mode touches neither group nor password 1`] = `
+":if ([:len [/user find name="netmanager-0a1b2c3d"]] > 0) do={
+  :local nmUserAddr [/user get [find name="netmanager-0a1b2c3d"] address]
+  :if (([:len $nmUserAddr] > 0) && ([:len [:find $nmUserAddr "10.99.0.1/32"]] = 0)) do={
+    :set nmUserAddr ($nmUserAddr, "10.99.0.1/32")
+    /user set [find name="netmanager-0a1b2c3d"] address=$nmUserAddr
+  }
+}
+/ip service set [find name=api] disabled=no port=8728
+:if ([:len [/ip service find name=api]] > 0) do={
+  :local nmApiAddr [/ip service get [find name=api] address]
+  :if (([:len $nmApiAddr] > 0) && ([:len [:find $nmApiAddr "10.99.0.1/32"]] = 0)) do={
+    :set nmApiAddr ($nmApiAddr, "10.99.0.1/32")
+    /ip service set [find name=api] address=$nmApiAddr
+  }
+}
+"
+`;

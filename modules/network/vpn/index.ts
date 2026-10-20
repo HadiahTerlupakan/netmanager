@@ -8,7 +8,9 @@ export {
   isVpnConfigured,
 } from "./VpnCoreClient";
 export {
+  VpnDraftForbiddenError,
   VpnServerInUseError,
+  VpnServerNotAvailableError,
   VpnServerUnknownError,
   type VpnServerRouterUsage,
 } from "./errors";

@@ -115,8 +115,22 @@ export { handleProfilePppUpdated } from "./services/event-handlers/profile-ppp-u
 export * from "./services/VpnServerService";
 export {
   VpnCoreError,
+  VpnDraftForbiddenError,
   VpnServerInUseError,
+  VpnServerNotAvailableError,
   VpnServerUnknownError,
 } from "./vpn";
-export { vpnAdminGuard, vpnErrorResponse } from "./vpn/vpnHttpErrors";
+export {
+  vpnAdminGuard,
+  vpnConfiguredGuard,
+  vpnErrorResponse,
+} from "./vpn/vpnHttpErrors";
+export {
+  assertDraftOwned,
+  VpnDraftService,
+  VPN_HANDSHAKE_FRESH_MS,
+  vpnDraftLabel,
+} from "./services/VpnDraftService";
+export { buildVpnApiUserScript } from "./services/vpn-api-user-script";
+export { createVpnDraftService } from "./factories/VpnDraftServiceFactory";
 export { createVpnServerService } from "./factories/VpnServerServiceFactory";

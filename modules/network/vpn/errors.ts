@@ -20,3 +20,19 @@ export class VpnServerUnknownError extends Error {
     this.name = "VpnServerUnknownError";
   }
 }
+
+/** Draft router VPN milik tenant lain. */
+export class VpnDraftForbiddenError extends Error {
+  constructor() {
+    super("Draft VPN bukan milik tenant ini");
+    this.name = "VpnDraftForbiddenError";
+  }
+}
+
+/** Server VPN yang diminta tidak di-assign ke tenant atau sedang tidak online. */
+export class VpnServerNotAvailableError extends Error {
+  constructor() {
+    super("Server VPN tidak tersedia untuk tenant ini");
+    this.name = "VpnServerNotAvailableError";
+  }
+}
