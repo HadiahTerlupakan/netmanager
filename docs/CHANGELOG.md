@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-20] — Pengamanan integrasi VPN setelah review akhir
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/network` | `app/api/mikrotik-routers` | `app/api/admin/vpn-admin-peers` | `infra/`
+- **Author**: agent
+- **Deskripsi**:
+  - Draft VPN yang di-tombstone setelah claim gagal ditolak saat create/migrate dan tidak dipakai ulang; retry tombstone tidak lagi menghapus router core yang dipakai router aktif.
+  - Alamat dan kredensial router VPN tidak bisa diubah lewat PATCH; router publik tidak boleh memakai alamat overlay VPN (termasuk lewat nama host, IPv4-mapped IPv6, dan bentuk IPv4 non-kanonik); test koneksi memakai IP yang sudah diperiksa.
+  - Batas waktu core VPN mencakup pembacaan body; retry skrip switch memakai compare-and-set sehingga tidak menimpa daftar server yang lebih baru.
+  - Status server VPN disegarkan setiap siklus monitor; statistik router menghitung `tunnel_down` sebagai offline; entri RADIUS publik lama dihapus saat router VPN dibuat.
+  - Id perangkat admin divalidasi; `VPN_API_TOKEN` dicabut dari pod cron.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-20] — Integrasi VPN WireGuard untuk router MikroTik
 
 - **Tipe**: [ADDED]
