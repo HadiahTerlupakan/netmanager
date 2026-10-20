@@ -17,13 +17,26 @@ export class VpnServerService {
 
   /** Daftar hub dari core; setiap hub di-upsert ke database lokal. */
   async listServers(): Promise<VpnServerView[]> {
-    const hubs = await getVpnCoreClient().listHubs();
-    await Promise.all(hubs.map((hub) => this.repo.upsertHub(hub)));
+    const hubs = await this.syncHubs();
     const counts = await this.repo.tenantCounts();
     return hubs.map((hub) => ({
       ...hub,
       tenantCount: counts.get(hub.id) ?? 0,
     }));
+  }
+
+  /**
+   * Menyegarkan cermin lokal hub (termasuk status yang dilihat tenant) dengan
+   * satu panggilan `listHubs` ke core.
+   */
+  async refreshServerStatuses(): Promise<void> {
+    await this.syncHubs();
+  }
+
+  private async syncHubs(): Promise<CoreHub[]> {
+    const hubs = await getVpnCoreClient().listHubs();
+    await Promise.all(hubs.map((hub) => this.repo.upsertHub(hub)));
+    return hubs;
   }
 
   /** Membuat hub di core lalu menyimpannya; core di-rollback bila simpan gagal. */

@@ -13,6 +13,7 @@ import { NetworkRepository } from "../repositories/NetworkRepository";
 import { checkAllMikroTikRouterStatus } from "./mikrotik-ping-check";
 import { retryVpnCoreRouterDeletes } from "./VpnCoreRouterCleanup";
 import { retryStaleVpnScripts } from "./VpnRouterScriptRetry";
+import { refreshVpnServerStatuses } from "./VpnServerStatusRefresh";
 
 const ROUTER_CHECK_INTERVAL_MS = 60000 * 5;
 const MAX_CONSECUTIVE_ERRORS = 5;
@@ -190,6 +191,17 @@ class MikroTikMonitor {
     }
   }
 
+  private async refreshVpnServers() {
+    try {
+      await refreshVpnServerStatuses();
+    } catch (error) {
+      logger.error(
+        "[MikroTikMonitor] Gagal menyegarkan status server VPN:",
+        error,
+      );
+    }
+  }
+
   private async retryStaleSwitchScripts() {
     try {
       await retryStaleVpnScripts();
@@ -224,6 +236,7 @@ class MikroTikMonitor {
       }
     }
 
+    await this.refreshVpnServers();
     await this.retryPendingCoreDeletes();
     await this.retryStaleSwitchScripts();
     this.scheduleNext();

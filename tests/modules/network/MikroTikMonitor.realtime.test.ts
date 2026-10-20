@@ -8,6 +8,11 @@ const mockFns = vi.hoisted(() => ({
   findActiveTenants: vi.fn(),
   retryVpnCoreRouterDeletes: vi.fn(),
   retryStaleVpnScripts: vi.fn(),
+  refreshVpnServerStatuses: vi.fn(),
+}));
+
+vi.mock("@/modules/network/services/VpnServerStatusRefresh", () => ({
+  refreshVpnServerStatuses: mockFns.refreshVpnServerStatuses,
 }));
 
 vi.mock("@/modules/network/services/VpnRouterScriptRetry", () => ({
@@ -58,6 +63,7 @@ describe("MikroTikMonitor realtime publishing", () => {
     mockFns.getStatistics.mockResolvedValue({ onlineRouters: 3 });
     mockFns.retryVpnCoreRouterDeletes.mockResolvedValue(undefined);
     mockFns.retryStaleVpnScripts.mockResolvedValue(undefined);
+    mockFns.refreshVpnServerStatuses.mockResolvedValue(undefined);
   });
 
   it("publishes mikrotik updates even when no admin consumer records are present", async () => {
@@ -133,5 +139,20 @@ describe("MikroTikMonitor realtime publishing", () => {
     expect(
       mockFns.checkAllMikroTikRouterStatus.mock.invocationCallOrder[0],
     ).toBeLessThan(mockFns.retryStaleVpnScripts.mock.invocationCallOrder[0]);
+  });
+
+  it("menyegarkan status server VPN sekali per siklus; galatnya tidak menghentikan siklus", async () => {
+    mockFns.refreshVpnServerStatuses.mockRejectedValue(
+      new Error("core timeout"),
+    );
+    const { mikroTikMonitor } =
+      await import("@/modules/network/services/MikroTikMonitor");
+
+    await expect(mikroTikMonitor["checkStatus"]()).resolves.toBeUndefined();
+    mikroTikMonitor.stop();
+
+    expect(mockFns.refreshVpnServerStatuses).toHaveBeenCalledTimes(1);
+    expect(mockFns.retryVpnCoreRouterDeletes).toHaveBeenCalledTimes(1);
+    expect(mockFns.retryStaleVpnScripts).toHaveBeenCalledTimes(1);
   });
 });

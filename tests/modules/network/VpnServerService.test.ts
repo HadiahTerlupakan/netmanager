@@ -56,6 +56,16 @@ describe("VpnServerService", () => {
     expect(result).toEqual([{ ...hub, tenantCount: 3 }]);
   });
 
+  it("refreshServerStatuses upserts every hub from one listHubs call", async () => {
+    coreMock.listHubs.mockResolvedValue([hub, { ...hub, id: "hub-2" }]);
+
+    await service.refreshServerStatuses();
+
+    expect(coreMock.listHubs).toHaveBeenCalledTimes(1);
+    expect(repo.upsertHub).toHaveBeenCalledTimes(2);
+    expect(repo.tenantCounts).not.toHaveBeenCalled();
+  });
+
   it("createServer defaults the port and rolls the hub back when the insert fails", async () => {
     coreMock.createHub.mockResolvedValue({ hub, installCommand: "curl x" });
     coreMock.deleteHub.mockResolvedValue(undefined);
