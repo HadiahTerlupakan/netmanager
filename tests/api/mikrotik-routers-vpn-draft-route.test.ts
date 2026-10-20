@@ -36,7 +36,7 @@ vi.mock("@/modules/network/factories/VpnDraftServiceFactory", async () => {
         {
           tenantServers: async () => [
             {
-              id: "a",
+              id: "aa",
               name: "A",
               publicHost: "a.example.com",
               status: "online",
@@ -61,15 +61,15 @@ import * as draftRoute from "@/app/api/mikrotik-routers/vpn-draft/route";
 import * as statusRoute from "@/app/api/mikrotik-routers/vpn-draft/[draftId]/status/route";
 
 const req = (body?: unknown) => ({ json: async () => body }) as never;
-const statusParams = { params: { draftId: "r-1" } } as never;
+const statusParams = { params: { draftId: "ab01" } } as never;
 const NOW = Date.parse("2026-10-20T10:00:00.000Z");
 
 const coreRouter = (overrides: object = {}) => ({
-  id: "r-1",
+  id: "ab01",
   label: "nm:t1",
   address: "10.100.0.10",
-  hubs: [{ hubId: "a", name: "A", priority: 0, syncState: "synced" }],
-  activeHubId: "a",
+  hubs: [{ hubId: "aa", name: "A", priority: 0, syncState: "synced" }],
+  activeHubId: "aa",
   lastHandshakeAt: null as string | null,
   ...overrides,
 });
@@ -93,14 +93,14 @@ describe("tenant VPN routes", () => {
   it("GET /api/vpn-servers returns the tenant's servers", async () => {
     const res = await serversRoute.GET(req(), undefined as never);
     expect((await res.json()).data.servers).toEqual([
-      { id: "a", name: "A", publicHost: "a.example.com", status: "online" },
+      { id: "aa", name: "A", publicHost: "a.example.com", status: "online" },
     ]);
   });
 
   it("POST vpn-draft is 403 without mikrotik:create", async () => {
     mocks.hasPermission.mockResolvedValue(false);
     const res = await draftRoute.POST(
-      req({ serverIds: ["a"] }),
+      req({ serverIds: ["aa"] }),
       undefined as never,
     );
     expect(res.status).toBe(403);
@@ -111,7 +111,7 @@ describe("tenant VPN routes", () => {
   it("POST vpn-draft is 503 when VPN is not configured", async () => {
     delete process.env.VPN_CORE_API_URL;
     const res = await draftRoute.POST(
-      req({ serverIds: ["a"] }),
+      req({ serverIds: ["aa"] }),
       undefined as never,
     );
     expect(res.status).toBe(503);
@@ -119,13 +119,13 @@ describe("tenant VPN routes", () => {
 
   it.each([
     ["no servers", { serverIds: [] }],
-    ["duplicate servers", { serverIds: ["a", "a"] }],
-    ["short password", { serverIds: ["a"], apiPassword: "short" }],
+    ["duplicate servers", { serverIds: ["aa", "aa"] }],
+    ["short password", { serverIds: ["aa"], apiPassword: "short" }],
     [
       "password with a quote",
-      { serverIds: ["a"], apiPassword: `${"a".repeat(24)}"` },
+      { serverIds: ["aa"], apiPassword: `${"a".repeat(24)}"` },
     ],
-    ["bad username", { serverIds: ["a"], apiUsername: "admin" }],
+    ["bad username", { serverIds: ["aa"], apiUsername: "admin" }],
   ])("POST vpn-draft rejects %s with 400", async (_n, body) => {
     const res = await draftRoute.POST(req(body), undefined as never);
     expect(res.status).toBe(400);
@@ -134,7 +134,7 @@ describe("tenant VPN routes", () => {
 
   it("POST vpn-draft maps an unavailable server to 400 with the fixed message", async () => {
     const res = await draftRoute.POST(
-      req({ serverIds: ["zzz"] }),
+      req({ serverIds: ["ee"] }),
       undefined as never,
     );
     expect(res.status).toBe(400);
@@ -146,7 +146,7 @@ describe("tenant VPN routes", () => {
   it("POST vpn-draft maps another tenant's previous draft to 403", async () => {
     mocks.getRouter.mockResolvedValue(coreRouter({ label: "nm:other" }));
     const res = await draftRoute.POST(
-      req({ serverIds: ["a"], previousDraftId: "p" }),
+      req({ serverIds: ["aa"], previousDraftId: "ee" }),
       undefined as never,
     );
     expect(res.status).toBe(403);
@@ -156,11 +156,11 @@ describe("tenant VPN routes", () => {
     mocks.createRouter.mockResolvedValue(coreRouter());
     mocks.routerScript.mockResolvedValue("# core\n");
     const res = await draftRoute.POST(
-      req({ serverIds: ["a"] }),
+      req({ serverIds: ["aa"] }),
       undefined as never,
     );
     const data = (await res.json()).data;
-    expect(data.draftId).toBe("r-1");
+    expect(data.draftId).toBe("ab01");
     expect(data.script).toContain("# core");
   });
 
@@ -175,6 +175,24 @@ describe("tenant VPN routes", () => {
     );
     res = await statusRoute.GET(req(), statusParams);
     expect((await res.json()).data.stage).toBe("waiting");
+  });
+
+  it("status rejects a non-hex draft id with 400", async () => {
+    const res = await statusRoute.GET(req(), {
+      params: { draftId: "../x" },
+    } as never);
+    expect(res.status).toBe(400);
+    expect(mocks.getRouter).not.toHaveBeenCalled();
+  });
+
+  it("POST vpn-draft rejects non-hex ids with 400", async () => {
+    for (const body of [
+      { serverIds: ["../a"] },
+      { serverIds: ["aa"], previousDraftId: "../a" },
+    ]) {
+      const res = await draftRoute.POST(req(body), undefined as never);
+      expect(res.status).toBe(400);
+    }
   });
 
   it("status is 403 without mikrotik:create", async () => {

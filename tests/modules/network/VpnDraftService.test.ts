@@ -84,7 +84,7 @@ describe("VpnDraftService", () => {
     expect(result.draftId).toBe("r-1");
     expect(result.address).toBe("10.100.0.10");
     expect(result.apiUsername).toMatch(/^netmanager-[0-9a-f]{8}$/);
-    expect(result.apiPassword).toMatch(/^[A-Za-z0-9_-]{24,64}$/);
+    expect(result.apiPassword).toMatch(/^[A-Za-z0-9_-]{32}$/);
     expect(result.script.startsWith("# core script\n\n")).toBe(true);
     expect(result.script).toContain(`name="${result.apiUsername}"`);
     expect(result.script).toContain(`password="${result.apiPassword}"`);
@@ -141,6 +141,23 @@ describe("VpnDraftService", () => {
     });
     expect(coreMock.deleteRouter).not.toHaveBeenCalled();
     expect(result.draftId).toBe("r-1");
+  });
+
+  it("never deletes or reuses a previous router that is already in use", async () => {
+    coreMock.getRouter.mockResolvedValue(
+      router({ id: "live", status: "active", ref: "router-9" }),
+    );
+    const diff = await makeService().createDraft("t1", {
+      serverIds: ["a"],
+      previousDraftId: "live",
+    });
+    const same = await makeService().createDraft("t1", {
+      serverIds: ["a", "b"],
+      previousDraftId: "live",
+    });
+    expect(coreMock.deleteRouter).not.toHaveBeenCalled();
+    expect(coreMock.createRouter).toHaveBeenCalledTimes(2);
+    expect([diff.draftId, same.draftId]).toEqual(["r-1", "r-1"]);
   });
 
   it("refuses a previous draft owned by another tenant without deleting it", async () => {

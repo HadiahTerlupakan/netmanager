@@ -64,7 +64,7 @@ function createLines(input: VpnApiUserScriptInput, cidr: string): string[] {
   const group = quoteRouterOs(API_GROUP);
   const name = quoteRouterOs(input.username);
   const password = quoteRouterOs(input.password ?? "");
-  const userFields = `group=${group} address=${cidr} password=${password}`;
+  const userFields = `group=${group} address=${quoteRouterOs(cidr)} password=${password}`;
   return [
     `:if ([:len [/user group find name=${group}]] = 0) do={ /user group add name=${group} policy=${API_GROUP_POLICY} } else={ /user group set [find name=${group}] policy=${API_GROUP_POLICY} }`,
     `:if ([:len [/user find name=${name}]] = 0) do={ /user add name=${name} ${userFields} } else={ /user set [find name=${name}] ${userFields} }`,

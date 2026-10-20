@@ -2,7 +2,7 @@
 
 exports[`buildVpnApiUserScript > create mode builds group, user and api service access 1`] = `
 ":if ([:len [/user group find name="netmanager-api"]] = 0) do={ /user group add name="netmanager-api" policy=read,write,api,test,policy,sensitive } else={ /user group set [find name="netmanager-api"] policy=read,write,api,test,policy,sensitive }
-:if ([:len [/user find name="netmanager-0a1b2c3d"]] = 0) do={ /user add name="netmanager-0a1b2c3d" group="netmanager-api" address=10.99.0.1/32 password="pw-abc" } else={ /user set [find name="netmanager-0a1b2c3d"] group="netmanager-api" address=10.99.0.1/32 password="pw-abc" }
+:if ([:len [/user find name="netmanager-0a1b2c3d"]] = 0) do={ /user add name="netmanager-0a1b2c3d" group="netmanager-api" address="10.99.0.1/32" password="pw-abc" } else={ /user set [find name="netmanager-0a1b2c3d"] group="netmanager-api" address="10.99.0.1/32" password="pw-abc" }
 /ip service set [find name=api] disabled=no port=8728
 :if ([:len [/ip service find name=api]] > 0) do={
   :local nmApiAddr [/ip service get [find name=api] address]

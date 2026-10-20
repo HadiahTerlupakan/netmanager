@@ -149,4 +149,19 @@ describe("VpnCoreClient", () => {
     vi.stubEnv("VPN_CORE_ADDRESS", "10.50.0.1");
     expect(getVpnCoreAddress()).toBe("10.50.0.1");
   });
+
+  it("encodes ids so they cannot alter the request path", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    await getVpnCoreClient().deleteRouter("../hubs/x");
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "http://core.test:8080/v1/routers/..%2Fhubs%2Fx",
+    );
+  });
+
+  it("falls back to the default core address when the env value is not IPv4", () => {
+    vi.stubEnv("VPN_CORE_ADDRESS", '10.99.0.1" ; /system reset');
+    expect(getVpnCoreAddress()).toBe("10.99.0.1");
+    vi.stubEnv("VPN_CORE_ADDRESS", "10.99.0.5");
+    expect(getVpnCoreAddress()).toBe("10.99.0.5");
+  });
 });

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type {
   CoreAdminPeer,
   CoreHub,
@@ -7,6 +8,8 @@ import type {
 
 /** Batas waktu satu panggilan ke API core. */
 export const VPN_CORE_TIMEOUT_MS = 5000;
+const IPV4_DOTTED_QUAD =
+  /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 const DEFAULT_VPN_CORE_ADDRESS = "10.99.0.1";
 const HTTP_BAD_GATEWAY = 502;
 const HTTP_GATEWAY_TIMEOUT = 504;
@@ -30,7 +33,11 @@ export function isVpnConfigured(): boolean {
 
 /** Alamat WireGuard core di dalam overlay, tujuan tunnel router. */
 export function getVpnCoreAddress(): string {
-  return process.env.VPN_CORE_ADDRESS || DEFAULT_VPN_CORE_ADDRESS;
+  const configured = process.env.VPN_CORE_ADDRESS;
+  if (!configured) return DEFAULT_VPN_CORE_ADDRESS;
+  if (IPV4_DOTTED_QUAD.test(configured)) return configured;
+  logger.warn("[VPN] VPN_CORE_ADDRESS bukan IPv4 valid, memakai default");
+  return DEFAULT_VPN_CORE_ADDRESS;
 }
 
 async function toCoreError(res: Response): Promise<VpnCoreError> {
@@ -117,17 +124,17 @@ export class VpnCoreClient {
 
   /** Menerbitkan ulang perintah instalasi hub. */
   reissueHub(id: string): Promise<{ installCommand: string }> {
-    return json("POST", `/v1/hubs/${id}/reissue`);
+    return json("POST", `/v1/hubs/${encodeURIComponent(id)}/reissue`);
   }
 
   /** Perintah upgrade hub (teks). */
   hubUpgradeCommand(id: string): Promise<string> {
-    return text(`/v1/hubs/${id}/upgrade-command`);
+    return text(`/v1/hubs/${encodeURIComponent(id)}/upgrade-command`);
   }
 
   /** Menghapus hub. */
   deleteHub(id: string): Promise<void> {
-    return remove(`/v1/hubs/${id}`);
+    return remove(`/v1/hubs/${encodeURIComponent(id)}`);
   }
 
   /** Membuat router VPN pada hub yang dipilih. */
@@ -140,27 +147,29 @@ export class VpnCoreClient {
 
   /** Mengambil satu router. */
   getRouter(id: string): Promise<CoreRouter> {
-    return json("GET", `/v1/routers/${id}`);
+    return json("GET", `/v1/routers/${encodeURIComponent(id)}`);
   }
 
   /** Mengganti daftar hub sebuah router. */
   setRouterHubs(id: string, hubIds: string[]): Promise<CoreRouter> {
-    return json("PUT", `/v1/routers/${id}/hubs`, { hubIds });
+    return json("PUT", `/v1/routers/${encodeURIComponent(id)}/hubs`, {
+      hubIds,
+    });
   }
 
   /** Mengaitkan router dengan referensi (id router di netmanager). */
   claimRouter(id: string, ref: string): Promise<CoreRouter> {
-    return json("POST", `/v1/routers/${id}/claim`, { ref });
+    return json("POST", `/v1/routers/${encodeURIComponent(id)}/claim`, { ref });
   }
 
   /** Menghapus router. */
   deleteRouter(id: string): Promise<void> {
-    return remove(`/v1/routers/${id}`);
+    return remove(`/v1/routers/${encodeURIComponent(id)}`);
   }
 
   /** Skrip RouterOS (teks) untuk bagian yang diminta. */
   routerScript(id: string, part: RouterScriptPart): Promise<string> {
-    return text(`/v1/routers/${id}/routeros?part=${part}`);
+    return text(`/v1/routers/${encodeURIComponent(id)}/routeros?part=${part}`);
   }
 
   /** Daftar peer admin. */
@@ -175,12 +184,12 @@ export class VpnCoreClient {
 
   /** Menghapus peer admin. */
   deleteAdminPeer(id: string): Promise<void> {
-    return remove(`/v1/admin-peers/${id}`);
+    return remove(`/v1/admin-peers/${encodeURIComponent(id)}`);
   }
 
   /** Konfigurasi WireGuard (teks) untuk peer admin. */
   adminPeerConfig(id: string): Promise<string> {
-    return text(`/v1/admin-peers/${id}/config`);
+    return text(`/v1/admin-peers/${encodeURIComponent(id)}/config`);
   }
 }
 

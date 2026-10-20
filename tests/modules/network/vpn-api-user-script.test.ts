@@ -23,7 +23,7 @@ describe("buildVpnApiUserScript", () => {
       password: "pw-abc",
       mode: "create",
     });
-    expect(script).toContain("address=10.99.0.1/32");
+    expect(script).toContain('address="10.99.0.1/32"');
     expect(script).toContain('name="netmanager-api"');
     expect(script).toContain("policy=read,write,api,test,policy,sensitive");
     expect(script).toContain(

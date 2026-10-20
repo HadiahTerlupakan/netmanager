@@ -21,7 +21,7 @@ const HTTP_NOT_FOUND = 404;
 const SERVER_STATUS_ONLINE = "online";
 const API_USERNAME_PREFIX = "netmanager-";
 const API_USERNAME_BYTES = 4;
-const API_PASSWORD_BYTES = 18;
+const API_PASSWORD_BYTES = 24;
 
 /** Label router di core yang menandai pemilik draft. */
 export function vpnDraftLabel(tenantId: string): string {
@@ -60,6 +60,12 @@ function orderedHubIds(router: CoreRouter): string[] {
   return [...router.hubs]
     .sort((a, b) => a.priority - b.priority)
     .map((h) => h.hubId);
+}
+
+// Router yang sudah dipakai (aktif atau sudah di-claim) bukan draft: tidak
+// boleh dipakai ulang maupun dihapus lewat previousDraftId.
+function isUnclaimedDraft(router: CoreRouter): boolean {
+  return router.status === "pending" && router.ref === "";
 }
 
 function sameList(a: string[], b: string[]): boolean {
@@ -163,6 +169,7 @@ export class VpnDraftService {
       throw error;
     }
     assertDraftOwned(previous, tenantId);
+    if (!isUnclaimedDraft(previous)) return null;
     if (sameList(orderedHubIds(previous), input.serverIds)) return previous;
     await core.deleteRouter(previous.id);
     return null;
