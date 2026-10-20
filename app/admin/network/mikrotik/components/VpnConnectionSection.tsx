@@ -2,6 +2,7 @@
 
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { useApi } from "@/lib/hooks/useApi";
+import type { FetchError } from "@/lib/utils/fetch-wrapper";
 import {
   isVpnNotConfigured,
   VPN_NOT_CONFIGURED_MESSAGE,
@@ -15,6 +16,24 @@ import type {
 const SERVERS_URL = "/api/vpn-servers";
 const ONLINE_STATUS = "online";
 const NO_SERVER_MESSAGE = "Belum ada server VPN untuk tenant ini";
+const NO_ONLINE_SERVER_MESSAGE =
+  "Belum ada server VPN yang online untuk tenant ini";
+
+/** Alasan "Pakai VPN" tidak bisa dinyalakan, atau null bila bisa. */
+function getVpnUnavailableMessage(
+  error: FetchError | null,
+  isLoading: boolean,
+  servers: VpnServerOption[],
+): string | null {
+  if (isVpnNotConfigured(error)) return VPN_NOT_CONFIGURED_MESSAGE;
+  if (error) return error.message;
+  if (isLoading) return null;
+  if (servers.length === 0) return NO_SERVER_MESSAGE;
+  if (!servers.some((server) => server.status === ONLINE_STATUS)) {
+    return NO_ONLINE_SERVER_MESSAGE;
+  }
+  return null;
+}
 const SWITCH_CLASS =
   "w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600 peer-disabled:opacity-50";
 const ORDER_BUTTON_CLASS =
@@ -163,10 +182,11 @@ export function VpnConnectionSection({
     isV7 ? SERVERS_URL : null,
   );
   const servers = data?.servers ?? [];
-  const unavailableMessage = isVpnNotConfigured(error)
-    ? VPN_NOT_CONFIGURED_MESSAGE
-    : (error?.message ??
-      (!isLoading && servers.length === 0 ? NO_SERVER_MESSAGE : null));
+  const unavailableMessage = getVpnUnavailableMessage(
+    error,
+    isLoading,
+    servers,
+  );
 
   const handleVpnToggle = (isChecked: boolean) => {
     const onlineIds = servers
@@ -188,7 +208,7 @@ export function VpnConnectionSection({
           id="mikrotik-use-vpn"
           label="Pakai VPN"
           isChecked={isVpn}
-          isDisabled={isLoading || Boolean(unavailableMessage)}
+          isDisabled={!isVpn && (isLoading || Boolean(unavailableMessage))}
           onChange={handleVpnToggle}
         />
       )}

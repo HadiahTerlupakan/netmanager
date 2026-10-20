@@ -11,6 +11,7 @@ import type {
 } from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
 const DRAFT_URL = "/api/mikrotik-routers/vpn-draft";
+const NO_SERVER_SELECTED_MESSAGE = "Pilih minimal satu server VPN";
 
 /** Permintaan draft: urutan server = prioritas; kredensial dikirim ulang agar password tetap. */
 export type VpnDraftRequest = {
@@ -44,11 +45,14 @@ function useVpnDraft(
   onDraftReady: (draft: VpnDraft) => void,
 ) {
   const [draft, setDraft] = useState<VpnDraft | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    request.serverIds.length === 0 ? NO_SERVER_SELECTED_MESSAGE : null,
+  );
   const initialRequest = useRef(request);
   const onReady = useRef(onDraftReady);
 
   useEffect(() => {
+    if (initialRequest.current.serverIds.length === 0) return;
     let isCancelled = false;
     const createDraft = async () => {
       try {

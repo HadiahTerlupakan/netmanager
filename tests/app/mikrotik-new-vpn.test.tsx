@@ -27,6 +27,7 @@ vi.mock("react-hot-toast", async () =>
 import { act } from "react";
 
 import { ClientComponent } from "@/app/admin/network/mikrotik/new/MikrotikNewClient";
+import VpnScriptModal from "@/components/mikrotik/VpnScriptModal";
 
 import {
   bongkarPanggung,
@@ -234,6 +235,77 @@ describe("Tambah Router — mode VPN", () => {
     expect(document.body.textContent).toContain("RouterOS harus versi 7");
     expect(document.body.textContent).not.toContain("API tersambung");
     expect(submitButton().disabled).toBe(true);
+  });
+
+  it("hasil test VPN tidak membuka simpan mode publik setelah VPN dimatikan", async () => {
+    const alertPalsu = vi.fn();
+    vi.stubGlobal("alert", alertPalsu);
+    const fetchPalsu = stubFetch(vpnRoutes(() => "tunnel_up", "6.49.10"));
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await openVpnScript();
+    await flush(POLL_MS);
+    expect(callsTo(fetchPalsu, `POST ${TEST_URL}`)).toHaveLength(1);
+
+    await klikTombol("Tutup");
+    await klikElemen("#mikrotik-use-vpn");
+    expect(submitButton().disabled).toBe(true);
+    await act(async () => {
+      cari("form")!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    });
+    await flush();
+    expect(alertPalsu).toHaveBeenCalled();
+    expect(callsTo(fetchPalsu, "POST /api/mikrotik-routers")).toHaveLength(0);
+  });
+
+  it("test otomatis tidak membuka modal hasil test di atas modal VPN", async () => {
+    stubFetch(vpnRoutes(() => "tunnel_up"));
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await openVpnScript();
+    await flush(POLL_MS);
+
+    expect(document.body.textContent).toContain("API tersambung");
+    expect(document.body.textContent).not.toContain("Hasil Test Koneksi");
+  });
+
+  it("tanpa server online toggle VPN nonaktif dengan keterangan", async () => {
+    const offline = SERVERS.map((server) => ({ ...server, status: "offline" }));
+    stubFetch({
+      ...vpnRoutes(() => "waiting"),
+      [`GET ${SERVERS_URL}`]: () =>
+        responsJson(200, { success: true, data: { servers: offline } }),
+    });
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await klikElemen("#mikrotik-ros-v7");
+
+    expect(cari<HTMLInputElement>("#mikrotik-use-vpn")!.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "Belum ada server VPN yang online untuk tenant ini",
+    );
+  });
+
+  it("modal script tidak meminta draft tanpa server terpilih", async () => {
+    const fetchPalsu = stubFetch(vpnRoutes(() => "waiting"));
+    await render(
+      panggung,
+      <VpnScriptModal
+        request={{ serverIds: [] }}
+        apiCheck={null}
+        onClose={vi.fn()}
+        onDraftReady={vi.fn()}
+        onTunnelUp={vi.fn()}
+      />,
+    );
+    await flush();
+
+    expect(callsTo(fetchPalsu, `POST ${DRAFT_URL}`)).toHaveLength(0);
+    expect(document.body.textContent).toContain(
+      "Pilih minimal satu server VPN",
+    );
   });
 
   it("mematikan VPN mengosongkan dan membuka kunci field", async () => {

@@ -87,9 +87,25 @@ export function ClientComponent() {
   };
 
   const handleTestConnection = async () => {
-    if (vpn.isVpnMode) vpn.markTestStarted();
+    // Mode VPN dinilai lewat vpn.apiCheck; `success` rute selalu true sehingga
+    // tidak boleh membuka simpan mode publik.
+    if (vpn.isVpnMode) {
+      vpn.markTestStarted();
+      await runTest();
+      return;
+    }
     const success = await runTest();
     setTestPassed(success);
+  };
+
+  const handleRosVersionChange = (isV7: boolean) => {
+    setTestPassed(false);
+    vpn.handleRosVersionChange(isV7);
+  };
+
+  const handleConnectionModeChange = (isVpn: boolean, serverIds: string[]) => {
+    setTestPassed(false);
+    vpn.handleConnectionModeChange(isVpn, serverIds);
   };
 
   const handleFormChange = (
@@ -141,15 +157,16 @@ export function ClientComponent() {
             connectionMode={formData.connectionMode ?? "PUBLIC"}
             selectedServerIds={formData.vpnServerIds ?? []}
             isDraftOutdated={vpn.isDraftOutdated}
-            onRosVersionChange={vpn.handleRosVersionChange}
-            onConnectionModeChange={vpn.handleConnectionModeChange}
+            onRosVersionChange={handleRosVersionChange}
+            onConnectionModeChange={handleConnectionModeChange}
             onServerIdsChange={vpn.handleServerIdsChange}
           />
         }
       />
 
       <TestConnectionModal
-        open={showTestModal}
+        // Saat modal VPN terbuka, hasil test (termasuk syarat v7) tampil di sana.
+        open={showTestModal && !(vpn.isVpnMode && showScriptModal)}
         onClose={closeTestModal}
         result={testResult}
         isLoading={isTesting}
