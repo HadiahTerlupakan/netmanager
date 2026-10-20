@@ -7,6 +7,13 @@ const mocks = vi.hoisted(() => ({
   getNasByIp: vi.fn(),
   deleteNas: vi.fn(),
   lookup: vi.fn(),
+  removeOtherRadiusEntries: vi.fn(),
+}));
+
+vi.mock("@/modules/network/services/mikrotik-vpn-migration.routeros", () => ({
+  vpnMigrationRouterOs: {
+    removeOtherRadiusEntries: mocks.removeOtherRadiusEntries,
+  },
 }));
 
 vi.mock("node:dns", () => ({ promises: { lookup: mocks.lookup } }));
@@ -214,6 +221,46 @@ describe("createRouterMutation mode VPN", () => {
     expect(t.networkRepository.updateGeneratedApiUser).not.toHaveBeenCalled();
   });
 
+  it("menghapus entri RADIUS netmanager lama setelah entri tunnel terpasang", async () => {
+    const t = setup();
+
+    await t.run(vpnData);
+
+    expect(mocks.removeOtherRadiusEntries).toHaveBeenCalledWith(
+      {
+        ip: TUNNEL_IP,
+        port: 8728,
+        username: baseData.apiUsername,
+        password: baseData.apiPassword,
+      },
+      "10.99.0.1",
+    );
+    expect(
+      t.provisioningService.provisionRadius.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.removeOtherRadiusEntries.mock.invocationCallOrder[0]);
+  });
+
+  it("tidak menghapus entri lama bila entri tunnel gagal dipasang", async () => {
+    const t = setup();
+    t.provisioningService.provisionRadius.mockResolvedValue({
+      success: false,
+      logs: ["timeout"],
+    });
+
+    await t.run(vpnData);
+
+    expect(mocks.removeOtherRadiusEntries).not.toHaveBeenCalled();
+  });
+
+  it("pembersihan entri lama yang gagal tidak menggagalkan create", async () => {
+    mocks.removeOtherRadiusEntries.mockRejectedValue(new Error("ETIMEDOUT"));
+    const t = setup();
+
+    await expect(t.run(vpnData)).resolves.toEqual({
+      id: expect.any(String),
+    });
+  });
+
   it("menolak draft milik tenant lain tanpa menulis ke database", async () => {
     mocks.getRouter.mockResolvedValue(coreDraft({ label: "nm:t2" }));
     const t = setup();
@@ -393,5 +440,6 @@ describe("createRouterMutation mode PUBLIC", () => {
     expect(t.networkRepository.updateGeneratedApiUser).toHaveBeenCalled();
     expect(mocks.getRouter).not.toHaveBeenCalled();
     expect(mocks.claimRouter).not.toHaveBeenCalled();
+    expect(mocks.removeOtherRadiusEntries).not.toHaveBeenCalled();
   });
 });

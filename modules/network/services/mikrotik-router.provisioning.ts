@@ -4,6 +4,7 @@ import type { MikroTikRouterCreateData } from "../domain/entities/MikroTikRouter
 import type { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import { checkSingleMikroTikRouterStatus } from "./mikrotik-ping-check";
 import { getVpnCoreAddress } from "../vpn/VpnCoreClient";
+import { vpnMigrationRouterOs } from "./mikrotik-vpn-migration.routeros";
 
 type ProvisioningConnection = {
   ip: string;
@@ -179,7 +180,7 @@ function saveGeneratedApiCredentials(
 async function provisionRouterRadius(
   params: AutoConfigureCreatedRouterParams,
   connection: ProvisioningConnection,
-): Promise<void> {
+): Promise<boolean> {
   const provisioningResult = await params.provisioningService.provisionRadius(
     ...createRadiusProvisioningArgs({
       connection,
@@ -190,6 +191,23 @@ async function provisionRouterRadius(
 
   if (!provisioningResult.success) {
     warnProvisioningFailure(provisioningResult.logs);
+  }
+  return provisioningResult.success;
+}
+
+// Router yang dulu dipakai netmanager publik masih menyimpan entri /radius ke
+// alamat publik. RouterOS tidak mencoba server berikutnya setelah
+// Access-Reject, jadi entri lama itu harus hilang setelah entri tunnel ada.
+async function removeStaleRadiusEntries(
+  connection: ProvisioningConnection,
+): Promise<void> {
+  try {
+    await vpnMigrationRouterOs.removeOtherRadiusEntries(
+      connection,
+      getVpnCoreAddress(),
+    );
+  } catch (error: unknown) {
+    logger.warn("Gagal menghapus entri RADIUS lama router VPN:", error);
   }
 }
 
@@ -215,7 +233,8 @@ async function persistGeneratedApiUser(
 /**
  * Jalankan provisioning awal router dan simpan kredensial API generated bila
  * berhasil. Router VPN tidak dibuatkan user API: kredensialnya sudah dibuat
- * oleh script VPN yang ditempel pengguna.
+ * oleh script VPN yang ditempel pengguna; setelah entri /radius tunnel
+ * terpasang, entri netmanager lain (sisa mode publik) dihapus.
  */
 export async function autoConfigureCreatedRouter(
   params: AutoConfigureCreatedRouterParams,
@@ -226,9 +245,11 @@ export async function autoConfigureCreatedRouter(
 
   try {
     const connection = createRouterProvisioningConnection(params.createData);
-    await provisionRouterRadius(params, connection);
+    const isProvisioned = await provisionRouterRadius(params, connection);
     if (!isVpnRouter(params.createData)) {
       await persistGeneratedApiUser(params, connection);
+    } else if (isProvisioned) {
+      await removeStaleRadiusEntries(connection);
     }
   } catch (error: unknown) {
     logProvisioningError(error);
