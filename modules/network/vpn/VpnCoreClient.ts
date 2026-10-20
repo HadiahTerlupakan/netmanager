@@ -50,15 +50,59 @@ async function toCoreError(res: Response): Promise<VpnCoreError> {
   }
 }
 
-async function send(
+function abortError(): DOMException {
+  return new DOMException("aborted", "AbortError");
+}
+
+// Abort hanya membatalkan fetch dan body milik fetch asli; body yang macet di
+// luar itu tetap harus diputus oleh sinyal yang sama.
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    work
+      .then(resolve, reject)
+      .finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
+function toTransportError(err: unknown): VpnCoreError {
+  if (err instanceof VpnCoreError) return err;
+  if (err instanceof Error && err.name === "AbortError") {
+    return new VpnCoreError(
+      HTTP_GATEWAY_TIMEOUT,
+      "timeout",
+      "Core VPN tidak merespons",
+    );
+  }
+  if (err instanceof SyntaxError) {
+    return new VpnCoreError(
+      HTTP_BAD_GATEWAY,
+      "internal",
+      "Respons core VPN tidak valid",
+    );
+  }
+  return new VpnCoreError(
+    HTTP_BAD_GATEWAY,
+    "unreachable",
+    "Core VPN tidak terjangkau",
+  );
+}
+
+/**
+ * Satu panggilan ke core, termasuk membaca body lewat `read`, seluruhnya di
+ * dalam `VPN_CORE_TIMEOUT_MS`.
+ */
+async function send<T>(
   method: string,
   path: string,
+  read: (res: Response) => Promise<T>,
   body?: unknown,
-): Promise<Response> {
+): Promise<T> {
   const base = (process.env.VPN_CORE_API_URL ?? "").replace(/\/+$/, "");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), VPN_CORE_TIMEOUT_MS);
-  try {
+  const call = async (): Promise<T> => {
     const res = await fetch(`${base}${path}`, {
       method,
       headers: {
@@ -69,41 +113,27 @@ async function send(
       signal: controller.signal,
     });
     if (!res.ok) throw await toCoreError(res);
-    return res;
+    return read(res);
+  };
+  try {
+    return await untilAborted(call(), controller.signal);
   } catch (err) {
-    if (err instanceof VpnCoreError) throw err;
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new VpnCoreError(
-        HTTP_GATEWAY_TIMEOUT,
-        "timeout",
-        "Core VPN tidak merespons",
-      );
-    }
-    throw new VpnCoreError(
-      HTTP_BAD_GATEWAY,
-      "unreachable",
-      "Core VPN tidak terjangkau",
-    );
+    throw toTransportError(err);
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function json<T>(
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<T> {
-  const res = await send(method, path, body);
-  return (await res.json()) as T;
+function json<T>(method: string, path: string, body?: unknown): Promise<T> {
+  return send(method, path, (res) => res.json() as Promise<T>, body);
 }
 
-async function text(path: string): Promise<string> {
-  return (await send("GET", path)).text();
+function text(path: string): Promise<string> {
+  return send("GET", path, (res) => res.text());
 }
 
 async function remove(path: string): Promise<void> {
-  await send("DELETE", path);
+  await send("DELETE", path, async (): Promise<void> => {});
 }
 
 /** Klien HTTP untuk API core netmanager-vpn. */

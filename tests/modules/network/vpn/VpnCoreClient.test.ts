@@ -117,6 +117,35 @@ describe("VpnCoreClient", () => {
     expect(err.code).toBe("timeout");
   });
 
+  it.each([
+    ["JSON", () => getVpnCoreClient().listHubs()],
+    ["text", () => getVpnCoreClient().routerScript("r1", "full")],
+  ])("times out a %s body that never arrives with 504", async (_kind, call) => {
+    vi.useFakeTimers();
+    const stalled = new Promise<never>(() => {});
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => stalled,
+      text: () => stalled,
+    });
+    const pending = call().catch((e) => e);
+    await vi.advanceTimersByTimeAsync(5000);
+    const err = await pending;
+    expect(err).toBeInstanceOf(VpnCoreError);
+    expect(err.status).toBe(504);
+    expect(err.code).toBe("timeout");
+  });
+
+  it("reports an unparsable success body as 502 internal", async () => {
+    fetchMock.mockResolvedValue(new Response("not json", { status: 200 }));
+    const err = await getVpnCoreClient()
+      .listHubs()
+      .catch((e) => e);
+    expect(err.status).toBe(502);
+    expect(err.code).toBe("internal");
+  });
+
   it("reads routerScript as text with the requested part", async () => {
     fetchMock.mockResolvedValue(new Response("/interface wireguard add"));
     const script = await getVpnCoreClient().routerScript("r1", "switch");
