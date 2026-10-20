@@ -25,6 +25,7 @@ const ignoreModels = [
   "LandingTestimonial",
   "LandingFaq",
   "LandingFooter",
+  "VpnCoreRouterTombstone",
 ];
 
 let prismaClient: PrismaClient | undefined;

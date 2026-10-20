@@ -48,6 +48,16 @@ describe("retryVpnCoreRouterDeletes", () => {
     expect(repo.remove.mock.calls.map((c) => c[0])).toEqual(["ok", "gone"]);
   });
 
+  it("berhenti di error non-404 pertama: id berikutnya tidak dicoba", async () => {
+    const repo = fakeRepo(["down", "next"]);
+    mocks.deleteCoreRouter.mockRejectedValue(new VpnCoreError(502, "internal"));
+
+    await retryVpnCoreRouterDeletes(repo);
+
+    expect(mocks.deleteCoreRouter).toHaveBeenCalledTimes(1);
+    expect(repo.remove).not.toHaveBeenCalled();
+  });
+
   it("tidak memanggil core maupun database bila VPN belum dikonfigurasi", async () => {
     mocks.isConfigured.mockReturnValue(false);
     const repo = fakeRepo(["a"]);

@@ -6,6 +6,11 @@ const mockFns = vi.hoisted(() => ({
   checkAllMikroTikRouterStatus: vi.fn(),
   getStatistics: vi.fn(),
   findActiveTenants: vi.fn(),
+  retryVpnCoreRouterDeletes: vi.fn(),
+}));
+
+vi.mock("@/modules/network/services/VpnCoreRouterCleanup", () => ({
+  retryVpnCoreRouterDeletes: mockFns.retryVpnCoreRouterDeletes,
 }));
 
 vi.mock("@/lib/tenant-context", () => ({
@@ -46,6 +51,7 @@ describe("MikroTikMonitor realtime publishing", () => {
     mockFns.checkAllMikroTikRouterStatus.mockResolvedValue(4);
     mockFns.findActiveTenants.mockResolvedValue([{ id: "tenant-1" }]);
     mockFns.getStatistics.mockResolvedValue({ onlineRouters: 3 });
+    mockFns.retryVpnCoreRouterDeletes.mockResolvedValue(undefined);
   });
 
   it("publishes mikrotik updates even when no admin consumer records are present", async () => {
@@ -91,5 +97,21 @@ describe("MikroTikMonitor realtime publishing", () => {
         updatedCount: 4,
       },
     });
+  });
+
+  it("menjalankan retry hapus router core setelah status check, dan error-nya tidak menghentikan siklus", async () => {
+    mockFns.retryVpnCoreRouterDeletes.mockRejectedValue(new Error("core down"));
+    const { mikroTikMonitor } =
+      await import("@/modules/network/services/MikroTikMonitor");
+
+    await expect(mikroTikMonitor["checkStatus"]()).resolves.toBeUndefined();
+    mikroTikMonitor.stop();
+
+    expect(mockFns.checkAllMikroTikRouterStatus).toHaveBeenCalledTimes(1);
+    expect(
+      mockFns.checkAllMikroTikRouterStatus.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      mockFns.retryVpnCoreRouterDeletes.mock.invocationCallOrder[0],
+    );
   });
 });

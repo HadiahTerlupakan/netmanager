@@ -65,7 +65,8 @@ export async function deleteCoreRouterOrTombstone(
 
 /**
  * Coba hapus lagi router core yang tertunda, paling lama lebih dulu. Catatan
- * dihapus saat core sukses atau 404, dan dibiarkan pada error lain.
+ * dihapus saat core sukses atau 404. Error lain berarti core sedang bermasalah,
+ * jadi batch berhenti dan sisanya menunggu siklus berikutnya.
  */
 export async function retryVpnCoreRouterDeletes(
   tombstones: Pick<
@@ -81,6 +82,7 @@ export async function retryVpnCoreRouterDeletes(
       await tombstones.remove(id);
     } catch (error) {
       logger.warn(`[VPN] Hapus ulang router core ${id} gagal:`, error);
+      return;
     }
   }
 }

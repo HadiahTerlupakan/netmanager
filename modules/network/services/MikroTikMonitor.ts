@@ -190,7 +190,6 @@ class MikroTikMonitor {
   }
 
   public async checkStatus() {
-    await this.retryPendingCoreDeletes();
     try {
       const updatedCount = await checkAllMikroTikRouterStatus();
       await publishTenantStats(
@@ -213,6 +212,7 @@ class MikroTikMonitor {
       }
     }
 
+    await this.retryPendingCoreDeletes();
     this.scheduleNext();
   }
 }
