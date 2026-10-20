@@ -1,0 +1,159 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/modules/network/services/mikrotik-provisioning.connection", () => ({
+  delay: async (): Promise<void> => undefined,
+}));
+
+import { provisionRadiusConfig } from "@/modules/network/services/mikrotik-provisioning.radius";
+import { RouterReconfigureRouteService } from "@/modules/network/services/RouterReconfigureRouteService";
+
+const SERVER_IP = "10.99.0.1";
+const TUNNEL_IP = "10.100.0.10";
+
+function fakeConnection(existing: { ".id": string }[]) {
+  return {
+    write: vi.fn<(path: string, args: string[]) => Promise<unknown>>(
+      async (path) => (path === "/radius/print" ? existing : []),
+    ),
+  };
+}
+
+function provision(
+  connection: ReturnType<typeof fakeConnection>,
+  srcAddress?: string | null,
+) {
+  return provisionRadiusConfig({
+    connection: connection as never,
+    serverIp: SERVER_IP,
+    radiusSecret: "s",
+    authPort: 1812,
+    accountingPort: 1813,
+    logs: [],
+    srcAddress,
+  });
+}
+
+function writtenArgs(
+  connection: ReturnType<typeof fakeConnection>,
+  path: string,
+) {
+  return connection.write.mock.calls.find((call) => call[0] === path)?.[1];
+}
+
+describe("provisionRadiusConfig src-address", () => {
+  it("menambahkan src-address pada /radius/add bila diberikan", async () => {
+    const connection = fakeConnection([]);
+    await provision(connection, TUNNEL_IP);
+
+    const args = writtenArgs(connection, "/radius/add");
+    expect(args).toContain(`=address=${SERVER_IP}`);
+    expect(args).toContain(`=src-address=${TUNNEL_IP}`);
+  });
+
+  it("menambahkan src-address pada /radius/set bila entri sudah ada", async () => {
+    const connection = fakeConnection([{ ".id": "*1" }]);
+    await provision(connection, TUNNEL_IP);
+
+    expect(writtenArgs(connection, "/radius/set")).toContain(
+      `=src-address=${TUNNEL_IP}`,
+    );
+  });
+
+  it.each([null, undefined])(
+    "tanpa src-address (%s) perintah sama seperti sebelumnya",
+    async (srcAddress) => {
+      const addConnection = fakeConnection([]);
+      await provision(addConnection, srcAddress);
+      const setConnection = fakeConnection([{ ".id": "*1" }]);
+      await provision(setConnection, srcAddress);
+
+      expect(writtenArgs(addConnection, "/radius/add")).toEqual([
+        `=address=${SERVER_IP}`,
+        "=secret=s",
+        "=service=ppp,login,hotspot",
+        "=authentication-port=1812",
+        "=accounting-port=1813",
+        "=timeout=3000ms",
+        "=comment=added by netmanager",
+      ]);
+      expect(writtenArgs(setConnection, "/radius/set")).toEqual([
+        "=.id=*1",
+        "=secret=s",
+        "=service=ppp,login,hotspot",
+        "=authentication-port=1812",
+        "=accounting-port=1813",
+        "=timeout=3000ms",
+      ]);
+    },
+  );
+});
+
+describe("RouterReconfigureRouteService alamat RADIUS", () => {
+  const storedRouter = (connectionMode: "PUBLIC" | "VPN") => ({
+    id: "r1",
+    name: "R1",
+    ipAddress: TUNNEL_IP,
+    apiPort: 8728,
+    pingStatus: "online",
+    apiUsername: "u",
+    apiPassword: "p",
+    apiUsernameGenerated: null as string | null,
+    apiPasswordGenerated: null as string | null,
+    siteId: null as string | null,
+    connectionMode,
+  });
+
+  function setup(connectionMode: "PUBLIC" | "VPN") {
+    const provisioningService = {
+      provisionRadius: vi.fn(async () => ({ success: true, logs: [] })),
+    };
+    const routerService = { getRouterById: vi.fn(async () => ({ id: "r1" })) };
+    const networkRepository = {
+      findSettingsByKeys: vi.fn(async () => [
+        { key: "RADIUS_SECRET", value: "s" },
+      ]),
+      findRouterForReconfigure: vi.fn(async () => storedRouter(connectionMode)),
+    };
+    const service = new RouterReconfigureRouteService(
+      provisioningService as never,
+      routerService as never,
+      networkRepository as never,
+    );
+    return { service, provisioningService };
+  }
+
+  beforeEach(() => {
+    vi.stubEnv("RADIUS_SECRET", "");
+    vi.stubEnv("VPN_CORE_ADDRESS", "");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("router VPN memakai alamat core dan IP tunnel sebagai src-address", async () => {
+    const { service, provisioningService } = setup("VPN");
+    await service.reconfigureRouters(["r1"], {
+      tenantId: "t1",
+      userId: "u1",
+      restrictedToOwnSite: false,
+    });
+
+    const call = provisioningService.provisionRadius.mock.calls[0] as unknown[];
+    expect(call[1]).toBe(SERVER_IP);
+    expect(call[6]).toBe(TUNNEL_IP);
+  });
+
+  it("router PUBLIC tetap memakai deteksi IP publik dan tanpa src-address", async () => {
+    const { service, provisioningService } = setup("PUBLIC");
+    await service.reconfigureRouters(["r1"], {
+      tenantId: "t1",
+      userId: "u1",
+      restrictedToOwnSite: false,
+    });
+
+    const call = provisioningService.provisionRadius.mock.calls[0] as unknown[];
+    expect(call).toHaveLength(4);
+    expect(call[1]).toBeNull();
+  });
+});

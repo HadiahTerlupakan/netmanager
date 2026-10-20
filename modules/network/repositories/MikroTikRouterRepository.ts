@@ -20,6 +20,28 @@ import {
   validateRouterDeletion,
 } from "./MikroTikRouterRepository.sync";
 
+// Field mode VPN hanya ditulis bila diisi agar payload router publik tetap
+// sama seperti sebelum mode VPN ada (kolom memakai default database).
+function buildVpnCreateFields(
+  data: MikroTikRouterCreateData,
+  vpnServerIds: string[],
+) {
+  return {
+    ...(data.rosVersion && { rosVersion: data.rosVersion }),
+    ...(data.connectionMode && { connectionMode: data.connectionMode }),
+    ...(data.vpnAddress && { vpnAddress: data.vpnAddress }),
+    ...(data.vpnCoreRouterId && { vpnCoreRouterId: data.vpnCoreRouterId }),
+    ...(vpnServerIds.length > 0 && {
+      vpnServers: {
+        create: vpnServerIds.map((vpnServerId, priority) => ({
+          vpnServerId,
+          priority,
+        })),
+      },
+    }),
+  };
+}
+
 export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   private radiusRepo: RadiusRepository;
 
@@ -100,7 +122,15 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     return router;
   }
 
-  async create(data: MikroTikRouterCreateData): Promise<{ id: string }> {
+  /**
+   * Simpan router baru dan entri NAS-nya. `vpnServerIds` (urutan = prioritas)
+   * ditulis lewat nested create sehingga router dan daftar servernya tersimpan
+   * dalam satu transaksi.
+   */
+  async create(
+    data: MikroTikRouterCreateData,
+    vpnServerIds: string[] = [],
+  ): Promise<{ id: string }> {
     // Check if IP already exists for this tenant
     const existingRouter = await this.client.mikroTikRouter.findFirst({
       where: {
@@ -135,6 +165,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         userOnline: 0,
         siteId: data.siteId ?? null,
         tenantId: data.tenantId,
+        ...buildVpnCreateFields(data, vpnServerIds),
       },
       select: {
         id: true,

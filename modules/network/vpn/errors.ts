@@ -36,3 +36,19 @@ export class VpnServerNotAvailableError extends Error {
     this.name = "VpnServerNotAvailableError";
   }
 }
+
+/** Draft router VPN tidak bisa dipakai untuk router ini; pesan ditampilkan ke pengguna. */
+export class VpnDraftInvalidError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "VpnDraftInvalidError";
+  }
+}
+
+/** Router sudah tersimpan tetapi core menolak/gagal meng-claim draft-nya. */
+export class VpnRouterActivationError extends Error {
+  constructor() {
+    super("Gagal mengaktifkan VPN router");
+    this.name = "VpnRouterActivationError";
+  }
+}

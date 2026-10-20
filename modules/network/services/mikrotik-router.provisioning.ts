@@ -3,6 +3,7 @@ import type { IRouterAccessRepository } from "../domain/ports/IRouterAccessRepos
 import type { MikroTikRouterCreateData } from "../domain/entities/MikroTikRouterEntity";
 import type { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import { checkSingleMikroTikRouterStatus } from "./mikrotik-ping-check";
+import { getVpnCoreAddress } from "../vpn/VpnCoreClient";
 
 type ProvisioningConnection = {
   ip: string;
@@ -116,26 +117,51 @@ function logDeprovisionError(error: unknown): void {
   logger.error("Failed to auto-deprovision:", error);
 }
 
+type RadiusRouting = {
+  radiusServerIp: string | null;
+  srcAddress: string | null;
+};
+
+type ProvisionRadiusArgs = Parameters<
+  MikroTikProvisioningService["provisionRadius"]
+>;
+
+function isVpnRouter(router: { connectionMode?: string | null }): boolean {
+  return router.connectionMode === "VPN";
+}
+
+/**
+ * Alamat server RADIUS dan src-address untuk sebuah router. Router VPN
+ * menjangkau RADIUS lewat core di overlay, dari IP tunnel-nya; router publik
+ * memakai `null` sehingga provisioning mendeteksi IP publik server.
+ */
+export function resolveRadiusRouting(router: {
+  connectionMode?: string | null;
+  ipAddress: string;
+}): RadiusRouting {
+  if (!isVpnRouter(router)) {
+    return { radiusServerIp: null, srcAddress: null };
+  }
+  return { radiusServerIp: getVpnCoreAddress(), srcAddress: router.ipAddress };
+}
+
 function createRadiusProvisioningArgs(params: {
   connection: ProvisioningConnection;
   radiusConfig: RadiusConfig;
-  isolirUrl: string | null;
-}): readonly [
-  ProvisioningConnection,
-  null,
-  string,
-  string | null,
-  number,
-  number,
-] {
-  return [
+  createData: MikroTikRouterCreateData;
+}): ProvisionRadiusArgs {
+  const { radiusServerIp, srcAddress } = resolveRadiusRouting(
+    params.createData,
+  );
+  const args = [
     params.connection,
-    null,
+    radiusServerIp,
     params.radiusConfig.secretRadius,
-    params.isolirUrl,
+    params.createData.isolirUrl,
     params.radiusConfig.authPort,
     params.radiusConfig.accountingPort,
-  ];
+  ] as const;
+  return srcAddress ? [...args, srcAddress] : [...args];
 }
 
 function saveGeneratedApiCredentials(
@@ -157,7 +183,7 @@ async function provisionRouterRadius(
     ...createRadiusProvisioningArgs({
       connection,
       radiusConfig: params.radiusConfig,
-      isolirUrl: params.createData.isolirUrl,
+      createData: params.createData,
     }),
   );
 
@@ -185,7 +211,11 @@ async function persistGeneratedApiUser(
   );
 }
 
-/** Jalankan provisioning awal router dan simpan kredensial API generated bila berhasil. */
+/**
+ * Jalankan provisioning awal router dan simpan kredensial API generated bila
+ * berhasil. Router VPN tidak dibuatkan user API: kredensialnya sudah dibuat
+ * oleh script VPN yang ditempel pengguna.
+ */
 export async function autoConfigureCreatedRouter(
   params: AutoConfigureCreatedRouterParams,
 ): Promise<void> {
@@ -196,7 +226,9 @@ export async function autoConfigureCreatedRouter(
   try {
     const connection = createRouterProvisioningConnection(params.createData);
     await provisionRouterRadius(params, connection);
-    await persistGeneratedApiUser(params, connection);
+    if (!isVpnRouter(params.createData)) {
+      await persistGeneratedApiUser(params, connection);
+    }
   } catch (error: unknown) {
     logProvisioningError(error);
   }

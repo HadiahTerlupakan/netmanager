@@ -36,7 +36,10 @@ function createFailedResult(
 }
 
 export class MikroTikProvisioningService {
-  /** Provision konfigurasi RADIUS, firewall, dan proxy pada router MikroTik. */
+  /**
+   * Provision konfigurasi RADIUS, firewall, dan proxy pada router MikroTik.
+   * `srcAddress` diisi untuk router VPN agar RADIUS dikirim dari IP tunnel.
+   */
   async provisionRadius(
     routerDetails: MikroTikProvisioningRouterDetails,
     radiusServerIp: string | null,
@@ -44,6 +47,7 @@ export class MikroTikProvisioningService {
     isolirUrl: string | null | undefined = null,
     authPort: number = DEFAULT_RADIUS_AUTH_PORT,
     accountingPort: number = DEFAULT_RADIUS_ACCOUNTING_PORT,
+    srcAddress?: string | null,
   ): Promise<MikroTikProvisioningResult> {
     const logs: string[] = [];
     const serverIp = radiusServerIp || (await detectPublicIp());
@@ -62,6 +66,7 @@ export class MikroTikProvisioningService {
             authPort,
             accountingPort,
             logs,
+            srcAddress,
           });
           await enableRadiusIncoming({ connection, logs });
           await provisionFirewallBypass({

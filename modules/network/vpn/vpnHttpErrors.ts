@@ -4,6 +4,8 @@ import { isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import {
   VpnDraftForbiddenError,
+  VpnDraftInvalidError,
+  VpnRouterActivationError,
   VpnServerInUseError,
   VpnServerNotAvailableError,
   VpnServerUnknownError,
@@ -16,6 +18,19 @@ const HTTP_CONFLICT = 409;
 const HTTP_BAD_GATEWAY = 502;
 const HTTP_SERVICE_UNAVAILABLE = 503;
 
+/** True bila galat berasal dari modul VPN sehingga `vpnErrorResponse` tahu statusnya. */
+export function isVpnError(error: unknown): boolean {
+  return (
+    error instanceof VpnServerInUseError ||
+    error instanceof VpnServerUnknownError ||
+    error instanceof VpnServerNotAvailableError ||
+    error instanceof VpnDraftInvalidError ||
+    error instanceof VpnDraftForbiddenError ||
+    error instanceof VpnRouterActivationError ||
+    error instanceof VpnCoreError
+  );
+}
+
 /** Mengubah galat modul VPN menjadi respons API; galat lain menjadi 500. */
 export function vpnErrorResponse(error: unknown): NextResponse {
   if (error instanceof VpnServerInUseError) {
@@ -26,12 +41,18 @@ export function vpnErrorResponse(error: unknown): NextResponse {
   }
   if (
     error instanceof VpnServerUnknownError ||
-    error instanceof VpnServerNotAvailableError
+    error instanceof VpnServerNotAvailableError ||
+    error instanceof VpnDraftInvalidError
   ) {
     return ApiErrors.badRequest(error.message);
   }
   if (error instanceof VpnDraftForbiddenError) {
     return ApiErrors.forbidden(error.message);
+  }
+  if (error instanceof VpnRouterActivationError) {
+    return apiError(error.message, ErrorCodes.EXTERNAL_SERVICE_ERROR, {
+      status: HTTP_BAD_GATEWAY,
+    });
   }
   if (error instanceof VpnCoreError) {
     if (error.status === HTTP_BAD_REQUEST) {

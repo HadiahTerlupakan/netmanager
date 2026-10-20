@@ -62,14 +62,22 @@ function orderedHubIds(router: CoreRouter): string[] {
     .map((h) => h.hubId);
 }
 
-// Router yang sudah dipakai (aktif atau sudah di-claim) bukan draft: tidak
-// boleh dipakai ulang maupun dihapus lewat previousDraftId.
-function isUnclaimedDraft(router: CoreRouter): boolean {
+/**
+ * True bila router core masih draft. Router yang sudah dipakai (aktif atau
+ * sudah di-claim) tidak boleh dipakai ulang, dihapus lewat previousDraftId,
+ * maupun di-claim router kedua.
+ */
+export function isUnclaimedDraft(router: CoreRouter): boolean {
   return router.status === "pending" && router.ref === "";
 }
 
-function sameList(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((id, i) => id === b[i]);
+/** True bila hub router core, diurutkan menurut prioritas, sama persis dengan `hubIds`. */
+export function hasSameHubOrder(router: CoreRouter, hubIds: string[]): boolean {
+  const ordered = orderedHubIds(router);
+  return (
+    ordered.length === hubIds.length &&
+    ordered.every((id, i) => id === hubIds[i])
+  );
 }
 
 /** Draft router VPN untuk tenant: daftar server, pembuatan/penggunaan ulang draft, status tunnel. */
@@ -170,7 +178,7 @@ export class VpnDraftService {
     }
     assertDraftOwned(previous, tenantId);
     if (!isUnclaimedDraft(previous)) return null;
-    if (sameList(orderedHubIds(previous), input.serverIds)) return previous;
+    if (hasSameHubOrder(previous, input.serverIds)) return previous;
     await core.deleteRouter(previous.id);
     return null;
   }

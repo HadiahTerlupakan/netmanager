@@ -9,6 +9,8 @@ export {
 } from "./VpnCoreClient";
 export {
   VpnDraftForbiddenError,
+  VpnDraftInvalidError,
+  VpnRouterActivationError,
   VpnServerInUseError,
   VpnServerNotAvailableError,
   VpnServerUnknownError,

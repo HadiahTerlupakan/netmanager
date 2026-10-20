@@ -15,7 +15,13 @@ type RadiusConfigParams = {
   authPort: number;
   accountingPort: number;
   logs: string[];
+  srcAddress?: string | null;
 };
+
+// Router VPN harus mengirim RADIUS dari IP tunnel-nya, bukan IP keluar default.
+function srcAddressArgs(params: RadiusConfigParams): string[] {
+  return params.srcAddress ? [`=src-address=${params.srcAddress}`] : [];
+}
 
 async function findExistingRadius(
   connection: RouterOSAPI,
@@ -39,6 +45,7 @@ async function updateRadiusEntries(
       `=authentication-port=${params.authPort}`,
       `=accounting-port=${params.accountingPort}`,
       `=timeout=${RADIUS_TIMEOUT}`,
+      ...srcAddressArgs(params),
     ]);
     await delay(300);
     params.logs.push(
@@ -55,6 +62,7 @@ async function addRadiusEntry(params: RadiusConfigParams) {
     `=authentication-port=${params.authPort}`,
     `=accounting-port=${params.accountingPort}`,
     `=timeout=${RADIUS_TIMEOUT}`,
+    ...srcAddressArgs(params),
     `=comment=${RADIUS_COMMENT}`,
   ]);
   await delay(300);
@@ -63,6 +71,7 @@ async function addRadiusEntry(params: RadiusConfigParams) {
   );
 }
 
+/** Tambah atau perbarui entri /radius NetManager untuk server RADIUS yang diberikan. */
 export async function provisionRadiusConfig(params: RadiusConfigParams) {
   const existingRadius = await findExistingRadius(
     params.connection,

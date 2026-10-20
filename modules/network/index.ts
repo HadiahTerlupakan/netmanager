@@ -116,11 +116,14 @@ export * from "./services/VpnServerService";
 export {
   VpnCoreError,
   VpnDraftForbiddenError,
+  VpnDraftInvalidError,
+  VpnRouterActivationError,
   VpnServerInUseError,
   VpnServerNotAvailableError,
   VpnServerUnknownError,
 } from "./vpn";
 export {
+  isVpnError,
   vpnAdminGuard,
   vpnConfiguredGuard,
   vpnErrorResponse,

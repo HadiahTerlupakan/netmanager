@@ -8,6 +8,7 @@ import {
   RouterAccessDeniedError,
 } from "./MikroTikRouterService";
 import { getRouterReconfigureSettings } from "./radius-runtime.helpers";
+import { resolveRadiusRouting } from "./mikrotik-router.provisioning";
 
 const FORBIDDEN_ERROR = "FORBIDDEN:Akses ditolak";
 const NOT_FOUND_ERROR = "NOT_FOUND:No valid routers found among selection";
@@ -45,6 +46,34 @@ function getRouterCredentials(router: RouterCredentialsInput) {
     username: router.apiUsernameGenerated || router.apiUsername,
     password: router.apiPasswordGenerated || router.apiPassword,
   };
+}
+
+// Router publik dipanggil persis seperti sebelum mode VPN ada (port RADIUS
+// bawaan service); router VPN menambah alamat core dan src-address tunnel.
+function buildProvisionRadiusArgs(
+  router: RouterReconfigureRecord,
+  settings: RouterSettings,
+): Parameters<MikroTikProvisioningService["provisionRadius"]> {
+  const credentials = getRouterCredentials(router);
+  const connection = {
+    ip: router.ipAddress,
+    port: router.apiPort,
+    username: credentials.username,
+    password: credentials.password,
+  };
+  const { radiusServerIp, srcAddress } = resolveRadiusRouting(router);
+  if (!srcAddress) {
+    return [connection, null, settings.radiusSecret, settings.isolirUrl];
+  }
+  return [
+    connection,
+    radiusServerIp,
+    settings.radiusSecret,
+    settings.isolirUrl,
+    undefined,
+    undefined,
+    srcAddress,
+  ];
 }
 
 function buildRouterResult(
@@ -148,17 +177,8 @@ export class RouterReconfigureRouteService {
     settings: RouterSettings,
   ): Promise<RouterReconfigureResult> {
     try {
-      const credentials = getRouterCredentials(router);
       const result = await this.provisioningService.provisionRadius(
-        {
-          ip: router.ipAddress,
-          port: router.apiPort,
-          username: credentials.username,
-          password: credentials.password,
-        },
-        null,
-        settings.radiusSecret,
-        settings.isolirUrl,
+        ...buildProvisionRadiusArgs(router, settings),
       );
 
       return buildRouterResult(

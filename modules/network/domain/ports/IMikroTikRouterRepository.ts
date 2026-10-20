@@ -22,8 +22,11 @@ export interface IMikroTikRouterRepository {
   /** Get one router entity by id and tenant. */
   findById(id: string, tenantId: string): Promise<MikroTikRouterEntity | null>;
 
-  /** Create a new router entity. */
-  create(data: MikroTikRouterCreateData): Promise<{ id: string }>;
+  /** Create a new router entity; `vpnServerIds` are saved in priority order. */
+  create(
+    data: MikroTikRouterCreateData,
+    vpnServerIds?: string[],
+  ): Promise<{ id: string }>;
 
   /** Update an existing router entity. */
   update(

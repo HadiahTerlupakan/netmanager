@@ -1,12 +1,13 @@
 import type { IRouterAccessRepository } from "../domain/ports/IRouterAccessRepository";
 import type {
-  MikroTikRouterCreateData,
   MikroTikRouterUpdateData,
   PaginatedRouterResult,
 } from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
+import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
+import { VpnServerRepository } from "../repositories/VpnServerRepository";
 import { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import {
   getAuthorizedRouter,
@@ -16,6 +17,7 @@ import {
 } from "./mikrotik-router.access";
 import {
   createRouterMutation,
+  type CreateRouterRequestData,
   deleteRouterMutation,
   generateRouterApiUserMutation,
   updateRouterMutation,
@@ -57,6 +59,10 @@ export class MikroTikRouterService {
     private readonly routerRepository: IMikroTikRouterRepository = new MikroTikRouterRepository(),
     private readonly networkRepository: IRouterAccessRepository = new NetworkRepository(),
     private readonly provisioningService = new MikroTikProvisioningService(),
+    private readonly vpnServerRepository: Pick<
+      IVpnServerRepository,
+      "tenantServerIds"
+    > = new VpnServerRepository(),
   ) {}
 
   getRouterRepository() {
@@ -111,10 +117,7 @@ export class MikroTikRouterService {
 
   /** Buat router baru lalu provisioning otomatis bila diminta. */
   async createRouter(params: {
-    data: Omit<
-      MikroTikRouterCreateData,
-      "tenantId" | "secretRadius" | "authPort" | "accountingPort"
-    >;
+    data: CreateRouterRequestData;
     autoConfigure?: unknown;
     userId: string;
     tenantId: string;
@@ -125,6 +128,7 @@ export class MikroTikRouterService {
       routerRepository: this.routerRepository,
       networkRepository: this.networkRepository,
       provisioningService: this.provisioningService,
+      vpnServerRepository: this.vpnServerRepository,
     });
   }
 

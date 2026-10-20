@@ -4,6 +4,7 @@ import type {
   MikroTikRouterUpdateData,
 } from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
+import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
 import type { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import {
   logGeneratedApiUserActivity,
@@ -25,17 +26,25 @@ import {
   resolveCreateSiteId,
   resolveUpdateSiteId,
 } from "./mikrotik-router.payloads";
+import {
+  createVpnRouter,
+  type VpnRouterRequest,
+} from "./mikrotik-router.vpn-create";
+
+/** Data create router dari pengguna; field VPN hanya dipakai mode VPN. */
+export type CreateRouterRequestData = Omit<
+  MikroTikRouterCreateData,
+  "tenantId" | "secretRadius" | "authPort" | "accountingPort"
+> &
+  VpnRouterRequest;
 
 type CreateRouterInput = {
-  data: Omit<
-    MikroTikRouterCreateData,
-    "tenantId" | "secretRadius" | "authPort" | "accountingPort"
-  >;
+  data: CreateRouterRequestData;
   autoConfigure?: unknown;
   userId: string;
   tenantId: string;
   restrictedToOwnSite: boolean;
-  routerRepository: Pick<IMikroTikRouterRepository, "create">;
+  routerRepository: Pick<IMikroTikRouterRepository, "create" | "delete">;
   networkRepository: Pick<
     IRouterAccessRepository,
     "findSettingByKey" | "findUserSite" | "updateGeneratedApiUser"
@@ -44,6 +53,7 @@ type CreateRouterInput = {
     MikroTikProvisioningService,
     "provisionRadius" | "createApiUser"
   >;
+  vpnServerRepository: Pick<IVpnServerRepository, "tenantServerIds">;
 };
 
 type UpdateRouterInput = {
@@ -233,12 +243,32 @@ async function saveGeneratedApiCredentials(params: {
   );
 }
 
+function saveCreatedRouter(
+  params: CreateRouterInput,
+  createData: MikroTikRouterCreateData,
+  vpnRequest: VpnRouterRequest,
+): Promise<{ id: string }> {
+  if (createData.connectionMode !== "VPN") {
+    return params.routerRepository.create(createData);
+  }
+  return createVpnRouter({
+    createData,
+    request: vpnRequest,
+    routerRepository: params.routerRepository,
+    vpnServerRepository: params.vpnServerRepository,
+  });
+}
+
 /** Buat router baru lalu jalankan provisioning serta logging pasca-create. */
 export async function createRouterMutation(
   params: CreateRouterInput,
 ): Promise<{ id: string }> {
-  const createData = await resolveCreateRouterData(params);
-  const router = await params.routerRepository.create(createData);
+  const { vpnDraftId, vpnServerIds, ...data } = params.data;
+  const createData = await resolveCreateRouterData({ ...params, data });
+  const router = await saveCreatedRouter(params, createData, {
+    vpnDraftId,
+    vpnServerIds,
+  });
 
   await finalizeCreatedRouter({
     input: params,

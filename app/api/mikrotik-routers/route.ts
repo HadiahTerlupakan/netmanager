@@ -8,9 +8,12 @@ import {
   createHandler,
 } from "@/lib/api";
 import {
+  isVpnError,
   MikroTikRouterService,
   RouterAccessDeniedError,
   RouterIpConflictError,
+  vpnConfiguredGuard,
+  vpnErrorResponse,
 } from "@/modules/network";
 import { isSuperAdmin } from "@/lib/auth";
 import * as z from "zod";
@@ -56,6 +59,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
+  if (parsed.data.connectionMode === "VPN") {
+    const denied = vpnConfiguredGuard();
+    if (denied) return denied;
+  }
+
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
   const restrictedToOwnSite =
@@ -74,6 +82,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   } catch (error: unknown) {
     if (error instanceof RouterAccessDeniedError) {
       return ApiErrors.forbidden(error.message);
+    }
+
+    if (isVpnError(error)) {
+      return vpnErrorResponse(error);
     }
 
     if (error instanceof RouterIpConflictError) {
