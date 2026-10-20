@@ -221,6 +221,9 @@ describe("Tambah Router — mode VPN", () => {
     await flush(POLL_MS * 4);
     expect(callsTo(fetchPalsu, `POST ${TEST_URL}`)).toHaveLength(1);
     expect(callsTo(fetchPalsu, `GET ${STATUS_URL}`)).toHaveLength(statusCalls);
+    expect(
+      JSON.parse(String(callsTo(fetchPalsu, `POST ${TEST_URL}`)[0][1]?.body)),
+    ).toMatchObject({ ipAddress: DRAFT.address, vpnDraftId: DRAFT.draftId });
     expect(submitButton().disabled).toBe(false);
   });
 

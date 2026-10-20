@@ -6,6 +6,7 @@ import {
   type RouterInfo,
   type TestConnectionResult,
 } from "./mikrotik/router-api-test";
+import { assertTestAddressAllowed } from "./mikrotik-router.vpn-guards";
 
 const DEFAULT_API_PORT = 8728;
 const MIN_PORT = 1;
@@ -21,6 +22,8 @@ type ConnectionParams = {
 type TestRouterConnectionInput = {
   tenantId: string;
   routerId?: string;
+  /** Draft VPN milik form tambah router; syarat test ke alamat overlay. */
+  vpnDraftId?: string;
   ipAddress?: string;
   apiPort?: number | string;
   apiUsername?: string;
@@ -137,7 +140,11 @@ async function syncStoredRouterStatus(params: {
   });
 }
 
-/** Test koneksi API router dan sinkronkan status online/offline bila router tersimpan. */
+/**
+ * Test koneksi API router dan sinkronkan status online/offline bila router
+ * tersimpan. Alamat dari body (bukan router tersimpan) di overlay VPN hanya
+ * boleh alamat draft VPN tenant; selain itu `VpnRouterInvalidError`.
+ */
 export async function testRouterConnection(
   params: TestRouterConnectionInput,
 ): Promise<{
@@ -146,7 +153,15 @@ export async function testRouterConnection(
   resolvedRouterId: string | null;
 }> {
   const resolvedRouterId = params.routerId ?? null;
-  const connectionParams = await resolveConnectionParams(params);
+  const { connectionParams, isStoredRouter } =
+    await resolveConnectionParams(params);
+  if (!isStoredRouter) {
+    await assertTestAddressAllowed({
+      ipAddress: connectionParams.ipAddress,
+      tenantId: params.tenantId,
+      vpnDraftId: params.vpnDraftId,
+    });
+  }
   const apiResult = await buildConnectionResult(connectionParams);
 
   await syncStoredRouterStatus({
@@ -161,7 +176,7 @@ export async function testRouterConnection(
 
 async function resolveConnectionParams(
   params: TestRouterConnectionInput,
-): Promise<ConnectionParams> {
+): Promise<{ connectionParams: ConnectionParams; isStoredRouter: boolean }> {
   const connectionParams: ConnectionParams = {
     ipAddress: params.ipAddress,
     apiPort: params.apiPort,
@@ -169,8 +184,9 @@ async function resolveConnectionParams(
     apiPassword: params.apiPassword,
   };
 
+  const fromBody = { connectionParams, isStoredRouter: false };
   if (!params.routerId) {
-    return connectionParams;
+    return fromBody;
   }
 
   try {
@@ -180,13 +196,16 @@ async function resolveConnectionParams(
     );
 
     if (!router) {
-      return connectionParams;
+      return fromBody;
     }
 
-    return buildStoredConnectionParams(router);
+    return {
+      connectionParams: buildStoredConnectionParams(router),
+      isStoredRouter: true,
+    };
   } catch (error: unknown) {
     createFetchRouterLogError(error);
-    return connectionParams;
+    return fromBody;
   }
 }
 

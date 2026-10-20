@@ -189,6 +189,7 @@ export class MikroTikRouterService {
   async testConnection(params: {
     tenantId: string;
     routerId?: string;
+    vpnDraftId?: string;
     ipAddress?: string;
     apiPort?: number | string;
     apiUsername?: string;

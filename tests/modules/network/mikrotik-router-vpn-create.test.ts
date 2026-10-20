@@ -303,14 +303,27 @@ describe("createRouterMutation mode PUBLIC", () => {
     vi.stubEnv("RADIUS_SECRET", "");
   });
 
+  it.each(["10.99.0.7", "10.100.0.10"])(
+    "menolak alamat overlay VPN %s tanpa menulis",
+    async (ipAddress) => {
+      const t = setup();
+
+      await expect(
+        t.run({ ...baseData, ipAddress, apiPort: 8728 }),
+      ).rejects.toThrow("Alamat ini khusus jaringan VPN");
+      expect(t.client.mikroTikRouter.create).not.toHaveBeenCalled();
+    },
+  );
+
   it("payload repository dan provisioning sama seperti sebelum mode VPN", async () => {
     const t = setup();
     const createSpy = vi.spyOn(t.routerRepository, "create");
 
-    await t.run({ ...baseData, apiPort: 8728, isolirUrl: "http://isolir" });
+    const publicData = { ...baseData, ipAddress: "203.0.113.20" };
+    await t.run({ ...publicData, apiPort: 8728, isolirUrl: "http://isolir" });
 
     expect(createSpy).toHaveBeenCalledWith({
-      ...baseData,
+      ...publicData,
       apiPort: 8728,
       isolirUrl: "http://isolir",
       authPort: expect.any(Number),
@@ -347,7 +360,7 @@ describe("createRouterMutation mode PUBLIC", () => {
     );
     expect(t.provisioningService.provisionRadius.mock.calls[0]).toEqual([
       {
-        ip: TUNNEL_IP,
+        ip: publicData.ipAddress,
         port: 8728,
         username: baseData.apiUsername,
         password: baseData.apiPassword,

@@ -108,7 +108,7 @@ export function validateMikrotikConnectionInput(
 }
 
 export async function submitMikrotikConnectionTest(
-  formData: MikrotikFormConnectionData,
+  formData: MikrotikVpnFormFields,
   routerId?: string,
 ): Promise<MikrotikTestConnectionResult> {
   const requestBody: {
@@ -117,6 +117,7 @@ export async function submitMikrotikConnectionTest(
     apiUsername: string;
     apiPassword: string;
     routerId?: string;
+    vpnDraftId?: string;
   } = {
     ipAddress: formData.ipAddress,
     apiPort: formData.apiPort,
@@ -126,6 +127,10 @@ export async function submitMikrotikConnectionTest(
 
   if (routerId) {
     requestBody.routerId = routerId;
+  }
+  // Rute hanya mengizinkan test ke alamat overlay milik draft VPN tenant.
+  if (formData.vpnDraftId) {
+    requestBody.vpnDraftId = formData.vpnDraftId;
   }
 
   const res = await fetch("/api/mikrotik-routers/test-connection", {

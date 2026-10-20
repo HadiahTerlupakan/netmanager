@@ -30,6 +30,10 @@ import {
 } from "./mikrotik-router.payloads";
 import { deleteCoreRouterOrTombstone } from "./VpnCoreRouterCleanup";
 import {
+  assertPublicAddressAllowed,
+  guardRouterUpdate,
+} from "./mikrotik-router.vpn-guards";
+import {
   createVpnRouter,
   type VpnRouterRequest,
 } from "./mikrotik-router.vpn-create";
@@ -160,15 +164,6 @@ async function resolveUpdateRouterData(
   });
 }
 
-// Router VPN harus tetap RouterOS v7; versinya hanya diubah lewat form saat publik.
-function withoutVpnLockedFields(
-  router: { connectionMode: string },
-  data: MikroTikRouterUpdateData,
-): MikroTikRouterUpdateData {
-  if (router.connectionMode !== "VPN") return data;
-  return { ...data, rosVersion: undefined };
-}
-
 async function ensureRouterAccess(
   params: UpdateRouterInput,
 ): Promise<MikroTikRouterEntity> {
@@ -264,6 +259,7 @@ function saveCreatedRouter(
   vpnRequest: VpnRouterRequest,
 ): Promise<{ id: string }> {
   if (createData.connectionMode !== "VPN") {
+    assertPublicAddressAllowed(createData.ipAddress);
     return params.routerRepository.create(createData);
   }
   return createVpnRouter({
@@ -302,7 +298,7 @@ export async function updateRouterMutation(
   const router = await ensureRouterAccess(params);
   const updateData = await resolveUpdateRouterData({
     ...params,
-    data: withoutVpnLockedFields(router, params.data),
+    data: guardRouterUpdate(router, params.data),
   });
   await params.routerRepository.update(params.id, updateData, params.tenantId);
   logRouterUpdateActivity(params.userId, params.id, params.data);

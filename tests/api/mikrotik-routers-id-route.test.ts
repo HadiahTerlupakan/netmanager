@@ -84,15 +84,20 @@ vi.mock("@/lib/auth", () => ({
   isSuperAdmin: mockFns.isSuperAdmin,
 }));
 
-vi.mock("@/modules/network", () => ({
-  MikroTikRouterService: class MockMikroTikRouterService {
-    getRouterById = mockFns.getRouterById;
-    updateRouter = mockFns.updateRouter;
-    deleteRouter = mockFns.deleteRouter;
-  },
-  RouterAccessDeniedError: class RouterAccessDeniedError extends Error {},
-  RouterNotFoundError: class RouterNotFoundError extends Error {},
-}));
+vi.mock("@/modules/network", async () => {
+  const vpnHttp = await import("@/modules/network/vpn/vpnHttpErrors");
+  return {
+    MikroTikRouterService: class MockMikroTikRouterService {
+      getRouterById = mockFns.getRouterById;
+      updateRouter = mockFns.updateRouter;
+      deleteRouter = mockFns.deleteRouter;
+    },
+    RouterAccessDeniedError: class RouterAccessDeniedError extends Error {},
+    RouterNotFoundError: class RouterNotFoundError extends Error {},
+    isVpnError: vpnHttp.isVpnError,
+    vpnErrorResponse: vpnHttp.vpnErrorResponse,
+  };
+});
 
 describe("GET /api/mikrotik-routers/[id]", () => {
   let GET: (typeof import("@/app/api/mikrotik-routers/[id]/route"))["GET"];
@@ -242,6 +247,41 @@ describe("PATCH /api/mikrotik-routers/[id]", () => {
       tenantId: "tenant-1",
       restrictedToOwnSite: false, // ✅ SUPER_ADMIN bypass
     });
+  });
+});
+
+describe("PATCH /api/mikrotik-routers/[id] router VPN", () => {
+  it("menjawab 400 dengan pesan saat field terkunci router VPN diubah", async () => {
+    const { PATCH } = await import("@/app/api/mikrotik-routers/[id]/route");
+    const { VpnRouterInvalidError } =
+      await import("@/modules/network/vpn/errors");
+    mockFns.hasPermission.mockResolvedValue(false);
+    mockFns.isSuperAdmin.mockReturnValue(false);
+    mockFns.updateRouter.mockRejectedValue(
+      new VpnRouterInvalidError(
+        "Alamat dan kredensial router VPN dikelola otomatis",
+      ),
+    );
+    const request = new Request(
+      "http://localhost/api/mikrotik-routers/router-1",
+      {
+        method: "PATCH",
+        body: JSON.stringify({ ipAddress: "203.0.113.9" }),
+        headers: { "content-type": "application/json" },
+      },
+    );
+
+    const res = (await (
+      PATCH as unknown as (
+        req: Request,
+        ctx: { params: { id: string } },
+      ) => Promise<Response>
+    )(request, { params: { id: "router-1" } })) as Response;
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(
+      "Alamat dan kredensial router VPN dikelola otomatis",
+    );
   });
 });
 

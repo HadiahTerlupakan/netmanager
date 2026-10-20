@@ -8,9 +8,11 @@ import {
   createHandler,
 } from "@/lib/api";
 import {
+  isVpnError,
   MikroTikRouterService,
   RouterAccessDeniedError,
   RouterNotFoundError,
+  vpnErrorResponse,
 } from "@/modules/network";
 import { isSuperAdmin } from "@/lib/auth";
 import * as z from "zod";
@@ -78,6 +80,10 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 
     if (error instanceof RouterAccessDeniedError) {
       return ApiErrors.forbidden("Akses ditolak");
+    }
+
+    if (isVpnError(error)) {
+      return vpnErrorResponse(error);
     }
 
     return apiError(

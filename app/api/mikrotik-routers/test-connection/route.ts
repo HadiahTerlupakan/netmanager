@@ -6,7 +6,11 @@ import {
   createHandler,
 } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
-import { MikroTikRouterService } from "@/modules/network";
+import {
+  isVpnError,
+  MikroTikRouterService,
+  vpnErrorResponse,
+} from "@/modules/network";
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   if (!(await hasPermission("mikrotik:read"))) {
@@ -23,14 +27,22 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const routerService = new MikroTikRouterService();
-  const result = await routerService.testConnection({
-    tenantId: ctx.session!.user.tenantId,
-    routerId,
-    ipAddress: body.ipAddress,
-    apiPort: body.apiPort ?? 8728,
-    apiUsername: body.apiUsername,
-    apiPassword: body.apiPassword,
-  });
+  let result: Awaited<ReturnType<MikroTikRouterService["testConnection"]>>;
+  try {
+    result = await routerService.testConnection({
+      tenantId: ctx.session!.user.tenantId,
+      routerId,
+      vpnDraftId:
+        typeof body.vpnDraftId === "string" ? body.vpnDraftId : undefined,
+      ipAddress: body.ipAddress,
+      apiPort: body.apiPort ?? 8728,
+      apiUsername: body.apiUsername,
+      apiPassword: body.apiPassword,
+    });
+  } catch (error: unknown) {
+    if (isVpnError(error)) return vpnErrorResponse(error);
+    throw error;
+  }
 
   return apiSuccess({
     success: result.apiResult.success,

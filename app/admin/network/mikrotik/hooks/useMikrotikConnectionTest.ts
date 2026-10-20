@@ -3,13 +3,13 @@ import { useState } from "react";
 
 import {
   submitMikrotikConnectionTest,
-  type MikrotikFormConnectionData,
+  type MikrotikVpnFormFields,
   type MikrotikTestConnectionResult,
   validateMikrotikConnectionInput,
 } from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
 type UseMikrotikConnectionTestOptions = {
-  formData: MikrotikFormConnectionData;
+  formData: MikrotikVpnFormFields;
   routerId?: string;
   onSuccess?: (result: MikrotikTestConnectionResult) => Promise<void> | void;
 };
