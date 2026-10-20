@@ -3,31 +3,12 @@ import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { createLazyPrismaClient } from "./prisma-lazy-client";
 import { withTenantIsolation } from "./prisma-extension";
+import { ignoreModels } from "./prisma-ignore-models";
 import "dotenv/config";
 
 const globalForPrismaAuth = globalThis as unknown as {
   prismaAuth: PrismaClient | undefined;
 };
-const ignoreModels = [
-  "Account",
-  "Session",
-  "VerificationToken",
-  "Tenant",
-  "SystemLog",
-  "JournalLine",
-  "BankReconciliationLine",
-  "OvertimeAutoCheckoutSchedule",
-  "PlayStoreRelease",
-  "UploadSyncPending",
-  "LandingHero",
-  "LandingFeature",
-  "LandingPricing",
-  "LandingTestimonial",
-  "LandingFaq",
-  "LandingFooter",
-  "VpnCoreRouterTombstone",
-];
-
 let prismaClient: PrismaClient | undefined;
 
 const getRequiredConnectionString = () => {
