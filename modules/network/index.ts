@@ -112,3 +112,11 @@ export type {
 export { handleCustomerStatusEvent } from "./services/event-handlers/customer-status.handler";
 export { handlePackageChange } from "./services/event-handlers/package-change.handler";
 export { handleProfilePppUpdated } from "./services/event-handlers/profile-ppp-updated.handler";
+export * from "./services/VpnServerService";
+export {
+  VpnCoreError,
+  VpnServerInUseError,
+  VpnServerUnknownError,
+} from "./vpn";
+export { vpnAdminGuard, vpnErrorResponse } from "./vpn/vpnHttpErrors";
+export { createVpnServerService } from "./factories/VpnServerServiceFactory";

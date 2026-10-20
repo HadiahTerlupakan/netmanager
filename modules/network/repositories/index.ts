@@ -13,3 +13,4 @@ export * from "./RadiusRepository";
 export * from "./radiusRepository.constants";
 export * from "./radiusRepository.helpers";
 export * from "./radiusRepository.mappers";
+export * from "./VpnServerRepository";

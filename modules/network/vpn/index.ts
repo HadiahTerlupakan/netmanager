@@ -7,3 +7,8 @@ export {
   getVpnCoreClient,
   isVpnConfigured,
 } from "./VpnCoreClient";
+export {
+  VpnServerInUseError,
+  VpnServerUnknownError,
+  type VpnServerRouterUsage,
+} from "./errors";
