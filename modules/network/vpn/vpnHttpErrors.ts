@@ -7,7 +7,9 @@ import {
   VpnDraftInvalidError,
   VpnRouterActivationError,
   VpnRouterInvalidError,
+  VpnRouterBusyError,
   VpnRouterMigrationError,
+  VpnRouterRollbackError,
   VpnRouterUnreachableError,
   VpnServerInUseError,
   VpnServerNotAvailableError,
@@ -34,6 +36,8 @@ export function isVpnError(error: unknown): boolean {
     error instanceof VpnRouterInvalidError ||
     error instanceof VpnRouterUnreachableError ||
     error instanceof VpnRouterMigrationError ||
+    error instanceof VpnRouterRollbackError ||
+    error instanceof VpnRouterBusyError ||
     error instanceof VpnCoreError
   );
 }
@@ -55,13 +59,17 @@ export function vpnErrorResponse(error: unknown): NextResponse {
     return ApiErrors.badRequest(error.message);
   }
   if (error instanceof RouterNotFoundError) return ApiErrors.notFound("Router");
+  if (error instanceof VpnRouterBusyError) {
+    return ApiErrors.conflict(error.message);
+  }
   if (error instanceof VpnDraftForbiddenError) {
     return ApiErrors.forbidden(error.message);
   }
   if (
     error instanceof VpnRouterActivationError ||
     error instanceof VpnRouterUnreachableError ||
-    error instanceof VpnRouterMigrationError
+    error instanceof VpnRouterMigrationError ||
+    error instanceof VpnRouterRollbackError
   ) {
     return apiError(error.message, ErrorCodes.EXTERNAL_SERVICE_ERROR, {
       status: HTTP_BAD_GATEWAY,

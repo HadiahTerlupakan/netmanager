@@ -29,6 +29,8 @@ export interface VpnSwitchChange {
 /**
  * Penulisan database untuk pindah PUBLIC ⇄ VPN. Kolom router, daftar server,
  * dan nasname NAS berubah bersama; bila salah satu gagal tidak ada yang tersimpan.
+ * Kedua switch melempar `VpnRouterBusyError` bila mode router sudah diubah
+ * permintaan lain.
  */
 export interface IVpnRouterMigrationRepository {
   /** Router milik tenant, atau null. */

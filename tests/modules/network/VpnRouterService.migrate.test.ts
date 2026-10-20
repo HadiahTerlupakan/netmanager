@@ -16,7 +16,9 @@ vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
 }));
 
 import {
+  EXTRA_RADIUS_ENTRY_MESSAGE,
   OLD_RADIUS_ENTRY_WARNING,
+  STUCK_VPN_MESSAGE,
   VpnRouterMigrationService,
 } from "@/modules/network/services/VpnRouterMigrationService";
 import { VpnDraftService } from "@/modules/network/services/VpnDraftService";
@@ -25,7 +27,9 @@ import {
   VpnDraftInvalidError,
   VpnRouterActivationError,
   VpnRouterInvalidError,
+  VpnRouterBusyError,
   VpnRouterMigrationError,
+  VpnRouterRollbackError,
   VpnServerNotAvailableError,
 } from "@/modules/network/vpn";
 import type { VpnMigrationRouterRecord } from "@/modules/network/domain/ports/IVpnRouterMigrationRepository";
@@ -129,7 +133,13 @@ function makeService(router: VpnMigrationRouterRecord | null = publicRouter()) {
     }),
     addRadiusEntry: track("addRadiusEntry"),
     removeRadiusEntry: track("removeRadiusEntry"),
-    publicRadiusAddress: vi.fn().mockResolvedValue(NETMANAGER_PUBLIC_IP),
+    removeOtherRadiusEntries: vi.fn(async (...args: unknown[]) => {
+      calls.push(`removeOtherRadiusEntries ${JSON.stringify(args)}`);
+      return 1;
+    }),
+    publicRadiusAddress: vi
+      .fn()
+      .mockResolvedValue({ ip: NETMANAGER_PUBLIC_IP, source: "external" }),
   };
   const tombstones = { add: track("tombstone") };
   const drafts = { createExtendDraft: vi.fn() };
@@ -243,7 +253,7 @@ describe("VpnRouterMigrationService.migrate", () => {
         },
       ])}`,
       `claim ${JSON.stringify(["core-1", "router-1"])}`,
-      `removeRadiusEntry ${JSON.stringify([tunnelConn, NETMANAGER_PUBLIC_IP])}`,
+      `removeOtherRadiusEntries ${JSON.stringify([tunnelConn, CORE_ADDRESS])}`,
     ]);
   });
 
@@ -291,15 +301,67 @@ describe("VpnRouterMigrationService.migrate", () => {
     ]);
   });
 
-  it("keeps the migration and warns when the old public entry cannot be removed", async () => {
+  it.each([
+    [
+      "the old entries cannot be removed",
+      () => Promise.reject(new Error("trap")),
+    ],
+    ["no old entry is found", () => Promise.resolve(0)],
+  ])("keeps the migration and warns when %s", async (_label, outcome) => {
     const { service, routerOs, repo } = makeService();
-    routerOs.removeRadiusEntry.mockRejectedValue(new Error("trap"));
+    routerOs.removeOtherRadiusEntries.mockImplementation(outcome);
 
     const result = await service.migrate("router-1", TENANT, migrateInput);
 
     expect(result).toEqual({ warning: OLD_RADIUS_ENTRY_WARNING });
     expect(repo.switchToPublic).not.toHaveBeenCalled();
     expect(coreMock.claimRouter).toHaveBeenCalled();
+  });
+
+  it("leaves the router alone when another request already moved it", async () => {
+    const { service, repo } = makeService();
+    repo.switchToVpn.mockRejectedValue(new VpnRouterBusyError());
+
+    await expect(
+      service.migrate("router-1", TENANT, migrateInput),
+    ).rejects.toBeInstanceOf(VpnRouterBusyError);
+    expect(calls).toEqual([
+      `addRadiusEntry ${JSON.stringify([tunnelConn, CORE_ADDRESS, TUNNEL_IP, radiusConfig])}`,
+    ]);
+    expect(coreMock.claimRouter).not.toHaveBeenCalled();
+  });
+
+  it("reports a rollback failure when the added entry cannot be removed", async () => {
+    const { service, repo, routerOs } = makeService();
+    repo.switchToVpn.mockRejectedValue(new Error("db down"));
+    routerOs.removeRadiusEntry.mockRejectedValue(new Error("trap"));
+
+    await expect(
+      service.migrate("router-1", TENANT, migrateInput),
+    ).rejects.toThrow(new VpnRouterRollbackError(EXTRA_RADIUS_ENTRY_MESSAGE));
+  });
+
+  it("keeps the tunnel entry and the draft when the DB cannot be reverted after a failed claim", async () => {
+    const { service, repo, routerOs, tombstones } = makeService();
+    coreMock.claimRouter.mockRejectedValue(new VpnCoreError(504, "timeout"));
+    repo.switchToPublic.mockRejectedValue(new Error("db down"));
+
+    await expect(
+      service.migrate("router-1", TENANT, migrateInput),
+    ).rejects.toThrow(new VpnRouterRollbackError(STUCK_VPN_MESSAGE));
+    expect(routerOs.removeRadiusEntry).not.toHaveBeenCalled();
+    expect(tombstones.add).not.toHaveBeenCalled();
+  });
+
+  it("still tombstones the draft when the tunnel entry cannot be removed after a failed claim", async () => {
+    const { service, routerOs, tombstones } = makeService();
+    coreMock.claimRouter.mockRejectedValue(new VpnCoreError(504, "timeout"));
+    routerOs.removeRadiusEntry.mockRejectedValue(new Error("trap"));
+
+    await expect(
+      service.migrate("router-1", TENANT, migrateInput),
+    ).rejects.toThrow(new VpnRouterRollbackError(EXTRA_RADIUS_ENTRY_MESSAGE));
+    expect(tombstones.add).toHaveBeenCalledWith("core-1");
   });
 
   it.each([
@@ -397,7 +459,7 @@ describe("VpnRouterMigrationService.revert", () => {
     expect(calls).toEqual([
       `addRadiusEntry ${JSON.stringify([tunnelConn, NETMANAGER_PUBLIC_IP, null, radiusConfig])}`,
       `switchToPublic ${JSON.stringify([vpnRouter()])}`,
-      `removeRadiusEntry ${JSON.stringify([tunnelConn, CORE_ADDRESS])}`,
+      `removeOtherRadiusEntries ${JSON.stringify([tunnelConn, NETMANAGER_PUBLIC_IP])}`,
       `deleteCore ${JSON.stringify(["core-1"])}`,
     ]);
   });
@@ -427,7 +489,7 @@ describe("VpnRouterMigrationService.revert", () => {
 
   it("keeps the revert and warns when the tunnel entry cannot be removed", async () => {
     const { service, routerOs } = makeService(vpnRouter());
-    routerOs.removeRadiusEntry.mockRejectedValue(new Error("trap"));
+    routerOs.removeOtherRadiusEntries.mockRejectedValue(new Error("trap"));
 
     const result = await service.revert("router-1", TENANT);
 
@@ -441,6 +503,34 @@ describe("VpnRouterMigrationService.revert", () => {
 
     await expect(service.revert("router-1", TENANT)).resolves.toEqual({});
     expect(tombstones.add).toHaveBeenCalledWith("core-1");
+  });
+
+  it("refuses with 502 when the public RADIUS address is only a local guess", async () => {
+    const { service, routerOs } = makeService(vpnRouter());
+    routerOs.publicRadiusAddress.mockResolvedValue({
+      ip: "192.168.1.10",
+      source: "local",
+    });
+
+    await expect(service.revert("router-1", TENANT)).rejects.toThrow(
+      new VpnRouterMigrationError(
+        "Alamat RADIUS publik tidak dapat dipastikan",
+      ),
+    );
+    expect(calls).toEqual([]);
+  });
+
+  it("leaves the router alone when another request already reverted it", async () => {
+    const { service, repo } = makeService(vpnRouter());
+    repo.switchToPublic.mockRejectedValue(new VpnRouterBusyError());
+
+    await expect(service.revert("router-1", TENANT)).rejects.toBeInstanceOf(
+      VpnRouterBusyError,
+    );
+    expect(calls).toEqual([
+      `addRadiusEntry ${JSON.stringify([tunnelConn, NETMANAGER_PUBLIC_IP, null, radiusConfig])}`,
+    ]);
+    expect(coreMock.deleteRouter).not.toHaveBeenCalled();
   });
 
   it("refuses a router whose public IP is unknown", async () => {

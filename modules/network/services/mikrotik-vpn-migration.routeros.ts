@@ -3,8 +3,14 @@ import {
   runProvisioningConnection,
   type MikroTikProvisioningRouterDetails,
 } from "./mikrotik-provisioning.connection";
-import { detectPublicIp } from "./mikrotik-provisioning.ip-detection";
-import { removeRadiusConfig } from "./mikrotik-provisioning.radius";
+import {
+  detectPublicIpWithSource,
+  type PublicIpSource,
+} from "./mikrotik-provisioning.ip-detection";
+import {
+  removeOtherRadiusConfigs,
+  removeRadiusConfig,
+} from "./mikrotik-provisioning.radius";
 import {
   testMikroTikAPI,
   type TestConnectionResult,
@@ -39,8 +45,16 @@ export interface VpnMigrationRouterOs {
     conn: MikroTikProvisioningRouterDetails,
     serverIp: string,
   ): Promise<void>;
-  /** Alamat RADIUS publik netmanager, tujuan entri /radius router publik. */
-  publicRadiusAddress(): Promise<string>;
+  /**
+   * Hapus setiap entri /radius netmanager selain `keepServerIp`; jumlah yang
+   * dihapus. Entri lama dicari menurut komentarnya, bukan alamat tebakan.
+   */
+  removeOtherRadiusEntries(
+    conn: MikroTikProvisioningRouterDetails,
+    keepServerIp: string,
+  ): Promise<number>;
+  /** Alamat RADIUS publik netmanager beserta asalnya. */
+  publicRadiusAddress(): Promise<{ ip: string; source: PublicIpSource }>;
 }
 
 /** Implementasi `VpnMigrationRouterOs` lewat API RouterOS. */
@@ -70,5 +84,11 @@ export const vpnMigrationRouterOs: VpnMigrationRouterOs = {
       operation: (connection) =>
         removeRadiusConfig({ connection, serverIp, logs: [] }),
     }),
-  publicRadiusAddress: detectPublicIp,
+  removeOtherRadiusEntries: (conn, keepServerIp) =>
+    runProvisioningConnection({
+      routerDetails: conn,
+      operation: (connection) =>
+        removeOtherRadiusConfigs({ connection, keepServerIp }),
+    }),
+  publicRadiusAddress: detectPublicIpWithSource,
 };

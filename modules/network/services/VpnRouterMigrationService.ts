@@ -8,13 +8,15 @@ import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository"
 import {
   VpnDraftInvalidError,
   VpnRouterActivationError,
+  VpnRouterBusyError,
   VpnRouterMigrationError,
+  VpnRouterRollbackError,
 } from "../vpn/errors";
 import { getVpnCoreAddress, getVpnCoreClient } from "../vpn/VpnCoreClient";
+import type { CoreRouter } from "../vpn/types";
 import type { MikroTikProvisioningRouterDetails } from "./mikrotik-provisioning.connection";
 import {
   vpnMigrationRouterOs,
-  type RadiusEntryConfig,
   type VpnMigrationRouterOs,
 } from "./mikrotik-vpn-migration.routeros";
 import {
@@ -36,29 +38,29 @@ import {
   requireRevertableRouter,
   routerApiConnection,
 } from "./vpn-migration.preconditions";
+import {
+  VpnMigrationRadiusSteps,
+  type VpnMigrationResult,
+} from "./vpn-migration.radius-steps";
 
-/** Peringatan bila migrasi selesai tetapi entri /radius lama masih di router. */
-export const OLD_RADIUS_ENTRY_WARNING =
-  "Entri RADIUS lama belum terhapus dari router";
+export {
+  OLD_RADIUS_ENTRY_WARNING,
+  type VpnMigrationResult,
+} from "./vpn-migration.radius-steps";
 
-/** Hasil pindah mode; `warning` diisi bila langkah pembersihan terakhir gagal. */
-export interface VpnMigrationResult {
-  warning?: string;
-}
+/** Pembatalan klaim gagal: database masih VPN dengan draft yang belum di-claim. */
+export const STUCK_VPN_MESSAGE =
+  "Router tetap mode VPN, aktivasi belum selesai; hubungi admin";
+/** Pembatalan gagal menghapus entri /radius yang baru dipasang. */
+export const EXTRA_RADIUS_ENTRY_MESSAGE =
+  "Entri RADIUS tambahan belum terhapus dari router; hubungi admin";
+const UNCERTAIN_PUBLIC_ADDRESS_MESSAGE =
+  "Alamat RADIUS publik tidak dapat dipastikan";
 
 /** Permintaan pindah ke VPN: draft yang tunnelnya sudah hidup dan urutan servernya. */
 export interface VpnMigrateInput {
   draftId: string;
   serverIds: string[];
-}
-
-function radiusConfigOf(router: VpnMigrationRouterRecord): RadiusEntryConfig {
-  return {
-    secretRadius: router.secretRadius,
-    authPort: router.authPort,
-    accountingPort: router.accountingPort,
-    isolirUrl: router.isolirUrl,
-  };
 }
 
 /**
@@ -68,6 +70,8 @@ function radiusConfigOf(router: VpnMigrationRouterRecord): RadiusEntryConfig {
  * langkah sebelumnya. Semua perintah RouterOS lewat alamat tunnel.
  */
 export class VpnRouterMigrationService {
+  private readonly radius: VpnMigrationRadiusSteps;
+
   constructor(
     private readonly repo: IVpnRouterMigrationRepository,
     private readonly servers: Pick<IVpnServerRepository, "tenantServers">,
@@ -75,7 +79,9 @@ export class VpnRouterMigrationService {
     private readonly tombstones: Pick<IVpnCoreRouterTombstoneRepository, "add">,
     private readonly routerOs: VpnMigrationRouterOs = vpnMigrationRouterOs,
     private readonly now: () => number = Date.now,
-  ) {}
+  ) {
+    this.radius = new VpnMigrationRadiusSteps(routerOs);
+  }
 
   /** Draft dan skrip tempel untuk router publik v7; user API lama dipakai ulang. */
   async enable(
@@ -130,7 +136,7 @@ export class VpnRouterMigrationService {
     await assertTunnelApi(this.routerOs, tunnel);
 
     const coreAddress = getVpnCoreAddress();
-    await this.addEntry(tunnel, coreAddress, draft.address, router);
+    await this.radius.add(tunnel, coreAddress, draft.address, router);
     try {
       await this.repo.switchToVpn(router, {
         tunnelAddress: draft.address,
@@ -138,26 +144,17 @@ export class VpnRouterMigrationService {
         serverIds: input.serverIds,
       });
     } catch (error) {
-      logger.error(
-        `[VPN] Router ${router.id} gagal disimpan sebagai VPN:`,
-        error,
-      );
-      await this.removeEntryQuietly(tunnel, coreAddress);
+      await this.undoAfterFailedSwitch(error, router, tunnel, coreAddress);
       throw new VpnRouterMigrationError("Gagal menyimpan mode VPN router");
     }
     try {
       await getVpnCoreClient().claimRouter(draft.id, router.id);
     } catch (error) {
       logger.error(`[VPN] Claim draft ${draft.id} gagal:`, error);
-      await this.undoSwitchToVpn(router, draft.address);
-      await this.removeEntryQuietly(tunnel, coreAddress);
-      // Claim yang timeout bisa saja sudah berhasil di core.
-      await tombstoneCoreRouter(draft.id, this.tombstones);
+      await this.undoAfterFailedClaim(router, draft, tunnel, coreAddress);
       throw new VpnRouterActivationError();
     }
-    return this.removeOldEntry(tunnel, () =>
-      this.routerOs.publicRadiusAddress(),
-    );
+    return this.radius.removeOthers(tunnel, coreAddress);
   }
 
   /**
@@ -172,77 +169,75 @@ export class VpnRouterMigrationService {
       await this.repo.findRouter(routerId, tenantId),
     );
     const tunnel = routerApiConnection(router, router.ipAddress);
-    const publicAddress = await this.routerOs.publicRadiusAddress();
-    await this.addEntry(tunnel, publicAddress, null, router);
+    const publicAddress = await this.certainPublicRadiusAddress();
+    await this.radius.add(tunnel, publicAddress, null, router);
     try {
       await this.repo.switchToPublic(router);
     } catch (error) {
-      logger.error(
-        `[VPN] Router ${router.id} gagal disimpan sebagai publik:`,
-        error,
-      );
-      await this.removeEntryQuietly(tunnel, publicAddress);
+      await this.undoAfterFailedSwitch(error, router, tunnel, publicAddress);
       throw new VpnRouterMigrationError("Gagal menyimpan mode publik router");
     }
-    const result = await this.removeOldEntry(tunnel, async () =>
-      getVpnCoreAddress(),
-    );
+    const result = await this.radius.removeOthers(tunnel, publicAddress);
     await deleteCoreRouterOrTombstone(router.vpnCoreRouterId, this.tombstones);
     return result;
   }
 
-  private async addEntry(
-    conn: MikroTikProvisioningRouterDetails,
-    serverIp: string,
-    srcAddress: string | null,
+  // Tebakan dari interface lokal bisa bukan alamat yang dilihat router; entri
+  // /radius ke alamat itu akan memutus semua login PPPoE.
+  private async certainPublicRadiusAddress(): Promise<string> {
+    const { ip, source } = await this.routerOs.publicRadiusAddress();
+    if (source === "local") {
+      throw new VpnRouterMigrationError(UNCERTAIN_PUBLIC_ADDRESS_MESSAGE);
+    }
+    return ip;
+  }
+
+  /**
+   * Setelah simpan database gagal: hapus entri yang baru dipasang. Bila permintaan
+   * lain sudah memindah router, entri itu kini miliknya, jadi tidak disentuh.
+   */
+  private async undoAfterFailedSwitch(
+    error: unknown,
     router: VpnMigrationRouterRecord,
+    tunnel: MikroTikProvisioningRouterDetails,
+    addedServerIp: string,
   ): Promise<void> {
-    try {
-      await this.routerOs.addRadiusEntry(
-        conn,
-        serverIp,
-        srcAddress,
-        radiusConfigOf(router),
-      );
-    } catch (error) {
+    if (error instanceof VpnRouterBusyError) throw error;
+    logger.error(`[VPN] Router ${router.id} gagal pindah mode:`, error);
+    if (!(await this.radius.undoAdd(tunnel, addedServerIp))) {
+      throw new VpnRouterRollbackError(EXTRA_RADIUS_ENTRY_MESSAGE);
+    }
+  }
+
+  /**
+   * Setelah claim gagal: kembalikan database, hapus entri tunnel, dan jadwalkan
+   * penghapusan draft. Bila database tidak bisa dikembalikan, router memang
+   * masih VPN, jadi entri tunnel dan draft-nya dibiarkan.
+   */
+  private async undoAfterFailedClaim(
+    router: VpnMigrationRouterRecord,
+    draft: CoreRouter,
+    tunnel: MikroTikProvisioningRouterDetails,
+    coreAddress: string,
+  ): Promise<void> {
+    if (!(await this.undoSwitchToVpn(router, draft.address))) {
       logger.error(
-        `[VPN] Gagal memasang RADIUS ${serverIp} di router ${router.id}:`,
-        error,
+        `[VPN] Router ${router.id} tertinggal mode VPN dengan router core ${draft.id} belum di-claim`,
       );
-      throw new VpnRouterMigrationError("Gagal memasang RADIUS lewat tunnel");
+      throw new VpnRouterRollbackError(STUCK_VPN_MESSAGE);
     }
-  }
-
-  private async removeEntryQuietly(
-    conn: MikroTikProvisioningRouterDetails,
-    serverIp: string,
-  ): Promise<void> {
-    try {
-      await this.routerOs.removeRadiusEntry(conn, serverIp);
-    } catch (error) {
-      logger.error(`[VPN] Gagal membatalkan entri RADIUS ${serverIp}:`, error);
-    }
-  }
-
-  // Router sudah berjalan di mode baru; entri lama yang tertinggal hanya
-  // dilaporkan, tidak membatalkan perpindahan.
-  private async removeOldEntry(
-    conn: MikroTikProvisioningRouterDetails,
-    resolveServerIp: () => Promise<string>,
-  ): Promise<VpnMigrationResult> {
-    try {
-      await this.routerOs.removeRadiusEntry(conn, await resolveServerIp());
-      return {};
-    } catch (error) {
-      logger.warn("[VPN] Entri RADIUS lama belum terhapus:", error);
-      return { warning: OLD_RADIUS_ENTRY_WARNING };
+    const isEntryRemoved = await this.radius.undoAdd(tunnel, coreAddress);
+    // Claim yang timeout bisa saja sudah berhasil di core.
+    await tombstoneCoreRouter(draft.id, this.tombstones);
+    if (!isEntryRemoved) {
+      throw new VpnRouterRollbackError(EXTRA_RADIUS_ENTRY_MESSAGE);
     }
   }
 
   private async undoSwitchToVpn(
     router: VpnMigrationRouterRecord,
     tunnelAddress: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     try {
       await this.repo.switchToPublic({
         ...router,
@@ -250,11 +245,13 @@ export class VpnRouterMigrationService {
         ipAddress: tunnelAddress,
         publicIpAddress: router.ipAddress,
       });
+      return true;
     } catch (error) {
       logger.error(
         `[VPN] Gagal mengembalikan router ${router.id} ke publik:`,
         error,
       );
+      return false;
     }
   }
 }

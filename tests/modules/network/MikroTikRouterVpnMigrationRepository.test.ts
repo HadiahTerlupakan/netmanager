@@ -16,6 +16,7 @@ vi.mock("@/modules/network/repositories/RadiusRepository", () => ({
 
 import { MikroTikRouterVpnMigrationRepository } from "@/modules/network/repositories/MikroTikRouterVpnMigrationRepository";
 import type { VpnMigrationRouterRecord } from "@/modules/network/domain/ports/IVpnRouterMigrationRepository";
+import { VpnRouterBusyError } from "@/modules/network/vpn";
 
 const router: VpnMigrationRouterRecord = {
   id: "router-1",
@@ -37,7 +38,7 @@ const router: VpnMigrationRouterRecord = {
   isolirUrl: null,
 };
 
-function makeRepo(updatedCount = 1) {
+function makeRepo(updatedCount = 1, commitError?: Error) {
   const tx = {
     mikroTikRouter: {
       updateMany: vi.fn().mockResolvedValue({ count: updatedCount }),
@@ -48,9 +49,10 @@ function makeRepo(updatedCount = 1) {
     },
   };
   const client = {
-    $transaction: vi.fn(async (run: (t: typeof tx) => Promise<void>) =>
-      run(tx),
-    ),
+    $transaction: vi.fn(async (run: (t: typeof tx) => Promise<void>) => {
+      await run(tx);
+      if (commitError) throw commitError;
+    }),
   };
   return {
     tx,
@@ -119,7 +121,7 @@ describe("MikroTikRouterVpnMigrationRepository", () => {
         coreRouterId: "core-1",
         serverIds: ["a"],
       }),
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(VpnRouterBusyError);
     expect(tx.mikroTikRouterVpnServer.createMany).not.toHaveBeenCalled();
     expect(nas.updateNas).not.toHaveBeenCalled();
   });
@@ -156,5 +158,42 @@ describe("MikroTikRouterVpnMigrationRepository", () => {
       expect.objectContaining({ nasname: "198.51.100.7" }),
       "t1",
     );
+  });
+
+  it("moves the nasname back when the commit fails after the NAS moved", async () => {
+    const { repo } = makeRepo(1, new Error("commit failed"));
+
+    await expect(
+      repo.switchToVpn(router, {
+        tunnelAddress: "10.100.0.10",
+        coreRouterId: "core-1",
+        serverIds: ["a"],
+      }),
+    ).rejects.toThrow("commit failed");
+    expect(nas.getNasByIp.mock.calls).toEqual([
+      ["198.51.100.7", "t1"],
+      ["10.100.0.10", "t1"],
+    ]);
+    expect(nas.updateNas.mock.calls.map((c) => c[1].nasname)).toEqual([
+      "10.100.0.10",
+      "198.51.100.7",
+    ]);
+  });
+
+  it("moves the nasname back to the tunnel when a revert commit fails", async () => {
+    const { repo } = makeRepo(1, new Error("commit failed"));
+
+    await expect(
+      repo.switchToPublic({
+        ...router,
+        connectionMode: "VPN",
+        ipAddress: "10.100.0.10",
+        publicIpAddress: "198.51.100.7",
+      }),
+    ).rejects.toThrow("commit failed");
+    expect(nas.updateNas.mock.calls.map((c) => c[1].nasname)).toEqual([
+      "198.51.100.7",
+      "10.100.0.10",
+    ]);
   });
 });

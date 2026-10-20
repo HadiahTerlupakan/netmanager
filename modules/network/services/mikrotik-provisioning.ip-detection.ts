@@ -29,27 +29,38 @@ function cacheDetectedPublicIp(detectedIp: string, url: string) {
   return detectedIp;
 }
 
-export async function detectPublicIp(): Promise<string> {
+/** Asal alamat dari `detectPublicIpWithSource`; `local` berarti tebakan dari interface server. */
+export type PublicIpSource = "env" | "cache" | "external" | "local";
+
+/** Alamat publik server beserta asalnya, agar pemanggil bisa menolak tebakan lokal. */
+export async function detectPublicIpWithSource(): Promise<{
+  ip: string;
+  source: PublicIpSource;
+}> {
   if (process.env.RADIUS_PUBLIC_IP) {
-    return process.env.RADIUS_PUBLIC_IP;
+    return { ip: process.env.RADIUS_PUBLIC_IP, source: "env" };
   }
 
   const cachedIp = getCachedPublicIp();
   if (cachedIp) {
-    return cachedIp;
+    return { ip: cachedIp, source: "cache" };
   }
 
   for (const url of PUBLIC_IP_SERVICES) {
     const detectedIp = await fetchPublicIp(url);
     if (detectedIp) {
-      return cacheDetectedPublicIp(detectedIp, url);
+      return { ip: cacheDetectedPublicIp(detectedIp, url), source: "external" };
     }
   }
 
   logger.warn(
     "[Provisioning] Cannot detect public IP, falling back to local IP",
   );
-  return detectLocalIp();
+  return { ip: detectLocalIp(), source: "local" };
+}
+
+export async function detectPublicIp(): Promise<string> {
+  return (await detectPublicIpWithSource()).ip;
 }
 
 async function fetchPublicIp(url: string): Promise<string | null> {

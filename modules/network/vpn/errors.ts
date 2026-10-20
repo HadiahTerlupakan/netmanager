@@ -76,3 +76,19 @@ export class VpnRouterMigrationError extends Error {
     this.name = "VpnRouterMigrationError";
   }
 }
+
+/** Router sedang dipindahkan PUBLIC ⇄ VPN oleh permintaan lain. */
+export class VpnRouterBusyError extends Error {
+  constructor() {
+    super("Router sedang dipindahkan oleh proses lain");
+    this.name = "VpnRouterBusyError";
+  }
+}
+
+/** Pembatalan langkah pindah mode gagal; router perlu ditangani admin. */
+export class VpnRouterRollbackError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "VpnRouterRollbackError";
+  }
+}

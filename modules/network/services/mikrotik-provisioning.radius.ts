@@ -117,6 +117,25 @@ export async function removeRadiusConfig(params: {
   }
 }
 
+/**
+ * Hapus setiap entri /radius netmanager yang alamatnya bukan `keepServerIp`.
+ * Mengembalikan jumlah entri yang dihapus.
+ */
+export async function removeOtherRadiusConfigs(params: {
+  connection: RouterOSAPI;
+  keepServerIp: string;
+}): Promise<number> {
+  const entries = (await params.connection.write("/radius/print", [
+    `?comment=${RADIUS_COMMENT}`,
+  ])) as (RouterRecord & { address?: string })[];
+  const others = entries.filter((e) => e.address !== params.keepServerIp);
+  for (const radius of others) {
+    await params.connection.write("/radius/remove", [`=.id=${radius[".id"]}`]);
+    await delay(200);
+  }
+  return others.length;
+}
+
 export async function disableRadiusIncoming(params: {
   connection: RouterOSAPI;
   logs: string[];

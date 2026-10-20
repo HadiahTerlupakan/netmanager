@@ -54,8 +54,10 @@ import * as tunnelTestRoute from "@/app/api/mikrotik-routers/[id]/vpn/tunnel-tes
 import * as migrateRoute from "@/app/api/mikrotik-routers/[id]/vpn/migrate/route";
 import * as revertRoute from "@/app/api/mikrotik-routers/[id]/vpn/revert/route";
 import {
+  VpnRouterBusyError,
   VpnRouterInvalidError,
   VpnRouterMigrationError,
+  VpnRouterRollbackError,
 } from "@/modules/network/vpn";
 
 const params = { params: { id: "router-1" } } as never;
@@ -168,6 +170,29 @@ describe("/api/mikrotik-routers/[id]/vpn migration routes", () => {
   it("answers 502 when a migration step fails", async () => {
     mocks.migrate.mockRejectedValue(
       new VpnRouterMigrationError("Gagal memasang RADIUS lewat tunnel"),
+    );
+
+    expect((await migrateRoute.POST(req(migrateBody), params)).status).toBe(
+      502,
+    );
+  });
+
+  it("answers 409 when another request is moving the router", async () => {
+    mocks.revert.mockRejectedValue(new VpnRouterBusyError());
+
+    const res = await revertRoute.POST(req(), params);
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "Router sedang dipindahkan oleh proses lain",
+    );
+  });
+
+  it("answers 502 when a rollback could not finish", async () => {
+    mocks.migrate.mockRejectedValue(
+      new VpnRouterRollbackError(
+        "Router tetap mode VPN, aktivasi belum selesai; hubungi admin",
+      ),
     );
 
     expect((await migrateRoute.POST(req(migrateBody), params)).status).toBe(
