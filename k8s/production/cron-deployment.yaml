@@ -32,6 +32,11 @@ spec:
                 secretKeyRef:
                   name: netmanager-secrets
                   key: CRON_SECRET
+            - name: VPN_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: netmanager-secrets
+                  key: VPN_API_TOKEN
             - name: TZ
               value: "Asia/Jakarta"
           resources:
