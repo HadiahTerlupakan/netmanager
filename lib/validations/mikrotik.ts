@@ -1,8 +1,6 @@
 import * as z from 'zod'
+import { VPN_API_PORT } from '@/modules/network/vpn/constants'
 import { vpnIdSchema } from './vpn'
-
-// Script VPN membuka API RouterOS pada port bawaan ini, jadi mode VPN tidak bisa memakai port lain.
-const VPN_API_PORT = 8728
 
 const mikrotikRouterCreateBaseSchema = z.object({
   name: z.string().trim().min(1, 'Nama Router wajib diisi'),

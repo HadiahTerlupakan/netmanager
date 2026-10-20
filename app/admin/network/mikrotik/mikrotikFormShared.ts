@@ -1,4 +1,5 @@
 import { clientLogger } from "@/lib/client-logger";
+import { VPN_API_PORT } from "@/modules/network/vpn/constants";
 export type PppConnectionMode = "RADIUS" | "MIKROTIK_API";
 
 export type RadiusDefaults = {
@@ -159,8 +160,7 @@ export type RouterOsVersion = "V6" | "V7";
 /** Cara aplikasi menjangkau router: IP publik atau tunnel VPN. */
 export type RouterConnectionMode = "PUBLIC" | "VPN";
 
-/** Port API RouterOS yang dibuka script VPN; mode VPN tidak bisa memakai port lain. */
-export const VPN_API_PORT = 8728;
+export { VPN_API_PORT };
 
 /** Versi mayor RouterOS minimum: script VPN memakai WireGuard (RouterOS v7). */
 const MIN_VPN_ROUTEROS_MAJOR = 7;

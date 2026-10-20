@@ -12,6 +12,7 @@ import {
   resolveFailedRouterStatus,
   type CoreLookupBreaker,
 } from "./mikrotik-ping-check.vpn";
+import { routerApiCredentials } from "./router-api-credentials";
 
 const DEFAULT_MIKROTIK_TIMEOUT_MS = 5000;
 
@@ -138,11 +139,12 @@ async function checkAndPersistRouter(
   breaker: CoreLookupBreaker,
 ) {
   try {
+    const { username, password } = routerApiCredentials(router);
     const apiResult = await testMikroTikAPI(
       router.ipAddress,
       router.apiPort,
-      router.apiUsernameGenerated || router.apiUsername,
-      router.apiPasswordGenerated || router.apiPassword,
+      username,
+      password,
     );
 
     await updateRouterHealth(
@@ -234,18 +236,6 @@ function createRadiusConnectionError(id: string, error: unknown) {
   );
 }
 
-function getRouterApiCredentials(router: {
-  apiUsername: string;
-  apiPassword: string;
-  apiUsernameGenerated: string | null;
-  apiPasswordGenerated: string | null;
-}) {
-  return {
-    username: router.apiUsernameGenerated || router.apiUsername,
-    password: router.apiPasswordGenerated || router.apiPassword,
-  };
-}
-
 async function getRouterStatusCheckResult(
   router: Awaited<ReturnType<typeof getRouterForStatusCheck>> extends {
     router: infer T;
@@ -253,7 +243,7 @@ async function getRouterStatusCheckResult(
     ? T
     : never,
 ) {
-  const credentials = getRouterApiCredentials(router);
+  const credentials = routerApiCredentials(router);
   return testMikroTikAPI(
     router.ipAddress,
     router.apiPort,

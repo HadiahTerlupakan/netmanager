@@ -7,6 +7,10 @@ import {
   type TestConnectionResult,
 } from "./mikrotik/router-api-test";
 import { resolveTestAddress } from "./mikrotik-router.vpn-guards";
+import {
+  routerApiCredentials,
+  type StoredRouterApiCredentials,
+} from "./router-api-credentials";
 
 const DEFAULT_API_PORT = 8728;
 const MIN_PORT = 1;
@@ -36,19 +40,15 @@ type ConnectionStatusPayload = {
   userOnline: number;
 };
 
-function buildStoredConnectionParams(router: {
-  ipAddress: string;
-  apiPort: number;
-  apiUsernameGenerated: string | null;
-  apiUsername: string;
-  apiPasswordGenerated: string | null;
-  apiPassword: string;
-}): ConnectionParams {
+function buildStoredConnectionParams(
+  router: StoredRouterApiCredentials & { ipAddress: string; apiPort: number },
+): ConnectionParams {
+  const { username, password } = routerApiCredentials(router);
   return {
     ipAddress: router.ipAddress,
     apiPort: router.apiPort,
-    apiUsername: router.apiUsernameGenerated || router.apiUsername,
-    apiPassword: router.apiPasswordGenerated || router.apiPassword,
+    apiUsername: username,
+    apiPassword: password,
   };
 }
 

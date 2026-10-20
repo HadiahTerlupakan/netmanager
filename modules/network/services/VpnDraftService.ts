@@ -4,10 +4,7 @@ import type {
   IVpnServerRepository,
   VpnServerSummary,
 } from "../domain/ports/IVpnServerRepository";
-import {
-  VpnDraftForbiddenError,
-  VpnServerNotAvailableError,
-} from "../vpn/errors";
+import { VpnDraftForbiddenError } from "../vpn/errors";
 import {
   getVpnCoreAddress,
   getVpnCoreClient,
@@ -16,11 +13,11 @@ import {
 import type { CoreRouter } from "../vpn/types";
 import { VpnCoreRouterTombstoneRepository } from "../repositories/VpnCoreRouterTombstoneRepository";
 import { buildVpnApiUserScript } from "./vpn-api-user-script";
+import { assertServersOnline } from "./vpn-server-availability";
 
 /** Handshake dianggap segar (tunnel hidup) bila lebih baru dari ini. */
 export const VPN_HANDSHAKE_FRESH_MS = 180_000;
 const HTTP_NOT_FOUND = 404;
-const SERVER_STATUS_ONLINE = "online";
 const API_USERNAME_PREFIX = "netmanager-";
 const API_USERNAME_BYTES = 4;
 const API_PASSWORD_BYTES = 24;
@@ -175,7 +172,7 @@ export class VpnDraftService {
     tenantId: string,
     input: Pick<VpnDraftInput, "serverIds" | "previousDraftId">,
   ): Promise<{ router: CoreRouter; coreScript: string }> {
-    await this.assertServersAvailable(tenantId, input.serverIds);
+    await assertServersOnline(this.repo, tenantId, input.serverIds);
     const core = getVpnCoreClient();
     const reused = await this.reusePrevious(tenantId, input);
     const router =
@@ -186,21 +183,6 @@ export class VpnDraftService {
       }));
     const coreScript = await core.routerScript(router.id, "full");
     return { router, coreScript };
-  }
-
-  private async assertServersAvailable(
-    tenantId: string,
-    serverIds: string[],
-  ): Promise<void> {
-    const assigned = await this.repo.tenantServers(tenantId);
-    const online = new Set(
-      assigned
-        .filter((s) => s.status === SERVER_STATUS_ONLINE)
-        .map((s) => s.id),
-    );
-    if (!serverIds.every((id) => online.has(id))) {
-      throw new VpnServerNotAvailableError();
-    }
   }
 
   /**

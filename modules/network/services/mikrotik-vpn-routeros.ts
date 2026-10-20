@@ -1,6 +1,7 @@
 import type { RouterOSAPI } from "node-routeros-v2";
 import type { VpnRouterRecord } from "../domain/ports/IMikroTikRouterVpnRepository";
 import { runProvisioningConnection } from "./mikrotik-provisioning.connection";
+import { routerApiCredentials } from "./router-api-credentials";
 
 /** Nama skrip yang dipasang skrip tempel core untuk berpindah server. */
 export const VPN_SWITCH_SCRIPT_NAME = "netmanager-vpn-switch";
@@ -71,8 +72,7 @@ export function withVpnRouterConnection<T>(
     routerDetails: {
       ip: router.ipAddress,
       port: router.apiPort,
-      username: router.apiUsernameGenerated || router.apiUsername,
-      password: router.apiPasswordGenerated || router.apiPassword,
+      ...routerApiCredentials(router),
     },
     operation,
   });

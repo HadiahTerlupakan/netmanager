@@ -1,14 +1,11 @@
 import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
 import type { VpnMigrationRouterRecord } from "../domain/ports/IVpnRouterMigrationRepository";
-import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
-import {
-  VpnDraftInvalidError,
-  VpnRouterInvalidError,
-  VpnServerNotAvailableError,
-} from "../vpn/errors";
+import { VpnDraftInvalidError, VpnRouterInvalidError } from "../vpn/errors";
+import { VPN_API_PORT } from "../vpn/constants";
 import type { CoreRouter } from "../vpn/types";
 import type { MikroTikProvisioningRouterDetails } from "./mikrotik-provisioning.connection";
 import { RouterNotFoundError } from "./mikrotik-router.access";
+import { routerApiCredentials } from "./router-api-credentials";
 import { fetchDraft } from "./mikrotik-router.vpn-create";
 import type { VpnMigrationRouterOs } from "./mikrotik-vpn-migration.routeros";
 import {
@@ -17,11 +14,7 @@ import {
   isUnclaimedDraft,
 } from "./VpnDraftService";
 
-// Skrip VPN membuka service API RouterOS pada port ini; router yang disimpan
-// dengan port lain akan kehilangan akses publiknya begitu skrip ditempel.
-const VPN_API_PORT = 8728;
 const MIN_ROUTEROS_MAJOR = 7;
-const SERVER_STATUS_ONLINE = "online";
 
 /** Router VPN yang bisa dikembalikan ke publik. */
 export type RevertableVpnRouter = VpnMigrationRouterRecord & {
@@ -29,9 +22,9 @@ export type RevertableVpnRouter = VpnMigrationRouterRecord & {
   publicIpAddress: string;
 };
 
-/** Kredensial API yang dipakai netmanager untuk terhubung ke router. */
+/** Username API yang dipakai netmanager untuk terhubung ke router. */
 export function apiUsernameOf(router: VpnMigrationRouterRecord): string {
-  return router.apiUsernameGenerated || router.apiUsername;
+  return routerApiCredentials(router).username;
 }
 
 /** Koneksi API ke router pada `ip` dengan kredensial tersimpannya. */
@@ -39,12 +32,7 @@ export function routerApiConnection(
   router: VpnMigrationRouterRecord,
   ip: string,
 ): MikroTikProvisioningRouterDetails {
-  return {
-    ip,
-    port: router.apiPort,
-    username: apiUsernameOf(router),
-    password: router.apiPasswordGenerated || router.apiPassword,
-  };
+  return { ip, port: router.apiPort, ...routerApiCredentials(router) };
 }
 
 /** Router ada, masih publik, RouterOS v7, dan port API-nya sesuai skrip VPN. */
@@ -58,6 +46,8 @@ export function requirePublicV7Router(
   if (router.rosVersion !== "V7") {
     throw new VpnRouterInvalidError("VPN memerlukan RouterOS v7");
   }
+  // Skrip VPN membuka service API pada port ini; router dengan port lain
+  // kehilangan akses publiknya begitu skrip ditempel.
   if (router.apiPort !== VPN_API_PORT) {
     throw new VpnRouterInvalidError(
       `Port API router harus ${VPN_API_PORT} untuk mode VPN`,
@@ -102,22 +92,6 @@ export async function fetchUnclaimedDraft(
 export function assertTunnelUp(draft: CoreRouter, now: number): void {
   if (!isHandshakeFresh(draft, now)) {
     throw new VpnDraftInvalidError("Tunnel VPN belum tersambung");
-  }
-}
-
-/** Server yang diminta di-assign ke tenant dan sedang online. */
-export async function assertServersOnline(
-  servers: Pick<IVpnServerRepository, "tenantServers">,
-  tenantId: string,
-  serverIds: string[],
-): Promise<void> {
-  const online = new Set(
-    (await servers.tenantServers(tenantId))
-      .filter((s) => s.status === SERVER_STATUS_ONLINE)
-      .map((s) => s.id),
-  );
-  if (!serverIds.every((id) => online.has(id))) {
-    throw new VpnServerNotAvailableError();
   }
 }
 

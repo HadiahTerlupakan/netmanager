@@ -7,10 +7,10 @@ import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository"
 import {
   VpnRouterInvalidError,
   VpnRouterUnreachableError,
-  VpnServerNotAvailableError,
 } from "../vpn/errors";
 import { getVpnCoreClient } from "../vpn/VpnCoreClient";
 import { RouterNotFoundError } from "./mikrotik-router.access";
+import { assertServersOnline } from "./vpn-server-availability";
 import {
   setPeerEndpoint,
   setSwitchScript,
@@ -18,7 +18,6 @@ import {
   type VpnPeerEndpoint,
 } from "./mikrotik-vpn-routeros";
 
-const SERVER_STATUS_ONLINE = "online";
 const FIRST_SERVER_PRIORITY = 0;
 
 /** Ringkasan VPN router untuk halaman edit. */
@@ -105,7 +104,7 @@ export class VpnRouterService {
     serverIds: string[],
   ): Promise<{ scriptStale: boolean }> {
     const router = await this.requireVpnRouter(routerId, tenantId);
-    await this.assertServersAvailable(tenantId, serverIds);
+    await assertServersOnline(this.servers, tenantId, serverIds);
     await this.keepRemovedHubsAtTail(router, serverIds);
     await this.repo.replaceServersAsStale(router.id, tenantId, serverIds);
     const isSent = await this.sendSwitchScript(router, tenantId, serverIds);
@@ -155,20 +154,6 @@ export class VpnRouterService {
       throw new VpnRouterInvalidError("Router ini tidak memakai VPN");
     }
     return vpnRouter;
-  }
-
-  private async assertServersAvailable(
-    tenantId: string,
-    serverIds: string[],
-  ): Promise<void> {
-    const online = new Set(
-      (await this.servers.tenantServers(tenantId))
-        .filter((s) => s.status === SERVER_STATUS_ONLINE)
-        .map((s) => s.id),
-    );
-    if (!serverIds.every((id) => online.has(id))) {
-      throw new VpnServerNotAvailableError();
-    }
   }
 
   private async keepRemovedHubsAtTail(

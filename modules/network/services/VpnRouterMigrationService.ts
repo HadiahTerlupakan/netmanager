@@ -30,7 +30,6 @@ import {
 } from "./VpnDraftService";
 import {
   apiUsernameOf,
-  assertServersOnline,
   assertTunnelApi,
   assertTunnelUp,
   fetchUnclaimedDraft,
@@ -39,6 +38,7 @@ import {
   routerApiConnection,
 } from "./vpn-migration.preconditions";
 import { assertNotVpnOverlayTarget } from "./vpn-overlay-target";
+import { assertServersOnline } from "./vpn-server-availability";
 import {
   VpnMigrationRadiusSteps,
   type VpnMigrationResult,

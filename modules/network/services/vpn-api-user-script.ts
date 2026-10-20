@@ -1,6 +1,7 @@
+import { VPN_API_PORT } from "../vpn/constants";
+
 const API_GROUP = "netmanager-api";
 const API_GROUP_POLICY = "read,write,api,test,policy,sensitive";
-const API_SERVICE_PORT = 8728;
 const ASCII_PRINTABLE_MIN = 0x20;
 const ASCII_PRINTABLE_MAX = 0x7e;
 const HEX_RADIX = 16;
@@ -84,7 +85,7 @@ export function buildVpnApiUserScript(input: VpnApiUserScriptInput): string {
       ? createLines(input, cidr)
       : appendAddress("/user", `name=${name}`, cidr, "nmUserAddr");
   lines.push(
-    `/ip service set [find name=api] disabled=no port=${API_SERVICE_PORT}`,
+    `/ip service set [find name=api] disabled=no port=${VPN_API_PORT}`,
     ...appendAddress("/ip service", "name=api", cidr, "nmApiAddr"),
   );
   return `${lines.join("\n")}\n`;
