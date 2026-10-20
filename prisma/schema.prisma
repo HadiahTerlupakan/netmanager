@@ -647,33 +647,41 @@ model MRRMovement {
 }
 
 model MikroTikRouter {
-  id                     String                  @id
+  id                     String                    @id
   name                   String
   ipAddress              String
-  timezone               String                  @default("+07:00 Asia/Jakarta")
-  apiPort                Int                     @default(8728)
+  timezone               String                    @default("+07:00 Asia/Jakarta")
+  apiPort                Int                       @default(8728)
   apiUsername            String
   apiPassword            String
-  authPort               Int                     @default(7265)
-  accountingPort         Int                     @default(7266)
+  authPort               Int                       @default(7265)
+  accountingPort         Int                       @default(7266)
   secretRadius           String
   isolirUrl              String?
   description            String?
-  pingStatus             String                  @default("offline")
-  userOnline             Int                     @default(0)
+  pingStatus             String                    @default("offline")
+  userOnline             Int                       @default(0)
   lastStatusCheck        DateTime?
-  createdAt              DateTime                @default(now())
+  createdAt              DateTime                  @default(now())
   updatedAt              DateTime
   apiPasswordGenerated   String?
   apiUsernameGenerated   String?
   siteId                 String?
   tenantId               String?
-  site                   Sites?                  @relation(fields: [siteId], references: [id])
-  tenant                 Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  site                   Sites?                    @relation(fields: [siteId], references: [id])
+  tenant                 Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   profilePPP             ProfilePPP[]
   configuration_restores ConfigurationRestores[]
   network_alerts         NetworkAlerts[]
   network_performance    NetworkPerformance[]
+  rosVersion             RouterOsVersion           @default(V6)
+  connectionMode         RouterConnectionMode      @default(PUBLIC)
+  vpnAddress             String?
+  vpnCoreRouterId        String?                   @unique
+  vpnActiveServerId      String?
+  publicIpAddress        String?
+  vpnScriptStale         Boolean                   @default(false)
+  vpnServers             MikroTikRouterVpnServer[]
 
   @@unique([tenantId, ipAddress])
   @@index([pingStatus])
@@ -4200,6 +4208,7 @@ model Tenant {
   mRRMovement               MRRMovement[]
   message                   Message[]
   mikroTikRouter            MikroTikRouter[]
+  vpnServers                TenantVpnServer[]
   accelPppServer            AccelPppServer[]
   odc                       Odc[]
   odcOutput                 OdcOutput[]
@@ -6754,4 +6763,63 @@ model UploadSyncPending {
   lastAttemptAt DateTime?
 
   @@map("upload_sync_pending")
+}
+
+enum RouterOsVersion {
+  V6
+  V7
+}
+
+enum RouterConnectionMode {
+  PUBLIC
+  VPN
+}
+
+/// Hub VPN milik core netmanager-vpn. id sama dengan id hub di core.
+model VpnServer {
+  id         String                    @id
+  name       String
+  publicHost String
+  listenPort Int
+  status     String                    @default("pending_install")
+  lastSeenAt DateTime?
+  createdAt  DateTime                  @default(now())
+  tenants    TenantVpnServer[]
+  routers    MikroTikRouterVpnServer[]
+
+  @@map("vpn_servers")
+}
+
+/// Server VPN yang boleh dipakai sebuah tenant.
+model TenantVpnServer {
+  tenantId    String
+  vpnServerId String
+  createdAt   DateTime  @default(now())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vpnServer   VpnServer @relation(fields: [vpnServerId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, vpnServerId])
+  @@index([vpnServerId])
+  @@map("tenant_vpn_servers")
+}
+
+/// Server VPN yang dipakai sebuah router, berurutan menurut priority.
+model MikroTikRouterVpnServer {
+  routerId    String
+  vpnServerId String
+  priority    Int
+  router      MikroTikRouter @relation(fields: [routerId], references: [id], onDelete: Cascade)
+  vpnServer   VpnServer      @relation(fields: [vpnServerId], references: [id], onDelete: Restrict)
+
+  @@id([routerId, vpnServerId])
+  @@index([vpnServerId])
+  @@map("mikrotik_router_vpn_servers")
+}
+
+/// Router core yang gagal dihapus; monitor mencoba menghapusnya lagi.
+model VpnCoreRouterTombstone {
+  coreRouterId String   @id
+  createdAt    DateTime @default(now())
+
+  @@map("vpn_core_router_tombstones")
 }

@@ -12,6 +12,13 @@ export interface MikroTikRouterCreateData {
   description?: string | null;
   siteId?: string | null;
   tenantId: string;
+  rosVersion?: "V6" | "V7";
+  connectionMode?: "PUBLIC" | "VPN";
+  vpnAddress?: string | null;
+  vpnCoreRouterId?: string | null;
+  vpnActiveServerId?: string | null;
+  publicIpAddress?: string | null;
+  vpnScriptStale?: boolean;
 }
 
 export interface MikroTikRouterUpdateData {
@@ -33,6 +40,13 @@ export interface MikroTikRouterUpdateData {
   lastStatusCheck?: Date | null;
   siteId?: string | null;
   tenantId?: string;
+  rosVersion?: "V6" | "V7";
+  connectionMode?: "PUBLIC" | "VPN";
+  vpnAddress?: string | null;
+  vpnCoreRouterId?: string | null;
+  vpnActiveServerId?: string | null;
+  publicIpAddress?: string | null;
+  vpnScriptStale?: boolean;
 }
 
 export interface MikroTikRouterEntity {

@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-20] — Skema server VPN dan kolom VPN router
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `prisma` | `modules/network`
+- **Author**: agent
+- **Deskripsi**: Tabel `vpn_servers`, `tenant_vpn_servers`, `mikrotik_router_vpn_servers`
+  dan `vpn_core_router_tombstones`, enum `RouterOsVersion` dan
+  `RouterConnectionMode`, serta kolom VPN pada `MikroTikRouter`
+  (`rosVersion`, `connectionMode`, `vpnAddress`, `vpnCoreRouterId`,
+  `vpnActiveServerId`, `publicIpAddress`, `vpnScriptStale`).
+  Ruling: spec menulis `backhaulAddress` dan `wgPublicKey` di `VpnServer` serta
+  `hubPeerId` di `MikroTikRouterVpnServer`. Core menyimpan kunci dan alamat
+  sendiri dan memakai satu id router untuk semua hub, jadi netmanager tidak
+  menyimpannya; diganti `MikroTikRouter.vpnCoreRouterId`.
+  `vpnActiveServerId` sengaja tanpa FK agar tidak menghalangi penghapusan server.
+- **Files**: `prisma/schema.prisma`, `modules/network/domain/entities/MikroTikRouterEntity.ts`
+- **Migration**: `20261020090000_add_vpn_servers`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-18] — Log Login mencatat lagi login web, login mobile, dan versi aplikasi yang ditolak
 
 - **Tipe**: [FIXED] [ADDED]
