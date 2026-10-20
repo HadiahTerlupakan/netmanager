@@ -54,7 +54,7 @@ import * as peerIdRoute from "@/app/api/admin/vpn-admin-peers/[id]/route";
 import * as peerConfigRoute from "@/app/api/admin/vpn-admin-peers/[id]/config/route";
 import { VpnCoreError, VpnServerInUseError } from "@/modules/network/vpn";
 
-const route = { params: { id: "x1" } };
+const route = { params: { id: "ab12" } };
 const req = (body?: unknown) =>
   ({ json: async () => body }) as unknown as never;
 
@@ -157,8 +157,21 @@ describe("admin VPN routes", () => {
     const res = await peerConfigRoute.GET(req() as never, route as never);
     expect(res.headers.get("content-type")).toContain("text/plain");
     expect(res.headers.get("content-disposition")).toBe(
-      'attachment; filename="netmanager-admin-x1.conf"',
+      'attachment; filename="netmanager-admin-ab12.conf"',
     );
     expect(await res.text()).toBe("[Interface]\n");
+  });
+
+  it.each([
+    ["GET peer config", peerConfigRoute.GET],
+    ["DELETE peer", peerIdRoute.DELETE],
+  ])("%s rejects a non-hex id with 400 before calling core", async (_n, h) => {
+    const res = await (h as never as typeof peerConfigRoute.GET)(
+      req() as never,
+      { params: { id: '../x"; filename=evil' } } as never,
+    );
+    expect(res.status).toBe(400);
+    expect(mocks.adminPeerConfig).not.toHaveBeenCalled();
+    expect(mocks.deleteAdminPeer).not.toHaveBeenCalled();
   });
 });
