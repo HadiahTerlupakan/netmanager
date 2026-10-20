@@ -75,15 +75,45 @@ function track(name: string) {
   });
 }
 
+const SERVER_NAMES: Record<string, string> = { a: "A", b: "B", c: "C" };
+
 function makeService(router: VpnRouterRecord | null = vpnRouter()) {
+  // Daftar server lokal yang bisa diganti request lain di tengah pengiriman.
+  const stored = { ids: ["c", "a"] };
   const repo = {
     findRouter: vi.fn().mockResolvedValue(router),
-    listServers: vi.fn().mockResolvedValue([
-      { id: "c", name: "C", priority: 0 },
-      { id: "a", name: "A", priority: 1 },
-    ]),
-    replaceServersAsStale: track("replaceServersAsStale"),
-    setScriptStale: track("setScriptStale"),
+    listServers: vi.fn(async () =>
+      stored.ids.map((id, priority) => ({
+        id,
+        name: SERVER_NAMES[id],
+        priority,
+      })),
+    ),
+    replaceServersAsStale: vi.fn(
+      async (routerId: string, tenantId: string, ids: string[]) => {
+        calls.push(
+          `replaceServersAsStale ${JSON.stringify([routerId, tenantId, ids])}`,
+        );
+        stored.ids = ids;
+      },
+    ),
+    // Semantik compare-and-set repository: finalize hanya bila daftar sama.
+    completeScriptSend: vi.fn(
+      async (
+        routerId: string,
+        tenantId: string,
+        sent: string[],
+        finalize: () => Promise<void>,
+      ) => {
+        if (JSON.stringify(sent) !== JSON.stringify(stored.ids)) {
+          calls.push(`scriptLeftStale ${JSON.stringify([routerId, tenantId])}`);
+          return false;
+        }
+        await finalize();
+        calls.push(`scriptSent ${JSON.stringify([routerId, tenantId])}`);
+        return true;
+      },
+    ),
     setActiveServer: vi.fn().mockResolvedValue(undefined),
     findStaleOnline: vi.fn(),
   };
@@ -93,7 +123,7 @@ function makeService(router: VpnRouterRecord | null = vpnRouter()) {
   };
   const servers = { tenantServers: vi.fn().mockResolvedValue(tenantServers) };
   const service = new VpnRouterService(repo, servers, routerOs);
-  return { service, repo, routerOs };
+  return { service, repo, routerOs, stored };
 }
 
 describe("VpnRouterService.updateServers", () => {
@@ -123,7 +153,7 @@ describe("VpnRouterService.updateServers", () => {
       'routerScript ["core-1","switch"]',
       `writeSwitchScript [${JSON.stringify(vpnRouter())},${JSON.stringify(SWITCH_SCRIPT)}]`,
       'setRouterHubs ["core-1",["c","a"]]',
-      'setScriptStale ["router-1","t1",false]',
+      'scriptSent ["router-1","t1"]',
     ]);
   });
 
@@ -145,7 +175,19 @@ describe("VpnRouterService.updateServers", () => {
       TENANT,
       ["c"],
     );
-    expect(repo.setScriptStale).not.toHaveBeenCalled();
+    expect(repo.completeScriptSend).not.toHaveBeenCalled();
+  });
+
+  it("a PUT that loses to a newer PUT answers stale without the final PUT", async () => {
+    const { service, routerOs, stored } = makeService();
+    routerOs.writeSwitchScript.mockImplementation(async () => {
+      stored.ids = ["a"];
+    });
+
+    const result = await service.updateServers("router-1", TENANT, ["c", "a"]);
+
+    expect(result).toEqual({ scriptStale: true });
+    expect(coreMock.setRouterHubs).toHaveBeenCalledTimes(1);
   });
 
   it("rejects servers that are offline or not assigned before touching core", async () => {
@@ -225,9 +267,27 @@ describe("VpnRouterService.retryStaleScript", () => {
       'setRouterHubs ["core-1",["c","a","b"]]',
       `writeSwitchScript [${JSON.stringify(vpnRouter())},${JSON.stringify(SWITCH_SCRIPT)}]`,
       'setRouterHubs ["core-1",["c","a"]]',
-      'setScriptStale ["router-1","t1",false]',
+      'scriptSent ["router-1","t1"]',
     ]);
     expect(repo.replaceServersAsStale).not.toHaveBeenCalled();
+  });
+
+  it("leaves the script stale and skips the final PUT when a PUT replaced the list mid-send", async () => {
+    coreMock.getRouter.mockResolvedValue(coreRouter());
+    const { service, routerOs, stored } = makeService();
+    routerOs.writeSwitchScript.mockImplementation(async () => {
+      stored.ids = ["b"];
+    });
+
+    const isSent = await service.retryStaleScript(vpnRouter(), TENANT);
+
+    expect(isSent).toBe(false);
+    expect(coreMock.setRouterHubs).toHaveBeenCalledTimes(1);
+    expect(coreMock.setRouterHubs).not.toHaveBeenCalledWith("core-1", [
+      "c",
+      "a",
+    ]);
+    expect(calls).toContain('scriptLeftStale ["router-1","t1"]');
   });
 
   it("reports false while the router stays unreachable", async () => {
@@ -239,7 +299,7 @@ describe("VpnRouterService.retryStaleScript", () => {
       false,
     );
     expect(coreMock.setRouterHubs).toHaveBeenCalledTimes(1);
-    expect(repo.setScriptStale).not.toHaveBeenCalled();
+    expect(repo.completeScriptSend).not.toHaveBeenCalled();
   });
 });
 

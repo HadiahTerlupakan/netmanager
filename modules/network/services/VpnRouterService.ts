@@ -186,7 +186,9 @@ export class VpnRouterService {
 
   // Skrip dirender core dari daftar transisi (baru + ekor lama), jadi router
   // hanya kembali ke hub lama bila semua server baru gagal. Daftar final baru
-  // dikirim ke core setelah skrip itu sampai di router.
+  // dikirim ke core setelah skrip itu sampai di router, dan hanya bila daftar
+  // lokal belum diganti request lain (retry monitor vs PUT, atau dua PUT);
+  // yang kalah membiarkan skrip stale agar monitor mengirim daftar terbaru.
   private async sendSwitchScript(
     router: ActiveVpnRouter,
     tenantId: string,
@@ -203,9 +205,14 @@ export class VpnRouterService {
       );
       return false;
     }
-    await core.setRouterHubs(router.vpnCoreRouterId, desired);
-    await this.repo.setScriptStale(router.id, tenantId, false);
-    return true;
+    return this.repo.completeScriptSend(
+      router.id,
+      tenantId,
+      desired,
+      async () => {
+        await core.setRouterHubs(router.vpnCoreRouterId, desired);
+      },
+    );
   }
 
   private async firstServerEndpoint(

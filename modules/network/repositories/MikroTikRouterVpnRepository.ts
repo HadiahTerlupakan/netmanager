@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { VPN_CORE_TIMEOUT_MS } from "../vpn/VpnCoreClient";
 import type {
   IMikroTikRouterVpnRepository,
   RouterVpnServerEntry,
@@ -21,6 +22,13 @@ const VPN_ROUTER_SELECT = {
 } as const;
 
 const PING_STATUS_ONLINE = "online";
+// Transaksi menahan kunci baris selama satu PUT ke core (dibatasi
+// VPN_CORE_TIMEOUT_MS); sisanya untuk query di dalam transaksi.
+const SCRIPT_SEND_TX_TIMEOUT_MS = VPN_CORE_TIMEOUT_MS * 2;
+
+function isSameOrder(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
 
 /** Akses database untuk kolom dan daftar server VPN router, selalu disaring tenant. */
 export class MikroTikRouterVpnRepository implements IMikroTikRouterVpnRepository {
@@ -76,16 +84,47 @@ export class MikroTikRouterVpnRepository implements IMikroTikRouterVpnRepository
     });
   }
 
-  /** Menandai skrip switch router sudah/belum terkirim. */
-  async setScriptStale(
+  /**
+   * Compare-and-set penyelesaian skrip switch. Baris router dikunci lebih dulu
+   * (update yang menandai stale), sehingga `replaceServersAsStale` yang
+   * bersamaan menunggu sampai transaksi ini selesai dan `finalize` (PUT final
+   * ke core) tidak pernah menimpa daftar yang lebih baru.
+   */
+  completeScriptSend(
     routerId: string,
     tenantId: string,
-    isStale: boolean,
-  ): Promise<void> {
-    await this.client.mikroTikRouter.updateMany({
-      where: { id: routerId, tenantId },
-      data: { vpnScriptStale: isStale },
-    });
+    sentServerIds: string[],
+    finalize: () => Promise<void>,
+  ): Promise<boolean> {
+    return this.client.$transaction(
+      async (tx) => {
+        const locked = await tx.mikroTikRouter.updateMany({
+          where: { id: routerId, tenantId },
+          data: { vpnScriptStale: true },
+        });
+        if (locked.count === 0) return false;
+        const rows = await tx.mikroTikRouterVpnServer.findMany({
+          where: { routerId },
+          orderBy: { priority: "asc" },
+          select: { vpnServerId: true },
+        });
+        if (
+          !isSameOrder(
+            rows.map((r) => r.vpnServerId),
+            sentServerIds,
+          )
+        ) {
+          return false;
+        }
+        await finalize();
+        await tx.mikroTikRouter.updateMany({
+          where: { id: routerId, tenantId },
+          data: { vpnScriptStale: false },
+        });
+        return true;
+      },
+      { timeout: SCRIPT_SEND_TX_TIMEOUT_MS },
+    );
   }
 
   /** Menyimpan server VPN yang sedang dipakai router. */

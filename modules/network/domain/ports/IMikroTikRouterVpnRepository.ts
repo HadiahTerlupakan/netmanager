@@ -42,12 +42,18 @@ export interface IMikroTikRouterVpnRepository {
     serverIds: string[],
   ): Promise<void>;
 
-  /** Menandai skrip switch router sudah/belum terkirim. */
-  setScriptStale(
+  /**
+   * Menyelesaikan pengiriman skrip switch secara compare-and-set: bila daftar
+   * server lokal masih `sentServerIds`, jalankan `finalize` lalu tandai skrip
+   * terkirim dan kembalikan true. Bila daftar sudah diganti request lain,
+   * `finalize` dilewati, skrip ditandai belum terkirim, dan hasilnya false.
+   */
+  completeScriptSend(
     routerId: string,
     tenantId: string,
-    isStale: boolean,
-  ): Promise<void>;
+    sentServerIds: string[],
+    finalize: () => Promise<void>,
+  ): Promise<boolean>;
 
   /** Menyimpan server VPN yang sedang dipakai router. */
   setActiveServer(
