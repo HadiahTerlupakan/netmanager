@@ -49,9 +49,12 @@ const servers = [
   { id: "c", name: "C", publicHost: "c.example.com", status: "offline" },
 ];
 
-function makeService() {
+function makeService(tombstonedIds: string[] = []) {
   const repo = { tenantServers: vi.fn().mockResolvedValue(servers) };
-  return new VpnDraftService(repo as never, () => NOW);
+  const tombstones = {
+    has: vi.fn(async (id: string) => tombstonedIds.includes(id)),
+  };
+  return new VpnDraftService(repo as never, () => NOW, tombstones);
 }
 
 describe("VpnDraftService", () => {
@@ -110,6 +113,18 @@ describe("VpnDraftService", () => {
     expect(coreMock.deleteRouter).not.toHaveBeenCalled();
     expect(result.draftId).toBe("prev");
     expect(coreMock.routerScript).toHaveBeenCalledWith("prev", "full");
+  });
+
+  it("never reuses a tombstoned draft, even with the same hub list", async () => {
+    coreMock.getRouter.mockResolvedValue(router({ id: "prev" }));
+    coreMock.createRouter.mockResolvedValue(router({ id: "fresh" }));
+    const result = await makeService(["prev"]).createDraft("t1", {
+      serverIds: ["a", "b"],
+      previousDraftId: "prev",
+    });
+    expect(coreMock.createRouter).toHaveBeenCalledOnce();
+    expect(coreMock.deleteRouter).not.toHaveBeenCalled();
+    expect(result.draftId).toBe("fresh");
   });
 
   it("treats a different priority order as a different list", async () => {

@@ -119,7 +119,10 @@ const radiusConfig = {
   isolirUrl: null as string | null,
 };
 
-function makeService(router: VpnMigrationRouterRecord | null = publicRouter()) {
+function makeService(
+  router: VpnMigrationRouterRecord | null = publicRouter(),
+  tombstonedIds: string[] = [],
+) {
   const repo = {
     findRouter: vi.fn().mockResolvedValue(router),
     switchToVpn: track("switchToVpn"),
@@ -141,7 +144,10 @@ function makeService(router: VpnMigrationRouterRecord | null = publicRouter()) {
       .fn()
       .mockResolvedValue({ ip: NETMANAGER_PUBLIC_IP, source: "external" }),
   };
-  const tombstones = { add: track("tombstone") };
+  const tombstones = {
+    add: track("tombstone"),
+    has: vi.fn(async (id: string) => tombstonedIds.includes(id)),
+  };
   const drafts = { createExtendDraft: vi.fn() };
   const servers = { tenantServers: vi.fn().mockResolvedValue(tenantServers) };
   const service = new VpnRouterMigrationService(
@@ -213,8 +219,8 @@ describe("VpnRouterMigrationService.enable", () => {
     const service = new VpnRouterMigrationService(
       repo,
       servers,
-      new VpnDraftService(servers as never),
-      { add: vi.fn() },
+      new VpnDraftService(servers as never, () => NOW, { has: vi.fn() }),
+      { add: vi.fn(), has: vi.fn() },
     );
 
     const result = await service.enable("router-1", TENANT, {
@@ -401,6 +407,18 @@ describe("VpnRouterMigrationService.migrate", () => {
     await expect(
       service.migrate("router-1", TENANT, migrateInput),
     ).rejects.toBeInstanceOf(errorType);
+    expect(routerOs.addRadiusEntry).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+  });
+
+  it("changes nothing when the draft is tombstoned after a failed claim", async () => {
+    const { service, routerOs } = makeService(publicRouter(), ["core-1"]);
+
+    await expect(
+      service.migrate("router-1", TENANT, migrateInput),
+    ).rejects.toThrow("Draft VPN sudah tidak berlaku, buat script baru");
+    expect(coreMock.getRouter).not.toHaveBeenCalled();
+    expect(coreMock.claimRouter).not.toHaveBeenCalled();
     expect(routerOs.addRadiusEntry).not.toHaveBeenCalled();
     expect(calls).toEqual([]);
   });

@@ -1,3 +1,4 @@
+import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
 import type { VpnMigrationRouterRecord } from "../domain/ports/IVpnRouterMigrationRepository";
 import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
 import {
@@ -87,8 +88,9 @@ export function requireRevertableRouter(
 export async function fetchUnclaimedDraft(
   draftId: string,
   tenantId: string,
+  tombstones: Pick<IVpnCoreRouterTombstoneRepository, "has">,
 ): Promise<CoreRouter> {
-  const draft = await fetchDraft(draftId);
+  const draft = await fetchDraft(draftId, tombstones);
   assertDraftOwned(draft, tenantId);
   if (!isUnclaimedDraft(draft)) {
     throw new VpnDraftInvalidError("Draft VPN sudah dipakai");

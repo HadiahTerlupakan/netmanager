@@ -76,7 +76,10 @@ export class VpnRouterMigrationService {
     private readonly repo: IVpnRouterMigrationRepository,
     private readonly servers: Pick<IVpnServerRepository, "tenantServers">,
     private readonly drafts: Pick<VpnDraftService, "createExtendDraft">,
-    private readonly tombstones: Pick<IVpnCoreRouterTombstoneRepository, "add">,
+    private readonly tombstones: Pick<
+      IVpnCoreRouterTombstoneRepository,
+      "add" | "has"
+    >,
     private readonly routerOs: VpnMigrationRouterOs = vpnMigrationRouterOs,
     private readonly now: () => number = Date.now,
   ) {
@@ -108,7 +111,7 @@ export class VpnRouterMigrationService {
     const router = requirePublicV7Router(
       await this.repo.findRouter(routerId, tenantId),
     );
-    const draft = await fetchUnclaimedDraft(draftId, tenantId);
+    const draft = await fetchUnclaimedDraft(draftId, tenantId, this.tombstones);
     assertTunnelUp(draft, this.now());
     const version = await assertTunnelApi(
       this.routerOs,
@@ -126,7 +129,11 @@ export class VpnRouterMigrationService {
     const router = requirePublicV7Router(
       await this.repo.findRouter(routerId, tenantId),
     );
-    const draft = await fetchUnclaimedDraft(input.draftId, tenantId);
+    const draft = await fetchUnclaimedDraft(
+      input.draftId,
+      tenantId,
+      this.tombstones,
+    );
     if (!hasSameHubOrder(draft, input.serverIds)) {
       throw new VpnDraftInvalidError("Server VPN tidak cocok dengan draft VPN");
     }

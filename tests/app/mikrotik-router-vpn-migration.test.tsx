@@ -187,6 +187,48 @@ describe("MikrotikEditClient VPN migration", () => {
     );
   });
 
+  it("aktivasi gagal (502) membuang draft: script berikutnya draft baru", async () => {
+    const fetchPalsu = stubFetch({
+      ...pageRoutes(() => ({})),
+      ...enableRoutes(() =>
+        responsJson(200, { success: true, data: { version: "7.16.2" } }),
+      ),
+      [`POST ${MIGRATE_URL}`]: () =>
+        responsJson(502, {
+          success: false,
+          error: "Gagal mengaktifkan VPN router",
+        }),
+    });
+    await openPage("Aktifkan VPN");
+    await klikTombol("Aktifkan VPN");
+    await tungguSampai(
+      () => document.body.textContent.includes("API tersambung lewat tunnel"),
+      "test API lewat tunnel lulus",
+    );
+
+    await klikTombol(MIGRATE_BUTTON);
+    await tungguSampai(
+      () => !tombolBerteks(MIGRATE_BUTTON),
+      "modal tertutup setelah aktivasi gagal",
+    );
+    expect(palsu.toast.error).toHaveBeenCalledWith(
+      "Gagal mengaktifkan VPN router",
+    );
+
+    await klikTombol("Aktifkan VPN");
+    await tungguSampai(
+      () =>
+        fetchPalsu.mock.calls.filter(
+          ([url, init]) => init?.method === "POST" && url === ENABLE_URL,
+        ).length === 2,
+      "draft diminta ulang",
+    );
+    const enableBodies = fetchPalsu.mock.calls
+      .filter(([url, init]) => init?.method === "POST" && url === ENABLE_URL)
+      .map(([, init]) => JSON.parse(String(init?.body)));
+    expect(enableBodies[1]).toEqual({ serverIds: ["aa11"] });
+  });
+
   it("tombol pindah tetap mati bila test API lewat tunnel gagal", async () => {
     const fetchPalsu = stubFetch({
       ...pageRoutes(() => ({})),

@@ -340,6 +340,42 @@ describe("Tambah Router — mode VPN", () => {
     expect(lastChecked.disabled).toBe(true);
   });
 
+  it("aktivasi gagal (502) membuang draft: simpan terkunci dan script berikutnya draft baru", async () => {
+    const alertPalsu = vi.fn();
+    vi.stubGlobal("alert", alertPalsu);
+    const fetchPalsu = stubFetch({
+      ...vpnRoutes(() => "tunnel_up"),
+      "POST /api/mikrotik-routers": () =>
+        responsJson(502, {
+          success: false,
+          error: "Gagal mengaktifkan VPN router",
+        }),
+    });
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await openVpnScript();
+    await flush(POLL_MS);
+    await klikTombol("Tutup");
+    expect(submitButton().disabled).toBe(false);
+
+    await act(async () => {
+      cari("form")!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    });
+    await flush();
+
+    expect(alertPalsu).toHaveBeenCalledWith("Gagal mengaktifkan VPN router");
+    expect(submitButton().disabled).toBe(true);
+    await klikTombol(SCRIPT_BUTTON);
+    await flush();
+    const drafts = callsTo(fetchPalsu, `POST ${DRAFT_URL}`);
+    expect(drafts).toHaveLength(2);
+    expect(JSON.parse(String(drafts[1][1]?.body))).not.toHaveProperty(
+      "previousDraftId",
+    );
+  });
+
   it("mengubah urutan server membuat draft baru dengan kredensial yang sama", async () => {
     const fetchPalsu = stubFetch(vpnRoutes(() => "waiting"));
     await render(panggung, <ClientComponent />);

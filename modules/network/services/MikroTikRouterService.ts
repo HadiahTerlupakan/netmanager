@@ -67,7 +67,7 @@ export class MikroTikRouterService {
     > = new VpnServerRepository(),
     private readonly tombstoneRepository: Pick<
       IVpnCoreRouterTombstoneRepository,
-      "add"
+      "add" | "has"
     > = new VpnCoreRouterTombstoneRepository(),
   ) {}
 

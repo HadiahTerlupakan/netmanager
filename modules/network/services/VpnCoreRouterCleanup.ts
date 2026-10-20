@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { runAsSystemContext } from "@/lib/tenant-context";
 import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
 import { VpnCoreRouterTombstoneRepository } from "../repositories/VpnCoreRouterTombstoneRepository";
 import {
@@ -63,21 +64,31 @@ export async function deleteCoreRouterOrTombstone(
   }
 }
 
-/**
- * Coba hapus lagi router core yang tertunda, paling lama lebih dulu. Catatan
- * dihapus saat core sukses atau 404. Error lain berarti core sedang bermasalah,
- * jadi batch berhenti dan sisanya menunggu siklus berikutnya.
- */
-export async function retryVpnCoreRouterDeletes(
-  tombstones: Pick<
-    IVpnCoreRouterTombstoneRepository,
-    "listOldest" | "remove"
-  > = new VpnCoreRouterTombstoneRepository(),
-): Promise<void> {
-  if (!isVpnConfigured()) return;
+type TombstoneRetryRepository = Pick<
+  IVpnCoreRouterTombstoneRepository,
+  "listOldest" | "remove" | "isUsedByRouter"
+>;
+
+// Tombstone draft yang claim-nya timeout bisa menunjuk router core yang
+// ternyata sudah dipakai router netmanager (claim ulang berhasil). Menghapusnya
+// di core akan memutus tunnel dan RADIUS router itu, jadi catatannya dibuang.
+async function dropIfUsed(
+  id: string,
+  tombstones: TombstoneRetryRepository,
+): Promise<boolean> {
+  if (!(await tombstones.isUsedByRouter(id))) return false;
+  logger.warn(
+    `[VPN] Router core ${id} dipakai router aktif, tombstone dibuang tanpa menghapus`,
+  );
+  await tombstones.remove(id);
+  return true;
+}
+
+async function retryBatch(tombstones: TombstoneRetryRepository): Promise<void> {
   const ids = await tombstones.listOldest(VPN_TOMBSTONE_BATCH_SIZE);
   for (const id of ids) {
     try {
+      if (await dropIfUsed(id, tombstones)) continue;
       await deleteInCore(id);
       await tombstones.remove(id);
     } catch (error) {
@@ -85,4 +96,19 @@ export async function retryVpnCoreRouterDeletes(
       return;
     }
   }
+}
+
+/**
+ * Coba hapus lagi router core yang tertunda, paling lama lebih dulu. Catatan
+ * dihapus saat core sukses atau 404, atau tanpa menghapus di core bila id-nya
+ * dipakai router netmanager (dicek lintas tenant). Error lain berarti core
+ * sedang bermasalah, jadi batch berhenti dan sisanya menunggu siklus berikutnya.
+ */
+export async function retryVpnCoreRouterDeletes(
+  tombstones: TombstoneRetryRepository = new VpnCoreRouterTombstoneRepository(),
+): Promise<void> {
+  if (!isVpnConfigured()) return;
+  await runAsSystemContext("retryVpnCoreRouterDeletes: cek router aktif", () =>
+    retryBatch(tombstones),
+  );
 }

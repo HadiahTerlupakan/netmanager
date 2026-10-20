@@ -76,6 +76,11 @@ export function useVpnRouterMode<T extends MikrotikVpnFormFields>({
       setFormData((prev) => ({ ...prev, vpnServerIds: serverIds }));
       if (formData.vpnDraftId) setIsDraftOutdated(true);
     },
+    /** Membuang draft setelah aktivasi gagal sehingga script baru wajib dibuat. */
+    discardDraft: () => {
+      setFormData((prev): T => ({ ...prev, vpnDraftId: undefined }));
+      setIsDraftOutdated(false);
+    },
     handleDraftReady: (draft: VpnDraft) => {
       setFormData((prev) => applyVpnDraft(prev, draft));
       setIsDraftOutdated(false);

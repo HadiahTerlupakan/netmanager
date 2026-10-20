@@ -14,6 +14,7 @@ import { VpnConnectionSection } from "@/app/admin/network/mikrotik/components/Vp
 import { useMikrotikConnectionTest } from "@/app/admin/network/mikrotik/hooks/useMikrotikConnectionTest";
 import { useMikrotikFormSettings } from "@/app/admin/network/mikrotik/hooks/useMikrotikFormSettings";
 import { useVpnRouterMode } from "@/app/admin/network/mikrotik/hooks/useVpnRouterMode";
+import { isVpnDraftSpent } from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
 export function ClientComponent() {
   const router = useRouter();
@@ -71,6 +72,7 @@ export function ClientComponent() {
 
       if (!res.ok) {
         const error = await res.json();
+        if (vpn.isVpnMode && isVpnDraftSpent(res.status)) vpn.discardDraft();
         alert(error.error || "Gagal menambahkan router");
         return;
       }

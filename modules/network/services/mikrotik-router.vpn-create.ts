@@ -30,7 +30,7 @@ type CreateVpnRouterParams = {
   request: VpnRouterRequest;
   routerRepository: Pick<IMikroTikRouterRepository, "create" | "delete">;
   vpnServerRepository: Pick<IVpnServerRepository, "tenantServerIds">;
-  tombstoneRepository: Pick<IVpnCoreRouterTombstoneRepository, "add">;
+  tombstoneRepository: Pick<IVpnCoreRouterTombstoneRepository, "add" | "has">;
 };
 
 type ValidVpnRequest = { vpnDraftId: string; vpnServerIds: string[] };
@@ -42,8 +42,22 @@ function requireVpnRequest(request: VpnRouterRequest): ValidVpnRequest {
   return { vpnDraftId: request.vpnDraftId, vpnServerIds: request.vpnServerIds };
 }
 
-/** Router core sebuah draft; 404 dari core menjadi `VpnDraftInvalidError`. */
-export async function fetchDraft(draftId: string): Promise<CoreRouter> {
+/** Pesan untuk draft yang sudah dijadwalkan dihapus setelah claim gagal. */
+export const VPN_DRAFT_RETIRED_MESSAGE =
+  "Draft VPN sudah tidak berlaku, buat script baru";
+
+/**
+ * Router core sebuah draft. Draft yang sudah di-tombstone (claim gagal) dan
+ * 404 dari core menjadi `VpnDraftInvalidError`: claim ulang atas draft yang
+ * menunggu dihapus akan membuat monitor menghapus router yang sudah aktif.
+ */
+export async function fetchDraft(
+  draftId: string,
+  tombstones: Pick<IVpnCoreRouterTombstoneRepository, "has">,
+): Promise<CoreRouter> {
+  if (await tombstones.has(draftId)) {
+    throw new VpnDraftInvalidError(VPN_DRAFT_RETIRED_MESSAGE);
+  }
   try {
     return await getVpnCoreClient().getRouter(draftId);
   } catch (error) {
@@ -72,7 +86,10 @@ async function assertDraftUsable(
   params: CreateVpnRouterParams,
   request: ValidVpnRequest,
 ): Promise<void> {
-  const draft = await fetchDraft(request.vpnDraftId);
+  const draft = await fetchDraft(
+    request.vpnDraftId,
+    params.tombstoneRepository,
+  );
   assertDraftOwned(draft, params.createData.tenantId);
   if (!isUnclaimedDraft(draft)) {
     throw new VpnDraftInvalidError("Draft VPN sudah dipakai");

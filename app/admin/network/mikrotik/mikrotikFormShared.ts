@@ -188,6 +188,18 @@ export type MikrotikVpnFormFields = MikrotikFormConnectionData & {
   vpnDraftId?: string;
 };
 
+const HTTP_BAD_REQUEST = 400;
+const HTTP_BAD_GATEWAY = 502;
+
+/**
+ * True bila aktivasi VPN gagal dengan status yang membuat draft tak boleh
+ * dipakai lagi: claim yang gagal (502) menjadwalkan draft dihapus di core, dan
+ * 400 menolak draft itu, jadi form harus meminta script baru.
+ */
+export function isVpnDraftSpent(status: number): boolean {
+  return status === HTTP_BAD_REQUEST || status === HTTP_BAD_GATEWAY;
+}
+
 /** Hasil penilaian test koneksi mode VPN. */
 export type VpnApiCheck = {
   status: "passed" | "failed";

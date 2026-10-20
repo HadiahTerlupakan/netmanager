@@ -121,7 +121,13 @@ function setup() {
   const vpnServerRepository = {
     tenantServerIds: vi.fn(async () => ["aa", "bb"]),
   };
-  const tombstoneRepository = { add: vi.fn(async () => {}) };
+  const tombstoned = new Set<string>();
+  const tombstoneRepository = {
+    add: vi.fn(async (id: string) => {
+      tombstoned.add(id);
+    }),
+    has: vi.fn(async (id: string) => tombstoned.has(id)),
+  };
   const run = (data: object) =>
     createRouterMutation({
       data: data as never,
@@ -271,6 +277,23 @@ describe("createRouterMutation mode VPN", () => {
     expect(mocks.deleteNas).toHaveBeenCalledWith(77, TENANT);
     expect(t.provisioningService.provisionRadius).not.toHaveBeenCalled();
     expect(t.tombstoneRepository.add).toHaveBeenCalledWith("ab01");
+  });
+
+  it("menolak draft yang sudah di-tombstone tanpa claim kedua", async () => {
+    mocks.claimRouter.mockRejectedValueOnce(new Error("core timeout"));
+    const t = setup();
+    await expect(t.run(vpnData)).rejects.toBeInstanceOf(
+      VpnRouterActivationError,
+    );
+
+    const retry = t.run(vpnData);
+
+    await expect(retry).rejects.toBeInstanceOf(VpnDraftInvalidError);
+    await expect(retry).rejects.toThrow(
+      "Draft VPN sudah tidak berlaku, buat script baru",
+    );
+    expect(mocks.claimRouter).toHaveBeenCalledTimes(1);
+    expect(t.client.mikroTikRouter.create).toHaveBeenCalledTimes(1);
   });
 });
 

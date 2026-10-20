@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
 import type {
   IVpnServerRepository,
   VpnServerSummary,
@@ -13,6 +14,7 @@ import {
   VpnCoreError,
 } from "../vpn/VpnCoreClient";
 import type { CoreRouter } from "../vpn/types";
+import { VpnCoreRouterTombstoneRepository } from "../repositories/VpnCoreRouterTombstoneRepository";
 import { buildVpnApiUserScript } from "./vpn-api-user-script";
 
 /** Handshake dianggap segar (tunnel hidup) bila lebih baru dari ini. */
@@ -97,6 +99,10 @@ export class VpnDraftService {
   constructor(
     private readonly repo: IVpnServerRepository,
     private readonly now: () => number = Date.now,
+    private readonly tombstones: Pick<
+      IVpnCoreRouterTombstoneRepository,
+      "has"
+    > = new VpnCoreRouterTombstoneRepository(),
   ) {}
 
   /** Server VPN yang di-assign ke tenant. */
@@ -197,12 +203,16 @@ export class VpnDraftService {
     }
   }
 
-  /** Mengembalikan draft sebelumnya bila hub-nya sama; bila beda, menghapusnya. */
+  /**
+   * Mengembalikan draft sebelumnya bila hub-nya sama; bila beda, menghapusnya.
+   * Draft yang sudah di-tombstone (claim gagal) tidak pernah dipakai lagi.
+   */
   private async reusePrevious(
     tenantId: string,
     input: Pick<VpnDraftInput, "serverIds" | "previousDraftId">,
   ): Promise<CoreRouter | null> {
     if (!input.previousDraftId) return null;
+    if (await this.tombstones.has(input.previousDraftId)) return null;
     const core = getVpnCoreClient();
     let previous: CoreRouter;
     try {

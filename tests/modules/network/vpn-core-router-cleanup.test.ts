@@ -3,6 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   deleteCoreRouter: vi.fn(),
   isConfigured: vi.fn(),
+  inSystemContext: false,
+}));
+
+vi.mock("@/lib/tenant-context", () => ({
+  runAsSystemContext: async <T>(_reason: string, cb: () => Promise<T>) => {
+    mocks.inSystemContext = true;
+    try {
+      return await cb();
+    } finally {
+      mocks.inSystemContext = false;
+    }
+  },
 }));
 
 vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
@@ -21,11 +33,12 @@ import {
 import { VpnCoreRouterTombstoneRepository } from "@/modules/network/repositories/VpnCoreRouterTombstoneRepository";
 import { VpnCoreError } from "@/modules/network/vpn/VpnCoreClient";
 
-function fakeRepo(ids: string[]) {
+function fakeRepo(ids: string[], usedIds: string[] = []) {
   return {
     listOldest: vi.fn(async (_limit: number) => ids),
     add: vi.fn(async (_id: string) => {}),
     remove: vi.fn(async (_id: string) => {}),
+    isUsedByRouter: vi.fn(async (id: string) => usedIds.includes(id)),
   };
 }
 
@@ -56,6 +69,31 @@ describe("retryVpnCoreRouterDeletes", () => {
 
     expect(mocks.deleteCoreRouter).toHaveBeenCalledTimes(1);
     expect(repo.remove).not.toHaveBeenCalled();
+  });
+
+  it("membuang tombstone yang dipakai router aktif tanpa menghapusnya di core", async () => {
+    const repo = fakeRepo(["live", "stale"], ["live"]);
+    mocks.deleteCoreRouter.mockResolvedValue(undefined);
+
+    await retryVpnCoreRouterDeletes(repo);
+
+    expect(mocks.deleteCoreRouter.mock.calls.map((c) => c[0])).toEqual([
+      "stale",
+    ]);
+    expect(repo.remove.mock.calls.map((c) => c[0])).toEqual(["live", "stale"]);
+  });
+
+  it("memeriksa router aktif di konteks sistem (lintas tenant)", async () => {
+    const repo = fakeRepo(["a"]);
+    let wasSystem = false;
+    repo.isUsedByRouter.mockImplementation(async () => {
+      wasSystem = mocks.inSystemContext;
+      return false;
+    });
+
+    await retryVpnCoreRouterDeletes(repo);
+
+    expect(wasSystem).toBe(true);
   });
 
   it("tidak memanggil core maupun database bila VPN belum dikonfigurasi", async () => {
@@ -95,6 +133,25 @@ describe("VpnCoreRouterTombstoneRepository", () => {
     });
     expect(client.vpnCoreRouterTombstone.deleteMany).toHaveBeenCalledWith({
       where: { coreRouterId: "a" },
+    });
+  });
+});
+
+describe("VpnCoreRouterTombstoneRepository lookups", () => {
+  it("has dan isUsedByRouter mencari menurut id router core", async () => {
+    const client = {
+      vpnCoreRouterTombstone: {
+        findUnique: vi.fn(async () => ({ coreRouterId: "a" })),
+      },
+      mikroTikRouter: { findFirst: vi.fn(async () => null) },
+    };
+    const repo = new VpnCoreRouterTombstoneRepository(client as never);
+
+    expect(await repo.has("a")).toBe(true);
+    expect(await repo.isUsedByRouter("a")).toBe(false);
+    expect(client.mikroTikRouter.findFirst).toHaveBeenCalledWith({
+      where: { vpnCoreRouterId: "a" },
+      select: { id: true },
     });
   });
 });

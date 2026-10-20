@@ -57,7 +57,7 @@ type CreateRouterInput = {
     "provisionRadius" | "createApiUser"
   >;
   vpnServerRepository: Pick<IVpnServerRepository, "tenantServerIds">;
-  tombstoneRepository: Pick<IVpnCoreRouterTombstoneRepository, "add">;
+  tombstoneRepository: Pick<IVpnCoreRouterTombstoneRepository, "add" | "has">;
 };
 
 type UpdateRouterInput = {

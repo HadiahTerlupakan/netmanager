@@ -30,4 +30,25 @@ export class VpnCoreRouterTombstoneRepository implements IVpnCoreRouterTombstone
       where: { coreRouterId },
     });
   }
+
+  /** True bila id router core sedang menunggu dihapus (draft tidak boleh dipakai lagi). */
+  async has(coreRouterId: string): Promise<boolean> {
+    const row = await this.client.vpnCoreRouterTombstone.findUnique({
+      where: { coreRouterId },
+      select: { coreRouterId: true },
+    });
+    return Boolean(row);
+  }
+
+  /**
+   * True bila router netmanager mana pun memakai id router core ini. Pemanggil
+   * harus berada di konteks sistem karena MikroTikRouter disaring per tenant.
+   */
+  async isUsedByRouter(coreRouterId: string): Promise<boolean> {
+    const row = await this.client.mikroTikRouter.findFirst({
+      where: { vpnCoreRouterId: coreRouterId },
+      select: { id: true },
+    });
+    return Boolean(row);
+  }
 }

@@ -13,8 +13,14 @@ import {
   isVpnNotConfigured,
   VPN_NOT_CONFIGURED_MESSAGE,
 } from "@/app/admin/tenants/vpn/vpnShared";
-import { sendRequest } from "@/app/admin/network/mikrotik/[id]/edit/routerVpnRequest";
-import type { VpnServerOption } from "@/app/admin/network/mikrotik/mikrotikFormShared";
+import {
+  RouterVpnRequestError,
+  sendRequest,
+} from "@/app/admin/network/mikrotik/[id]/edit/routerVpnRequest";
+import {
+  isVpnDraftSpent,
+  type VpnServerOption,
+} from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
 const SERVERS_URL = "/api/vpn-servers";
 const ONLINE_STATUS = "online";
@@ -97,6 +103,12 @@ export function RouterVpnEnablePanel({
       await onMigrated();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal pindah ke VPN");
+      if (err instanceof RouterVpnRequestError && isVpnDraftSpent(err.status)) {
+        // Draft ini tidak boleh dipakai lagi; buka ulang membuat script baru.
+        setDraft(null);
+        setApiCheck(null);
+        setIsModalOpen(false);
+      }
     } finally {
       setIsMigrating(false);
     }
