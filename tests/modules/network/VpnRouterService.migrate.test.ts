@@ -551,6 +551,18 @@ describe("VpnRouterMigrationService.revert", () => {
     expect(coreMock.deleteRouter).not.toHaveBeenCalled();
   });
 
+  it("refuses a stored public address inside the VPN overlay before touching the router", async () => {
+    const { service } = makeService({
+      ...vpnRouter(),
+      publicIpAddress: "::ffff:10.100.0.77",
+    });
+
+    await expect(service.revert("router-1", TENANT)).rejects.toThrow(
+      "Alamat ini khusus jaringan VPN",
+    );
+    expect(calls).toEqual([]);
+  });
+
   it("refuses a router whose public IP is unknown", async () => {
     const { service } = makeService({ ...vpnRouter(), publicIpAddress: null });
 

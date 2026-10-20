@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getRouter: vi.fn(),
   testApi: vi.fn(),
+  lookup: vi.fn(),
 }));
+
+vi.mock("node:dns", () => ({ promises: { lookup: mocks.lookup } }));
 
 vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
   ...(await importActual<object>()),
@@ -116,6 +119,35 @@ describe("updateRouterMutation router publik", () => {
   });
 });
 
+describe("updateRouterMutation router publik dengan nama host", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("menolak nama host yang resolve ke overlay VPN", async () => {
+    mocks.lookup.mockResolvedValue([{ address: "10.100.0.10", family: 4 }]);
+    const { done, routerRepository } = runUpdate(
+      { ...VPN_ROUTER, connectionMode: "PUBLIC", ipAddress: "203.0.113.9" },
+      { ipAddress: "router.example.com" },
+    );
+
+    await expect(done).rejects.toThrow("Alamat ini khusus jaringan VPN");
+    expect(routerRepository.update).not.toHaveBeenCalled();
+  });
+
+  it("tidak me-resolve ulang alamat yang tidak berubah", async () => {
+    const { done } = runUpdate(
+      {
+        ...VPN_ROUTER,
+        connectionMode: "PUBLIC",
+        ipAddress: "router.example.com",
+      },
+      { ipAddress: "router.example.com", name: "R" },
+    );
+
+    await done;
+    expect(mocks.lookup).not.toHaveBeenCalled();
+  });
+});
+
 describe("testRouterConnection alamat overlay", () => {
   const routerRepository = { findById: vi.fn(), update: vi.fn() };
   const body = {
@@ -138,6 +170,29 @@ describe("testRouterConnection alamat overlay", () => {
     await expect(testRouterConnection(body)).rejects.toThrow(
       "Alamat ini khusus jaringan VPN",
     );
+    expect(mocks.testApi).not.toHaveBeenCalled();
+  });
+
+  it("menolak IPv4-mapped IPv6 ke overlay tanpa draft", async () => {
+    await expect(
+      testRouterConnection({ ...body, ipAddress: "::ffff:10.100.0.10" }),
+    ).rejects.toThrow("Alamat ini khusus jaringan VPN");
+    expect(mocks.testApi).not.toHaveBeenCalled();
+  });
+
+  it("menolak nama host router publik tersimpan yang kini resolve ke overlay", async () => {
+    routerRepository.findById.mockResolvedValue({
+      ...VPN_ROUTER,
+      connectionMode: "PUBLIC",
+      ipAddress: "router.example.com",
+      apiUsernameGenerated: null,
+      apiPasswordGenerated: null,
+    });
+    mocks.lookup.mockResolvedValue([{ address: "10.99.0.20", family: 4 }]);
+
+    await expect(
+      testRouterConnection({ ...body, routerId: "router-1" }),
+    ).rejects.toThrow("Alamat ini khusus jaringan VPN");
     expect(mocks.testApi).not.toHaveBeenCalled();
   });
 

@@ -6,7 +6,10 @@ const mocks = vi.hoisted(() => ({
   createNas: vi.fn(),
   getNasByIp: vi.fn(),
   deleteNas: vi.fn(),
+  lookup: vi.fn(),
 }));
+
+vi.mock("node:dns", () => ({ promises: { lookup: mocks.lookup } }));
 
 vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
   ...(await importActual<object>()),
@@ -36,6 +39,7 @@ import {
   VpnDraftForbiddenError,
   VpnDraftInvalidError,
   VpnRouterActivationError,
+  VpnRouterInvalidError,
   VpnServerNotAvailableError,
 } from "@/modules/network/vpn/errors";
 
@@ -301,6 +305,20 @@ describe("createRouterMutation mode PUBLIC", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv("RADIUS_SECRET", "");
+  });
+
+  it.each([
+    ["nama host di overlay", "router.example.com"],
+    ["IPv4-mapped IPv6", "::ffff:10.100.0.10"],
+    ["nol di depan", "010.100.0.10"],
+  ])("menolak alamat %s tanpa menulis", async (_label, ipAddress) => {
+    mocks.lookup.mockResolvedValue([{ address: "10.100.0.10", family: 4 }]);
+    const t = setup();
+
+    await expect(
+      t.run({ ...baseData, ipAddress, apiPort: 8728 }),
+    ).rejects.toBeInstanceOf(VpnRouterInvalidError);
+    expect(t.client.mikroTikRouter.create).not.toHaveBeenCalled();
   });
 
   it.each(["10.99.0.7", "10.100.0.10"])(

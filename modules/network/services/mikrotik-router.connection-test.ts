@@ -7,6 +7,7 @@ import {
   type TestConnectionResult,
 } from "./mikrotik/router-api-test";
 import { assertTestAddressAllowed } from "./mikrotik-router.vpn-guards";
+import { assertNotVpnOverlayTarget } from "./vpn-overlay-target";
 
 const DEFAULT_API_PORT = 8728;
 const MIN_PORT = 1;
@@ -142,8 +143,9 @@ async function syncStoredRouterStatus(params: {
 
 /**
  * Test koneksi API router dan sinkronkan status online/offline bila router
- * tersimpan. Alamat dari body (bukan router tersimpan) di overlay VPN hanya
- * boleh alamat draft VPN tenant; selain itu `VpnRouterInvalidError`.
+ * tersimpan. Alamat dari body di overlay VPN hanya boleh alamat draft VPN
+ * tenant; alamat lain, juga alamat router publik tersimpan, tidak boleh
+ * menunjuk ke overlay (`VpnRouterInvalidError`).
  */
 export async function testRouterConnection(
   params: TestRouterConnectionInput,
@@ -153,7 +155,7 @@ export async function testRouterConnection(
   resolvedRouterId: string | null;
 }> {
   const resolvedRouterId = params.routerId ?? null;
-  const { connectionParams, isStoredRouter } =
+  const { connectionParams, isStoredRouter, isStoredVpnRouter } =
     await resolveConnectionParams(params);
   if (!isStoredRouter) {
     await assertTestAddressAllowed({
@@ -161,6 +163,9 @@ export async function testRouterConnection(
       tenantId: params.tenantId,
       vpnDraftId: params.vpnDraftId,
     });
+  } else if (!isStoredVpnRouter && connectionParams.ipAddress) {
+    // Nama host router publik tersimpan bisa diarahkan ulang ke overlay.
+    await assertNotVpnOverlayTarget(connectionParams.ipAddress);
   }
   const apiResult = await buildConnectionResult(connectionParams);
 
@@ -176,7 +181,11 @@ export async function testRouterConnection(
 
 async function resolveConnectionParams(
   params: TestRouterConnectionInput,
-): Promise<{ connectionParams: ConnectionParams; isStoredRouter: boolean }> {
+): Promise<{
+  connectionParams: ConnectionParams;
+  isStoredRouter: boolean;
+  isStoredVpnRouter: boolean;
+}> {
   const connectionParams: ConnectionParams = {
     ipAddress: params.ipAddress,
     apiPort: params.apiPort,
@@ -184,7 +193,11 @@ async function resolveConnectionParams(
     apiPassword: params.apiPassword,
   };
 
-  const fromBody = { connectionParams, isStoredRouter: false };
+  const fromBody = {
+    connectionParams,
+    isStoredRouter: false,
+    isStoredVpnRouter: false,
+  };
   if (!params.routerId) {
     return fromBody;
   }
@@ -202,6 +215,7 @@ async function resolveConnectionParams(
     return {
       connectionParams: buildStoredConnectionParams(router),
       isStoredRouter: true,
+      isStoredVpnRouter: router.connectionMode === "VPN",
     };
   } catch (error: unknown) {
     createFetchRouterLogError(error);

@@ -29,10 +29,8 @@ import {
   resolveUpdateSiteId,
 } from "./mikrotik-router.payloads";
 import { deleteCoreRouterOrTombstone } from "./VpnCoreRouterCleanup";
-import {
-  assertPublicAddressAllowed,
-  guardRouterUpdate,
-} from "./mikrotik-router.vpn-guards";
+import { guardRouterUpdate } from "./mikrotik-router.vpn-guards";
+import { assertNotVpnOverlayTarget } from "./vpn-overlay-target";
 import {
   createVpnRouter,
   type VpnRouterRequest,
@@ -253,13 +251,13 @@ async function saveGeneratedApiCredentials(params: {
   );
 }
 
-function saveCreatedRouter(
+async function saveCreatedRouter(
   params: CreateRouterInput,
   createData: MikroTikRouterCreateData,
   vpnRequest: VpnRouterRequest,
 ): Promise<{ id: string }> {
   if (createData.connectionMode !== "VPN") {
-    assertPublicAddressAllowed(createData.ipAddress);
+    await assertNotVpnOverlayTarget(createData.ipAddress);
     return params.routerRepository.create(createData);
   }
   return createVpnRouter({
@@ -298,7 +296,7 @@ export async function updateRouterMutation(
   const router = await ensureRouterAccess(params);
   const updateData = await resolveUpdateRouterData({
     ...params,
-    data: guardRouterUpdate(router, params.data),
+    data: await guardRouterUpdate(router, params.data),
   });
   await params.routerRepository.update(params.id, updateData, params.tenantId);
   logRouterUpdateActivity(params.userId, params.id, params.data);

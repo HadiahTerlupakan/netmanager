@@ -38,6 +38,7 @@ import {
   requireRevertableRouter,
   routerApiConnection,
 } from "./vpn-migration.preconditions";
+import { assertNotVpnOverlayTarget } from "./vpn-overlay-target";
 import {
   VpnMigrationRadiusSteps,
   type VpnMigrationResult,
@@ -175,6 +176,8 @@ export class VpnRouterMigrationService {
     const router = requireRevertableRouter(
       await this.repo.findRouter(routerId, tenantId),
     );
+    // Setelah revert nasname kembali ke alamat publik ini.
+    await assertNotVpnOverlayTarget(router.publicIpAddress);
     const tunnel = routerApiConnection(router, router.ipAddress);
     const publicAddress = await this.certainPublicRadiusAddress();
     await this.radius.add(tunnel, publicAddress, null, router);

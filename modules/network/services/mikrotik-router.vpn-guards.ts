@@ -3,16 +3,14 @@ import type {
   MikroTikRouterUpdateData,
 } from "../domain/entities/MikroTikRouterEntity";
 import { VpnRouterInvalidError } from "../vpn/errors";
-import {
-  isVpnOverlayAddress,
-  VPN_OVERLAY_ADDRESS_MESSAGE,
-} from "../vpn/overlay";
+import { isVpnOverlayAddress } from "../vpn/overlay";
 import {
   getVpnCoreClient,
   isVpnConfigured,
   VpnCoreError,
 } from "../vpn/VpnCoreClient";
 import { vpnDraftLabel } from "./VpnDraftService";
+import { assertNotVpnOverlayTarget, literalIp } from "./vpn-overlay-target";
 
 /** Pesan untuk PATCH yang mengubah alamat/kredensial router VPN. */
 export const VPN_LOCKED_FIELDS_MESSAGE =
@@ -23,15 +21,6 @@ type LockedRouter = Pick<
   MikroTikRouterEntity,
   "connectionMode" | "ipAddress" | "apiPort" | "apiUsername" | "apiPassword"
 >;
-
-/** Melempar `VpnRouterInvalidError` bila router publik memakai alamat overlay VPN. */
-export function assertPublicAddressAllowed(
-  ipAddress: string | undefined,
-): void {
-  if (ipAddress && isVpnOverlayAddress(ipAddress)) {
-    throw new VpnRouterInvalidError(VPN_OVERLAY_ADDRESS_MESSAGE);
-  }
-}
 
 function changesLockedField(
   router: LockedRouter,
@@ -54,14 +43,16 @@ function changesLockedField(
  * Data PATCH yang aman untuk router. Router VPN: alamat tunnel dan kredensial
  * API tidak boleh berubah (nasname harus tetap IP tunnel), nilai yang sama
  * tetap diterima agar form edit bisa menyimpan, dan versi RouterOS tetap v7.
- * Router publik: alamat baru tidak boleh berada di overlay VPN.
+ * Router publik: alamat baru tidak boleh menunjuk ke overlay VPN.
  */
-export function guardRouterUpdate(
+export async function guardRouterUpdate(
   router: LockedRouter,
   data: MikroTikRouterUpdateData,
-): MikroTikRouterUpdateData {
+): Promise<MikroTikRouterUpdateData> {
   if (router.connectionMode !== "VPN") {
-    assertPublicAddressAllowed(data.ipAddress);
+    if (data.ipAddress !== undefined && data.ipAddress !== router.ipAddress) {
+      await assertNotVpnOverlayTarget(data.ipAddress);
+    }
     return data;
   }
   if (changesLockedField(router, data)) {
@@ -92,22 +83,22 @@ async function isOwnDraftAddress(
 /**
  * Test koneksi ke alamat overlay hanya untuk alamat draft VPN milik tenant;
  * tanpa ini tenant bisa mencoba login API router tenant lain lewat tunnel.
+ * Alamat lain diperiksa seperti alamat router publik.
  */
 export async function assertTestAddressAllowed(params: {
   ipAddress?: string;
   tenantId: string;
   vpnDraftId?: string;
 }): Promise<void> {
-  if (!params.ipAddress || !isVpnOverlayAddress(params.ipAddress)) return;
+  if (!params.ipAddress) return;
+  const ip = literalIp(params.ipAddress);
   if (
+    ip !== null &&
+    isVpnOverlayAddress(ip) &&
     params.vpnDraftId &&
-    (await isOwnDraftAddress(
-      params.vpnDraftId,
-      params.tenantId,
-      params.ipAddress,
-    ))
+    (await isOwnDraftAddress(params.vpnDraftId, params.tenantId, ip))
   ) {
     return;
   }
-  throw new VpnRouterInvalidError(VPN_OVERLAY_ADDRESS_MESSAGE);
+  await assertNotVpnOverlayTarget(params.ipAddress);
 }
