@@ -42,6 +42,8 @@ function buildVpnCreateFields(
   };
 }
 
+const OFFLINE_PING_STATUSES = ["offline", "tunnel_down"];
+
 export class MikroTikRouterRepository implements IMikroTikRouterRepository {
   private radiusRepo: RadiusRepository;
 
@@ -295,8 +297,10 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     const online = await this.client.mikroTikRouter.count({
       where: { ...where, pingStatus: "online" },
     });
+    // Router VPN yang tunnelnya putus berstatus tunnel_down, bukan offline;
+    // tanpa ini online + offline tidak sama dengan total.
     const offline = await this.client.mikroTikRouter.count({
-      where: { ...where, pingStatus: "offline" },
+      where: { ...where, pingStatus: { in: OFFLINE_PING_STATUSES } },
     });
 
     const routers = await this.client.mikroTikRouter.findMany({
