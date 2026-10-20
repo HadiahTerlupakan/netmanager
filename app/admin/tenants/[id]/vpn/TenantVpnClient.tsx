@@ -33,6 +33,7 @@ export default function TenantVpnClient({ tenantId }: { tenantId: string }) {
   const [blockingRouters, setBlockingRouters] = useState<BlockingRouter[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  const assignedError = assignedQuery.error;
   const serversError = serversQuery.error;
   const notConfigured = isVpnNotConfigured(serversError);
   useEffect(() => {
@@ -41,6 +42,11 @@ export default function TenantVpnClient({ tenantId }: { tenantId: string }) {
       toast.error(serversError.message || "Gagal memuat server VPN");
     }
   }, [serversError, notConfigured]);
+  useEffect(() => {
+    if (assignedError) {
+      clientLogger.error("Gagal memuat server VPN tenant", assignedError);
+    }
+  }, [assignedError]);
 
   const servers: VpnServerItem[] = Array.isArray(serversQuery.data)
     ? serversQuery.data
@@ -114,7 +120,7 @@ export default function TenantVpnClient({ tenantId }: { tenantId: string }) {
         </div>
         <button
           onClick={handleSave}
-          disabled={!hasChanges || isSaving}
+          disabled={!hasChanges || isSaving || !!assignedError}
           className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <HiOutlineCheck className="w-5 h-5" />
@@ -141,7 +147,15 @@ export default function TenantVpnClient({ tenantId }: { tenantId: string }) {
         </div>
       ) : null}
 
-      {notConfigured ? (
+      {assignedError ? (
+        <div
+          role="alert"
+          className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-800 dark:text-red-300"
+        >
+          Gagal memuat server VPN tenant ini. Muat ulang halaman sebelum
+          mengubah pilihan.
+        </div>
+      ) : notConfigured ? (
         <VpnNotConfiguredCard />
       ) : (
         <ul className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
