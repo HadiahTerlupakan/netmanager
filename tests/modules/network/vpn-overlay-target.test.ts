@@ -34,7 +34,9 @@ describe("assertNotVpnOverlayTarget", () => {
   it.each(["203.0.113.9", "2001:db8::1", "::ffff:203.0.113.9"])(
     "mengizinkan IP publik %s",
     async (host) => {
-      await expect(assertNotVpnOverlayTarget(host)).resolves.toBeUndefined();
+      await expect(assertNotVpnOverlayTarget(host)).resolves.toEqual(
+        expect.any(String),
+      );
     },
   );
 
@@ -55,9 +57,15 @@ describe("assertNotVpnOverlayTarget", () => {
   it("mengizinkan nama host yang resolve ke IP publik", async () => {
     mocks.lookup.mockResolvedValue([{ address: "203.0.113.9", family: 4 }]);
 
-    await expect(
-      assertNotVpnOverlayTarget("router.example.com"),
-    ).resolves.toBeUndefined();
+    await expect(assertNotVpnOverlayTarget("router.example.com")).resolves.toBe(
+      "203.0.113.9",
+    );
+  });
+
+  it("mengembalikan literal IPv4-mapped IPv6 sebagai IPv4", async () => {
+    await expect(assertNotVpnOverlayTarget("::ffff:203.0.113.9")).resolves.toBe(
+      "203.0.113.9",
+    );
   });
 
   it("menolak nama host yang gagal di-resolve", async () => {

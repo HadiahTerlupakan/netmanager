@@ -81,16 +81,16 @@ async function isOwnDraftAddress(
 }
 
 /**
- * Test koneksi ke alamat overlay hanya untuk alamat draft VPN milik tenant;
- * tanpa ini tenant bisa mencoba login API router tenant lain lewat tunnel.
- * Alamat lain diperiksa seperti alamat router publik.
+ * Alamat yang boleh dipakai test koneksi dari body: alamat overlay hanya bila
+ * milik draft VPN tenant (tanpa ini tenant bisa mencoba login API router
+ * tenant lain lewat tunnel); alamat lain diperiksa seperti alamat router
+ * publik. Mengembalikan IP yang sudah diperiksa untuk dihubungi langsung.
  */
-export async function assertTestAddressAllowed(params: {
-  ipAddress?: string;
+export async function resolveTestAddress(params: {
+  ipAddress: string;
   tenantId: string;
   vpnDraftId?: string;
-}): Promise<void> {
-  if (!params.ipAddress) return;
+}): Promise<string> {
   const ip = literalIp(params.ipAddress);
   if (
     ip !== null &&
@@ -98,7 +98,7 @@ export async function assertTestAddressAllowed(params: {
     params.vpnDraftId &&
     (await isOwnDraftAddress(params.vpnDraftId, params.tenantId, ip))
   ) {
-    return;
+    return ip;
   }
-  await assertNotVpnOverlayTarget(params.ipAddress);
+  return assertNotVpnOverlayTarget(params.ipAddress);
 }

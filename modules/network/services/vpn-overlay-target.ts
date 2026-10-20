@@ -80,17 +80,21 @@ export function literalIp(host: string): string | null {
  * literal IP diperiksa langsung, nama host di-resolve dan ditolak bila SALAH
  * SATU alamatnya di overlay atau bila tidak bisa di-resolve. FreeRADIUS
  * memilih tenant menurut nasname, dan koneksi API ke overlay bisa menyentuh
- * router tenant lain.
+ * router tenant lain. Mengembalikan alamat IP yang sudah diperiksa (literal
+ * yang dinormalkan, atau alamat resolve pertama); pemanggil yang langsung
+ * terhubung harus memakai alamat ini, bukan nama host, agar resolve kedua
+ * (DNS rebinding) tidak bisa mengarah ke overlay.
  */
-export async function assertNotVpnOverlayTarget(host: string): Promise<void> {
+export async function assertNotVpnOverlayTarget(host: string): Promise<string> {
   const ip = literalIp(host);
   if (ip !== null) {
     assertOutsideOverlay(ip);
-    return;
+    return ip;
   }
   const addresses = await resolveAll(host.trim());
   if (addresses.length === 0) {
     throw new VpnRouterInvalidError(UNVERIFIABLE_ROUTER_ADDRESS_MESSAGE);
   }
   addresses.forEach(assertOutsideOverlay);
+  return normaliseIp(addresses[0]);
 }

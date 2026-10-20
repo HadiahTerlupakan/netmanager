@@ -196,6 +196,34 @@ describe("testRouterConnection alamat overlay", () => {
     expect(mocks.testApi).not.toHaveBeenCalled();
   });
 
+  it("menghubungi IP hasil pemeriksaan, bukan nama host (tanpa resolve kedua)", async () => {
+    mocks.lookup.mockResolvedValue([{ address: "203.0.113.9", family: 4 }]);
+
+    await testRouterConnection({ ...body, ipAddress: "router.example.com" });
+
+    expect(mocks.lookup).toHaveBeenCalledTimes(1);
+    expect(mocks.testApi).toHaveBeenCalledWith(
+      expect.objectContaining({ ipAddress: "203.0.113.9" }),
+    );
+  });
+
+  it("router publik tersimpan dengan nama host juga dihubungi lewat IP hasil pemeriksaan", async () => {
+    routerRepository.findById.mockResolvedValue({
+      ...VPN_ROUTER,
+      connectionMode: "PUBLIC",
+      ipAddress: "router.example.com",
+      apiUsernameGenerated: null,
+      apiPasswordGenerated: null,
+    });
+    mocks.lookup.mockResolvedValue([{ address: "198.51.100.4", family: 4 }]);
+
+    await testRouterConnection({ ...body, routerId: "router-1" });
+
+    expect(mocks.testApi).toHaveBeenCalledWith(
+      expect.objectContaining({ ipAddress: "198.51.100.4" }),
+    );
+  });
+
   it("menolak draft milik tenant lain", async () => {
     mocks.getRouter.mockResolvedValue({
       label: "nm:t2",

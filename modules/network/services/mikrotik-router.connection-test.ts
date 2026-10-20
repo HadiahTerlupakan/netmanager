@@ -6,8 +6,7 @@ import {
   type RouterInfo,
   type TestConnectionResult,
 } from "./mikrotik/router-api-test";
-import { assertTestAddressAllowed } from "./mikrotik-router.vpn-guards";
-import { assertNotVpnOverlayTarget } from "./vpn-overlay-target";
+import { resolveTestAddress } from "./mikrotik-router.vpn-guards";
 
 const DEFAULT_API_PORT = 8728;
 const MIN_PORT = 1;
@@ -157,17 +156,14 @@ export async function testRouterConnection(
   const resolvedRouterId = params.routerId ?? null;
   const { connectionParams, isStoredRouter, isStoredVpnRouter } =
     await resolveConnectionParams(params);
-  if (!isStoredRouter) {
-    await assertTestAddressAllowed({
-      ipAddress: connectionParams.ipAddress,
-      tenantId: params.tenantId,
-      vpnDraftId: params.vpnDraftId,
-    });
-  } else if (!isStoredVpnRouter && connectionParams.ipAddress) {
-    // Nama host router publik tersimpan bisa diarahkan ulang ke overlay.
-    await assertNotVpnOverlayTarget(connectionParams.ipAddress);
-  }
-  const apiResult = await buildConnectionResult(connectionParams);
+  const apiResult = await buildConnectionResult({
+    ...connectionParams,
+    ipAddress: await checkedTestAddress(
+      params,
+      connectionParams.ipAddress,
+      isStoredRouter && isStoredVpnRouter,
+    ),
+  });
 
   await syncStoredRouterStatus({
     routerRepository: params.routerRepository,
@@ -177,6 +173,22 @@ export async function testRouterConnection(
   });
 
   return createConnectionResponse(apiResult, resolvedRouterId);
+}
+
+// Router VPN tersimpan memakai alamat tunnel miliknya sendiri. Alamat lain,
+// termasuk nama host router publik tersimpan yang bisa diarahkan ulang, diganti
+// IP hasil pemeriksaan overlay sehingga koneksi tidak me-resolve ulang.
+async function checkedTestAddress(
+  params: TestRouterConnectionInput,
+  ipAddress: string | undefined,
+  isOwnVpnRouter: boolean,
+): Promise<string | undefined> {
+  if (!ipAddress || isOwnVpnRouter) return ipAddress;
+  return resolveTestAddress({
+    ipAddress,
+    tenantId: params.tenantId,
+    vpnDraftId: params.vpnDraftId,
+  });
 }
 
 async function resolveConnectionParams(
