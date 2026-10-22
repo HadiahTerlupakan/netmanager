@@ -50,7 +50,10 @@ export function toWibDateKey(date: Date): string {
 
 /** Status dokumen, diturunkan dari tanggal dan riwayatnya. */
 export function deriveStatus(
-  document: Pick<LegalDocumentEntity, "terminatedAt" | "renewedById" | "endDate">,
+  document: Pick<
+    LegalDocumentEntity,
+    "terminatedAt" | "renewedById" | "endDate"
+  >,
   now: Date = new Date(),
 ): LegalDocumentStatus {
   if (document.terminatedAt) return "DIAKHIRI";
@@ -138,7 +141,9 @@ export function listDeadlines(
 
   const deadlines: LegalDeadline[] = [];
   if (document.endDate) {
-    deadlines.push(buildDeadline("END", document.endDate, "Masa berlaku berakhir", now));
+    deadlines.push(
+      buildDeadline("END", document.endDate, "Masa berlaku berakhir", now),
+    );
   }
   if (document.endDate && document.noticePeriodDays) {
     deadlines.push(
@@ -154,7 +159,12 @@ export function listDeadlines(
   }
   if (document.guaranteeEndDate) {
     deadlines.push(
-      buildDeadline("GUARANTEE", document.guaranteeEndDate, "Jaminan berakhir", now),
+      buildDeadline(
+        "GUARANTEE",
+        document.guaranteeEndDate,
+        "Jaminan berakhir",
+        now,
+      ),
     );
   }
   for (const obligation of document.obligations) {
@@ -192,9 +202,13 @@ export function reminderThresholdFor(daysLeft: number): string | null {
 export function overdueWeekKey(now: Date): string {
   const day = new Date(toWibDayNumber(now) * MS_PER_DAY);
   const weekday = (day.getUTCDay() + 6) % DAYS_PER_WEEK;
-  const thursday = new Date(day.getTime() + (ISO_THURSDAY_OFFSET - weekday) * MS_PER_DAY);
+  const thursday = new Date(
+    day.getTime() + (ISO_THURSDAY_OFFSET - weekday) * MS_PER_DAY,
+  );
   const yearStart = Date.UTC(thursday.getUTCFullYear(), 0, 1);
-  const week = Math.ceil(((thursday.getTime() - yearStart) / MS_PER_DAY + 1) / DAYS_PER_WEEK);
+  const week = Math.ceil(
+    ((thursday.getTime() - yearStart) / MS_PER_DAY + 1) / DAYS_PER_WEEK,
+  );
 
   return `OVERDUE:${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
@@ -208,5 +222,7 @@ export function isActionable(deadline: LegalDeadline): boolean {
 
 /** Awal hari kalender WIB, digeser `offsetDays` hari; batas query berbasis tanggal. */
 export function wibDayStart(now: Date, offsetDays = 0): Date {
-  return new Date((toWibDayNumber(now) + offsetDays) * MS_PER_DAY - WIB_OFFSET_MS);
+  return new Date(
+    (toWibDayNumber(now) + offsetDays) * MS_PER_DAY - WIB_OFFSET_MS,
+  );
 }

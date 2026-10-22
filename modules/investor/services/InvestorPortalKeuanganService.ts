@@ -66,7 +66,11 @@ export class InvestorPortalKeuanganService {
     const amountAwaitingPayment = bulatkanRupiah(
       profitShares
         .filter((share) => share.status === STATUS_BAGI_HASIL_MENUNGGU_BAYAR)
-        .reduce((total, share) => total + share.shareAmount + share.capitalReturnAmount, 0),
+        .reduce(
+          (total, share) =>
+            total + share.shareAmount + share.capitalReturnAmount,
+          0,
+        ),
     );
 
     return { ...dashboard, balance, amountAwaitingPayment };
@@ -87,7 +91,9 @@ export class InvestorPortalKeuanganService {
   }
 
   /** Riwayat bagi hasil investor (tanpa yang dibatalkan), periode terbaru dulu. */
-  async getProfitShares(investorId: string): Promise<InvestorPortalProfitShare[]> {
+  async getProfitShares(
+    investorId: string,
+  ): Promise<InvestorPortalProfitShare[]> {
     const shares = await this.profitShareService.listByInvestor(investorId);
     return shares
       .filter((share) => share.status !== STATUS_BAGI_HASIL_BATAL)

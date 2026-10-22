@@ -32,7 +32,11 @@ const PERSEN_PENUH = 100;
 /** Awal bulan kalender (UTC) untuk bulan ke-n proyek. */
 export function awalBulanKalender(tanggalMulai: Date, bulanKe: number): Date {
   return new Date(
-    Date.UTC(tanggalMulai.getUTCFullYear(), tanggalMulai.getUTCMonth() + bulanKe - 1, 1),
+    Date.UTC(
+      tanggalMulai.getUTCFullYear(),
+      tanggalMulai.getUTCMonth() + bulanKe - 1,
+      1,
+    ),
   );
 }
 
@@ -73,12 +77,15 @@ export function bagianInvestor(
     (total, b) => ({
       labaBersih: total.labaBersih + b.netProfit,
       bagiHasil: total.bagiHasil + bulatkanRupiah(b.investorShare * porsiModal),
-      pengembalianModal: total.pengembalianModal + bulatkanRupiah(b.recoveryInstallment * porsiModal),
+      pengembalianModal:
+        total.pengembalianModal +
+        bulatkanRupiah(b.recoveryInstallment * porsiModal),
     }),
     { labaBersih: 0, bagiHasil: 0, pengembalianModal: 0 },
   );
   const bagiHasil = bulatkanRupiah(jumlah.bagiHasil);
-  const persen = jumlah.labaBersih > 0 ? (bagiHasil / jumlah.labaBersih) * PERSEN_PENUH : 0;
+  const persen =
+    jumlah.labaBersih > 0 ? (bagiHasil / jumlah.labaBersih) * PERSEN_PENUH : 0;
   return {
     bulan: baris.map((b) => b.month),
     labaBersih: bulatkanRupiah(jumlah.labaBersih),

@@ -40,7 +40,9 @@ function describeTiming(daysLeft: number): string {
 
 /** PIC dan pembuat dokumen — bagi admin yang merangkap legal, keduanya kerap orang yang sama. */
 function recipientsOf(document: LegalDocumentEntity): string[] {
-  return [...new Set([document.pic?.id, document.createdById].filter(Boolean))] as string[];
+  return [
+    ...new Set([document.pic?.id, document.createdById].filter(Boolean)),
+  ] as string[];
 }
 
 export class LegalReminderService {
@@ -59,15 +61,22 @@ export class LegalReminderService {
       try {
         sentCount += await this.remindDocument(document, now);
       } catch (error) {
-        logger.error(`[LegalReminder] Gagal memproses dokumen ${document.id}:`, error);
+        logger.error(
+          `[LegalReminder] Gagal memproses dokumen ${document.id}:`,
+          error,
+        );
       }
     }
 
-    if (sentCount > 0) logger.info(`[LegalReminder] ${sentCount} pengingat terkirim`);
+    if (sentCount > 0)
+      logger.info(`[LegalReminder] ${sentCount} pengingat terkirim`);
     return sentCount;
   }
 
-  private async remindDocument(document: LegalDocumentEntity, now: Date): Promise<number> {
+  private async remindDocument(
+    document: LegalDocumentEntity,
+    now: Date,
+  ): Promise<number> {
     let sentCount = 0;
 
     for (const deadline of listDeadlines(document, now)) {

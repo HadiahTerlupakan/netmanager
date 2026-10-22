@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { assertServersOnline } from "./vpn-server-availability";
 import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
 import { getVpnCoreClient, VpnCoreError } from "../vpn/VpnCoreClient";
 import { VpnServerInUseError, VpnServerUnknownError } from "../vpn/errors";
@@ -105,6 +106,21 @@ export class VpnServerService {
       if (routers.length > 0) throw new VpnServerInUseError(routers);
     }
     await this.repo.replaceTenantServers(tenantId, ids);
+  }
+
+  /**
+   * Menambahkan server (assigned ke tenant dan online) sebagai cadangan
+   * terakhir ke semua router VPN tenant. Hanya database lokal; monitor
+   * mengirim daftar baru ke router yang online.
+   */
+  async appendServerToTenantRouters(
+    tenantId: string,
+    serverId: string,
+  ): Promise<{ updated: number }> {
+    await assertServersOnline(this.repo, tenantId, [serverId]);
+    return {
+      updated: await this.repo.appendServerToTenantRouters(tenantId, serverId),
+    };
   }
 
   /** Daftar peer admin dari core. */

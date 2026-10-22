@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { PROSPEK_JENIS, PROSPEK_STATUSES, PROSPEK_SUMBER } from "../domain/entities/Prospek";
+import {
+  PROSPEK_JENIS,
+  PROSPEK_STATUSES,
+  PROSPEK_SUMBER,
+} from "../domain/entities/Prospek";
 import {
   isPeranProspekSah,
   isSumberButuhIklan,

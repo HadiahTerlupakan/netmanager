@@ -115,7 +115,10 @@ export class InvestorDepositService {
         rejectedAt: rejectedAt.toISOString(),
       })
       .catch((error: unknown) =>
-        logger.warn("[InvestorDepositService] Publish deposit.rejected gagal:", error),
+        logger.warn(
+          "[InvestorDepositService] Publish deposit.rejected gagal:",
+          error,
+        ),
       );
 
     return rejected;

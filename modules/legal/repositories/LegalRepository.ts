@@ -27,10 +27,14 @@ import { isUniqueViolation, withDuplicateNameGuard } from "./prisma-errors";
  * Kategori rahasia disaring di sini untuk setiap jalur baca dokumen.
  */
 
-function confidentialityWhere(access: LegalAccess): Prisma.LegalDocumentWhereInput {
+function confidentialityWhere(
+  access: LegalAccess,
+): Prisma.LegalDocumentWhereInput {
   if (access.canViewConfidential) return {};
 
-  return { OR: [{ categoryId: null }, { category: { confidentiality: "BIASA" } }] };
+  return {
+    OR: [{ categoryId: null }, { category: { confidentiality: "BIASA" } }],
+  };
 }
 
 const MONITORED: Prisma.LegalDocumentWhereInput = {
@@ -56,11 +60,16 @@ function statusWhere(
     case "SEGERA_BERAKHIR":
       return { ...MONITORED, endDate: { gte: todayStart, lt: soonEnd } };
     case "AKTIF":
-      return { ...MONITORED, OR: [{ endDate: null }, { endDate: { gte: soonEnd } }] };
+      return {
+        ...MONITORED,
+        OR: [{ endDate: null }, { endDate: { gte: soonEnd } }],
+      };
   }
 }
 
-function searchWhere(search: string | undefined): Prisma.LegalDocumentWhereInput {
+function searchWhere(
+  search: string | undefined,
+): Prisma.LegalDocumentWhereInput {
   if (!search) return {};
 
   return {
@@ -75,7 +84,10 @@ function searchWhere(search: string | undefined): Prisma.LegalDocumentWhereInput
 const withDuplicateCategoryGuard = <T>(write: () => Promise<T>) =>
   withDuplicateNameGuard("Nama kategori sudah dipakai", write);
 
-function toObligationRows(obligations: LegalObligationInput[], tenantId: string | null) {
+function toObligationRows(
+  obligations: LegalObligationInput[],
+  tenantId: string | null,
+) {
   return obligations.map((obligation) => ({ ...obligation, tenantId }));
 }
 
@@ -85,7 +97,10 @@ export class LegalRepository implements ILegalRepository {
   }
 
   async createCategories(inputs: LegalCategoryInput[]): Promise<void> {
-    await prisma.legalCategory.createMany({ data: inputs, skipDuplicates: true });
+    await prisma.legalCategory.createMany({
+      data: inputs,
+      skipDuplicates: true,
+    });
   }
 
   async listCategories(access: LegalAccess): Promise<LegalCategoryEntity[]> {
@@ -99,7 +114,10 @@ export class LegalRepository implements ILegalRepository {
 
   async findCategoryById(id: string, access: LegalAccess) {
     const row = await prisma.legalCategory.findFirst({
-      where: { id, ...(access.canViewConfidential ? {} : { confidentiality: "BIASA" }) },
+      where: {
+        id,
+        ...(access.canViewConfidential ? {} : { confidentiality: "BIASA" }),
+      },
     });
 
     return row ? toLegalCategoryEntity(row) : null;
@@ -107,13 +125,17 @@ export class LegalRepository implements ILegalRepository {
 
   async createCategory(input: LegalCategoryInput) {
     return toLegalCategoryEntity(
-      await withDuplicateCategoryGuard(() => prisma.legalCategory.create({ data: input })),
+      await withDuplicateCategoryGuard(() =>
+        prisma.legalCategory.create({ data: input }),
+      ),
     );
   }
 
   async updateCategory(
     id: string,
-    data: Partial<Pick<LegalCategoryEntity, "name" | "confidentiality" | "isActive">>,
+    data: Partial<
+      Pick<LegalCategoryEntity, "name" | "confidentiality" | "isActive">
+    >,
   ) {
     return toLegalCategoryEntity(
       await withDuplicateCategoryGuard(() =>
@@ -137,7 +159,10 @@ export class LegalRepository implements ILegalRepository {
       prisma.legalDocument.findMany({
         where,
         include: legalDocumentInclude,
-        orderBy: [{ endDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+        orderBy: [
+          { endDate: { sort: "asc", nulls: "last" } },
+          { createdAt: "desc" },
+        ],
         skip: (filters.page - 1) * filters.limit,
         take: filters.limit,
       }),
@@ -224,7 +249,10 @@ export class LegalRepository implements ILegalRepository {
     return rows.map(toLegalDocumentEntity);
   }
 
-  async linkEndorsement(documentId: string, endorsementId: string): Promise<void> {
+  async linkEndorsement(
+    documentId: string,
+    endorsementId: string,
+  ): Promise<void> {
     await prisma.legalDocument.update({
       where: { id: documentId },
       data: { endorsementId },
@@ -232,10 +260,15 @@ export class LegalRepository implements ILegalRepository {
   }
 
   async replaceFile(documentId: string, file: LegalFileFields): Promise<void> {
-    await prisma.legalDocument.update({ where: { id: documentId }, data: file });
+    await prisma.legalDocument.update({
+      where: { id: documentId },
+      data: file,
+    });
   }
 
-  async findDocumentIdByEndorsement(endorsementId: string): Promise<string | null> {
+  async findDocumentIdByEndorsement(
+    endorsementId: string,
+  ): Promise<string | null> {
     const row = await prisma.legalDocument.findFirst({
       where: { endorsementId },
       select: { id: true },

@@ -8,9 +8,15 @@ import {
 } from "../repositories/PelangganSalesRepository";
 
 /** Sales (id) canvasing APPROVED dengan nomor HP sama; disuntik agar mudah diuji. */
-export type CariSalesCanvasing = (tenantId: string, noTelp: string) => Promise<string[]>;
+export type CariSalesCanvasing = (
+  tenantId: string,
+  noTelp: string,
+) => Promise<string[]>;
 
-const cariSalesCanvasingBawaan: CariSalesCanvasing = async (tenantId, noTelp) => {
+const cariSalesCanvasingBawaan: CariSalesCanvasing = async (
+  tenantId,
+  noTelp,
+) => {
   // Lazy: hindari impor melingkar pelanggan ↔ marketing saat modul dimuat.
   const { cariSalesCanvasingDariTelepon } = await import("@/modules/marketing");
   return cariSalesCanvasingDariTelepon(tenantId, noTelp);
@@ -93,16 +99,24 @@ function keDtoPelangganSaya(baris: BarisPelangganSaya): PelangganSayaDTO {
     latitude: baris.latitude,
     longitude: baris.longitude,
     namaSales: baris.sales?.name ?? null,
-    woTerbuka: wo ? { nomor: wo.workOrderNumber, status: wo.status, jenis: wo.type } : null,
+    woTerbuka: wo
+      ? { nomor: wo.workOrderNumber, status: wo.status, jenis: wo.type }
+      : null,
     jumlahKeluhanTerbuka: baris._count.support_tickets,
   };
 }
 
 function hariLewat(jatuhTempo: Date, sekarang: Date): number {
-  return Math.max(0, Math.floor((sekarang.getTime() - jatuhTempo.getTime()) / MS_SEHARI));
+  return Math.max(
+    0,
+    Math.floor((sekarang.getTime() - jatuhTempo.getTime()) / MS_SEHARI),
+  );
 }
 
-function keDto(baris: BarisPelangganTunggakan, sekarang: Date): PelangganTunggakanDTO {
+function keDto(
+  baris: BarisPelangganTunggakan,
+  sekarang: Date,
+): PelangganTunggakanDTO {
   return {
     id: baris.id,
     idPelanggan: baris.idPelanggan,
@@ -136,8 +150,12 @@ export function kelompokkanPerSales(
     peta.set(kunci, kelompok);
   }
   return [...peta.values()].sort((a, b) => {
-    if ((a.salesId === null) !== (b.salesId === null)) return a.salesId === null ? 1 : -1;
-    return b.pelanggan.length - a.pelanggan.length || a.namaSales.localeCompare(b.namaSales);
+    if ((a.salesId === null) !== (b.salesId === null))
+      return a.salesId === null ? 1 : -1;
+    return (
+      b.pelanggan.length - a.pelanggan.length ||
+      a.namaSales.localeCompare(b.namaSales)
+    );
   });
 }
 
@@ -158,15 +176,25 @@ export class PelangganSalesService {
 
   /** Sales penanggung jawab pelanggan saat ini (null bila belum ditetapkan). */
   async salesPelanggan(tenantId: string, pelangganId: string) {
-    const pelanggan = await this.repository.cariPelanggan(tenantId, pelangganId);
-    if (!pelanggan) throw createRouteServiceError("Pelanggan tidak ditemukan", HTTP_NOT_FOUND);
+    const pelanggan = await this.repository.cariPelanggan(
+      tenantId,
+      pelangganId,
+    );
+    if (!pelanggan)
+      throw createRouteServiceError(
+        "Pelanggan tidak ditemukan",
+        HTTP_NOT_FOUND,
+      );
     return { salesId: pelanggan.salesId, sales: pelanggan.sales };
   }
 
   /** Tolak sales yang bukan sales aktif tenant ini (422). */
   async pastikanSalesAktif(tenantId: string, salesId: string) {
     if (!(await this.repository.cariSalesAktif(tenantId, salesId))) {
-      throw createRouteServiceError("Sales tidak ditemukan atau tidak aktif", HTTP_UNPROCESSABLE);
+      throw createRouteServiceError(
+        "Sales tidak ditemukan atau tidak aktif",
+        HTTP_UNPROCESSABLE,
+      );
     }
   }
 
@@ -186,13 +214,26 @@ export class PelangganSalesService {
     if (!pelanggan.noTelp) return null;
     const kandidat = await this.cariSalesCanvasing(tenantId, pelanggan.noTelp);
     if (kandidat.length !== 1) return null;
-    return (await this.repository.cariSalesAktif(tenantId, kandidat[0])) ? kandidat[0] : null;
+    return (await this.repository.cariSalesAktif(tenantId, kandidat[0]))
+      ? kandidat[0]
+      : null;
   }
 
   /** Tetapkan (atau lepas dengan null) sales penanggung jawab pelanggan. */
-  async tetapkanSales(tenantId: string, pelangganId: string, salesId: string | null) {
-    const pelanggan = await this.repository.cariPelanggan(tenantId, pelangganId);
-    if (!pelanggan) throw createRouteServiceError("Pelanggan tidak ditemukan", HTTP_NOT_FOUND);
+  async tetapkanSales(
+    tenantId: string,
+    pelangganId: string,
+    salesId: string | null,
+  ) {
+    const pelanggan = await this.repository.cariPelanggan(
+      tenantId,
+      pelangganId,
+    );
+    if (!pelanggan)
+      throw createRouteServiceError(
+        "Pelanggan tidak ditemukan",
+        HTTP_NOT_FOUND,
+      );
     if (salesId) await this.pastikanSalesAktif(tenantId, salesId);
     return this.repository.tetapkanSales(tenantId, pelangganId, salesId);
   }
@@ -201,9 +242,18 @@ export class PelangganSalesService {
    * Pelanggan yang dipegang sales pemanggil (sendiri / tim / seluruh tenant),
    * lengkap dengan WO terbuka dan jumlah keluhan terbuka. Paginasi wajib.
    */
-  async daftarPelangganSaya(tenantId: string, saringan: SaringanSales, filter: FilterPelangganSaya) {
+  async daftarPelangganSaya(
+    tenantId: string,
+    saringan: SaringanSales,
+    filter: FilterPelangganSaya,
+  ) {
     if (saringan && saringan.salesIds.length === 0) {
-      return { data: [] as PelangganSayaDTO[], total: 0, page: filter.page, limit: filter.limit };
+      return {
+        data: [] as PelangganSayaDTO[],
+        total: 0,
+        page: filter.page,
+        limit: filter.limit,
+      };
     }
     const { data, total } = await this.repository.daftarPelangganSales(
       tenantId,
@@ -211,17 +261,34 @@ export class PelangganSalesService {
       { cari: filter.cari, status: filter.status },
       { lewati: (filter.page - 1) * filter.limit, ambil: filter.limit },
     );
-    return { data: data.map(keDtoPelangganSaya), total, page: filter.page, limit: filter.limit };
+    return {
+      data: data.map(keDtoPelangganSaya),
+      total,
+      page: filter.page,
+      limit: filter.limit,
+    };
   }
 
   /**
    * Pelanggan isolir untuk ditindaklanjuti, dikelompokkan per sales.
    * @param saringan sales yang boleh dilihat pemanggil; null = seluruh tenant.
    */
-  async daftarTunggakan(tenantId: string, saringan: SaringanSales, sekarang = new Date()): Promise<RingkasanTunggakan> {
-    if (saringan && saringan.salesIds.length === 0) return { total: 0, kelompok: [] };
-    const baris = await this.repository.daftarIsolir(tenantId, saringan, BATAS_TUNGGAKAN);
-    return { total: baris.length, kelompok: kelompokkanPerSales(baris, sekarang) };
+  async daftarTunggakan(
+    tenantId: string,
+    saringan: SaringanSales,
+    sekarang = new Date(),
+  ): Promise<RingkasanTunggakan> {
+    if (saringan && saringan.salesIds.length === 0)
+      return { total: 0, kelompok: [] };
+    const baris = await this.repository.daftarIsolir(
+      tenantId,
+      saringan,
+      BATAS_TUNGGAKAN,
+    );
+    return {
+      total: baris.length,
+      kelompok: kelompokkanPerSales(baris, sekarang),
+    };
   }
 }
 

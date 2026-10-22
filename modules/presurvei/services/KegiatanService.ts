@@ -131,7 +131,9 @@ const umumkanLewatEventBus: PengumumPerubahanKegiatan = async (muatan) => {
 };
 
 /** Pengumum laporan bawaan: event bus, diimpor dinamis seperti di atas. */
-const umumkanLaporanLewatEventBus: PengumumLaporanPenugasan = async (muatan) => {
+const umumkanLaporanLewatEventBus: PengumumLaporanPenugasan = async (
+  muatan,
+) => {
   const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
   await eventBus.publish(EVENT_NAMES.PRESURVEI_RENCANA_REPORTED, {
     ...muatan,
@@ -216,7 +218,10 @@ export class KegiatanService {
     ) {
       throw new AppError(PESAN_HASIL_LINTAS_KELOMPOK, 400, "VALIDATION_ERROR");
     }
-    if (input.hasil !== undefined && !isHasilSesuaiJenis(input.hasil, kegiatan.jenis)) {
+    if (
+      input.hasil !== undefined &&
+      !isHasilSesuaiJenis(input.hasil, kegiatan.jenis)
+    ) {
       throw new AppError(PESAN_HASIL_KHUSUS_SURVEI, 400, "VALIDATION_ERROR");
     }
 
@@ -282,7 +287,10 @@ export class KegiatanService {
    */
   async catat(input: CatatKegiatanInput): Promise<HasilCatatKegiatan> {
     const { prospekBaru, rencanaId, ...masukan } = input;
-    const rencana = await this.muatRencanaUntukDilaporkan(rencanaId, masukan.userId);
+    const rencana = await this.muatRencanaUntukDilaporkan(
+      rencanaId,
+      masukan.userId,
+    );
     const kegiatan: CreateKegiatanInput = {
       ...masukan,
       prospekId: masukan.prospekId || rencana?.prospekId || null,
@@ -323,7 +331,10 @@ export class KegiatanService {
       hasil: kegiatan.hasil,
       tenantId: rencana.tenantId,
     }).catch((error: unknown) => {
-      logger.error("[KegiatanService] Gagal mengabarkan laporan penugasan:", error);
+      logger.error(
+        "[KegiatanService] Gagal mengabarkan laporan penugasan:",
+        error,
+      );
     });
   }
 

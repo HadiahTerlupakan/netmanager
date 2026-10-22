@@ -173,7 +173,9 @@ export interface LegalCategoryDto {
   isActive: boolean;
 }
 
-export function toLegalCategoryDto(category: LegalCategoryEntity): LegalCategoryDto {
+export function toLegalCategoryDto(
+  category: LegalCategoryEntity,
+): LegalCategoryDto {
   return {
     id: category.id,
     name: category.name,
@@ -195,7 +197,9 @@ export interface LegalTemplateDto {
   updatedAt: string;
 }
 
-export function toLegalTemplateDto(template: LegalTemplateEntity): LegalTemplateDto {
+export function toLegalTemplateDto(
+  template: LegalTemplateEntity,
+): LegalTemplateDto {
   return {
     id: template.id,
     name: template.name,

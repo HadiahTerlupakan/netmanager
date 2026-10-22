@@ -38,19 +38,27 @@ const rupiahFormatter = new Intl.NumberFormat("id-ID", {
 });
 
 /** Tanggal panjang Indonesia, mis. "4 Oktober 2026". */
-export function formatLegalDate(date: Date | null | undefined): string | undefined {
+export function formatLegalDate(
+  date: Date | null | undefined,
+): string | undefined {
   return date ? dateFormatter.format(date) : undefined;
 }
 
 /** Nominal rupiah, mis. "Rp 15.000.000"; kosong bila bukan angka. */
-export function formatRupiah(value: string | null | undefined): string | undefined {
+export function formatRupiah(
+  value: string | null | undefined,
+): string | undefined {
   if (!value) return undefined;
   const amount = Number(value);
-  return Number.isFinite(amount) ? rupiahFormatter.format(amount).replace(/\s/g, " ") : undefined;
+  return Number.isFinite(amount)
+    ? rupiahFormatter.format(amount).replace(/\s/g, " ")
+    : undefined;
 }
 
 /** Nilai seluruh isian yang tersedia; yang tidak diketahui dibiarkan kosong. */
-export function buildTemplateValues(source: TemplateValueSource): TemplateValues {
+export function buildTemplateValues(
+  source: TemplateValueSource,
+): TemplateValues {
   return {
     judul: source.title ?? undefined,
     nomor: source.documentNumber ?? undefined,

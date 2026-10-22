@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { LEGAL_DOCUMENT_TYPES } from "../domain/entities/LegalDocument";
-import { createLegalDocumentSchema, documentFieldsSchema } from "./legal.validator";
+import {
+  createLegalDocumentSchema,
+  documentFieldsSchema,
+} from "./legal.validator";
 
 /** Validasi template dokumen legal dan pembuatan dokumen dari template. */
 
@@ -18,12 +21,26 @@ const signatureSide = z.object({
 export const templateBlockSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("heading"), text: z.string().max(MAX_LABEL) }),
   z.object({ type: z.literal("paragraph"), text: blockText }),
-  z.object({ type: z.literal("article"), title: z.string().max(MAX_LABEL), text: blockText }),
-  z.object({ type: z.literal("list"), items: z.array(blockText).min(1).max(MAX_LIST_ITEMS) }),
-  z.object({ type: z.literal("signatures"), left: signatureSide, right: signatureSide }),
+  z.object({
+    type: z.literal("article"),
+    title: z.string().max(MAX_LABEL),
+    text: blockText,
+  }),
+  z.object({
+    type: z.literal("list"),
+    items: z.array(blockText).min(1).max(MAX_LIST_ITEMS),
+  }),
+  z.object({
+    type: z.literal("signatures"),
+    left: signatureSide,
+    right: signatureSide,
+  }),
 ]);
 
-export const templateContentSchema = z.array(templateBlockSchema).min(1).max(MAX_BLOCKS);
+export const templateContentSchema = z
+  .array(templateBlockSchema)
+  .min(1)
+  .max(MAX_BLOCKS);
 
 export const createLegalTemplateSchema = z.object({
   name: z.string().trim().min(3).max(100),
@@ -64,6 +81,12 @@ export const createDocumentFromTemplateSchema = z.object({
   document: createLegalDocumentSchema,
 });
 
-export type TemplateDocumentFields = z.infer<typeof previewLegalTemplateSchema>["document"];
-export type CreateLegalTemplatePayload = z.infer<typeof createLegalTemplateSchema>;
-export type UpdateLegalTemplatePayload = z.infer<typeof updateLegalTemplateSchema>;
+export type TemplateDocumentFields = z.infer<
+  typeof previewLegalTemplateSchema
+>["document"];
+export type CreateLegalTemplatePayload = z.infer<
+  typeof createLegalTemplateSchema
+>;
+export type UpdateLegalTemplatePayload = z.infer<
+  typeof updateLegalTemplateSchema
+>;

@@ -10,7 +10,10 @@ export interface LetterheadSource {
 /** Kop surat dari Pengaturan Umum tenant (nama, alamat, telepon, email) dan logo invoice. */
 export class SettingsLetterheadSource implements LetterheadSource {
   async getLetterhead(): Promise<Letterhead> {
-    const [settings, logo] = await Promise.all([getGeneralSettings(), this.loadLogo()]);
+    const [settings, logo] = await Promise.all([
+      getGeneralSettings(),
+      this.loadLogo(),
+    ]);
 
     return {
       companyName: settings.perusahaan,
@@ -27,7 +30,10 @@ export class SettingsLetterheadSource implements LetterheadSource {
       const logo = await getTrimmedLogo("invoice");
       return logo ? { bytes: logo.data, contentType: logo.contentType } : null;
     } catch (error) {
-      logger.warn("[LegalLetterhead] Logo gagal dimuat, kop dicetak tanpa logo:", error);
+      logger.warn(
+        "[LegalLetterhead] Logo gagal dimuat, kop dicetak tanpa logo:",
+        error,
+      );
       return null;
     }
   }

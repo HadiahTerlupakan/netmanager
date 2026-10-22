@@ -16,7 +16,9 @@ const templateInclude = {
   category: { select: { id: true, name: true } },
 } satisfies Prisma.LegalTemplateInclude;
 
-type LegalTemplateRow = Prisma.LegalTemplateGetPayload<{ include: typeof templateInclude }>;
+type LegalTemplateRow = Prisma.LegalTemplateGetPayload<{
+  include: typeof templateInclude;
+}>;
 
 const withDuplicateTemplateGuard = <T>(write: () => Promise<T>) =>
   withDuplicateNameGuard("Nama template sudah dipakai", write);
@@ -36,7 +38,8 @@ function toLegalTemplateEntity(row: LegalTemplateRow): LegalTemplateEntity {
   };
 }
 
-const toJson = (content: TemplateBlock[]) => content as unknown as Prisma.InputJsonValue;
+const toJson = (content: TemplateBlock[]) =>
+  content as unknown as Prisma.InputJsonValue;
 
 export class LegalTemplateRepository implements ILegalTemplateRepository {
   countTemplates(): Promise<number> {
@@ -45,7 +48,10 @@ export class LegalTemplateRepository implements ILegalTemplateRepository {
 
   async createTemplates(inputs: LegalTemplateInput[]): Promise<void> {
     await prisma.legalTemplate.createMany({
-      data: inputs.map((input) => ({ ...input, content: toJson(input.content) })),
+      data: inputs.map((input) => ({
+        ...input,
+        content: toJson(input.content),
+      })),
       skipDuplicates: true,
     });
   }
@@ -59,11 +65,16 @@ export class LegalTemplateRepository implements ILegalTemplateRepository {
   }
 
   async findTemplateById(id: string): Promise<LegalTemplateEntity | null> {
-    const row = await prisma.legalTemplate.findFirst({ where: { id }, include: templateInclude });
+    const row = await prisma.legalTemplate.findFirst({
+      where: { id },
+      include: templateInclude,
+    });
     return row ? toLegalTemplateEntity(row) : null;
   }
 
-  async createTemplate(input: LegalTemplateInput): Promise<LegalTemplateEntity> {
+  async createTemplate(
+    input: LegalTemplateInput,
+  ): Promise<LegalTemplateEntity> {
     const row = await withDuplicateTemplateGuard(() =>
       prisma.legalTemplate.create({
         data: { ...input, content: toJson(input.content) },
@@ -73,7 +84,10 @@ export class LegalTemplateRepository implements ILegalTemplateRepository {
     return toLegalTemplateEntity(row);
   }
 
-  async updateTemplate(id: string, patch: LegalTemplatePatch): Promise<LegalTemplateEntity> {
+  async updateTemplate(
+    id: string,
+    patch: LegalTemplatePatch,
+  ): Promise<LegalTemplateEntity> {
     const { content, ...rest } = patch;
     const row = await withDuplicateTemplateGuard(() =>
       prisma.legalTemplate.update({

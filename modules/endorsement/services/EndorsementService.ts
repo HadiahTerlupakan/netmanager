@@ -120,7 +120,10 @@ async function publishCompleted(
       tenantId: endorsement.tenantId ?? undefined,
     });
   } catch (error) {
-    logger.error(`[Endorsement] Gagal publish surat sah ${endorsement.id}:`, error);
+    logger.error(
+      `[Endorsement] Gagal publish surat sah ${endorsement.id}:`,
+      error,
+    );
   }
 }
 
@@ -494,10 +497,15 @@ export class EndorsementService {
     });
 
     // Menandatangani sebagian tidak berarti apa-apa, jadi surat langsung gugur.
-    await this.repository.transitionStatus(endorsement.id, ["SENT"], "CANCELLED", {
-      cancelledAt: new Date(),
-      cancelReason: `Ditolak oleh ${signer.name}: ${reason}`,
-    });
+    await this.repository.transitionStatus(
+      endorsement.id,
+      ["SENT"],
+      "CANCELLED",
+      {
+        cancelledAt: new Date(),
+        cancelReason: `Ditolak oleh ${signer.name}: ${reason}`,
+      },
+    );
 
     return this.getById(endorsement.id);
   }
@@ -559,7 +567,10 @@ export class EndorsementService {
     try {
       return await this.finalizeIfComplete(id);
     } catch (error) {
-      logger.error(`[Endorsement] Finalisasi ${id} gagal, diulang cron:`, error);
+      logger.error(
+        `[Endorsement] Finalisasi ${id} gagal, diulang cron:`,
+        error,
+      );
       return false;
     }
   }

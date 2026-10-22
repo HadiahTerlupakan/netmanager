@@ -13,7 +13,7 @@ Module ini menangani semua operasi jaringan, termasuk manajemen OLT, ONU, MikroT
 Gunakan import dari root module:
 
 ```typescript
-import { OLTRepository, OnuService } from '@/modules/network';
+import { OLTRepository, OnuService } from "@/modules/network";
 
 // Repository
 const oltRepo = new OLTRepository();
@@ -23,6 +23,7 @@ const onuService = new OnuService();
 ```
 
 ## Dependencies
+
 - `@/lib/prisma`: Database connection.
 - `net-snmp`: SNMP library.
 - `@/lib/logger`: Logging utility.

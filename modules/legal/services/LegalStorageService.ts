@@ -29,7 +29,9 @@ function sanitizeFileName(fileName: string): string {
 }
 
 function assertFileAcceptable(buffer: Buffer, contentType: string): void {
-  if (!(ALLOWED_LEGAL_CONTENT_TYPES as readonly string[]).includes(contentType)) {
+  if (
+    !(ALLOWED_LEGAL_CONTENT_TYPES as readonly string[]).includes(contentType)
+  ) {
     throw new AppError("Berkas harus PDF, PNG, atau JPG", 400, "INVALID_FILE");
   }
   if (buffer.byteLength > MAX_LEGAL_FILE_BYTES) {

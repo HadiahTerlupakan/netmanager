@@ -8,7 +8,10 @@ import {
 } from "@/modules/endorsement";
 import type { LegalDocumentEntity } from "../domain/entities/LegalDocument";
 import { isMonitored } from "../domain/legal-rules";
-import type { ILegalRepository, LegalAccess } from "../domain/ports/ILegalRepository";
+import type {
+  ILegalRepository,
+  LegalAccess,
+} from "../domain/ports/ILegalRepository";
 import { LegalRepository } from "../repositories/LegalRepository";
 import type { CreateLegalDocumentPayload } from "../validators/legal.validator";
 import { LegalDocumentService } from "./LegalDocumentService";
@@ -46,7 +49,9 @@ function signedFileName(fileName: string): string {
 export class LegalSigningService {
   constructor(
     private readonly repository: ILegalRepository = new LegalRepository(),
-    private readonly documents: LegalDocumentService = new LegalDocumentService(repository),
+    private readonly documents: LegalDocumentService = new LegalDocumentService(
+      repository,
+    ),
     private readonly storage: LegalStorageService = new LegalStorageService(),
     private readonly endorsements: EndorsementService = new EndorsementService(),
     private readonly issuer: EndorsementIssueService = new EndorsementIssueService(),
@@ -88,9 +93,13 @@ export class LegalSigningService {
       return false;
     }
 
-    const document = await this.repository.findDocumentById(endorsement.sourceId, FULL_ACCESS);
+    const document = await this.repository.findDocumentById(
+      endorsement.sourceId,
+      FULL_ACCESS,
+    );
     const isAlreadyApplied = document?.fileHash === endorsement.signedFileHash;
-    if (!document || !endorsement.signedFileKey || isAlreadyApplied) return false;
+    if (!document || !endorsement.signedFileKey || isAlreadyApplied)
+      return false;
 
     const file = await this.storage.save({
       tenantId: document.tenantId,
@@ -115,10 +124,18 @@ export class LegalSigningService {
   ): Promise<LegalDocumentEntity> {
     const endorsement = await this.endorsements.getById(endorsementId);
     if (endorsement.status !== "COMPLETED" || !endorsement.signedFileKey) {
-      throw new AppError("Hanya surat yang sudah sah yang bisa diarsipkan", 409, "INVALID_STATE");
+      throw new AppError(
+        "Hanya surat yang sudah sah yang bisa diarsipkan",
+        409,
+        "INVALID_STATE",
+      );
     }
     if (await this.repository.findDocumentIdByEndorsement(endorsementId)) {
-      throw new AppError("Surat ini sudah tersimpan di arsip Legal", 409, "DUPLICATE");
+      throw new AppError(
+        "Surat ini sudah tersimpan di arsip Legal",
+        409,
+        "DUPLICATE",
+      );
     }
 
     return this.documents.create(
@@ -139,16 +156,28 @@ export class LegalSigningService {
 
   private async assertSendable(document: LegalDocumentEntity): Promise<void> {
     if (document.fileContentType !== PDF_CONTENT_TYPE) {
-      throw new AppError("Hanya dokumen PDF yang bisa dikirim untuk ditandatangani", 400, "VALIDATION_ERROR");
+      throw new AppError(
+        "Hanya dokumen PDF yang bisa dikirim untuk ditandatangani",
+        400,
+        "VALIDATION_ERROR",
+      );
     }
     if (!isMonitored(document)) {
-      throw new AppError("Dokumen ini sudah diperpanjang atau diakhiri", 409, "INVALID_STATE");
+      throw new AppError(
+        "Dokumen ini sudah diperpanjang atau diakhiri",
+        409,
+        "INVALID_STATE",
+      );
     }
     if (!document.endorsementId) return;
 
     const current = await this.endorsements.getById(document.endorsementId);
     if (current.status === "SENT") {
-      throw new AppError("Dokumen ini sedang dalam proses tanda tangan", 409, "INVALID_STATE");
+      throw new AppError(
+        "Dokumen ini sedang dalam proses tanda tangan",
+        409,
+        "INVALID_STATE",
+      );
     }
   }
 }

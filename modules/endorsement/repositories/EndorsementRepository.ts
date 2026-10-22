@@ -257,7 +257,9 @@ export class EndorsementRepository implements IEndorsementRepository {
 
   async countForSignerUser(userId: string, now: Date) {
     const [waitingCount, totalCount] = await Promise.all([
-      prisma.endorsement.count({ where: buildWaitingForUserWhere(userId, now) }),
+      prisma.endorsement.count({
+        where: buildWaitingForUserWhere(userId, now),
+      }),
       prisma.endorsement.count({ where: { signers: { some: { userId } } } }),
     ]);
 

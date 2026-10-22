@@ -39,7 +39,12 @@ const tujuanSchema = z
   .min(1, "Tujuan kunjungan wajib diisi")
   .max(TUJUAN_RENCANA_MAKS);
 
-const alamatSchema = z.string().trim().max(ALAMAT_RENCANA_MAKS).optional().nullable();
+const alamatSchema = z
+  .string()
+  .trim()
+  .max(ALAMAT_RENCANA_MAKS)
+  .optional()
+  .nullable();
 
 export const buatRencanaSchema = z.object({
   salesId: z.string().min(1).optional(),

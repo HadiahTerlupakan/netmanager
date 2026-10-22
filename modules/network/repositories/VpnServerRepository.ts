@@ -110,4 +110,55 @@ export class VpnServerRepository implements IVpnServerRepository {
     });
     return rows.map((r) => r.vpnServer);
   }
+
+  /**
+   * Menambahkan server di prioritas max+1 pada router VPN tenant yang belum
+   * memakainya. Baris router dikunci lebih dulu (urut id, tanpa mengubah
+   * kolomnya) sehingga `replaceServersAsStale` dan `completeScriptSend` yang
+   * bersamaan antre di belakang transaksi ini; pengiriman yang sedang jalan
+   * kalah pada compare-and-set dan router tetap stale untuk dikirim ulang
+   * monitor.
+   */
+  async appendServerToTenantRouters(
+    tenantId: string,
+    serverId: string,
+  ): Promise<number> {
+    return this.client.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT "id" FROM "MikroTikRouter"
+        WHERE "tenantId" = ${tenantId}
+          AND "connectionMode" = 'VPN'
+          AND "vpnCoreRouterId" IS NOT NULL
+        ORDER BY "id"
+        FOR UPDATE`;
+      const routerIds = locked.map((r) => r.id);
+      const links = await tx.mikroTikRouterVpnServer.findMany({
+        where: { routerId: { in: routerIds }, router: { tenantId } },
+        select: { routerId: true, vpnServerId: true, priority: true },
+      });
+      const nextPriority = new Map<string, number>();
+      const hasServer = new Set<string>();
+      for (const link of links) {
+        nextPriority.set(
+          link.routerId,
+          Math.max(nextPriority.get(link.routerId) ?? 0, link.priority + 1),
+        );
+        if (link.vpnServerId === serverId) hasServer.add(link.routerId);
+      }
+      const changed = routerIds.filter((id) => !hasServer.has(id));
+      if (changed.length === 0) return 0;
+      await tx.mikroTikRouterVpnServer.createMany({
+        data: changed.map((routerId) => ({
+          routerId,
+          vpnServerId: serverId,
+          priority: nextPriority.get(routerId) ?? 0,
+        })),
+      });
+      await tx.mikroTikRouter.updateMany({
+        where: { id: { in: changed }, tenantId },
+        data: { vpnScriptStale: true },
+      });
+      return changed.length;
+    });
+  }
 }

@@ -63,9 +63,14 @@ export function isPerubahanHasilSah(
  * yang ditawarkan untuk jenis itu (hasil saat ini selalu ikut, walau data
  * lama). Selalu array baru.
  */
-export function daftarHasilSekelompok(hasil: KegiatanHasil, jenis?: KegiatanJenis): KegiatanHasil[] {
+export function daftarHasilSekelompok(
+  hasil: KegiatanHasil,
+  jenis?: KegiatanJenis,
+): KegiatanHasil[] {
   const ditawarkan = jenis ? HASIL_PER_JENIS[jenis] : KEGIATAN_HASIL;
   return KEGIATAN_HASIL.filter(
-    (calon) => isPerubahanHasilSah(hasil, calon) && (calon === hasil || ditawarkan.includes(calon)),
+    (calon) =>
+      isPerubahanHasilSah(hasil, calon) &&
+      (calon === hasil || ditawarkan.includes(calon)),
   );
 }

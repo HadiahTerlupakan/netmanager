@@ -2,14 +2,21 @@ import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import type { KegiatanEntity } from "../domain/entities/Kegiatan";
-import type { RencanaEntity, RencanaJenis, RencanaStatusTampil } from "../domain/entities/Rencana";
+import type {
+  RencanaEntity,
+  RencanaJenis,
+  RencanaStatusTampil,
+} from "../domain/entities/Rencana";
 import type { IKegiatanRepository } from "../domain/ports/IKegiatanRepository";
 import type { IProspekRepository } from "../domain/ports/IProspekRepository";
 import type {
   IRencanaRepository,
   UbahRencanaInput,
 } from "../domain/ports/IRencanaRepository";
-import type { ISalesRepository, SalesRingkas } from "../domain/ports/ISalesRepository";
+import type {
+  ISalesRepository,
+  SalesRingkas,
+} from "../domain/ports/ISalesRepository";
 import {
   hitungRekapRencana,
   isBolehMengatur,
@@ -88,8 +95,10 @@ export type PengumumPenugasanRencana = (
 type PenentuZonaWaktu = (tenantId: string) => Promise<string>;
 
 const PESAN_TIDAK_DITEMUKAN = "Rencana tidak ditemukan";
-const PESAN_DI_LUAR_LINGKUP = "Anda tidak berhak menugaskan rencana ke sales ini";
-const PESAN_TIDAK_BOLEH_MENGATUR = "Rencana ini tidak bisa Anda ubah atau batalkan";
+const PESAN_DI_LUAR_LINGKUP =
+  "Anda tidak berhak menugaskan rencana ke sales ini";
+const PESAN_TIDAK_BOLEH_MENGATUR =
+  "Rencana ini tidak bisa Anda ubah atau batalkan";
 const PESAN_SUDAH_DITUTUP = "Rencana sudah dilaporkan atau dibatalkan";
 const PESAN_TANGGAL_LAMPAU = "Tanggal rencana tidak boleh sebelum hari ini";
 const PESAN_PROSPEK_TIDAK_ADA = "Prospek tidak ditemukan";
@@ -148,7 +157,11 @@ export class RencanaService {
     input: DaftarRencanaInput,
     lingkup: LingkupRencana,
     tenantId: string,
-  ): Promise<{ items: RencanaEntity[]; total: number; waktu: KonteksWaktuRencana }> {
+  ): Promise<{
+    items: RencanaEntity[];
+    total: number;
+    waktu: KonteksWaktuRencana;
+  }> {
     const waktu = await this.konteksWaktu(tenantId);
     const hasil = await this.repository.findMany({
       ...input,
@@ -224,7 +237,8 @@ export class RencanaService {
     if (input.tanggal !== undefined) {
       await this.pastikanTanggalSah(input.tanggal, tenantId);
     }
-    if (input.prospekId) await this.pastikanProspekSah(input.prospekId, tenantId);
+    if (input.prospekId)
+      await this.pastikanProspekSah(input.prospekId, tenantId);
 
     const diubah = await this.repository.ubahSelagiTerbuka(
       rencana.id,
@@ -311,7 +325,10 @@ export class RencanaService {
     return rencana;
   }
 
-  private async pastikanTanggalSah(tanggal: string, tenantId: string): Promise<void> {
+  private async pastikanTanggalSah(
+    tanggal: string,
+    tenantId: string,
+  ): Promise<void> {
     const { hariIni } = await this.konteksWaktu(tenantId);
     if (!isTanggalBolehDirencanakan(tanggal, hariIni)) {
       throw new AppError(PESAN_TANGGAL_LAMPAU, 400, "VALIDATION_ERROR");
@@ -341,7 +358,10 @@ export class RencanaService {
       tujuan: rencana.tujuan,
       tenantId: rencana.tenantId ?? "",
     }).catch((error: unknown) => {
-      logger.error("[RencanaService] Gagal mengumumkan penugasan rencana:", error);
+      logger.error(
+        "[RencanaService] Gagal mengumumkan penugasan rencana:",
+        error,
+      );
     });
   }
 }

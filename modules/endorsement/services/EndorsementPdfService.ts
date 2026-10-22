@@ -186,7 +186,10 @@ export class EndorsementPdfService {
       CONTENT_WIDTH,
     );
     for (const line of titleLines) {
-      cursor.text(line, MARGIN, cursor.y, { font: fonts.bold, size: HEADING_SIZE });
+      cursor.text(line, MARGIN, cursor.y, {
+        font: fonts.bold,
+        size: HEADING_SIZE,
+      });
       cursor.y -= LINE_HEIGHT * 1.2;
     }
     cursor.y -= LINE_HEIGHT * 0.4;

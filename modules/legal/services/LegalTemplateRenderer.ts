@@ -87,24 +87,38 @@ function toWords(text: string, fonts: Fonts): Word[] {
     const font = segment.isBold ? fonts.bold : fonts.regular;
     // Menempel hanya bila tidak ada spasi di batas kedua segmen pada sumbernya.
     const isGlued =
-      words.length > 0 && !/\s$/.test(previousText) && !/^\s/.test(segment.text);
+      words.length > 0 &&
+      !/\s$/.test(previousText) &&
+      !/^\s/.test(segment.text);
     previousText = segment.text;
     toPrintableText(font, segment.text)
       .split(" ")
       .filter(Boolean)
       .forEach((word, index) =>
-        words.push({ text: word, isBold: segment.isBold, isJoined: index === 0 && isGlued }),
+        words.push({
+          text: word,
+          isBold: segment.isBold,
+          isJoined: index === 0 && isGlued,
+        }),
       );
   }
   return words;
 }
 
 function wordWidth(word: Word, fonts: Fonts, size: number): number {
-  return (word.isBold ? fonts.bold : fonts.regular).widthOfTextAtSize(word.text, size);
+  return (word.isBold ? fonts.bold : fonts.regular).widthOfTextAtSize(
+    word.text,
+    size,
+  );
 }
 
 /** Bungkus kata bergaya campuran menjadi baris yang muat di lebar tertentu. */
-function wrapWords(words: Word[], fonts: Fonts, size: number, maxWidth: number): Word[][] {
+function wrapWords(
+  words: Word[],
+  fonts: Fonts,
+  size: number,
+  maxWidth: number,
+): Word[][] {
   const space = fonts.regular.widthOfTextAtSize(" ", size);
   const lines: Word[][] = [];
   let line: Word[] = [];
@@ -139,7 +153,13 @@ function drawWordLine(
   line.forEach((word, index) => {
     if (index > 0 && !word.isJoined) x += space;
     const font = word.isBold ? fonts.bold : fonts.regular;
-    cursor.page.drawText(word.text, { x, y: cursor.y, size: start.size, font, color: INK });
+    cursor.page.drawText(word.text, {
+      x,
+      y: cursor.y,
+      size: start.size,
+      font,
+      color: INK,
+    });
     x += font.widthOfTextAtSize(word.text, start.size);
   });
 }
@@ -152,7 +172,12 @@ function drawRichText(
   layout: { x: number; width: number },
 ): void {
   for (const paragraph of text.split(/\n+/).filter((part) => part.trim())) {
-    const lines = wrapWords(toWords(paragraph, fonts), fonts, BODY_SIZE, layout.width);
+    const lines = wrapWords(
+      toWords(paragraph, fonts),
+      fonts,
+      BODY_SIZE,
+      layout.width,
+    );
     for (const line of lines) {
       cursor.ensureSpace(BODY_LINE_HEIGHT);
       cursor.y -= BODY_LINE_HEIGHT;
@@ -162,10 +187,18 @@ function drawRichText(
   }
 }
 
-function drawCentered(cursor: Cursor, text: string, font: PDFFont, size: number): void {
+function drawCentered(
+  cursor: Cursor,
+  text: string,
+  font: PDFFont,
+  size: number,
+): void {
   const printable = toPrintableText(font, text);
   const lines = wrapWords(
-    printable.split(" ").filter(Boolean).map((word) => ({ text: word, isBold: true })),
+    printable
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => ({ text: word, isBold: true })),
     { regular: font, bold: font },
     size,
     CONTENT_WIDTH,
@@ -186,7 +219,10 @@ function drawCentered(cursor: Cursor, text: string, font: PDFFont, size: number)
 
 export class LegalTemplateRenderer {
   /** Susun PDF berkop surat dari blok template yang sudah terisi. */
-  async render(blocks: TemplateBlock[], letterhead: Letterhead): Promise<Buffer> {
+  async render(
+    blocks: TemplateBlock[],
+    letterhead: Letterhead,
+  ): Promise<Buffer> {
     const output = await PDFDocument.create();
     const fonts: Fonts = {
       regular: await output.embedFont(StandardFonts.Helvetica),
@@ -246,7 +282,8 @@ export class LegalTemplateRenderer {
       });
     }
 
-    cursor.y = top - Math.max(LOGO_MAX_HEIGHT, COMPANY_SIZE + SMALL_SIZE * 3) - 8;
+    cursor.y =
+      top - Math.max(LOGO_MAX_HEIGHT, COMPANY_SIZE + SMALL_SIZE * 3) - 8;
     cursor.page.drawLine({
       start: { x: MARGIN, y: cursor.y },
       end: { x: PAGE_WIDTH - MARGIN, y: cursor.y },
@@ -271,7 +308,12 @@ export class LegalTemplateRenderer {
     }
   }
 
-  private drawBlock(cursor: Cursor, block: TemplateBlock, fonts: Fonts, articleNumber: number): void {
+  private drawBlock(
+    cursor: Cursor,
+    block: TemplateBlock,
+    fonts: Fonts,
+    articleNumber: number,
+  ): void {
     const body = { x: MARGIN, width: CONTENT_WIDTH };
 
     switch (block.type) {
@@ -283,7 +325,8 @@ export class LegalTemplateRenderer {
         return;
       case "article":
         drawCentered(cursor, `Pasal ${articleNumber}`, fonts.bold, BODY_SIZE);
-        if (block.title.trim()) drawCentered(cursor, block.title, fonts.bold, BODY_SIZE);
+        if (block.title.trim())
+          drawCentered(cursor, block.title, fonts.bold, BODY_SIZE);
         cursor.y -= PARAGRAPH_GAP;
         drawRichText(cursor, block.text, fonts, body);
         return;

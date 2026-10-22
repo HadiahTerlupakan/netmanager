@@ -18,7 +18,10 @@ import {
   type RekapRealisasi,
 } from "../domain/penilaian-rules";
 import type { IRencanaRepository } from "../domain/ports/IRencanaRepository";
-import type { AnggotaTim, ITimSalesRepository } from "../domain/ports/ITimSalesRepository";
+import type {
+  AnggotaTim,
+  ITimSalesRepository,
+} from "../domain/ports/ITimSalesRepository";
 import type { LingkupRencana } from "../domain/rencana-rules";
 import { tanggalLokal } from "../domain/rencana-rules";
 import type { Pencapaian } from "../domain/target-rules";
@@ -109,13 +112,24 @@ export class PenilaianService {
     const sasaran = tentukanSasaran(anggota, lingkup);
     const [laporan, rencana, identitas] = await Promise.all([
       this.targetService.laporanPencapaian(periode),
-      this.rencanaRepository.findUntukRekap({ tenantId, dari: awal, sampai: dihitungSampai }),
-      this.timRepository.identitas(tenantId, [...sasaran.kepalaIds, ...sasaran.salesIds]),
+      this.rencanaRepository.findUntukRekap({
+        tenantId,
+        dari: awal,
+        sampai: dihitungSampai,
+      }),
+      this.timRepository.identitas(tenantId, [
+        ...sasaran.kepalaIds,
+        ...sasaran.salesIds,
+      ]),
     ]);
 
-    const pencapaianPer = new Map(laporan.map((baris) => [baris.userId, baris.pencapaian]));
+    const pencapaianPer = new Map(
+      laporan.map((baris) => [baris.userId, baris.pencapaian]),
+    );
     const namaPer = new Map(identitas.map((item) => [item.id, item.nama]));
-    const kepalaPer = new Map(anggota.map((item) => [item.id, item.kepalaSalesId]));
+    const kepalaPer = new Map(
+      anggota.map((item) => [item.id, item.kepalaSalesId]),
+    );
 
     const sales = sasaran.salesIds.map((salesId) =>
       nilaiSales({
@@ -129,17 +143,28 @@ export class PenilaianService {
       }),
     );
     const salesPer = new Map(sales.map((item) => [item.salesId, item]));
-    const hariKerja = hariKerjaBulan(periode.tahun, periode.bulan, dihitungSampai);
+    const hariKerja = hariKerjaBulan(
+      periode.tahun,
+      periode.bulan,
+      dihitungSampai,
+    );
 
     const kepala = sasaran.kepalaIds.map((kepalaId) => {
-      const anggotaIds = anggota.filter((item) => item.kepalaSalesId === kepalaId).map((item) => item.id);
+      const anggotaIds = anggota
+        .filter((item) => item.kepalaSalesId === kepalaId)
+        .map((item) => item.id);
       return nilaiKepala({
         kepalaId,
         nama: namaPer.get(kepalaId) ?? kepalaId,
         anggotaIds,
-        penilaianAnggota: anggotaIds.map((id) => salesPer.get(id)).filter(isAda),
+        penilaianAnggota: anggotaIds
+          .map((id) => salesPer.get(id))
+          .filter(isAda),
         penilaianPribadi: salesPer.get(kepalaId) ?? null,
-        penugasan: rencana.filter((item) => item.dibuatOlehId === kepalaId && item.sumber === "PENUGASAN"),
+        penugasan: rencana.filter(
+          (item) =>
+            item.dibuatOlehId === kepalaId && item.sumber === "PENUGASAN",
+        ),
         rencanaTim: rencana,
         hariKerja,
         hariIni,
@@ -170,16 +195,23 @@ function periodeDariTanggal(tanggal: string): PeriodeTarget {
 function batasBulan(periode: PeriodeTarget): { awal: string; akhir: string } {
   const awal = new Date(Date.UTC(periode.tahun, periode.bulan - 1, 1));
   const akhir = new Date(Date.UTC(periode.tahun, periode.bulan, 0));
-  return { awal: awal.toISOString().slice(0, 10), akhir: akhir.toISOString().slice(0, 10) };
+  return {
+    awal: awal.toISOString().slice(0, 10),
+    akhir: akhir.toISOString().slice(0, 10),
+  };
 }
 
 /**
  * Lingkup → siapa yang dinilai. SEMUA: seluruh kepala sales dan tim-timnya.
  * TIM: dirinya (sebagai kepala & sales) + anggotanya. SENDIRI: dirinya saja.
  */
-function tentukanSasaran(anggota: readonly AnggotaTim[], lingkup: LingkupRencana): Sasaran {
+function tentukanSasaran(
+  anggota: readonly AnggotaTim[],
+  lingkup: LingkupRencana,
+): Sasaran {
   const pengguna = lingkup.penggunaId;
-  if (lingkup.jenis === "SENDIRI") return { kepalaIds: [], salesIds: [pengguna] };
+  if (lingkup.jenis === "SENDIRI")
+    return { kepalaIds: [], salesIds: [pengguna] };
 
   const kepalaIds =
     lingkup.jenis === "SEMUA"
@@ -202,11 +234,24 @@ interface MasukanNilaiSales {
 }
 
 function nilaiSales(masukan: MasukanNilaiSales): PenilaianSales {
-  const rekap = rekapRealisasi(masukan.rencana, masukan.hariIni, masukan.zonaWaktu);
+  const rekap = rekapRealisasi(
+    masukan.rencana,
+    masukan.hariIni,
+    masukan.zonaWaktu,
+  );
   const indikator = {
-    aktivitas: { nilai: nilaiAktivitas(masukan.pencapaian), bobot: BOBOT_PENILAIAN_SALES.aktivitas },
-    konversi: { nilai: nilaiKonversi(masukan.pencapaian), bobot: BOBOT_PENILAIAN_SALES.konversi },
-    realisasi: { nilai: nilaiRealisasi(rekap), bobot: BOBOT_PENILAIAN_SALES.realisasi },
+    aktivitas: {
+      nilai: nilaiAktivitas(masukan.pencapaian),
+      bobot: BOBOT_PENILAIAN_SALES.aktivitas,
+    },
+    konversi: {
+      nilai: nilaiKonversi(masukan.pencapaian),
+      bobot: BOBOT_PENILAIAN_SALES.konversi,
+    },
+    realisasi: {
+      nilai: nilaiRealisasi(rekap),
+      bobot: BOBOT_PENILAIAN_SALES.realisasi,
+    },
   };
   const skor = gabungSkor(Object.values(indikator));
   return {
@@ -237,19 +282,29 @@ interface MasukanNilaiKepala {
 function nilaiKepala(masukan: MasukanNilaiKepala): PenilaianKepala {
   const indikator = {
     aktivitasTim: {
-      nilai: rataRata(masukan.penilaianAnggota.map((item) => item.indikator.aktivitas.nilai)),
+      nilai: rataRata(
+        masukan.penilaianAnggota.map((item) => item.indikator.aktivitas.nilai),
+      ),
       bobot: BOBOT_PENILAIAN_KEPALA.aktivitasTim,
     },
     konversiTim: {
-      nilai: rataRata(masukan.penilaianAnggota.map((item) => item.indikator.konversi.nilai)),
+      nilai: rataRata(
+        masukan.penilaianAnggota.map((item) => item.indikator.konversi.nilai),
+      ),
       bobot: BOBOT_PENILAIAN_KEPALA.konversiTim,
     },
     realisasiPenugasan: {
-      nilai: nilaiRealisasi(rekapRealisasi(masukan.penugasan, masukan.hariIni, masukan.zonaWaktu)),
+      nilai: nilaiRealisasi(
+        rekapRealisasi(masukan.penugasan, masukan.hariIni, masukan.zonaWaktu),
+      ),
       bobot: BOBOT_PENILAIAN_KEPALA.realisasiPenugasan,
     },
     cakupanPembinaan: {
-      nilai: nilaiCakupan(masukan.anggotaIds, masukan.rencanaTim, masukan.hariKerja),
+      nilai: nilaiCakupan(
+        masukan.anggotaIds,
+        masukan.rencanaTim,
+        masukan.hariKerja,
+      ),
       bobot: BOBOT_PENILAIAN_KEPALA.cakupanPembinaan,
     },
     kinerjaPribadi: {
@@ -269,7 +324,9 @@ function nilaiKepala(masukan: MasukanNilaiKepala): PenilaianKepala {
 }
 
 /** Skor tertinggi dulu; belum terukur di akhir; seri → nama. */
-function urutkanSkor<T extends { skor: number | null; nama: string }>(daftar: T[]): T[] {
+function urutkanSkor<T extends { skor: number | null; nama: string }>(
+  daftar: T[],
+): T[] {
   return [...daftar].sort(
     (a, b) => (b.skor ?? -1) - (a.skor ?? -1) || a.nama.localeCompare(b.nama),
   );

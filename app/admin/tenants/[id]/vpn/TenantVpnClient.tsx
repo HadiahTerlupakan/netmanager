@@ -8,6 +8,8 @@ import {
   HiOutlineCheck,
   HiOutlineServerStack,
 } from "react-icons/hi2";
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import PageLoader from "@/components/ui/PageLoader";
 import { toast } from "react-hot-toast";
 import { useApi } from "@/lib/hooks/useApi";
@@ -32,6 +34,8 @@ export default function TenantVpnClient({ tenantId }: { tenantId: string }) {
   );
   const [blockingRouters, setBlockingRouters] = useState<BlockingRouter[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [appendTarget, setAppendTarget] = useState<VpnServerItem | null>(null);
+  const [isAppending, setIsAppending] = useState(false);
 
   const assignedError = assignedQuery.error;
   const serversError = serversQuery.error;
@@ -92,6 +96,32 @@ export default function TenantVpnClient({ tenantId }: { tenantId: string }) {
       toast.error("Terjadi kesalahan sistem");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAppend = async (target: VpnServerItem) => {
+    setIsAppending(true);
+    try {
+      const res = await fetch(`${tenantUrl}/${target.id}/routers`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = await readErrorBody(res);
+        toast.error(body.error || "Gagal menambahkan server ke router");
+        return;
+      }
+      const { data } = (await res.json()) as { data: { updated: number } };
+      toast.success(
+        data.updated === 0
+          ? "Semua router VPN tenant sudah memakai server ini"
+          : `Ditambahkan ke ${data.updated} router. Router menerima daftar baru dalam beberapa menit.`,
+      );
+      setAppendTarget(null);
+    } catch (err) {
+      clientLogger.error("Error menambahkan server VPN ke router:", err);
+      toast.error("Terjadi kesalahan sistem");
+    } finally {
+      setIsAppending(false);
     }
   };
 
@@ -182,10 +212,42 @@ export default function TenantVpnClient({ tenantId }: { tenantId: string }) {
                 </code>
               </label>
               <VpnStatusBadge status={server.status} />
+              {assignedIds.includes(server.id) && server.status === "online" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAppendTarget(server)}
+                >
+                  Tambahkan ke semua router VPN
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>
       )}
+      <Modal
+        isOpen={appendTarget !== null}
+        onClose={() => setAppendTarget(null)}
+        title="Tambahkan ke semua router VPN"
+        size="sm"
+      >
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          {appendTarget?.name} akan ditambahkan sebagai cadangan terakhir ke
+          semua router VPN tenant ini yang belum memakainya. Router yang sedang
+          offline menerima daftar baru saat tersambung kembali.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setAppendTarget(null)}>
+            Batal
+          </Button>
+          <Button
+            loading={isAppending}
+            onClick={() => appendTarget && handleAppend(appendTarget)}
+          >
+            Ya, tambahkan
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -195,10 +195,7 @@ function filterSales(
   return { in: filters.salesIds.filter((id) => id === filters.salesId) };
 }
 
-function maksTanggal(
-  nilai: Prisma.DateTimeFilter["gte"],
-  batas: Date,
-): Date {
+function maksTanggal(nilai: Prisma.DateTimeFilter["gte"], batas: Date): Date {
   if (nilai instanceof Date && nilai > batas) return nilai;
   return batas;
 }

@@ -62,7 +62,10 @@ export function isPeriodeSah(periode: string): boolean {
 export function isTanggalSah(tanggal: string): boolean {
   if (!POLA_TANGGAL.test(tanggal)) return false;
   const waktu = new Date(`${tanggal}T00:00:00.000Z`);
-  return !Number.isNaN(waktu.getTime()) && waktu.toISOString().slice(0, 10) === tanggal;
+  return (
+    !Number.isNaN(waktu.getTime()) &&
+    waktu.toISOString().slice(0, 10) === tanggal
+  );
 }
 
 /** Periode "YYYY-MM" menurut kalender WIB pada saat `waktu`. */
@@ -81,12 +84,18 @@ function jumlahHariDalamBulan(periode: string): number {
 }
 
 function tanggalPeriode(periode: string, hari: number): string {
-  const hariSah = Math.min(Math.max(hari, TANGGAL_MINIMUM), jumlahHariDalamBulan(periode));
+  const hariSah = Math.min(
+    Math.max(hari, TANGGAL_MINIMUM),
+    jumlahHariDalamBulan(periode),
+  );
   return `${periode}-${String(hariSah).padStart(2, "0")}`;
 }
 
 /** Jendela SO dari aturan bawaan; tanggal di atas akhir bulan menjadi tanggal terakhir. */
-export function jendelaDariAturan(periode: string, aturan: AturanJadwalSo): JendelaSo {
+export function jendelaDariAturan(
+  periode: string,
+  aturan: AturanJadwalSo,
+): JendelaSo {
   return {
     periode,
     mulai: tanggalPeriode(periode, aturan.tanggalMulai),
@@ -106,11 +115,15 @@ export function jendelaSebulanPenuh(periode: string): JendelaSo {
 }
 
 /** Rentang waktu UTC jendela: awal hari mulai s.d. akhir hari selesai (WIB). */
-export function rentangWaktuJendela(jendela: Pick<JendelaSo, "mulai" | "selesai">): {
+export function rentangWaktuJendela(
+  jendela: Pick<JendelaSo, "mulai" | "selesai">,
+): {
   dari: Date;
   sampai: Date;
 } {
-  const dari = new Date(new Date(`${jendela.mulai}T00:00:00.000Z`).getTime() - OFFSET_WIB_MS);
+  const dari = new Date(
+    new Date(`${jendela.mulai}T00:00:00.000Z`).getTime() - OFFSET_WIB_MS,
+  );
   const sampai = new Date(
     new Date(`${jendela.selesai}T23:59:59.999Z`).getTime() - OFFSET_WIB_MS,
   );
@@ -118,7 +131,10 @@ export function rentangWaktuJendela(jendela: Pick<JendelaSo, "mulai" | "selesai"
 }
 
 /** Rentang waktu UTC satu bulan kalender WIB. */
-export function rentangWaktuPeriode(periode: string): { dari: Date; sampai: Date } {
+export function rentangWaktuPeriode(periode: string): {
+  dari: Date;
+  sampai: Date;
+} {
   return rentangWaktuJendela({
     mulai: tanggalPeriode(periode, TANGGAL_MINIMUM),
     selesai: tanggalPeriode(periode, TANGGAL_MAKSIMUM),
@@ -126,7 +142,10 @@ export function rentangWaktuPeriode(periode: string): { dari: Date; sampai: Date
 }
 
 /** Keadaan jendela pada saat `sekarang`. */
-export function keadaanJendela(jendela: JendelaSo, sekarang: Date): KeadaanJendela {
+export function keadaanJendela(
+  jendela: JendelaSo,
+  sekarang: Date,
+): KeadaanJendela {
   const hariIni = tanggalWib(sekarang);
   if (hariIni < jendela.mulai) return "BELUM_DIBUKA";
   if (hariIni > jendela.selesai) return "DITUTUP";
@@ -134,23 +153,35 @@ export function keadaanJendela(jendela: JendelaSo, sekarang: Date): KeadaanJende
 }
 
 /** Validasi aturan bawaan; mengembalikan pesan galat atau null. */
-export function validasiAturan(aturan: Pick<AturanJadwalSo, "tanggalMulai" | "tanggalSelesai">): string | null {
+export function validasiAturan(
+  aturan: Pick<AturanJadwalSo, "tanggalMulai" | "tanggalSelesai">,
+): string | null {
   const { tanggalMulai, tanggalSelesai } = aturan;
   const isSah = (hari: number) =>
-    Number.isInteger(hari) && hari >= TANGGAL_MINIMUM && hari <= TANGGAL_MAKSIMUM;
-  if (!isSah(tanggalMulai) || !isSah(tanggalSelesai)) return "Tanggal harus 1–31";
-  if (tanggalSelesai < tanggalMulai) return "Tanggal selesai tidak boleh sebelum tanggal mulai";
+    Number.isInteger(hari) &&
+    hari >= TANGGAL_MINIMUM &&
+    hari <= TANGGAL_MAKSIMUM;
+  if (!isSah(tanggalMulai) || !isSah(tanggalSelesai))
+    return "Tanggal harus 1–31";
+  if (tanggalSelesai < tanggalMulai)
+    return "Tanggal selesai tidak boleh sebelum tanggal mulai";
   return null;
 }
 
 /** Validasi jadwal khusus: kedua tanggal di dalam bulan periode dan berurutan. */
-export function validasiJadwalKhusus(periode: string, mulai: string, selesai: string): string | null {
+export function validasiJadwalKhusus(
+  periode: string,
+  mulai: string,
+  selesai: string,
+): string | null {
   if (!isPeriodeSah(periode)) return "Periode harus berformat YYYY-MM";
-  if (!isTanggalSah(mulai) || !isTanggalSah(selesai)) return "Tanggal tidak valid";
+  if (!isTanggalSah(mulai) || !isTanggalSah(selesai))
+    return "Tanggal tidak valid";
   if (!mulai.startsWith(periode) || !selesai.startsWith(periode)) {
     return "Tanggal jadwal harus di dalam bulan yang dipilih";
   }
-  if (selesai < mulai) return "Tanggal selesai tidak boleh sebelum tanggal mulai";
+  if (selesai < mulai)
+    return "Tanggal selesai tidak boleh sebelum tanggal mulai";
   return null;
 }
 
@@ -174,7 +205,9 @@ export interface RingkasanSoGudang {
 /** Status SO satu gudang untuk satu bulan. */
 export function nilaiStatusGudang(hitungan: HitunganGudang): RingkasanSoGudang {
   const wajib = [...hitungan.barangBerstok];
-  const dihitung = wajib.filter((id) => hitungan.barangDihitungDalamJadwal.has(id)).length;
+  const dihitung = wajib.filter((id) =>
+    hitungan.barangDihitungDalamJadwal.has(id),
+  ).length;
   const ringkasan = (status: StatusSoGudang): RingkasanSoGudang => ({
     status,
     jumlahBarangBerstok: wajib.length,
@@ -185,11 +218,14 @@ export function nilaiStatusGudang(hitungan: HitunganGudang): RingkasanSoGudang {
   if (dihitung === wajib.length) return ringkasan("LENGKAP");
   if (dihitung > 0) return ringkasan("SEBAGIAN");
   // Hanya barang wajib (berstok) yang dinilai; menghitung barang lain tidak dianggap SO.
-  if (wajib.some((id) => hitungan.barangDihitungBulanIni.has(id))) return ringkasan("DI_LUAR_JADWAL");
+  if (wajib.some((id) => hitungan.barangDihitungBulanIni.has(id)))
+    return ringkasan("DI_LUAR_JADWAL");
   return ringkasan("BELUM");
 }
 
 /** Status yang dianggap belum tuntas dan perlu diingatkan. */
 export function isPerluDiingatkan(status: StatusSoGudang): boolean {
-  return status === "BELUM" || status === "SEBAGIAN" || status === "DI_LUAR_JADWAL";
+  return (
+    status === "BELUM" || status === "SEBAGIAN" || status === "DI_LUAR_JADWAL"
+  );
 }

@@ -4,7 +4,10 @@ import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { Prisma, TicketStatus } from "@prisma/client";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 import type { SupportTicketEntity } from "../domain/entities/SupportTicketEntity";
-import { SupportTicketMapper, type AdminTicketListItemDTO } from "../mappers/SupportTicketMapper";
+import {
+  SupportTicketMapper,
+  type AdminTicketListItemDTO,
+} from "../mappers/SupportTicketMapper";
 import type {
   ServiceResult,
   TicketFilterOptions,
@@ -113,7 +116,9 @@ function buildTicketListResult(input: TicketListResultInput) {
   return {
     success: true,
     data: {
-      tickets: SupportTicketMapper.toAdminList(input.tickets as SupportTicketEntity[]),
+      tickets: SupportTicketMapper.toAdminList(
+        input.tickets as SupportTicketEntity[],
+      ),
       pagination: buildPaginationMeta(input),
       stats: buildTicketListStats(input.statusSummary, input.rating),
     },

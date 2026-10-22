@@ -36,4 +36,14 @@ export interface IVpnServerRepository {
 
   /** Server VPN yang di-assign ke tenant beserta statusnya. */
   tenantServers(tenantId: string): Promise<VpnServerSummary[]>;
+
+  /**
+   * Menambahkan server sebagai cadangan terakhir ke setiap router VPN tenant
+   * yang belum memakainya, lalu menandai skripnya belum terkirim. Hanya router
+   * yang berubah yang disentuh; mengembalikan jumlahnya.
+   */
+  appendServerToTenantRouters(
+    tenantId: string,
+    serverId: string,
+  ): Promise<number>;
 }

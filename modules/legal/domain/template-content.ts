@@ -41,7 +41,8 @@ export const TEMPLATE_PLACEHOLDERS = [
   { key: "pihak.telepon", label: "Telepon pihak" },
 ] as const;
 
-export type TemplatePlaceholderKey = (typeof TEMPLATE_PLACEHOLDERS)[number]["key"];
+export type TemplatePlaceholderKey =
+  (typeof TEMPLATE_PLACEHOLDERS)[number]["key"];
 export type TemplateValues = Partial<Record<TemplatePlaceholderKey, string>>;
 
 /** Penanda isian yang belum diketahui — tampil jelas di PDF untuk dilengkapi. */
@@ -77,7 +78,10 @@ export function fillTemplateBlocks(
         return {
           ...block,
           left: { label: fill(block.left.label), name: fill(block.left.name) },
-          right: { label: fill(block.right.label), name: fill(block.right.name) },
+          right: {
+            label: fill(block.right.label),
+            name: fill(block.right.name),
+          },
         };
     }
   });

@@ -11,9 +11,16 @@ import {
 } from "../repositories/KeluhanSalesRepository";
 import type { SaringanSales } from "../repositories/PelangganSalesRepository";
 import { formatNomorTiket } from "../utils/daily-document-number";
-import type { DaftarKeluhanQuery, LaporKeluhanInput } from "../validators/keluhan-sales";
+import type {
+  DaftarKeluhanQuery,
+  LaporKeluhanInput,
+} from "../validators/keluhan-sales";
 
-import { keKeluhanDetailDto, keKeluhanRingkasDto, type KeluhanRingkasDTO } from "./keluhan-sales.mapper";
+import {
+  keKeluhanDetailDto,
+  keKeluhanRingkasDto,
+  type KeluhanRingkasDTO,
+} from "./keluhan-sales.mapper";
 
 const HTTP_NOT_FOUND = 404;
 const HTTP_UNPROCESSABLE = 422;
@@ -46,10 +53,14 @@ export interface HalamanKeluhan {
   ringkasanSales: RingkasanKeluhanSales[] | null;
 }
 
-const tidakDitemukan = () => createRouteServiceError("Keluhan tidak ditemukan", HTTP_NOT_FOUND);
+const tidakDitemukan = () =>
+  createRouteServiceError("Keluhan tidak ditemukan", HTTP_NOT_FOUND);
 
 function isBentrokUnik(error: unknown) {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === KODE_PRISMA_UNIK;
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === KODE_PRISMA_UNIK
+  );
 }
 
 /** Lingkup lebih dari diri sendiri (tim / seluruh tenant) → tampilkan ringkasan per sales. */
@@ -58,7 +69,10 @@ function isLingkupLuas(saringan: SaringanSales) {
 }
 
 /** Persempit lingkup ke satu sales; null bila sales itu di luar lingkup pemanggil. */
-function persempitKeSales(saringan: SaringanSales, salesId: string | undefined): SaringanSales | undefined {
+function persempitKeSales(
+  saringan: SaringanSales,
+  salesId: string | undefined,
+): SaringanSales | undefined {
   if (!salesId) return saringan;
   if (saringan && !saringan.salesIds.includes(salesId)) return undefined;
   return { salesIds: [salesId] };
@@ -73,16 +87,32 @@ export class KeluhanSalesService {
   constructor(private readonly repository = new KeluhanSalesRepository()) {}
 
   /** Catat keluhan baru atas nama pelanggan dalam lingkup sales. */
-  async lapor(pelapor: PenggunaKeluhan, saringan: SaringanSales, input: LaporKeluhanInput) {
-    const pelanggan = await this.repository.cariPelangganDalamLingkup(pelapor.tenantId, input.pelangganId, saringan);
+  async lapor(
+    pelapor: PenggunaKeluhan,
+    saringan: SaringanSales,
+    input: LaporKeluhanInput,
+  ) {
+    const pelanggan = await this.repository.cariPelangganDalamLingkup(
+      pelapor.tenantId,
+      input.pelangganId,
+      saringan,
+    );
     if (!pelanggan) {
-      throw createRouteServiceError("Pelanggan tidak ditemukan atau bukan pelanggan Anda", HTTP_NOT_FOUND);
+      throw createRouteServiceError(
+        "Pelanggan tidak ditemukan atau bukan pelanggan Anda",
+        HTTP_NOT_FOUND,
+      );
     }
     const tiket = await this.simpanDenganNomorUnik(pelapor, input);
     logActivitySafe({
       action: "CREATE",
       subject: "Support Ticket",
-      details: { id: tiket.id, ticketNumber: tiket.ticketNumber, pelangganId: pelanggan.id, dilaporkanOlehId: pelapor.id },
+      details: {
+        id: tiket.id,
+        ticketNumber: tiket.ticketNumber,
+        pelangganId: pelanggan.id,
+        dilaporkanOlehId: pelapor.id,
+      },
     });
     await TicketEventDispatcher.onCreated({
       ticketId: tiket.id,
@@ -92,41 +122,82 @@ export class KeluhanSalesService {
       pelangganNama: pelanggan.nama,
       siteId: pelanggan.siteId,
       triggeredBy: pelapor.id,
-    }).catch((error) => logger.error("[KeluhanSales] Gagal publish ticket created:", error));
+    }).catch((error) =>
+      logger.error("[KeluhanSales] Gagal publish ticket created:", error),
+    );
     return { id: tiket.id, nomor: tiket.ticketNumber };
   }
 
   /** Satu halaman keluhan dalam lingkup; ringkasan per sales di halaman pertama lingkup luas. */
-  async daftar(tenantId: string, saringan: SaringanSales, query: DaftarKeluhanQuery): Promise<HalamanKeluhan> {
-    const kosong = { data: [] as KeluhanRingkasDTO[], total: 0, page: query.page, limit: query.limit };
+  async daftar(
+    tenantId: string,
+    saringan: SaringanSales,
+    query: DaftarKeluhanQuery,
+  ): Promise<HalamanKeluhan> {
+    const kosong = {
+      data: [] as KeluhanRingkasDTO[],
+      total: 0,
+      page: query.page,
+      limit: query.limit,
+    };
     const saringanEfektif = persempitKeSales(saringan, query.salesId);
-    if (saringanEfektif === undefined || (saringanEfektif && saringanEfektif.salesIds.length === 0)) {
+    if (
+      saringanEfektif === undefined ||
+      (saringanEfektif && saringanEfektif.salesIds.length === 0)
+    ) {
       return { ...kosong, ringkasanSales: null };
     }
-    const statusDicari = query.status === "SELESAI" ? STATUS_KELUHAN_SELESAI : STATUS_KELUHAN_TERBUKA;
+    const statusDicari =
+      query.status === "SELESAI"
+        ? STATUS_KELUHAN_SELESAI
+        : STATUS_KELUHAN_TERBUKA;
     const [halaman, ringkasanSales] = await Promise.all([
       this.repository.daftar(tenantId, saringanEfektif, statusDicari, {
         lewati: (query.page - 1) * query.limit,
         ambil: query.limit,
       }),
-      query.page === 1 && isLingkupLuas(saringan) ? this.ringkasPerSales(tenantId, saringan) : null,
+      query.page === 1 && isLingkupLuas(saringan)
+        ? this.ringkasPerSales(tenantId, saringan)
+        : null,
     ]);
-    return { data: halaman.data.map(keKeluhanRingkasDto), total: halaman.total, page: query.page, limit: query.limit, ringkasanSales };
+    return {
+      data: halaman.data.map(keKeluhanRingkasDto),
+      total: halaman.total,
+      page: query.page,
+      limit: query.limit,
+      ringkasanSales,
+    };
   }
 
   /** Detail keluhan dalam lingkup (404 bila di luar lingkup). */
   async detail(tenantId: string, saringan: SaringanSales, ticketId: string) {
-    const baris = await this.repository.cariDetail(tenantId, ticketId, saringan);
+    const baris = await this.repository.cariDetail(
+      tenantId,
+      ticketId,
+      saringan,
+    );
     if (!baris) throw tidakDitemukan();
     return keKeluhanDetailDto(baris);
   }
 
   /** Balasan sales ke helpdesk; tiket yang menunggu jawaban pelanggan dibuka lagi. */
-  async balas(pengirim: PenggunaKeluhan, saringan: SaringanSales, ticketId: string, pesan: string) {
-    const baris = await this.repository.cariDetail(pengirim.tenantId, ticketId, saringan);
+  async balas(
+    pengirim: PenggunaKeluhan,
+    saringan: SaringanSales,
+    ticketId: string,
+    pesan: string,
+  ) {
+    const baris = await this.repository.cariDetail(
+      pengirim.tenantId,
+      ticketId,
+      saringan,
+    );
     if (!baris) throw tidakDitemukan();
     if (baris.status === "CLOSED") {
-      throw createRouteServiceError("Keluhan sudah ditutup, buat laporan baru bila masih ada kendala", HTTP_UNPROCESSABLE);
+      throw createRouteServiceError(
+        "Keluhan sudah ditutup, buat laporan baru bila masih ada kendala",
+        HTTP_UNPROCESSABLE,
+      );
     }
     const balasan = await this.repository.tambahBalasan({
       tenantId: pengirim.tenantId,
@@ -142,14 +213,21 @@ export class KeluhanSalesService {
       message: pesan,
       isFromAdmin: false,
       triggeredBy: pengirim.id,
-    }).catch((error) => logger.error("[KeluhanSales] Gagal publish ticket reply:", error));
+    }).catch((error) =>
+      logger.error("[KeluhanSales] Gagal publish ticket reply:", error),
+    );
     return { id: balasan.id };
   }
 
   /** Nomor tiket harian dihitung dari jumlah tiket hari ini; ulangi bila bentrok. */
-  private async simpanDenganNomorUnik(pelapor: PenggunaKeluhan, input: LaporKeluhanInput) {
+  private async simpanDenganNomorUnik(
+    pelapor: PenggunaKeluhan,
+    input: LaporKeluhanInput,
+  ) {
     for (let percobaan = 0; ; percobaan += 1) {
-      const jumlahHariIni = await this.repository.hitungTiketHariIni(pelapor.tenantId);
+      const jumlahHariIni = await this.repository.hitungTiketHariIni(
+        pelapor.tenantId,
+      );
       try {
         return await this.repository.buat({
           tenantId: pelapor.tenantId,
@@ -163,14 +241,22 @@ export class KeluhanSalesService {
           foto: input.foto,
         });
       } catch (error) {
-        if (!isBentrokUnik(error) || percobaan + 1 >= PERCOBAAN_NOMOR_MAKS) throw error;
+        if (!isBentrokUnik(error) || percobaan + 1 >= PERCOBAAN_NOMOR_MAKS)
+          throw error;
       }
     }
   }
 
   /** Jumlah keluhan terbuka per sales (penanggung jawab pelanggan, atau pelapor). */
-  private async ringkasPerSales(tenantId: string, saringan: SaringanSales): Promise<RingkasanKeluhanSales[]> {
-    const baris = await this.repository.daftarPenanggungJawabTerbuka(tenantId, saringan, BATAS_RINGKASAN);
+  private async ringkasPerSales(
+    tenantId: string,
+    saringan: SaringanSales,
+  ): Promise<RingkasanKeluhanSales[]> {
+    const baris = await this.repository.daftarPenanggungJawabTerbuka(
+      tenantId,
+      saringan,
+      BATAS_RINGKASAN,
+    );
     const peta = new Map<string, RingkasanKeluhanSales>();
     for (const item of baris) {
       const sales = item.pelanggan.sales ?? item.dilaporkanOleh;
@@ -183,7 +269,11 @@ export class KeluhanSalesService {
       ringkasan.jumlahTerbuka += 1;
       peta.set(kunci, ringkasan);
     }
-    return [...peta.values()].sort((a, b) => b.jumlahTerbuka - a.jumlahTerbuka || a.namaSales.localeCompare(b.namaSales));
+    return [...peta.values()].sort(
+      (a, b) =>
+        b.jumlahTerbuka - a.jumlahTerbuka ||
+        a.namaSales.localeCompare(b.namaSales),
+    );
   }
 }
 

@@ -1,4 +1,7 @@
-import type { BarisKeluhanDetail, BarisKeluhanRingkas } from "../repositories/KeluhanSalesRepository";
+import type {
+  BarisKeluhanDetail,
+  BarisKeluhanRingkas,
+} from "../repositories/KeluhanSalesRepository";
 import { bacaLampiranTiket } from "../utils/lampiran-tiket";
 
 /** WO terbaru yang menangani keluhan (ringkas). */
@@ -49,10 +52,16 @@ export interface WoKeluhanDTO {
 }
 
 /** Detail keluhan: percakapan dengan helpdesk dan WO yang menanganinya. */
-export interface KeluhanDetailDTO extends Omit<KeluhanRingkasDTO, "pelanggan" | "wo"> {
+export interface KeluhanDetailDTO extends Omit<
+  KeluhanRingkasDTO,
+  "pelanggan" | "wo"
+> {
   deskripsi: string;
   selesaiPada: string | null;
-  pelanggan: KeluhanRingkasDTO["pelanggan"] & { noTelp: string | null; alamat: string | null };
+  pelanggan: KeluhanRingkasDTO["pelanggan"] & {
+    noTelp: string | null;
+    alamat: string | null;
+  };
   balasan: BalasanKeluhanDTO[];
   workOrders: WoKeluhanDTO[];
 }
@@ -69,25 +78,39 @@ function petaKepala(baris: BarisKeluhanRingkas | BarisKeluhanDetail) {
     status: baris.status,
     dibuatPada: baris.createdAt.toISOString(),
     diperbaruiPada: baris.updatedAt.toISOString(),
-    namaSales: baris.pelanggan.sales?.name ?? baris.dilaporkanOleh?.name ?? null,
+    namaSales:
+      baris.pelanggan.sales?.name ?? baris.dilaporkanOleh?.name ?? null,
     namaPelapor: baris.dilaporkanOleh?.name ?? null,
   };
 }
 
 /** Baris ringkas → DTO daftar keluhan. */
-export function keKeluhanRingkasDto(baris: BarisKeluhanRingkas): KeluhanRingkasDTO {
+export function keKeluhanRingkasDto(
+  baris: BarisKeluhanRingkas,
+): KeluhanRingkasDTO {
   const wo = baris.workOrders[0];
   return {
     ...petaKepala(baris),
-    pelanggan: { id: baris.pelanggan.id, nama: baris.pelanggan.nama, idPelanggan: baris.pelanggan.idPelanggan },
+    pelanggan: {
+      id: baris.pelanggan.id,
+      nama: baris.pelanggan.nama,
+      idPelanggan: baris.pelanggan.idPelanggan,
+    },
     wo: wo
-      ? { nomor: wo.workOrderNumber, status: wo.status, namaTeknisi: wo.assignedTo?.name ?? null, jadwal: keIso(wo.scheduledDate) }
+      ? {
+          nomor: wo.workOrderNumber,
+          status: wo.status,
+          namaTeknisi: wo.assignedTo?.name ?? null,
+          jadwal: keIso(wo.scheduledDate),
+        }
       : null,
   };
 }
 
 /** Baris detail → DTO detail keluhan. */
-export function keKeluhanDetailDto(baris: BarisKeluhanDetail): KeluhanDetailDTO {
+export function keKeluhanDetailDto(
+  baris: BarisKeluhanDetail,
+): KeluhanDetailDTO {
   const { pelanggan } = baris;
   return {
     ...petaKepala(baris),

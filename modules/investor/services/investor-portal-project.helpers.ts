@@ -121,7 +121,10 @@ export function toProjectListItem(
     status: item.rabProject.status,
     siteName: item.rabProject.site?.name,
     investmentAmount: item.investmentAmount.toString(),
-    profitSharePercent: hitungHasilInvestorProyek(item.rabProject, item.investmentAmount).persenBerlaku,
+    profitSharePercent: hitungHasilInvestorProyek(
+      item.rabProject,
+      item.investmentAmount,
+    ).persenBerlaku,
     projectedRevenue: item.rabProject.projectedRevenue.toString(),
     projectedOpex: item.rabProject.projectedOpex.toString(),
     contingencyAmount: item.rabProject.contingencyAmount.toString(),

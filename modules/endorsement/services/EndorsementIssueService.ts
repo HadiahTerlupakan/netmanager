@@ -112,14 +112,22 @@ export class EndorsementIssueService {
     if (requestedIds.length === 0) return;
 
     if (new Set(requestedIds).size !== requestedIds.length) {
-      throw new AppError("Satu karyawan dipilih lebih dari sekali", 400, "VALIDATION_ERROR");
+      throw new AppError(
+        "Satu karyawan dipilih lebih dari sekali",
+        400,
+        "VALIDATION_ERROR",
+      );
     }
 
     const activeIds = new Set(
       await this.directory.filterActiveEmployeeIds(requestedIds),
     );
     if (requestedIds.some((userId) => !activeIds.has(userId))) {
-      throw new AppError("Ada penanda tangan internal yang tidak valid atau nonaktif", 400, "VALIDATION_ERROR");
+      throw new AppError(
+        "Ada penanda tangan internal yang tidak valid atau nonaktif",
+        400,
+        "VALIDATION_ERROR",
+      );
     }
   }
 }

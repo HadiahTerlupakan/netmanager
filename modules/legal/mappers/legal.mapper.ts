@@ -28,7 +28,9 @@ export type LegalDocumentRow = Prisma.LegalDocumentGetPayload<{
 
 type LegalCategoryRow = Prisma.LegalCategoryGetPayload<object>;
 
-export function toLegalCategoryEntity(row: LegalCategoryRow): LegalCategoryEntity {
+export function toLegalCategoryEntity(
+  row: LegalCategoryRow,
+): LegalCategoryEntity {
   return {
     id: row.id,
     name: row.name,
@@ -40,7 +42,9 @@ export function toLegalCategoryEntity(row: LegalCategoryRow): LegalCategoryEntit
   };
 }
 
-export function toLegalDocumentEntity(row: LegalDocumentRow): LegalDocumentEntity {
+export function toLegalDocumentEntity(
+  row: LegalDocumentRow,
+): LegalDocumentEntity {
   return {
     id: row.id,
     title: row.title,

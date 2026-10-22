@@ -13,9 +13,7 @@ export interface INetworkAlertRepository {
   findById(id: string): Promise<NetworkAlertEntity | null>;
 
   /** Get network alerts by filters. */
-  findMany(
-    filters?: NetworkAlertFilters,
-  ): Promise<{
+  findMany(filters?: NetworkAlertFilters): Promise<{
     data: NetworkAlertEntity[];
     pagination: {
       page: number;

@@ -166,7 +166,11 @@ async function publishStatusChange(
   }).catch((err) =>
     logger.error("Failed to publish TICKET_STATUS_CHANGED event:", err),
   );
-  await kabariSalesKeluhan(ticket.id, { jenis: "STATUS", status: input.data.status }, input.user.id);
+  await kabariSalesKeluhan(
+    ticket.id,
+    { jenis: "STATUS", status: input.data.status },
+    input.user.id,
+  );
 }
 
 function isForbidden(
