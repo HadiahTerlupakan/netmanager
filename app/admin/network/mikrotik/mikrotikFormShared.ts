@@ -140,17 +140,33 @@ export async function submitMikrotikConnectionTest(
     body: JSON.stringify(requestBody),
   });
 
-  const result = await res.json();
+  const body: unknown = await res.json();
 
-  if (result && typeof result === "object") {
-    return result as MikrotikTestConnectionResult;
+  if (!body || typeof body !== "object") {
+    return failedTestResult("Respons API tidak valid");
   }
+  const { data, error, message } = body as {
+    data?: unknown;
+    error?: unknown;
+    message?: unknown;
+  };
+  // Rute membungkus hasil sebagai `{success: true, data}`; `success` amplop
+  // hanya berarti rute berjalan, bukan router tersambung.
+  if (res.ok && data && typeof data === "object") {
+    return data as MikrotikTestConnectionResult;
+  }
+  const reason =
+    [error, message].find((v) => typeof v === "string" && v) ??
+    "Respons API tidak valid";
+  return failedTestResult(reason as string);
+}
 
+function failedTestResult(reason: string): MikrotikTestConnectionResult {
   return {
     success: false,
-    api: { success: false, message: "Respons API tidak valid" },
-    ping: { success: false, message: "Respons API tidak valid" },
-    message: "Terjadi kesalahan saat test koneksi",
+    api: { success: false, message: reason },
+    ping: { success: false, message: reason },
+    message: reason,
   };
 }
 
@@ -258,29 +274,18 @@ export function applyVpnDraft<T extends MikrotikVpnFormFields>(
   };
 }
 
-/** Isi hasil test koneksi; rute membungkusnya sebagai `{success, data}`. */
-function unwrapTestConnectionResult(
-  result: MikrotikTestConnectionResult,
-): MikrotikTestConnectionResult {
-  const inner = (result as { data?: unknown }).data;
-  return inner && typeof inner === "object"
-    ? (inner as MikrotikTestConnectionResult)
-    : result;
-}
-
 /** Menilai test koneksi mode VPN: API harus tersambung dan RouterOS minimal v7. */
 export function evaluateVpnConnectionTest(
   result: MikrotikTestConnectionResult,
 ): VpnApiCheck {
-  const inner = unwrapTestConnectionResult(result);
-  if (!inner.success) {
+  if (!result.success) {
     return {
       status: "failed",
-      message: inner.api?.message || inner.message || "Koneksi API gagal",
+      message: result.api?.message || result.message || "Koneksi API gagal",
     };
   }
   // "7.16.2 (stable)" → 7; versi tak terbaca dianggap belum terbukti v7.
-  const major = Number.parseInt(inner.routerInfo?.version ?? "", 10);
+  const major = Number.parseInt(result.routerInfo?.version ?? "", 10);
   if (!(major >= MIN_VPN_ROUTEROS_MAJOR)) {
     return { status: "failed", message: VPN_ROUTEROS_VERSION_ERROR };
   }

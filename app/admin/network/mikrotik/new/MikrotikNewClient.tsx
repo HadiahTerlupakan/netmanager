@@ -89,8 +89,7 @@ export function ClientComponent() {
   };
 
   const handleTestConnection = async () => {
-    // Mode VPN dinilai lewat vpn.apiCheck; `success` rute selalu true sehingga
-    // tidak boleh membuka simpan mode publik.
+    // Mode VPN dinilai lewat vpn.apiCheck (syarat RouterOS v7), bukan testPassed.
     if (vpn.isVpnMode) {
       vpn.markTestStarted();
       await runTest();
