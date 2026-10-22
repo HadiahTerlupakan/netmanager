@@ -452,6 +452,68 @@ describeDb("integrasi DB nyata — VPN", () => {
     });
   });
 
+  describe("kunci daftar server per router (I5)", () => {
+    const vpnRepo = new MikroTikRouterVpnRepository();
+    const ROUTER_KUNCI = "uji-kunci-1";
+    const ROUTER_KUNCI_LAIN = "uji-kunci-2";
+
+    // Memegang kunci router sampai `lepas` dipanggil; `masuk` selesai saat fn berjalan.
+    function tahanKunci(routerId: string) {
+      let lepas!: () => void;
+      let tandaiMasuk!: () => void;
+      const dilepas = new Promise<void>((resolve) => (lepas = resolve));
+      const masuk = new Promise<void>((resolve) => (tandaiMasuk = resolve));
+      const hasil = vpnRepo.withServerListLock(routerId, async () => {
+        tandaiMasuk();
+        await dilepas;
+        return "pemegang";
+      });
+      return { hasil, masuk, lepas };
+    }
+
+    it("hanya satu dari dua pengiriman bersamaan pada router yang sama mendapat kunci", async () => {
+      const pertama = tahanKunci(ROUTER_KUNCI);
+      await pertama.masuk;
+      const fnKedua = vi.fn(async () => "kedua");
+
+      const kedua = await vpnRepo.withServerListLock(ROUTER_KUNCI, fnKedua);
+      pertama.lepas();
+
+      expect(kedua).toEqual({ acquired: false });
+      expect(fnKedua).not.toHaveBeenCalled();
+      expect(await pertama.hasil).toEqual({
+        acquired: true,
+        value: "pemegang",
+      });
+    });
+
+    it("router berbeda mendapat kuncinya masing-masing", async () => {
+      const pertama = tahanKunci(ROUTER_KUNCI);
+      await pertama.masuk;
+
+      const lain = await vpnRepo.withServerListLock(
+        ROUTER_KUNCI_LAIN,
+        async () => "lain",
+      );
+      pertama.lepas();
+
+      expect(lain).toEqual({ acquired: true, value: "lain" });
+      expect((await pertama.hasil).acquired).toBe(true);
+    });
+
+    it("melepas kunci saat fn melempar", async () => {
+      await expect(
+        vpnRepo.withServerListLock(ROUTER_KUNCI, async () => {
+          throw new Error("router gagal");
+        }),
+      ).rejects.toThrow("router gagal");
+
+      await expect(
+        vpnRepo.withServerListLock(ROUTER_KUNCI, async () => "lagi"),
+      ).resolves.toEqual({ acquired: true, value: "lagi" });
+    });
+  });
+
   describe("VpnCoreRouterTombstoneRepository", () => {
     it("menambah, mendaftar, dan menghapus di luar konteks tenant (jalur monitor)", async () => {
       const repo = new VpnCoreRouterTombstoneRepository();

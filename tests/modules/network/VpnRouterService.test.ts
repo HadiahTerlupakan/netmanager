@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 const calls = vi.hoisted(() => [] as string[]);
 const coreMock = vi.hoisted(() => ({
@@ -17,11 +17,15 @@ import { VpnRouterService } from "@/modules/network/services/VpnRouterService";
 import { RouterNotFoundError } from "@/modules/network/services/mikrotik-router.access";
 import {
   VpnCoreError,
+  VpnRouterBusyError,
   VpnRouterInvalidError,
   VpnRouterUnreachableError,
   VpnServerNotAvailableError,
 } from "@/modules/network/vpn";
-import type { VpnRouterRecord } from "@/modules/network/domain/ports/IMikroTikRouterVpnRepository";
+import type {
+  IMikroTikRouterVpnRepository,
+  VpnRouterRecord,
+} from "@/modules/network/domain/ports/IMikroTikRouterVpnRepository";
 import type { CoreRouter } from "@/modules/network/vpn/types";
 
 const TENANT = "t1";
@@ -80,15 +84,32 @@ const SERVER_NAMES: Record<string, string> = { a: "A", b: "B", c: "C" };
 function makeService(router: VpnRouterRecord | null = vpnRouter()) {
   // Daftar server lokal yang bisa diganti request lain di tengah pengiriman.
   const stored = { ids: ["c", "a"] };
+  // Kunci advisory per router: false meniru request lain yang memegangnya.
+  const lock = { isFree: true };
+  const holdLock: IMikroTikRouterVpnRepository["withServerListLock"] = async (
+    routerId,
+    fn,
+  ) => {
+    if (!lock.isFree) return { acquired: false };
+    calls.push(`lock ${routerId}`);
+    try {
+      return { acquired: true, value: await fn() };
+    } finally {
+      calls.push(`unlock ${routerId}`);
+    }
+  };
   const repo = {
     findRouter: vi.fn().mockResolvedValue(router),
-    listServers: vi.fn(async () =>
-      stored.ids.map((id, priority) => ({
+    listServers: vi.fn(async () => {
+      calls.push("listServers");
+      return stored.ids.map((id, priority) => ({
         id,
         name: SERVER_NAMES[id],
         priority,
-      })),
-    ),
+      }));
+    }),
+    // vi.fn menghapus parameter generik; signature aslinya dipulihkan di sini.
+    withServerListLock: vi.fn(holdLock) as Mock & typeof holdLock,
     replaceServersAsStale: vi.fn(
       async (routerId: string, tenantId: string, ids: string[]) => {
         calls.push(
@@ -123,7 +144,7 @@ function makeService(router: VpnRouterRecord | null = vpnRouter()) {
   };
   const servers = { tenantServers: vi.fn().mockResolvedValue(tenantServers) };
   const service = new VpnRouterService(repo, servers, routerOs);
-  return { service, repo, routerOs, stored };
+  return { service, repo, routerOs, stored, lock };
 }
 
 describe("VpnRouterService.updateServers", () => {
@@ -148,12 +169,14 @@ describe("VpnRouterService.updateServers", () => {
 
     expect(result).toEqual({ scriptStale: false });
     expect(calls).toEqual([
+      "lock router-1",
       'setRouterHubs ["core-1",["c","a","b"]]',
       'replaceServersAsStale ["router-1","t1",["c","a"]]',
       'routerScript ["core-1","switch"]',
       `writeSwitchScript [${JSON.stringify(vpnRouter())},${JSON.stringify(SWITCH_SCRIPT)}]`,
       'setRouterHubs ["core-1",["c","a"]]',
       'scriptSent ["router-1","t1"]',
+      "unlock router-1",
     ]);
   });
 
@@ -224,6 +247,29 @@ describe("VpnRouterService.updateServers", () => {
     expect(coreMock.setRouterHubs).not.toHaveBeenCalled();
   });
 
+  it("answers busy and writes nothing while another send holds the router's lock", async () => {
+    const { service, repo, routerOs, lock } = makeService();
+    lock.isFree = false;
+
+    await expect(
+      service.updateServers("router-1", TENANT, ["c"]),
+    ).rejects.toThrow(
+      new VpnRouterBusyError(
+        "Daftar server router ini sedang diperbarui, coba lagi sebentar",
+      ),
+    );
+    expect(repo.withServerListLock).toHaveBeenCalledWith(
+      "router-1",
+      expect.any(Function),
+    );
+    expect(coreMock.getRouter).not.toHaveBeenCalled();
+    expect(coreMock.setRouterHubs).not.toHaveBeenCalled();
+    expect(coreMock.routerScript).not.toHaveBeenCalled();
+    expect(repo.replaceServersAsStale).not.toHaveBeenCalled();
+    expect(routerOs.writeSwitchScript).not.toHaveBeenCalled();
+    expect(repo.completeScriptSend).not.toHaveBeenCalled();
+  });
+
   it("writes nothing locally when core refuses the transitional list", async () => {
     const { service, repo } = makeService();
     coreMock.setRouterHubs.mockRejectedValue(
@@ -264,10 +310,13 @@ describe("VpnRouterService.retryStaleScript", () => {
 
     expect(isSent).toBe(true);
     expect(calls).toEqual([
+      "lock router-1",
+      "listServers",
       'setRouterHubs ["core-1",["c","a","b"]]',
       `writeSwitchScript [${JSON.stringify(vpnRouter())},${JSON.stringify(SWITCH_SCRIPT)}]`,
       'setRouterHubs ["core-1",["c","a"]]',
       'scriptSent ["router-1","t1"]',
+      "unlock router-1",
     ]);
     expect(repo.replaceServersAsStale).not.toHaveBeenCalled();
   });
@@ -288,6 +337,21 @@ describe("VpnRouterService.retryStaleScript", () => {
       "a",
     ]);
     expect(calls).toContain('scriptLeftStale ["router-1","t1"]');
+  });
+
+  it("leaves the router stale for the next cycle while a PUT holds its lock", async () => {
+    const { service, repo, routerOs, lock } = makeService();
+    lock.isFree = false;
+
+    await expect(service.retryStaleScript(vpnRouter(), TENANT)).resolves.toBe(
+      false,
+    );
+    expect(repo.listServers).not.toHaveBeenCalled();
+    expect(coreMock.getRouter).not.toHaveBeenCalled();
+    expect(coreMock.setRouterHubs).not.toHaveBeenCalled();
+    expect(coreMock.routerScript).not.toHaveBeenCalled();
+    expect(routerOs.writeSwitchScript).not.toHaveBeenCalled();
+    expect(repo.completeScriptSend).not.toHaveBeenCalled();
   });
 
   it("reports false while the router stays unreachable", async () => {

@@ -25,6 +25,12 @@ const PING_STATUS_ONLINE = "online";
 // Transaksi menahan kunci baris selama satu PUT ke core (dibatasi
 // VPN_CORE_TIMEOUT_MS); sisanya untuk query di dalam transaksi.
 const SCRIPT_SEND_TX_TIMEOUT_MS = VPN_CORE_TIMEOUT_MS * 2;
+// Kunci daftar server dipegang selama satu pengiriman: GET router + PUT daftar
+// transisi + GET skrip ke core (3 × VPN_CORE_TIMEOUT_MS = 15 s), tulis skrip
+// ke RouterOS (timeout koneksi 10 s di mikrotik-provisioning.connection.ts),
+// lalu completeScriptSend (SCRIPT_SEND_TX_TIMEOUT_MS = 10 s, termasuk PUT
+// final). Total ~35 s; 60 s memberi ruang untuk query lokal di antaranya.
+const SERVER_LIST_LOCK_TX_TIMEOUT_MS = 60_000;
 
 function isSameOrder(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((id, i) => id === b[i]);
@@ -82,6 +88,28 @@ export class MikroTikRouterVpnRepository implements IMikroTikRouterVpnRepository
         })),
       });
     });
+  }
+
+  /**
+   * Kunci advisory transaksi per router, hanya dicoba (tidak pernah antre).
+   * Hanya kuncinya yang ada di `tx`; `fn` memakai koneksi pool lain, dan kunci
+   * lepas saat transaksi berakhir, termasuk saat `fn` melempar.
+   */
+  withServerListLock<T>(
+    routerId: string,
+    fn: () => Promise<T>,
+  ): Promise<{ acquired: true; value: T } | { acquired: false }> {
+    return this.client.$transaction(
+      async (tx) => {
+        const [row] = await tx.$queryRaw<{ locked: boolean }[]>`
+          SELECT pg_try_advisory_xact_lock(
+            hashtextextended('vpn-server-list:' || ${routerId}, 0)
+          ) AS locked`;
+        if (!row?.locked) return { acquired: false as const };
+        return { acquired: true as const, value: await fn() };
+      },
+      { timeout: SERVER_LIST_LOCK_TX_TIMEOUT_MS },
+    );
   }
 
   /**

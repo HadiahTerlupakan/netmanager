@@ -77,10 +77,10 @@ export class VpnRouterMigrationError extends Error {
   }
 }
 
-/** Router sedang dipindahkan PUBLIC ⇄ VPN oleh permintaan lain. */
+/** Router sedang diubah oleh permintaan lain (pindah mode atau daftar server). */
 export class VpnRouterBusyError extends Error {
-  constructor() {
-    super("Router sedang dipindahkan oleh proses lain");
+  constructor(message = "Router sedang dipindahkan oleh proses lain") {
+    super(message);
     this.name = "VpnRouterBusyError";
   }
 }

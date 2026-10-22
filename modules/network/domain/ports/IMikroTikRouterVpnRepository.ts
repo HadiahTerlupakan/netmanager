@@ -43,6 +43,16 @@ export interface IMikroTikRouterVpnRepository {
   ): Promise<void>;
 
   /**
+   * Menjalankan `fn` sambil memegang kunci daftar server router, tanpa
+   * menunggu: bila request lain memegangnya, `fn` tidak dijalankan dan
+   * hasilnya `{ acquired: false }`. Kunci lepas saat `fn` selesai atau melempar.
+   */
+  withServerListLock<T>(
+    routerId: string,
+    fn: () => Promise<T>,
+  ): Promise<{ acquired: true; value: T } | { acquired: false }>;
+
+  /**
    * Menyelesaikan pengiriman skrip switch secara compare-and-set: bila daftar
    * server lokal masih `sentServerIds`, jalankan `finalize` lalu tandai skrip
    * terkirim dan kembalikan true. Bila daftar sudah diganti request lain,

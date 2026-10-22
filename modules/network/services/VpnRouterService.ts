@@ -5,6 +5,7 @@ import type {
 } from "../domain/ports/IMikroTikRouterVpnRepository";
 import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
 import {
+  VpnRouterBusyError,
   VpnRouterInvalidError,
   VpnRouterUnreachableError,
 } from "../vpn/errors";
@@ -19,6 +20,8 @@ import {
 } from "./mikrotik-vpn-routeros";
 
 const FIRST_SERVER_PRIORITY = 0;
+const SERVER_LIST_BUSY_MESSAGE =
+  "Daftar server router ini sedang diperbarui, coba lagi sebentar";
 
 /** Ringkasan VPN router untuk halaman edit. */
 export interface RouterVpnDetail {
@@ -97,6 +100,8 @@ export class VpnRouterService {
    * dikeluarkan tetap di ekor daftar core sampai skrip switch baru sampai di
    * router, sehingga hub aktif tidak pernah hilang. Bila router tak terjangkau,
    * daftar baru tersimpan lokal dengan `scriptStale` dan monitor mengulangnya.
+   * Melempar `VpnRouterBusyError` tanpa menulis apa pun bila pengiriman lain
+   * untuk router ini sedang berjalan.
    */
   async updateServers(
     routerId: string,
@@ -105,15 +110,20 @@ export class VpnRouterService {
   ): Promise<{ scriptStale: boolean }> {
     const router = await this.requireVpnRouter(routerId, tenantId);
     await assertServersOnline(this.servers, tenantId, serverIds);
-    await this.keepRemovedHubsAtTail(router, serverIds);
-    await this.repo.replaceServersAsStale(router.id, tenantId, serverIds);
-    const isSent = await this.sendSwitchScript(router, tenantId, serverIds);
-    return { scriptStale: !isSent };
+    const result = await this.repo.withServerListLock(router.id, async () => {
+      await this.keepRemovedHubsAtTail(router, serverIds);
+      await this.repo.replaceServersAsStale(router.id, tenantId, serverIds);
+      return this.sendSwitchScript(router, tenantId, serverIds);
+    });
+    if (!result.acquired)
+      throw new VpnRouterBusyError(SERVER_LIST_BUSY_MESSAGE);
+    return { scriptStale: !result.value };
   }
 
   /**
    * Mengulang pengiriman skrip switch memakai daftar server lokal. Melempar
-   * `VpnCoreError` bila core bermasalah; false bila router masih tak terjangkau.
+   * `VpnCoreError` bila core bermasalah; false bila router masih tak terjangkau
+   * atau pengiriman lain sedang berjalan (tetap stale untuk siklus berikutnya).
    */
   async retryStaleScript(
     router: VpnRouterRecord,
@@ -121,11 +131,14 @@ export class VpnRouterService {
   ): Promise<boolean> {
     const vpnRouter = toActiveVpnRouter(router);
     if (!vpnRouter) return false;
-    const servers = await this.repo.listServers(router.id, tenantId);
-    if (servers.length === 0) return false;
-    const desired = servers.map((s) => s.id);
-    await this.keepRemovedHubsAtTail(vpnRouter, desired);
-    return this.sendSwitchScript(vpnRouter, tenantId, desired);
+    const result = await this.repo.withServerListLock(router.id, async () => {
+      const servers = await this.repo.listServers(router.id, tenantId);
+      if (servers.length === 0) return false;
+      const desired = servers.map((s) => s.id);
+      await this.keepRemovedHubsAtTail(vpnRouter, desired);
+      return this.sendSwitchScript(vpnRouter, tenantId, desired);
+    });
+    return result.acquired && result.value;
   }
 
   /** Mengarahkan peer WireGuard router kembali ke server prioritas pertama. */

@@ -96,3 +96,42 @@ describe("MikroTikRouterVpnRepository.completeScriptSend", () => {
     expect(t.calls).not.toContain("stale=false");
   });
 });
+
+function makeLockClient(locked: boolean) {
+  const tx = { $queryRaw: vi.fn(async () => [{ locked }]) };
+  const client = {
+    $transaction: vi.fn(
+      async (work: (t: typeof tx) => Promise<unknown>, _opts?: unknown) =>
+        work(tx),
+    ),
+  };
+  return { client, tx };
+}
+
+describe("MikroTikRouterVpnRepository.withServerListLock", () => {
+  it("runs fn and returns its value when the router's lock is free", async () => {
+    const t = makeLockClient(true);
+    const repo = new MikroTikRouterVpnRepository(t.client as never);
+    const fn = vi.fn(async () => "sent");
+
+    const result = await repo.withServerListLock("router-1", fn);
+
+    expect(result).toEqual({ acquired: true, value: "sent" });
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(t.tx.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(t.client.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      timeout: 60_000,
+    });
+  });
+
+  it("skips fn without waiting when another request holds the lock", async () => {
+    const t = makeLockClient(false);
+    const repo = new MikroTikRouterVpnRepository(t.client as never);
+    const fn = vi.fn();
+
+    await expect(repo.withServerListLock("router-1", fn)).resolves.toEqual({
+      acquired: false,
+    });
+    expect(fn).not.toHaveBeenCalled();
+  });
+});
