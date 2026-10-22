@@ -1,12 +1,18 @@
 import type { RouterOSAPI } from "node-routeros-v2";
 import type { VpnRouterRecord } from "../domain/ports/IMikroTikRouterVpnRepository";
-import { runProvisioningConnection } from "./mikrotik-provisioning.connection";
+import { createProvisioningConnection } from "./mikrotik-provisioning.connection";
 import { routerApiCredentials } from "./router-api-credentials";
 
 /** Nama skrip yang dipasang skrip tempel core untuk berpindah server. */
 export const VPN_SWITCH_SCRIPT_NAME = "netmanager-vpn-switch";
 /** Interface WireGuard yang dipasang skrip tempel core. */
 export const VPN_INTERFACE_NAME = "netmanager-vpn";
+/**
+ * Batas waktu nyata satu operasi RouterOS VPN, dari connect sampai tulis
+ * terakhir. `timeout` node-routeros-v2 dibaca dalam detik dan connect ke port
+ * yang difilter menunggu SYN timeout OS, jadi batasnya dipasang di sini.
+ */
+export const VPN_ROUTEROS_OP_TIMEOUT_MS = 15_000;
 
 /** Endpoint WireGuard sebuah server VPN. */
 export interface VpnPeerEndpoint {
@@ -63,17 +69,53 @@ export async function setPeerEndpoint(
   ]);
 }
 
-/** Menjalankan operasi RouterOS pada router tersimpan dengan kredensial API-nya. */
-export function withVpnRouterConnection<T>(
+function closeQuietly(conn: RouterOSAPI): void {
+  conn.close().catch((): void => undefined);
+}
+
+function routerOsTimeoutError(): Error {
+  return new Error(
+    `Operasi RouterOS melebihi ${VPN_ROUTEROS_OP_TIMEOUT_MS} ms`,
+  );
+}
+
+/**
+ * Menjalankan operasi RouterOS pada router tersimpan dengan kredensial API-nya,
+ * dibatasi `VPN_ROUTEROS_OP_TIMEOUT_MS`. Saat batas lewat koneksi ditutup, dan
+ * connect yang baru selesai sesudahnya tidak pernah menjalankan operasi, agar
+ * skrip lama tidak sampai ke router setelah pemanggil menyerah.
+ */
+export async function withVpnRouterConnection<T>(
   router: VpnRouterRecord,
   operation: (conn: RouterOSAPI) => Promise<T>,
 ): Promise<T> {
-  return runProvisioningConnection({
-    routerDetails: {
-      ip: router.ipAddress,
-      port: router.apiPort,
-      ...routerApiCredentials(router),
-    },
-    operation,
+  const conn = createProvisioningConnection({
+    ip: router.ipAddress,
+    port: router.apiPort,
+    ...routerApiCredentials(router),
   });
+  let isTimedOut = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      isTimedOut = true;
+      closeQuietly(conn);
+      reject(routerOsTimeoutError());
+    }, VPN_ROUTEROS_OP_TIMEOUT_MS);
+  });
+  const work = async (): Promise<T> => {
+    await conn.connect();
+    if (isTimedOut) {
+      // close() sebelum connect selesai tidak memutus socket; tutup di sini.
+      closeQuietly(conn);
+      throw routerOsTimeoutError();
+    }
+    return operation(conn);
+  };
+  try {
+    return await Promise.race([work(), timeout]);
+  } finally {
+    clearTimeout(timer);
+    closeQuietly(conn);
+  }
 }

@@ -501,16 +501,32 @@ describeDb("integrasi DB nyata — VPN", () => {
       expect((await pertama.hasil).acquired).toBe(true);
     });
 
+    // Dibaca dari koneksi lain: kunci level sesi yang bocor ke pool tetap terlihat.
+    async function jumlahKunci(routerId: string): Promise<number> {
+      const [row] = await prismaAuth.$queryRaw<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM pg_locks
+        WHERE locktype = 'advisory' AND granted AND objsubid = 1
+          AND ((classid::bigint << 32) | objid::bigint)
+            = hashtextextended('vpn-server-list:' || ${routerId}, 0)`;
+      return row.n;
+    }
+
     it("melepas kunci saat fn melempar", async () => {
+      let terpegang = -1;
       await expect(
         vpnRepo.withServerListLock(ROUTER_KUNCI, async () => {
+          terpegang = await jumlahKunci(ROUTER_KUNCI);
           throw new Error("router gagal");
         }),
       ).rejects.toThrow("router gagal");
 
+      expect(terpegang).toBe(1);
+      expect(await jumlahKunci(ROUTER_KUNCI)).toBe(0);
+
       await expect(
         vpnRepo.withServerListLock(ROUTER_KUNCI, async () => "lagi"),
       ).resolves.toEqual({ acquired: true, value: "lagi" });
+      expect(await jumlahKunci(ROUTER_KUNCI)).toBe(0);
     });
   });
 

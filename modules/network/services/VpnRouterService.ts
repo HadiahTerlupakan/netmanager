@@ -110,11 +110,14 @@ export class VpnRouterService {
   ): Promise<{ scriptStale: boolean }> {
     const router = await this.requireVpnRouter(routerId, tenantId);
     await assertServersOnline(this.servers, tenantId, serverIds);
-    const result = await this.repo.withServerListLock(router.id, async () => {
-      await this.keepRemovedHubsAtTail(router, serverIds);
-      await this.repo.replaceServersAsStale(router.id, tenantId, serverIds);
-      return this.sendSwitchScript(router, tenantId, serverIds);
-    });
+    const result = await this.repo.withServerListLock(
+      router.id,
+      async (deadline) => {
+        await this.keepRemovedHubsAtTail(router, serverIds);
+        await this.repo.replaceServersAsStale(router.id, tenantId, serverIds);
+        return this.sendSwitchScript(router, tenantId, serverIds, deadline);
+      },
+    );
     if (!result.acquired)
       throw new VpnRouterBusyError(SERVER_LIST_BUSY_MESSAGE);
     return { scriptStale: !result.value };
@@ -131,13 +134,16 @@ export class VpnRouterService {
   ): Promise<boolean> {
     const vpnRouter = toActiveVpnRouter(router);
     if (!vpnRouter) return false;
-    const result = await this.repo.withServerListLock(router.id, async () => {
-      const servers = await this.repo.listServers(router.id, tenantId);
-      if (servers.length === 0) return false;
-      const desired = servers.map((s) => s.id);
-      await this.keepRemovedHubsAtTail(vpnRouter, desired);
-      return this.sendSwitchScript(vpnRouter, tenantId, desired);
-    });
+    const result = await this.repo.withServerListLock(
+      router.id,
+      async (deadline) => {
+        const servers = await this.repo.listServers(router.id, tenantId);
+        if (servers.length === 0) return false;
+        const desired = servers.map((s) => s.id);
+        await this.keepRemovedHubsAtTail(vpnRouter, desired);
+        return this.sendSwitchScript(vpnRouter, tenantId, desired, deadline);
+      },
+    );
     return result.acquired && result.value;
   }
 
@@ -187,10 +193,13 @@ export class VpnRouterService {
   // dikirim ke core setelah skrip itu sampai di router, dan hanya bila daftar
   // lokal belum diganti request lain (retry monitor vs PUT, atau dua PUT);
   // yang kalah membiarkan skrip stale agar monitor mengirim daftar terbaru.
+  // Lewat `deadline` kunci router bisa lepas sebelum CAS selesai, jadi skrip
+  // dibiarkan stale dan monitor mengirim ulang di bawah kunci baru.
   private async sendSwitchScript(
     router: ActiveVpnRouter,
     tenantId: string,
     desired: string[],
+    deadline: number,
   ): Promise<boolean> {
     const core = getVpnCoreClient();
     const source = await core.routerScript(router.vpnCoreRouterId, "switch");
@@ -200,6 +209,12 @@ export class VpnRouterService {
       logger.warn(
         `[VPN] Skrip switch router ${router.id} belum terkirim:`,
         error,
+      );
+      return false;
+    }
+    if (Date.now() > deadline) {
+      logger.warn(
+        `[VPN] Skrip switch router ${router.id} terkirim melewati tenggat kunci; dibiarkan stale`,
       );
       return false;
     }

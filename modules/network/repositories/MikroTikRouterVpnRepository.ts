@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { VPN_CORE_TIMEOUT_MS } from "../vpn/VpnCoreClient";
+import { VPN_ROUTEROS_OP_TIMEOUT_MS } from "../services/mikrotik-vpn-routeros";
 import type {
   IMikroTikRouterVpnRepository,
   RouterVpnServerEntry,
@@ -22,15 +23,28 @@ const VPN_ROUTER_SELECT = {
 } as const;
 
 const PING_STATUS_ONLINE = "online";
-// Transaksi menahan kunci baris selama satu PUT ke core (dibatasi
-// VPN_CORE_TIMEOUT_MS); sisanya untuk query di dalam transaksi.
-const SCRIPT_SEND_TX_TIMEOUT_MS = VPN_CORE_TIMEOUT_MS * 2;
-// Kunci daftar server dipegang selama satu pengiriman: GET router + PUT daftar
-// transisi + GET skrip ke core (3 × VPN_CORE_TIMEOUT_MS = 15 s), tulis skrip
-// ke RouterOS (timeout koneksi 10 s di mikrotik-provisioning.connection.ts),
-// lalu completeScriptSend (SCRIPT_SEND_TX_TIMEOUT_MS = 10 s, termasuk PUT
-// final). Total ~35 s; 60 s memberi ruang untuk query lokal di antaranya.
-const SERVER_LIST_LOCK_TX_TIMEOUT_MS = 60_000;
+/**
+ * Batas transaksi compare-and-set `completeScriptSend`: kunci baris ditahan
+ * selama satu PUT ke core (dibatasi VPN_CORE_TIMEOUT_MS); sisanya untuk query
+ * di dalam transaksi.
+ */
+export const SCRIPT_SEND_TX_TIMEOUT_MS = VPN_CORE_TIMEOUT_MS * 2;
+// Panggilan core dalam satu pengiriman: GET router, PUT daftar transisi,
+// GET skrip, PUT final.
+const CORE_CALLS_PER_SEND = 4;
+// Ruang untuk query lokal di luar completeScriptSend (listServers,
+// replaceServersAsStale) dan antrean pool.
+const SERVER_LIST_LOCK_MARGIN_MS = 15_000;
+/**
+ * Batas transaksi kunci daftar server: semua panggilan core, satu operasi
+ * RouterOS, dan completeScriptSend (yang PUT finalnya ikut terhitung di
+ * panggilan core, jadi ini batas atas), ditambah margin.
+ */
+export const SERVER_LIST_LOCK_TX_TIMEOUT_MS =
+  CORE_CALLS_PER_SEND * VPN_CORE_TIMEOUT_MS +
+  VPN_ROUTEROS_OP_TIMEOUT_MS +
+  SCRIPT_SEND_TX_TIMEOUT_MS +
+  SERVER_LIST_LOCK_MARGIN_MS;
 
 function isSameOrder(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((id, i) => id === b[i]);
@@ -93,11 +107,13 @@ export class MikroTikRouterVpnRepository implements IMikroTikRouterVpnRepository
   /**
    * Kunci advisory transaksi per router, hanya dicoba (tidak pernah antre).
    * Hanya kuncinya yang ada di `tx`; `fn` memakai koneksi pool lain, dan kunci
-   * lepas saat transaksi berakhir, termasuk saat `fn` melempar.
+   * lepas saat transaksi berakhir, termasuk saat `fn` melempar. `fn` menerima
+   * tenggat (epoch ms) terakhir untuk memulai completeScriptSend agar selesai
+   * sebelum transaksi ini kedaluwarsa.
    */
   withServerListLock<T>(
     routerId: string,
-    fn: () => Promise<T>,
+    fn: (deadline: number) => Promise<T>,
   ): Promise<{ acquired: true; value: T } | { acquired: false }> {
     return this.client.$transaction(
       async (tx) => {
@@ -106,7 +122,11 @@ export class MikroTikRouterVpnRepository implements IMikroTikRouterVpnRepository
             hashtextextended('vpn-server-list:' || ${routerId}, 0)
           ) AS locked`;
         if (!row?.locked) return { acquired: false as const };
-        return { acquired: true as const, value: await fn() };
+        const deadline =
+          Date.now() +
+          SERVER_LIST_LOCK_TX_TIMEOUT_MS -
+          SCRIPT_SEND_TX_TIMEOUT_MS;
+        return { acquired: true as const, value: await fn(deadline) };
       },
       { timeout: SERVER_LIST_LOCK_TX_TIMEOUT_MS },
     );

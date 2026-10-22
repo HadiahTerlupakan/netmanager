@@ -46,10 +46,12 @@ export interface IMikroTikRouterVpnRepository {
    * Menjalankan `fn` sambil memegang kunci daftar server router, tanpa
    * menunggu: bila request lain memegangnya, `fn` tidak dijalankan dan
    * hasilnya `{ acquired: false }`. Kunci lepas saat `fn` selesai atau melempar.
+   * `fn` menerima tenggat (epoch ms): sesudahnya `completeScriptSend` tidak
+   * boleh dimulai karena kunci bisa lepas sebelum selesai.
    */
   withServerListLock<T>(
     routerId: string,
-    fn: () => Promise<T>,
+    fn: (deadline: number) => Promise<T>,
   ): Promise<{ acquired: true; value: T } | { acquired: false }>;
 
   /**

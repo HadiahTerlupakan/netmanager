@@ -85,7 +85,7 @@ function makeService(router: VpnRouterRecord | null = vpnRouter()) {
   // Daftar server lokal yang bisa diganti request lain di tengah pengiriman.
   const stored = { ids: ["c", "a"] };
   // Kunci advisory per router: false meniru request lain yang memegangnya.
-  const lock = { isFree: true };
+  const lock = { isFree: true, deadline: Number.POSITIVE_INFINITY };
   const holdLock: IMikroTikRouterVpnRepository["withServerListLock"] = async (
     routerId,
     fn,
@@ -93,7 +93,7 @@ function makeService(router: VpnRouterRecord | null = vpnRouter()) {
     if (!lock.isFree) return { acquired: false };
     calls.push(`lock ${routerId}`);
     try {
-      return { acquired: true, value: await fn() };
+      return { acquired: true, value: await fn(lock.deadline) };
     } finally {
       calls.push(`unlock ${routerId}`);
     }
@@ -268,6 +268,22 @@ describe("VpnRouterService.updateServers", () => {
     expect(repo.replaceServersAsStale).not.toHaveBeenCalled();
     expect(routerOs.writeSwitchScript).not.toHaveBeenCalled();
     expect(repo.completeScriptSend).not.toHaveBeenCalled();
+  });
+
+  it("leaves the script stale without finalizing when the lock's deadline passed during the write", async () => {
+    const { service, repo, routerOs, lock } = makeService();
+    lock.deadline = 1_000;
+    vi.spyOn(Date, "now").mockReturnValue(500);
+    routerOs.writeSwitchScript.mockImplementation(async () => {
+      vi.spyOn(Date, "now").mockReturnValue(1_001);
+    });
+
+    const result = await service.updateServers("router-1", TENANT, ["c"]);
+
+    expect(result).toEqual({ scriptStale: true });
+    expect(routerOs.writeSwitchScript).toHaveBeenCalledTimes(1);
+    expect(repo.completeScriptSend).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 
   it("writes nothing locally when core refuses the transitional list", async () => {
