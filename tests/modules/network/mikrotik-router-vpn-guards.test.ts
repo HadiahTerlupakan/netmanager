@@ -3,10 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getRouter: vi.fn(),
   testApi: vi.fn(),
-  lookup: vi.fn(),
 }));
-
-vi.mock("node:dns", () => ({ promises: { lookup: mocks.lookup } }));
 
 vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
   ...(await importActual<object>()),
@@ -120,31 +117,38 @@ describe("updateRouterMutation router publik", () => {
 });
 
 describe("updateRouterMutation router publik dengan nama host", () => {
-  beforeEach(() => vi.clearAllMocks());
+  const NOT_IP = "IP Router harus berupa alamat IP, bukan nama host";
+  const publicRouter = {
+    ...VPN_ROUTER,
+    connectionMode: "PUBLIC",
+    ipAddress: "203.0.113.9",
+  };
 
-  it("menolak nama host yang resolve ke overlay VPN", async () => {
-    mocks.lookup.mockResolvedValue([{ address: "10.100.0.10", family: 4 }]);
-    const { done, routerRepository } = runUpdate(
-      { ...VPN_ROUTER, connectionMode: "PUBLIC", ipAddress: "203.0.113.9" },
-      { ipAddress: "router.example.com" },
-    );
+  it("menolak nama host baru", async () => {
+    const { done, routerRepository } = runUpdate(publicRouter, {
+      ipAddress: "router.example.com",
+    });
 
-    await expect(done).rejects.toThrow("Alamat ini khusus jaringan VPN");
+    await expect(done).rejects.toThrow(new VpnRouterInvalidError(NOT_IP));
     expect(routerRepository.update).not.toHaveBeenCalled();
   });
 
-  it("tidak me-resolve ulang alamat yang tidak berubah", async () => {
-    const { done } = runUpdate(
-      {
-        ...VPN_ROUTER,
-        connectionMode: "PUBLIC",
-        ipAddress: "router.example.com",
-      },
+  it("menolak alamat dengan zone id sebagai 400, bukan 500", async () => {
+    const { done } = runUpdate(publicRouter, { ipAddress: "fe80::1%eth0" });
+
+    await expect(done).rejects.toThrow(
+      new VpnRouterInvalidError("Alamat router tidak valid"),
+    );
+  });
+
+  it("nama host lama yang tidak berubah tetap bisa disimpan", async () => {
+    const { done, routerRepository } = runUpdate(
+      { ...publicRouter, ipAddress: "router.example.com" },
       { ipAddress: "router.example.com", name: "R" },
     );
 
     await done;
-    expect(mocks.lookup).not.toHaveBeenCalled();
+    expect(routerRepository.update).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -180,7 +184,7 @@ describe("testRouterConnection alamat overlay", () => {
     expect(mocks.testApi).not.toHaveBeenCalled();
   });
 
-  it("menolak nama host router publik tersimpan yang kini resolve ke overlay", async () => {
+  it("menolak nama host router publik tersimpan, tanpa login API", async () => {
     routerRepository.findById.mockResolvedValue({
       ...VPN_ROUTER,
       connectionMode: "PUBLIC",
@@ -188,40 +192,18 @@ describe("testRouterConnection alamat overlay", () => {
       apiUsernameGenerated: null,
       apiPasswordGenerated: null,
     });
-    mocks.lookup.mockResolvedValue([{ address: "10.99.0.20", family: 4 }]);
 
     await expect(
       testRouterConnection({ ...body, routerId: "router-1" }),
-    ).rejects.toThrow("Alamat ini khusus jaringan VPN");
+    ).rejects.toThrow("IP Router harus berupa alamat IP, bukan nama host");
     expect(mocks.testApi).not.toHaveBeenCalled();
   });
 
-  it("menghubungi IP hasil pemeriksaan, bukan nama host (tanpa resolve kedua)", async () => {
-    mocks.lookup.mockResolvedValue([{ address: "203.0.113.9", family: 4 }]);
-
-    await testRouterConnection({ ...body, ipAddress: "router.example.com" });
-
-    expect(mocks.lookup).toHaveBeenCalledTimes(1);
-    expect(mocks.testApi).toHaveBeenCalledWith(
-      expect.objectContaining({ ipAddress: "203.0.113.9" }),
-    );
-  });
-
-  it("router publik tersimpan dengan nama host juga dihubungi lewat IP hasil pemeriksaan", async () => {
-    routerRepository.findById.mockResolvedValue({
-      ...VPN_ROUTER,
-      connectionMode: "PUBLIC",
-      ipAddress: "router.example.com",
-      apiUsernameGenerated: null,
-      apiPasswordGenerated: null,
-    });
-    mocks.lookup.mockResolvedValue([{ address: "198.51.100.4", family: 4 }]);
-
-    await testRouterConnection({ ...body, routerId: "router-1" });
-
-    expect(mocks.testApi).toHaveBeenCalledWith(
-      expect.objectContaining({ ipAddress: "198.51.100.4" }),
-    );
+  it("menolak nama host dari body, tanpa login API", async () => {
+    await expect(
+      testRouterConnection({ ...body, ipAddress: "router.example.com" }),
+    ).rejects.toThrow("IP Router harus berupa alamat IP, bukan nama host");
+    expect(mocks.testApi).not.toHaveBeenCalled();
   });
 
   it("menolak draft milik tenant lain", async () => {

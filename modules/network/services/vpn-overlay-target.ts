@@ -1,15 +1,13 @@
-import { promises as dns } from "node:dns";
 import { isIP } from "node:net";
-import { logger } from "@/lib/logger";
 import { VpnRouterInvalidError } from "../vpn/errors";
 import {
   isVpnOverlayAddress,
   VPN_OVERLAY_ADDRESS_MESSAGE,
 } from "../vpn/overlay";
 
-/** Pesan untuk nama host yang tidak bisa di-resolve saat diperiksa. */
-export const UNVERIFIABLE_ROUTER_ADDRESS_MESSAGE =
-  "Alamat router tidak dapat diverifikasi";
+/** Pesan untuk alamat router yang berupa nama host. */
+export const ROUTER_ADDRESS_NOT_IP_MESSAGE =
+  "IP Router harus berupa alamat IP, bukan nama host";
 /** Pesan untuk bentuk IPv4 non-kanonik (nol di depan, oktal, heksa, kurang dari 4 bagian). */
 export const INVALID_ROUTER_ADDRESS_MESSAGE = "Alamat router tidak valid";
 
@@ -36,7 +34,13 @@ function hexPairToIpv4(high: string, low: string): string {
 /** IPv6 dikanonikkan; IPv4-mapped IPv6 menjadi IPv4 dotted quad. */
 function normaliseIp(ip: string): string {
   if (isIP(ip) !== IPV6) return ip;
-  const canonical = new URL(`http://[${ip}]`).hostname.slice(1, -1);
+  // Zone id (fe80::1%eth0) lolos net.isIP tetapi tidak bisa di-parse URL.
+  let canonical: string;
+  try {
+    canonical = new URL(`http://[${ip}]`).hostname.slice(1, -1);
+  } catch {
+    throw new VpnRouterInvalidError(INVALID_ROUTER_ADDRESS_MESSAGE);
+  }
   const dotted = MAPPED_IPV4_DOTTED.exec(canonical);
   if (dotted) return dotted[1];
   const hex = MAPPED_IPV4_HEX.exec(canonical);
@@ -46,16 +50,6 @@ function normaliseIp(ip: string): string {
 function assertOutsideOverlay(ip: string): void {
   if (isVpnOverlayAddress(normaliseIp(ip))) {
     throw new VpnRouterInvalidError(VPN_OVERLAY_ADDRESS_MESSAGE);
-  }
-}
-
-async function resolveAll(host: string): Promise<string[]> {
-  try {
-    const records = await dns.lookup(host, { all: true });
-    return records.map((r) => r.address);
-  } catch (error) {
-    logger.warn(`[VPN] Resolve alamat router ${host} gagal:`, error);
-    return [];
   }
 }
 
@@ -76,25 +70,17 @@ export function literalIp(host: string): string | null {
 }
 
 /**
- * Menolak (fail closed) alamat router publik yang menunjuk ke overlay VPN:
- * literal IP diperiksa langsung, nama host di-resolve dan ditolak bila SALAH
- * SATU alamatnya di overlay atau bila tidak bisa di-resolve. FreeRADIUS
- * memilih tenant menurut nasname, dan koneksi API ke overlay bisa menyentuh
- * router tenant lain. Mengembalikan alamat IP yang sudah diperiksa (literal
- * yang dinormalkan, atau alamat resolve pertama); pemanggil yang langsung
- * terhubung harus memakai alamat ini, bukan nama host, agar resolve kedua
- * (DNS rebinding) tidak bisa mengarah ke overlay.
+ * Menolak alamat router yang bukan literal IP, atau yang menunjuk ke overlay
+ * VPN. Nama host tidak diterima: DNS bisa berubah setelah diperiksa, dan
+ * FreeRADIUS memilih tenant menurut nasname, sedangkan koneksi API ke overlay
+ * bisa menyentuh router tenant lain. Mengembalikan IP yang dinormalkan
+ * (IPv4-mapped IPv6 menjadi IPv4) untuk dihubungi langsung.
  */
 export async function assertNotVpnOverlayTarget(host: string): Promise<string> {
   const ip = literalIp(host);
-  if (ip !== null) {
-    assertOutsideOverlay(ip);
-    return ip;
+  if (ip === null) {
+    throw new VpnRouterInvalidError(ROUTER_ADDRESS_NOT_IP_MESSAGE);
   }
-  const addresses = await resolveAll(host.trim());
-  if (addresses.length === 0) {
-    throw new VpnRouterInvalidError(UNVERIFIABLE_ROUTER_ADDRESS_MESSAGE);
-  }
-  addresses.forEach(assertOutsideOverlay);
-  return normaliseIp(addresses[0]);
+  assertOutsideOverlay(ip);
+  return ip;
 }

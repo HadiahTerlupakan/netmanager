@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   createNas: vi.fn(),
   getNasByIp: vi.fn(),
   deleteNas: vi.fn(),
-  lookup: vi.fn(),
   removeOtherRadiusEntries: vi.fn(),
 }));
 
@@ -15,8 +14,6 @@ vi.mock("@/modules/network/services/mikrotik-vpn-migration.routeros", () => ({
     removeOtherRadiusEntries: mocks.removeOtherRadiusEntries,
   },
 }));
-
-vi.mock("node:dns", () => ({ promises: { lookup: mocks.lookup } }));
 
 vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
   ...(await importActual<object>()),
@@ -355,11 +352,11 @@ describe("createRouterMutation mode PUBLIC", () => {
   });
 
   it.each([
-    ["nama host di overlay", "router.example.com"],
+    ["nama host", "router.example.com"],
+    ["zone id", "fe80::1%eth0"],
     ["IPv4-mapped IPv6", "::ffff:10.100.0.10"],
     ["nol di depan", "010.100.0.10"],
   ])("menolak alamat %s tanpa menulis", async (_label, ipAddress) => {
-    mocks.lookup.mockResolvedValue([{ address: "10.100.0.10", family: 4 }]);
     const t = setup();
 
     await expect(

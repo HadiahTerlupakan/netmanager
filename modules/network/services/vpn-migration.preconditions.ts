@@ -5,6 +5,7 @@ import { VPN_API_PORT } from "../vpn/constants";
 import type { CoreRouter } from "../vpn/types";
 import type { MikroTikProvisioningRouterDetails } from "./mikrotik-provisioning.connection";
 import { RouterNotFoundError } from "./mikrotik-router.access";
+import { literalIp } from "./vpn-overlay-target";
 import { routerApiCredentials } from "./router-api-credentials";
 import { fetchDraft } from "./mikrotik-router.vpn-create";
 import type { VpnMigrationRouterOs } from "./mikrotik-vpn-migration.routeros";
@@ -15,6 +16,8 @@ import {
 } from "./VpnDraftService";
 
 const MIN_ROUTEROS_MAJOR = 7;
+const HOSTNAME_BEFORE_VPN_MESSAGE =
+  "Ganti IP Router dengan alamat IP sebelum pindah ke VPN";
 
 /** Router VPN yang bisa dikembalikan ke publik. */
 export type RevertableVpnRouter = VpnMigrationRouterRecord & {
@@ -35,13 +38,17 @@ export function routerApiConnection(
   return { ip, port: router.apiPort, ...routerApiCredentials(router) };
 }
 
-/** Router ada, masih publik, RouterOS v7, dan port API-nya sesuai skrip VPN. */
+/** Router ada, masih publik dengan IP literal, RouterOS v7, dan port API-nya sesuai skrip VPN. */
 export function requirePublicV7Router(
   router: VpnMigrationRouterRecord | null,
 ): VpnMigrationRouterRecord {
   if (!router) throw new RouterNotFoundError("Router tidak ditemukan");
   if (router.connectionMode !== "PUBLIC") {
     throw new VpnRouterInvalidError("Router ini sudah memakai VPN");
+  }
+  // IP publik disimpan untuk revert, jadi harus literal IP sejak awal.
+  if (literalIp(router.ipAddress) === null) {
+    throw new VpnRouterInvalidError(HOSTNAME_BEFORE_VPN_MESSAGE);
   }
   if (router.rosVersion !== "V7") {
     throw new VpnRouterInvalidError("VPN memerlukan RouterOS v7");

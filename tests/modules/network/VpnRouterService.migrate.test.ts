@@ -423,6 +423,23 @@ describe("VpnRouterMigrationService.migrate", () => {
     expect(calls).toEqual([]);
   });
 
+  it("rejects a router stored with a hostname before any core or RouterOS call", async () => {
+    const { service, routerOs } = makeService(
+      publicRouter({ ipAddress: "router.example.com" }),
+    );
+
+    await expect(
+      service.migrate("router-1", TENANT, migrateInput),
+    ).rejects.toThrow(
+      new VpnRouterInvalidError(
+        "Ganti IP Router dengan alamat IP sebelum pindah ke VPN",
+      ),
+    );
+    expect(coreMock.getRouter).not.toHaveBeenCalled();
+    expect(routerOs.testApi).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+  });
+
   it("changes nothing when a server is offline", async () => {
     const { service } = makeService();
     coreMock.getRouter.mockResolvedValue(
