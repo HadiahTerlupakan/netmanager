@@ -108,6 +108,8 @@ export function validateMikrotikConnectionInput(
   return null;
 }
 
+const INVALID_RESPONSE_MESSAGE = "Respons API tidak valid";
+
 export async function submitMikrotikConnectionTest(
   formData: MikrotikVpnFormFields,
   routerId?: string,
@@ -140,25 +142,34 @@ export async function submitMikrotikConnectionTest(
     body: JSON.stringify(requestBody),
   });
 
+  return parseTestConnectionResponse(res);
+}
+
+/**
+ * Membaca jawaban rute test-connection. Rute membungkus hasil sebagai
+ * `{success: true, data}`; `success` amplop hanya berarti rute berjalan, bukan
+ * router tersambung. Respons non-OK menjadi hasil gagal berisi pesan rute.
+ */
+export async function parseTestConnectionResponse(
+  res: Response,
+): Promise<MikrotikTestConnectionResult> {
   const body: unknown = await res.json();
 
   if (!body || typeof body !== "object") {
-    return failedTestResult("Respons API tidak valid");
+    return failedTestResult(INVALID_RESPONSE_MESSAGE);
   }
   const { data, error, message } = body as {
     data?: unknown;
     error?: unknown;
     message?: unknown;
   };
-  // Rute membungkus hasil sebagai `{success: true, data}`; `success` amplop
-  // hanya berarti rute berjalan, bukan router tersambung.
   if (res.ok && data && typeof data === "object") {
     return data as MikrotikTestConnectionResult;
   }
-  const reason =
-    [error, message].find((v) => typeof v === "string" && v) ??
-    "Respons API tidak valid";
-  return failedTestResult(reason as string);
+  const reason = [error, message].find(
+    (v): v is string => typeof v === "string" && v !== "",
+  );
+  return failedTestResult(reason ?? INVALID_RESPONSE_MESSAGE);
 }
 
 function failedTestResult(reason: string): MikrotikTestConnectionResult {

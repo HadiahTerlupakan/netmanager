@@ -1,7 +1,10 @@
 import { clientLogger } from "@/lib/client-logger";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
-import type { MikrotikTestConnectionResult } from "../mikrotikFormShared";
+import {
+  parseTestConnectionResponse,
+  type MikrotikTestConnectionResult,
+} from "../mikrotikFormShared";
 import { MIKROTIK_API } from "../constants";
 
 /**
@@ -57,10 +60,10 @@ export function useMikrotikActions() {
         body: JSON.stringify({ routerId: id }),
       });
 
-      const result = await res.json();
+      const result = await parseTestConnectionResponse(res);
       setTestResult(result);
 
-      if (!res.ok || !result.success) {
+      if (!result.success) {
         toast.error(result.message || "Test koneksi gagal");
       } else {
         toast.success("Test koneksi berhasil");
