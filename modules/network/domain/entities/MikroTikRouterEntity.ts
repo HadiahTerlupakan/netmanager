@@ -92,7 +92,7 @@ export interface PaginationOptions {
 }
 
 export interface PaginatedRouterResult {
-  routers: MikroTikRouterEntity[];
+  routers: (MikroTikRouterEntity & { vpnOnBackup: boolean })[];
   total: number;
   page: number;
   limit: number;

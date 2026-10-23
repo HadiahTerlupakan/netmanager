@@ -9,7 +9,7 @@ import { NetworkRepository } from "../repositories/NetworkRepository";
 import { RadiusConnectionError } from "../utils/errors";
 import {
   createCoreLookupBreaker,
-  resolveFailedRouterStatus,
+  lookupVpnRouter,
   type CoreLookupBreaker,
 } from "./mikrotik-ping-check.vpn";
 import { routerApiCredentials } from "./router-api-credentials";
@@ -152,7 +152,7 @@ async function checkAndPersistRouter(
       router.id,
       tenantId,
       apiResult,
-      await resolvePingStatus(router, apiResult, breaker),
+      await resolveHealth(router, apiResult, breaker),
     );
     return {
       id: router.id,
@@ -166,13 +166,23 @@ async function checkAndPersistRouter(
   }
 }
 
-async function resolvePingStatus(
+interface RouterHealth {
+  pingStatus: string;
+  vpnActiveServerId?: string | null;
+}
+
+// Satu lookup core per router VPN, online atau tidak, agar server aktif di
+// daftar router tidak basi.
+async function resolveHealth(
   router: CheckedRouter,
   apiResult: MikroTikPingResult,
   breaker: CoreLookupBreaker,
-): Promise<string> {
-  if (apiResult.success) return "online";
-  return resolveFailedRouterStatus(router, breaker);
+): Promise<RouterHealth> {
+  const lookup = await lookupVpnRouter(router, breaker);
+  return {
+    pingStatus: apiResult.success ? "online" : lookup.failedStatus,
+    vpnActiveServerId: lookup.activeServerId,
+  };
 }
 
 async function updateRouterHealth(
@@ -180,12 +190,15 @@ async function updateRouterHealth(
   routerId: string,
   tenantId: string,
   apiResult: MikroTikPingResult,
-  pingStatus: string,
+  health: RouterHealth,
 ) {
   await routerRepository.update(
     routerId,
     {
-      pingStatus,
+      pingStatus: health.pingStatus,
+      ...(health.vpnActiveServerId !== undefined && {
+        vpnActiveServerId: health.vpnActiveServerId,
+      }),
       userOnline: apiResult.userOnline ?? 0,
       lastStatusCheck: new Date(),
     },
@@ -204,7 +217,7 @@ async function markRouterOffline(
       routerId,
       tenantId,
       { success: false, userOnline: 0 },
-      "offline",
+      { pingStatus: "offline" },
     );
   } catch (error) {
     logger.error(`Error updating router ${routerId}:`, error);
@@ -265,7 +278,7 @@ async function runRouterStatusCheck(
     statusCheck.router.id,
     statusCheck.tenantId,
     apiResult,
-    await resolvePingStatus(
+    await resolveHealth(
       statusCheck.router,
       apiResult,
       createCoreLookupBreaker(),

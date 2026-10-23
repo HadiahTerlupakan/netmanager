@@ -20,32 +20,48 @@ function isHandshakeStale(lastHandshakeAt: string | null): boolean {
   return Date.now() - Date.parse(lastHandshakeAt) > VPN_HANDSHAKE_FRESH_MS;
 }
 
+/** Hasil lookup core untuk satu router VPN pada satu siklus pemeriksaan. */
+export interface VpnRouterLookup {
+  /** Status bila API router gagal dijawab. */
+  failedStatus: FailedRouterStatus;
+  /** Server yang sedang dipakai router; `undefined` bila core tidak ditanya atau galat. */
+  activeServerId?: string | null;
+}
+
 /**
- * Bedakan tunnel putus dari router mati untuk router VPN yang gagal API: handshake
- * core lebih tua dari batas segar berarti `tunnel_down`. Router publik, VPN
- * belum dikonfigurasi, atau core bermasalah tetap `offline`.
+ * Tanya core sekali untuk router VPN: handshake yang lebih tua dari batas segar
+ * berarti `tunnel_down` (dipakai bila API gagal), dan `activeHubId` menjadi
+ * server aktif. Router publik, VPN belum dikonfigurasi, pemutus terpicu, atau
+ * core bermasalah memberi `offline` tanpa server aktif.
  */
-export async function resolveFailedRouterStatus(
+export async function lookupVpnRouter(
   router: {
     id: string;
     connectionMode: string;
     vpnCoreRouterId: string | null;
   },
   breaker: CoreLookupBreaker,
-): Promise<FailedRouterStatus> {
+): Promise<VpnRouterLookup> {
   if (router.connectionMode !== "VPN" || !router.vpnCoreRouterId) {
-    return "offline";
+    return { failedStatus: "offline" };
   }
-  if (breaker.isTripped || !isVpnConfigured()) return "offline";
+  if (breaker.isTripped || !isVpnConfigured()) {
+    return { failedStatus: "offline" };
+  }
   try {
     const core = await getVpnCoreClient().getRouter(router.vpnCoreRouterId);
-    return isHandshakeStale(core.lastHandshakeAt) ? "tunnel_down" : "offline";
+    return {
+      failedStatus: isHandshakeStale(core.lastHandshakeAt)
+        ? "tunnel_down"
+        : "offline",
+      activeServerId: core.activeHubId,
+    };
   } catch (error) {
     breaker.isTripped = true;
     logger.warn(
       `[VPN] Status tunnel router ${router.id} tidak terbaca:`,
       error,
     );
-    return "offline";
+    return { failedStatus: "offline" };
   }
 }

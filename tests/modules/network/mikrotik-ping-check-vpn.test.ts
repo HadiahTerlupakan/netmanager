@@ -78,6 +78,11 @@ function statusOf(routerId: string): string | undefined {
   return call?.[1].pingStatus;
 }
 
+function activeServerOf(routerId: string): string | null | undefined {
+  const call = mocks.update.mock.calls.find(([id]) => id === routerId);
+  return call?.[1].vpnActiveServerId;
+}
+
 describe("mikrotik ping-check for VPN routers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -112,19 +117,59 @@ describe("mikrotik ping-check for VPN routers", () => {
     expect(statusOf("a")).toBe("tunnel_down");
   });
 
-  it("asks core only for VPN routers whose API check failed", async () => {
+  it("asks core for the active server of an online VPN router and saves it", async () => {
     const online = router("a");
     mocks.reachableHosts.add(online.ipAddress);
     mocks.findAll.mockResolvedValue([
       online,
       router("bb", { connectionMode: "PUBLIC", vpnCoreRouterId: null }),
     ]);
+    mocks.getRouter.mockResolvedValue({
+      lastHandshakeAt: STALE_HANDSHAKE,
+      activeHubId: "s2",
+    });
 
     await checkAllMikroTikRouterStatus();
 
     expect(statusOf("a")).toBe("online");
+    expect(activeServerOf("a")).toBe("s2");
     expect(statusOf("bb")).toBe("offline");
-    expect(mocks.getRouter).not.toHaveBeenCalled();
+    expect(mocks.getRouter).toHaveBeenCalledTimes(1);
+    expect(
+      mocks.update.mock.calls.find(([id]) => id === "bb")?.[1],
+    ).not.toHaveProperty("vpnActiveServerId");
+  });
+
+  it("saves the active server of a failed VPN router next to its status", async () => {
+    mocks.findAll.mockResolvedValue([router("a")]);
+    mocks.getRouter.mockResolvedValue({
+      lastHandshakeAt: FRESH_HANDSHAKE,
+      activeHubId: "s1",
+    });
+
+    await checkAllMikroTikRouterStatus();
+
+    expect(statusOf("a")).toBe("offline");
+    expect(activeServerOf("a")).toBe("s1");
+  });
+
+  it("does not write the active server of an online router once the breaker tripped", async () => {
+    const first = router("a");
+    const second = router("bb");
+    mocks.reachableHosts.add(second.ipAddress);
+    mocks.findActiveTenants.mockResolvedValue([{ id: "t1" }, { id: "t2" }]);
+    mocks.findAll
+      .mockResolvedValueOnce([first])
+      .mockResolvedValueOnce([second]);
+    mocks.getRouter.mockRejectedValue(new Error("core down"));
+
+    await checkAllMikroTikRouterStatus();
+
+    expect(statusOf("bb")).toBe("online");
+    expect(
+      mocks.update.mock.calls.find(([id]) => id === "bb")?.[1],
+    ).not.toHaveProperty("vpnActiveServerId");
+    expect(mocks.getRouter).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to offline and stops asking core after the first core error", async () => {

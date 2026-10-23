@@ -37,6 +37,9 @@ const STATUS_TONES: Record<
   },
 };
 
+const BACKUP_BADGE =
+  "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800";
+
 type MikrotikRouterTableProps = {
   routers: MikrotikRouterListItem[];
   total: number;
@@ -175,7 +178,7 @@ export function MikrotikRouterTable({
                 const tone =
                   STATUS_TONES[router.pingStatus] ?? STATUS_TONES.offline;
                 return (
-                  <div className="text-center">
+                  <div className="flex flex-col items-center gap-1">
                     <span
                       className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${tone.badge}`}
                     >
@@ -184,6 +187,14 @@ export function MikrotikRouterTable({
                       ></span>
                       {tone.label}
                     </span>
+                    {router.pingStatus === "online" && router.vpnOnBackup && (
+                      <span
+                        title="Router berjalan di server VPN cadangan"
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${BACKUP_BADGE}`}
+                      >
+                        Server cadangan
+                      </span>
+                    )}
                   </div>
                 );
               },

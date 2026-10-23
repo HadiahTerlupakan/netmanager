@@ -244,16 +244,18 @@ describe("MikrotikRouterTable status", () => {
     await bongkarPanggung(panggung);
   });
 
-  it("menampilkan Tunnel putus dengan titik oranye", async () => {
+  async function renderRouter(overrides: object) {
     const router = {
       id: "r1",
       name: "RB-1",
       ipAddress: "10.99.0.5",
       timezone: "+07:00",
       description: null as string | null,
-      pingStatus: "tunnel_down",
+      pingStatus: "online",
       userOnline: 0,
       lastStatusCheck: null as Date | null,
+      vpnOnBackup: false,
+      ...overrides,
     };
     await render(
       panggung,
@@ -275,8 +277,28 @@ describe("MikrotikRouterTable status", () => {
         onDelete={vi.fn()}
       />,
     );
+  }
+
+  it("menampilkan Tunnel putus dengan titik oranye", async () => {
+    await renderRouter({ pingStatus: "tunnel_down" });
     expect(document.body.textContent).toContain("Tunnel putus");
     expect(cari(".bg-orange-500")).not.toBeNull();
+  });
+
+  it("menampilkan tanda Server cadangan hanya untuk router online di server cadangan", async () => {
+    await renderRouter({ vpnOnBackup: true });
+    expect(document.body.textContent).toContain("Server cadangan");
+    expect(
+      cari('[title="Router berjalan di server VPN cadangan"]'),
+    ).not.toBeNull();
+  });
+
+  it.each([
+    ["router di server utama", { vpnOnBackup: false }],
+    ["router offline", { pingStatus: "offline", vpnOnBackup: true }],
+  ])("tidak menampilkan tanda Server cadangan untuk %s", async (_n, extra) => {
+    await renderRouter(extra);
+    expect(document.body.textContent).not.toContain("Server cadangan");
   });
 });
 

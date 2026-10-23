@@ -22,6 +22,7 @@ export type MikrotikRouterListItem = {
   pingStatus: string;
   userOnline: number;
   lastStatusCheck: Date | null;
+  vpnOnBackup: boolean;
 };
 
 export type PaginatedMikrotikRouters = {

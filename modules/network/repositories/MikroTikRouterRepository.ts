@@ -42,6 +42,32 @@ function buildVpnCreateFields(
   };
 }
 
+// Server prioritas 0 ikut terbaca dalam query daftar agar tidak ada N+1.
+const FIRST_VPN_SERVER = {
+  orderBy: { priority: "asc" },
+  take: 1,
+  select: { vpnServerId: true },
+} as const;
+
+// Router VPN berjalan di server cadangan bila server aktifnya bukan server pertama.
+function withVpnOnBackup<
+  T extends {
+    connectionMode: string;
+    vpnActiveServerId: string | null;
+    vpnServers: { vpnServerId: string }[];
+  },
+>({ vpnServers, ...router }: T) {
+  const firstServerId = vpnServers[0]?.vpnServerId;
+  return {
+    ...router,
+    vpnOnBackup:
+      router.connectionMode === "VPN" &&
+      !!router.vpnActiveServerId &&
+      !!firstServerId &&
+      router.vpnActiveServerId !== firstServerId,
+  };
+}
+
 const OFFLINE_PING_STATUSES = ["offline", "tunnel_down"];
 
 export class MikroTikRouterRepository implements IMikroTikRouterRepository {
@@ -99,6 +125,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         orderBy: { createdAt: "desc" },
         skip,
         take: limit,
+        include: { vpnServers: FIRST_VPN_SERVER },
       }),
       this.client.mikroTikRouter.count({ where: whereClause }),
     ]);
@@ -106,7 +133,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      routers,
+      routers: routers.map(withVpnOnBackup),
       total,
       page,
       limit,
@@ -239,6 +266,9 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         ...(data.siteId !== undefined && { siteId: data.siteId }),
         ...(data.tenantId !== undefined && { tenantId: data.tenantId }),
         ...(data.rosVersion !== undefined && { rosVersion: data.rosVersion }),
+        ...(data.vpnActiveServerId !== undefined && {
+          vpnActiveServerId: data.vpnActiveServerId,
+        }),
       },
     });
 
