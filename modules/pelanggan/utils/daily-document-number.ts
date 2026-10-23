@@ -18,11 +18,7 @@ export function formatDailyDocumentNumber(params: {
   sequenceWidth: number;
   timezone?: string;
 }): string {
-  const dateStr = formatInTimeZone(
-    params.date,
-    params.timezone ?? getTimezoneSync(),
-    FORMAT_TANGGAL_NOMOR,
-  );
+  const dateStr = formatInTimeZone(params.date, params.timezone ?? getTimezoneSync(), FORMAT_TANGGAL_NOMOR);
   const sequence = String(params.count + 1).padStart(
     params.sequenceWidth,
     PAD_CHAR,
@@ -36,10 +32,5 @@ const LEBAR_URUTAN_TIKET = 5;
 
 /** Nomor tiket keluhan harian (TKT-YYYYMMDD-00001); `count` = tiket hari ini sejauh ini. */
 export function formatNomorTiket(count: number, date = new Date()): string {
-  return formatDailyDocumentNumber({
-    prefix: PREFIX_TIKET,
-    date,
-    count,
-    sequenceWidth: LEBAR_URUTAN_TIKET,
-  });
+  return formatDailyDocumentNumber({ prefix: PREFIX_TIKET, date, count, sequenceWidth: LEBAR_URUTAN_TIKET });
 }

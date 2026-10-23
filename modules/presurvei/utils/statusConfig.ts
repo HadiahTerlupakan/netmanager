@@ -63,30 +63,12 @@ export const KEGIATAN_JENIS_CONFIG: Record<KegiatanJenis, TampilanStatus> = {
 
 /** Label umum diambil dari domain (`LABEL_HASIL_UMUM`) supaya tidak ada dua definisi. */
 export const KEGIATAN_HASIL_CONFIG: Record<KegiatanHasil, TampilanStatus> = {
-  TERTARIK: {
-    label: LABEL_HASIL_UMUM.TERTARIK,
-    warna: "bg-amber-100 text-amber-700",
-  },
-  PERLU_FOLLOWUP: {
-    label: LABEL_HASIL_UMUM.PERLU_FOLLOWUP,
-    warna: "bg-blue-100 text-blue-700",
-  },
-  TIDAK_MINAT: {
-    label: LABEL_HASIL_UMUM.TIDAK_MINAT,
-    warna: "bg-gray-100 text-gray-600",
-  },
-  TIDAK_ADA_ORANG: {
-    label: LABEL_HASIL_UMUM.TIDAK_ADA_ORANG,
-    warna: "bg-slate-100 text-slate-600",
-  },
-  DEAL: {
-    label: LABEL_HASIL_UMUM.DEAL,
-    warna: "bg-emerald-100 text-emerald-700",
-  },
-  BISA_DIPASANG: {
-    label: LABEL_HASIL_UMUM.BISA_DIPASANG,
-    warna: "bg-teal-100 text-teal-700",
-  },
+  TERTARIK: { label: LABEL_HASIL_UMUM.TERTARIK, warna: "bg-amber-100 text-amber-700" },
+  PERLU_FOLLOWUP: { label: LABEL_HASIL_UMUM.PERLU_FOLLOWUP, warna: "bg-blue-100 text-blue-700" },
+  TIDAK_MINAT: { label: LABEL_HASIL_UMUM.TIDAK_MINAT, warna: "bg-gray-100 text-gray-600" },
+  TIDAK_ADA_ORANG: { label: LABEL_HASIL_UMUM.TIDAK_ADA_ORANG, warna: "bg-slate-100 text-slate-600" },
+  DEAL: { label: LABEL_HASIL_UMUM.DEAL, warna: "bg-emerald-100 text-emerald-700" },
+  BISA_DIPASANG: { label: LABEL_HASIL_UMUM.BISA_DIPASANG, warna: "bg-teal-100 text-teal-700" },
   TIDAK_BISA_DIPASANG: {
     label: LABEL_HASIL_UMUM.TIDAK_BISA_DIPASANG,
     warna: "bg-rose-100 text-rose-700",
@@ -94,14 +76,8 @@ export const KEGIATAN_HASIL_CONFIG: Record<KegiatanHasil, TampilanStatus> = {
 };
 
 /** Badge hasil dengan label sesuai jenis kegiatannya (mis. telepon: "Tidak diangkat…"). */
-export function tampilanHasilKegiatan(
-  hasil: KegiatanHasil,
-  jenis: KegiatanJenis,
-): TampilanStatus {
-  return {
-    ...KEGIATAN_HASIL_CONFIG[hasil],
-    label: labelHasilKegiatan(hasil, jenis),
-  };
+export function tampilanHasilKegiatan(hasil: KegiatanHasil, jenis: KegiatanJenis): TampilanStatus {
+  return { ...KEGIATAN_HASIL_CONFIG[hasil], label: labelHasilKegiatan(hasil, jenis) };
 }
 
 export const IKLAN_CHANNEL_CONFIG: Record<IklanChannel, TampilanStatus> = {

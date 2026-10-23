@@ -154,8 +154,7 @@ export const IZIN_INTI_PER_PERSONA: Record<
     {
       izin: "m_presurvei:read",
       namaFitur: "Presurvei",
-      akibat:
-        "tab Presurvei terkunci dan ringkasan presurvei di Beranda kosong",
+      akibat: "tab Presurvei terkunci dan ringkasan presurvei di Beranda kosong",
     },
   ],
   FINANCE: INTI_TAMPILAN_STAFF,

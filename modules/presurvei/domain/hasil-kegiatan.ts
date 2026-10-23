@@ -10,10 +10,7 @@
 import type { KegiatanHasil, KegiatanJenis } from "./entities/Kegiatan";
 
 /** Hasil yang hanya bermakna untuk survei lokasi. */
-const HASIL_KHUSUS_SURVEI: readonly KegiatanHasil[] = [
-  "BISA_DIPASANG",
-  "TIDAK_BISA_DIPASANG",
-];
+const HASIL_KHUSUS_SURVEI: readonly KegiatanHasil[] = ["BISA_DIPASANG", "TIDAK_BISA_DIPASANG"];
 
 /** Pesan penolakan hasil khusus survei pada jenis lain — satu teks untuk validator dan service. */
 export const PESAN_HASIL_KHUSUS_SURVEI =
@@ -29,19 +26,13 @@ const HASIL_MINAT_PELANGGAN: readonly KegiatanHasil[] = [
 ];
 
 /** Pilihan hasil per jenis kegiatan, dalam urutan tampil. */
-export const HASIL_PER_JENIS: Record<KegiatanJenis, readonly KegiatanHasil[]> =
-  {
-    KUNJUNGAN: HASIL_MINAT_PELANGGAN,
-    SURVEI_LOKASI: [
-      "BISA_DIPASANG",
-      "TIDAK_BISA_DIPASANG",
-      "PERLU_FOLLOWUP",
-      "TIDAK_ADA_ORANG",
-    ],
-    TELEPON: HASIL_MINAT_PELANGGAN,
-    CHAT: HASIL_MINAT_PELANGGAN,
-    IKLAN: HASIL_MINAT_PELANGGAN,
-  };
+export const HASIL_PER_JENIS: Record<KegiatanJenis, readonly KegiatanHasil[]> = {
+  KUNJUNGAN: HASIL_MINAT_PELANGGAN,
+  SURVEI_LOKASI: ["BISA_DIPASANG", "TIDAK_BISA_DIPASANG", "PERLU_FOLLOWUP", "TIDAK_ADA_ORANG"],
+  TELEPON: HASIL_MINAT_PELANGGAN,
+  CHAT: HASIL_MINAT_PELANGGAN,
+  IKLAN: HASIL_MINAT_PELANGGAN,
+};
 
 /** Label umum, dipakai bila jenis tidak punya label khusus. */
 export const LABEL_HASIL_UMUM: Record<KegiatanHasil, string> = {
@@ -55,9 +46,7 @@ export const LABEL_HASIL_UMUM: Record<KegiatanHasil, string> = {
 };
 
 /** Label yang lebih tepat untuk jenis tertentu. */
-const LABEL_HASIL_KHUSUS: Partial<
-  Record<KegiatanJenis, Partial<Record<KegiatanHasil, string>>>
-> = {
+const LABEL_HASIL_KHUSUS: Partial<Record<KegiatanJenis, Partial<Record<KegiatanHasil, string>>>> = {
   KUNJUNGAN: {
     DEAL: "Setuju pasang",
     PERLU_FOLLOWUP: "Masih pikir-pikir",
@@ -80,10 +69,7 @@ const LABEL_HASIL_KHUSUS: Partial<
 };
 
 /** Label hasil menurut jenis kegiatannya, mis. TIDAK_ADA_ORANG pada telepon = "Tidak diangkat…". */
-export function labelHasilKegiatan(
-  hasil: KegiatanHasil,
-  jenis: KegiatanJenis,
-): string {
+export function labelHasilKegiatan(hasil: KegiatanHasil, jenis: KegiatanJenis): string {
   return LABEL_HASIL_KHUSUS[jenis]?.[hasil] ?? LABEL_HASIL_UMUM[hasil];
 }
 
@@ -92,9 +78,6 @@ export function labelHasilKegiatan(
  * dibatasi; kombinasi lama (mis. survei lokasi "Tertarik") tetap diterima
  * supaya aplikasi versi lama dan antrean offline tidak ditolak.
  */
-export function isHasilSesuaiJenis(
-  hasil: KegiatanHasil,
-  jenis: KegiatanJenis,
-): boolean {
+export function isHasilSesuaiJenis(hasil: KegiatanHasil, jenis: KegiatanJenis): boolean {
   return !HASIL_KHUSUS_SURVEI.includes(hasil) || jenis === "SURVEI_LOKASI";
 }

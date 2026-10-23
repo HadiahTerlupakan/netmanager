@@ -108,7 +108,9 @@ export class NetworkPerformanceRepository implements INetworkPerformanceReposito
     };
   }
 
-  async findMany(filters: NetworkPerformanceFilters = {}): Promise<{
+  async findMany(
+    filters: NetworkPerformanceFilters = {},
+  ): Promise<{
     data: NetworkPerformanceEntity[];
     pagination: {
       page: number;

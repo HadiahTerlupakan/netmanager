@@ -26,10 +26,7 @@ export class TimSalesRepository implements ITimSalesRepository {
     }));
   }
 
-  async identitas(
-    tenantId: string,
-    ids: string[],
-  ): Promise<IdentitasPengguna[]> {
+  async identitas(tenantId: string, ids: string[]): Promise<IdentitasPengguna[]> {
     pastikanTenantTerisi(tenantId, "Identitas pengguna presurvei");
     if (ids.length === 0) return [];
     const rows = await prisma.user.findMany({

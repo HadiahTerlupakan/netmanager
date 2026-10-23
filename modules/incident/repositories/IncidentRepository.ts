@@ -1,9 +1,4 @@
-import type {
-  IncidentSeverity,
-  IncidentStatus,
-  Prisma,
-  PrismaClient,
-} from "@prisma/client";
+import type { IncidentSeverity, IncidentStatus, Prisma, PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -82,33 +77,17 @@ export class IncidentRepository {
 
   /** Daftar insiden terbaru (mulai paling akhir dulu). */
   async findMany(filter: IncidentListFilter): Promise<IncidentEntity[]> {
-    const {
-      tenantId,
-      status,
-      publicOnly,
-      limit = BATAS_DAFTAR_BAWAAN,
-    } = filter;
+    const { tenantId, status, publicOnly, limit = BATAS_DAFTAR_BAWAAN } = filter;
     const where: Prisma.IncidentWhereInput = {
       ...(tenantId ? { tenantId } : {}),
       ...(publicOnly ? { isPublic: true } : {}),
-      ...(status === "ACTIVE"
-        ? { status: { not: STATUS_SELESAI } }
-        : status
-          ? { status }
-          : {}),
+      ...(status === "ACTIVE" ? { status: { not: STATUS_SELESAI } } : status ? { status } : {}),
     };
-    return this.client.incident.findMany({
-      where,
-      orderBy: { startedAt: "desc" },
-      take: limit,
-    });
+    return this.client.incident.findMany({ where, orderBy: { startedAt: "desc" }, take: limit });
   }
 
   /** Detail insiden tenant beserta riwayat update (terbaru dulu); null bila tidak ada. */
-  async findById(
-    tenantId: string,
-    id: string,
-  ): Promise<IncidentWithUpdates | null> {
+  async findById(tenantId: string, id: string): Promise<IncidentWithUpdates | null> {
     return this.client.incident.findFirst({
       where: { id, tenantId },
       include: incidentInclude,
@@ -116,20 +95,13 @@ export class IncidentRepository {
   }
 
   /** Insiden tenant yang mulai sejak `sejak` (untuk analytics). */
-  async findStartedSince(
-    tenantId: string,
-    sejak: Date,
-  ): Promise<IncidentEntity[]> {
-    return this.client.incident.findMany({
-      where: { tenantId, startedAt: { gte: sejak } },
-    });
+  async findStartedSince(tenantId: string, sejak: Date): Promise<IncidentEntity[]> {
+    return this.client.incident.findMany({ where: { tenantId, startedAt: { gte: sejak } } });
   }
 
   /** Jumlah insiden tenant yang belum selesai, kapan pun mulainya. */
   async countActive(tenantId: string): Promise<number> {
-    return this.client.incident.count({
-      where: { tenantId, status: { not: STATUS_SELESAI } },
-    });
+    return this.client.incident.count({ where: { tenantId, status: { not: STATUS_SELESAI } } });
   }
 
   /** Simpan insiden baru beserta update awal INVESTIGATING (satu transaksi). */
@@ -180,11 +152,7 @@ export class IncidentRepository {
     return this.client.$transaction(async (tx) => {
       const { count } = await tx.incident.updateMany({
         where: { id: incidentId, tenantId, status: { not: STATUS_SELESAI } },
-        data: {
-          status: input.status,
-          updatedAt: now,
-          ...(isSelesai ? { resolvedAt: now } : {}),
-        },
+        data: { status: input.status, updatedAt: now, ...(isSelesai ? { resolvedAt: now } : {}) },
       });
       if (count === 0) return null;
       return tx.incidentUpdate.create({
@@ -203,9 +171,7 @@ export class IncidentRepository {
 
   /** Hapus insiden tenant; false bila tidak ada. */
   async delete(tenantId: string, id: string): Promise<boolean> {
-    const { count } = await this.client.incident.deleteMany({
-      where: { id, tenantId },
-    });
+    const { count } = await this.client.incident.deleteMany({ where: { id, tenantId } });
     return count > 0;
   }
 }

@@ -13,10 +13,7 @@ const MAX_OPTIONS = 20;
 export type SignerOption = EmployeeOption;
 
 interface EmployeeDirectory {
-  searchEmployeeOptions(
-    keyword: string,
-    limit: number,
-  ): Promise<EmployeeOption[]>;
+  searchEmployeeOptions(keyword: string, limit: number): Promise<EmployeeOption[]>;
 }
 
 export class EndorsementSignerOptionsService {

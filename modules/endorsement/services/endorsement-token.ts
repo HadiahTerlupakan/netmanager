@@ -26,3 +26,4 @@ export function hashSignerToken(token: string): string {
 export function isValidTokenFormat(token: string): boolean {
   return TOKEN_PATTERN.test(token);
 }
+

@@ -19,11 +19,7 @@ export class InvestorPayoutRepository {
   constructor(private readonly client: PrismaClient = prisma) {}
 
   /** Payout investor terbaru lebih dulu, terpaging. */
-  async findManyByInvestor(options: {
-    investorId: string;
-    skip: number;
-    take: number;
-  }) {
+  async findManyByInvestor(options: { investorId: string; skip: number; take: number }) {
     return this.client.investorPayout.findMany({
       where: { investorId: options.investorId },
       orderBy: { date: "desc" },

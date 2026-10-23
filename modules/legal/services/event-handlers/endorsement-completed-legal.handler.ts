@@ -21,23 +21,15 @@ export async function handleEndorsementCompletedLegal(
   const { payload } = job.data;
   if (payload.sourceType !== LEGAL_SOURCE_TYPE) return;
 
-  const endorsementId = requirePayloadString(
-    payload.endorsementId,
-    "endorsementId",
-    SOURCE,
-  );
+  const endorsementId = requirePayloadString(payload.endorsementId, "endorsementId", SOURCE);
   if (typeof payload.tenantId !== "string" || !payload.tenantId) {
     // Tidak akan pernah berhasil bila diulang — catat dan lewati, jangan retry.
     logger.warn(`[${SOURCE}] Surat ${endorsementId} tanpa tenantId, dilewati`);
     return;
   }
 
-  const isApplied = await new LegalSigningService().applySignedVersion(
-    endorsementId,
-  );
+  const isApplied = await new LegalSigningService().applySignedVersion(endorsementId);
   if (isApplied) {
-    logger.info(
-      `[${SOURCE}] Dokumen legal memakai versi sah dari surat ${endorsementId}`,
-    );
+    logger.info(`[${SOURCE}] Dokumen legal memakai versi sah dari surat ${endorsementId}`);
   }
 }

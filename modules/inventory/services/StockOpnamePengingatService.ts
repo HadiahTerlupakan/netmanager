@@ -1,8 +1,5 @@
 import { logger } from "@/lib/logger";
-import {
-  createNotification,
-  hasNotificationForSource,
-} from "@/modules/notification";
+import { createNotification, hasNotificationForSource } from "@/modules/notification";
 
 import {
   isPerluDiingatkan,
@@ -67,10 +64,7 @@ function periodeSebelumnya(periode: string): string {
 }
 
 /** Fase pengingat hari ini untuk sebuah jendela, atau null bila bukan harinya. */
-export function faseHariIni(
-  jendela: JendelaSo,
-  hariIni: string,
-): FasePengingatSo | null {
+export function faseHariIni(jendela: JendelaSo, hariIni: string): FasePengingatSo | null {
   if (hariIni === jendela.mulai) return "DIBUKA";
   if (hariIni === jendela.selesai) return "HARI_TERAKHIR";
   if (hariIni === hariSesudah(jendela.selesai)) return "DITUTUP";
@@ -86,16 +80,11 @@ function ringkasNamaGudang(gudang: KepatuhanGudang[]): string {
 /** Site-site yang menjadi tanggung jawab penerima (dibatasi bila site_only). */
 function siteMilik(penerima: Penerima, daftar: SiteFase[]): SiteFase[] {
   if (!penerima.isSiteOnly) return daftar;
-  return daftar.filter(
-    (item) => item.site.siteId && penerima.siteIds.includes(item.site.siteId),
-  );
+  return daftar.filter((item) => item.site.siteId && penerima.siteIds.includes(item.site.siteId));
 }
 
 /** Gudang yang disebut tiap fase: hari pertama = yang belum lengkap; lainnya = yang belum tuntas. */
-function gudangUntukFase(
-  fase: FasePengingatSo,
-  gudang: KepatuhanGudang[],
-): KepatuhanGudang[] {
+function gudangUntukFase(fase: FasePengingatSo, gudang: KepatuhanGudang[]): KepatuhanGudang[] {
   return gudang.filter((item) =>
     fase === "DIBUKA"
       ? item.status !== "TANPA_STOK" && item.status !== "LENGKAP"
@@ -134,30 +123,19 @@ export class StockOpnamePengingatService {
     return { tenant: tenantIds.length, terkirim };
   }
 
-  private async jalankanTenant(
-    tenantId: string,
-    sekarang: Date,
-  ): Promise<number> {
+  private async jalankanTenant(tenantId: string, sekarang: Date): Promise<number> {
     const hariIni = tanggalWib(sekarang);
     const periodeIni = periodeDari(sekarang);
     const perFase = new Map<FasePengingatSo, SiteFase[]>();
     // Bulan lalu ikut diperiksa: jadwal yang berakhir di tanggal terakhir bulan
     // ditutup (DITUTUP) pada tanggal 1 bulan berikutnya.
     for (const periode of [periodeIni, periodeSebelumnya(periodeIni)]) {
-      const laporan = await this.jadwalService.getKepatuhan(
-        tenantId,
-        periode,
-        null,
-        sekarang,
-      );
+      const laporan = await this.jadwalService.getKepatuhan(tenantId, periode, null, sekarang);
       for (const site of laporan.site) {
-        const fase = site.isPengingatAktif
-          ? faseHariIni(site.jendela, hariIni)
-          : null;
+        const fase = site.isPengingatAktif ? faseHariIni(site.jendela, hariIni) : null;
         if (!fase) continue;
         const gudang = gudangUntukFase(fase, site.gudang);
-        if (gudang.length > 0)
-          perFase.set(fase, [...(perFase.get(fase) ?? []), { site, gudang }]);
+        if (gudang.length > 0) perFase.set(fase, [...(perFase.get(fase) ?? []), { site, gudang }]);
       }
     }
 
@@ -183,13 +161,7 @@ export class StockOpnamePengingatService {
       const milik = siteMilik(orang, daftar);
       if (milik.length === 0) continue;
       const sourceId = `${fase}:${hariIni}`;
-      if (
-        await hasNotificationForSource({
-          userId: orang.id,
-          sourceType: SUMBER_NOTIFIKASI_SO,
-          sourceId,
-        })
-      ) {
+      if (await hasNotificationForSource({ userId: orang.id, sourceType: SUMBER_NOTIFIKASI_SO, sourceId })) {
         continue;
       }
       const pesan = susunPesan(fase, milik);
@@ -221,23 +193,14 @@ function daftarPerSite(daftar: SiteFase[]): string {
 }
 
 /** Judul & isi notifikasi tiap fase (gabungan site-site penerima). */
-export function susunPesan(
-  fase: FasePengingatSo,
-  daftar: SiteFase[],
-): { judul: string; isi: string } {
+export function susunPesan(fase: FasePengingatSo, daftar: SiteFase[]): { judul: string; isi: string } {
   const bulan = labelBulan(daftar[0].site.jendela.periode);
   const isi = daftarPerSite(daftar);
   if (fase === "DIBUKA") {
-    return {
-      judul: `Jadwal stock opname ${bulan} dimulai`,
-      isi: `Lakukan stock opname — ${isi}.`,
-    };
+    return { judul: `Jadwal stock opname ${bulan} dimulai`, isi: `Lakukan stock opname — ${isi}.` };
   }
   if (fase === "HARI_TERAKHIR") {
-    return {
-      judul: "Hari terakhir stock opname",
-      isi: `Jadwal SO berakhir hari ini. Belum tuntas — ${isi}.`,
-    };
+    return { judul: "Hari terakhir stock opname", isi: `Jadwal SO berakhir hari ini. Belum tuntas — ${isi}.` };
   }
   const jumlah = daftar.reduce((total, item) => total + item.gudang.length, 0);
   return {

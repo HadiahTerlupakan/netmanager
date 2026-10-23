@@ -18,11 +18,7 @@ export class InvestorPushService {
   ) {}
 
   /** Daftarkan/lepas token FCM HP investor. false bila investor tidak ada. */
-  async aturToken(
-    investorId: string,
-    fcmToken: string,
-    aksi: AksiFcmToken,
-  ): Promise<boolean> {
+  async aturToken(investorId: string, fcmToken: string, aksi: AksiFcmToken): Promise<boolean> {
     if (aksi === "remove") {
       await this.investorRepository.removeFcmToken(investorId, fcmToken);
       return true;
@@ -63,10 +59,7 @@ export class InvestorPushService {
       );
       return hasil === null;
     } catch (error) {
-      logger.warn(
-        "[InvestorPushService] Dedupe Redis gagal, tetap kirim:",
-        error,
-      );
+      logger.warn("[InvestorPushService] Dedupe Redis gagal, tetap kirim:", error);
       return false;
     }
   }

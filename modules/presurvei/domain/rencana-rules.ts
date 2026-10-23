@@ -155,7 +155,8 @@ export function hitungRekapRencana(
   const perSales = new Map<string, BarisRekapRencana>();
 
   for (const rencana of daftar) {
-    const baris = perSales.get(rencana.salesId) ?? barisRekapKosong(rencana);
+    const baris =
+      perSales.get(rencana.salesId) ?? barisRekapKosong(rencana);
     baris.total += 1;
     tambahkanKeRekap(baris, rencana, hariIni, zonaWaktu);
     perSales.set(rencana.salesId, baris);

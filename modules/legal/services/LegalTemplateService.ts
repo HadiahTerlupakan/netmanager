@@ -43,11 +43,7 @@ export class LegalTemplateService {
     access: LegalAccess,
   ): Promise<LegalTemplateEntity> {
     if (payload.categoryId) {
-      await this.categories.assertUsable(
-        payload.categoryId,
-        payload.documentType,
-        access,
-      );
+      await this.categories.assertUsable(payload.categoryId, payload.documentType, access);
     }
     const { tenantId } = await getTenantIdFromContext();
 
@@ -62,11 +58,7 @@ export class LegalTemplateService {
   ): Promise<LegalTemplateEntity> {
     const template = await this.getById(id);
     if (payload.categoryId) {
-      await this.categories.assertUsable(
-        payload.categoryId,
-        template.documentType,
-        access,
-      );
+      await this.categories.assertUsable(payload.categoryId, template.documentType, access);
     }
 
     return this.repository.updateTemplate(id, payload);

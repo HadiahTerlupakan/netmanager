@@ -75,8 +75,7 @@ async function findSoBulanIni(input: {
   });
   const terbaru = new Map<string, SoBulanIni>();
   for (const row of rows) {
-    if (!terbaru.has(row.barangId))
-      terbaru.set(row.barangId, { tanggal: row.tanggal, pic: row.pic });
+    if (!terbaru.has(row.barangId)) terbaru.set(row.barangId, { tanggal: row.tanggal, pic: row.pic });
   }
   return terbaru;
 }

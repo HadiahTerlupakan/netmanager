@@ -17,10 +17,7 @@ const JALUR_UNGGAHAN = "/uploads/";
 const urlFotoUnggahan = z
   .url({ protocol: /^https?$/ })
   .max(URL_MAKS)
-  .refine(
-    (nilai) => new URL(nilai).pathname.includes(JALUR_UNGGAHAN),
-    "Foto harus hasil unggahan aplikasi",
-  );
+  .refine((nilai) => new URL(nilai).pathname.includes(JALUR_UNGGAHAN), "Foto harus hasil unggahan aplikasi");
 
 /** Body `POST /api/mobile/keluhan`: sales mencatat keluhan atas nama pelanggan. */
 export const laporKeluhanSchema = z.object({
@@ -30,10 +27,7 @@ export const laporKeluhanSchema = z.object({
   subjek: z.string().trim().min(3).max(SUBJEK_MAKS),
   deskripsi: z.string().trim().min(5).max(DESKRIPSI_MAKS),
   /** Bukti kondisi di lokasi (modem, lampu, layar speedtest, dsb.), wajib minimal satu. */
-  foto: z
-    .array(urlFotoUnggahan)
-    .min(FOTO_MIN, "Lampirkan minimal satu foto")
-    .max(FOTO_MAKS),
+  foto: z.array(urlFotoUnggahan).min(FOTO_MIN, "Lampirkan minimal satu foto").max(FOTO_MAKS),
 });
 
 /** Query `GET /api/mobile/keluhan`: kelompok status, saringan sales, paginasi. */
@@ -41,12 +35,7 @@ export const daftarKeluhanQuerySchema = z.object({
   status: z.enum(["TERBUKA", "SELESAI"]).default("TERBUKA"),
   salesId: z.string().min(1).max(ID_MAKS).optional(),
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(BATAS_HALAMAN_MAKS)
-    .default(BATAS_HALAMAN_BAKU),
+  limit: z.coerce.number().int().min(1).max(BATAS_HALAMAN_MAKS).default(BATAS_HALAMAN_BAKU),
 });
 
 /** Body `POST /api/mobile/keluhan/[id]/balasan`. */

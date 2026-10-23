@@ -1,10 +1,7 @@
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { getMitraLookupService } from "@/modules/mitra";
 import { getPelangganService } from "@/modules/pelanggan";
-import {
-  getSupplierService,
-  SupplierNotFoundError,
-} from "@/modules/procurement";
+import { getSupplierService, SupplierNotFoundError } from "@/modules/procurement";
 import { getResellerService } from "@/modules/reseller";
 import { SiteService } from "@/modules/roles";
 import type { LegalPartyType } from "../domain/entities/LegalDocument";
@@ -58,40 +55,15 @@ function option(type: LegalPartyType, record: PartyRecord): PartyOption {
   };
 }
 
-type MitraRecord = {
-  id: string;
-  name: string | null;
-  email: string;
-  phone: string | null;
-};
+type MitraRecord = { id: string; name: string | null; email: string; phone: string | null };
 const mitraOption = (mitra: MitraRecord) =>
-  option("MITRA", {
-    id: mitra.id,
-    name: mitra.name ?? mitra.email,
-    description: joinParts(mitra.phone, mitra.email),
-    phone: mitra.phone,
-  });
+  option("MITRA", { id: mitra.id, name: mitra.name ?? mitra.email, description: joinParts(mitra.phone, mitra.email), phone: mitra.phone });
 
-type CodedRecord = {
-  id: string;
-  name: string;
-  code: string | null;
-  address?: string | null;
-  phone?: string | null;
-};
+type CodedRecord = { id: string; name: string; code: string | null; address?: string | null; phone?: string | null };
 const codedOption = (type: LegalPartyType, record: CodedRecord) =>
-  option(type, {
-    ...record,
-    description: joinParts(record.code, record.address),
-  });
+  option(type, { ...record, description: joinParts(record.code, record.address) });
 
-type PelangganRecord = {
-  id: string;
-  nama: string;
-  idPelanggan: string | null;
-  alamat: string | null;
-  noTelp?: string | null;
-};
+type PelangganRecord = { id: string; nama: string; idPelanggan: string | null; alamat: string | null; noTelp?: string | null };
 const pelangganOption = (pelanggan: PelangganRecord) =>
   option("PELANGGAN", {
     id: pelanggan.id,
@@ -103,47 +75,48 @@ const pelangganOption = (pelanggan: PelangganRecord) =>
 
 const mitraSource: PartySource = {
   async search(keyword, limit) {
-    const mitras = await getMitraLookupService().searchForPicker(
-      keyword,
-      limit,
+    const mitras = await getMitraLookupService().searchForPicker(keyword, limit);
+    return mitras.map((mitra) =>
+      mitraOption(mitra),
     );
-    return mitras.map((mitra) => mitraOption(mitra));
   },
   async findById(id) {
     const mitra = await getMitraLookupService().findById(id);
-    return mitra ? mitraOption(mitra) : null;
+    return mitra
+      ? mitraOption(mitra)
+      : null;
   },
 };
 
 const resellerSource: PartySource = {
   async search(keyword, limit) {
     const { tenantId } = await getTenantIdFromContext();
-    const result = await getResellerService().listResellers({
-      tenantId,
-      search: keyword,
-      limit,
-    });
-    return result.items.map((reseller) => codedOption("RESELLER", reseller));
+    const result = await getResellerService().listResellers({ tenantId, search: keyword, limit });
+    return result.items.map((reseller) =>
+      codedOption("RESELLER", reseller),
+    );
   },
   async findById(id) {
     const { tenantId } = await getTenantIdFromContext();
     const reseller = await getResellerService().getResellerById(tenantId, id);
-    return reseller ? codedOption("RESELLER", reseller) : null;
+    return reseller
+      ? codedOption("RESELLER", reseller)
+      : null;
   },
 };
 
 const pelangganSource: PartySource = {
   async search(keyword, limit) {
-    const result = await getPelangganService().getAllPelangganPaginated(
-      { search: keyword },
-      1,
-      limit,
+    const result = await getPelangganService().getAllPelangganPaginated({ search: keyword }, 1, limit);
+    return result.data.map((pelanggan) =>
+      pelangganOption(pelanggan),
     );
-    return result.data.map((pelanggan) => pelangganOption(pelanggan));
   },
   async findById(id) {
     const pelanggan = await getPelangganService().getPelanggan(id);
-    return pelanggan ? pelangganOption(pelanggan) : null;
+    return pelanggan
+      ? pelangganOption(pelanggan)
+      : null;
   },
 };
 
@@ -163,33 +136,31 @@ async function findSupplierOrNull(id: string) {
 const vendorSource: PartySource = {
   async search(keyword, limit) {
     const { tenantId } = await getTenantIdFromContext();
-    const result = await getSupplierService().list({
-      tenantId,
-      search: keyword,
-      page: 1,
-      limit,
-    });
-    return result.items.map((supplier) => codedOption("VENDOR", supplier));
+    const result = await getSupplierService().list({ tenantId, search: keyword, page: 1, limit });
+    return result.items.map((supplier) =>
+      codedOption("VENDOR", supplier),
+    );
   },
   async findById(id) {
     const supplier = await findSupplierOrNull(id);
-    return supplier ? codedOption("VENDOR", supplier) : null;
+    return supplier
+      ? codedOption("VENDOR", supplier)
+      : null;
   },
 };
 
 const siteSource: PartySource = {
   async search(keyword, limit) {
-    const result = await new SiteService().getSites({
-      search: keyword || undefined,
-      activeOnly: true,
-    });
+    const result = await new SiteService().getSites({ search: keyword || undefined, activeOnly: true });
     return (result.success ? result.data : [])
       .slice(0, limit)
       .map((site) => codedOption("SITE", site));
   },
   async findById(id) {
     const result = await new SiteService().getSiteById(id);
-    return result.success ? codedOption("SITE", result.data) : null;
+    return result.success
+      ? codedOption("SITE", result.data)
+      : null;
   },
 };
 
@@ -204,11 +175,7 @@ const SOURCES: Record<LegalPartyType, PartySource> = {
 /** Pencarian dan pemeriksaan pihak kontrak lintas modul. */
 export class LegalPartyDirectory {
   /** Cari pihak satu jenis berdasarkan kata kunci. */
-  search(
-    type: LegalPartyType,
-    keyword: string,
-    limit: number,
-  ): Promise<PartyOption[]> {
+  search(type: LegalPartyType, keyword: string, limit: number): Promise<PartyOption[]> {
     return SOURCES[type].search(keyword.trim(), limit);
   }
 

@@ -1,25 +1,13 @@
 import type { LegalDocumentEntity } from "../domain/entities/LegalDocument";
 import type { LegalAccess } from "../domain/ports/ILegalRepository";
-import {
-  fillTemplateBlocks,
-  type TemplateBlock,
-} from "../domain/template-content";
-import {
-  buildTemplateValues,
-  type TemplateContact,
-} from "../domain/template-values";
+import { fillTemplateBlocks, type TemplateBlock } from "../domain/template-content";
+import { buildTemplateValues, type TemplateContact } from "../domain/template-values";
 import type { CreateLegalDocumentPayload } from "../validators/legal.validator";
 import type { TemplateDocumentFields } from "../validators/legal-template.validator";
-import {
-  LegalDocumentService,
-  type PartyResolver,
-} from "./LegalDocumentService";
+import { LegalDocumentService, type PartyResolver } from "./LegalDocumentService";
 import { LegalPartyDirectory } from "./LegalPartyDirectory";
 import { LegalTemplateRenderer } from "./LegalTemplateRenderer";
-import {
-  type LetterheadSource,
-  SettingsLetterheadSource,
-} from "./LegalLetterheadSource";
+import { type LetterheadSource, SettingsLetterheadSource } from "./LegalLetterheadSource";
 
 /**
  * Penyusunan dokumen legal dari template: isian otomatis diisi dari data
@@ -37,10 +25,7 @@ export class LegalTemplateDocumentService {
   ) {}
 
   /** PDF dari isi template dan data dokumen (boleh belum lengkap — untuk pratinjau). */
-  async render(
-    content: TemplateBlock[],
-    fields: TemplateDocumentFields,
-  ): Promise<Buffer> {
+  async render(content: TemplateBlock[], fields: TemplateDocumentFields): Promise<Buffer> {
     const [letterhead, party] = await Promise.all([
       this.letterhead.getLetterhead(),
       this.resolveParty(fields),
@@ -56,10 +41,7 @@ export class LegalTemplateDocumentService {
       today: new Date(),
     });
 
-    return this.renderer.render(
-      fillTemplateBlocks(content, values),
-      letterhead,
-    );
+    return this.renderer.render(fillTemplateBlocks(content, values), letterhead);
   }
 
   /** Render PDF final lalu catat sebagai dokumen legal baru. */
@@ -72,35 +54,20 @@ export class LegalTemplateDocumentService {
 
     return this.documents.create(
       payload,
-      {
-        buffer: pdf,
-        fileName: `${payload.title}.pdf`,
-        contentType: "application/pdf",
-      },
+      { buffer: pdf, fileName: `${payload.title}.pdf`, contentType: "application/pdf" },
       context,
     );
   }
 
   /** Pihak tertaut memberi alamat & telepon; pihak teks bebas hanya punya nama. */
-  private async resolveParty(
-    fields: TemplateDocumentFields,
-  ): Promise<TemplateContact | null> {
+  private async resolveParty(fields: TemplateDocumentFields): Promise<TemplateContact | null> {
     if (fields.partyType && fields.partyId) {
-      const party = await this.parties.findById(
-        fields.partyType,
-        fields.partyId,
-      );
+      const party = await this.parties.findById(fields.partyType, fields.partyId);
       if (party) {
-        return {
-          name: fields.partyName || party.name,
-          address: party.address,
-          phone: party.phone,
-        };
+        return { name: fields.partyName || party.name, address: party.address, phone: party.phone };
       }
     }
 
-    return fields.partyName
-      ? { name: fields.partyName, address: null, phone: null }
-      : null;
+    return fields.partyName ? { name: fields.partyName, address: null, phone: null } : null;
   }
 }

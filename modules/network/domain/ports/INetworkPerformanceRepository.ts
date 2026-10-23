@@ -28,7 +28,9 @@ export interface INetworkPerformanceRepository {
   }>;
 
   /** Get records by filters. */
-  findMany(filters?: NetworkPerformanceFilters): Promise<{
+  findMany(
+    filters?: NetworkPerformanceFilters,
+  ): Promise<{
     data: NetworkPerformanceEntity[];
     pagination: {
       page: number;

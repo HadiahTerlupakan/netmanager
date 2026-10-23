@@ -24,10 +24,7 @@ export const laporanPeriodeSchema = z.object({
 });
 
 /** Periode penilaian: kosong = bulan berjalan (zona waktu tenant). */
-export const penilaianPeriodeSchema = laporanPeriodeSchema
-  .partial()
-  .refine(
-    (periode) =>
-      (periode.tahun === undefined) === (periode.bulan === undefined),
-    { message: "tahun dan bulan diisi berpasangan" },
-  );
+export const penilaianPeriodeSchema = laporanPeriodeSchema.partial().refine(
+  (periode) => (periode.tahun === undefined) === (periode.bulan === undefined),
+  { message: "tahun dan bulan diisi berpasangan" },
+);

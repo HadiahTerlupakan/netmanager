@@ -64,9 +64,7 @@ async function publikasikanAman(label: string, kirim: () => Promise<void>) {
 
 /** Business logic Manajemen Insiden (gangguan layanan & halaman status publik). */
 export class IncidentService {
-  constructor(
-    private readonly repo: IncidentRepository = getIncidentRepository(),
-  ) {}
+  constructor(private readonly repo: IncidentRepository = getIncidentRepository()) {}
 
   /**
    * Daftar insiden. `tenantId` wajib untuk jalur admin; halaman status publik
@@ -86,33 +84,16 @@ export class IncidentService {
    * yang terakhir selesai. Tenant diturunkan dari host; domain yang bukan milik tenant
    * (mis. admin.*, IP) → 404, bukan galat server. Lookup tenant yang gagal tetap dilempar.
    */
-  async statusPublik(): Promise<{
-    active: IncidentEntity[];
-    recent: IncidentEntity[];
-  }> {
+  async statusPublik(): Promise<{ active: IncidentEntity[]; recent: IncidentEntity[] }> {
     try {
       const [active, recent] = await Promise.all([
-        this.repo.findMany({
-          status: "ACTIVE",
-          publicOnly: true,
-          limit: BATAS_STATUS_AKTIF,
-        }),
-        this.repo.findMany({
-          status: "RESOLVED",
-          publicOnly: true,
-          limit: BATAS_STATUS_SELESAI,
-        }),
+        this.repo.findMany({ status: "ACTIVE", publicOnly: true, limit: BATAS_STATUS_AKTIF }),
+        this.repo.findMany({ status: "RESOLVED", publicOnly: true, limit: BATAS_STATUS_SELESAI }),
       ]);
       return { active, recent };
     } catch (error) {
-      if (
-        error instanceof TenantContextError &&
-        error.kind === "missing-context"
-      ) {
-        throw createRouteServiceError(
-          PESAN_DOMAIN_TANPA_TENANT,
-          HTTP_NOT_FOUND,
-        );
+      if (error instanceof TenantContextError && error.kind === "missing-context") {
+        throw createRouteServiceError(PESAN_DOMAIN_TANPA_TENANT, HTTP_NOT_FOUND);
       }
       throw error;
     }
@@ -121,21 +102,13 @@ export class IncidentService {
   /** Detail insiden beserta riwayat update; 404 bila tidak ada di tenant ini. */
   async getById(tenantId: string, id: string): Promise<IncidentWithUpdates> {
     const incident = await this.repo.findById(tenantId, id);
-    if (!incident)
-      throw createRouteServiceError(PESAN_TIDAK_DITEMUKAN, HTTP_NOT_FOUND);
+    if (!incident) throw createRouteServiceError(PESAN_TIDAK_DITEMUKAN, HTTP_NOT_FOUND);
     return incident;
   }
 
   /** Buat insiden baru (update awal INVESTIGATING ikut dibuat) lalu publish `incident:created`. */
-  async create(
-    tenantId: string,
-    input: CreateIncidentInput,
-    createdById: string,
-  ): Promise<IncidentEntity> {
-    const incident = await this.repo.createWithInitialUpdate(tenantId, {
-      ...input,
-      createdById,
-    });
+  async create(tenantId: string, input: CreateIncidentInput, createdById: string): Promise<IncidentEntity> {
+    const incident = await this.repo.createWithInitialUpdate(tenantId, { ...input, createdById });
     logger.info(
       `[Incident] Created ${incident.id} severity=${input.severity} affected=${input.affectedAreas.length}`,
     );
@@ -167,22 +140,16 @@ export class IncidentService {
     input: UpdateIncidentStatusInput,
     postedById: string | null,
   ): Promise<IncidentUpdateEntity> {
-    const update = await this.repo.addUpdateIfOpen(tenantId, incidentId, {
-      ...input,
-      postedById,
-    });
+    const update = await this.repo.addUpdateIfOpen(tenantId, incidentId, { ...input, postedById });
     if (!update) {
       const incident = await this.repo.findById(tenantId, incidentId);
       throw incident
         ? createRouteServiceError(PESAN_SUDAH_SELESAI, HTTP_CONFLICT)
         : createRouteServiceError(PESAN_TIDAK_DITEMUKAN, HTTP_NOT_FOUND);
     }
-    logger.info(
-      `[Incident] ${incidentId} → ${input.status} by ${postedById ?? "system"}`,
-    );
+    logger.info(`[Incident] ${incidentId} → ${input.status} by ${postedById ?? "system"}`);
 
-    if (input.status === "RESOLVED")
-      await this.publikasikanSelesai(tenantId, incidentId, postedById);
+    if (input.status === "RESOLVED") await this.publikasikanSelesai(tenantId, incidentId, postedById);
     return update;
   }
 
@@ -199,10 +166,7 @@ export class IncidentService {
    * Waktu penyelesaian = `resolvedAt - startedAt`. Jumlah aktif mencakup semua
    * insiden yang belum selesai, termasuk yang mulai sebelum jendela.
    */
-  async getAnalytics(
-    tenantId: string,
-    windowDays = ANALYTICS_WINDOW_DAYS,
-  ): Promise<IncidentAnalytics> {
+  async getAnalytics(tenantId: string, windowDays = ANALYTICS_WINDOW_DAYS): Promise<IncidentAnalytics> {
     const sejak = new Date(Date.now() - windowDays * MS_PER_HARI);
     const [dalamJendela, totalActive] = await Promise.all([
       this.repo.findStartedSince(tenantId, sejak),
@@ -213,19 +177,10 @@ export class IncidentService {
       (incident): incident is IncidentEntity & { resolvedAt: Date } =>
         incident.status === "RESOLVED" && incident.resolvedAt !== null,
     );
-    const totalMenit = selesai.reduce(
-      (acc, incident) =>
-        acc + durasiMenit(incident.startedAt, incident.resolvedAt),
-      0,
-    );
+    const totalMenit = selesai.reduce((acc, incident) => acc + durasiMenit(incident.startedAt, incident.resolvedAt), 0);
 
-    const bySeverity: Record<SeverityLevel, number> = {
-      CRITICAL: 0,
-      MAJOR: 0,
-      MINOR: 0,
-    };
-    for (const incident of dalamJendela)
-      bySeverity[incident.severity as SeverityLevel] += 1;
+    const bySeverity: Record<SeverityLevel, number> = { CRITICAL: 0, MAJOR: 0, MINOR: 0 };
+    for (const incident of dalamJendela) bySeverity[incident.severity as SeverityLevel] += 1;
 
     const recentlyResolved = [...selesai]
       .sort((a, b) => b.resolvedAt.getTime() - a.resolvedAt.getTime())
@@ -243,18 +198,13 @@ export class IncidentService {
       totalIncidents: dalamJendela.length,
       totalResolved: selesai.length,
       totalActive,
-      avgResolutionMinutes:
-        selesai.length > 0 ? Math.floor(totalMenit / selesai.length) : 0,
+      avgResolutionMinutes: selesai.length > 0 ? Math.floor(totalMenit / selesai.length) : 0,
       bySeverity,
       recentlyResolved,
     };
   }
 
-  private async publikasikanSelesai(
-    tenantId: string,
-    incidentId: string,
-    postedById: string | null,
-  ) {
+  private async publikasikanSelesai(tenantId: string, incidentId: string, postedById: string | null) {
     const incident = await this.repo.findById(tenantId, incidentId);
     if (!incident?.resolvedAt) return;
     const resolvedAt = incident.resolvedAt;

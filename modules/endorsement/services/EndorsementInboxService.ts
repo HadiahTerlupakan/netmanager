@@ -34,9 +34,7 @@ export interface InboxQuery {
 export class EndorsementInboxService {
   constructor(
     private readonly repository: IEndorsementRepository = new EndorsementRepository(),
-    private readonly endorsements: EndorsementService = new EndorsementService(
-      repository,
-    ),
+    private readonly endorsements: EndorsementService = new EndorsementService(repository),
   ) {}
 
   /** Jumlah surat yang menunggu tanda tangan user, dan seluruh surat untuknya. */
@@ -67,10 +65,7 @@ export class EndorsementInboxService {
     userId: string,
     context: SignerRequestContext,
   ): Promise<InboxDetailDto> {
-    const resolved = await this.endorsements.resolveForUser(
-      endorsementId,
-      userId,
-    );
+    const resolved = await this.endorsements.resolveForUser(endorsementId, userId);
     await this.endorsements.markSignerViewed(resolved, context);
     // Dimuat ulang supaya status "sudah dibuka" yang baru tercatat ikut tampil.
     const { endorsement, signer } = await this.endorsements.resolveForUser(
@@ -97,10 +92,7 @@ export class EndorsementInboxService {
     userId: string,
     signature: { buffer: Buffer; context: SignerRequestContext },
   ): Promise<{ completed: boolean }> {
-    const resolved = await this.endorsements.resolveForUser(
-      endorsementId,
-      userId,
-    );
+    const resolved = await this.endorsements.resolveForUser(endorsementId, userId);
     const { completed } = await this.endorsements.signAs(
       resolved,
       signature.buffer,
@@ -116,15 +108,8 @@ export class EndorsementInboxService {
     userId: string,
     decision: { reason: string; context: SignerRequestContext },
   ): Promise<void> {
-    const resolved = await this.endorsements.resolveForUser(
-      endorsementId,
-      userId,
-    );
-    await this.endorsements.declineAs(
-      resolved,
-      decision.reason,
-      decision.context,
-    );
+    const resolved = await this.endorsements.resolveForUser(endorsementId, userId);
+    await this.endorsements.declineAs(resolved, decision.reason, decision.context);
   }
 
   /** Repository hanya mengembalikan surat yang memuat user ini sebagai penanda tangan. */

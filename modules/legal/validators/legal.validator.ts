@@ -20,13 +20,7 @@ const MAX_NOTICE_DAYS = 3650;
 const MAX_OBLIGATIONS = 50;
 
 const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max)
-    .optional()
-    .nullable()
-    .transform((value) => value || null);
+  z.string().trim().max(max).optional().nullable().transform((value) => value || null);
 const optionalDate = z.coerce.date().optional().nullable();
 
 export const legalObligationSchema = z.object({
@@ -55,13 +49,7 @@ export const documentFieldsSchema = z.object({
   guaranteeDescription: optionalText(MAX_SHORT_TEXT),
   guaranteeEndDate: optionalDate,
   isAutoRenew: z.boolean().default(false),
-  noticePeriodDays: z
-    .number()
-    .int()
-    .min(1)
-    .max(MAX_NOTICE_DAYS)
-    .optional()
-    .nullable(),
+  noticePeriodDays: z.number().int().min(1).max(MAX_NOTICE_DAYS).optional().nullable(),
   penaltyNotes: optionalText(MAX_TEXT),
   disputeResolution: optionalText(MAX_TEXT),
   notes: optionalText(MAX_TEXT),
@@ -70,20 +58,14 @@ export const documentFieldsSchema = z.object({
 });
 
 /** Tanggal berakhir tidak boleh sebelum tanggal mulai. */
-const datesInOrder = (fields: {
-  startDate?: Date | null;
-  endDate?: Date | null;
-}) =>
+const datesInOrder = (fields: { startDate?: Date | null; endDate?: Date | null }) =>
   !fields.startDate || !fields.endDate || fields.endDate >= fields.startDate;
 
 /** Isian field `payload` (JSON) pada form multipart pembuatan dokumen. */
-export const createLegalDocumentSchema = documentFieldsSchema.refine(
-  datesInOrder,
-  {
-    message: "Tanggal berakhir tidak boleh sebelum tanggal mulai",
-    path: ["endDate"],
-  },
-);
+export const createLegalDocumentSchema = documentFieldsSchema.refine(datesInOrder, {
+  message: "Tanggal berakhir tidak boleh sebelum tanggal mulai",
+  path: ["endDate"],
+});
 
 /** Perubahan sebagian; jenis dokumen tidak bisa diubah setelah dibuat. */
 export const updateLegalDocumentSchema = documentFieldsSchema
@@ -154,12 +136,6 @@ export const archiveEndorsementSchema = documentFieldsSchema
     path: ["endDate"],
   });
 
-export type CreateLegalDocumentPayload = z.infer<
-  typeof createLegalDocumentSchema
->;
-export type UpdateLegalDocumentPayload = z.infer<
-  typeof updateLegalDocumentSchema
->;
-export type RenewLegalDocumentPayload = z.infer<
-  typeof renewLegalDocumentSchema
->;
+export type CreateLegalDocumentPayload = z.infer<typeof createLegalDocumentSchema>;
+export type UpdateLegalDocumentPayload = z.infer<typeof updateLegalDocumentSchema>;
+export type RenewLegalDocumentPayload = z.infer<typeof renewLegalDocumentSchema>;

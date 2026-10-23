@@ -50,19 +50,14 @@ export class LegalDocumentService {
   constructor(
     private readonly repository: ILegalRepository = new LegalRepository(),
     private readonly storage: LegalStorageService = new LegalStorageService(),
-    private readonly categories: LegalCategoryService = new LegalCategoryService(
-      repository,
-    ),
+    private readonly categories: LegalCategoryService = new LegalCategoryService(repository),
     private readonly directory: PicDirectory = new UserLookupService(),
     private readonly parties: PartyResolver = new LegalPartyDirectory(),
   ) {}
 
   /** Daftar dokumen sesuai filter; kategori rahasia tersaring sesuai akses. */
   list(filters: Omit<LegalDocumentFilters, "now">, access: LegalAccess) {
-    return this.repository.findDocuments(
-      { ...filters, now: new Date() },
-      access,
-    );
+    return this.repository.findDocuments({ ...filters, now: new Date() }, access);
   }
 
   /** Satu dokumen; 404 juga untuk dokumen rahasia yang tidak boleh dilihat. */
@@ -81,11 +76,7 @@ export class LegalDocumentService {
     upload: LegalUpload,
     context: { userId: string; access: LegalAccess; endorsementId?: string },
   ): Promise<LegalDocumentEntity> {
-    await this.assertReferencesValid(
-      payload,
-      payload.documentType,
-      context.access,
-    );
+    await this.assertReferencesValid(payload, payload.documentType, context.access);
     const { obligations, ...fields } = payload;
 
     return this.storeNewDocument({
@@ -132,17 +123,9 @@ export class LegalDocumentService {
   ): Promise<LegalDocumentEntity> {
     const previous = await this.getById(id, context.access);
     if (!isMonitored(previous)) {
-      throw new AppError(
-        "Dokumen ini sudah diperpanjang atau diakhiri",
-        409,
-        "INVALID_STATE",
-      );
+      throw new AppError("Dokumen ini sudah diperpanjang atau diakhiri", 409, "INVALID_STATE");
     }
-    await this.assertReferencesValid(
-      payload,
-      previous.documentType,
-      context.access,
-    );
+    await this.assertReferencesValid(payload, previous.documentType, context.access);
 
     const { obligations, ...changes } = payload;
     const fields = { ...this.carryOverFields(previous), ...changes };
@@ -156,18 +139,10 @@ export class LegalDocumentService {
   }
 
   /** Akhiri dokumen sebelum waktunya (mis. kontrak diputus); pengingat berhenti. */
-  async terminate(
-    id: string,
-    reason: string,
-    access: LegalAccess,
-  ): Promise<void> {
+  async terminate(id: string, reason: string, access: LegalAccess): Promise<void> {
     const document = await this.getById(id, access);
     if (!isMonitored(document)) {
-      throw new AppError(
-        "Dokumen ini sudah diperpanjang atau diakhiri",
-        409,
-        "INVALID_STATE",
-      );
+      throw new AppError("Dokumen ini sudah diperpanjang atau diakhiri", 409, "INVALID_STATE");
     }
 
     await this.repository.terminateDocument(id, reason, new Date());
@@ -216,11 +191,7 @@ export class LegalDocumentService {
 
   private reuseFile(previous: LegalDocumentEntity | undefined) {
     if (!previous) {
-      throw new AppError(
-        "Berkas dokumen wajib diunggah",
-        400,
-        "VALIDATION_ERROR",
-      );
+      throw new AppError("Berkas dokumen wajib diunggah", 400, "VALIDATION_ERROR");
     }
 
     return {
@@ -259,25 +230,15 @@ export class LegalDocumentService {
    * Hanya diperiksa bila field pihak ikut dikirim (perubahan sebagian).
    */
   private async resolveParty(fields: PartyFields): Promise<PartyFields> {
-    if (fields.partyType === undefined && fields.partyId === undefined)
-      return {};
-    if (!fields.partyType && !fields.partyId)
-      return { partyType: null, partyId: null };
+    if (fields.partyType === undefined && fields.partyId === undefined) return {};
+    if (!fields.partyType && !fields.partyId) return { partyType: null, partyId: null };
     if (!fields.partyType || !fields.partyId) {
-      throw new AppError(
-        "Jenis dan pilihan pihak harus diisi bersamaan",
-        400,
-        "VALIDATION_ERROR",
-      );
+      throw new AppError("Jenis dan pilihan pihak harus diisi bersamaan", 400, "VALIDATION_ERROR");
     }
 
     const party = await this.parties.findById(fields.partyType, fields.partyId);
     if (!party) {
-      throw new AppError(
-        "Pihak yang dipilih tidak ditemukan",
-        400,
-        "VALIDATION_ERROR",
-      );
+      throw new AppError("Pihak yang dipilih tidak ditemukan", 400, "VALIDATION_ERROR");
     }
 
     return { partyName: fields.partyName || party.name };
@@ -290,16 +251,10 @@ export class LegalDocumentService {
     access: LegalAccess,
   ): Promise<void> {
     if (payload.categoryId) {
-      await this.categories.assertUsable(
-        payload.categoryId,
-        documentType,
-        access,
-      );
+      await this.categories.assertUsable(payload.categoryId, documentType, access);
     }
     if (payload.picUserId) {
-      const [activeId] = await this.directory.filterActiveEmployeeIds([
-        payload.picUserId,
-      ]);
+      const [activeId] = await this.directory.filterActiveEmployeeIds([payload.picUserId]);
       if (!activeId) {
         throw new AppError("PIC harus karyawan aktif", 400, "VALIDATION_ERROR");
       }

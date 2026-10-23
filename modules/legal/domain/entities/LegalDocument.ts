@@ -13,8 +13,7 @@ export const LEGAL_DOCUMENT_TYPES = [
 export type LegalDocumentType = (typeof LEGAL_DOCUMENT_TYPES)[number];
 
 export const LEGAL_CONFIDENTIALITY_LEVELS = ["BIASA", "RAHASIA"] as const;
-export type LegalConfidentiality =
-  (typeof LEGAL_CONFIDENTIALITY_LEVELS)[number];
+export type LegalConfidentiality = (typeof LEGAL_CONFIDENTIALITY_LEVELS)[number];
 
 export const LEGAL_PAYMENT_SCHEMES = ["SEKALI", "BULANAN", "TAHUNAN"] as const;
 export type LegalPaymentScheme = (typeof LEGAL_PAYMENT_SCHEMES)[number];

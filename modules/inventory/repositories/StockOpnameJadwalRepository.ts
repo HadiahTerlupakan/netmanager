@@ -3,16 +3,8 @@ import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/modules/database";
 
 /** Site pengguna: site utama lama (`User.siteId`) digabung daftar UserSite, tanpa duplikat. */
-function gabungSiteIdsPengguna(user: {
-  siteId: string | null;
-  userSites: { siteId: string }[];
-}): string[] {
-  return [
-    ...new Set([
-      ...(user.siteId ? [user.siteId] : []),
-      ...user.userSites.map((s) => s.siteId),
-    ]),
-  ];
+function gabungSiteIdsPengguna(user: { siteId: string | null; userSites: { siteId: string }[] }): string[] {
+  return [...new Set([...(user.siteId ? [user.siteId] : []), ...user.userSites.map((s) => s.siteId)])];
 }
 
 /**
@@ -34,9 +26,7 @@ export class StockOpnameJadwalRepository {
   /** Jadwal bawaan site-site (map siteId → aturan). */
   async findAturanSites(tenantId: string, siteIds: string[]) {
     if (siteIds.length === 0) return [];
-    return this.client.stockOpnameAturan.findMany({
-      where: { tenantId, siteId: { in: siteIds } },
-    });
+    return this.client.stockOpnameAturan.findMany({ where: { tenantId, siteId: { in: siteIds } } });
   }
 
   /** Simpan jadwal bawaan satu site. */
@@ -61,11 +51,7 @@ export class StockOpnameJadwalRepository {
   }
 
   /** Jadwal khusus satu site mulai bulan `dariPeriode` (untuk daftar di halaman site). */
-  async findJadwalKhususSite(
-    tenantId: string,
-    siteId: string,
-    dariPeriode: string,
-  ) {
+  async findJadwalKhususSite(tenantId: string, siteId: string, dariPeriode: string) {
     return this.client.stockOpnameJadwal.findMany({
       where: { tenantId, siteId, periode: { gte: dariPeriode } },
       orderBy: { periode: "asc" },
@@ -77,12 +63,7 @@ export class StockOpnameJadwalRepository {
     tenantId: string,
     siteId: string,
     periode: string,
-    data: {
-      tanggalMulai: Date;
-      tanggalSelesai: Date;
-      catatan: string | null;
-      diubahOlehId: string;
-    },
+    data: { tanggalMulai: Date; tanggalSelesai: Date; catatan: string | null; diubahOlehId: string },
   ) {
     return this.client.stockOpnameJadwal.upsert({
       where: { siteId_periode: { siteId, periode } },
@@ -93,19 +74,13 @@ export class StockOpnameJadwalRepository {
 
   /** Hapus jadwal khusus → bulan itu kembali memakai jadwal bawaan site. */
   async deleteJadwal(tenantId: string, siteId: string, periode: string) {
-    await this.client.stockOpnameJadwal.deleteMany({
-      where: { tenantId, siteId, periode },
-    });
+    await this.client.stockOpnameJadwal.deleteMany({ where: { tenantId, siteId, periode } });
   }
 
   /** Site aktif tenant; `siteIds` membatasi ke site tertentu. */
   async findSitesAktif(tenantId: string, siteIds: string[] | null) {
     return this.client.sites.findMany({
-      where: {
-        tenantId,
-        isActive: true,
-        ...(siteIds ? { id: { in: siteIds } } : {}),
-      },
+      where: { tenantId, isActive: true, ...(siteIds ? { id: { in: siteIds } } : {}) },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
@@ -148,19 +123,10 @@ export class StockOpnameJadwalRepository {
   }
 
   /** Baris SO gudang-gudang dalam rentang waktu (terbaru dulu). */
-  async findOpnameDalamRentang(
-    tenantId: string,
-    gudangIds: string[],
-    dari: Date,
-    sampai: Date,
-  ) {
+  async findOpnameDalamRentang(tenantId: string, gudangIds: string[], dari: Date, sampai: Date) {
     if (gudangIds.length === 0) return [];
     return this.client.stockOpname.findMany({
-      where: {
-        tenantId,
-        gudangId: { in: gudangIds },
-        tanggal: { gte: dari, lte: sampai },
-      },
+      where: { tenantId, gudangId: { in: gudangIds }, tanggal: { gte: dari, lte: sampai } },
       select: { gudangId: true, barangId: true, tanggal: true, pic: true },
       orderBy: { tanggal: "desc" },
     });
@@ -173,16 +139,11 @@ export class StockOpnameJadwalRepository {
       select: { tenantId: true },
       distinct: ["tenantId"],
     });
-    return aturan
-      .map((baris) => baris.tenantId)
-      .filter((id): id is string => id !== null);
+    return aturan.map((baris) => baris.tenantId).filter((id): id is string => id !== null);
   }
 
   /** Site pengguna tenant (site utama lama + daftar UserSite). */
-  async findSiteIdsPengguna(
-    tenantId: string,
-    userId: string,
-  ): Promise<string[]> {
+  async findSiteIdsPengguna(tenantId: string, userId: string): Promise<string[]> {
     const user = await this.client.user.findFirst({
       where: { id: userId, tenantId },
       select: { siteId: true, userSites: { select: { siteId: true } } },

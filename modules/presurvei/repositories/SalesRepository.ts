@@ -89,10 +89,7 @@ export class SalesRepository implements ISalesRepository {
 }
 
 /** Izin yang menandai seseorang bisa memimpin tim penugasan rencana. */
-const IZIN_PEMBERI_RENCANA = {
-  resource: "presurvei_rencana",
-  action: "create",
-};
+const IZIN_PEMBERI_RENCANA = { resource: "presurvei_rencana", action: "create" };
 
 /** Label tampilan + urutan stabil (nama, lalu id) untuk dropdown sales. */
 function urutkanSales(

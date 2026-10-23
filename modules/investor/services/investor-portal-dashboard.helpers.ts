@@ -106,10 +106,7 @@ function calculateDashboardTotals(projects: DashboardProjects) {
   return projects.reduce(
     (accumulator, item) => {
       const projected = calculateProjectedRevenue(item);
-      const hasil = hitungHasilInvestorProyek(
-        item.rabProject,
-        item.investmentAmount,
-      );
+      const hasil = hitungHasilInvestorProyek(item.rabProject, item.investmentAmount);
 
       return {
         totalInvestment:
@@ -145,8 +142,7 @@ function calculateProjectedRevenue(item: DashboardProject): bigint {
 
   return calculateInvestorShare(
     netProjected,
-    hitungHasilInvestorProyek(item.rabProject, item.investmentAmount)
-      .persenBerlaku,
+    hitungHasilInvestorProyek(item.rabProject, item.investmentAmount).persenBerlaku,
   );
 }
 

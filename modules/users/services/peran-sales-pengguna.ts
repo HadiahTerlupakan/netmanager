@@ -16,9 +16,7 @@ export interface RoleDenganIzin {
 }
 
 /** Izin role sebagai `resource:action`; super admin = wildcard, sama dengan `getUserPermissions`. */
-export function daftarIzinRole(
-  role: RoleDenganIzin | null | undefined,
-): string[] {
+export function daftarIzinRole(role: RoleDenganIzin | null | undefined): string[] {
   if (!role) return [];
   if (role.isSuperAdmin) return ["*"];
   return role.permission.map((izin) => `${izin.resource}:${izin.action}`);

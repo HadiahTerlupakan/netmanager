@@ -30,16 +30,8 @@ export async function handleRencanaReportedPresurvei(
   job: Job<EventJobData>,
 ): Promise<void> {
   const { payload } = job.data;
-  const rencanaId = requirePayloadString(
-    payload.rencanaId,
-    "rencanaId",
-    SOURCE,
-  );
-  const pemberiId = requirePayloadString(
-    payload.dibuatOlehId,
-    "dibuatOlehId",
-    SOURCE,
-  );
+  const rencanaId = requirePayloadString(payload.rencanaId, "rencanaId", SOURCE);
+  const pemberiId = requirePayloadString(payload.dibuatOlehId, "dibuatOlehId", SOURCE);
   const tujuan = requirePayloadString(payload.tujuan, "tujuan", SOURCE);
   const hasil = requirePayloadString(payload.hasil, "hasil", SOURCE);
   const tenantId = requirePayloadString(payload.tenantId, "tenantId", SOURCE);
@@ -48,8 +40,9 @@ export async function handleRencanaReportedPresurvei(
       ? payload.namaSales
       : "Sales";
 
-  const { createNotification, hasNotificationForSource } =
-    await import("@/modules/notification");
+  const { createNotification, hasNotificationForSource } = await import(
+    "@/modules/notification"
+  );
 
   const sudahDikirim = await hasNotificationForSource({
     userId: pemberiId,
@@ -57,9 +50,7 @@ export async function handleRencanaReportedPresurvei(
     sourceId: rencanaId,
   });
   if (sudahDikirim) {
-    logger.info(
-      `[${SOURCE}] Laporan rencana ${rencanaId} sudah dikabarkan, dilewati`,
-    );
+    logger.info(`[${SOURCE}] Laporan rencana ${rencanaId} sudah dikabarkan, dilewati`);
     return;
   }
 

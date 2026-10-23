@@ -205,11 +205,7 @@ export class AdminSupportTicketService {
       });
 
       emitReplyEvent(input.ticketId, reply);
-      void kabariSalesKeluhan(
-        input.ticketId,
-        { jenis: "BALASAN_HELPDESK" },
-        input.senderId,
-      );
+      void kabariSalesKeluhan(input.ticketId, { jenis: "BALASAN_HELPDESK" }, input.senderId);
       const whatsappSent = await sendReplyWhatsapp(ticket, input);
       return {
         success: true,

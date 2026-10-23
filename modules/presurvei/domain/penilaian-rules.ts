@@ -50,9 +50,7 @@ const AMBANG_PREDIKAT: readonly [PredikatPenilaian, number][] = [
 ];
 
 /** Predikat dari skor; skor null (belum ada yang bisa diukur) → null. */
-export function tentukanPredikat(
-  skor: number | null,
-): PredikatPenilaian | null {
+export function tentukanPredikat(skor: number | null): PredikatPenilaian | null {
   if (skor === null) return null;
   const cocok = AMBANG_PREDIKAT.find(([, ambang]) => skor >= ambang);
   return cocok ? cocok[0] : "PERLU_PEMBINAAN";
@@ -69,10 +67,7 @@ export function gabungSkor(indikator: readonly Indikator[]): number | null {
   );
   const totalBobot = terukur.reduce((jumlah, item) => jumlah + item.bobot, 0);
   if (totalBobot === 0) return null;
-  const total = terukur.reduce(
-    (jumlah, item) => jumlah + item.nilai * item.bobot,
-    0,
-  );
+  const total = terukur.reduce((jumlah, item) => jumlah + item.nilai * item.bobot, 0);
   return Math.round(total / totalBobot);
 }
 

@@ -91,13 +91,7 @@ export class ProspekService {
     opsi: OpsiBuatProspek = {},
   ): Promise<ProspekEntity> {
     const data = await this.sertakanTenantPenugasan(
-      {
-        ...input,
-        peran: tentukanPeranProspek(
-          input.jenis ?? JENIS_PROSPEK_BAWAAN,
-          input.peran,
-        ),
-      },
+      { ...input, peran: tentukanPeranProspek(input.jenis ?? JENIS_PROSPEK_BAWAAN, input.peran) },
       opsi,
     );
 
@@ -198,10 +192,7 @@ export class ProspekService {
    * Jenis/peran dinilai pada keadaan AKHIR (masukan menimpa baris): pindah ke
    * perantara wajib berperan, pindah ke calon pelanggan menghapus peran.
    */
-  private rapikanPeran(
-    prospek: ProspekEntity,
-    input: UpdateProspekInput,
-  ): UpdateProspekInput {
+  private rapikanPeran(prospek: ProspekEntity, input: UpdateProspekInput): UpdateProspekInput {
     if (input.jenis === undefined && input.peran === undefined) return input;
     const jenis = input.jenis ?? prospek.jenis;
     const peran = input.peran !== undefined ? input.peran : prospek.peran;

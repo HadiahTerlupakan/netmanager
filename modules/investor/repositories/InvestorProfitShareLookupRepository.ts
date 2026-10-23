@@ -10,16 +10,9 @@ const BAGI_HASIL_BERLAKU = { status: { not: "CANCELLED" } } as const;
  */
 export class InvestorProfitShareLookupRepository {
   /** Apakah bulan ke-n proyek sudah masuk bagi hasil investor yang berlaku. */
-  async isProjectMonthShared(
-    rabProjectId: string,
-    month: number,
-  ): Promise<boolean> {
+  async isProjectMonthShared(rabProjectId: string, month: number): Promise<boolean> {
     const bagiHasil = await prisma.investorProfitShare.findFirst({
-      where: {
-        rabProjectId,
-        projectMonths: { has: month },
-        ...BAGI_HASIL_BERLAKU,
-      },
+      where: { rabProjectId, projectMonths: { has: month }, ...BAGI_HASIL_BERLAKU },
       select: { id: true },
     });
     return Boolean(bagiHasil);

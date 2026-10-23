@@ -79,9 +79,7 @@ export function canAccessDocument(
 ): boolean {
   if (endorsement.status === "COMPLETED") return true;
 
-  return (
-    OPEN_STATUSES.includes(endorsement.status) && !isExpired(endorsement, now)
-  );
+  return OPEN_STATUSES.includes(endorsement.status) && !isExpired(endorsement, now);
 }
 
 /** Status surat setelah satu perubahan pada daftar penanda tangan. */

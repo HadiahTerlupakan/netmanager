@@ -4,11 +4,7 @@ import type {
   ILegalRepository,
   LegalAccess,
 } from "../domain/ports/ILegalRepository";
-import {
-  actionableDeadlines,
-  toDeadlineDto,
-  type LegalDeadlineDto,
-} from "../dto/legal.dto";
+import { actionableDeadlines, toDeadlineDto, type LegalDeadlineDto } from "../dto/legal.dto";
 import { LegalRepository } from "../repositories/LegalRepository";
 
 /**
@@ -33,10 +29,7 @@ export interface LegalDashboardDto {
   actionItems: LegalActionItemDto[];
 }
 
-function toActionItems(
-  document: LegalDocumentEntity,
-  now: Date,
-): LegalActionItemDto[] {
+function toActionItems(document: LegalDocumentEntity, now: Date): LegalActionItemDto[] {
   return actionableDeadlines(document, now).map((deadline) => ({
     ...toDeadlineDto(deadline),
     documentId: document.id,
@@ -52,10 +45,7 @@ export class LegalDashboardService {
   ) {}
 
   /** Ringkasan dan daftar tindakan untuk dasbor legal. */
-  async summary(
-    access: LegalAccess,
-    now: Date = new Date(),
-  ): Promise<LegalDashboardDto> {
+  async summary(access: LegalAccess, now: Date = new Date()): Promise<LegalDashboardDto> {
     const documents = await this.repository.findMonitoredDocuments(access);
     const statuses = documents.map((document) => deriveStatus(document, now));
     const actionItems = documents
@@ -63,10 +53,8 @@ export class LegalDashboardService {
       .sort((left, right) => left.daysLeft - right.daysLeft);
 
     return {
-      soonCount: statuses.filter((status) => status === "SEGERA_BERAKHIR")
-        .length,
-      expiredCount: statuses.filter((status) => status === "KEDALUWARSA")
-        .length,
+      soonCount: statuses.filter((status) => status === "SEGERA_BERAKHIR").length,
+      expiredCount: statuses.filter((status) => status === "KEDALUWARSA").length,
       dueThisWeekCount: actionItems.filter(
         (item) => item.daysLeft >= 0 && item.daysLeft <= THIS_WEEK_DAYS,
       ).length,

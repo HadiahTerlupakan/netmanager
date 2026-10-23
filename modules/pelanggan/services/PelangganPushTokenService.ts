@@ -1,17 +1,17 @@
-import { PelangganRepository } from "../repositories/PelangganRepository";
+import { PelangganRepository } from '../repositories/PelangganRepository'
 
 export class PelangganPushTokenService {
-  private pelangganRepo = new PelangganRepository();
+  private pelangganRepo = new PelangganRepository()
 
   findManyWithPushToken(tokens: string[]) {
-    return this.pelangganRepo.findManyWithPushToken(tokens);
+    return this.pelangganRepo.findManyWithPushToken(tokens)
   }
 
   clearPushTokens(tokens: string[]) {
-    return this.pelangganRepo.clearPushTokens(tokens);
+    return this.pelangganRepo.clearPushTokens(tokens)
   }
 
   findByIdWithPushToken(pelangganId: string) {
-    return this.pelangganRepo.findByIdWithPushToken(pelangganId);
+    return this.pelangganRepo.findByIdWithPushToken(pelangganId)
   }
 }

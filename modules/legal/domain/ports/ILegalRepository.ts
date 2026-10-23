@@ -68,8 +68,7 @@ export interface LegalFileFields {
   fileContentType: string;
 }
 
-export interface CreateLegalDocumentInput
-  extends LegalDocumentFields, LegalFileFields {
+export interface CreateLegalDocumentInput extends LegalDocumentFields, LegalFileFields {
   id: string;
   previousDocumentId?: string;
   createdById: string;
@@ -89,26 +88,18 @@ export interface ILegalRepository {
   countCategories(): Promise<number>;
   createCategories(inputs: LegalCategoryInput[]): Promise<void>;
   listCategories(access: LegalAccess): Promise<LegalCategoryEntity[]>;
-  findCategoryById(
-    id: string,
-    access: LegalAccess,
-  ): Promise<LegalCategoryEntity | null>;
+  findCategoryById(id: string, access: LegalAccess): Promise<LegalCategoryEntity | null>;
   createCategory(input: LegalCategoryInput): Promise<LegalCategoryEntity>;
   updateCategory(
     id: string,
-    data: Partial<
-      Pick<LegalCategoryEntity, "name" | "confidentiality" | "isActive">
-    >,
+    data: Partial<Pick<LegalCategoryEntity, "name" | "confidentiality" | "isActive">>,
   ): Promise<LegalCategoryEntity>;
 
   findDocuments(
     filters: LegalDocumentFilters,
     access: LegalAccess,
   ): Promise<{ items: LegalDocumentEntity[]; total: number }>;
-  findDocumentById(
-    id: string,
-    access: LegalAccess,
-  ): Promise<LegalDocumentEntity | null>;
+  findDocumentById(id: string, access: LegalAccess): Promise<LegalDocumentEntity | null>;
   createDocument(input: CreateLegalDocumentInput): Promise<LegalDocumentEntity>;
   updateDocument(
     id: string,

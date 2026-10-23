@@ -20,38 +20,26 @@ export interface InvestorFcmTokenOwner {
 }
 
 /** Apakah bulan ke-n proyek RAB sudah masuk bagi hasil investor (selain yang dibatalkan). */
-export function isRabProjectMonthShared(
-  rabProjectId: string,
-  month: number,
-): Promise<boolean> {
+export function isRabProjectMonthShared(rabProjectId: string, month: number): Promise<boolean> {
   return profitShareLookup.isProjectMonthShared(rabProjectId, month);
 }
 
 /** Apakah proyek RAB sudah punya bagi hasil investor (selain yang dibatalkan). */
-export function hasActiveInvestorProfitShare(
-  rabProjectId: string,
-): Promise<boolean> {
+export function hasActiveInvestorProfitShare(rabProjectId: string): Promise<boolean> {
   return profitShareLookup.hasActiveProfitShare(rabProjectId);
 }
 
 /** Investor yang memegang salah satu token FCM yang diberikan. */
-export function findInvestorFcmTokenOwners(
-  tokens: string[],
-): Promise<InvestorFcmTokenOwner[]> {
+export function findInvestorFcmTokenOwners(tokens: string[]): Promise<InvestorFcmTokenOwner[]> {
   return investorRepository.findFcmTokenOwners(tokens);
 }
 
 /** Investor dengan token FCM yang tidak diperbarui sejak `cutoff`. */
-export function findInvestorsWithStaleFcmTokens(
-  cutoff: Date,
-): Promise<InvestorFcmTokenOwner[]> {
+export function findInvestorsWithStaleFcmTokens(cutoff: Date): Promise<InvestorFcmTokenOwner[]> {
   return investorRepository.findWithStaleFcmTokens(cutoff);
 }
 
 /** Mengganti seluruh daftar token FCM investor. */
-export async function replaceInvestorFcmTokens(
-  investorId: string,
-  tokens: string[],
-): Promise<void> {
+export async function replaceInvestorFcmTokens(investorId: string, tokens: string[]): Promise<void> {
   await investorRepository.replaceFcmTokens(investorId, tokens);
 }

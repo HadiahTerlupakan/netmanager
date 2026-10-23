@@ -21,18 +21,10 @@ const PILIH_PELANGGAN_TUNGGAKAN = {
   sales: { select: { id: true, name: true } },
 } satisfies Prisma.PelangganSelect;
 
-export type BarisPelangganTunggakan = Prisma.PelangganGetPayload<{
-  select: typeof PILIH_PELANGGAN_TUNGGAKAN;
-}>;
+export type BarisPelangganTunggakan = Prisma.PelangganGetPayload<{ select: typeof PILIH_PELANGGAN_TUNGGAKAN }>;
 
 /** Status WO yang dianggap masih berjalan (ada gangguan/pekerjaan terbuka). */
-export const STATUS_WO_TERBUKA = [
-  "REQUESTED",
-  "PENDING",
-  "ASSIGNED",
-  "IN_PROGRESS",
-  "ON_HOLD",
-] as const;
+export const STATUS_WO_TERBUKA = ["REQUESTED", "PENDING", "ASSIGNED", "IN_PROGRESS", "ON_HOLD"] as const;
 
 const PILIH_PELANGGAN_SAYA = {
   id: true,
@@ -54,16 +46,10 @@ const PILIH_PELANGGAN_SAYA = {
     orderBy: { createdAt: "desc" },
     take: 1,
   },
-  _count: {
-    select: {
-      support_tickets: { where: { status: { in: STATUS_KELUHAN_TERBUKA } } },
-    },
-  },
+  _count: { select: { support_tickets: { where: { status: { in: STATUS_KELUHAN_TERBUKA } } } } },
 } satisfies Prisma.PelangganSelect;
 
-export type BarisPelangganSaya = Prisma.PelangganGetPayload<{
-  select: typeof PILIH_PELANGGAN_SAYA;
-}>;
+export type BarisPelangganSaya = Prisma.PelangganGetPayload<{ select: typeof PILIH_PELANGGAN_SAYA }>;
 
 /** Saringan sales pada daftar tunggakan; `null` = seluruh tenant. */
 export type SaringanSales = { salesIds: string[] } | null;
@@ -96,12 +82,7 @@ export class PelangganSalesRepository {
   async cariPelanggan(tenantId: string, pelangganId: string) {
     return this.client.pelanggan.findFirst({
       where: { id: pelangganId, tenantId },
-      select: {
-        id: true,
-        siteId: true,
-        salesId: true,
-        sales: { select: { id: true, name: true } },
-      },
+      select: { id: true, siteId: true, salesId: true, sales: { select: { id: true, name: true } } },
     });
   }
 
@@ -117,11 +98,7 @@ export class PelangganSalesRepository {
   /** Tenant yang punya pelanggan tanpa sales penanggung jawab. */
   async daftarTenantPelangganTanpaSales(): Promise<string[]> {
     const baris = await this.client.pelanggan.findMany({
-      where: {
-        salesId: null,
-        tenantId: { not: null },
-        status: { not: "DISMANTLE" },
-      },
+      where: { salesId: null, tenantId: { not: null }, status: { not: "DISMANTLE" } },
       select: { tenantId: true },
       distinct: ["tenantId"],
     });
@@ -129,19 +106,11 @@ export class PelangganSalesRepository {
   }
 
   /** Tetapkan / lepas sales penanggung jawab pelanggan milik tenant. */
-  async tetapkanSales(
-    tenantId: string,
-    pelangganId: string,
-    salesId: string | null,
-  ) {
+  async tetapkanSales(tenantId: string, pelangganId: string, salesId: string | null) {
     return this.client.pelanggan.update({
       where: { id: pelangganId, tenantId },
       data: { salesId },
-      select: {
-        id: true,
-        salesId: true,
-        sales: { select: { id: true, name: true } },
-      },
+      select: { id: true, salesId: true, sales: { select: { id: true, name: true } } },
     });
   }
 
@@ -152,19 +121,14 @@ export class PelangganSalesRepository {
   async daftarPelangganSales(
     tenantId: string,
     saringan: SaringanSales,
-    filter: {
-      cari?: string;
-      status?: "AKTIF" | "ISOLIR" | "NONAKTIF" | "MAINTENANCE";
-    },
+    filter: { cari?: string; status?: "AKTIF" | "ISOLIR" | "NONAKTIF" | "MAINTENANCE" },
     halaman: { lewati: number; ambil: number },
   ): Promise<{ data: BarisPelangganSaya[]; total: number }> {
     const cari = filter.cari?.trim();
     const where: Prisma.PelangganWhereInput = {
       tenantId,
       status: filter.status ?? { not: "DISMANTLE" },
-      ...(saringan
-        ? { salesId: { in: saringan.salesIds } }
-        : { salesId: { not: null } }),
+      ...(saringan ? { salesId: { in: saringan.salesIds } } : { salesId: { not: null } }),
       ...(cari
         ? {
             OR: [
@@ -190,11 +154,7 @@ export class PelangganSalesRepository {
   }
 
   /** Pelanggan ISOLIR tenant (maks. `batas`), opsional dibatasi sales tertentu; jatuh tempo terlama dulu. */
-  async daftarIsolir(
-    tenantId: string,
-    saringan: SaringanSales,
-    batas: number,
-  ): Promise<BarisPelangganTunggakan[]> {
+  async daftarIsolir(tenantId: string, saringan: SaringanSales, batas: number): Promise<BarisPelangganTunggakan[]> {
     return this.client.pelanggan.findMany({
       where: {
         tenantId,

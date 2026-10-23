@@ -82,11 +82,7 @@ export class UserService {
     await this.ensureEmailAvailable(data.email);
     const passwordHash = await hash(data.password, PASSWORD_HASH_ROUNDS);
     const user = await this.userRepository.create(
-      buildCreateUserInput(
-        data,
-        passwordHash,
-        await this.resolveIsSales(data.roleId),
-      ),
+      buildCreateUserInput(data, passwordHash, await this.resolveIsSales(data.roleId)),
     );
     await invalidatePermissionCache(user.id);
     return user;
@@ -100,11 +96,7 @@ export class UserService {
     await this.ensureEmailAvailable(data.email);
     const passwordHash = await hash(data.password, PASSWORD_HASH_ROUNDS);
     const user = await this.userRepository.createWithSites(
-      buildCreateUserInput(
-        data,
-        passwordHash,
-        await this.resolveIsSales(data.roleId),
-      ),
+      buildCreateUserInput(data, passwordHash, await this.resolveIsSales(data.roleId)),
       userSites,
     );
     await invalidatePermissionCache(user.id);

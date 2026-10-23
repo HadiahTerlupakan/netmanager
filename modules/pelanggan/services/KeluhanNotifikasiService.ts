@@ -1,10 +1,7 @@
 import type { TicketStatus } from "@prisma/client";
 
 import { logger } from "@/lib/logger";
-import {
-  createNotification,
-  hasNotificationForSource,
-} from "@/modules/notification";
+import { createNotification, hasNotificationForSource } from "@/modules/notification";
 
 import { KeluhanSalesRepository } from "../repositories/KeluhanSalesRepository";
 
@@ -27,48 +24,23 @@ const LABEL_STATUS: Readonly<Record<TicketStatus, string>> = {
   CLOSED: "ditutup",
 };
 
-const FORMAT_JADWAL = new Intl.DateTimeFormat("id-ID", {
-  day: "numeric",
-  month: "short",
-  timeZone: "Asia/Jakarta",
-});
+const FORMAT_JADWAL = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", timeZone: "Asia/Jakarta" });
 
 /** Judul & isi notifikasi untuk satu kabar keluhan. */
-export function susunPesanKabar(
-  kabar: KabarKeluhan,
-  nomorTiket: string,
-  namaPelanggan: string,
-) {
+export function susunPesanKabar(kabar: KabarKeluhan, nomorTiket: string, namaPelanggan: string) {
   switch (kabar.jenis) {
     case "STATUS":
-      return {
-        judul: `Keluhan ${namaPelanggan}`,
-        pesan: `${nomorTiket} ${LABEL_STATUS[kabar.status]}.`,
-      };
+      return { judul: `Keluhan ${namaPelanggan}`, pesan: `${nomorTiket} ${LABEL_STATUS[kabar.status]}.` };
     case "BALASAN_HELPDESK":
-      return {
-        judul: `Balasan helpdesk · ${namaPelanggan}`,
-        pesan: `Helpdesk membalas ${nomorTiket}. Buka untuk membaca.`,
-      };
+      return { judul: `Balasan helpdesk · ${namaPelanggan}`, pesan: `Helpdesk membalas ${nomorTiket}. Buka untuk membaca.` };
     case "WO_DIBUAT": {
-      const jadwal = kabar.jadwal
-        ? `, dijadwalkan ${FORMAT_JADWAL.format(new Date(kabar.jadwal))}`
-        : "";
-      return {
-        judul: `Teknisi dijadwalkan · ${namaPelanggan}`,
-        pesan: `${kabar.nomorWo} dibuat untuk ${nomorTiket}${jadwal}.`,
-      };
+      const jadwal = kabar.jadwal ? `, dijadwalkan ${FORMAT_JADWAL.format(new Date(kabar.jadwal))}` : "";
+      return { judul: `Teknisi dijadwalkan · ${namaPelanggan}`, pesan: `${kabar.nomorWo} dibuat untuk ${nomorTiket}${jadwal}.` };
     }
     case "WO_DIMULAI":
-      return {
-        judul: `Teknisi menuju lokasi · ${namaPelanggan}`,
-        pesan: `${kabar.nomorWo} mulai dikerjakan.`,
-      };
+      return { judul: `Teknisi menuju lokasi · ${namaPelanggan}`, pesan: `${kabar.nomorWo} mulai dikerjakan.` };
     case "WO_SELESAI":
-      return {
-        judul: `Keluhan selesai · ${namaPelanggan}`,
-        pesan: `${kabar.nomorWo} selesai. Kabari pelanggan Anda.`,
-      };
+      return { judul: `Keluhan selesai · ${namaPelanggan}`, pesan: `${kabar.nomorWo} selesai. Kabari pelanggan Anda.` };
   }
 }
 
@@ -89,15 +61,8 @@ async function kirimKabar(params: {
   kabar: KabarKeluhan;
   isi: { judul: string; pesan: string };
 }) {
-  const sumber = {
-    userId: params.userId,
-    sourceType: SUMBER_NOTIFIKASI_KELUHAN,
-    sourceId: params.ticketId,
-  };
-  if (
-    isKabarIdempoten(params.kabar) &&
-    (await hasNotificationForSource({ ...sumber, message: params.isi.pesan }))
-  ) {
+  const sumber = { userId: params.userId, sourceType: SUMBER_NOTIFIKASI_KELUHAN, sourceId: params.ticketId };
+  if (isKabarIdempoten(params.kabar) && (await hasNotificationForSource({ ...sumber, message: params.isi.pesan }))) {
     return;
   }
   await createNotification({
@@ -127,27 +92,11 @@ export async function kabariSalesKeluhan(
     const tiket = await repository.cariPenerimaKabar(ticketId);
     if (!tiket?.tenantId) return;
     const { tenantId } = tiket;
-    const penerima = new Set(
-      [tiket.dilaporkanOlehId, tiket.pelanggan.salesId].filter(
-        (id): id is string => Boolean(id),
-      ),
-    );
+    const penerima = new Set([tiket.dilaporkanOlehId, tiket.pelanggan.salesId].filter((id): id is string => Boolean(id)));
     if (pelakuId) penerima.delete(pelakuId);
-    const isi = susunPesanKabar(
-      kabar,
-      tiket.ticketNumber,
-      tiket.pelanggan.nama,
-    );
-    await Promise.all(
-      [...penerima].map((userId) =>
-        kirimKabar({ userId, tenantId, ticketId, kabar, isi }),
-      ),
-    );
+    const isi = susunPesanKabar(kabar, tiket.ticketNumber, tiket.pelanggan.nama);
+    await Promise.all([...penerima].map((userId) => kirimKabar({ userId, tenantId, ticketId, kabar, isi })));
   } catch (error) {
-    logger.error("[KeluhanSales] Gagal mengabari sales:", {
-      ticketId,
-      jenis: kabar.jenis,
-      error,
-    });
+    logger.error("[KeluhanSales] Gagal mengabari sales:", { ticketId, jenis: kabar.jenis, error });
   }
 }

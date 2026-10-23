@@ -40,9 +40,7 @@ export class LegalCategoryService {
   /** Ubah nama, tingkat kerahasiaan, atau status aktif kategori. */
   async update(
     id: string,
-    data: Partial<
-      Pick<LegalCategoryEntity, "name" | "confidentiality" | "isActive">
-    >,
+    data: Partial<Pick<LegalCategoryEntity, "name" | "confidentiality" | "isActive">>,
     access: LegalAccess,
   ): Promise<LegalCategoryEntity> {
     const category = await this.repository.findCategoryById(id, access);
@@ -61,18 +59,10 @@ export class LegalCategoryService {
   ): Promise<void> {
     const category = await this.repository.findCategoryById(categoryId, access);
     if (!category || !category.isActive) {
-      throw new AppError(
-        "Kategori tidak ditemukan atau nonaktif",
-        400,
-        "VALIDATION_ERROR",
-      );
+      throw new AppError("Kategori tidak ditemukan atau nonaktif", 400, "VALIDATION_ERROR");
     }
     if (category.documentType !== documentType) {
-      throw new AppError(
-        "Kategori tidak sesuai dengan jenis dokumen",
-        400,
-        "VALIDATION_ERROR",
-      );
+      throw new AppError("Kategori tidak sesuai dengan jenis dokumen", 400, "VALIDATION_ERROR");
     }
   }
 

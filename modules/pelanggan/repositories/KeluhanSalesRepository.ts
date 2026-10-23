@@ -1,12 +1,6 @@
 import { randomUUID } from "crypto";
 
-import type {
-  Prisma,
-  PrismaClient,
-  TicketCategory,
-  TicketPriority,
-  TicketStatus,
-} from "@prisma/client";
+import type { Prisma, PrismaClient, TicketCategory, TicketPriority, TicketStatus } from "@prisma/client";
 
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import { prisma } from "@/modules/database";
@@ -14,11 +8,7 @@ import { prisma } from "@/modules/database";
 import type { SaringanSales } from "./PelangganSalesRepository";
 
 /** Status tiket yang dianggap masih berjalan / selesai bagi sales. */
-export const STATUS_KELUHAN_TERBUKA: TicketStatus[] = [
-  "OPEN",
-  "IN_PROGRESS",
-  "WAITING_CUSTOMER",
-];
+export const STATUS_KELUHAN_TERBUKA: TicketStatus[] = ["OPEN", "IN_PROGRESS", "WAITING_CUSTOMER"];
 export const STATUS_KELUHAN_SELESAI: TicketStatus[] = ["RESOLVED", "CLOSED"];
 
 const PILIH_PELAPOR = { select: { id: true, name: true } } as const;
@@ -33,23 +23,10 @@ const PILIH_KELUHAN_RINGKAS = {
   status: true,
   createdAt: true,
   updatedAt: true,
-  pelanggan: {
-    select: {
-      id: true,
-      nama: true,
-      idPelanggan: true,
-      salesId: true,
-      sales: PILIH_PELAPOR,
-    },
-  },
+  pelanggan: { select: { id: true, nama: true, idPelanggan: true, salesId: true, sales: PILIH_PELAPOR } },
   dilaporkanOleh: PILIH_PELAPOR,
   workOrders: {
-    select: {
-      workOrderNumber: true,
-      status: true,
-      scheduledDate: true,
-      assignedTo: PILIH_TEKNISI,
-    },
+    select: { workOrderNumber: true, status: true, scheduledDate: true, assignedTo: PILIH_TEKNISI },
     orderBy: { createdAt: "desc" },
     take: 1,
   },
@@ -71,14 +48,7 @@ const PILIH_KELUHAN_DETAIL = {
     },
   },
   replies: {
-    select: {
-      id: true,
-      message: true,
-      isFromAdmin: true,
-      createdAt: true,
-      attachments: true,
-      user: PILIH_TEKNISI,
-    },
+    select: { id: true, message: true, isFromAdmin: true, createdAt: true, attachments: true, user: PILIH_TEKNISI },
     orderBy: { createdAt: "asc" },
   },
   workOrders: {
@@ -97,12 +67,8 @@ const PILIH_KELUHAN_DETAIL = {
   },
 } satisfies Prisma.SupportTicketsSelect;
 
-export type BarisKeluhanRingkas = Prisma.SupportTicketsGetPayload<{
-  select: typeof PILIH_KELUHAN_RINGKAS;
-}>;
-export type BarisKeluhanDetail = Prisma.SupportTicketsGetPayload<{
-  select: typeof PILIH_KELUHAN_DETAIL;
-}>;
+export type BarisKeluhanRingkas = Prisma.SupportTicketsGetPayload<{ select: typeof PILIH_KELUHAN_RINGKAS }>;
+export type BarisKeluhanDetail = Prisma.SupportTicketsGetPayload<{ select: typeof PILIH_KELUHAN_DETAIL }>;
 
 export interface DataKeluhanBaru {
   tenantId: string;
@@ -123,25 +89,16 @@ const PESAN_FOTO_KELUHAN = "Foto kondisi di lokasi pelanggan.";
  * Tiket keluhan yang dilihat sales: dicatat olehnya, atau milik pelanggan yang
  * dipegangnya. Lingkup `null` (head of sales) = semua keluhan yang terkait sales.
  */
-function whereLingkupKeluhan(
-  tenantId: string,
-  saringan: SaringanSales,
-): Prisma.SupportTicketsWhereInput {
+function whereLingkupKeluhan(tenantId: string, saringan: SaringanSales): Prisma.SupportTicketsWhereInput {
   if (!saringan) {
     return {
       tenantId,
-      OR: [
-        { dilaporkanOlehId: { not: null } },
-        { pelanggan: { salesId: { not: null } } },
-      ],
+      OR: [{ dilaporkanOlehId: { not: null } }, { pelanggan: { salesId: { not: null } } }],
     };
   }
   return {
     tenantId,
-    OR: [
-      { dilaporkanOlehId: { in: saringan.salesIds } },
-      { pelanggan: { salesId: { in: saringan.salesIds } } },
-    ],
+    OR: [{ dilaporkanOlehId: { in: saringan.salesIds } }, { pelanggan: { salesId: { in: saringan.salesIds } } }],
   };
 }
 
@@ -153,11 +110,7 @@ export class KeluhanSalesRepository {
   constructor(private readonly client: PrismaClient = prisma) {}
 
   /** Pelanggan tenant dalam lingkup sales (null bila bukan / di luar lingkup). */
-  async cariPelangganDalamLingkup(
-    tenantId: string,
-    pelangganId: string,
-    saringan: SaringanSales,
-  ) {
+  async cariPelangganDalamLingkup(tenantId: string, pelangganId: string, saringan: SaringanSales) {
     return this.client.pelanggan.findFirst({
       where: {
         id: pelangganId,
@@ -170,21 +123,14 @@ export class KeluhanSalesRepository {
 
   /** Jumlah tiket tenant hari ini, untuk nomor urut tiket harian. */
   async hitungTiketHariIni(tenantId: string): Promise<number> {
-    return this.client.supportTickets.count({
-      where: { tenantId, createdAt: { gte: toStartOfDay(new Date()) } },
-    });
+    return this.client.supportTickets.count({ where: { tenantId, createdAt: { gte: toStartOfDay(new Date()) } } });
   }
 
   /** Simpan tiket keluhan baru atas nama pelanggan beserta balasan berisi fotonya (satu transaksi). */
   async buat({ foto, ...data }: DataKeluhanBaru) {
     return this.client.$transaction(async (tx) => {
       const tiket = await tx.supportTickets.create({
-        data: {
-          id: randomUUID(),
-          ...data,
-          status: "OPEN",
-          updatedAt: new Date(),
-        },
+        data: { id: randomUUID(), ...data, status: "OPEN", updatedAt: new Date() },
         select: { id: true, ticketNumber: true, subject: true, priority: true },
       });
       await tx.ticketReplies.create({
@@ -210,10 +156,7 @@ export class KeluhanSalesRepository {
     halaman: { lewati: number; ambil: number },
   ): Promise<{ data: BarisKeluhanRingkas[]; total: number }> {
     const where: Prisma.SupportTicketsWhereInput = {
-      AND: [
-        whereLingkupKeluhan(tenantId, saringan),
-        { status: { in: statusDicari } },
-      ],
+      AND: [whereLingkupKeluhan(tenantId, saringan), { status: { in: statusDicari } }],
     };
     const [data, total] = await Promise.all([
       this.client.supportTickets.findMany({
@@ -229,36 +172,18 @@ export class KeluhanSalesRepository {
   }
 
   /** Penanggung jawab tiap keluhan terbuka dalam lingkup (untuk ringkasan per sales). */
-  async daftarPenanggungJawabTerbuka(
-    tenantId: string,
-    saringan: SaringanSales,
-    batas: number,
-  ) {
+  async daftarPenanggungJawabTerbuka(tenantId: string, saringan: SaringanSales, batas: number) {
     return this.client.supportTickets.findMany({
-      where: {
-        AND: [
-          whereLingkupKeluhan(tenantId, saringan),
-          { status: { in: STATUS_KELUHAN_TERBUKA } },
-        ],
-      },
-      select: {
-        pelanggan: { select: { sales: PILIH_PELAPOR } },
-        dilaporkanOleh: PILIH_PELAPOR,
-      },
+      where: { AND: [whereLingkupKeluhan(tenantId, saringan), { status: { in: STATUS_KELUHAN_TERBUKA } }] },
+      select: { pelanggan: { select: { sales: PILIH_PELAPOR } }, dilaporkanOleh: PILIH_PELAPOR },
       take: batas,
     });
   }
 
   /** Detail keluhan dalam lingkup (null bila tidak ada / di luar lingkup). */
-  async cariDetail(
-    tenantId: string,
-    ticketId: string,
-    saringan: SaringanSales,
-  ): Promise<BarisKeluhanDetail | null> {
+  async cariDetail(tenantId: string, ticketId: string, saringan: SaringanSales): Promise<BarisKeluhanDetail | null> {
     return this.client.supportTickets.findFirst({
-      where: {
-        AND: [whereLingkupKeluhan(tenantId, saringan), { id: ticketId }],
-      },
+      where: { AND: [whereLingkupKeluhan(tenantId, saringan), { id: ticketId }] },
       select: PILIH_KELUHAN_DETAIL,
     });
   }
@@ -285,10 +210,7 @@ export class KeluhanSalesRepository {
       });
       await tx.supportTickets.updateMany({
         where: { id: params.ticketId, tenantId: params.tenantId },
-        data: {
-          updatedAt: new Date(),
-          ...(params.statusBaru ? { status: params.statusBaru } : {}),
-        },
+        data: { updatedAt: new Date(), ...(params.statusBaru ? { status: params.statusBaru } : {}) },
       });
       return balasan;
     });

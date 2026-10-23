@@ -23,11 +23,7 @@ export async function handleRencanaAssignedPresurvei(
   job: Job<EventJobData>,
 ): Promise<void> {
   const { payload } = job.data;
-  const rencanaId = requirePayloadString(
-    payload.rencanaId,
-    "rencanaId",
-    SOURCE,
-  );
+  const rencanaId = requirePayloadString(payload.rencanaId, "rencanaId", SOURCE);
   const salesId = requirePayloadString(payload.salesId, "salesId", SOURCE);
   const tanggal = requirePayloadString(payload.tanggal, "tanggal", SOURCE);
   const tujuan = requirePayloadString(payload.tujuan, "tujuan", SOURCE);
@@ -41,8 +37,9 @@ export async function handleRencanaAssignedPresurvei(
       ? payload.namaPembuat
       : "Atasan Anda";
 
-  const { createNotification, hasNotificationForSource } =
-    await import("@/modules/notification");
+  const { createNotification, hasNotificationForSource } = await import(
+    "@/modules/notification"
+  );
 
   const sudahDikirim = await hasNotificationForSource({
     userId: salesId,
@@ -50,9 +47,7 @@ export async function handleRencanaAssignedPresurvei(
     sourceId: rencanaId,
   });
   if (sudahDikirim) {
-    logger.info(
-      `[${SOURCE}] Notifikasi rencana ${rencanaId} sudah ada, dilewati`,
-    );
+    logger.info(`[${SOURCE}] Notifikasi rencana ${rencanaId} sudah ada, dilewati`);
     return;
   }
 

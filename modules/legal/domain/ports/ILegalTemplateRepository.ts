@@ -14,9 +14,7 @@ export interface LegalTemplateInput {
 }
 
 export type LegalTemplatePatch = Partial<
-  Pick<LegalTemplateInput, "name" | "categoryId" | "content"> & {
-    isActive: boolean;
-  }
+  Pick<LegalTemplateInput, "name" | "categoryId" | "content"> & { isActive: boolean }
 >;
 
 export interface ILegalTemplateRepository {
@@ -25,8 +23,5 @@ export interface ILegalTemplateRepository {
   listTemplates(): Promise<LegalTemplateEntity[]>;
   findTemplateById(id: string): Promise<LegalTemplateEntity | null>;
   createTemplate(input: LegalTemplateInput): Promise<LegalTemplateEntity>;
-  updateTemplate(
-    id: string,
-    patch: LegalTemplatePatch,
-  ): Promise<LegalTemplateEntity>;
+  updateTemplate(id: string, patch: LegalTemplatePatch): Promise<LegalTemplateEntity>;
 }
