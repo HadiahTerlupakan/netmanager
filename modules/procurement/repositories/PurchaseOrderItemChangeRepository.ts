@@ -81,7 +81,7 @@ export class PurchaseOrderItemChangeRepository implements IPurchaseOrderItemChan
 
   async applyItemChange(
     input: ApplyPurchaseOrderItemChangeInput,
-    assertStillValid: (po: PurchaseOrderForItemChange) => void,
+    assertStillValid: (po: PurchaseOrderForItemChange) => Promise<void>,
   ): Promise<PurchaseOrderItemChangeResult> {
     return this.db.$transaction(async (tx: Tx) => {
       // Penerimaan barang (GRN, verifikasi restock) dan perubahan lain bisa
@@ -95,7 +95,7 @@ export class PurchaseOrderItemChangeRepository implements IPurchaseOrderItemChan
           `Purchase Order ${input.purchaseOrderId} tidak ditemukan`,
         );
       }
-      assertStillValid(locked);
+      await assertStillValid(locked);
 
       for (const change of input.quantityChanges) {
         const item = locked.items.find(

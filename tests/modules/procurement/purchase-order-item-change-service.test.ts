@@ -104,11 +104,16 @@ describe("PurchaseOrderItemChangeService", () => {
   });
 
   describe("re-checking against the locked PO inside the transaction", () => {
+    let lastApproval: { assertCanApprove: ReturnType<typeof vi.fn> };
     function lockedAs(locked: PurchaseOrderForItemChange) {
-      const { service, repository } = createService();
+      const { service, repository, approval } = createService();
+      lastApproval = approval;
       repository.applyItemChange.mockImplementation(
-        async (_input: unknown, assertStillValid: (po: unknown) => void) => {
-          assertStillValid(locked);
+        async (
+          _input: unknown,
+          assertStillValid: (po: unknown) => Promise<void>,
+        ) => {
+          await assertStillValid(locked);
           return { status: "PARTIAL", paymentStatus: "UNPAID", grandTotal: 0 };
         },
       );
@@ -121,6 +126,27 @@ describe("PurchaseOrderItemChangeService", () => {
 
       await expect(lockedAs(locked).changeItems(splitCable)).rejects.toThrow(
         "Jumlah Kabel 4 Core minimal 3000 karena sudah diterima 3000",
+      );
+    });
+
+    it("checks the approval limit against a total another change already raised", async () => {
+      const raise = {
+        ...splitCable,
+        changes: [] as Array<{ id: string; quantity: number }>,
+        additions: [{ barangId: "b-2core", quantity: 100, unitPrice: 10_000 }],
+      };
+      const service = lockedAs(purchaseOrder({ grandTotal: 45_000_000 }));
+      lastApproval.assertCanApprove
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(
+          new ApprovalThresholdExceededError("PURCHASE_ORDER", 46_000_000),
+        );
+
+      await expect(service.changeItems(raise)).rejects.toBeInstanceOf(
+        ApprovalThresholdExceededError,
+      );
+      expect(lastApproval.assertCanApprove).toHaveBeenLastCalledWith(
+        expect.objectContaining({ amount: 46_000_000 }),
       );
     });
 

@@ -84,8 +84,12 @@ export class PurchaseOrderItemChangeService {
         purchaseRequestId: po.purchaseRequestIds[0] ?? null,
       },
       // Diulang di dalam transaksi terhadap PO yang sudah dikunci, karena
-      // penerimaan barang bisa masuk di antara pembacaan pertama dan penulisan.
-      (locked) => this.assertChangeAllowed(locked, input),
+      // penerimaan barang atau perubahan lain (yang ikut menaikkan grand
+      // total) bisa masuk di antara pembacaan pertama dan penulisan.
+      async (locked) => {
+        const lockedChanges = this.assertChangeAllowed(locked, input);
+        await this.assertWithinApprovalLimit(locked, lockedChanges, input);
+      },
     );
 
     await logger.logActivity({

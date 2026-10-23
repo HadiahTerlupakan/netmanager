@@ -103,7 +103,7 @@ function createDb(options: {
   return { repository: new PurchaseOrderItemChangeRepository(db as never), tx };
 }
 
-const allow = (): void => undefined;
+const allow = async (): Promise<void> => undefined;
 
 const splitCable: ApplyPurchaseOrderItemChangeInput = {
   purchaseOrderId: "po-1",
@@ -178,7 +178,7 @@ describe("PurchaseOrderItemChangeRepository.applyItemChange", () => {
 
   it("locks the PO and its lines before reading them for the re-check", async () => {
     const { repository, tx } = createDb({});
-    const assertStillValid = vi.fn();
+    const assertStillValid = vi.fn(async () => undefined);
 
     await repository.applyItemChange(splitCable, assertStillValid);
 
@@ -198,7 +198,7 @@ describe("PurchaseOrderItemChangeRepository.applyItemChange", () => {
     const { repository, tx } = createDb({});
 
     await expect(
-      repository.applyItemChange(splitCable, () => {
+      repository.applyItemChange(splitCable, async () => {
         throw new Error("sudah diterima");
       }),
     ).rejects.toThrow("sudah diterima");

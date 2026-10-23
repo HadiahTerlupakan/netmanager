@@ -70,7 +70,8 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - Aturan diperiksa ulang di dalam transaksi setelah baris PO dikunci
     (`FOR UPDATE`), sehingga penerimaan barang atau perubahan lain yang masuk
     bersamaan tidak membuat jumlah di bawah yang sudah diterima, menambah baris
-    ke PO yang baru saja ditutup, atau menambah barang yang sama dua kali.
+    ke PO yang baru saja ditutup, menambah barang yang sama dua kali, atau
+    lolos batas approval karena dua kenaikan dicek terhadap total lama.
     Status bayar hanya menghitung pembayaran PO milik tenant yang sama.
   - Kenaikan jumlah PO karena kelebihan kiriman di verifikasi restock kini
     ditambahkan oleh database (`increment`), sehingga tidak menimpa perubahan

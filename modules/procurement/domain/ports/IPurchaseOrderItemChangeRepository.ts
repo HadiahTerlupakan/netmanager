@@ -67,6 +67,6 @@ export interface IPurchaseOrderItemChangeRepository {
    */
   applyItemChange(
     input: ApplyPurchaseOrderItemChangeInput,
-    assertStillValid: (po: PurchaseOrderForItemChange) => void,
+    assertStillValid: (po: PurchaseOrderForItemChange) => Promise<void>,
   ): Promise<PurchaseOrderItemChangeResult>;
 }
