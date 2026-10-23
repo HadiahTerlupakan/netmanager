@@ -1,5 +1,6 @@
 import type { RouterOSAPI } from "node-routeros-v2";
 import type { VpnRouterRecord } from "../domain/ports/IMikroTikRouterVpnRepository";
+import { VPN_ROUTEROS_OP_TIMEOUT_MS } from "../vpn/constants";
 import { createProvisioningConnection } from "./mikrotik-provisioning.connection";
 import { routerApiCredentials } from "./router-api-credentials";
 
@@ -7,12 +8,6 @@ import { routerApiCredentials } from "./router-api-credentials";
 export const VPN_SWITCH_SCRIPT_NAME = "netmanager-vpn-switch";
 /** Interface WireGuard yang dipasang skrip tempel core. */
 export const VPN_INTERFACE_NAME = "netmanager-vpn";
-/**
- * Batas waktu nyata satu operasi RouterOS VPN, dari connect sampai tulis
- * terakhir. `timeout` node-routeros-v2 dibaca dalam detik dan connect ke port
- * yang difilter menunggu SYN timeout OS, jadi batasnya dipasang di sini.
- */
-export const VPN_ROUTEROS_OP_TIMEOUT_MS = 15_000;
 
 /** Endpoint WireGuard sebuah server VPN. */
 export interface VpnPeerEndpoint {

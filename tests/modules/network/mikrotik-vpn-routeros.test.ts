@@ -17,9 +17,9 @@ vi.mock(
 import {
   setPeerEndpoint,
   setSwitchScript,
-  VPN_ROUTEROS_OP_TIMEOUT_MS,
   withVpnRouterConnection,
 } from "@/modules/network/services/mikrotik-vpn-routeros";
+import { VPN_ROUTEROS_OP_TIMEOUT_MS } from "@/modules/network/vpn/constants";
 import type { VpnRouterRecord } from "@/modules/network/domain/ports/IMikroTikRouterVpnRepository";
 
 function connection(printRows: unknown[]) {

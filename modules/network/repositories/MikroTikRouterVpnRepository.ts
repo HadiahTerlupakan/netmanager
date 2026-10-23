@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { VPN_CORE_TIMEOUT_MS } from "../vpn/VpnCoreClient";
-import { VPN_ROUTEROS_OP_TIMEOUT_MS } from "../services/mikrotik-vpn-routeros";
+import { VPN_ROUTEROS_OP_TIMEOUT_MS } from "../vpn/constants";
 import type {
   IMikroTikRouterVpnRepository,
   RouterVpnServerEntry,
