@@ -48,6 +48,11 @@ export interface ApplyItemCancellationInput {
   }>;
 }
 
+export interface IncreaseItemQuantitiesInput {
+  purchaseOrderId: string;
+  increases: Array<{ purchaseOrderItemId: string; extraQuantity: number }>;
+}
+
 export interface IRestockGoodsReceiptRepository {
   findPurchaseRequestForReceipt(
     id: string,
@@ -68,6 +73,8 @@ export interface IRestockGoodsReceiptRepository {
   applyItemSubstitutions(input: ApplyItemSubstitutionInput): Promise<void>;
 
   applyItemCancellations(input: ApplyItemCancellationInput): Promise<void>;
+
+  increaseItemQuantities(input: IncreaseItemQuantitiesInput): Promise<void>;
 
   hasOutstandingItems(purchaseOrderId: string): Promise<boolean>;
 

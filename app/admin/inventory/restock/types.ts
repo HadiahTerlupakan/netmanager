@@ -36,6 +36,9 @@ export type RestockSubstitutionMap = Record<string, string>;
 /** Map barangId → alasan barang tidak jadi dibelikan (sisa pesanan dianulir). */
 export type RestockCancellationMap = Record<string, string>;
 
+/** barangId → alasan barang datang melebihi sisa pesanan. */
+export type RestockOverReceiptMap = Record<string, string>;
+
 export interface GoodsReceiptSummary {
   id: string;
   grnNumber: string;

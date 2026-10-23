@@ -10,6 +10,9 @@ export type RestockCancellationMap = Record<string, string>;
 
 export const MAX_CANCEL_REASON_LENGTH = 255;
 
+/** Alasan anulir otomatis untuk sisa pesanan saat operator menutup pesanan. */
+export const CLOSE_ORDER_CANCEL_REASON = "Pesanan ditutup";
+
 export interface ApplyRestockCancellationInput {
   purchaseOrderId: string;
   purchaseOrderItems: RestockPurchaseOrderItem[];
@@ -26,6 +29,30 @@ interface ResolvedCancellation {
   barangId: string;
   cancelledQuantity: number;
   reason: string;
+}
+
+/**
+ * Menutup pesanan berarti sisa barang tidak akan datang, jadi sisa itu dianulir
+ * (bukan dicatat diterima, yang akan menambah stok yang tidak pernah ada).
+ * Alasan yang diisi operator tetap dipakai; sisanya memakai alasan baku.
+ */
+export function withClosingCancellations(
+  cancellations: RestockCancellationMap,
+  purchaseOrderItems: RestockPurchaseOrderItem[],
+  receivedQuantityByItemId: Record<string, number>,
+): RestockCancellationMap {
+  const result = { ...cancellations };
+  for (const item of purchaseOrderItems) {
+    const remaining =
+      item.quantity -
+      item.receivedQuantity -
+      item.cancelledQuantity -
+      (receivedQuantityByItemId[item.id] ?? 0);
+    if (remaining <= 0) continue;
+    if ((result[item.barangId] ?? "").trim().length > 0) continue;
+    result[item.barangId] = CLOSE_ORDER_CANCEL_REASON;
+  }
+  return result;
 }
 
 export class RestockCancellationInvalidError extends Error {

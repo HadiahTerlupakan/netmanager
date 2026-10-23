@@ -6,6 +6,7 @@ import type {
   ApplyItemCancellationInput,
   ApplyItemSubstitutionInput,
   BarangSubstitutionCandidate,
+  IncreaseItemQuantitiesInput,
   IRestockGoodsReceiptRepository,
   RestockPurchaseOrderForReceipt,
   RestockPurchaseRequestForReceipt,
@@ -132,6 +133,71 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
           },
         });
       }
+    });
+  }
+
+  /**
+   * Naikkan jumlah item PO untuk kiriman yang lebih banyak dari pesanan, lalu
+   * hitung ulang subtotal, PPN, dan grand total PO dengan rumus yang sama
+   * seperti edit PO. PO yang sudah lunas jadi PARTIAL karena tagihannya naik.
+   */
+  async increaseItemQuantities(
+    input: IncreaseItemQuantitiesInput,
+  ): Promise<void> {
+    if (input.increases.length === 0) return;
+
+    await this.db.$transaction(async (tx: Prisma.TransactionClient) => {
+      for (const increase of input.increases) {
+        const item = await tx.purchaseOrderItem.findUnique({
+          where: { id: increase.purchaseOrderItemId },
+        });
+        if (!item) {
+          throw new Error(
+            `Item PO ${increase.purchaseOrderItemId} tidak ditemukan`,
+          );
+        }
+        const quantity = item.quantity + increase.extraQuantity;
+        await tx.purchaseOrderItem.update({
+          where: { id: item.id },
+          data: { quantity, totalPrice: quantity * item.unitPrice },
+        });
+      }
+      await this.recalculatePurchaseOrderTotals(tx, input.purchaseOrderId);
+    });
+  }
+
+  private async recalculatePurchaseOrderTotals(
+    tx: Prisma.TransactionClient,
+    purchaseOrderId: string,
+  ): Promise<void> {
+    const [barangItems, jasaItems, purchaseOrder] = await Promise.all([
+      tx.purchaseOrderItem.findMany({ where: { purchaseOrderId } }),
+      tx.purchaseOrderJasaItem.findMany({ where: { purchaseOrderId } }),
+      tx.purchaseOrder.findUnique({ where: { id: purchaseOrderId } }),
+    ]);
+    if (!purchaseOrder) {
+      throw new Error(`Purchase Order ${purchaseOrderId} tidak ditemukan`);
+    }
+    const subtotal = [...barangItems, ...jasaItems].reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0,
+    );
+    const ppnAmount = Math.round(
+      (subtotal * (purchaseOrder.ppnRate ?? 0)) / 100,
+    );
+    const grandTotal = subtotal + ppnAmount;
+    const becameUnderpaid =
+      purchaseOrder.paymentStatus === "PAID" &&
+      grandTotal > purchaseOrder.grandTotal;
+
+    await tx.purchaseOrder.update({
+      where: { id: purchaseOrderId },
+      data: {
+        totalAmount: subtotal,
+        ppnAmount,
+        grandTotal,
+        ...(becameUnderpaid ? { paymentStatus: "PARTIAL" } : {}),
+      },
     });
   }
 

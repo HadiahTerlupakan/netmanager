@@ -9,6 +9,7 @@ import { RestockCancelReasonField } from "./RestockCancelReasonField";
 import type { Barang, PurchaseRequestItem } from "./types";
 import {
   canSubstituteRestockItem,
+  getRestockItemExcess,
   getRestockItemRemaining,
   getToggledReceivedQuantity,
 } from "./utils";
@@ -24,6 +25,8 @@ interface RestockReceiveItemRowProps {
   /** null = tidak dianulir, "" = ditandai anulir tapi alasan belum diisi. */
   cancelReason: string | null;
   onCancelReasonChange: (reason: string | null) => void;
+  overReceiptReason: string;
+  onOverReceiptReasonChange: (reason: string) => void;
 }
 
 /**
@@ -40,6 +43,8 @@ export function RestockReceiveItemRow({
   onSubstituteChange,
   cancelReason,
   onCancelReasonChange,
+  overReceiptReason,
+  onOverReceiptReasonChange,
 }: RestockReceiveItemRowProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const isExcluded = receivedQuantity <= 0;
@@ -69,6 +74,8 @@ export function RestockReceiveItemRow({
     0,
   );
   const cancelledQuantity = item.cancelledQuantity ?? 0;
+  const remainingQuantity = Math.max(getRestockItemRemaining(item), 0);
+  const excessQuantity = getRestockItemExcess(item, receivedQuantity);
 
   return (
     <div
@@ -103,6 +110,9 @@ export function RestockReceiveItemRow({
             </div>
             <div className="text-xs text-gray-500 italic">
               Pesanan: {item.barang.nama} — {item.jumlah} {item.barang.satuan}
+            </div>
+            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+              Sisa belum datang: {remainingQuantity} {item.barang.satuan}
             </div>
           </div>
         </div>
@@ -169,6 +179,27 @@ export function RestockReceiveItemRow({
           <div className="mt-2 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
             Sudah dianulir {cancelledQuantity} {item.barang.satuan}
             {item.cancelReason ? ` — ${item.cancelReason}` : ""}
+          </div>
+        )}
+
+        {excessQuantity > 0 && (
+          <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+            <div className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
+              Datang {excessQuantity} {item.barang.satuan} lebih banyak dari
+              sisa pesanan. Jumlah di PO akan dinaikkan dan tagihan supplier
+              ikut bertambah.
+            </div>
+            <input
+              type="text"
+              value={overReceiptReason}
+              maxLength={255}
+              aria-label={`Alasan kelebihan ${item.barang.nama}`}
+              placeholder="Alasan kelebihan kiriman (wajib)"
+              onChange={(event) =>
+                onOverReceiptReasonChange(event.target.value)
+              }
+              className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm dark:border-amber-900/40 dark:bg-gray-900"
+            />
           </div>
         )}
 

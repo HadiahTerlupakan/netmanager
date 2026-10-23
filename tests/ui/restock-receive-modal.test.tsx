@@ -60,6 +60,8 @@ function renderReceiveModal(
       onSubstitutionsChange={props?.onSubstitutionsChange ?? vi.fn()}
       cancellations={props?.cancellations ?? {}}
       onCancellationsChange={props?.onCancellationsChange ?? vi.fn()}
+      overReceipts={props?.overReceipts ?? {}}
+      onOverReceiptsChange={props?.onOverReceiptsChange ?? vi.fn()}
       receivedPhotos={props?.receivedPhotos ?? []}
       onReceivedPhotosChange={props?.onReceivedPhotosChange ?? vi.fn()}
       isFinishingPO={props?.isFinishingPO ?? true}
@@ -172,5 +174,47 @@ describe("RestockReceiveModal", () => {
 
     expect(markup).toContain("barang tidak bisa diganti");
     expect(markup).not.toContain("Barang yang sampai beda?");
+  });
+
+  it("shows what is still outstanding so staff do not retype the ordered total", () => {
+    const markup = renderReceiveModal({
+      request: {
+        ...request,
+        items: [{ ...request.items[0], jumlah: 100, receivedQuantity: 30 }],
+      },
+      receivedItems: { "barang-1": 70 },
+    });
+
+    expect(markup).toContain("Sisa belum datang: 70 roll");
+    expect(markup).not.toContain("Alasan kelebihan");
+  });
+
+  it("asks for a reason when more arrives than is outstanding", () => {
+    const markup = renderReceiveModal({
+      request: {
+        ...request,
+        items: [{ ...request.items[0], jumlah: 10, receivedQuantity: 0 }],
+      },
+      receivedItems: { "barang-1": 20 },
+      receivedPhotos: [{ preview: "x" } as never],
+    });
+
+    expect(markup).toContain('aria-label="Alasan kelebihan Kabel Fiber"');
+    expect(markup).toContain("Datang 10 roll lebih banyak dari");
+    expect(markup).toContain("Isi alasan kelebihan kiriman");
+  });
+
+  it("allows submitting a larger delivery once its reason is filled", () => {
+    const markup = renderReceiveModal({
+      request: {
+        ...request,
+        items: [{ ...request.items[0], jumlah: 10, receivedQuantity: 0 }],
+      },
+      receivedItems: { "barang-1": 20 },
+      overReceipts: { "barang-1": "Bonus dari supplier" },
+      receivedPhotos: [{ preview: "x" } as never],
+    });
+
+    expect(markup).toContain("Konfirmasi &amp; Tambah Stok");
   });
 });

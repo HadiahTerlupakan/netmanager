@@ -56,6 +56,8 @@ export default function RestockCRUDPage() {
     setReceivedSubstitutions,
     receivedCancellations,
     setReceivedCancellations,
+    receivedOverReceipts,
+    setReceivedOverReceipts,
     receivedPhotos,
     setReceivedPhotos,
     isFinishingPO,
@@ -146,6 +148,8 @@ export default function RestockCRUDPage() {
         onSubstitutionsChange={setReceivedSubstitutions}
         cancellations={receivedCancellations}
         onCancellationsChange={setReceivedCancellations}
+        overReceipts={receivedOverReceipts}
+        onOverReceiptsChange={setReceivedOverReceipts}
         receivedPhotos={receivedPhotos}
         onReceivedPhotosChange={setReceivedPhotos}
         isFinishingPO={isFinishingPO}

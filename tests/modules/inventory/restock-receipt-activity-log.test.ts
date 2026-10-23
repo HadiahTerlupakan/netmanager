@@ -84,6 +84,7 @@ describe("Log Aktivitas verifikasi barang sampai", () => {
         goodsReceiptId: "grn-1",
         grnNumber: "GRN-20261017-0001",
         items: [{ barangId: "b-1", quantity: 6 }],
+        kelebihanKiriman: [],
         jumlahFoto: 1,
         tutupPesanan: false,
       },

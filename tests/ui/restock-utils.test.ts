@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildInitialReceivedItems,
+  buildOverReceiptPayload,
+  hasMissingOverReceiptReason,
   getToggledReceivedQuantity,
   canApprovePurchaseRequest,
   canDeletePurchaseRequest,
@@ -458,6 +460,44 @@ describe("restock utils", () => {
       await expect(uploadProofPhotos(undefined)).rejects.toThrow(
         PHOTO_UPLOAD_NOT_READY_MESSAGE,
       );
+    });
+  });
+
+  describe("over-delivery reasons", () => {
+    const items = [
+      {
+        id: "item-1",
+        barangId: "barang-1",
+        jumlah: 10,
+        receivedQuantity: 0,
+        barang: { nama: "Pigtail", kode: "P", satuan: "pcs" },
+      },
+      {
+        id: "item-2",
+        barangId: "barang-2",
+        jumlah: 5,
+        receivedQuantity: 0,
+        barang: { nama: "ONT", kode: "O", satuan: "unit" },
+      },
+    ] as PurchaseRequest["items"];
+
+    it("requires a reason only for the item that exceeds what is outstanding", () => {
+      const received = { "barang-1": 20, "barang-2": 5 };
+
+      expect(hasMissingOverReceiptReason(items, received, {})).toBe(true);
+      expect(
+        hasMissingOverReceiptReason(items, received, { "barang-1": "Bonus" }),
+      ).toBe(false);
+    });
+
+    it("drops reasons left behind once the quantity is lowered again", () => {
+      expect(
+        buildOverReceiptPayload(
+          items,
+          { "barang-1": 10, "barang-2": 6 },
+          { "barang-1": "Bonus", "barang-2": "  Salah hitung supplier " },
+        ),
+      ).toEqual({ "barang-2": "Salah hitung supplier" });
     });
   });
 });

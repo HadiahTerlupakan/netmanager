@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-23] — Verifikasi barang sampai: kiriman sebagian, kiriman lebih, dan tutup pesanan
+
+- **Tipe**: [FIXED] [CHANGED] [ADDED]
+- **Scope**: `modules/inventory` | `app/api/inventory/restock` | `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**:
+  - Penerimaan lanjutan PR-20261012-0001 ditolak 400 tanpa jejak di log. Alasan
+    setiap penolakan verifikasi kini dicatat (`[RESTOCK_RECEIVE] Penerimaan ditolak`).
+  - Setiap baris menampilkan "Sisa belum datang", supaya staf tidak mengetik
+    ulang jumlah total pesanan.
+  - Barang yang datang melebihi sisa pesanan bisa diterima bila diberi alasan:
+    jumlah item PO dinaikkan, subtotal/PPN/grand total PO dihitung ulang, PO
+    yang sudah lunas menjadi PARTIAL, dan kelebihannya tercatat di catatan GRN
+    serta log aktivitas. Tanpa alasan tetap ditolak dengan pesan yang jelas.
+  - "Tutup Pesanan" tidak lagi tercentang secara default.
+  - Menutup pesanan kini menganulir sisa yang belum datang dengan alasan
+    "Pesanan ditutup" (alasan anulir dari operator tetap dipakai). Sebelumnya
+    sisa itu dicatat diterima, sehingga stok bertambah untuk barang yang tidak
+    pernah datang.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-18] — Log Login mencatat lagi login web, login mobile, dan versi aplikasi yang ditolak
 
 - **Tipe**: [FIXED] [ADDED]

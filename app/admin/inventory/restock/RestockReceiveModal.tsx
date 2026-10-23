@@ -15,9 +15,13 @@ import type {
   Barang,
   PurchaseRequest,
   RestockCancellationMap,
+  RestockOverReceiptMap,
   RestockSubstitutionMap,
 } from "./types";
-import { hasIncompleteCancellationReason } from "./utils";
+import {
+  hasIncompleteCancellationReason,
+  hasMissingOverReceiptReason,
+} from "./utils";
 
 interface RestockReceiveModalProps {
   request: PurchaseRequest | null;
@@ -28,6 +32,8 @@ interface RestockReceiveModalProps {
   onSubstitutionsChange: (substitutions: RestockSubstitutionMap) => void;
   cancellations: RestockCancellationMap;
   onCancellationsChange: (cancellations: RestockCancellationMap) => void;
+  overReceipts: RestockOverReceiptMap;
+  onOverReceiptsChange: (overReceipts: RestockOverReceiptMap) => void;
   receivedPhotos: UploadedPhoto[];
   onReceivedPhotosChange: (photos: UploadedPhoto[]) => void;
   isFinishingPO: boolean;
@@ -47,6 +53,8 @@ export function RestockReceiveModal({
   onSubstitutionsChange,
   cancellations,
   onCancellationsChange,
+  overReceipts,
+  onOverReceiptsChange,
   receivedPhotos,
   onReceivedPhotosChange,
   isFinishingPO,
@@ -63,6 +71,11 @@ export function RestockReceiveModal({
   const substitutedCount = Object.keys(substitutions).length;
   const cancelledCount = Object.keys(cancellations).length;
   const hasIncompleteReason = hasIncompleteCancellationReason(cancellations);
+  const hasMissingExcessReason = hasMissingOverReceiptReason(
+    request?.items ?? [],
+    receivedItems,
+    overReceipts,
+  );
 
   const handleCancelReasonChange = (
     barangId: string,
@@ -93,12 +106,15 @@ export function RestockReceiveModal({
     submitting ||
     receivedPhotos.length === 0 ||
     !hasReceivedItem ||
-    hasIncompleteReason;
+    hasIncompleteReason ||
+    hasMissingExcessReason;
   const disabledReason = hasIncompleteReason
     ? "Lengkapi alasan anulir terlebih dahulu"
-    : receivedPhotos.length === 0
-      ? "Unggah foto bukti terlebih dahulu"
-      : "Minimal satu barang harus diterima";
+    : hasMissingExcessReason
+      ? "Isi alasan kelebihan kiriman"
+      : receivedPhotos.length === 0
+        ? "Unggah foto bukti terlebih dahulu"
+        : "Minimal satu barang harus diterima";
 
   return (
     <Modal
@@ -145,6 +161,13 @@ export function RestockReceiveModal({
                 cancelReason={cancellations[item.barangId] ?? null}
                 onCancelReasonChange={(reason) =>
                   handleCancelReasonChange(item.barangId, reason)
+                }
+                overReceiptReason={overReceipts[item.barangId] ?? ""}
+                onOverReceiptReasonChange={(reason) =>
+                  onOverReceiptsChange({
+                    ...overReceipts,
+                    [item.barangId]: reason,
+                  })
                 }
               />
             ))}
@@ -202,8 +225,9 @@ export function RestockReceiveModal({
                 Tutup Pesanan (Selesai)
               </span>
               <span className="block text-[11px] text-yellow-700/70 dark:text-yellow-400/60 font-medium leading-relaxed mt-0.5">
-                Centang jika tidak akan ada pengiriman lagi untuk nomor PO ini
-                (meskipun jumlah yang diterima kurang dari yang diajukan).
+                Centang hanya jika tidak akan ada pengiriman lagi untuk nomor PO
+                ini. Sisa barang yang belum datang akan dianulir dengan alasan
+                &quot;Pesanan ditutup&quot; dan tidak menambah stok.
               </span>
             </div>
           </label>

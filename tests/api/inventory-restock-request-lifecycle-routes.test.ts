@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { logger } from "@/lib/logger";
 import { prismaMock } from "@/tests/setup";
 
 const mockFns = vi.hoisted(() => ({
@@ -599,5 +600,195 @@ describe("inventory restock request lifecycle routes", () => {
       error: "Purchase Request belum memiliki Purchase Order untuk diproses",
     });
     expect(mockFns.patchRestockRequestStatus).not.toHaveBeenCalled();
+  });
+
+  describe("receiving a partial or larger delivery", () => {
+    function mockOrder(items: Array<Record<string, unknown>>) {
+      prismaMock.$transaction.mockImplementation(async (callback: unknown) =>
+        typeof callback === "function" ? callback(prismaMock) : callback,
+      );
+      prismaMock.purchaseRequest.findFirst.mockResolvedValue({
+        id: "pr-1",
+        purchaseOrderId: "po-1",
+        gudangId: "gudang-1",
+        status: "ORDERED",
+        nomorRequest: "PR-20261012-0001",
+      });
+      prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+        id: "po-1",
+        poNumber: "PO/2026/10/0008",
+        status: "PARTIAL",
+        items,
+      });
+      prismaMock.purchaseOrderItem.findMany.mockResolvedValue([]);
+      mockGrnCreate.mockResolvedValue({ id: "grn-1", grnNumber: "GRN-001" });
+      prismaMock.purchaseOrder.update.mockResolvedValue({ status: "RECEIVED" });
+      prismaMock.purchaseRequest.update.mockResolvedValue({});
+    }
+
+    function receive(body: Record<string, unknown>) {
+      return patchRestockRequestReceive(
+        new NextRequest(
+          "http://localhost/api/inventory/restock/requests/pr-1/receive",
+          {
+            method: "PATCH",
+            body: JSON.stringify({ fotoBukti: ["https://img.jpg"], ...body }),
+          },
+        ),
+        { params: Promise.resolve({ id: "pr-1" }) },
+      );
+    }
+
+    const pigtail = {
+      id: "po-item-1",
+      barangId: "barang-1",
+      quantity: 100,
+      receivedQuantity: 30,
+      cancelledQuantity: 0,
+      barang: { id: "barang-1", nama: "Pigtail" },
+    };
+    const ont = {
+      id: "po-item-2",
+      barangId: "barang-2",
+      quantity: 100,
+      receivedQuantity: 0,
+      cancelledQuantity: 0,
+      barang: { id: "barang-2", nama: "ONT XPON F609V9" },
+    };
+
+    it("closing the order cancels what did not arrive instead of receiving it", async () => {
+      mockOrder([pigtail, ont]);
+
+      const response = await receive({
+        items: { "barang-1": 50 },
+        closePO: true,
+      });
+
+      expect(response.status).toBe(200);
+      // Stok hanya bertambah sebanyak yang benar-benar datang.
+      expect(mockGrnCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: [
+            {
+              purchaseOrderItemId: "po-item-1",
+              barangId: "barang-1",
+              quantity: 50,
+            },
+          ],
+        }),
+      );
+      expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
+        where: { id: "po-item-1" },
+        data: expect.objectContaining({
+          cancelledQuantity: { increment: 20 },
+          cancelReason: "Pesanan ditutup",
+        }),
+      });
+      expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
+        where: { id: "po-item-2" },
+        data: expect.objectContaining({
+          cancelledQuantity: { increment: 100 },
+          cancelReason: "Pesanan ditutup",
+        }),
+      });
+    });
+
+    it("keeps the operator's own cancel reason when the order is closed", async () => {
+      mockOrder([pigtail, ont]);
+
+      await receive({
+        items: { "barang-1": 70 },
+        cancellations: { "barang-2": "Supplier tidak punya stok" },
+        closePO: true,
+      });
+
+      expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
+        where: { id: "po-item-2" },
+        data: expect.objectContaining({
+          cancelledQuantity: { increment: 100 },
+          cancelReason: "Supplier tidak punya stok",
+        }),
+      });
+      expect(prismaMock.purchaseOrderItem.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "po-item-1" } }),
+      );
+    });
+
+    it("rejects a delivery larger than the outstanding order without a reason", async () => {
+      mockOrder([pigtail]);
+
+      const response = await receive({
+        items: { "barang-1": 100 },
+        closePO: false,
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        error:
+          "Jumlah Pigtail (100) melebihi sisa pesanan (70). Isi alasan kelebihan kiriman agar jumlah PO dinaikkan.",
+      });
+      expect(mockGrnCreate).not.toHaveBeenCalled();
+      expect(prismaMock.purchaseOrderItem.update).not.toHaveBeenCalled();
+    });
+
+    it("raises the PO quantity when a larger delivery has a reason", async () => {
+      mockOrder([pigtail]);
+      prismaMock.purchaseOrderItem.findUnique.mockResolvedValue({
+        ...pigtail,
+        unitPrice: 5000,
+      });
+      prismaMock.purchaseOrderJasaItem.findMany.mockResolvedValue([]);
+      prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+        id: "po-1",
+        poNumber: "PO/2026/10/0008",
+        status: "PARTIAL",
+        items: [pigtail],
+        ppnRate: 0,
+        paymentStatus: "UNPAID",
+        grandTotal: 500000,
+      });
+
+      const response = await receive({
+        items: { "barang-1": 90 },
+        overReceipts: { "barang-1": "Supplier kirim lebih" },
+        closePO: false,
+      });
+
+      expect(response.status).toBe(200);
+      expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
+        where: { id: "po-item-1" },
+        data: { quantity: 120, totalPrice: 600000 },
+      });
+      expect(mockGrnCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: [
+            {
+              purchaseOrderItemId: "po-item-1",
+              barangId: "barang-1",
+              quantity: 90,
+            },
+          ],
+          notes: expect.stringContaining(
+            "Kelebihan kiriman: Pigtail +20 (Supplier kirim lebih)",
+          ),
+        }),
+      );
+    });
+
+    it("logs why a receipt was rejected", async () => {
+      mockOrder([pigtail]);
+      const warn = vi.spyOn(logger, "warn");
+
+      await receive({ items: { "barang-1": 100 }, closePO: false });
+
+      expect(warn).toHaveBeenCalledWith(
+        "[RESTOCK_RECEIVE] Penerimaan ditolak",
+        expect.objectContaining({
+          purchaseRequestId: "pr-1",
+          status: 400,
+          reason: expect.stringContaining("melebihi sisa pesanan"),
+        }),
+      );
+    });
   });
 });

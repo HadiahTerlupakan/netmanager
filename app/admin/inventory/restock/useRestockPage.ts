@@ -23,6 +23,7 @@ import type {
 
 import {
   buildCancellationPayload,
+  buildOverReceiptPayload,
   buildInitialReceivedItems,
   buildSubstitutionPayload,
   canSubmitRestockForm,
@@ -38,6 +39,7 @@ import type {
   Jasa,
   PurchaseRequest,
   RestockCancellationMap,
+  RestockOverReceiptMap,
   RestockFormItem,
   RestockSetting,
   RestockSubstitutionMap,
@@ -85,8 +87,10 @@ export function useRestockPage() {
   const [receivedCancellations, setReceivedCancellations] =
     useState<RestockCancellationMap>({});
   const [receivedPhotos, setReceivedPhotos] = useState<UploadedPhoto[]>([]);
-  const [isFinishingPO, setIsFinishingPO] = useState(true);
+  const [isFinishingPO, setIsFinishingPO] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [receivedOverReceipts, setReceivedOverReceipts] =
+    useState<RestockOverReceiptMap>({});
 
   const [confirmJasaPR, setConfirmJasaPR] = useState<PurchaseRequest | null>(
     null,
@@ -357,7 +361,10 @@ export function useRestockPage() {
     setReceivedSubstitutions({});
     setReceivedCancellations({});
     setReceivedPhotos([]);
-    setIsFinishingPO(true);
+    setReceivedOverReceipts({});
+    // Tidak tercentang: staf yang lupa melepasnya menutup pesanan yang masih
+    // akan dikirim susulan.
+    setIsFinishingPO(false);
   }, []);
 
   const closeReceive = useCallback(() => {
@@ -496,6 +503,11 @@ export function useRestockPage() {
           items: receivedItems,
           substitutions: buildSubstitutionPayload(receivedSubstitutions),
           cancellations: buildCancellationPayload(receivedCancellations),
+          overReceipts: buildOverReceiptPayload(
+            receivingPR.items,
+            receivedItems,
+            receivedOverReceipts,
+          ),
           fotoBukti: photoUrls,
           closePO: isFinishingPO,
         },
@@ -519,6 +531,7 @@ export function useRestockPage() {
     isFinishingPO,
     receivedCancellations,
     receivedItems,
+    receivedOverReceipts,
     receivedPhotos.length,
     receivedSubstitutions,
     receivingPR,
@@ -564,6 +577,8 @@ export function useRestockPage() {
     setReceivedSubstitutions,
     receivedCancellations,
     setReceivedCancellations,
+    receivedOverReceipts,
+    setReceivedOverReceipts,
     receivedPhotos,
     setReceivedPhotos,
     isFinishingPO,

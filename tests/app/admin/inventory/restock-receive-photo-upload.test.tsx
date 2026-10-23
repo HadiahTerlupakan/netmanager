@@ -68,6 +68,8 @@ function ReceiveModalHarness({
       onSubstitutionsChange={() => {}}
       cancellations={{}}
       onCancellationsChange={() => {}}
+      overReceipts={{}}
+      onOverReceiptsChange={() => {}}
       receivedPhotos={receivedPhotos}
       onReceivedPhotosChange={setReceivedPhotos}
       isFinishingPO={false}

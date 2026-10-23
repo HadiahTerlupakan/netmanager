@@ -9,6 +9,7 @@ import type {
   PurchaseRequestItem,
   RestockCancellationMap,
   RestockFormItem,
+  RestockOverReceiptMap,
   RestockSetting,
   RestockSubstitutionMap,
 } from "./types";
@@ -146,6 +147,53 @@ export function buildCancellationPayload(
       return acc;
     },
     {},
+  );
+}
+
+/** Jumlah diterima yang melebihi sisa pesanan; 0 bila tidak berlebih. */
+export function getRestockItemExcess(
+  item: PurchaseRequestItem,
+  receivedQuantity: number,
+): number {
+  return Math.max(
+    receivedQuantity - Math.max(getRestockItemRemaining(item), 0),
+    0,
+  );
+}
+
+function getExcessItems(
+  items: PurchaseRequestItem[],
+  receivedItems: Record<string, number>,
+): PurchaseRequestItem[] {
+  return items.filter(
+    (item) => getRestockItemExcess(item, receivedItems[item.barangId] ?? 0) > 0,
+  );
+}
+
+/** Hanya alasan untuk barang yang benar-benar berlebih yang dikirim ke server. */
+export function buildOverReceiptPayload(
+  items: PurchaseRequestItem[],
+  receivedItems: Record<string, number>,
+  overReceipts: RestockOverReceiptMap,
+): RestockOverReceiptMap {
+  return getExcessItems(items, receivedItems).reduce<RestockOverReceiptMap>(
+    (acc, item) => {
+      const reason = (overReceipts[item.barangId] ?? "").trim();
+      if (reason.length > 0) acc[item.barangId] = reason;
+      return acc;
+    },
+    {},
+  );
+}
+
+/** Barang yang datang melebihi sisa pesanan wajib diberi alasan. */
+export function hasMissingOverReceiptReason(
+  items: PurchaseRequestItem[],
+  receivedItems: Record<string, number>,
+  overReceipts: RestockOverReceiptMap,
+): boolean {
+  return getExcessItems(items, receivedItems).some(
+    (item) => (overReceipts[item.barangId] ?? "").trim().length === 0,
   );
 }
 
