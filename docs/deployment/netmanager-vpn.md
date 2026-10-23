@@ -125,7 +125,8 @@ Urutan rollout:
 
 1. Deploy core netmanager-vpn (bagian "Deploy core").
 2. Isi token API core ke `netmanager-secrets` sebagai `VPN_API_TOKEN`.
-3. Isi `VPN_CORE_API_URL` di ConfigMap.
+3. Isi `VPN_CORE_API_URL` di ConfigMap: `http://netmanager-vpn.netmanager-vpn.svc.cluster.local:7480`
+   (Service core; pod app sampai ke sana tanpa NetworkPolicy tambahan).
 4. Deploy netmanager; migrasi `20261020090000_add_vpn_servers` dijalankan job migrasi.
 5. Tambahkan server di `/admin/tenants`.
 6. Tetapkan server itu ke tenant.
@@ -152,13 +153,15 @@ tetap berjalan, tetapi harus diganti IP sebelum bisa test koneksi atau pindah
 ke VPN. Daftar sebelum deploy (hanya baca). Yang lolos hanya IPv4 kanonik
 (oktet 0-255 tanpa nol di depan) dan bentuk yang mungkin IPv6 (berisi `::` atau
 minimal dua titik dua, bukan `IPv4:port`); sisanya, termasuk `010.1.1.1`,
-`999.1.1.1`, dan `1.2.3.4:8728`, ditolak kode dan ikut terdaftar:
+`999.1.1.1`, dan `1.2.3.4:8728`, ditolak kode dan ikut terdaftar. Query ini
+tidak memfilter `connectionMode`: kolom itu baru dibuat migrasi
+`20261020090000_add_vpn_servers`, dan sebelum deploy semua router masih
+publik.
 
 ```sql
 SELECT id, name, "tenantId", "ipAddress"
 FROM "MikroTikRouter"
-WHERE "connectionMode" = 'PUBLIC'
-  AND NOT (
+WHERE NOT (
     "ipAddress" ~ '^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}$'
     OR ("ipAddress" ~ '^[0-9A-Fa-f:.]+$'
         AND ("ipAddress" LIKE '%::%' OR "ipAddress" ~ ':.*:')

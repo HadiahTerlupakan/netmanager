@@ -23,6 +23,10 @@ data:
   NODE_ENV: "production"
   ALLOWED_ORIGINS: "https://radpro.id,https://admin.radpro.id,https://karyawan.radpro.id,https://pelanggan.radpro.id,https://investor.radpro.id"
   K8S_NAMESPACE: "netmanager-production"
-  # Kosong = fitur VPN nonaktif; isi dengan URL API core netmanager-vpn saat rollout.
-  VPN_CORE_API_URL: ""
+  # Service core netmanager-vpn; fitur VPN tetap tersembunyi selama
+  # VPN_API_TOKEN di netmanager-secrets kosong.
+  VPN_CORE_API_URL: "http://netmanager-vpn.netmanager-vpn.svc.cluster.local:7480"
   VPN_CORE_ADDRESS: "10.99.0.1"
+  # Alamat RADIUS untuk router publik. Tanpa ini "Kembali ke publik" bergantung
+  # pada deteksi IP, yang menolak hasil dari interface lokal.
+  RADIUS_PUBLIC_IP: "31.56.30.53"
