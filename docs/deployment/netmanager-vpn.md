@@ -155,7 +155,7 @@ ke VPN. Daftar sebelum deploy (hanya baca):
 SELECT id, name, "tenantId", "ipAddress"
 FROM "MikroTikRouter"
 WHERE "connectionMode" = 'PUBLIC'
-  AND NOT ("ipAddress" ~ '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' OR "ipAddress" LIKE '%:%');
+  AND NOT ("ipAddress" ~ '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' OR ("ipAddress" LIKE '%:%' AND "ipAddress" ~ '^[0-9A-Fa-f:.]+$'));
 ```
 
 ## Server untuk semua router
