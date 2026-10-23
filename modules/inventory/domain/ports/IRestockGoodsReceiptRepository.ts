@@ -54,11 +54,16 @@ export interface IncreaseItemQuantitiesInput {
   increases: Array<{ purchaseOrderItemId: string; extraQuantity: number }>;
 }
 
-/** Keadaan PO sebelum dinaikkan, untuk dikembalikan bila GRN gagal dibuat. */
+/**
+ * Kenaikan yang diterapkan ke PO, untuk dikembalikan bila GRN gagal dibuat.
+ * Disimpan sebagai selisih, bukan snapshot, supaya perubahan lain pada PO di
+ * antara keduanya tidak ikut tertimpa.
+ */
 export interface PurchaseOrderIncreaseUndo {
   purchaseOrderId: string;
-  items: Array<{ purchaseOrderItemId: string; quantity: number }>;
-  paymentStatus: string;
+  increases: Array<{ purchaseOrderItemId: string; extraQuantity: number }>;
+  /** true bila kenaikan ini yang mengubah status bayar PAID menjadi PARTIAL. */
+  markedUnderpaid: boolean;
 }
 
 export interface IRestockGoodsReceiptRepository {

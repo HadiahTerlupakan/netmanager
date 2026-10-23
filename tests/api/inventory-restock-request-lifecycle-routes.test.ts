@@ -841,10 +841,9 @@ describe("inventory restock request lifecycle routes", () => {
 
     it("puts the PO back when the GRN cannot be created after raising it", async () => {
       mockOrder([pigtail]);
-      prismaMock.purchaseOrderItem.findFirst.mockResolvedValue({
-        ...pigtail,
-        unitPrice: 5000,
-      });
+      prismaMock.purchaseOrderItem.findFirst
+        .mockResolvedValueOnce({ ...pigtail, unitPrice: 5000 })
+        .mockResolvedValueOnce({ ...pigtail, quantity: 120, unitPrice: 5000 });
       prismaMock.purchaseOrderJasaItem.findMany.mockResolvedValue([]);
       prismaMock.purchaseOrder.findUnique.mockResolvedValue({
         id: "po-1",
@@ -855,6 +854,9 @@ describe("inventory restock request lifecycle routes", () => {
         paymentStatus: "PAID",
         grandTotal: 500000,
       });
+      prismaMock.purchaseOrderItem.findMany.mockResolvedValue([
+        { quantity: 120, unitPrice: 5000 },
+      ]);
       mockGrnCreate.mockRejectedValue(new Error("database unavailable"));
 
       const response = await receive({
@@ -868,8 +870,8 @@ describe("inventory restock request lifecycle routes", () => {
         where: { id: "po-item-1" },
         data: { quantity: 100, totalPrice: 500000 },
       });
-      expect(prismaMock.purchaseOrder.update).toHaveBeenLastCalledWith({
-        where: { id: "po-1" },
+      expect(prismaMock.purchaseOrder.updateMany).toHaveBeenCalledWith({
+        where: { id: "po-1", paymentStatus: "PARTIAL" },
         data: { paymentStatus: "PAID" },
       });
     });
