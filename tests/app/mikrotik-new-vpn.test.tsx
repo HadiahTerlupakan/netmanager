@@ -52,7 +52,7 @@ const DRAFT = {
   draftId: "d1a2",
   address: "10.99.0.5",
   apiUsername: "netmanager-0a1b2c3d",
-  apiPassword: "Abcdefghijklmnopqrstuvwx12",
+  apiPassword: "rahasia",
   script: "/interface wireguard add name=netmanager",
 };
 
