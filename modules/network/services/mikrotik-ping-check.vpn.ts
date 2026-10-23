@@ -5,14 +5,40 @@ import { VPN_HANDSHAKE_FRESH_MS } from "./VpnDraftService";
 /** Status router yang API-nya gagal dijawab. */
 export type FailedRouterStatus = "offline" | "tunnel_down";
 
-/** Pemutus lookup core per siklus: setelah galat pertama core tidak ditanya lagi. */
+/** Batas lookup core yang berjalan bersamaan dalam satu siklus. */
+export const VPN_CORE_LOOKUP_CONCURRENCY = 20;
+
+/**
+ * Pemutus lookup core per siklus: setelah galat pertama core tidak ditanya
+ * lagi. Membawa juga pembatas lookup serentak agar ratusan router tidak
+ * menghujani core sekaligus.
+ */
 export interface CoreLookupBreaker {
   isTripped: boolean;
+  acquire(): Promise<void>;
+  release(): void;
 }
 
 /** Pemutus baru untuk satu siklus pemeriksaan. */
 export function createCoreLookupBreaker(): CoreLookupBreaker {
-  return { isTripped: false };
+  let active = 0;
+  const waiting: Array<() => void> = [];
+  return {
+    isTripped: false,
+    async acquire() {
+      if (active < VPN_CORE_LOOKUP_CONCURRENCY) {
+        active += 1;
+        return;
+      }
+      // Slot diserahkan langsung oleh release(), jadi `active` tidak berubah.
+      await new Promise<void>((resolve) => waiting.push(resolve));
+    },
+    release() {
+      const next = waiting.shift();
+      if (next) next();
+      else active -= 1;
+    },
+  };
 }
 
 function isHandshakeStale(lastHandshakeAt: string | null): boolean {
@@ -48,7 +74,9 @@ export async function lookupVpnRouter(
   if (breaker.isTripped || !isVpnConfigured()) {
     return { failedStatus: "offline" };
   }
+  await breaker.acquire();
   try {
+    if (breaker.isTripped) return { failedStatus: "offline" };
     const core = await getVpnCoreClient().getRouter(router.vpnCoreRouterId);
     return {
       failedStatus: isHandshakeStale(core.lastHandshakeAt)
@@ -63,5 +91,7 @@ export async function lookupVpnRouter(
       error,
     );
     return { failedStatus: "offline" };
+  } finally {
+    breaker.release();
   }
 }

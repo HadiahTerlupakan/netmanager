@@ -196,6 +196,44 @@ describe("mikrotik ping-check for VPN routers", () => {
     expect(mocks.getRouter).not.toHaveBeenCalled();
   });
 
+  it("caps in-flight core lookups at 20 without making a public router wait", async () => {
+    const routers = Array.from({ length: 25 }, (_, i) =>
+      router(`v${i}`, { ipAddress: `10.100.1.${i}` }),
+    );
+    const publicRouter = router("pub", {
+      connectionMode: "PUBLIC",
+      vpnCoreRouterId: null,
+    });
+    mocks.findAll.mockResolvedValue([...routers, publicRouter]);
+    const held: Array<() => void> = [];
+    let inFlight = 0;
+    let peak = 0;
+    mocks.getRouter.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          inFlight += 1;
+          peak = Math.max(peak, inFlight);
+          held.push(() => {
+            inFlight -= 1;
+            resolve({ lastHandshakeAt: FRESH_HANDSHAKE, activeHubId: "s1" });
+          });
+        }),
+    );
+
+    const cycle = checkAllMikroTikRouterStatus();
+    await vi.waitFor(() => expect(mocks.getRouter).toHaveBeenCalledTimes(20));
+    await vi.waitFor(() => expect(statusOf("pub")).toBe("offline"));
+    expect(peak).toBe(20);
+
+    while (held.length > 0 || mocks.getRouter.mock.calls.length < 25) {
+      held.splice(0).forEach((release) => release());
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    await cycle;
+    expect(peak).toBe(20);
+    expect(mocks.getRouter).toHaveBeenCalledTimes(25);
+  });
+
   it("applies tunnel_down to a single-router check too", async () => {
     mocks.findRouterTenantId.mockResolvedValue({ tenantId: "t1" });
     mocks.findById.mockResolvedValue(router("a"));
