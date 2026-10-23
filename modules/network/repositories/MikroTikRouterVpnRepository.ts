@@ -175,14 +175,18 @@ export class MikroTikRouterVpnRepository implements IMikroTikRouterVpnRepository
     );
   }
 
-  /** Menyimpan server VPN yang sedang dipakai router. */
+  /**
+   * Menyimpan server VPN yang sedang dipakai router. Hanya router yang masih
+   * mode VPN: monitor membaca core sebelum menulis, dan router yang kembali ke
+   * PUBLIC di antaranya tidak boleh mendapat server aktif basi.
+   */
   async setActiveServer(
     routerId: string,
     tenantId: string,
     serverId: string | null,
   ): Promise<void> {
     await this.client.mikroTikRouter.updateMany({
-      where: { id: routerId, tenantId },
+      where: { id: routerId, tenantId, connectionMode: "VPN" },
       data: { vpnActiveServerId: serverId },
     });
   }

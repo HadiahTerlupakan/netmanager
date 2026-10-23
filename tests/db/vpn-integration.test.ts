@@ -259,6 +259,49 @@ describeDb("integrasi DB nyata — VPN", () => {
     });
   });
 
+  describe("MikroTikRouterVpnRepository.setActiveServer", () => {
+    async function aktif(id: string): Promise<string | null> {
+      const row = await prismaAuth.mikroTikRouter.findUniqueOrThrow({
+        where: { id },
+      });
+      return row.vpnActiveServerId;
+    }
+
+    it("menyimpan server aktif router VPN", async () => {
+      const { id } = await sebagaiTenant(() =>
+        new MikroTikRouterRepository().create(vpnData("core-uji-aktif"), [
+          SERVERS[0],
+        ]),
+      );
+
+      await sebagaiTenant(() =>
+        new MikroTikRouterVpnRepository().setActiveServer(
+          id,
+          TENANT,
+          SERVERS[0],
+        ),
+      );
+
+      expect(await aktif(id)).toBe(SERVERS[0]);
+    });
+
+    it("tidak menulis server aktif ke router yang sudah kembali ke PUBLIC", async () => {
+      const { id } = await sebagaiTenant(() =>
+        new MikroTikRouterRepository().create(dataRouter(), []),
+      );
+
+      await sebagaiTenant(() =>
+        new MikroTikRouterVpnRepository().setActiveServer(
+          id,
+          TENANT,
+          SERVERS[0],
+        ),
+      );
+
+      expect(await aktif(id)).toBeNull();
+    });
+  });
+
   describe("MikroTikRouterVpnMigrationRepository", () => {
     async function routerPublik(): Promise<VpnMigrationRouterRecord> {
       const { id } = await sebagaiTenant(() =>

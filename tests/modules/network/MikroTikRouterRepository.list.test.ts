@@ -71,24 +71,3 @@ describe("MikroTikRouterRepository.findWithFilters vpnOnBackup", () => {
     expect(result.routers[0]).not.toHaveProperty("vpnServers");
   });
 });
-
-describe("MikroTikRouterRepository.update vpnActiveServerId", () => {
-  it("writes the active server when given and leaves it alone otherwise", async () => {
-    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
-    const client = {
-      mikroTikRouter: {
-        findFirst: vi.fn().mockResolvedValue(null),
-        updateMany,
-      },
-    } as unknown as PrismaClient;
-    const repository = new MikroTikRouterRepository(client);
-
-    await repository.update("r1", { vpnActiveServerId: "s2" }, "t1");
-    await repository.update("r1", { pingStatus: "online" }, "t1");
-
-    expect(updateMany.mock.calls[0][0].data.vpnActiveServerId).toBe("s2");
-    expect(updateMany.mock.calls[1][0].data).not.toHaveProperty(
-      "vpnActiveServerId",
-    );
-  });
-});

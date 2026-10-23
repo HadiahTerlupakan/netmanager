@@ -5,6 +5,7 @@ import {
 } from "@/lib/tenant-context";
 import { RouterOSAPI } from "node-routeros-v2";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
+import { MikroTikRouterVpnRepository } from "../repositories/MikroTikRouterVpnRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import { RadiusConnectionError } from "../utils/errors";
 import {
@@ -196,14 +197,18 @@ async function updateRouterHealth(
     routerId,
     {
       pingStatus: health.pingStatus,
-      ...(health.vpnActiveServerId !== undefined && {
-        vpnActiveServerId: health.vpnActiveServerId,
-      }),
       userOnline: apiResult.userOnline ?? 0,
       lastStatusCheck: new Date(),
     },
     tenantId,
   );
+  if (health.vpnActiveServerId !== undefined) {
+    await new MikroTikRouterVpnRepository().setActiveServer(
+      routerId,
+      tenantId,
+      health.vpnActiveServerId,
+    );
+  }
 }
 
 async function markRouterOffline(

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   findAll: vi.fn(),
   findById: vi.fn(),
   update: vi.fn(),
+  setActiveServer: vi.fn(),
   findActiveTenants: vi.fn(),
   findRouterTenantId: vi.fn(),
   getRouter: vi.fn(),
@@ -36,6 +37,11 @@ vi.mock("@/modules/network/repositories/MikroTikRouterRepository", () => ({
     findAll = mocks.findAll;
     findById = mocks.findById;
     update = mocks.update;
+  },
+}));
+vi.mock("@/modules/network/repositories/MikroTikRouterVpnRepository", () => ({
+  MikroTikRouterVpnRepository: class {
+    setActiveServer = mocks.setActiveServer;
   },
 }));
 vi.mock("@/modules/network/repositories/NetworkRepository", () => ({
@@ -79,8 +85,8 @@ function statusOf(routerId: string): string | undefined {
 }
 
 function activeServerOf(routerId: string): string | null | undefined {
-  const call = mocks.update.mock.calls.find(([id]) => id === routerId);
-  return call?.[1].vpnActiveServerId;
+  const call = mocks.setActiveServer.mock.calls.find(([id]) => id === routerId);
+  return call?.[2];
 }
 
 describe("mikrotik ping-check for VPN routers", () => {
@@ -92,6 +98,7 @@ describe("mikrotik ping-check for VPN routers", () => {
     mocks.isVpnConfigured.mockReturnValue(true);
     mocks.findActiveTenants.mockResolvedValue([{ id: "t1" }]);
     mocks.update.mockResolvedValue(undefined);
+    mocks.setActiveServer.mockResolvedValue(undefined);
   });
 
   afterEach(() => vi.useRealTimers());
@@ -133,10 +140,12 @@ describe("mikrotik ping-check for VPN routers", () => {
 
     expect(statusOf("a")).toBe("online");
     expect(activeServerOf("a")).toBe("s2");
+    expect(mocks.setActiveServer).toHaveBeenCalledWith("a", "t1", "s2");
     expect(statusOf("bb")).toBe("offline");
     expect(mocks.getRouter).toHaveBeenCalledTimes(1);
+    expect(activeServerOf("bb")).toBeUndefined();
     expect(
-      mocks.update.mock.calls.find(([id]) => id === "bb")?.[1],
+      mocks.update.mock.calls.find(([id]) => id === "a")?.[1],
     ).not.toHaveProperty("vpnActiveServerId");
   });
 
@@ -166,9 +175,7 @@ describe("mikrotik ping-check for VPN routers", () => {
     await checkAllMikroTikRouterStatus();
 
     expect(statusOf("bb")).toBe("online");
-    expect(
-      mocks.update.mock.calls.find(([id]) => id === "bb")?.[1],
-    ).not.toHaveProperty("vpnActiveServerId");
+    expect(activeServerOf("bb")).toBeUndefined();
     expect(mocks.getRouter).toHaveBeenCalledTimes(1);
   });
 

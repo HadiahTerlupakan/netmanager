@@ -44,7 +44,6 @@ export interface MikroTikRouterUpdateData {
   connectionMode?: "PUBLIC" | "VPN";
   vpnAddress?: string | null;
   vpnCoreRouterId?: string | null;
-  vpnActiveServerId?: string | null;
   publicIpAddress?: string | null;
   vpnScriptStale?: boolean;
 }
