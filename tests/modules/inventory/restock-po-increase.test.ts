@@ -18,10 +18,10 @@ function createDb(purchaseOrder: Record<string, unknown>) {
           data,
         }: {
           where: { id: string };
-          data: { quantity: number };
+          data: { quantity?: { increment: number }; totalPrice?: number };
         }) => {
           const item = items.find((candidate) => candidate.id === where.id)!;
-          item.quantity = data.quantity;
+          if (data.quantity) item.quantity += data.quantity.increment;
           return item;
         },
       ),
@@ -61,7 +61,11 @@ describe("RestockGoodsReceiptRepository.increaseItemQuantities", () => {
 
     expect(tx.purchaseOrderItem.update).toHaveBeenCalledWith({
       where: { id: "poi-1" },
-      data: { quantity: 20, totalPrice: 20000 },
+      data: { quantity: { increment: 10 } },
+    });
+    expect(tx.purchaseOrderItem.update).toHaveBeenCalledWith({
+      where: { id: "poi-1" },
+      data: { totalPrice: 20000 },
     });
     // 20×1000 + 5×2000 + jasa 500 = 30500, PPN 11% = 3355.
     expect(tx.purchaseOrder.update).toHaveBeenCalledWith({

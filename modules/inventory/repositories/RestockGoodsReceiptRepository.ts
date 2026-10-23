@@ -203,10 +203,15 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
     if (!item) {
       throw new Error(`Item PO ${purchaseOrderItemId} tidak ditemukan`);
     }
-    const quantity = item.quantity + delta;
+    // Selisih ditambahkan oleh database, bukan dari jumlah yang dibaca di
+    // atas, supaya perubahan isi PO yang masuk bersamaan tidak tertimpa.
+    const updated = await tx.purchaseOrderItem.update({
+      where: { id: item.id },
+      data: { quantity: { increment: delta } },
+    });
     await tx.purchaseOrderItem.update({
       where: { id: item.id },
-      data: { quantity, totalPrice: quantity * item.unitPrice },
+      data: { totalPrice: updated.quantity * updated.unitPrice },
     });
   }
 

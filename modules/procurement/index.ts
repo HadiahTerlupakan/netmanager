@@ -13,6 +13,7 @@ export * from "./services/ProcurementService";
 import { PurchaseOrderRepository } from "./repositories/PurchaseOrderRepository";
 import { PurchaseOrderPaymentService } from "./services/PurchaseOrderPaymentService";
 import { PurchaseOrderService } from "./services/PurchaseOrderService";
+import { PurchaseOrderItemChangeService } from "./services/PurchaseOrderItemChangeService";
 import { ProcurementService } from "./services/ProcurementService";
 import { SupplierRepository } from "./repositories/SupplierRepository";
 import { SupplierService } from "./services/SupplierService";
@@ -32,7 +33,15 @@ export function getPurchaseOrderService(): PurchaseOrderService {
   );
 }
 
+export function getPurchaseOrderItemChangeService(): PurchaseOrderItemChangeService {
+  return new PurchaseOrderItemChangeService();
+}
+
 export { PurchaseOrderPaymentService } from "./services/PurchaseOrderPaymentService";
+export {
+  PurchaseOrderItemChangeService,
+  PurchaseOrderItemChangeInvalidError,
+} from "./services/PurchaseOrderItemChangeService";
 export {
   PurchaseOrderService,
   PurchaseOrderNotFoundError,
@@ -59,11 +68,13 @@ export type {
 export {
   createPurchaseOrderSchema,
   updatePurchaseOrderSchema,
+  changePurchaseOrderItemsSchema,
   purchaseOrderListQuerySchema,
 } from "./validators/purchase-order";
 export type {
   CreatePurchaseOrderInput,
   UpdatePurchaseOrderInput,
+  ChangePurchaseOrderItemsBody,
   PurchaseOrderListQuery,
 } from "./validators/purchase-order";
 

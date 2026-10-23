@@ -737,6 +737,11 @@ describe("inventory restock request lifecycle routes", () => {
         ...pigtail,
         unitPrice: 5000,
       });
+      prismaMock.purchaseOrderItem.update.mockResolvedValue({
+        ...pigtail,
+        quantity: 120,
+        unitPrice: 5000,
+      });
       prismaMock.purchaseOrderJasaItem.findMany.mockResolvedValue([]);
       prismaMock.purchaseOrder.findUnique.mockResolvedValue({
         id: "po-1",
@@ -757,7 +762,11 @@ describe("inventory restock request lifecycle routes", () => {
       expect(response.status).toBe(200);
       expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
         where: { id: "po-item-1" },
-        data: { quantity: 120, totalPrice: 600000 },
+        data: { quantity: { increment: 20 } },
+      });
+      expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
+        where: { id: "po-item-1" },
+        data: { totalPrice: 600000 },
       });
       expect(mockGrnCreate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -844,6 +853,11 @@ describe("inventory restock request lifecycle routes", () => {
       prismaMock.purchaseOrderItem.findFirst
         .mockResolvedValueOnce({ ...pigtail, unitPrice: 5000 })
         .mockResolvedValueOnce({ ...pigtail, quantity: 120, unitPrice: 5000 });
+      prismaMock.purchaseOrderItem.update
+        .mockResolvedValueOnce({ ...pigtail, quantity: 120, unitPrice: 5000 })
+        .mockResolvedValueOnce({ ...pigtail, quantity: 120, unitPrice: 5000 })
+        .mockResolvedValueOnce({ ...pigtail, quantity: 100, unitPrice: 5000 })
+        .mockResolvedValueOnce({ ...pigtail, quantity: 100, unitPrice: 5000 });
       prismaMock.purchaseOrderJasaItem.findMany.mockResolvedValue([]);
       prismaMock.purchaseOrder.findUnique.mockResolvedValue({
         id: "po-1",
@@ -866,9 +880,13 @@ describe("inventory restock request lifecycle routes", () => {
       });
 
       expect(response.status).toBe(500);
+      expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
+        where: { id: "po-item-1" },
+        data: { quantity: { increment: -20 } },
+      });
       expect(prismaMock.purchaseOrderItem.update).toHaveBeenLastCalledWith({
         where: { id: "po-item-1" },
-        data: { quantity: 100, totalPrice: 500000 },
+        data: { totalPrice: 500000 },
       });
       expect(prismaMock.purchaseOrder.updateMany).toHaveBeenCalledWith({
         where: { id: "po-1", paymentStatus: "PARTIAL" },

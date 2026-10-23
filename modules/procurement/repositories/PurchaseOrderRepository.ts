@@ -22,7 +22,8 @@ const PO_NUMBER_PADDING = 4;
 const PO_NUMBER_PAD_CHARACTER = "0";
 const PO_NUMBER_DEFAULT_SEQUENCE = "0001";
 const PO_NUMBER_MONTH_OFFSET = 1;
-const PAYMENT_TOLERANCE = 100;
+export const PAYMENT_TOLERANCE = 100;
+export const PURCHASE_ORDER_PAYMENT_CATEGORY = "Purchase Order Payment";
 
 export class PurchaseOrderRepository implements IPurchaseOrderRepository {
   constructor(private client: PrismaClient = prisma) {}
@@ -332,7 +333,7 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
 
       const expense = await tx.expense.create({
         data: {
-          category: "Purchase Order Payment",
+          category: PURCHASE_ORDER_PAYMENT_CATEGORY,
           amount: input.amount,
           date: input.date,
           description: input.notes || `Pembayaran PO #${input.po.poNumber}`,

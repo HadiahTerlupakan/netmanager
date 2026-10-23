@@ -41,6 +41,42 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-23] — Ubah isi PO yang sudah dipesan
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/procurement` | `app/api/admin/procurement/purchase-orders/[id]/items` | `app/admin/procurement/purchase-orders/[id]`
+- **Author**: agent
+- **Deskripsi**:
+  - Halaman detail PO punya tombol "Ubah Isi Pesanan" untuk PO Draft,
+    Dipesan, atau Sebagian Diterima. Dipakai saat supplier mengganti sebagian
+    pesanan, misalnya 4000 m kabel 4 core menjadi 2000 m 4 core dan 2000 m
+    2 core.
+  - Jumlah baris bisa dikurangi, tetapi tidak di bawah yang sudah diterima dan
+    dianulir (minimal 1). Barang baru bisa ditambah dengan harga satuannya
+    sendiri; barang yang sudah ada di PO harus diubah jumlahnya, bukan
+    ditambah lagi. Alasan wajib diisi.
+  - Endpoint `PATCH /api/admin/procurement/purchase-orders/[id]/items`, izin
+    `purchase_orders:update`. Subtotal, PPN, dan grand total dihitung ulang;
+    status bayar dihitung ulang dari pembayaran yang tercatat (PO lunas yang
+    totalnya naik menjadi Sebagian, dan sebaliknya). Kenaikan nilai PO tetap
+    melewati batas approval yang dipakai saat membuat PO.
+  - Barang tambahan ikut masuk ke pengajuan (PR) paling lama yang tergabung di
+    PO, sehingga langsung tampil di Verifikasi Barang Sampai dengan sisanya.
+    Pengajuan lain yang digabung ke PO yang sama tidak menampilkannya.
+  - Bila pengurangan membuat tidak ada sisa pesanan, PO dan pengajuannya
+    ditutup sebagai Diterima.
+  - Perubahan tercatat di log aktivitas (`CHANGE_ITEMS PurchaseOrder`) beserta
+    alasan, jumlah sebelum/sesudah, dan grand total sebelum/sesudah.
+  - Aturan diperiksa ulang di dalam transaksi setelah baris PO dikunci
+    (`FOR UPDATE`), sehingga penerimaan barang atau perubahan lain yang masuk
+    bersamaan tidak membuat jumlah di bawah yang sudah diterima, menambah baris
+    ke PO yang baru saja ditutup, atau menambah barang yang sama dua kali.
+    Status bayar hanya menghitung pembayaran PO milik tenant yang sama.
+  - Kenaikan jumlah PO karena kelebihan kiriman di verifikasi restock kini
+    ditambahkan oleh database (`increment`), sehingga tidak menimpa perubahan
+    isi PO yang tersimpan bersamaan.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-23] — Verifikasi barang sampai: kiriman sebagian, kiriman lebih, dan tutup pesanan
 
 - **Tipe**: [FIXED] [CHANGED] [ADDED]

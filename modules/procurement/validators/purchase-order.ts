@@ -56,6 +56,23 @@ export const updatePurchaseOrderSchema = z.object({
     .optional(),
 });
 
+export const changePurchaseOrderItemsSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Alasan perubahan wajib diisi")
+    .max(255, "Alasan maksimal 255 karakter"),
+  changes: z
+    .array(
+      z.object({
+        id: z.string().min(1, "ID item wajib diisi"),
+        quantity: z.coerce.number().int("Jumlah harus bilangan bulat"),
+      }),
+    )
+    .default([]),
+  additions: z.array(purchaseOrderItemSchema).default([]),
+});
+
 export const purchaseOrderListQuerySchema = z.object({
   search: z.string().trim().optional(),
   status: z.string().trim().optional(),
@@ -69,6 +86,9 @@ export type CreatePurchaseOrderInput = z.infer<
 >;
 export type UpdatePurchaseOrderInput = z.infer<
   typeof updatePurchaseOrderSchema
+>;
+export type ChangePurchaseOrderItemsBody = z.infer<
+  typeof changePurchaseOrderItemsSchema
 >;
 export type PurchaseOrderListQuery = z.infer<
   typeof purchaseOrderListQuerySchema
