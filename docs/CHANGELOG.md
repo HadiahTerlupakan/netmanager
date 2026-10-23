@@ -260,6 +260,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
     "Pesanan ditutup" (alasan anulir dari operator tetap dipakai). Sebelumnya
     sisa itu dicatat diterima, sehingga stok bertambah untuk barang yang tidak
     pernah datang.
+
+### [2026-10-23] — Timeout koneksi RouterOS dikirim dalam detik
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/network`
+- **Author**: agent
+- **Deskripsi**: node-routeros-v2 membaca opsi `timeout` dalam detik, sedangkan
+  enam titik koneksi mengirim milidetik (10000/5000), sehingga router yang
+  menerima TCP tapi tidak menjawab login menahan pemanggil sekitar 2,8 jam.
+  Semua titik kini lewat `toRouterOsTimeoutSeconds`.
 - **Breaking**: ❌ Tidak
 
 ### [2026-10-18] — Log Login mencatat lagi login web, login mobile, dan versi aplikasi yang ditolak
