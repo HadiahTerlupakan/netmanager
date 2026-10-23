@@ -149,13 +149,21 @@ spike selesai (`docs/superpowers/plans/2026-10-19-vpn-spike.md`).
 `ipAddress` router harus alamat IP literal (create, PATCH yang mengubahnya,
 test koneksi, dan pindah ke VPN). Router PUBLIC lama yang berisi nama host
 tetap berjalan, tetapi harus diganti IP sebelum bisa test koneksi atau pindah
-ke VPN. Daftar sebelum deploy (hanya baca):
+ke VPN. Daftar sebelum deploy (hanya baca). Yang lolos hanya IPv4 kanonik
+(oktet 0-255 tanpa nol di depan) dan bentuk yang mungkin IPv6 (berisi `::` atau
+minimal dua titik dua, bukan `IPv4:port`); sisanya, termasuk `010.1.1.1`,
+`999.1.1.1`, dan `1.2.3.4:8728`, ditolak kode dan ikut terdaftar:
 
 ```sql
 SELECT id, name, "tenantId", "ipAddress"
 FROM "MikroTikRouter"
 WHERE "connectionMode" = 'PUBLIC'
-  AND NOT ("ipAddress" ~ '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' OR ("ipAddress" LIKE '%:%' AND "ipAddress" ~ '^[0-9A-Fa-f:.]+$'));
+  AND NOT (
+    "ipAddress" ~ '^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}$'
+    OR ("ipAddress" ~ '^[0-9A-Fa-f:.]+$'
+        AND ("ipAddress" LIKE '%::%' OR "ipAddress" ~ ':.*:')
+        AND "ipAddress" !~ '^[0-9.]+:[0-9]+$')
+  );
 ```
 
 ## Server untuk semua router
