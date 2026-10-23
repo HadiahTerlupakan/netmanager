@@ -118,7 +118,11 @@ export function buildInitialReceivedItems(
 
 /** Sisa pesanan yang belum diterima dan belum dianulir. */
 export function getRestockItemRemaining(item: PurchaseRequestItem): number {
-  return item.jumlah - item.receivedQuantity - (item.cancelledQuantity ?? 0);
+  return (
+    (item.orderedQuantity ?? item.jumlah) -
+    item.receivedQuantity -
+    (item.cancelledQuantity ?? 0)
+  );
 }
 
 /**
@@ -183,6 +187,19 @@ export function buildOverReceiptPayload(
       return acc;
     },
     {},
+  );
+}
+
+/** Barang yang datang melebihi sisa pesanan tidak punya sisa untuk dianulir. */
+export function hasCancellationOnExcessItem(
+  items: PurchaseRequestItem[],
+  receivedItems: Record<string, number>,
+  cancellations: RestockCancellationMap,
+): boolean {
+  return items.some(
+    (item) =>
+      item.barangId in cancellations &&
+      getRestockItemRemaining(item) - (receivedItems[item.barangId] ?? 0) <= 0,
   );
 }
 

@@ -2,6 +2,8 @@ export interface PurchaseRequestItem {
   id: string;
   barangId: string;
   jumlah: number;
+  /** Jumlah di item PO; bisa lebih besar dari `jumlah` bila PO menggabungkan pengajuan. */
+  orderedQuantity?: number;
   receivedQuantity: number;
   cancelledQuantity?: number;
   cancelReason?: string | null;

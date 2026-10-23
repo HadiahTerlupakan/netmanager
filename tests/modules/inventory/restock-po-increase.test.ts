@@ -9,7 +9,7 @@ function createDb(purchaseOrder: Record<string, unknown>) {
   ];
   const tx = {
     purchaseOrderItem: {
-      findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
+      findFirst: vi.fn(async ({ where }: { where: { id: string } }) =>
         items.find((item) => item.id === where.id),
       ),
       update: vi.fn(

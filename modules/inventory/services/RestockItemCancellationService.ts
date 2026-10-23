@@ -76,6 +76,19 @@ export class RestockItemCancellationService {
   constructor(private readonly repository: IRestockGoodsReceiptRepository) {}
 
   /**
+   * Periksa anulir tanpa menulis apa pun, supaya penolakan terjadi sebelum
+   * GRN menambah stok; penolakan sesudahnya membuat operator mengulang dan
+   * stok tercatat dua kali.
+   */
+  validate(input: ApplyRestockCancellationInput): void {
+    this.resolveAgainstPurchaseOrder(
+      this.parseRequestedCancellations(input.cancellations),
+      input.purchaseOrderItems,
+      input.receivedQuantityByItemId,
+    );
+  }
+
+  /**
    * Terapkan anulir sisa pesanan.
    * Mengembalikan daftar anulir yang benar-benar tercatat.
    */

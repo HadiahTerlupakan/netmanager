@@ -55,6 +55,11 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
     jumlah item PO dinaikkan, subtotal/PPN/grand total PO dihitung ulang, PO
     yang sudah lunas menjadi PARTIAL, dan kelebihannya tercatat di catatan GRN
     serta log aktivitas. Tanpa alasan tetap ditolak dengan pesan yang jelas.
+    Menaikkan PO butuh izin `purchase_orders:update` (403 tanpa izin itu),
+    tidak berlaku untuk PO yang sudah RECEIVED/CANCELLED, dan dikembalikan
+    bila GRN gagal dibuat. Sisa dihitung dari jumlah di PO.
+  - Anulir diperiksa sebelum stok dicatat, sehingga penolakan anulir tidak
+    lagi membuat operator mengulang dan stok tercatat dua kali.
   - "Tutup Pesanan" tidak lagi tercentang secara default.
   - Menutup pesanan kini menganulir sisa yang belum datang dengan alasan
     "Pesanan ditutup" (alasan anulir dari operator tetap dipakai). Sebelumnya

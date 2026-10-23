@@ -19,6 +19,7 @@ import type {
   RestockSubstitutionMap,
 } from "./types";
 import {
+  hasCancellationOnExcessItem,
   hasIncompleteCancellationReason,
   hasMissingOverReceiptReason,
 } from "./utils";
@@ -71,6 +72,11 @@ export function RestockReceiveModal({
   const substitutedCount = Object.keys(substitutions).length;
   const cancelledCount = Object.keys(cancellations).length;
   const hasIncompleteReason = hasIncompleteCancellationReason(cancellations);
+  const hasCancelWithoutRemainder = hasCancellationOnExcessItem(
+    request?.items ?? [],
+    receivedItems,
+    cancellations,
+  );
   const hasMissingExcessReason = hasMissingOverReceiptReason(
     request?.items ?? [],
     receivedItems,
@@ -107,14 +113,17 @@ export function RestockReceiveModal({
     receivedPhotos.length === 0 ||
     !hasReceivedItem ||
     hasIncompleteReason ||
+    hasCancelWithoutRemainder ||
     hasMissingExcessReason;
   const disabledReason = hasIncompleteReason
     ? "Lengkapi alasan anulir terlebih dahulu"
-    : hasMissingExcessReason
-      ? "Isi alasan kelebihan kiriman"
-      : receivedPhotos.length === 0
-        ? "Unggah foto bukti terlebih dahulu"
-        : "Minimal satu barang harus diterima";
+    : hasCancelWithoutRemainder
+      ? "Batalkan anulir barang yang sudah diterima penuh"
+      : hasMissingExcessReason
+        ? "Isi alasan kelebihan kiriman"
+        : receivedPhotos.length === 0
+          ? "Unggah foto bukti terlebih dahulu"
+          : "Minimal satu barang harus diterima";
 
   return (
     <Modal

@@ -61,6 +61,9 @@ export class InventoryPurchaseRequestRepository {
         );
         return {
           ...item,
+          // Satu PO bisa menggabungkan beberapa pengajuan; sisa dihitung dari
+          // jumlah di PO seperti yang dipakai server saat verifikasi.
+          orderedQuantity: purchaseOrderItem?.quantity ?? item.jumlah,
           receivedQuantity: purchaseOrderItem?.receivedQuantity || 0,
           cancelledQuantity: purchaseOrderItem?.cancelledQuantity || 0,
           cancelReason: purchaseOrderItem?.cancelReason || null,

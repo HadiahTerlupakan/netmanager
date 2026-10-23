@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/rbac";
 import {
   createRestockGoodsReceiptService,
   RestockReceiptFailedError,
+  RestockReceiptForbiddenError,
   RestockReceiptInvalidError,
   RestockReceiptNotFoundError,
 } from "@/modules/inventory";
@@ -32,6 +33,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
       substitutions: (body.substitutions ?? {}) as Record<string, string>,
       cancellations: (body.cancellations ?? {}) as Record<string, string>,
       overReceipts: (body.overReceipts ?? {}) as Record<string, string>,
+      canIncreasePurchaseOrder: await hasPermission("purchase_orders:update"),
       fotoBukti: (body.fotoBukti ?? []) as string[],
       closePO: Boolean(body.closePO),
       actorId: user.id as string,
@@ -62,6 +64,9 @@ function mapReceiptError(error: unknown) {
   }
   if (error instanceof RestockReceiptInvalidError) {
     return ApiErrors.badRequest(error.message);
+  }
+  if (error instanceof RestockReceiptForbiddenError) {
+    return ApiErrors.forbidden(error.message);
   }
   if (error instanceof RestockReceiptFailedError) {
     return ApiErrors.internalError(error.message);

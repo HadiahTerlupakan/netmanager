@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildInitialReceivedItems,
   buildOverReceiptPayload,
+  hasCancellationOnExcessItem,
+  getRestockItemRemaining,
   hasMissingOverReceiptReason,
   getToggledReceivedQuantity,
   canApprovePurchaseRequest,
@@ -487,6 +489,34 @@ describe("restock utils", () => {
       expect(hasMissingOverReceiptReason(items, received, {})).toBe(true);
       expect(
         hasMissingOverReceiptReason(items, received, { "barang-1": "Bonus" }),
+      ).toBe(false);
+    });
+
+    it("measures what is outstanding from the PO quantity when the PO merges requests", () => {
+      expect(
+        getRestockItemRemaining({
+          ...items[0],
+          jumlah: 10,
+          orderedQuantity: 25,
+          receivedQuantity: 5,
+        }),
+      ).toBe(20);
+    });
+
+    it("flags a cancellation on an item that arrives in full or more", () => {
+      expect(
+        hasCancellationOnExcessItem(
+          items,
+          { "barang-1": 10 },
+          { "barang-1": "Tidak jadi" },
+        ),
+      ).toBe(true);
+      expect(
+        hasCancellationOnExcessItem(
+          items,
+          { "barang-1": 6 },
+          { "barang-1": "Tidak jadi" },
+        ),
       ).toBe(false);
     });
 

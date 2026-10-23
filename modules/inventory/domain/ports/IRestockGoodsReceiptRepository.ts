@@ -20,6 +20,7 @@ export interface RestockPurchaseOrderItem {
 export interface RestockPurchaseOrderForReceipt {
   id: string;
   poNumber?: string | null;
+  status?: string;
   items: RestockPurchaseOrderItem[];
 }
 
@@ -53,6 +54,13 @@ export interface IncreaseItemQuantitiesInput {
   increases: Array<{ purchaseOrderItemId: string; extraQuantity: number }>;
 }
 
+/** Keadaan PO sebelum dinaikkan, untuk dikembalikan bila GRN gagal dibuat. */
+export interface PurchaseOrderIncreaseUndo {
+  purchaseOrderId: string;
+  items: Array<{ purchaseOrderItemId: string; quantity: number }>;
+  paymentStatus: string;
+}
+
 export interface IRestockGoodsReceiptRepository {
   findPurchaseRequestForReceipt(
     id: string,
@@ -74,7 +82,11 @@ export interface IRestockGoodsReceiptRepository {
 
   applyItemCancellations(input: ApplyItemCancellationInput): Promise<void>;
 
-  increaseItemQuantities(input: IncreaseItemQuantitiesInput): Promise<void>;
+  increaseItemQuantities(
+    input: IncreaseItemQuantitiesInput,
+  ): Promise<PurchaseOrderIncreaseUndo>;
+
+  undoItemQuantityIncrease(undo: PurchaseOrderIncreaseUndo): Promise<void>;
 
   hasOutstandingItems(purchaseOrderId: string): Promise<boolean>;
 

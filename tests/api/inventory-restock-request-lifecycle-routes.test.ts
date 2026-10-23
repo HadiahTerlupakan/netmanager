@@ -733,7 +733,7 @@ describe("inventory restock request lifecycle routes", () => {
 
     it("raises the PO quantity when a larger delivery has a reason", async () => {
       mockOrder([pigtail]);
-      prismaMock.purchaseOrderItem.findUnique.mockResolvedValue({
+      prismaMock.purchaseOrderItem.findFirst.mockResolvedValue({
         ...pigtail,
         unitPrice: 5000,
       });
@@ -773,6 +773,105 @@ describe("inventory restock request lifecycle routes", () => {
           ),
         }),
       );
+    });
+
+    it("refuses to raise the PO for a verifier without purchase_orders:update", async () => {
+      mockOrder([pigtail]);
+      mockFns.rbacHasPermission.mockImplementation(
+        async (permission: string) => permission !== "purchase_orders:update",
+      );
+
+      const response = await receive({
+        items: { "barang-1": 90 },
+        overReceipts: { "barang-1": "Supplier kirim lebih" },
+        closePO: false,
+      });
+
+      expect(response.status).toBe(403);
+      expect(prismaMock.purchaseOrderItem.update).not.toHaveBeenCalled();
+      expect(mockGrnCreate).not.toHaveBeenCalled();
+    });
+
+    it("refuses to raise a PO that is already closed", async () => {
+      mockOrder([pigtail]);
+      prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+        id: "po-1",
+        poNumber: "PO/2026/10/0008",
+        status: "CANCELLED",
+        items: [pigtail],
+      });
+
+      const response = await receive({
+        items: { "barang-1": 90 },
+        overReceipts: { "barang-1": "Supplier kirim lebih" },
+        closePO: false,
+      });
+
+      expect(response.status).toBe(400);
+      expect(prismaMock.purchaseOrderItem.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects a fractional received quantity instead of failing with 500", async () => {
+      mockOrder([pigtail]);
+
+      const response = await receive({
+        items: { "barang-1": 1.5 },
+        closePO: false,
+      });
+
+      expect(response.status).toBe(400);
+      expect(mockGrnCreate).not.toHaveBeenCalled();
+    });
+
+    it("rejects a cancellation with nothing left to cancel before stock is posted", async () => {
+      mockOrder([pigtail]);
+
+      const response = await receive({
+        items: { "barang-1": 90 },
+        overReceipts: { "barang-1": "Supplier kirim lebih" },
+        cancellations: { "barang-1": "Tidak jadi" },
+        closePO: false,
+      });
+
+      // Ditolak sebelum PO dinaikkan dan GRN dibuat, jadi mengulang aman.
+      expect(response.status).toBe(400);
+      expect(prismaMock.purchaseOrderItem.update).not.toHaveBeenCalled();
+      expect(mockGrnCreate).not.toHaveBeenCalled();
+    });
+
+    it("puts the PO back when the GRN cannot be created after raising it", async () => {
+      mockOrder([pigtail]);
+      prismaMock.purchaseOrderItem.findFirst.mockResolvedValue({
+        ...pigtail,
+        unitPrice: 5000,
+      });
+      prismaMock.purchaseOrderJasaItem.findMany.mockResolvedValue([]);
+      prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+        id: "po-1",
+        poNumber: "PO/2026/10/0008",
+        status: "PARTIAL",
+        items: [pigtail],
+        ppnRate: 0,
+        paymentStatus: "PAID",
+        grandTotal: 500000,
+      });
+      mockGrnCreate.mockRejectedValue(new Error("database unavailable"));
+
+      const response = await receive({
+        items: { "barang-1": 90 },
+        overReceipts: { "barang-1": "Supplier kirim lebih" },
+        closePO: false,
+      });
+
+      expect(response.status).toBe(500);
+      expect(prismaMock.purchaseOrderItem.update).toHaveBeenLastCalledWith({
+        where: { id: "po-item-1" },
+        data: { quantity: 100, totalPrice: 500000 },
+      });
+      expect(prismaMock.purchaseOrder.update).toHaveBeenLastCalledWith({
+        where: { id: "po-1" },
+        data: { paymentStatus: "PAID" },
+      });
     });
 
     it("logs why a receipt was rejected", async () => {

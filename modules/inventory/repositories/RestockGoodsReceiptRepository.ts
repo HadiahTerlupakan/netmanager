@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { PaymentStatus, Prisma, PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/modules/database";
 
@@ -8,6 +8,7 @@ import type {
   BarangSubstitutionCandidate,
   IncreaseItemQuantitiesInput,
   IRestockGoodsReceiptRepository,
+  PurchaseOrderIncreaseUndo,
   RestockPurchaseOrderForReceipt,
   RestockPurchaseRequestForReceipt,
 } from "../domain/ports/IRestockGoodsReceiptRepository";
@@ -47,6 +48,7 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
       select: {
         id: true,
         poNumber: true,
+        status: true,
         items: {
           select: {
             id: true,
@@ -143,33 +145,77 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
    */
   async increaseItemQuantities(
     input: IncreaseItemQuantitiesInput,
-  ): Promise<void> {
-    if (input.increases.length === 0) return;
-
-    await this.db.$transaction(async (tx: Prisma.TransactionClient) => {
+  ): Promise<PurchaseOrderIncreaseUndo> {
+    return this.db.$transaction(async (tx: Prisma.TransactionClient) => {
+      const previousItems: PurchaseOrderIncreaseUndo["items"] = [];
       for (const increase of input.increases) {
-        const item = await tx.purchaseOrderItem.findUnique({
-          where: { id: increase.purchaseOrderItemId },
+        const item = await tx.purchaseOrderItem.findFirst({
+          where: {
+            id: increase.purchaseOrderItemId,
+            purchaseOrderId: input.purchaseOrderId,
+          },
         });
         if (!item) {
           throw new Error(
             `Item PO ${increase.purchaseOrderItemId} tidak ditemukan`,
           );
         }
+        previousItems.push({
+          purchaseOrderItemId: item.id,
+          quantity: item.quantity,
+        });
         const quantity = item.quantity + increase.extraQuantity;
         await tx.purchaseOrderItem.update({
           where: { id: item.id },
           data: { quantity, totalPrice: quantity * item.unitPrice },
         });
       }
-      await this.recalculatePurchaseOrderTotals(tx, input.purchaseOrderId);
+      const paymentStatus = await this.recalculatePurchaseOrderTotals(
+        tx,
+        input.purchaseOrderId,
+      );
+      return {
+        purchaseOrderId: input.purchaseOrderId,
+        items: previousItems,
+        paymentStatus,
+      };
     });
   }
 
+  /** Kembalikan jumlah item dan total PO yang dinaikkan sebelum GRN gagal dibuat. */
+  async undoItemQuantityIncrease(
+    undo: PurchaseOrderIncreaseUndo,
+  ): Promise<void> {
+    await this.db.$transaction(async (tx: Prisma.TransactionClient) => {
+      for (const previous of undo.items) {
+        const item = await tx.purchaseOrderItem.findFirst({
+          where: {
+            id: previous.purchaseOrderItemId,
+            purchaseOrderId: undo.purchaseOrderId,
+          },
+        });
+        if (!item) continue;
+        await tx.purchaseOrderItem.update({
+          where: { id: item.id },
+          data: {
+            quantity: previous.quantity,
+            totalPrice: previous.quantity * item.unitPrice,
+          },
+        });
+      }
+      await this.recalculatePurchaseOrderTotals(tx, undo.purchaseOrderId);
+      await tx.purchaseOrder.update({
+        where: { id: undo.purchaseOrderId },
+        data: { paymentStatus: undo.paymentStatus as PaymentStatus },
+      });
+    });
+  }
+
+  /** Mengembalikan status bayar PO sebelum dihitung ulang. */
   private async recalculatePurchaseOrderTotals(
     tx: Prisma.TransactionClient,
     purchaseOrderId: string,
-  ): Promise<void> {
+  ): Promise<string> {
     const [barangItems, jasaItems, purchaseOrder] = await Promise.all([
       tx.purchaseOrderItem.findMany({ where: { purchaseOrderId } }),
       tx.purchaseOrderJasaItem.findMany({ where: { purchaseOrderId } }),
@@ -199,6 +245,7 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
         ...(becameUnderpaid ? { paymentStatus: "PARTIAL" } : {}),
       },
     });
+    return purchaseOrder.paymentStatus;
   }
 
   /** Cek apakah masih ada item PO yang belum diterima maupun dianulir. */
