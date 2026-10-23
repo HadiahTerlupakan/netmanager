@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { RouterOSAPI } from "node-routeros-v2";
+import { toRouterOsTimeoutSeconds } from "./routeros-timeout";
 
 const DEFAULT_API_TIMEOUT_MS = 10000;
 const TIMEOUT_GRACE_MS = 1000;
@@ -67,7 +68,7 @@ function createConnection(config: MikroTikAPIConfig, timeout: number) {
     user: config.username,
     password: config.password,
     port: config.port,
-    timeout,
+    timeout: toRouterOsTimeoutSeconds(timeout),
   });
 }
 

@@ -1,6 +1,7 @@
 import { RouterOSAPI } from "node-routeros-v2";
+import { toRouterOsTimeoutSeconds } from "./routeros-timeout";
 
-const CONNECTION_TIMEOUT = 10000;
+const CONNECTION_TIMEOUT_MS = 10000;
 
 export type RouterConfig = {
   ipAddress: string;
@@ -17,7 +18,7 @@ export class MikroTikConnectionFactory {
       port: config.apiPort,
       user: config.apiUsername,
       password: config.apiPassword,
-      timeout: CONNECTION_TIMEOUT,
+      timeout: toRouterOsTimeoutSeconds(CONNECTION_TIMEOUT_MS),
     });
     await connection.connect();
     return connection;

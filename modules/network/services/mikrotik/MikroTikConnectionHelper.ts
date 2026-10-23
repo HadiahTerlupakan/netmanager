@@ -1,4 +1,5 @@
 import { RouterOSAPI } from "node-routeros-v2";
+import { toRouterOsTimeoutSeconds } from "./routeros-timeout";
 
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_DELAY_MS = 200;
@@ -19,7 +20,7 @@ export class MikroTikConnectionHelper {
       port: credentials.port,
       user: credentials.username,
       password: credentials.password,
-      timeout: DEFAULT_TIMEOUT_MS,
+      timeout: toRouterOsTimeoutSeconds(DEFAULT_TIMEOUT_MS),
     });
   }
 

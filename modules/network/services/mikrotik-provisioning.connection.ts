@@ -1,4 +1,5 @@
 import { RouterOSAPI } from "node-routeros-v2";
+import { toRouterOsTimeoutSeconds } from "./mikrotik/routeros-timeout";
 
 export type MikroTikProvisioningRouterDetails = {
   ip: string;
@@ -16,7 +17,7 @@ export type MikroTikProvisioningResult = {
   isolirPageError?: string;
 };
 
-const CONNECTION_TIMEOUT = 10000;
+const CONNECTION_TIMEOUT_MS = 10000;
 const DEFAULT_DELAY_MS = 200;
 
 export function createProvisioningConnection(
@@ -27,7 +28,7 @@ export function createProvisioningConnection(
     port: routerDetails.port,
     user: routerDetails.username,
     password: routerDetails.password,
-    timeout: CONNECTION_TIMEOUT,
+    timeout: toRouterOsTimeoutSeconds(CONNECTION_TIMEOUT_MS),
   });
 }
 

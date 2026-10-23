@@ -4,6 +4,7 @@ import {
   runWithRequestTenantContext,
 } from "@/lib/tenant-context";
 import { RouterOSAPI } from "node-routeros-v2";
+import { toRouterOsTimeoutSeconds } from "./mikrotik/routeros-timeout";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { MikroTikRouterVpnRepository } from "../repositories/MikroTikRouterVpnRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
@@ -47,7 +48,7 @@ async function testMikroTikAPI(
       user: username,
       password: password,
       port: port,
-      timeout: timeout,
+      timeout: toRouterOsTimeoutSeconds(timeout),
     });
 
     let resolved = false;

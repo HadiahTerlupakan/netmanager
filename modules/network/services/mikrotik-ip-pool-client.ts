@@ -3,6 +3,7 @@ import { RadiusConnectionError } from "../utils/errors";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { RouterOSAPI } from "node-routeros-v2";
+import { toRouterOsTimeoutSeconds } from "./mikrotik/routeros-timeout";
 
 export type MikroTikRouterConfig = {
   ipAddress: string;
@@ -25,7 +26,7 @@ export async function connectToMikroTik(
     user: config.apiUsername,
     password: config.apiPassword,
     port: config.apiPort,
-    timeout,
+    timeout: toRouterOsTimeoutSeconds(timeout),
   });
 
   await conn.connect();
