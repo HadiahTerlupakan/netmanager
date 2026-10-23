@@ -127,6 +127,85 @@ describe("VpnServerPanel", () => {
     );
   });
 
+  it("mengeluarkan server dari semua router setelah 409 lalu menampilkan hasilnya", async () => {
+    stubFetch({
+      ...peersKosong,
+      [`GET ${SERVER_URL}`]: () =>
+        responsJson(200, { success: true, data: [server()] }),
+      [`DELETE ${SERVER_URL}/aa11`]: () =>
+        responsJson(409, {
+          success: false,
+          error: "Server masih dipakai router",
+          details: {
+            routers: [{ id: "r1", name: "RB-Kantor", tenantName: "Tenant A" }],
+          },
+        }),
+      [`DELETE ${SERVER_URL}/aa11/routers`]: () =>
+        responsJson(200, {
+          success: true,
+          data: {
+            detached: 2,
+            onlyServer: [
+              { id: "r9", name: "RB-Tunggal", tenantName: "Tenant B" },
+            ],
+          },
+        }),
+    });
+    await render(panggung, <VpnServerPanel />);
+    await tungguSampai(
+      () => document.body.textContent.includes("VPS Jakarta"),
+      "daftar tampil",
+    );
+    await klikTombol("Hapus");
+    await klikTombol("Ya, Hapus");
+    await tungguSampai(
+      () => document.body.textContent.includes("Keluarkan dari semua router"),
+      "tombol keluarkan tampil",
+    );
+    await klikTombol("Keluarkan dari semua router");
+    await klikTombol("Ya, Keluarkan");
+    await tungguSampai(
+      () => document.body.textContent.includes("Dikeluarkan dari 2 router."),
+      "hasil tampil",
+    );
+    expect(document.body.textContent).toContain(
+      "Router berikut hanya memakai server ini; tambahkan server lain dulu:",
+    );
+    expect(document.body.textContent).toContain("RB-Tunggal (Tenant B)");
+    expect(document.body.textContent).not.toContain("RB-Kantor (Tenant A)");
+  });
+
+  it("menjelaskan 409 tanpa daftar router sebagai router yang belum menerima daftar baru", async () => {
+    stubFetch({
+      ...peersKosong,
+      [`GET ${SERVER_URL}`]: () =>
+        responsJson(200, { success: true, data: [server()] }),
+      [`DELETE ${SERVER_URL}/aa11`]: () =>
+        responsJson(409, {
+          success: false,
+          error: "Server masih dipakai router",
+          details: { routers: [] },
+        }),
+    });
+    await render(panggung, <VpnServerPanel />);
+    await tungguSampai(
+      () => document.body.textContent.includes("VPS Jakarta"),
+      "daftar tampil",
+    );
+    await klikTombol("Hapus");
+    await klikTombol("Ya, Hapus");
+    await tungguSampai(
+      () =>
+        document.body.textContent.includes(
+          "Server masih tercatat di router yang belum menerima daftar baru. Coba hapus lagi setelah beberapa menit.",
+        ),
+      "pesan router belum menerima tampil",
+    );
+    expect(document.body.textContent).not.toContain(
+      "Keluarkan dari semua router",
+    );
+  });
+
   it("menampilkan kartu saat layanan VPN belum dikonfigurasi (503)", async () => {
     stubFetch({
       [`GET ${SERVER_URL}`]: () =>

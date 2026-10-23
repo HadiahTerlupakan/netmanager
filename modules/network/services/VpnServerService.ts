@@ -79,6 +79,16 @@ export class VpnServerService {
     await this.repo.deleteServer(id);
   }
 
+  /**
+   * Mengeluarkan server dari semua router yang memakainya; router yang hanya
+   * punya server ini dilaporkan, bukan diubah. Hanya database lokal.
+   */
+  detachServer(
+    id: string,
+  ): ReturnType<IVpnServerRepository["detachServerFromRouters"]> {
+    return this.repo.detachServerFromRouters(id);
+  }
+
   /** Menerbitkan ulang perintah instalasi hub. */
   reissue(id: string): Promise<{ installCommand: string }> {
     return getVpnCoreClient().reissueHub(id);

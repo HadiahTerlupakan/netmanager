@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type {
   IVpnServerRepository,
@@ -15,6 +15,32 @@ function hubFields(hub: CoreHub) {
     status: hub.status,
     lastSeenAt: hub.lastSeenAt ? new Date(hub.lastSeenAt) : null,
   };
+}
+
+interface RouterRef {
+  id: string;
+  name: string;
+  tenantId: string;
+}
+
+/** Melengkapi router dengan nama tenant (satu query) untuk pesan pemakaian. */
+async function toUsage(
+  client: Pick<PrismaClient, "tenant"> | Prisma.TransactionClient,
+  routerRefs: RouterRef[],
+): Promise<VpnServerRouterUsage[]> {
+  const routers = new Map(routerRefs.map((r) => [r.id, r]));
+  const tenants = await client.tenant.findMany({
+    where: {
+      id: { in: [...new Set([...routers.values()].map((r) => r.tenantId))] },
+    },
+    select: { id: true, name: true },
+  });
+  const tenantNames = new Map(tenants.map((t) => [t.id, t.name]));
+  return [...routers.values()].map((r) => ({
+    id: r.id,
+    name: r.name,
+    tenantName: tenantNames.get(r.tenantId) ?? "",
+  }));
 }
 
 /** Akses database untuk server VPN, assignment tenant, dan pemakaian router. */
@@ -51,19 +77,10 @@ export class VpnServerRepository implements IVpnServerRepository {
       },
       select: { router: { select: { id: true, name: true, tenantId: true } } },
     });
-    const routers = new Map(links.map((l) => [l.router.id, l.router]));
-    const tenants = await this.client.tenant.findMany({
-      where: {
-        id: { in: [...new Set([...routers.values()].map((r) => r.tenantId))] },
-      },
-      select: { id: true, name: true },
-    });
-    const tenantNames = new Map(tenants.map((t) => [t.id, t.name]));
-    return [...routers.values()].map((r) => ({
-      id: r.id,
-      name: r.name,
-      tenantName: tenantNames.get(r.tenantId) ?? "",
-    }));
+    return toUsage(
+      this.client,
+      links.map((l) => l.router),
+    );
   }
 
   /** Menghapus server beserta assignment tenant-nya dalam satu transaksi. */
@@ -159,6 +176,76 @@ export class VpnServerRepository implements IVpnServerRepository {
         data: { vpnScriptStale: true },
       });
       return changed.length;
+    });
+  }
+
+  /**
+   * Mengeluarkan server dari semua router yang memakainya (lintas tenant).
+   * Router yang hanya punya server ini dilewati dan dilaporkan; sisanya
+   * dikunci (sama seperti `appendServerToTenantRouters`), diberi
+   * `vpnScriptStale`, dan prioritas sisa server dirapatkan 0..n-1 sesuai
+   * urutan semula.
+   */
+  async detachServerFromRouters(
+    serverId: string,
+  ): Promise<{ detached: number; onlyServer: VpnServerRouterUsage[] }> {
+    return this.client.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ id: string }[]>`
+        SELECT "id" FROM "MikroTikRouter"
+        WHERE "id" IN (
+          SELECT "routerId" FROM "mikrotik_router_vpn_servers"
+          WHERE "vpnServerId" = ${serverId})
+        ORDER BY "id"
+        FOR UPDATE`;
+      const routerIds = locked.map((r) => r.id);
+      const links = await tx.mikroTikRouterVpnServer.findMany({
+        where: { routerId: { in: routerIds } },
+        orderBy: [{ routerId: "asc" }, { priority: "asc" }],
+        select: { routerId: true, vpnServerId: true },
+      });
+      const byRouter = new Map<string, string[]>();
+      for (const link of links) {
+        byRouter.set(link.routerId, [
+          ...(byRouter.get(link.routerId) ?? []),
+          link.vpnServerId,
+        ]);
+      }
+      const only = routerIds.filter((id) => byRouter.get(id)?.length === 1);
+      const detach = routerIds.filter((id) => !only.includes(id));
+      for (const routerId of detach) {
+        await removeLink(tx, routerId, serverId, byRouter.get(routerId) ?? []);
+      }
+      await tx.mikroTikRouter.updateMany({
+        where: { id: { in: detach } },
+        data: { vpnScriptStale: true },
+      });
+      const onlyRouters = await tx.mikroTikRouter.findMany({
+        where: { id: { in: only } },
+        select: { id: true, name: true, tenantId: true },
+      });
+      return {
+        detached: detach.length,
+        onlyServer: await toUsage(tx, onlyRouters),
+      };
+    });
+  }
+}
+
+/** Menghapus satu tautan lalu merapatkan prioritas server yang tersisa. */
+async function removeLink(
+  tx: Prisma.TransactionClient,
+  routerId: string,
+  serverId: string,
+  orderedServerIds: string[],
+): Promise<void> {
+  await tx.mikroTikRouterVpnServer.delete({
+    where: { routerId_vpnServerId: { routerId, vpnServerId: serverId } },
+  });
+  const remaining = orderedServerIds.filter((id) => id !== serverId);
+  for (const [priority, vpnServerId] of remaining.entries()) {
+    await tx.mikroTikRouterVpnServer.update({
+      where: { routerId_vpnServerId: { routerId, vpnServerId } },
+      data: { priority },
     });
   }
 }

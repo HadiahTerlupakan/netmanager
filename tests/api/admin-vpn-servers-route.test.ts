@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   listServers: vi.fn(),
   createServer: vi.fn(),
   deleteServer: vi.fn(),
+  detachServer: vi.fn(),
   reissue: vi.fn(),
   upgradeCommand: vi.fn(),
   listAdminPeers: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock("@/modules/network/factories/VpnServerServiceFactory", () => ({
     listServers: mocks.listServers,
     createServer: mocks.createServer,
     deleteServer: mocks.deleteServer,
+    detachServer: mocks.detachServer,
     reissue: mocks.reissue,
     upgradeCommand: mocks.upgradeCommand,
     listAdminPeers: mocks.listAdminPeers,
@@ -47,6 +49,7 @@ vi.mock("@/modules/network/factories/VpnServerServiceFactory", () => ({
 
 import * as serversRoute from "@/app/api/admin/vpn-servers/route";
 import * as serverIdRoute from "@/app/api/admin/vpn-servers/[id]/route";
+import * as routersRoute from "@/app/api/admin/vpn-servers/[id]/routers/route";
 import * as reissueRoute from "@/app/api/admin/vpn-servers/[id]/reissue/route";
 import * as upgradeRoute from "@/app/api/admin/vpn-servers/[id]/upgrade-command/route";
 import * as peersRoute from "@/app/api/admin/vpn-admin-peers/route";
@@ -93,6 +96,33 @@ describe("admin VPN routes", () => {
       expect((await res.json()).error).toBe("Layanan VPN belum dikonfigurasi");
     },
   );
+
+  it("DELETE server routers is 403 for non-superadmin", async () => {
+    mocks.isSuperAdmin.mockReturnValue(false);
+    const res = await routersRoute.DELETE(req() as never, route as never);
+    expect(res.status).toBe(403);
+    expect(mocks.detachServer).not.toHaveBeenCalled();
+  });
+
+  it("DELETE server routers rejects a malformed id with 400", async () => {
+    const res = await routersRoute.DELETE(
+      req() as never,
+      {
+        params: { id: "NOT HEX" },
+      } as never,
+    );
+    expect(res.status).toBe(400);
+    expect(mocks.detachServer).not.toHaveBeenCalled();
+  });
+
+  it("DELETE server routers returns the detach result without needing core", async () => {
+    delete process.env.VPN_CORE_API_URL;
+    const result = { detached: 2, onlyServer: [] as unknown[] };
+    mocks.detachServer.mockResolvedValue(result);
+    const res = await routersRoute.DELETE(req() as never, route as never);
+    expect((await res.json()).data).toEqual(result);
+    expect(mocks.detachServer).toHaveBeenCalledWith("ab12");
+  });
 
   it("POST servers rejects an invalid body with 400", async () => {
     const res = await serversRoute.POST(

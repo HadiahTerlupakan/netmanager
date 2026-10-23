@@ -46,4 +46,13 @@ export interface IVpnServerRepository {
     tenantId: string,
     serverId: string,
   ): Promise<number>;
+
+  /**
+   * Mengeluarkan server dari semua router yang memakainya, lintas tenant.
+   * Router yang hanya memakai server ini tidak diubah dan dilaporkan di
+   * `onlyServer`; router lain ditandai belum terkirim dan prioritasnya dirapatkan.
+   */
+  detachServerFromRouters(
+    serverId: string,
+  ): Promise<{ detached: number; onlyServer: VpnServerRouterUsage[] }>;
 }
