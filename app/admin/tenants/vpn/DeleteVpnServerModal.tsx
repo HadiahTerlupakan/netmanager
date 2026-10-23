@@ -108,8 +108,10 @@ export default function DeleteVpnServerModal({
           {confirmDetach ? (
             <div className="mt-3 flex items-center gap-2">
               <span>
-                Keluarkan server dari semua router di atas? Router yang hanya
-                memakai server ini dilewati.
+                Keluarkan server dari semua router di atas? Router yang sedang
+                tersambung ke server ini akan pindah ke server berikutnya
+                (tersambung ulang sebentar). Router yang hanya memakai server
+                ini dilewati.
               </span>
               <button
                 onClick={handleDetach}
