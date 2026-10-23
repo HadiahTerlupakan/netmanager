@@ -50,7 +50,7 @@ function createService() {
   return new RestockGoodsReceiptService(
     repository as never,
     { apply: vi.fn().mockResolvedValue({}) } as never,
-    { apply: vi.fn() } as never,
+    { apply: vi.fn(), validate: vi.fn() } as never,
     {} as never,
   );
 }
@@ -69,6 +69,7 @@ describe("Log Aktivitas verifikasi barang sampai", () => {
       receivedItems: { "b-1": 6 },
       fotoBukti: ["/uploads/bukti.webp"],
       closePO: false,
+      canIncreasePurchaseOrder: false,
       actorId: "user-1",
       tenantId: "tenant-1",
     });
@@ -84,6 +85,7 @@ describe("Log Aktivitas verifikasi barang sampai", () => {
         goodsReceiptId: "grn-1",
         grnNumber: "GRN-20261017-0001",
         items: [{ barangId: "b-1", quantity: 6 }],
+        kelebihanKiriman: [],
         jumlahFoto: 1,
         tutupPesanan: false,
       },

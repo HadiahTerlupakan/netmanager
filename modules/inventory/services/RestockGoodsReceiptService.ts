@@ -7,11 +7,14 @@ import {
 
 import type {
   IRestockGoodsReceiptRepository,
+  PurchaseOrderIncreaseUndo,
   RestockPurchaseOrderItem,
 } from "../domain/ports/IRestockGoodsReceiptRepository";
+import type { ApplyRestockCancellationInput } from "./RestockItemCancellationService";
 import {
   RestockCancellationInvalidError,
   RestockItemCancellationService,
+  withClosingCancellations,
   type RestockCancellationMap,
 } from "./RestockItemCancellationService";
 import {
@@ -24,6 +27,13 @@ import {
   INVENTORY_ACTIVITY_SUBJECTS,
   recordInventoryActivity,
 } from "./inventory-activity-log";
+import {
+  describeOverReceipts,
+  resolveOverReceipts,
+  RestockOverReceiptInvalidError,
+  type ResolvedOverReceipt,
+  type RestockOverReceiptMap,
+} from "./restock-over-receipt";
 
 export interface ReceiveRestockRequestInput {
   purchaseRequestId: string;
@@ -33,6 +43,10 @@ export interface ReceiveRestockRequestInput {
   substitutions?: RestockSubstitutionMap;
   /** Alasan per barang yang tidak jadi dibelikan — sisa pesanannya dianulir. */
   cancellations?: RestockCancellationMap;
+  /** Alasan per barang yang datang melebihi sisa pesanan — jumlah PO dinaikkan. */
+  overReceipts?: RestockOverReceiptMap;
+  /** Menaikkan jumlah PO setara mengedit PO, jadi butuh izin purchase_orders:update. */
+  canIncreasePurchaseOrder: boolean;
   fotoBukti: string[];
   closePO: boolean;
   actorId: string;
@@ -45,6 +59,7 @@ interface ReceivableItem {
   originalBarangId: string;
   /** Barang yang benar-benar dicatat ke GRN (bisa hasil substitusi). */
   barangId: string;
+  barangName: string;
   quantity: number;
   remaining: number;
 }
@@ -62,6 +77,16 @@ export class RestockReceiptInvalidError extends Error {
     this.name = "RestockReceiptInvalidError";
   }
 }
+
+export class RestockReceiptForbiddenError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RestockReceiptForbiddenError";
+  }
+}
+
+/** PO yang sudah ditutup atau dibatalkan tidak boleh dinaikkan jumlahnya. */
+const PURCHASE_ORDER_STATUSES_CLOSED_FOR_INCREASE = ["CANCELLED", "RECEIVED"];
 
 export class RestockReceiptFailedError extends Error {
   constructor(message: string) {
@@ -118,40 +143,49 @@ export class RestockGoodsReceiptService {
       referenceNumber: purchaseRequest.nomorRequest,
     });
 
-    const cancelledBarangIds = this.collectCancelledBarangIds(
-      input.cancellations,
-    );
     const receivableItems = this.buildReceivableItems(
       purchaseOrder.items,
       input.receivedItems,
       appliedSubstitutions,
     );
-    const grnItems = this.selectReceivedItems(
-      receivableItems,
-      input.closePO,
-      cancelledBarangIds,
-    );
+    const grnItems = this.selectReceivedItems(receivableItems);
     if (grnItems.length === 0) {
       throw new RestockReceiptInvalidError(
         "Minimal satu barang harus diterima. Batalkan Purchase Order bila tidak ada barang yang datang sama sekali.",
       );
     }
 
-    const goodsReceipt = await this.createGoodsReceipt({
-      purchaseOrderId,
-      gudangId: purchaseRequest.gudangId,
-      nomorRequest: purchaseRequest.nomorRequest,
-      items: grnItems,
-      input,
-    });
-
-    await this.applyCancellations({
+    const cancellationRequest = this.buildCancellationRequest({
       input,
       purchaseOrderId,
       purchaseOrderItems: purchaseOrder.items,
       grnItems,
       referenceNumber: purchaseRequest.nomorRequest,
     });
+    await this.runCancellationStep(() =>
+      this.cancellationService.validate(cancellationRequest),
+    );
+
+    const { overReceipts, undo } = await this.applyOverReceipts({
+      purchaseOrderId,
+      purchaseOrderStatus: purchaseOrder.status,
+      receivableItems,
+      input,
+    });
+
+    const goodsReceipt = await this.createGoodsReceipt({
+      purchaseOrderId,
+      gudangId: purchaseRequest.gudangId,
+      nomorRequest: purchaseRequest.nomorRequest,
+      items: grnItems,
+      overReceipts,
+      undo,
+      input,
+    });
+
+    await this.runCancellationStep(() =>
+      this.cancellationService.apply(cancellationRequest),
+    );
 
     await this.syncReceivedStatus(
       purchaseOrderId,
@@ -173,6 +207,11 @@ export class RestockGoodsReceiptService {
         items: grnItems.map((item) => ({
           barangId: item.barangId,
           quantity: item.quantity,
+        })),
+        kelebihanKiriman: overReceipts.map((item) => ({
+          barang: item.barangName,
+          tambahan: item.extraQuantity,
+          alasan: item.reason,
         })),
         jumlahFoto: input.fotoBukti.length,
         tutupPesanan: input.closePO,
@@ -231,28 +270,69 @@ export class RestockGoodsReceiptService {
     }
   }
 
-  /** Barang yang ditandai anulir — dikenali dari alasan yang terisi. */
-  private collectCancelledBarangIds(
-    cancellations: RestockCancellationMap | undefined,
-  ): Set<string> {
-    return new Set(
-      Object.entries(cancellations ?? {})
-        .filter(([, reason]) => (reason ?? "").trim().length > 0)
-        .map(([barangId]) => barangId),
-    );
+  /**
+   * Kelebihan kiriman dinaikkan ke PO sebelum GRN dibuat, karena GRN menolak
+   * jumlah yang melebihi sisa pesanan.
+   */
+  private async applyOverReceipts(params: {
+    purchaseOrderId: string;
+    purchaseOrderStatus: string | undefined;
+    receivableItems: ReceivableItem[];
+    input: ReceiveRestockRequestInput;
+  }): Promise<{
+    overReceipts: ResolvedOverReceipt[];
+    undo: PurchaseOrderIncreaseUndo | null;
+  }> {
+    let overReceipts: ResolvedOverReceipt[];
+    try {
+      overReceipts = resolveOverReceipts(
+        params.receivableItems,
+        params.input.overReceipts ?? {},
+      );
+    } catch (error) {
+      if (error instanceof RestockOverReceiptInvalidError) {
+        throw new RestockReceiptInvalidError(error.message);
+      }
+      throw error;
+    }
+    if (overReceipts.length === 0) return { overReceipts, undo: null };
+
+    if (!params.input.canIncreasePurchaseOrder) {
+      throw new RestockReceiptForbiddenError(
+        "Kiriman melebihi pesanan menaikkan jumlah PO dan butuh izin purchase_orders:update. Minta atasan yang berwenang memverifikasi penerimaan ini.",
+      );
+    }
+    if (
+      PURCHASE_ORDER_STATUSES_CLOSED_FOR_INCREASE.includes(
+        params.purchaseOrderStatus ?? "",
+      )
+    ) {
+      throw new RestockReceiptInvalidError(
+        "Purchase Order sudah ditutup atau dibatalkan, jumlahnya tidak bisa dinaikkan",
+      );
+    }
+
+    const undo = await this.repository.increaseItemQuantities({
+      purchaseOrderId: params.purchaseOrderId,
+      increases: overReceipts.map((item) => ({
+        purchaseOrderItemId: item.purchaseOrderItemId,
+        extraQuantity: item.extraQuantity,
+      })),
+    });
+    return { overReceipts, undo };
   }
 
   /**
-   * Anulir dijalankan setelah GRN karena pembuatan GRN mensyaratkan
-   * masih adanya sisa pesanan pada Purchase Order.
+   * Anulir diterapkan setelah GRN karena pembuatan GRN mensyaratkan masih
+   * adanya sisa pesanan pada Purchase Order, tapi diperiksa sebelumnya.
    */
-  private async applyCancellations(params: {
+  private buildCancellationRequest(params: {
     input: ReceiveRestockRequestInput;
     purchaseOrderId: string;
     purchaseOrderItems: RestockPurchaseOrderItem[];
     grnItems: Array<{ purchaseOrderItemId: string; quantity: number }>;
     referenceNumber: string;
-  }): Promise<void> {
+  }): ApplyRestockCancellationInput {
     const receivedQuantityByItemId = params.grnItems.reduce<
       Record<string, number>
     >((acc, item) => {
@@ -261,16 +341,27 @@ export class RestockGoodsReceiptService {
       return acc;
     }, {});
 
+    const requestedCancellations = params.input.cancellations ?? {};
+    return {
+      purchaseOrderId: params.purchaseOrderId,
+      purchaseOrderItems: params.purchaseOrderItems,
+      cancellations: params.input.closePO
+        ? withClosingCancellations(
+            requestedCancellations,
+            params.purchaseOrderItems,
+            receivedQuantityByItemId,
+          )
+        : requestedCancellations,
+      receivedQuantityByItemId,
+      tenantId: params.input.tenantId,
+      actorId: params.input.actorId,
+      referenceNumber: params.referenceNumber,
+    };
+  }
+
+  private async runCancellationStep(step: () => unknown): Promise<void> {
     try {
-      await this.cancellationService.apply({
-        purchaseOrderId: params.purchaseOrderId,
-        purchaseOrderItems: params.purchaseOrderItems,
-        cancellations: params.input.cancellations ?? {},
-        receivedQuantityByItemId,
-        tenantId: params.input.tenantId,
-        actorId: params.input.actorId,
-        referenceNumber: params.referenceNumber,
-      });
+      await step();
     } catch (error) {
       if (error instanceof RestockCancellationInvalidError) {
         throw new RestockReceiptInvalidError(error.message);
@@ -300,11 +391,20 @@ export class RestockGoodsReceiptService {
         receivedItems[purchaseOrderItem.id] ??
         0;
 
+      const barangName = purchaseOrderItem.barang?.nama ?? barangId;
+      const receivedQuantity = Number(quantity) || 0;
+      if (!Number.isInteger(receivedQuantity) || receivedQuantity < 0) {
+        throw new RestockReceiptInvalidError(
+          `Jumlah ${barangName} diterima harus bilangan bulat 0 atau lebih`,
+        );
+      }
+
       return {
         purchaseOrderItemId: purchaseOrderItem.id,
         originalBarangId,
         barangId,
-        quantity: Number(quantity) || 0,
+        barangName,
+        quantity: receivedQuantity,
         remaining:
           purchaseOrderItem.quantity -
           (purchaseOrderItem.receivedQuantity || 0) -
@@ -313,46 +413,14 @@ export class RestockGoodsReceiptService {
     });
   }
 
-  /**
-   * Saat pesanan ditutup, kekurangan jumlah dianggap tidak akan dikirim lagi
-   * sehingga sisa PO digenapkan supaya tidak menggantung.
-   */
-  private selectReceivedItems(
-    receivableItems: ReceivableItem[],
-    closePO: boolean,
-    cancelledBarangIds: Set<string>,
-  ) {
+  private selectReceivedItems(receivableItems: ReceivableItem[]) {
     return receivableItems
       .filter((item) => item.quantity > 0)
       .map((item) => ({
         purchaseOrderItemId: item.purchaseOrderItemId,
         barangId: item.barangId,
-        quantity: this.resolveReceivedQuantity(
-          item,
-          closePO,
-          cancelledBarangIds,
-        ),
+        quantity: item.quantity,
       }));
-  }
-
-  /**
-   * Sisa yang tidak dianulir digenapkan saat pesanan ditutup supaya PO tidak
-   * menggantung; sisa yang dianulir tidak boleh ikut menambah stok.
-   */
-  private resolveReceivedQuantity(
-    item: ReceivableItem,
-    closePO: boolean,
-    cancelledBarangIds: Set<string>,
-  ): number {
-    const isCancelled =
-      cancelledBarangIds.has(item.originalBarangId) ||
-      cancelledBarangIds.has(item.barangId);
-    const shouldTopUp =
-      closePO &&
-      !isCancelled &&
-      item.remaining > 0 &&
-      item.quantity < item.remaining;
-    return shouldTopUp ? item.remaining : item.quantity;
   }
 
   private async createGoodsReceipt(params: {
@@ -364,8 +432,16 @@ export class RestockGoodsReceiptService {
       barangId: string;
       quantity: number;
     }>;
+    overReceipts: ResolvedOverReceipt[];
+    undo: PurchaseOrderIncreaseUndo | null;
     input: ReceiveRestockRequestInput;
   }) {
+    const notes = [
+      `Penerimaan dari Pre Request ${params.nomorRequest}`,
+      ...(params.overReceipts.length > 0
+        ? [describeOverReceipts(params.overReceipts)]
+        : []),
+    ].join(". ");
     try {
       return await getGoodsReceiptService().create({
         purchaseOrderId: params.purchaseOrderId,
@@ -373,10 +449,15 @@ export class RestockGoodsReceiptService {
         receivedById: params.input.actorId,
         tenantId: params.input.tenantId,
         fotoBukti: params.input.fotoBukti,
-        notes: `Penerimaan dari Pre Request ${params.nomorRequest}`,
+        notes,
         items: params.items,
       });
     } catch (error) {
+      // Kenaikan jumlah PO hanya sah bila GRN-nya ada; tanpa ini PO dan
+      // tagihan supplier tetap membengkak setelah penerimaan ditolak.
+      if (params.undo) {
+        await this.repository.undoItemQuantityIncrease(params.undo);
+      }
       if (error instanceof PurchaseOrderNotFoundError) {
         throw new RestockReceiptNotFoundError(error.message);
       }

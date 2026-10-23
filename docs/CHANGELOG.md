@@ -101,6 +101,69 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Migration**: `20261020090000_add_vpn_servers`
 - **Breaking**: ❌ Tidak
 
+### [2026-10-23] — Ubah isi PO yang sudah dipesan
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/procurement` | `app/api/admin/procurement/purchase-orders/[id]/items` | `app/admin/procurement/purchase-orders/[id]`
+- **Author**: agent
+- **Deskripsi**:
+  - Halaman detail PO punya tombol "Ubah Isi Pesanan" untuk PO Draft,
+    Dipesan, atau Sebagian Diterima. Dipakai saat supplier mengganti sebagian
+    pesanan, misalnya 4000 m kabel 4 core menjadi 2000 m 4 core dan 2000 m
+    2 core.
+  - Jumlah baris bisa dikurangi, tetapi tidak di bawah yang sudah diterima dan
+    dianulir (minimal 1). Barang baru bisa ditambah dengan harga satuannya
+    sendiri; barang yang sudah ada di PO harus diubah jumlahnya, bukan
+    ditambah lagi. Alasan wajib diisi.
+  - Endpoint `PATCH /api/admin/procurement/purchase-orders/[id]/items`, izin
+    `purchase_orders:update`. Subtotal, PPN, dan grand total dihitung ulang;
+    status bayar dihitung ulang dari pembayaran yang tercatat (PO lunas yang
+    totalnya naik menjadi Sebagian, dan sebaliknya). Kenaikan nilai PO tetap
+    melewati batas approval yang dipakai saat membuat PO.
+  - Barang tambahan ikut masuk ke pengajuan (PR) paling lama yang tergabung di
+    PO, sehingga langsung tampil di Verifikasi Barang Sampai dengan sisanya.
+    Pengajuan lain yang digabung ke PO yang sama tidak menampilkannya.
+  - Bila pengurangan membuat tidak ada sisa pesanan, PO dan pengajuannya
+    ditutup sebagai Diterima.
+  - Perubahan tercatat di log aktivitas (`CHANGE_ITEMS PurchaseOrder`) beserta
+    alasan, jumlah sebelum/sesudah, dan grand total sebelum/sesudah.
+  - Aturan diperiksa ulang di dalam transaksi setelah baris PO dikunci
+    (`FOR UPDATE`), sehingga penerimaan barang atau perubahan lain yang masuk
+    bersamaan tidak membuat jumlah di bawah yang sudah diterima, menambah baris
+    ke PO yang baru saja ditutup, menambah barang yang sama dua kali, atau
+    lolos batas approval karena dua kenaikan dicek terhadap total lama.
+    Status bayar hanya menghitung pembayaran PO milik tenant yang sama.
+  - Kenaikan jumlah PO karena kelebihan kiriman di verifikasi restock kini
+    ditambahkan oleh database (`increment`), sehingga tidak menimpa perubahan
+    isi PO yang tersimpan bersamaan.
+- **Breaking**: ❌ Tidak
+
+### [2026-10-23] — Verifikasi barang sampai: kiriman sebagian, kiriman lebih, dan tutup pesanan
+
+- **Tipe**: [FIXED] [CHANGED] [ADDED]
+- **Scope**: `modules/inventory` | `app/api/inventory/restock` | `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**:
+  - Penerimaan lanjutan PR-20261012-0001 ditolak 400 tanpa jejak di log. Alasan
+    setiap penolakan verifikasi kini dicatat (`[RESTOCK_RECEIVE] Penerimaan ditolak`).
+  - Setiap baris menampilkan "Sisa belum datang", supaya staf tidak mengetik
+    ulang jumlah total pesanan.
+  - Barang yang datang melebihi sisa pesanan bisa diterima bila diberi alasan:
+    jumlah item PO dinaikkan, subtotal/PPN/grand total PO dihitung ulang, PO
+    yang sudah lunas menjadi PARTIAL, dan kelebihannya tercatat di catatan GRN
+    serta log aktivitas. Tanpa alasan tetap ditolak dengan pesan yang jelas.
+    Menaikkan PO butuh izin `purchase_orders:update` (403 tanpa izin itu),
+    tidak berlaku untuk PO yang sudah RECEIVED/CANCELLED, dan dikembalikan
+    bila GRN gagal dibuat. Sisa dihitung dari jumlah di PO.
+  - Anulir diperiksa sebelum stok dicatat, sehingga penolakan anulir tidak
+    lagi membuat operator mengulang dan stok tercatat dua kali.
+  - "Tutup Pesanan" tidak lagi tercentang secara default.
+  - Menutup pesanan kini menganulir sisa yang belum datang dengan alasan
+    "Pesanan ditutup" (alasan anulir dari operator tetap dipakai). Sebelumnya
+    sisa itu dicatat diterima, sehingga stok bertambah untuk barang yang tidak
+    pernah datang.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-18] — Log Login mencatat lagi login web, login mobile, dan versi aplikasi yang ditolak
 
 - **Tipe**: [FIXED] [ADDED]

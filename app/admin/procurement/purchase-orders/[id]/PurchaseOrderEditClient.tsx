@@ -8,12 +8,15 @@ import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import { ProcurementPageShell } from "../../_components/ProcurementPageShell";
 import { downloadPurchaseOrderPdf } from "../po-pdf";
+import { PurchaseOrderItemChangePanel } from "./PurchaseOrderItemChangePanel";
+import { canChangePurchaseOrderItems } from "./po-item-change";
 
 interface PurchaseOrderItem {
   id: string;
   barangId: string;
   quantity: number;
   receivedQuantity: number;
+  cancelledQuantity: number;
   unitPrice: number;
   totalPrice: number;
   barang: { id: string; nama: string } | null;
@@ -376,6 +379,20 @@ export function PurchaseOrderEditClient({ poId }: Props) {
                 </tbody>
               </table>
             </section>
+          )}
+
+          {canChangePurchaseOrderItems(data.status) && (
+            <PurchaseOrderItemChangePanel
+              poId={data.id}
+              items={data.items}
+              jasaSubtotal={(data.jasaItems ?? []).reduce(
+                (sum, it) => sum + it.quantity * it.unitPrice,
+                0,
+              )}
+              ppnRate={data.ppnRate}
+              grandTotal={data.grandTotal}
+              onChanged={mutate}
+            />
           )}
 
           {(data.jasaItems ?? []).length > 0 && (

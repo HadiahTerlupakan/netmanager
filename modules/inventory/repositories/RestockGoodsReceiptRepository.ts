@@ -6,7 +6,9 @@ import type {
   ApplyItemCancellationInput,
   ApplyItemSubstitutionInput,
   BarangSubstitutionCandidate,
+  IncreaseItemQuantitiesInput,
   IRestockGoodsReceiptRepository,
+  PurchaseOrderIncreaseUndo,
   RestockPurchaseOrderForReceipt,
   RestockPurchaseRequestForReceipt,
 } from "../domain/ports/IRestockGoodsReceiptRepository";
@@ -46,6 +48,7 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
       select: {
         id: true,
         poNumber: true,
+        status: true,
         items: {
           select: {
             id: true,
@@ -133,6 +136,120 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
         });
       }
     });
+  }
+
+  /**
+   * Naikkan jumlah item PO untuk kiriman yang lebih banyak dari pesanan, lalu
+   * hitung ulang subtotal, PPN, dan grand total PO dengan rumus yang sama
+   * seperti edit PO. PO yang sudah lunas jadi PARTIAL karena tagihannya naik.
+   */
+  async increaseItemQuantities(
+    input: IncreaseItemQuantitiesInput,
+  ): Promise<PurchaseOrderIncreaseUndo> {
+    return this.db.$transaction(async (tx: Prisma.TransactionClient) => {
+      for (const increase of input.increases) {
+        await this.changeItemQuantity(
+          tx,
+          input.purchaseOrderId,
+          increase.purchaseOrderItemId,
+          increase.extraQuantity,
+        );
+      }
+      const markedUnderpaid = await this.recalculatePurchaseOrderTotals(
+        tx,
+        input.purchaseOrderId,
+      );
+      return {
+        purchaseOrderId: input.purchaseOrderId,
+        increases: input.increases,
+        markedUnderpaid,
+      };
+    });
+  }
+
+  /** Kembalikan kenaikan PO yang tidak jadi karena GRN gagal dibuat. */
+  async undoItemQuantityIncrease(
+    undo: PurchaseOrderIncreaseUndo,
+  ): Promise<void> {
+    await this.db.$transaction(async (tx: Prisma.TransactionClient) => {
+      for (const increase of undo.increases) {
+        await this.changeItemQuantity(
+          tx,
+          undo.purchaseOrderId,
+          increase.purchaseOrderItemId,
+          -increase.extraQuantity,
+        );
+      }
+      await this.recalculatePurchaseOrderTotals(tx, undo.purchaseOrderId);
+      if (undo.markedUnderpaid) {
+        // Hanya dikembalikan bila belum ada yang mengubah status bayarnya lagi.
+        await tx.purchaseOrder.updateMany({
+          where: { id: undo.purchaseOrderId, paymentStatus: "PARTIAL" },
+          data: { paymentStatus: "PAID" },
+        });
+      }
+    });
+  }
+
+  private async changeItemQuantity(
+    tx: Prisma.TransactionClient,
+    purchaseOrderId: string,
+    purchaseOrderItemId: string,
+    delta: number,
+  ): Promise<void> {
+    const item = await tx.purchaseOrderItem.findFirst({
+      where: { id: purchaseOrderItemId, purchaseOrderId },
+    });
+    if (!item) {
+      throw new Error(`Item PO ${purchaseOrderItemId} tidak ditemukan`);
+    }
+    // Selisih ditambahkan oleh database, bukan dari jumlah yang dibaca di
+    // atas, supaya perubahan isi PO yang masuk bersamaan tidak tertimpa.
+    const updated = await tx.purchaseOrderItem.update({
+      where: { id: item.id },
+      data: { quantity: { increment: delta } },
+    });
+    await tx.purchaseOrderItem.update({
+      where: { id: item.id },
+      data: { totalPrice: updated.quantity * updated.unitPrice },
+    });
+  }
+
+  /** Mengembalikan true bila PO lunas berubah menjadi PARTIAL karena totalnya naik. */
+  private async recalculatePurchaseOrderTotals(
+    tx: Prisma.TransactionClient,
+    purchaseOrderId: string,
+  ): Promise<boolean> {
+    const [barangItems, jasaItems, purchaseOrder] = await Promise.all([
+      tx.purchaseOrderItem.findMany({ where: { purchaseOrderId } }),
+      tx.purchaseOrderJasaItem.findMany({ where: { purchaseOrderId } }),
+      tx.purchaseOrder.findUnique({ where: { id: purchaseOrderId } }),
+    ]);
+    if (!purchaseOrder) {
+      throw new Error(`Purchase Order ${purchaseOrderId} tidak ditemukan`);
+    }
+    const subtotal = [...barangItems, ...jasaItems].reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0,
+    );
+    const ppnAmount = Math.round(
+      (subtotal * (purchaseOrder.ppnRate ?? 0)) / 100,
+    );
+    const grandTotal = subtotal + ppnAmount;
+    const becameUnderpaid =
+      purchaseOrder.paymentStatus === "PAID" &&
+      grandTotal > purchaseOrder.grandTotal;
+
+    await tx.purchaseOrder.update({
+      where: { id: purchaseOrderId },
+      data: {
+        totalAmount: subtotal,
+        ppnAmount,
+        grandTotal,
+        ...(becameUnderpaid ? { paymentStatus: "PARTIAL" } : {}),
+      },
+    });
+    return becameUnderpaid;
   }
 
   /** Cek apakah masih ada item PO yang belum diterima maupun dianulir. */
