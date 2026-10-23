@@ -49,7 +49,9 @@ interface ParsedInput {
 
 /** Jalankan penguraian masukan skrip yang sesungguhnya dan laporkan hasilnya. */
 function parseInput(args: string[], sshOriginalCommand?: string): ParsedInput {
-  const quotedArgs = args.map((arg) => `'${arg.replace(/'/g, "'\\''")}'`).join(" ");
+  const quotedArgs = args
+    .map((arg) => `'${arg.replace(/'/g, "'\\''")}'`)
+    .join(" ");
   const result = runBash(
     [
       "set -euo pipefail",
@@ -59,7 +61,9 @@ function parseInput(args: string[], sshOriginalCommand?: string): ParsedInput {
       'echo "SHA=${SHA}"',
       'echo "IZIN=${IZIN_TANPA_CADANGAN}"',
     ].join("\n"),
-    sshOriginalCommand === undefined ? {} : { SSH_ORIGINAL_COMMAND: sshOriginalCommand },
+    sshOriginalCommand === undefined
+      ? {}
+      : { SSH_ORIGINAL_COMMAND: sshOriginalCommand },
   );
   if (!result.isSuccess) return { isAccepted: false };
   return {
@@ -83,7 +87,7 @@ function readCompareCase(): string {
 function isCompareStatusAccepted(status: string): boolean {
   return runBash(
     [
-      'gagal() { exit 1; }',
+      "gagal() { exit 1; }",
       `STATUS_BANDING='${status}'`,
       readCompareCase(),
     ].join("\n"),
@@ -128,10 +132,13 @@ describe("masukan skrip deploy", () => {
     ["bukan heksadesimal", `${SHA_SAH.slice(0, 39)}g`],
     ["disusupi perintah", `${SHA_SAH};id`],
     ["bendera di depan", `${FLAG_TANPA_CADANGAN} ${SHA_SAH}`],
-  ])("menolak masukan yang bukan SHA 40 heksadesimal (%s)", (_kasus, masukan) => {
-    expect(parseInput([], masukan).isAccepted).toBe(false);
-    expect(parseInput([masukan]).isAccepted).toBe(false);
-  });
+  ])(
+    "menolak masukan yang bukan SHA 40 heksadesimal (%s)",
+    (_kasus, masukan) => {
+      expect(parseInput([], masukan).isAccepted).toBe(false);
+      expect(parseInput([masukan]).isAccepted).toBe(false);
+    },
+  );
 
   it("hanya memakai token pertama SSH_ORIGINAL_COMMAND", () => {
     const hasil = parseInput([], `${SHA_SAH} argumen-lain lagi`);
@@ -148,8 +155,10 @@ describe("masukan skrip deploy", () => {
       parseInput([], `${SHA_SAH} ${FLAG_TANPA_CADANGAN}`).isBackupBypassAllowed,
     ).toBe(false);
     expect(
-      parseInput([SHA_SAH, FLAG_TANPA_CADANGAN], `${SHA_SAH} ${FLAG_TANPA_CADANGAN}`)
-        .isBackupBypassAllowed,
+      parseInput(
+        [SHA_SAH, FLAG_TANPA_CADANGAN],
+        `${SHA_SAH} ${FLAG_TANPA_CADANGAN}`,
+      ).isBackupBypassAllowed,
     ).toBe(false);
   });
 
@@ -207,7 +216,9 @@ describe("commit, tag, dan manifes diturunkan skrip sendiri", () => {
     const bagian = readDeployScriptSection("1.");
 
     expect(readDeployScript()).toMatch(/^CABANG_PRODUKSI="main"$/m);
-    expect(bagian).toContain('api_github "compare/${SHA}...${CABANG_PRODUKSI}"');
+    expect(bagian).toContain(
+      'api_github "compare/${SHA}...${CABANG_PRODUKSI}"',
+    );
     expect(bagian).toContain(`jq -r '.status + " " + (.behind_by|tostring)'`);
   });
 
@@ -229,14 +240,19 @@ describe("commit, tag, dan manifes diturunkan skrip sendiri", () => {
     expect(script).toContain(
       `TANGGAL_COMMIT="$(api_github "commits/\${SHA}" | jq -r '.commit.committer.date')"`,
     );
-    expect(script).toContain('EPOCH_COMMIT="$(date -u -d "${TANGGAL_COMMIT}" +%s)"');
+    expect(script).toContain(
+      'EPOCH_COMMIT="$(date -u -d "${TANGGAL_COMMIT}" +%s)"',
+    );
     // Tag hanya ditetapkan sekali, dari SHA yang sudah divalidasi.
     expect(script.match(/^\s*TAG=.*$/gm)).toEqual([
       'TAG="${SHA:0:12}-${EPOCH_COMMIT}"',
     ]);
     for (const nama of ["APP", "CRON", "RADIUS"]) {
       expect(script).toMatch(
-        new RegExp(`^${nama}_IMAGE="\\$\\{REGISTRY\\}/netmanager-${nama.toLowerCase()}:\\$\\{TAG\\}"$`, "m"),
+        new RegExp(
+          `^${nama}_IMAGE="\\$\\{REGISTRY\\}/netmanager-${nama.toLowerCase()}:\\$\\{TAG\\}"$`,
+          "m",
+        ),
       );
     }
   });
@@ -256,7 +272,9 @@ describe("commit, tag, dan manifes diturunkan skrip sendiri", () => {
     const workflow = readBuildWorkflow();
     const registry = workflow.match(/^ {2}REGISTRY: (\S+)$/m)?.[1];
     const namespace = workflow.match(/^ {2}IMAGE_NAMESPACE: (\S+)$/m)?.[1];
-    const repoGithub = readDeployScript().match(/^REPO_GITHUB="([^"]+)"$/m)?.[1];
+    const repoGithub = readDeployScript().match(
+      /^REPO_GITHUB="([^"]+)"$/m,
+    )?.[1];
 
     expect(registry).toBeDefined();
     expect(namespace).toBeDefined();
@@ -278,6 +296,7 @@ describe("commit, tag, dan manifes diturunkan skrip sendiri", () => {
     // stdin atau dari berkas lain di host.
     const apply = kode.match(/apply -f \S+/g) ?? [];
     expect(apply).toEqual([
+      'apply -f "${KERJA}/rendered/configmap.yaml"',
       'apply -f "${KERJA}/rendered/migration-job.yaml"',
       'apply -f "$manifest"',
     ]);
@@ -298,7 +317,10 @@ function runRender(manifests: Record<string, string>) {
   expect(mulai).toBeGreaterThan(-1);
 
   const tulisManifes = Object.entries(manifests)
-    .map(([nama, isi]) => `printf '%s\\n' '${isi}' > "\${KERJA}/k8s/production/${nama}"`)
+    .map(
+      ([nama, isi]) =>
+        `printf '%s\\n' '${isi}' > "\${KERJA}/k8s/production/${nama}"`,
+    )
     .join("\n");
   return runBash(
     [
@@ -329,8 +351,12 @@ describe("render manifes", () => {
     });
 
     expect(hasil.isSuccess).toBe(true);
-    expect(hasil.stdout).toContain(`== deployment.yaml\nimage: ${IMAGE_APP_UJI}`);
-    expect(hasil.stdout).toContain(`== migration-job.yaml\nimage: ${IMAGE_APP_UJI}`);
+    expect(hasil.stdout).toContain(
+      `== deployment.yaml\nimage: ${IMAGE_APP_UJI}`,
+    );
+    expect(hasil.stdout).toContain(
+      `== migration-job.yaml\nimage: ${IMAGE_APP_UJI}`,
+    );
     expect(hasil.stdout).not.toContain("== secrets.yaml");
     expect(hasil.stdout).not.toContain("== registry-secret.yaml");
   });
@@ -360,7 +386,11 @@ describe("render manifes", () => {
       ).isSuccess;
 
     expect(periksa(`image: ${IMAGE_APP_UJI}`)).toBe(true);
-    for (const placeholder of ["{{APP_IMAGE}}", "{{CRON_IMAGE}}", "{{RADIUS_IMAGE}}"]) {
+    for (const placeholder of [
+      "{{APP_IMAGE}}",
+      "{{CRON_IMAGE}}",
+      "{{RADIUS_IMAGE}}",
+    ]) {
       expect(periksa(`image: ${placeholder}`), placeholder).toBe(false);
     }
   });
@@ -414,10 +444,10 @@ describe("image tersedia sebelum cluster disentuh", () => {
 describe("menunggu migrasi", () => {
   /** Jalankan bagian migrasi skrip dengan kondisi Job palsu. */
   function runMigrationWait(env: Record<string, string>) {
-    return runBash(
-      [KUBECTL_PALSU, readDeployScriptSection("7.")].join("\n"),
-      { BATAS_TUNGGU_MIGRASI_DETIK: "3900", ...env },
-    );
+    return runBash([KUBECTL_PALSU, readDeployScriptSection("7.")].join("\n"), {
+      BATAS_TUNGGU_MIGRASI_DETIK: "3900",
+      ...env,
+    });
   }
 
   it("memantau Complete dan Failed sekaligus, tanpa kubectl wait", () => {
@@ -426,8 +456,12 @@ describe("menunggu migrasi", () => {
     // detik, tetapi pipeline tetap menggantung 40+ menit.
     const bagian = readDeployScriptSection("7.");
 
-    expect(bagian).toContain('{.status.conditions[?(@.type=="Complete")].status}');
-    expect(bagian).toContain('{.status.conditions[?(@.type=="Failed")].status}');
+    expect(bagian).toContain(
+      '{.status.conditions[?(@.type=="Complete")].status}',
+    );
+    expect(bagian).toContain(
+      '{.status.conditions[?(@.type=="Failed")].status}',
+    );
     expect(readDeployScript()).not.toContain("wait --for=condition=complete");
   });
 
@@ -455,10 +489,11 @@ describe("menunggu migrasi", () => {
 describe("verifikasi setelah rollout", () => {
   /** Jalankan bagian apply + rollout + verifikasi dengan image aktif palsu. */
   function runRolloutCheck(imageAktif: string, imageHarusnya: string) {
-    return runBash(
-      [KUBECTL_PALSU, readDeployScriptSection("8.")].join("\n"),
-      { IMAGE_AKTIF: imageAktif, APP_IMAGE: imageHarusnya, BATAS_ROLLOUT: "420s" },
-    );
+    return runBash([KUBECTL_PALSU, readDeployScriptSection("8.")].join("\n"), {
+      IMAGE_AKTIF: imageAktif,
+      APP_IMAGE: imageHarusnya,
+      BATAS_ROLLOUT: "420s",
+    });
   }
 
   it("menunggu rollout keempat deployment", () => {
@@ -472,7 +507,32 @@ describe("verifikasi setelah rollout", () => {
 
   it("gagal bila image yang benar-benar aktif bukan image commit ini", () => {
     // Rollout bisa dilaporkan sukses padahal manifes lama yang terpasang.
-    expect(runRolloutCheck("registry/app:baru", "registry/app:baru").isSuccess).toBe(true);
-    expect(runRolloutCheck("registry/app:lama", "registry/app:baru").isSuccess).toBe(false);
+    expect(
+      runRolloutCheck("registry/app:baru", "registry/app:baru").isSuccess,
+    ).toBe(true);
+    expect(
+      runRolloutCheck("registry/app:lama", "registry/app:baru").isSuccess,
+    ).toBe(false);
+  });
+});
+
+describe("ConfigMap diterapkan sebelum pod membacanya", () => {
+  it("menerapkan configmap.yaml sebelum Job migrasi dan Deployment", () => {
+    // Env dari ConfigMap dibaca saat container start, dan urutan abjad menaruh
+    // app-deployment.yaml di depan configmap.yaml: pada deploy 2026-10-23 satu
+    // pod app start tanpa VPN_CORE_API_URL.
+    const migrasi = stripCommentLines(readDeployScriptSection("7. Migrasi"));
+    const configMap = migrasi.indexOf(
+      'apply -f "${KERJA}/rendered/configmap.yaml"',
+    );
+    const job = migrasi.indexOf(
+      'apply -f "${KERJA}/rendered/migration-job.yaml"',
+    );
+
+    expect(configMap).toBeGreaterThanOrEqual(0);
+    expect(configMap).toBeLessThan(job);
+    expect(stripCommentLines(readDeployScriptSection("8."))).toContain(
+      "migration-job.yaml|configmap.yaml) continue ;;",
+    );
   });
 });

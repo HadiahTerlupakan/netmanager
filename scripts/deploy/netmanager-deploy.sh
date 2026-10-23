@@ -219,6 +219,11 @@ done
 find "${DIR_CADANGAN}" -name '*.sql.gz' -mtime +"${RETENSI_CADANGAN_HARI}" -delete 2>/dev/null || true
 
 # --- 7. Migrasi --------------------------------------------------------------
+# ConfigMap lebih dulu: Job migrasi dan semua Deployment membaca env-nya saat
+# container start, sedangkan urutan abjad di langkah 8 menaruh
+# app-deployment.yaml di depan configmap.yaml. Pada deploy 2026-10-23 satu pod
+# app start dengan ConfigMap lama, tanpa VPN_CORE_API_URL.
+${K} apply -f "${KERJA}/rendered/configmap.yaml"
 # Job bersifat immutable, jadi yang lama dihapus dulu.
 ${K} delete job netmanager-migration-job --ignore-not-found
 ${K} apply -f "${KERJA}/rendered/migration-job.yaml"
@@ -245,7 +250,9 @@ echo "Migrasi selesai."
 
 # --- 8. Terapkan manifes dan tunggu rollout ---------------------------------
 for manifest in "${KERJA}"/rendered/*.yaml; do
-  [ "$(basename "$manifest")" = "migration-job.yaml" ] && continue
+  case "$(basename "$manifest")" in
+    migration-job.yaml|configmap.yaml) continue ;;
+  esac
   echo "apply $(basename "$manifest")"
   ${K} apply -f "$manifest"
 done
