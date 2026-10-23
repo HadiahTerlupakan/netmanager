@@ -131,4 +131,47 @@ describeDb("VpnServerRepository.detachServerFromRouters (DB nyata)", () => {
     );
     expect(hasil).toEqual({ detached: 0, onlyServer: [] });
   });
+
+  it.each([
+    ["dua server tersisa", [S1, TARGET, S2], [S1, S2]],
+    ["satu server tersisa", [S1, TARGET], [S1]],
+  ])(
+    "mengabaikan router yang daftarnya berubah tanpa server ini saat menunggu kunci (%s)",
+    async (_nama, awal, sesudah) => {
+      const repo = new VpnServerRepository();
+      const r = await buatRouter(TENANT_A, awal);
+      let lepas: () => void = () => undefined;
+      const gerbang = new Promise<void>((resolve) => (lepas = resolve));
+      let terkunci: () => void = () => undefined;
+      const sudahKunci = new Promise<void>((resolve) => (terkunci = resolve));
+      const penulis = prismaAuth.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "MikroTikRouter" WHERE "id" = ${r.id} FOR UPDATE`;
+        terkunci();
+        await gerbang;
+        await tx.mikroTikRouterVpnServer.deleteMany({
+          where: { routerId: r.id },
+        });
+        await tx.mikroTikRouterVpnServer.createMany({
+          data: sesudah.map((vpnServerId, priority) => ({
+            routerId: r.id,
+            vpnServerId,
+            priority,
+          })),
+        });
+      });
+      await sudahKunci;
+      const hasil = sebagaiSuperadmin(() =>
+        repo.detachServerFromRouters(TARGET),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      lepas();
+      await penulis;
+
+      expect(await hasil).toEqual({ detached: 0, onlyServer: [] });
+      expect(await daftar(r.id)).toEqual(
+        sesudah.map((id, priority) => [id, priority]),
+      );
+      expect(await stale(r.id)).toBe(false);
+    },
+  );
 });

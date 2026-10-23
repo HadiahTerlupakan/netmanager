@@ -163,6 +163,9 @@ describe("VpnServerPanel", () => {
       "tombol keluarkan tampil",
     );
     await klikTombol("Keluarkan dari semua router");
+    expect(document.body.textContent).toContain(
+      "Keluarkan server dari semua router di atas? Router yang hanya memakai server ini dilewati.",
+    );
     await klikTombol("Ya, Keluarkan");
     await tungguSampai(
       () => document.body.textContent.includes("Dikeluarkan dari 2 router."),

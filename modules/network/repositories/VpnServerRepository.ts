@@ -210,8 +210,13 @@ export class VpnServerRepository implements IVpnServerRepository {
           link.vpnServerId,
         ]);
       }
-      const only = routerIds.filter((id) => byRouter.get(id)?.length === 1);
-      const detach = routerIds.filter((id) => !only.includes(id));
+      // Daftar dibaca ulang setelah kunci: router yang daftarnya berubah
+      // tanpa server ini selagi menunggu kunci tidak disentuh.
+      const using = routerIds.filter((id) =>
+        byRouter.get(id)?.includes(serverId),
+      );
+      const only = using.filter((id) => byRouter.get(id)?.length === 1);
+      const detach = using.filter((id) => !only.includes(id));
       for (const routerId of detach) {
         await removeLink(tx, routerId, serverId, byRouter.get(routerId) ?? []);
       }
@@ -238,8 +243,8 @@ async function removeLink(
   serverId: string,
   orderedServerIds: string[],
 ): Promise<void> {
-  await tx.mikroTikRouterVpnServer.delete({
-    where: { routerId_vpnServerId: { routerId, vpnServerId: serverId } },
+  await tx.mikroTikRouterVpnServer.deleteMany({
+    where: { routerId, vpnServerId: serverId },
   });
   const remaining = orderedServerIds.filter((id) => id !== serverId);
   for (const [priority, vpnServerId] of remaining.entries()) {
