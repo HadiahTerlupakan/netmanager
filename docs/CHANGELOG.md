@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-23] — Tindak lanjut integrasi VPN
+
+- **Tipe**: [FIXED] | [CHANGED] | [ADDED]
+- **Scope**: `modules/network` | `app/api/mikrotik-routers` | `app/admin` | `docs/`
+- **Author**: agent
+- **Deskripsi**:
+  - [FIXED] Test koneksi di form tambah/edit dan di daftar router membaca isi respons. Sebelumnya selalu menampilkan "Koneksi Berhasil" dan membuka kunci tombol simpan publik walau router tidak terjangkau.
+  - [CHANGED] `ipAddress` router harus alamat IPv4/IPv6 literal saat create, saat PATCH bila diubah, saat test koneksi, dan sebelum pindah ke VPN. Nama host ditolak ("IP Router harus berupa alamat IP, bukan nama host"). Router lama ber-nama host tetap jalan (monitor, PPP, simpan tanpa mengubah alamat), tetapi tidak bisa test koneksi atau pindah ke VPN sebelum alamatnya diganti IP. **Catatan owner sebelum deploy**: daftar router PUBLIC bernama host dengan query di `docs/deployment/netmanager-vpn.md` (bagian "Router ber-nama host").
+  - [FIXED] Pengiriman daftar server ke router VPN diserialkan per router (advisory lock Postgres). Perubahan yang bersamaan dijawab 409 "Daftar server router ini sedang diperbarui, coba lagi sebentar". Tulis RouterOS VPN dibatasi 15 detik.
+  - [ADDED] Superadmin: "Tambahkan ke semua router VPN" (halaman VPN tenant) dan "Keluarkan dari semua router" (modal hapus server). Keduanya hanya mengubah DB; pengiriman lewat retry monitor 5 menit, maksimal 20 router per tenant per siklus, hanya router online (yang offline menyusul saat tersambung kembali). Router yang server satu-satunya itu dilewati dan didaftar. Hapus server tetap diblokir sampai semua router menerima daftar barunya.
+  - [ADDED] Badge "Server cadangan" di daftar router. Monitor membaca hub aktif tiap router VPN dari core sekali per siklus 5 menit (maksimal 20 lookup serentak).
+  - Item terbuka (sudah ada sebelumnya, tidak diubah): `node-routeros-v2` membaca `timeout` dalam detik, jadi `CONNECTION_TIMEOUT = 10000` di `modules/network/services/mikrotik-provisioning.connection.ts` dan `MikroTikConnectionFactory` berarti sekitar 2,8 jam, bukan 10 detik. Panggilan provisioning/API publik ke router yang tak terjangkau bisa menggantung sampai OS menyerah.
+- **Migration**: tidak ada
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-20] — Pengamanan integrasi VPN setelah review akhir
 
 - **Tipe**: [SECURITY]

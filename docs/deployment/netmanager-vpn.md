@@ -144,6 +144,36 @@ router. Akses dari rute tenant selalu lewat induk yang sudah difilter tenant
 Belum selesai: snippet RouterOS yang dibuat netmanager masih sementara sampai
 spike selesai (`docs/superpowers/plans/2026-10-19-vpn-spike.md`).
 
+## Router ber-nama host
+
+`ipAddress` router harus alamat IP literal (create, PATCH yang mengubahnya,
+test koneksi, dan pindah ke VPN). Router PUBLIC lama yang berisi nama host
+tetap berjalan, tetapi harus diganti IP sebelum bisa test koneksi atau pindah
+ke VPN. Daftar sebelum deploy (hanya baca):
+
+```sql
+SELECT id, name, "tenantId", "ipAddress"
+FROM "MikroTikRouter"
+WHERE "connectionMode" = 'PUBLIC'
+  AND NOT ("ipAddress" ~ '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' OR "ipAddress" LIKE '%:%');
+```
+
+## Server untuk semua router
+
+Superadmin punya dua aksi massal: "Tambahkan ke semua router VPN" di halaman VPN
+tenant dan "Keluarkan dari semua router" di modal hapus server. Keduanya hanya
+mengubah DB. Pengiriman daftar server ke router dilakukan retry monitor 5 menit:
+maksimal 20 router per tenant per siklus, hanya router online; router offline
+menerimanya saat tersambung kembali. Router yang server satu-satunya itu
+dilewati dan didaftar. Hapus server tetap diblokir sampai semua router menerima
+daftar barunya.
+
+Pengiriman daftar per router diserialkan dengan advisory lock Postgres; perubahan
+bersamaan dijawab 409 "Daftar server router ini sedang diperbarui, coba lagi
+sebentar". Tulis RouterOS VPN dibatasi 15 detik. Badge "Server cadangan" di
+daftar router berasal dari monitor yang membaca hub aktif tiap router VPN dari
+core sekali per siklus 5 menit (maksimal 20 lookup serentak).
+
 ## Firewall provider
 
 - radpro: buka UDP 51822 (wg-core).
