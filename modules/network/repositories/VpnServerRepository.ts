@@ -6,6 +6,7 @@ import type {
 } from "../domain/ports/IVpnServerRepository";
 import type { CoreHub } from "../vpn/types";
 import type { VpnServerRouterUsage } from "../vpn/errors";
+import { SCRIPT_SEND_TX_TIMEOUT_MS } from "./MikroTikRouterVpnRepository";
 
 function hubFields(hub: CoreHub) {
   return {
@@ -16,6 +17,16 @@ function hubFields(hub: CoreHub) {
     lastSeenAt: hub.lastSeenAt ? new Date(hub.lastSeenAt) : null,
   };
 }
+
+// Kelonggaran untuk pernyataan detach sendiri di atas tabel tautan yang besar.
+const DETACH_QUERY_MARGIN_MS = 20_000;
+/**
+ * Batas transaksi detach. Mengunci baris semua router pemakai berarti antre di
+ * belakang `completeScriptSend` yang bisa menahan kuncinya sampai
+ * SCRIPT_SEND_TX_TIMEOUT_MS; batas bawaan Prisma (5 detik) membuat server yang
+ * dipakai banyak router selalu rollback (P2028) dan tidak pernah bisa dihapus.
+ */
+const DETACH_TX_TIMEOUT_MS = SCRIPT_SEND_TX_TIMEOUT_MS + DETACH_QUERY_MARGIN_MS;
 
 interface RouterRef {
   id: string;
@@ -189,68 +200,80 @@ export class VpnServerRepository implements IVpnServerRepository {
   async detachServerFromRouters(
     serverId: string,
   ): Promise<{ detached: number; onlyServer: VpnServerRouterUsage[] }> {
-    return this.client.$transaction(async (tx) => {
-      const locked = await tx.$queryRaw<{ id: string }[]>`
+    return this.client.$transaction(
+      async (tx) => {
+        const locked = await tx.$queryRaw<{ id: string }[]>`
         SELECT "id" FROM "MikroTikRouter"
         WHERE "id" IN (
           SELECT "routerId" FROM "mikrotik_router_vpn_servers"
           WHERE "vpnServerId" = ${serverId})
         ORDER BY "id"
         FOR UPDATE`;
-      const routerIds = locked.map((r) => r.id);
-      const links = await tx.mikroTikRouterVpnServer.findMany({
-        where: { routerId: { in: routerIds } },
-        orderBy: [{ routerId: "asc" }, { priority: "asc" }],
-        select: { routerId: true, vpnServerId: true },
-      });
-      const byRouter = new Map<string, string[]>();
-      for (const link of links) {
-        byRouter.set(link.routerId, [
-          ...(byRouter.get(link.routerId) ?? []),
-          link.vpnServerId,
-        ]);
-      }
-      // Daftar dibaca ulang setelah kunci: router yang daftarnya berubah
-      // tanpa server ini selagi menunggu kunci tidak disentuh.
-      const using = routerIds.filter((id) =>
-        byRouter.get(id)?.includes(serverId),
-      );
-      const only = using.filter((id) => byRouter.get(id)?.length === 1);
-      const detach = using.filter((id) => !only.includes(id));
-      for (const routerId of detach) {
-        await removeLink(tx, routerId, serverId, byRouter.get(routerId) ?? []);
-      }
-      await tx.mikroTikRouter.updateMany({
-        where: { id: { in: detach } },
-        data: { vpnScriptStale: true },
-      });
-      const onlyRouters = await tx.mikroTikRouter.findMany({
-        where: { id: { in: only } },
-        select: { id: true, name: true, tenantId: true },
-      });
-      return {
-        detached: detach.length,
-        onlyServer: await toUsage(tx, onlyRouters),
-      };
-    });
+        const routerIds = locked.map((r) => r.id);
+        const links = await tx.mikroTikRouterVpnServer.findMany({
+          where: { routerId: { in: routerIds } },
+          orderBy: [{ routerId: "asc" }, { priority: "asc" }],
+          select: { routerId: true, vpnServerId: true },
+        });
+        const byRouter = new Map<string, string[]>();
+        for (const link of links) {
+          byRouter.set(link.routerId, [
+            ...(byRouter.get(link.routerId) ?? []),
+            link.vpnServerId,
+          ]);
+        }
+        // Daftar dibaca ulang setelah kunci: router yang daftarnya berubah
+        // tanpa server ini selagi menunggu kunci tidak disentuh.
+        const using = routerIds.filter((id) =>
+          byRouter.get(id)?.includes(serverId),
+        );
+        const only = using.filter((id) => byRouter.get(id)?.length === 1);
+        const detach = using.filter((id) => !only.includes(id));
+        await removeLinks(tx, detach, serverId);
+        await tx.mikroTikRouter.updateMany({
+          where: { id: { in: detach } },
+          data: { vpnScriptStale: true },
+        });
+        const onlyRouters = await tx.mikroTikRouter.findMany({
+          where: { id: { in: only } },
+          select: { id: true, name: true, tenantId: true },
+        });
+        return {
+          detached: detach.length,
+          onlyServer: await toUsage(tx, onlyRouters),
+        };
+      },
+      { timeout: DETACH_TX_TIMEOUT_MS },
+    );
   }
 }
 
-/** Menghapus satu tautan lalu merapatkan prioritas server yang tersisa. */
-async function removeLink(
+/**
+ * Menghapus tautan server dari router-router itu lalu merapatkan prioritas
+ * sisanya 0..n-1 sesuai urutan semula, dalam dua pernyataan berapa pun jumlah
+ * routernya.
+ */
+async function removeLinks(
   tx: Prisma.TransactionClient,
-  routerId: string,
+  routerIds: string[],
   serverId: string,
-  orderedServerIds: string[],
 ): Promise<void> {
+  if (routerIds.length === 0) return;
   await tx.mikroTikRouterVpnServer.deleteMany({
-    where: { routerId, vpnServerId: serverId },
+    where: { routerId: { in: routerIds }, vpnServerId: serverId },
   });
-  const remaining = orderedServerIds.filter((id) => id !== serverId);
-  for (const [priority, vpnServerId] of remaining.entries()) {
-    await tx.mikroTikRouterVpnServer.update({
-      where: { routerId_vpnServerId: { routerId, vpnServerId } },
-      data: { priority },
-    });
-  }
+  await tx.$executeRaw`
+    UPDATE "mikrotik_router_vpn_servers" AS l
+    SET "priority" = r."priority"
+    FROM (
+      SELECT "routerId", "vpnServerId",
+        (ROW_NUMBER() OVER (
+          PARTITION BY "routerId" ORDER BY "priority", "vpnServerId"
+        ) - 1)::int AS "priority"
+      FROM "mikrotik_router_vpn_servers"
+      WHERE "routerId" = ANY(${routerIds})
+    ) AS r
+    WHERE l."routerId" = r."routerId"
+      AND l."vpnServerId" = r."vpnServerId"
+      AND l."priority" <> r."priority"`;
 }

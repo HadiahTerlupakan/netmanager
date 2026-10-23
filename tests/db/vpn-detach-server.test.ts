@@ -1,3 +1,6 @@
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { prismaAuth } from "@/lib/prisma";
 import { runWithRequestTenantContext } from "@/lib/tenant-context";
@@ -29,6 +32,30 @@ async function bersihkan(): Promise<void> {
   await prismaAuth.vpnServer.deleteMany({
     where: { id: { in: [TARGET, S1, S2] } },
   });
+}
+
+const BANYAK_ROUTER = 50;
+// Pernyataan transaksi detach yang tidak bergantung jumlah router (BEGIN,
+// kunci, baca tautan, hapus, renumber, stale, router satu-satunya, tenant,
+// COMMIT) ditambah kelonggaran.
+const BATAS_QUERY_DETACH = 15;
+// Lebih lama dari batas transaksi bawaan Prisma (5 detik), sependek
+// completeScriptSend yang menahan kunci baris router.
+const TAHAN_KUNCI_MS = 6_000;
+
+/** Klien Prisma terpisah yang menghitung query yang dikirim ke database. */
+function klienPenghitung(): { client: PrismaClient; jumlah: () => number } {
+  const client = new PrismaClient({
+    adapter: new PrismaPg(
+      new Pool({ connectionString: process.env.TEST_DATABASE_URL }),
+    ),
+    log: [{ emit: "event", level: "query" }],
+  });
+  let jumlah = 0;
+  client.$on("query", () => {
+    jumlah += 1;
+  });
+  return { client, jumlah: () => jumlah };
 }
 
 let urutan = 0;
@@ -123,6 +150,86 @@ describeDb("VpnServerRepository.detachServerFromRouters (DB nyata)", () => {
     expect(await stale(b.id)).toBe(true);
     expect(await stale(sendiri.id)).toBe(false);
     expect(await stale(tanpa.id)).toBe(false);
+  });
+
+  it("mengeluarkan server dari banyak router dengan jumlah query tetap dan merapatkan prioritas", async () => {
+    const jumlah = BANYAK_ROUTER;
+    const ids = Array.from({ length: jumlah }, (_, i) => `uji-detach-m${i}`);
+    await prismaAuth.mikroTikRouter.createMany({
+      data: ids.map((id, i) => ({
+        id,
+        name: `Router massal ${i}`,
+        ipAddress: `10.203.${Math.floor(i / 250)}.${i % 250}`,
+        apiUsername: "u",
+        apiPassword: "p",
+        secretRadius: "rahasia",
+        updatedAt: new Date(),
+        tenantId: TENANT_A,
+        connectionMode: "VPN",
+        vpnCoreRouterId: `core-detach-${id}`,
+      })),
+    });
+    await prismaAuth.mikroTikRouterVpnServer.createMany({
+      data: ids.flatMap((routerId) =>
+        [TARGET, S1, S2].map((vpnServerId, priority) => ({
+          routerId,
+          vpnServerId,
+          priority,
+        })),
+      ),
+    });
+
+    const penghitung = klienPenghitung();
+    const hasil = await new VpnServerRepository(
+      penghitung.client,
+    ).detachServerFromRouters(TARGET);
+    const query = penghitung.jumlah();
+    await penghitung.client.$disconnect();
+
+    expect(hasil).toEqual({ detached: jumlah, onlyServer: [] });
+    expect(query).toBeLessThanOrEqual(BATAS_QUERY_DETACH);
+    const sisa = await prismaAuth.mikroTikRouterVpnServer.findMany({
+      where: { routerId: { in: ids } },
+      orderBy: [{ routerId: "asc" }, { priority: "asc" }],
+    });
+    expect(sisa).toHaveLength(jumlah * 2);
+    for (const id of ids) {
+      expect(
+        sisa
+          .filter((l) => l.routerId === id)
+          .map((l) => [l.vpnServerId, l.priority]),
+      ).toEqual([
+        [S1, 0],
+        [S2, 1],
+      ]);
+    }
+    const masihBersih = await prismaAuth.mikroTikRouter.count({
+      where: { id: { in: ids }, vpnScriptStale: false },
+    });
+    expect(masihBersih).toBe(0);
+  });
+
+  it("menunggu kunci router lebih lama dari batas transaksi bawaan Prisma", async () => {
+    const r = await buatRouter(TENANT_A, [S1, TARGET]);
+    let terkunci: () => void = () => undefined;
+    const sudahKunci = new Promise<void>((resolve) => (terkunci = resolve));
+    const penahan = prismaAuth.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "MikroTikRouter" WHERE "id" = ${r.id} FOR UPDATE`;
+        terkunci();
+        await new Promise((resolve) => setTimeout(resolve, TAHAN_KUNCI_MS));
+      },
+      { timeout: TAHAN_KUNCI_MS * 2 },
+    );
+    await sudahKunci;
+
+    const hasil = await sebagaiSuperadmin(() =>
+      new VpnServerRepository().detachServerFromRouters(TARGET),
+    );
+    await penahan;
+
+    expect(hasil).toEqual({ detached: 1, onlyServer: [] });
+    expect(await daftar(r.id)).toEqual([[S1, 0]]);
   });
 
   it("tanpa router pemakai mengembalikan nol", async () => {
