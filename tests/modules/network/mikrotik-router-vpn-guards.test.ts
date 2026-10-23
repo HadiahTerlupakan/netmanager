@@ -184,7 +184,7 @@ describe("testRouterConnection alamat overlay", () => {
     expect(mocks.testApi).not.toHaveBeenCalled();
   });
 
-  it("menolak nama host router publik tersimpan, tanpa login API", async () => {
+  it("menolak nama host router publik tersimpan dan meminta IP baru disimpan dulu, tanpa login API", async () => {
     routerRepository.findById.mockResolvedValue({
       ...VPN_ROUTER,
       connectionMode: "PUBLIC",
@@ -195,7 +195,11 @@ describe("testRouterConnection alamat overlay", () => {
 
     await expect(
       testRouterConnection({ ...body, routerId: "router-1" }),
-    ).rejects.toThrow("IP Router harus berupa alamat IP, bukan nama host");
+    ).rejects.toThrow(
+      new VpnRouterInvalidError(
+        "IP Router tersimpan berupa nama host. Simpan IP baru dulu, lalu test koneksi lagi.",
+      ),
+    );
     expect(mocks.testApi).not.toHaveBeenCalled();
   });
 

@@ -6,12 +6,17 @@ import {
   type RouterInfo,
   type TestConnectionResult,
 } from "./mikrotik/router-api-test";
+import { VpnRouterInvalidError } from "../vpn/errors";
 import { resolveTestAddress } from "./mikrotik-router.vpn-guards";
+import { literalIp } from "./vpn-overlay-target";
 import {
   routerApiCredentials,
   type StoredRouterApiCredentials,
 } from "./router-api-credentials";
 
+/** Router publik lama yang tersimpan dengan nama host, diuji lewat routerId. */
+const STORED_ROUTER_HOSTNAME_MESSAGE =
+  "IP Router tersimpan berupa nama host. Simpan IP baru dulu, lalu test koneksi lagi.";
 const DEFAULT_API_PORT = 8728;
 const MIN_PORT = 1;
 const MAX_PORT = 65535;
@@ -142,9 +147,10 @@ async function syncStoredRouterStatus(params: {
 
 /**
  * Test koneksi API router dan sinkronkan status online/offline bila router
- * tersimpan. Alamat dari body di overlay VPN hanya boleh alamat draft VPN
- * tenant; alamat lain, juga alamat router publik tersimpan, tidak boleh
- * menunjuk ke overlay (`VpnRouterInvalidError`).
+ * tersimpan. Alamat harus literal IP: nama host, dari body maupun tersimpan
+ * di router publik, ditolak (`VpnRouterInvalidError`). Alamat dari body di
+ * overlay VPN hanya boleh alamat draft VPN tenant; alamat router publik
+ * tersimpan tidak boleh menunjuk ke overlay.
  */
 export async function testRouterConnection(
   params: TestRouterConnectionInput,
@@ -158,11 +164,10 @@ export async function testRouterConnection(
     await resolveConnectionParams(params);
   const apiResult = await buildConnectionResult({
     ...connectionParams,
-    ipAddress: await checkedTestAddress(
-      params,
-      connectionParams.ipAddress,
-      isStoredRouter && isStoredVpnRouter,
-    ),
+    ipAddress: await checkedTestAddress(params, connectionParams.ipAddress, {
+      isStoredRouter,
+      isStoredVpnRouter,
+    }),
   });
 
   await syncStoredRouterStatus({
@@ -175,15 +180,21 @@ export async function testRouterConnection(
   return createConnectionResponse(apiResult, resolvedRouterId);
 }
 
-// Router VPN tersimpan memakai alamat tunnel miliknya sendiri. Alamat lain,
-// termasuk nama host router publik tersimpan yang bisa diarahkan ulang, diganti
-// IP hasil pemeriksaan overlay sehingga koneksi tidak me-resolve ulang.
+// Router VPN tersimpan memakai alamat tunnel miliknya sendiri. Alamat lain
+// harus literal IP di luar overlay; nama host ditolak. Tombol test di halaman
+// edit menguji alamat tersimpan, jadi pesannya meminta IP baru disimpan dulu:
+// pesan umum terbaca seperti bug setelah admin mengetik IP baru di form.
 async function checkedTestAddress(
   params: TestRouterConnectionInput,
   ipAddress: string | undefined,
-  isOwnVpnRouter: boolean,
+  stored: { isStoredRouter: boolean; isStoredVpnRouter: boolean },
 ): Promise<string | undefined> {
-  if (!ipAddress || isOwnVpnRouter) return ipAddress;
+  if (!ipAddress || (stored.isStoredRouter && stored.isStoredVpnRouter)) {
+    return ipAddress;
+  }
+  if (stored.isStoredRouter && literalIp(ipAddress) === null) {
+    throw new VpnRouterInvalidError(STORED_ROUTER_HOSTNAME_MESSAGE);
+  }
   return resolveTestAddress({
     ipAddress,
     tenantId: params.tenantId,
