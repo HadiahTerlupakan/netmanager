@@ -44,6 +44,12 @@ export const VPN_COMMAND_VALIDITY_MS = 60 * 60 * 1000;
 /** Port WireGuard bawaan server VPN. */
 export const VPN_DEFAULT_LISTEN_PORT = "51821";
 
+/** Port UDP core di radpro yang dihubungi tiap server; tetap di kode core netmanager-vpn. */
+export const VPN_CORE_LISTEN_PORT = "51822";
+
+/** Nama container hub yang dipasang skrip instal di VPS. */
+export const VPN_HUB_CONTAINER = "netmanager-vpn-hub";
+
 /** Pesan galat 503 dari API admin VPN. */
 export const VPN_NOT_CONFIGURED_MESSAGE = "Layanan VPN belum dikonfigurasi";
 

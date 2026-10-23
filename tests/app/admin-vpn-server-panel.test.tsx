@@ -286,3 +286,75 @@ describe("VpnServerPanel", () => {
     expect(getCalls()).toBe(afterOnline);
   });
 });
+
+describe("panduan tambah server VPN", () => {
+  let panggung: Panggung;
+
+  beforeEach(() => {
+    panggung = pasangPanggung();
+  });
+
+  afterEach(async () => {
+    await bongkarPanggung(panggung);
+    vi.unstubAllGlobals();
+  });
+
+  async function bukaModal() {
+    stubFetch({
+      ...peersKosong,
+      [`GET ${SERVER_URL}`]: () =>
+        responsJson(200, { success: true, data: [] }),
+      [`POST ${SERVER_URL}`]: () =>
+        responsJson(201, {
+          success: true,
+          data: {
+            server: server({ status: "pending_install" }),
+            installCommand: "curl -fsSL https://x | sudo sh -s -- bundle",
+          },
+        }),
+    });
+    await render(panggung, <VpnServerPanel />);
+    await tungguSampai(
+      () => !document.body.textContent.includes("Memuat server VPN"),
+      "daftar server dimuat",
+    );
+    await klikTombol("Tambah Server VPN");
+  }
+
+  it("menyebut syarat VPS dan perintah cek sebelum formulir diisi", async () => {
+    await bukaModal();
+    const teks = document.body.textContent;
+
+    expect(teks).toContain("KVM");
+    expect(teks).toContain("OpenVZ");
+    expect(teks).toContain("5.6");
+    expect(teks).toContain("UDP 51821");
+    expect(teks).toContain("UDP 51822");
+    expect(cari("pre")?.textContent).toContain("systemd-detect-virt");
+  });
+
+  it("menyesuaikan port firewall dengan port yang diisi", async () => {
+    await bukaModal();
+    await isiMedan("input[name=listenPort]", "51830");
+
+    expect(document.body.textContent).toContain("UDP 51830");
+    expect(document.body.textContent).not.toContain("UDP 51821");
+  });
+
+  it("memandu langkah instal dan apa yang dicek bila belum tersambung", async () => {
+    await bukaModal();
+    await isiMedan("input[name=name]", "VPS Jakarta");
+    await isiMedan("input[name=publicHost]", "vpn.contoh.com");
+    await klikTombol("Buat Server");
+    await tungguSampai(
+      () => document.body.textContent.includes("sudo sh -s -- bundle"),
+      "perintah instal tampil",
+    );
+    const teks = document.body.textContent;
+
+    expect(teks).toContain("spasi");
+    expect(teks).toContain("Server VPN");
+    expect(teks).toContain("docker logs netmanager-vpn-hub");
+    expect(teks).toContain("Buat ulang perintah instal");
+  });
+});

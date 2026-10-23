@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-23] — Panduan pasang server VPN
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/tenants/vpn`
+- **Author**: agent
+- **Deskripsi**:
+  - [ADDED] Modal "Tambah Server VPN" menampilkan syarat VPS sebelum formulir diisi: KVM (bukan OpenVZ/LXC), kernel 5.6+, Debian/Ubuntu bila Docker belum ada, root/sudo, IP publik tetap, serta port firewall provider (UDP port server masuk, UDP 51822 keluar ke core). Port di teks mengikuti isian formulir. Ada perintah cek VPS yang bisa disalin.
+  - [ADDED] Setelah perintah instal muncul: langkah bernomor (SSH, tempel dengan awalan spasi agar bundle tidak masuk riwayat shell, tunggu tersambung, tetapkan ke tenant lewat tombol "Server VPN") dan yang dicek bila belum tersambung (firewall, `docker logs netmanager-vpn-hub`, "Buat ulang perintah instal" setelah 1 jam).
+- **Migration**: tidak ada
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-23] — Tindak lanjut integrasi VPN
 
 - **Tipe**: [FIXED] | [CHANGED] | [ADDED]

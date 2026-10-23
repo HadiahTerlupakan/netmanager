@@ -6,6 +6,10 @@ import { clientLogger } from "@/lib/client-logger";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import VpnCommandBox from "./VpnCommandBox";
 import {
+  VpnServerInstallSteps,
+  VpnServerRequirements,
+} from "./VpnServerInstallGuide";
+import {
   VPN_COMMAND_VALIDITY_MS,
   VPN_DEFAULT_LISTEN_PORT,
   VPN_POLL_INTERVAL_MS,
@@ -114,6 +118,7 @@ export default function AddVpnServerModal({
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Jalankan sebagai root di VPS. Perintah berlaku 1 jam.
           </p>
+          <VpnServerInstallSteps listenPort={Number(listenPort)} />
           <VpnCommandBox command={created.installCommand} />
           <p
             className={`text-sm font-medium ${isOnline ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400"}`}
@@ -132,6 +137,7 @@ export default function AddVpnServerModal({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
+          <VpnServerRequirements listenPort={listenPort} />
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Nama server
             <input
