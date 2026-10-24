@@ -101,9 +101,13 @@ describe("RouterReconfigureRouteService alamat RADIUS", () => {
     apiPasswordGenerated: null as string | null,
     siteId: null as string | null,
     connectionMode,
+    isolirUrl: null as string | null,
   });
 
-  function setup(connectionMode: "PUBLIC" | "VPN") {
+  function setup(
+    connectionMode: "PUBLIC" | "VPN",
+    isolir: { router?: string; setting?: string } = {},
+  ) {
     const provisioningService = {
       provisionRadius: vi.fn(async () => ({ success: true, logs: [] })),
     };
@@ -111,8 +115,14 @@ describe("RouterReconfigureRouteService alamat RADIUS", () => {
     const networkRepository = {
       findSettingsByKeys: vi.fn(async () => [
         { key: "RADIUS_SECRET", value: "s" },
+        ...(isolir.setting
+          ? [{ key: "ISOLIR_URL", value: isolir.setting }]
+          : []),
       ]),
-      findRouterForReconfigure: vi.fn(async () => storedRouter(connectionMode)),
+      findRouterForReconfigure: vi.fn(async () => ({
+        ...storedRouter(connectionMode),
+        isolirUrl: isolir.router ?? null,
+      })),
     };
     const service = new RouterReconfigureRouteService(
       provisioningService as never,
@@ -173,6 +183,38 @@ describe("RouterReconfigureRouteService alamat RADIUS", () => {
         .calls[0] as unknown[];
       expect(call[4]).toBe(30812);
       expect(call[5]).toBe(30813);
+    },
+  );
+
+  it.each([
+    [
+      "URL milik router",
+      "https://isolir.router.id",
+      "https://isolir.global.id",
+      "https://isolir.router.id",
+    ],
+    [
+      "setting global bila router tidak punya",
+      undefined,
+      "https://isolir.global.id",
+      "https://isolir.global.id",
+    ],
+  ])(
+    "memakai %s sebagai halaman isolir",
+    async (_case, router, setting, expected) => {
+      const { service, provisioningService } = setup("VPN", {
+        router,
+        setting,
+      });
+      await service.reconfigureRouters(["r1"], {
+        tenantId: "t1",
+        userId: "u1",
+        restrictedToOwnSite: false,
+      });
+
+      const call = provisioningService.provisionRadius.mock
+        .calls[0] as unknown[];
+      expect(call[3]).toBe(expected);
     },
   );
 });

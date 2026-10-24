@@ -54,7 +54,9 @@ function getRouterCredentials(router: RouterCredentialsInput) {
 // Same RADIUS ports as when the router was added: falling back to the
 // service's 1812/1813 left a router whose RADIUS listens elsewhere timing
 // out on every login after a reconfigure. A VPN router also gets the core
-// address and its tunnel IP as src-address.
+// address and its tunnel IP as src-address. The isolir page is the router's
+// own, as stored when it was added and used when it is removed; the global
+// ISOLIR_URL only covers routers saved without one.
 function buildProvisionRadiusArgs(
   router: RouterReconfigureRecord,
   settings: RouterSettings,
@@ -72,7 +74,7 @@ function buildProvisionRadiusArgs(
     connection,
     radiusServerIp,
     settings.radiusSecret,
-    settings.isolirUrl,
+    router.isolirUrl || settings.isolirUrl,
     authPort,
     accountingPort,
     srcAddress ?? undefined,

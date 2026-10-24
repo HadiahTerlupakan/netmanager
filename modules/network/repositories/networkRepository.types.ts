@@ -48,6 +48,7 @@ export interface RouterReconfigureRecord {
   apiPasswordGenerated: string | null;
   siteId: string | null;
   connectionMode: "PUBLIC" | "VPN";
+  isolirUrl: string | null;
 }
 
 export interface RouterGeneratedApiUserRecord {

@@ -19,6 +19,7 @@ export function buildRouterReconfigureSelect() {
     apiPasswordGenerated: true,
     siteId: true,
     connectionMode: true,
+    isolirUrl: true,
   } as const;
 }
 
