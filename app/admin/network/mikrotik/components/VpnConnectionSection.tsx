@@ -53,7 +53,48 @@ type VpnConnectionSectionProps = {
   onServerIdsChange: (serverIds: string[]) => void;
   /** `serverIds`: pilihan saat ini tanpa server yang tak mendukung protokol baru. */
   onProtocolChange: (protocol: VpnProtocol, serverIds: string[]) => void;
+  draftStatus: VpnDraftStatusProps;
 };
+
+type VpnDraftStatusProps = {
+  isReady: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onViewScript: () => void;
+};
+
+/** Galat draft otomatis dengan "Coba lagi", lalu tombol script untuk draft yang sudah ada. */
+function VpnDraftStatus({
+  isReady,
+  error,
+  onRetry,
+  onViewScript,
+}: VpnDraftStatusProps) {
+  return (
+    <div className="space-y-2">
+      {error && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            Coba lagi
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onViewScript}
+        disabled={!isReady}
+        className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+      >
+        Lihat script VPN
+      </button>
+    </div>
+  );
+}
 
 type ToggleProps = {
   id: string;
@@ -105,6 +146,7 @@ export function VpnConnectionSection({
   onConnectionModeChange,
   onServerIdsChange,
   onProtocolChange,
+  draftStatus,
 }: VpnConnectionSectionProps) {
   const isV7 = rosVersion === "V7";
   const isVpn = connectionMode === "VPN";
@@ -178,10 +220,12 @@ export function VpnConnectionSection({
           onChange={onServerIdsChange}
         />
       )}
+      {isV7 && isVpn && protocolServers.length > 0 && (
+        <VpnDraftStatus {...draftStatus} />
+      )}
       {isVpn && isDraftOutdated && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          Daftar server berubah. Buka SCRIPT GENERATOR lagi untuk membuat script
-          baru.
+          Daftar server berubah. Script VPN baru sedang disiapkan.
         </p>
       )}
     </div>

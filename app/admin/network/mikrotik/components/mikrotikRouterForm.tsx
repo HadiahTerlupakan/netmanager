@@ -32,6 +32,8 @@ type MikrotikRouterFormProps = {
   connectionSection?: ReactNode;
   /** Mode VPN: IP, port, username, password diisi script VPN dan tidak bisa diketik. */
   isConnectionLocked?: boolean;
+  /** Menggantikan placeholder keempat field koneksi, mis. selama draft VPN disiapkan. */
+  connectionPlaceholder?: string;
 };
 
 const TIMEZONE_OPTIONS = [
@@ -57,6 +59,7 @@ export function MikrotikRouterForm({
   cancelHref,
   connectionSection,
   isConnectionLocked = false,
+  connectionPlaceholder,
 }: MikrotikRouterFormProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   return (
@@ -120,7 +123,9 @@ export function MikrotikRouterForm({
           onChange={(event) => onChange("ipAddress", event.target.value)}
           readOnly={isConnectionLocked}
           required
-          placeholder="Masukkan IP Address atau domain"
+          placeholder={
+            connectionPlaceholder ?? "Masukkan IP Address atau domain"
+          }
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -141,7 +146,7 @@ export function MikrotikRouterForm({
           }
           readOnly={isConnectionLocked}
           required
-          placeholder="8728"
+          placeholder={connectionPlaceholder ?? "8728"}
           min="1"
           max="65535"
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -162,7 +167,7 @@ export function MikrotikRouterForm({
           onChange={(event) => onChange("apiUsername", event.target.value)}
           readOnly={isConnectionLocked}
           required
-          placeholder="Username API"
+          placeholder={connectionPlaceholder ?? "Username API"}
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -182,7 +187,7 @@ export function MikrotikRouterForm({
             onChange={(event) => onChange("apiPassword", event.target.value)}
             readOnly={isConnectionLocked}
             required
-            placeholder="Password API"
+            placeholder={connectionPlaceholder ?? "Password API"}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {isConnectionLocked && formData.apiPassword && (

@@ -10,7 +10,8 @@ import type {
   VpnDraft,
 } from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
-const DRAFT_URL = "/api/mikrotik-routers/vpn-draft";
+/** Rute pembuat draft router baru. */
+export const VPN_DRAFT_URL = "/api/mikrotik-routers/vpn-draft";
 const NO_SERVER_SELECTED_MESSAGE = "Pilih minimal satu server VPN";
 
 /** Permintaan draft: urutan server = prioritas; kredensial dikirim ulang agar password tetap. */
@@ -36,6 +37,8 @@ type VpnScriptModalProps<D extends VpnScriptDraft> = {
   onTunnelUp: () => void;
   /** Rute pembuat draft; bawaan rute draft router baru. */
   draftUrl?: string;
+  /** Draft yang sudah dibuat halaman; bila ada, modal tidak membuat draft sendiri. */
+  draft?: D;
   /** Tombol tambahan di samping "Tutup". */
   footerAction?: ReactNode;
 };
@@ -47,43 +50,66 @@ function buildDraftBody(request: VpnDraftRequest) {
   );
 }
 
-/** Membuat draft sekali per pemasangan modal; dipasang ulang tiap kali dibuka. */
+/** Hasil satu permintaan draft: draft yang dibuat, atau pesan galat untuk operator. */
+export type VpnDraftResult<D> = { draft: D } | { error: string };
+
+/** Mengirim satu permintaan draft VPN; galat jaringan dicatat tanpa isi permintaan. */
+export async function postVpnDraft<D extends VpnScriptDraft>(
+  draftUrl: string,
+  request: VpnDraftRequest,
+): Promise<VpnDraftResult<D>> {
+  try {
+    const res = await fetch(draftUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildDraftBody(request)),
+    });
+    const body = await res.json();
+    if (!res.ok) return { error: body.error || "Gagal membuat script VPN" };
+    return { draft: body.data ?? body };
+  } catch (err) {
+    clientLogger.error("Error membuat draft VPN:", err);
+    return { error: "Terjadi kesalahan sistem" };
+  }
+}
+
+/**
+ * Membuat draft sekali per pemasangan modal; dipasang ulang tiap kali dibuka.
+ * Draft dari halaman (`supplied`) dipakai apa adanya tanpa POST.
+ */
 function useVpnDraft<D extends VpnScriptDraft>(
   draftUrl: string,
   request: VpnDraftRequest,
   onDraftReady: (draft: D) => void,
+  supplied: D | undefined,
 ) {
-  const [draft, setDraft] = useState<D | null>(null);
+  const [created, setCreated] = useState<D | null>(null);
   const [error, setError] = useState<string | null>(
-    request.serverIds.length === 0 ? NO_SERVER_SELECTED_MESSAGE : null,
+    !supplied && request.serverIds.length === 0
+      ? NO_SERVER_SELECTED_MESSAGE
+      : null,
   );
   const initialRequest = useRef(request);
   const initialUrl = useRef(draftUrl);
   const onReady = useRef(onDraftReady);
+  const hasSupplied = useRef(Boolean(supplied));
 
   useEffect(() => {
+    if (hasSupplied.current) return;
     if (initialRequest.current.serverIds.length === 0) return;
     let isCancelled = false;
     const createDraft = async () => {
-      try {
-        const res = await fetch(initialUrl.current, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(buildDraftBody(initialRequest.current)),
-        });
-        const body = await res.json();
-        if (isCancelled) return;
-        if (!res.ok) {
-          setError(body.error || "Gagal membuat script VPN");
-          return;
-        }
-        const created: D = body.data ?? body;
-        setDraft(created);
-        onReady.current(created);
-      } catch (err) {
-        clientLogger.error("Error membuat draft VPN:", err);
-        if (!isCancelled) setError("Terjadi kesalahan sistem");
+      const result = await postVpnDraft<D>(
+        initialUrl.current,
+        initialRequest.current,
+      );
+      if (isCancelled) return;
+      if ("error" in result) {
+        setError(result.error);
+        return;
       }
+      setCreated(result.draft);
+      onReady.current(result.draft);
     };
     void createDraft();
     return () => {
@@ -91,7 +117,7 @@ function useVpnDraft<D extends VpnScriptDraft>(
     };
   }, []);
 
-  return { draft, error };
+  return { draft: supplied ?? created, error };
 }
 
 function StatusLine({ isDone, text }: { isDone: boolean; text: string }) {
@@ -120,7 +146,7 @@ function ApiCheckLine({ apiCheck }: { apiCheck: VpnApiCheckState }) {
 }
 
 /**
- * Modal script VPN: membuat draft saat dibuka, menampilkan script tempel,
+ * Modal script VPN: membuat draft saat dibuka (kecuali `draft` diberikan), menampilkan script tempel,
  * memantau tunnel, lalu meminta test koneksi sekali begitu tunnel hidup.
  */
 export default function VpnScriptModal<D extends VpnScriptDraft = VpnDraft>({
@@ -129,10 +155,16 @@ export default function VpnScriptModal<D extends VpnScriptDraft = VpnDraft>({
   onClose,
   onDraftReady,
   onTunnelUp,
-  draftUrl = DRAFT_URL,
+  draftUrl = VPN_DRAFT_URL,
   footerAction,
+  draft: suppliedDraft,
 }: VpnScriptModalProps<D>) {
-  const { draft, error } = useVpnDraft(draftUrl, request, onDraftReady);
+  const { draft, error } = useVpnDraft(
+    draftUrl,
+    request,
+    onDraftReady,
+    suppliedDraft,
+  );
   const { stage, isHintVisible } = useVpnDraftStatus(draft?.draftId ?? null);
   const isTunnelUp = stage === "tunnel_up";
   const hasReportedTunnel = useRef(false);

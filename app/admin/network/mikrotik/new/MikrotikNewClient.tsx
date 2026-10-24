@@ -14,6 +14,7 @@ import { VpnConnectionSection } from "@/app/admin/network/mikrotik/components/Vp
 import { useMikrotikConnectionTest } from "@/app/admin/network/mikrotik/hooks/useMikrotikConnectionTest";
 import { useMikrotikFormSettings } from "@/app/admin/network/mikrotik/hooks/useMikrotikFormSettings";
 import { useVpnRouterMode } from "@/app/admin/network/mikrotik/hooks/useVpnRouterMode";
+import { useAutoVpnDraft } from "@/app/admin/network/mikrotik/hooks/useAutoVpnDraft";
 import { isVpnDraftSpent } from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
 export function ClientComponent() {
@@ -50,7 +51,14 @@ export function ClientComponent() {
     testResult,
     isTesting,
   });
+  const autoDraft = useAutoVpnDraft({
+    isVpnMode: vpn.isVpnMode,
+    request: vpn.draftRequest,
+    currentDraftId: formData.vpnDraftId,
+    onDraftReady: vpn.handleDraftReady,
+  });
   const isSubmitAllowed = vpn.isVpnMode ? vpn.isVpnTestPassed : testPassed;
+  const openScriptModal = () => setShowScriptModal(true);
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
@@ -128,7 +136,12 @@ export function ClientComponent() {
         </h1>
         <div className="flex items-center gap-2">
           <Button variant="success">Panduan Dasar</Button>
-          <Button type="button" onClick={() => setShowScriptModal(true)}>
+          <Button
+            type="button"
+            onClick={openScriptModal}
+            // Mode VPN membuka script draft otomatis; selama disiapkan belum ada script.
+            disabled={vpn.isVpnMode && !autoDraft.draft}
+          >
             &lt;/&gt; SCRIPT GENERATOR
           </Button>
         </div>
@@ -153,6 +166,9 @@ export function ClientComponent() {
         }
         cancelHref="/admin/network/mikrotik"
         isConnectionLocked={vpn.isVpnMode}
+        connectionPlaceholder={
+          autoDraft.isPreparing ? "Sedang disiapkan…" : undefined
+        }
         connectionSection={
           <VpnConnectionSection
             rosVersion={formData.rosVersion ?? "V6"}
@@ -164,6 +180,12 @@ export function ClientComponent() {
             protocol={formData.vpnProtocol ?? "WIREGUARD"}
             onServerIdsChange={vpn.handleServerIdsChange}
             onProtocolChange={vpn.handleProtocolChange}
+            draftStatus={{
+              isReady: Boolean(autoDraft.draft),
+              error: autoDraft.error,
+              onRetry: autoDraft.retry,
+              onViewScript: openScriptModal,
+            }}
           />
         }
       />
@@ -176,8 +198,10 @@ export function ClientComponent() {
         isLoading={isTesting}
       />
 
-      {vpn.isVpnMode && showScriptModal && (
+      {vpn.isVpnMode && showScriptModal && autoDraft.draft && (
         <VpnScriptModal
+          key={autoDraft.draft.draftId}
+          draft={autoDraft.draft}
           request={vpn.draftRequest}
           apiCheck={vpn.apiCheck}
           onClose={() => setShowScriptModal(false)}
