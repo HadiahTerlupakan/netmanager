@@ -12,6 +12,7 @@ import {
 } from "@/app/admin/network/mikrotik/components/mikrotikRouterForm";
 import { useMikrotikConnectionTest } from "@/app/admin/network/mikrotik/hooks/useMikrotikConnectionTest";
 import { RouterVpnPanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnPanel";
+import { RouterVpnProtocolPanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnProtocolPanel";
 import { RouterVpnEnablePanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnEnablePanel";
 import { Toggle } from "@/app/admin/network/mikrotik/components/VpnConnectionSection";
 import {
@@ -194,11 +195,14 @@ export function ClientComponent() {
       />
 
       {isVpnRouter && (
-        <RouterVpnPanel
-          routerId={routerId}
-          publicIpAddress={publicIpAddress}
-          onReverted={loadRouter}
-        />
+        <>
+          <RouterVpnPanel
+            routerId={routerId}
+            publicIpAddress={publicIpAddress}
+            onReverted={loadRouter}
+          />
+          <RouterVpnProtocolPanel routerId={routerId} />
+        </>
       )}
       {!isVpnRouter && savedRosVersion === "V7" && (
         <RouterVpnEnablePanel routerId={routerId} onMigrated={loadRouter} />

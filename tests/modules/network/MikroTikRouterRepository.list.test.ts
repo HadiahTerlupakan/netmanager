@@ -70,4 +70,19 @@ describe("MikroTikRouterRepository.findWithFilters vpnOnBackup", () => {
 
     expect(result.routers[0]).not.toHaveProperty("vpnServers");
   });
+
+  it("lists the VPN protocol only for VPN routers", async () => {
+    const { repository } = listRepository([
+      row("a", { vpnProtocol: "L2TP" }),
+      row("b", { vpnProtocol: "WIREGUARD", connectionMode: "PUBLIC" }),
+    ]);
+
+    const result = await repository.findWithFilters(
+      {},
+      { page: 1, limit: 10 },
+      "t1",
+    );
+
+    expect(result.routers.map((r) => r.vpnProtocol)).toEqual(["L2TP", null]);
+  });
 });

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 
 /**
  * Panel VPN pada halaman edit router: daftar server berurut, badge server
@@ -20,6 +21,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("react-hot-toast", () => ({ toast: palsu.toast }));
 
 import { RouterVpnPanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnPanel";
+import { RouterVpnProtocolPanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnProtocolPanel";
 import { ClientComponent as MikrotikEditClient } from "@/app/admin/network/mikrotik/[id]/edit/MikrotikEditClient";
 import { MikrotikRouterTable } from "@/app/admin/network/mikrotik/components/mikrotikRouterTable";
 
@@ -42,6 +44,10 @@ const SERVERS_URL = "/api/vpn-servers";
 const STALE_WARNING =
   "Daftar server belum terkirim ke router. Akan dicoba lagi saat router online.";
 const RETURN_BUTTON = "Kembalikan ke server pertama";
+const PROTOCOL_SCRIPT_URL = "/api/mikrotik-routers/r1/vpn/protocol-script";
+const PROTOCOL_URL = "/api/mikrotik-routers/r1/vpn/protocol";
+const PASTE_NOTE =
+  "Tempel di router, lalu tekan Terapkan. Tunnel lama putus di akhir script; router offline sampai Terapkan ditekan.";
 
 const TENANT_SERVERS = [
   { id: "aa11", name: "VPS Jakarta", publicHost: "jkt.vpn", status: "online" },
@@ -60,6 +66,7 @@ function detail(overrides: Record<string, unknown> = {}) {
     lastHandshakeAt: null as string | null,
     events: [] as { fromHubId: string; toHubId: string; at: string }[],
     scriptStale: false,
+    protocol: "WIREGUARD",
     ...overrides,
   };
 }
@@ -235,6 +242,74 @@ describe("RouterVpnPanel", () => {
   });
 });
 
+describe("RouterVpnProtocolPanel", () => {
+  let panggung: Panggung;
+
+  beforeEach(() => {
+    panggung = pasangPanggung();
+    vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await bongkarPanggung(panggung);
+    vi.unstubAllGlobals();
+  });
+
+  it("panel ganti protokol: Terapkan baru aktif setelah script dibuat", async () => {
+    let handshake: string | null = null;
+    let scriptBody: unknown;
+    let applyBody: unknown;
+    stubFetch({
+      ...baseRoutes(() => detail({ lastHandshakeAt: handshake })),
+      [`POST ${PROTOCOL_SCRIPT_URL}`]: (init) => {
+        scriptBody = JSON.parse(String(init?.body));
+        return responsJson(200, {
+          success: true,
+          data: { script: "/interface l2tp-client add name=netmanager-vpn" },
+        });
+      },
+      [`POST ${PROTOCOL_URL}`]: (init) => {
+        applyBody = JSON.parse(String(init?.body));
+        handshake = new Date(Date.now() + 60_000).toISOString();
+        return responsJson(200, { success: true, data: { success: true } });
+      },
+    });
+    await render(panggung, <RouterVpnProtocolPanel routerId="r1" />);
+    await tungguSampai(
+      () => tombolBerteks("Buat script") !== undefined,
+      "panel protokol termuat",
+    );
+
+    expect(
+      cari<HTMLInputElement>("#vpn-router-protocol-wireguard")!.disabled,
+    ).toBe(true);
+    expect(tombolBerteks("Buat script")!.disabled).toBe(true);
+    expect(tombolBerteks("Terapkan")!.disabled).toBe(true);
+
+    await act(async () => {
+      cari<HTMLInputElement>("#vpn-router-protocol-l2tp")!.click();
+    });
+    expect(tombolBerteks("Terapkan")!.disabled).toBe(true);
+
+    await klikTombol("Buat script");
+    await tungguSampai(
+      () => document.body.textContent.includes("l2tp-client add"),
+      "script tampil",
+    );
+    expect(scriptBody).toEqual({ protocol: "L2TP" });
+    expect(document.body.textContent).toContain(PASTE_NOTE);
+    expect(tombolBerteks("Salin")).toBeDefined();
+    expect(tombolBerteks("Terapkan")!.disabled).toBe(false);
+
+    await klikTombol("Terapkan");
+    await tungguSampai(
+      () => document.body.textContent.includes("Tunnel tersambung"),
+      "tunnel tersambung",
+    );
+    expect(applyBody).toEqual({ protocol: "L2TP" });
+  });
+});
+
 describe("MikrotikRouterTable status", () => {
   let panggung: Panggung;
   beforeEach(() => {
@@ -255,6 +330,7 @@ describe("MikrotikRouterTable status", () => {
       userOnline: 0,
       lastStatusCheck: null as Date | null,
       vpnOnBackup: false,
+      vpnProtocol: null as "WIREGUARD" | "L2TP" | null,
       ...overrides,
     };
     await render(
@@ -291,6 +367,18 @@ describe("MikrotikRouterTable status", () => {
     expect(
       cari('[title="Router berjalan di server VPN cadangan"]'),
     ).not.toBeNull();
+  });
+
+  it("badge L2TP tampil untuk router VPN L2TP, tidak untuk PUBLIC", async () => {
+    await renderRouter({ vpnProtocol: "L2TP" });
+    expect(cari('[title="Protokol VPN: L2TP"]')?.textContent).toBe("L2TP");
+
+    await bongkarPanggung(panggung);
+    panggung = pasangPanggung();
+    await renderRouter({ vpnProtocol: null });
+    expect(cari('[title^="Protokol VPN"]')).toBeNull();
+    expect(document.body.textContent).not.toContain("L2TP");
+    expect(document.body.textContent).not.toContain("WireGuard");
   });
 
   it.each([
@@ -346,6 +434,10 @@ describe("MikrotikEditClient", () => {
     );
     const locked = [...document.body.querySelectorAll("input[readonly]")];
     expect(locked.length).toBeGreaterThanOrEqual(3);
+    await tungguSampai(
+      () => tombolBerteks("Buat script") !== undefined,
+      "panel ganti protokol tampil",
+    );
   });
 
   it("router publik: tidak ada panel VPN dan kolom tidak terkunci", async () => {

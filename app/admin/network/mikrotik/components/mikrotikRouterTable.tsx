@@ -11,6 +11,7 @@ import {
 import ResponsiveTable from "@/components/ui/ResponsiveTable";
 
 import type { MikrotikRouterListItem } from "@/app/admin/network/mikrotik/hooks/useMikrotikRouterList";
+import { VpnProtocolBadge } from "@/app/admin/network/mikrotik/components/VpnProtocolBadge";
 import { MIKROTIK_PAGINATION } from "../constants";
 
 const STATUS_TONES: Record<
@@ -195,6 +196,7 @@ export function MikrotikRouterTable({
                         Server cadangan
                       </span>
                     )}
+                    <VpnProtocolBadge protocol={router.vpnProtocol} />
                   </div>
                 );
               },

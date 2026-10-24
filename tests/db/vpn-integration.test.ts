@@ -302,6 +302,45 @@ describeDb("integrasi DB nyata — VPN", () => {
     });
   });
 
+  describe("MikroTikRouterVpnRepository.setVpnProtocol", () => {
+    async function protokol(id: string) {
+      const row = await prismaAuth.mikroTikRouter.findUniqueOrThrow({
+        where: { id },
+      });
+      return row.vpnProtocol;
+    }
+
+    it("menyimpan protokol router VPN milik tenant saja", async () => {
+      const { id } = await sebagaiTenant(() =>
+        new MikroTikRouterRepository().create(vpnData("core-uji-protokol"), [
+          SERVERS[0],
+        ]),
+      );
+      const repo = new MikroTikRouterVpnRepository();
+
+      await sebagaiTenant(
+        () => repo.setVpnProtocol(id, TENANT_LAIN, "L2TP"),
+        TENANT_LAIN,
+      );
+      expect(await protokol(id)).toBe("WIREGUARD");
+
+      await sebagaiTenant(() => repo.setVpnProtocol(id, TENANT, "L2TP"));
+      expect(await protokol(id)).toBe("L2TP");
+    });
+
+    it("tidak mengubah protokol router PUBLIC", async () => {
+      const { id } = await sebagaiTenant(() =>
+        new MikroTikRouterRepository().create(dataRouter(), []),
+      );
+
+      await sebagaiTenant(() =>
+        new MikroTikRouterVpnRepository().setVpnProtocol(id, TENANT, "L2TP"),
+      );
+
+      expect(await protokol(id)).toBe("WIREGUARD");
+    });
+  });
+
   describe("MikroTikRouterVpnMigrationRepository", () => {
     async function routerPublik(): Promise<VpnMigrationRouterRecord> {
       const { id } = await sebagaiTenant(() =>
@@ -407,7 +446,7 @@ describeDb("integrasi DB nyata — VPN", () => {
 
   describe("compare-and-set pengiriman skrip (I5)", () => {
     const vpnRepo = new MikroTikRouterVpnRepository();
-    const writer = { writeSwitchScript: vi.fn(), writePeerEndpoint: vi.fn() };
+    const writer = { writeSwitchScript: vi.fn(), writeFirstServer: vi.fn() };
 
     async function siapkanService() {
       const { id } = await sebagaiTenant(() =>

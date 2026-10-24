@@ -4,6 +4,7 @@ import type { RouterOSAPI } from "node-routeros-v2";
 const fakeConn = vi.hoisted(() => ({
   connect: vi.fn(),
   close: vi.fn(),
+  write: vi.fn(),
 }));
 
 vi.mock(
@@ -18,6 +19,7 @@ import {
   setPeerEndpoint,
   setSwitchScript,
   withVpnRouterConnection,
+  writeFirstServer,
 } from "@/modules/network/services/mikrotik-vpn-routeros";
 import { VPN_ROUTEROS_OP_TIMEOUT_MS } from "@/modules/network/vpn/constants";
 import type { VpnRouterRecord } from "@/modules/network/domain/ports/IMikroTikRouterVpnRepository";
@@ -148,5 +150,78 @@ describe("withVpnRouterConnection", () => {
       withVpnRouterConnection(ROUTER, async () => "written"),
     ).resolves.toBe("written");
     expect(fakeConn.close).toHaveBeenCalled();
+  });
+});
+
+describe("writeFirstServer", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function connectWithRows(rows: unknown[]) {
+    fakeConn.connect.mockResolvedValue(undefined);
+    fakeConn.close.mockResolvedValue(undefined);
+    fakeConn.write.mockImplementation(async (command: string) =>
+      command.endsWith("/print") ? rows : [],
+    );
+  }
+
+  it("writeFirstServer L2TP men-set connect-to dan ipsec-secret", async () => {
+    connectWithRows([{ ".id": "*4" }]);
+
+    await writeFirstServer(
+      { ...ROUTER, vpnProtocol: "L2TP" },
+      {
+        protocol: "l2tp",
+        host: "a.example.com",
+        port: 500,
+        ipsecSecret: "psk-a_b-c",
+      },
+    );
+
+    expect(fakeConn.write).toHaveBeenNthCalledWith(
+      1,
+      "/interface/l2tp-client/print",
+      ["?name=netmanager-vpn"],
+    );
+    expect(fakeConn.write).toHaveBeenNthCalledWith(
+      2,
+      "/interface/l2tp-client/set",
+      ["=.id=*4", "=connect-to=a.example.com", "=ipsec-secret=psk-a_b-c"],
+    );
+  });
+
+  it("mengarahkan peer WireGuard untuk server WireGuard", async () => {
+    connectWithRows([{ ".id": "*2" }]);
+
+    await writeFirstServer(ROUTER, {
+      protocol: "wireguard",
+      host: "a.example.com",
+      port: 51821,
+      publicKey: "key-a=",
+    });
+
+    expect(fakeConn.write).toHaveBeenNthCalledWith(
+      2,
+      "/interface/wireguard/peers/set",
+      [
+        "=.id=*2",
+        "=endpoint-address=a.example.com",
+        "=endpoint-port=51821",
+        "=public-key=key-a=",
+      ],
+    );
+  });
+
+  it("gagal jelas bila klien L2TP tidak ada di router", async () => {
+    connectWithRows([]);
+
+    await expect(
+      writeFirstServer(ROUTER, {
+        protocol: "l2tp",
+        host: "h",
+        ipsecSecret: "s",
+      }),
+    ).rejects.toThrow("Klien L2TP netmanager-vpn tidak ada di router");
   });
 });

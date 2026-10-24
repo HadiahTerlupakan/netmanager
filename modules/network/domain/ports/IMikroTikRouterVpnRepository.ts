@@ -75,6 +75,13 @@ export interface IMikroTikRouterVpnRepository {
     serverId: string | null,
   ): Promise<void>;
 
+  /** Menyimpan protokol tunnel router mode VPN. */
+  setVpnProtocol(
+    routerId: string,
+    tenantId: string,
+    protocol: VpnRouterRecord["vpnProtocol"],
+  ): Promise<void>;
+
   /** Router VPN online yang skripnya belum terkirim, paling lama dulu. */
   findStaleOnline(tenantId: string, limit: number): Promise<VpnRouterRecord[]>;
 }

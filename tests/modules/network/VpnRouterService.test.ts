@@ -5,7 +5,7 @@ const coreMock = vi.hoisted(() => ({
   getRouter: vi.fn(),
   setRouterHubs: vi.fn(),
   routerScript: vi.fn(),
-  listHubs: vi.fn(),
+  firstServer: vi.fn(),
 }));
 
 vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
@@ -156,11 +156,12 @@ function makeService(router: VpnRouterRecord | null = vpnRouter()) {
       },
     ),
     setActiveServer: vi.fn().mockResolvedValue(undefined),
+    setVpnProtocol: vi.fn(),
     findStaleOnline: vi.fn(),
   };
   const routerOs = {
     writeSwitchScript: track("writeSwitchScript"),
-    writePeerEndpoint: vi.fn().mockResolvedValue(undefined),
+    writeFirstServer: vi.fn().mockResolvedValue(undefined),
   };
   const servers = { tenantServers: vi.fn().mockResolvedValue(tenantServers) };
   const service = new VpnRouterService(repo, servers, routerOs);
@@ -442,6 +443,7 @@ describe("VpnRouterService.getRouterVpn", () => {
         { fromServerId: "c", toServerId: "a", at: "2026-10-20T09:00:00.000Z" },
       ],
       scriptStale: false,
+      protocol: "WIREGUARD",
     });
     expect(repo.setActiveServer).toHaveBeenCalledWith("router-1", TENANT, "a");
   });
@@ -460,37 +462,51 @@ describe("VpnRouterService.getRouterVpn", () => {
 });
 
 describe("VpnRouterService.returnToFirstServer", () => {
-  const hub = (id: string, publicKey: string) => ({
-    id,
-    name: id.toUpperCase(),
-    publicHost: `${id}.example.com`,
-    listenPort: 51820,
-    publicKey,
-    status: "online" as const,
-    routerCount: 1,
-    lastSeenAt: null as string | null,
-  });
+  const L2TP_FIRST = {
+    protocol: "l2tp" as const,
+    host: "a.example.com",
+    port: 500,
+    ipsecSecret: "psk-a",
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    coreMock.getRouter.mockResolvedValue(coreRouter());
   });
 
-  it("points the router's peer at the priority-0 hub", async () => {
-    coreMock.listHubs.mockResolvedValue([hub("b", "key-b"), hub("a", "key-a")]);
+  it("returnToFirstServer memakai core.firstServer", async () => {
+    coreMock.firstServer.mockResolvedValue(L2TP_FIRST);
+    const router = vpnRouter({ vpnProtocol: "L2TP" });
+    const { service, routerOs } = makeService(router);
+
+    await service.returnToFirstServer("router-1", TENANT);
+
+    expect(coreMock.firstServer).toHaveBeenCalledWith("core-1");
+    expect(routerOs.writeFirstServer).toHaveBeenCalledWith(router, L2TP_FIRST);
+  });
+
+  it("points a WireGuard router's peer at the first server", async () => {
+    const first = {
+      protocol: "wireguard" as const,
+      host: "a.example.com",
+      port: 51821,
+      publicKey: "key-a",
+    };
+    coreMock.firstServer.mockResolvedValue(first);
     const { service, routerOs } = makeService();
 
     await service.returnToFirstServer("router-1", TENANT);
 
-    expect(routerOs.writePeerEndpoint).toHaveBeenCalledWith(vpnRouter(), {
-      host: "a.example.com",
-      port: 51820,
-      publicKey: "key-a",
-    });
+    expect(routerOs.writeFirstServer).toHaveBeenCalledWith(vpnRouter(), first);
   });
 
-  it("refuses when the first hub has no public key", async () => {
-    coreMock.listHubs.mockResolvedValue([hub("a", "")]);
+  it.each([
+    [
+      "WireGuard tanpa public key",
+      { protocol: "wireguard", host: "a", port: 1 },
+    ],
+    ["L2TP tanpa secret", { protocol: "l2tp", host: "a", port: 500 }],
+  ])("refuses when the first server is incomplete: %s", async (_n, first) => {
+    coreMock.firstServer.mockResolvedValue(first);
     const { service, routerOs } = makeService();
 
     await expect(
@@ -498,13 +514,13 @@ describe("VpnRouterService.returnToFirstServer", () => {
     ).rejects.toThrow(
       new VpnRouterInvalidError("Server pertama tidak tersedia"),
     );
-    expect(routerOs.writePeerEndpoint).not.toHaveBeenCalled();
+    expect(routerOs.writeFirstServer).not.toHaveBeenCalled();
   });
 
   it("reports an unreachable router", async () => {
-    coreMock.listHubs.mockResolvedValue([hub("a", "key-a")]);
+    coreMock.firstServer.mockResolvedValue(L2TP_FIRST);
     const { service, routerOs } = makeService();
-    routerOs.writePeerEndpoint.mockRejectedValue(new Error("ETIMEDOUT"));
+    routerOs.writeFirstServer.mockRejectedValue(new Error("ETIMEDOUT"));
 
     await expect(
       service.returnToFirstServer("router-1", TENANT),

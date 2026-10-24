@@ -36,6 +36,8 @@ type VpnProtocolPickerProps = {
   onChange: (protocol: VpnProtocol) => void;
   /** Awalan id radio, agar dua picker di satu halaman tidak bentrok. */
   idPrefix?: string;
+  /** Protokol yang tidak bisa dipilih, mis. protokol yang sedang dipakai. */
+  disabledValue?: VpnProtocol;
 };
 
 /** Pilihan protokol VPN: WireGuard atau L2TP/IPsec. */
@@ -43,6 +45,7 @@ export function VpnProtocolPicker({
   value,
   onChange,
   idPrefix = "vpn-protocol",
+  disabledValue,
 }: VpnProtocolPickerProps) {
   return (
     <fieldset className="space-y-2">
@@ -59,6 +62,7 @@ export function VpnProtocolPicker({
               name={`${idPrefix}-protocol`}
               className="mt-1"
               checked={value === option.value}
+              disabled={option.value === disabledValue}
               onChange={() => onChange(option.value)}
             />
             <label

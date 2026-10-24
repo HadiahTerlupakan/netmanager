@@ -50,17 +50,20 @@ const FIRST_VPN_SERVER = {
   select: { vpnServerId: true },
 } as const;
 
-// Router VPN berjalan di server cadangan bila server aktifnya bukan server pertama.
-function withVpnOnBackup<
+// Router VPN berjalan di server cadangan bila server aktifnya bukan server
+// pertama. Protokol hanya berarti untuk router VPN; router publik mendapat null.
+function withVpnListFields<
   T extends {
     connectionMode: string;
     vpnActiveServerId: string | null;
+    vpnProtocol: "WIREGUARD" | "L2TP";
     vpnServers: { vpnServerId: string }[];
   },
 >({ vpnServers, ...router }: T) {
   const firstServerId = vpnServers[0]?.vpnServerId;
   return {
     ...router,
+    vpnProtocol: router.connectionMode === "VPN" ? router.vpnProtocol : null,
     vpnOnBackup:
       router.connectionMode === "VPN" &&
       !!router.vpnActiveServerId &&
@@ -134,7 +137,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      routers: routers.map(withVpnOnBackup),
+      routers: routers.map(withVpnListFields),
       total,
       page,
       limit,

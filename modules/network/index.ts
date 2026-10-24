@@ -144,5 +144,6 @@ export { createVpnDraftService } from "./factories/VpnDraftServiceFactory";
 export { createVpnServerService } from "./factories/VpnServerServiceFactory";
 export { routerVpnAccessGuard } from "./vpn/routerAccessGuard";
 export { createVpnRouterService } from "./factories/VpnRouterServiceFactory";
+export { createVpnRouterProtocolService } from "./factories/VpnRouterProtocolServiceFactory";
 export { createVpnRouterMigrationService } from "./factories/VpnRouterMigrationServiceFactory";
 export type { RouterVpnDetail } from "./services/VpnRouterService";

@@ -23,6 +23,8 @@ export type MikrotikRouterListItem = {
   userOnline: number;
   lastStatusCheck: Date | null;
   vpnOnBackup: boolean;
+  /** Null untuk router publik. */
+  vpnProtocol: "WIREGUARD" | "L2TP" | null;
 };
 
 export type PaginatedMikrotikRouters = {

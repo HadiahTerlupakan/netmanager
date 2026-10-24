@@ -94,7 +94,11 @@ export interface PaginationOptions {
 }
 
 export interface PaginatedRouterResult {
-  routers: (MikroTikRouterEntity & { vpnOnBackup: boolean })[];
+  routers: (Omit<MikroTikRouterEntity, "vpnProtocol"> & {
+    vpnOnBackup: boolean;
+    /** Protokol tunnel router VPN; null untuk router publik. */
+    vpnProtocol: "WIREGUARD" | "L2TP" | null;
+  })[];
   total: number;
   page: number;
   limit: number;

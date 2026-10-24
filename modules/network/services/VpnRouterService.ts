@@ -13,14 +13,14 @@ import { toCoreProtocol } from "../vpn/protocol";
 import { getVpnCoreClient } from "../vpn/VpnCoreClient";
 import { RouterNotFoundError } from "./mikrotik-router.access";
 import { assertServersUsable } from "./vpn-server-availability";
+import type { CoreFirstServer } from "../vpn/types";
 import {
-  setPeerEndpoint,
+  completeFirstServer,
   setSwitchScript,
   withVpnRouterConnection,
-  type VpnPeerEndpoint,
+  writeFirstServer,
 } from "./mikrotik-vpn-routeros";
 
-const FIRST_SERVER_PRIORITY = 0;
 const SERVER_LIST_BUSY_MESSAGE =
   "Daftar server router ini sedang diperbarui, coba lagi sebentar";
 
@@ -32,29 +32,48 @@ export interface RouterVpnDetail {
   lastHandshakeAt: string | null;
   events: { fromServerId: string; toServerId: string; at: string }[];
   scriptStale: boolean;
+  protocol: VpnRouterRecord["vpnProtocol"];
 }
 
 /** Penulisan konfigurasi VPN ke router lewat API RouterOS. */
 export interface VpnRouterOsWriter {
   writeSwitchScript(router: VpnRouterRecord, source: string): Promise<void>;
-  writePeerEndpoint(
+  writeFirstServer(
     router: VpnRouterRecord,
-    endpoint: VpnPeerEndpoint,
+    server: CoreFirstServer,
   ): Promise<void>;
 }
 
 const routerOsWriter: VpnRouterOsWriter = {
   writeSwitchScript: (router, source) =>
     withVpnRouterConnection(router, (conn) => setSwitchScript(conn, source)),
-  writePeerEndpoint: (router, endpoint) =>
-    withVpnRouterConnection(router, (conn) => setPeerEndpoint(conn, endpoint)),
+  writeFirstServer,
 };
 
-type ActiveVpnRouter = VpnRouterRecord & { vpnCoreRouterId: string };
+/** Router mode VPN yang sudah terdaftar di core. */
+export type ActiveVpnRouter = VpnRouterRecord & { vpnCoreRouterId: string };
 
 function toActiveVpnRouter(router: VpnRouterRecord): ActiveVpnRouter | null {
   if (router.connectionMode !== "VPN" || !router.vpnCoreRouterId) return null;
   return { ...router, vpnCoreRouterId: router.vpnCoreRouterId };
+}
+
+/**
+ * Router VPN milik tenant. Melempar `RouterNotFoundError` bila tidak ada dan
+ * `VpnRouterInvalidError` bila router tidak memakai VPN.
+ */
+export async function requireActiveVpnRouter(
+  repo: Pick<IMikroTikRouterVpnRepository, "findRouter">,
+  routerId: string,
+  tenantId: string,
+): Promise<ActiveVpnRouter> {
+  const router = await repo.findRouter(routerId, tenantId);
+  if (!router) throw new RouterNotFoundError("Router tidak ditemukan");
+  const vpnRouter = toActiveVpnRouter(router);
+  if (!vpnRouter) {
+    throw new VpnRouterInvalidError("Router ini tidak memakai VPN");
+  }
+  return vpnRouter;
 }
 
 /** Daftar server, server pertama, dan status VPN untuk router yang sudah tersimpan. */
@@ -70,7 +89,7 @@ export class VpnRouterService {
     routerId: string,
     tenantId: string,
   ): Promise<RouterVpnDetail> {
-    const router = await this.requireVpnRouter(routerId, tenantId);
+    const router = await requireActiveVpnRouter(this.repo, routerId, tenantId);
     const [servers, core] = await Promise.all([
       this.repo.listServers(router.id, tenantId),
       getVpnCoreClient().getRouter(router.vpnCoreRouterId),
@@ -93,6 +112,7 @@ export class VpnRouterService {
         at: e.at,
       })),
       scriptStale: router.vpnScriptStale,
+      protocol: router.vpnProtocol,
     };
   }
 
@@ -109,7 +129,7 @@ export class VpnRouterService {
     tenantId: string,
     serverIds: string[],
   ): Promise<{ scriptStale: boolean }> {
-    const router = await this.requireVpnRouter(routerId, tenantId);
+    const router = await requireActiveVpnRouter(this.repo, routerId, tenantId);
     await assertServersUsable(
       this.servers,
       tenantId,
@@ -153,12 +173,15 @@ export class VpnRouterService {
     return result.acquired && result.value;
   }
 
-  /** Mengarahkan peer WireGuard router kembali ke server prioritas pertama. */
+  /** Mengarahkan tunnel router kembali ke server prioritas pertama, per protokol. */
   async returnToFirstServer(routerId: string, tenantId: string): Promise<void> {
-    const router = await this.requireVpnRouter(routerId, tenantId);
-    const endpoint = await this.firstServerEndpoint(router.vpnCoreRouterId);
+    const router = await requireActiveVpnRouter(this.repo, routerId, tenantId);
+    const server = await getVpnCoreClient().firstServer(router.vpnCoreRouterId);
+    if (!completeFirstServer(server)) {
+      throw new VpnRouterInvalidError("Server pertama tidak tersedia");
+    }
     try {
-      await this.routerOs.writePeerEndpoint(router, endpoint);
+      await this.routerOs.writeFirstServer(router, server);
     } catch (error) {
       logger.warn(
         `[VPN] Gagal memindah router ${router.id} ke server pertama:`,
@@ -166,19 +189,6 @@ export class VpnRouterService {
       );
       throw new VpnRouterUnreachableError();
     }
-  }
-
-  private async requireVpnRouter(
-    routerId: string,
-    tenantId: string,
-  ): Promise<ActiveVpnRouter> {
-    const router = await this.repo.findRouter(routerId, tenantId);
-    if (!router) throw new RouterNotFoundError("Router tidak ditemukan");
-    const vpnRouter = toActiveVpnRouter(router);
-    if (!vpnRouter) {
-      throw new VpnRouterInvalidError("Router ini tidak memakai VPN");
-    }
-    return vpnRouter;
   }
 
   private async keepRemovedHubsAtTail(
@@ -232,27 +242,5 @@ export class VpnRouterService {
         await core.setRouterHubs(router.vpnCoreRouterId, desired);
       },
     );
-  }
-
-  private async firstServerEndpoint(
-    coreRouterId: string,
-  ): Promise<VpnPeerEndpoint> {
-    const core = getVpnCoreClient();
-    const [coreRouter, hubs] = await Promise.all([
-      core.getRouter(coreRouterId),
-      core.listHubs(),
-    ]);
-    const first = coreRouter.hubs.find(
-      (h) => h.priority === FIRST_SERVER_PRIORITY,
-    );
-    const hub = first && hubs.find((h) => h.id === first.hubId);
-    if (!hub?.publicKey) {
-      throw new VpnRouterInvalidError("Server pertama tidak tersedia");
-    }
-    return {
-      host: hub.publicHost,
-      port: hub.listenPort,
-      publicKey: hub.publicKey,
-    };
   }
 }

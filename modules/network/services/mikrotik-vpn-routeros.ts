@@ -1,12 +1,13 @@
 import type { RouterOSAPI } from "node-routeros-v2";
 import type { VpnRouterRecord } from "../domain/ports/IMikroTikRouterVpnRepository";
 import { VPN_ROUTEROS_OP_TIMEOUT_MS } from "../vpn/constants";
+import type { CoreFirstServer } from "../vpn/types";
 import { createProvisioningConnection } from "./mikrotik-provisioning.connection";
 import { routerApiCredentials } from "./router-api-credentials";
 
 /** Nama skrip yang dipasang skrip tempel core untuk berpindah server. */
 export const VPN_SWITCH_SCRIPT_NAME = "netmanager-vpn-switch";
-/** Interface WireGuard yang dipasang skrip tempel core. */
+/** Interface WireGuard atau klien L2TP yang dipasang skrip tempel core. */
 export const VPN_INTERFACE_NAME = "netmanager-vpn";
 
 /** Endpoint WireGuard sebuah server VPN. */
@@ -62,6 +63,71 @@ export async function setPeerEndpoint(
     `=endpoint-port=${endpoint.port}`,
     `=public-key=${endpoint.publicKey}`,
   ]);
+}
+
+/**
+ * Mengarahkan klien L2TP router ke server lain. PSK adalah kata API RouterOS,
+ * jadi dikirim apa adanya tanpa escape; nilainya tidak pernah di-log.
+ */
+async function setL2tpServer(
+  conn: RouterOSAPI,
+  host: string,
+  ipsecSecret: string,
+): Promise<void> {
+  const rows = await conn.write("/interface/l2tp-client/print", [
+    `?name=${VPN_INTERFACE_NAME}`,
+  ]);
+  const id = firstRowId(
+    rows,
+    `Klien L2TP ${VPN_INTERFACE_NAME} tidak ada di router`,
+  );
+  await conn.write("/interface/l2tp-client/set", [
+    `=.id=${id}`,
+    `=connect-to=${host}`,
+    `=ipsec-secret=${ipsecSecret}`,
+  ]);
+}
+
+/** Server pertama dengan semua field yang dibutuhkan protokolnya. */
+export type CompleteFirstServer =
+  | { protocol: "wireguard"; host: string; port: number; publicKey: string }
+  | { protocol: "l2tp"; host: string; ipsecSecret: string };
+
+/** Field server pertama dari core yang dibutuhkan protokolnya, atau null bila kurang. */
+export function completeFirstServer(
+  server: CoreFirstServer,
+): CompleteFirstServer | null {
+  const { host, port, publicKey, ipsecSecret } = server;
+  if (!host) return null;
+  if (server.protocol === "l2tp") {
+    return ipsecSecret ? { protocol: "l2tp", host, ipsecSecret } : null;
+  }
+  return port && publicKey
+    ? { protocol: "wireguard", host, port, publicKey }
+    : null;
+}
+
+async function setFirstServer(
+  conn: RouterOSAPI,
+  server: CoreFirstServer,
+): Promise<void> {
+  const target = completeFirstServer(server);
+  if (!target) throw new Error("Data server pertama tidak lengkap");
+  if (target.protocol === "l2tp") {
+    await setL2tpServer(conn, target.host, target.ipsecSecret);
+    return;
+  }
+  await setPeerEndpoint(conn, target);
+}
+
+/** Mengarahkan tunnel router ke server pertama sesuai protokolnya. */
+export function writeFirstServer(
+  router: VpnRouterRecord,
+  server: CoreFirstServer,
+): Promise<void> {
+  return withVpnRouterConnection(router, (conn) =>
+    setFirstServer(conn, server),
+  );
 }
 
 function closeQuietly(conn: RouterOSAPI): void {

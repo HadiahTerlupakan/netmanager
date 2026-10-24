@@ -192,6 +192,18 @@ export class MikroTikRouterVpnRepository implements IMikroTikRouterVpnRepository
     });
   }
 
+  /** Menyimpan protokol tunnel; hanya router milik tenant yang masih mode VPN. */
+  async setVpnProtocol(
+    routerId: string,
+    tenantId: string,
+    protocol: VpnRouterRecord["vpnProtocol"],
+  ): Promise<void> {
+    await this.client.mikroTikRouter.updateMany({
+      where: { id: routerId, tenantId, connectionMode: "VPN" },
+      data: { vpnProtocol: protocol },
+    });
+  }
+
   /** Router VPN online yang skripnya belum terkirim, paling lama dulu. */
   findStaleOnline(tenantId: string, limit: number): Promise<VpnRouterRecord[]> {
     return this.client.mikroTikRouter.findMany({
