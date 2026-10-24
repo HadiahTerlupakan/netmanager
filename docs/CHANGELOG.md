@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-24] — Pilihan protokol VPN per router (WireGuard atau L2TP/IPsec)
+
+- **Tipe**: [ADDED] | [CHANGED]
+- **Scope**: `modules/network` | `app/` | `docs/`
+- **Author**: agent
+- **Deskripsi**:
+  - [ADDED] Pilihan protokol per router (WireGuard atau L2TP/IPsec) di form tambah router dan panel aktifkan VPN. Halaman edit router punya "Ganti protokol". Daftar router menampilkan label protokol.
+  - [CHANGED] "Kembali ke server pertama" kini bekerja untuk router L2TP.
+  - [CHANGED] Respons script untuk router tidak disimpan cache (no-store).
+  - [CHANGED] Panduan pasang server VPN mencantumkan port L2TP (UDP 500 dan 4500).
+  - [DOCS] `docs/deployment/netmanager-vpn.md`: bagian "Hub L2TP di radpro" (modul host, container bridge, upgrade, mencabut, batas tahap 1).
+- **Migration**: tidak ada
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-23] — Panduan pasang server VPN
 
 - **Tipe**: [ADDED]
