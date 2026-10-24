@@ -25,10 +25,15 @@ describe("PATCH /api/pelanggan-ppp/[id]/status", () => {
     ({ PATCH } = await import("@/app/api/pelanggan-ppp/[id]/status/route"));
   });
 
-  it("berhasil walau baris pelanggan memuat saldoKreditRupiah bertipe BigInt", async () => {
+  it("berhasil tanpa membocorkan password walau baris memuat BigInt", async () => {
     mockFns.updateCustomerStatus.mockResolvedValue({
       pelanggan: { id: "p1", nama: "TES", status: "AKTIF" },
-      updatedPelanggan: { id: "p1", status: "ISOLIR", saldoKreditRupiah: 0n },
+      updatedPelanggan: {
+        id: "p1",
+        status: "ISOLIR",
+        password: "rahasia",
+        saldoKreditRupiah: 0n,
+      },
       message: "Status updated to ISOLIR",
     });
 
@@ -41,9 +46,8 @@ describe("PATCH /api/pelanggan-ppp/[id]/status", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      success: true,
-      data: { id: "p1", status: "ISOLIR", saldoKreditRupiah: 0 },
-    });
+    const body = await response.json();
+    expect(body).toMatchObject({ success: true });
+    expect(body.data).toEqual({ id: "p1", status: "ISOLIR" });
   });
 });

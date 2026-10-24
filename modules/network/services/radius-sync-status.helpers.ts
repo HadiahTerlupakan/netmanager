@@ -76,16 +76,38 @@ async function syncMikroTikStatus(params: {
   return isolateMikroTikCustomer(params);
 }
 
-// In RADIUS mode the router holds no PPP secret to re-profile: the new
-// status is in RADIUS and applies at the next login, so the session is ended
-// now. Without this an isolated customer keeps full access until they happen
-// to reconnect, and a re-activated one stays in the isolir pool.
+function radiusSecretLifecycle(
+  newStatus: Status,
+  pppSecretService: StatusTransitionDependencies["pppSecretService"],
+) {
+  if (newStatus === "AKTIF") return pppSecretService.unIsolateCustomer;
+  if (newStatus === "DISMANTLE") return pppSecretService.dismantleCustomer;
+  return pppSecretService.isolateCustomer;
+}
+
+// RADIUS customers normally have no PPP secret on the router, and the router
+// checks local secrets before RADIUS. So a leftover secret is still
+// re-profiled (that path also disconnects), and only when there is none is
+// the session ended directly: the new status then applies at the next login.
+// Without the disconnect an isolated customer keeps full access until they
+// reconnect, and a re-activated one stays in the isolir pool.
 async function syncRadiusStatus(params: {
   pelangganId: string;
+  newStatus: Status;
   radiusRepo: StatusTransitionDependencies["radiusRepo"];
   pppSecretService: StatusTransitionDependencies["pppSecretService"];
 }) {
   await params.radiusRepo.syncPelangganToRadius(params.pelangganId);
+
+  const lifecycle = radiusSecretLifecycle(
+    params.newStatus,
+    params.pppSecretService,
+  );
+  const secretResult = await lifecycle.call(
+    params.pppSecretService,
+    params.pelangganId,
+  );
+  if (secretResult.success) return;
 
   const result = await params.pppSecretService.disconnectCustomer(
     params.pelangganId,

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { logger } from "@/lib/logger";
-import { serializeData } from "@/lib/api-response";
 import {
   PelangganPppRouteService,
   RouteServiceError,
@@ -59,8 +58,12 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      // The row carries saldoKreditRupiah, a BigInt JSON cannot encode.
-      data: serializeData(result.updatedPelanggan),
+      // Not the whole row: it holds the PPPoE password, and its BigInt
+      // saldoKreditRupiah cannot be encoded as JSON.
+      data: {
+        id: result.updatedPelanggan.id,
+        status: result.updatedPelanggan.status,
+      },
       message: result.message,
     });
   } catch (error: unknown) {
