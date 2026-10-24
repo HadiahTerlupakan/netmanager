@@ -56,6 +56,19 @@ const FILTER_RULES = [
     ],
     log: "Added Firewall Filter: Drop Expired UDP",
   },
+  {
+    comment: "netmanager-drop-expired-icmp",
+    // Added at the top on routers provisioned before it existed, above the
+    // forward bypass, so it exempts the allow list itself.
+    addArgs: [
+      "=chain=forward",
+      "=action=reject",
+      "=protocol=icmp",
+      `=src-address=${EXPIRED_NETWORK}`,
+      `=dst-address-list=!${ADDRESS_LIST_NAME}`,
+    ],
+    log: "Added Firewall Filter: Drop Expired ICMP",
+  },
 ] as const;
 
 type RouterRecord = { ".id": string };
