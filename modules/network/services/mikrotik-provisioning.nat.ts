@@ -1,5 +1,6 @@
 import type { RouterOSAPI } from "node-routeros-v2";
 import { delay } from "./mikrotik-provisioning.connection";
+import { restoreRows, type RouterRow } from "./mikrotik-provisioning.restore";
 
 const EXPIRED_NETWORK = "10.127.0.0/18";
 const ALLOW_LIST = "netmanager_allow";
@@ -13,7 +14,6 @@ const PRIVATE_RANGES = [
 ] as const;
 
 type NatConnection = Pick<RouterOSAPI, "write">;
-type RouterRecord = { ".id": string };
 type NatParams = { connection: NatConnection; logs: string[] };
 
 // The redirect goes first so an operator's own dstnat cannot catch an
@@ -52,7 +52,7 @@ async function readRecords(
   path: string,
   args: string[],
 ) {
-  return (await connection.write(path, args)) as RouterRecord[];
+  return (await connection.write(path, args)) as RouterRow[];
 }
 
 async function ensurePrivateList({ connection, logs }: NatParams) {
@@ -62,7 +62,17 @@ async function ensurePrivateList({ connection, logs }: NatParams) {
       "/ip/firewall/address-list/print",
       [`?list=${PRIVATE_LIST}`, `?address=${range}`],
     );
-    if (existing.length > 0) continue;
+    if (existing.length > 0) {
+      await restoreRows({
+        connection,
+        path: "/ip/firewall/address-list",
+        rows: existing,
+        args: [`=list=${PRIVATE_LIST}`, `=address=${range}`],
+        logs,
+        label: `Firewall Address List: ${PRIVATE_LIST} ${range}`,
+      });
+      continue;
+    }
 
     await connection.write("/ip/firewall/address-list/add", [
       `=list=${PRIVATE_LIST}`,
@@ -92,7 +102,17 @@ export async function provisionNatRules(params: NatParams) {
       "/ip/firewall/nat/print",
       [`?comment=${rule.comment}`],
     );
-    if (existing.length > 0) continue;
+    if (existing.length > 0) {
+      await restoreRows({
+        connection: params.connection,
+        path: "/ip/firewall/nat",
+        rows: existing,
+        args: rule.args,
+        logs: params.logs,
+        label: `Firewall NAT: ${rule.comment}`,
+      });
+      continue;
+    }
 
     const placement = rule.placeFirst
       ? await firstNatRuleArgs(params.connection)

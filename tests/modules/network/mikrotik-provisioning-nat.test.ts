@@ -6,7 +6,18 @@ vi.mock("@/modules/network/services/mikrotik-provisioning.connection", () => ({
 
 import { provisionNatRules } from "@/modules/network/services/mikrotik-provisioning.nat";
 
-type Row = { ".id": string; comment?: string; address?: string };
+type Row = { ".id": string; [key: string]: string | undefined };
+
+function toProps(args: string[]) {
+  return Object.fromEntries(
+    args
+      .filter((a) => a.startsWith("=") && !a.startsWith("=place-before="))
+      .map((a) => {
+        const split = a.indexOf("=", 1);
+        return [a.slice(1, split), a.slice(split + 1)];
+      }),
+  );
+}
 
 // A minimal RouterOS stand-in: prints answer from the rows already added, so
 // a second provisioning run sees what the first one wrote.
@@ -23,20 +34,15 @@ function fakeRouter(existingNat: Row[] = []) {
     if (path === "/ip/firewall/address-list/print") {
       return addressList.filter((r) => r.address === query("address"));
     }
-    const value = (key: string) =>
-      args.find((a) => a.startsWith(`=${key}=`))?.slice(key.length + 2);
     if (path === "/ip/firewall/nat/add") {
-      nat.push({ ".id": `*n${nat.length}`, comment: value("comment") });
+      nat.push({ ".id": `*n${nat.length}`, ...toProps(args) });
     }
     if (path === "/ip/firewall/address-list/add") {
-      addressList.push({
-        ".id": `*a${addressList.length}`,
-        address: value("address"),
-      });
+      addressList.push({ ".id": `*a${addressList.length}`, ...toProps(args) });
     }
     return [];
   });
-  return { write };
+  return { write, nat, addressList };
 }
 
 function addedNat(router: ReturnType<typeof fakeRouter>) {
@@ -95,8 +101,51 @@ describe("provisionNatRules", () => {
     expect(addedNat(router)).toEqual([]);
     expect(
       router.write.mock.calls.some(
-        ([path]) => path === "/ip/firewall/address-list/add",
+        ([path]) =>
+          path === "/ip/firewall/address-list/add" || path.endsWith("/set"),
       ),
     ).toBe(false);
+  });
+
+  it("mengembalikan masquerade dan address list yang diubah ke standar", async () => {
+    const router = fakeRouter();
+    await provisionNatRules({ connection: router, logs: [] });
+    const masquerade = router.nat.find(
+      (r) => r.comment === "netmanager-masquerade",
+    )!;
+    masquerade["src-address-list"] = "lan";
+    const cgnat = router.addressList.find(
+      (r) => r.address === "100.64.0.0/10",
+    )!;
+    cgnat.disabled = "true";
+    router.write.mockClear();
+
+    await provisionNatRules({ connection: router, logs: [] });
+
+    const sets = router.write.mock.calls.filter(([path]) =>
+      path.endsWith("/set"),
+    );
+    expect(sets).toEqual([
+      [
+        "/ip/firewall/address-list/set",
+        [
+          `=.id=${cgnat[".id"]}`,
+          "=list=netmanager_private",
+          "=address=100.64.0.0/10",
+          "=disabled=no",
+        ],
+      ],
+      [
+        "/ip/firewall/nat/set",
+        [
+          `=.id=${masquerade[".id"]}`,
+          "=chain=srcnat",
+          "=action=masquerade",
+          "=src-address-list=netmanager_private",
+          "=dst-address-list=!netmanager_private",
+          "=disabled=no",
+        ],
+      ],
+    ]);
   });
 });

@@ -8,6 +8,7 @@ import {
   getFirewallAddresses,
   type AddressListItem,
 } from "./mikrotik-provisioning.firewall.helpers";
+import { restoreRows, type RouterRow } from "./mikrotik-provisioning.restore";
 
 const ADDRESS_LIST_NAME = "netmanager_allow";
 const EXPIRED_NETWORK = "10.127.0.0/18";
@@ -71,7 +72,6 @@ const FILTER_RULES = [
   },
 ] as const;
 
-type RouterRecord = { ".id": string };
 type FirewallBypassParams = {
   connection: RouterOSAPI;
   serverIp: string;
@@ -121,7 +121,7 @@ async function readRecords(
   path: string,
   args: string[],
 ) {
-  return (await connection.write(path, args)) as RouterRecord[];
+  return (await connection.write(path, args)) as RouterRow[];
 }
 
 async function removeRecord(input: {
@@ -237,6 +237,14 @@ async function ensureAddressList(
       getAddressListArgs(item.address),
     );
     if (existingList.length > 0) {
+      await restoreRows({
+        connection,
+        path: "/ip/firewall/address-list",
+        rows: existingList,
+        args: [`=list=${ADDRESS_LIST_NAME}`, `=address=${item.address}`],
+        logs,
+        label: `Firewall Address List: ${item.address}`,
+      });
       continue;
     }
 
@@ -250,14 +258,6 @@ async function ensureAddressList(
   }
 }
 
-async function hasExistingFilterRule(connection: RouterOSAPI, comment: string) {
-  const rules = await readRecords(
-    connection,
-    "/ip/firewall/filter/print",
-    getFilterPrintArgs(comment),
-  );
-  return rules.length > 0;
-}
 
 async function addFilterRule(
   connection: RouterOSAPI,
@@ -277,9 +277,23 @@ async function ensureFilterRules(connection: RouterOSAPI, logs: string[]) {
   const placeBeforeArgs = await resolvePlaceBeforeArgs(connection);
 
   for (const rule of FILTER_RULES) {
-    if (!(await hasExistingFilterRule(connection, rule.comment))) {
+    const existing = await readRecords(
+      connection,
+      "/ip/firewall/filter/print",
+      getFilterPrintArgs(rule.comment),
+    );
+    if (existing.length === 0) {
       await addFilterRule(connection, rule, placeBeforeArgs, logs);
+      continue;
     }
+    await restoreRows({
+      connection,
+      path: "/ip/firewall/filter",
+      rows: existing,
+      args: rule.addArgs,
+      logs,
+      label: `Firewall Filter: ${rule.comment}`,
+    });
   }
 }
 
@@ -304,7 +318,17 @@ async function ensureExpiredPool(connection: RouterOSAPI, logs: string[]) {
     getPoolPrintArgs(),
   );
 
-  if (expiredPool.length > 0) {
+  // /ip/pool has no disabled flag, so restoreRows does not fit here.
+  const pool = expiredPool[0];
+  if (pool) {
+    if (pool.ranges !== EXPIRED_POOL_RANGE) {
+      await connection.write("/ip/pool/set", [
+        `=.id=${pool[".id"]}`,
+        `=ranges=${EXPIRED_POOL_RANGE}`,
+      ]);
+      await delay(200);
+      logs.push(`Restored IP Pool: ${EXPIRED_POOL_NAME}`);
+    }
     return;
   }
 

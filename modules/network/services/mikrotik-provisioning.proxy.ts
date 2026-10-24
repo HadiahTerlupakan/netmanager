@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import type { RouterOSAPI } from "node-routeros-v2";
 import { delay } from "./mikrotik-provisioning.connection";
+import { restoreRows, type RouterRow } from "./mikrotik-provisioning.restore";
 
 const PROXY_PORT = "8181";
 const EXPIRED_NETWORK = "10.127.0.0/18";
@@ -19,12 +20,18 @@ async function enableWebProxy(connection: RouterOSAPI, logs: string[]) {
   logs.push(`Configured Web Proxy: Enabled on port ${PROXY_PORT}`);
 }
 
-async function hasExistingProxyRule(connection: RouterOSAPI) {
-  const proxyRule = (await connection.write("/ip/proxy/access/print", [
-    `?comment=${PROXY_RULE_COMMENT}`,
-  ])) as Array<{ ".id": string }>;
+function getProxyRuleArgs(domain: string) {
+  return [
+    `=src-address=${EXPIRED_NETWORK}`,
+    "=action=redirect",
+    `=action-data=${domain}`,
+  ];
+}
 
-  return proxyRule.length > 0;
+async function readProxyRules(connection: RouterOSAPI) {
+  return (await connection.write("/ip/proxy/access/print", [
+    `?comment=${PROXY_RULE_COMMENT}`,
+  ])) as RouterRow[];
 }
 
 async function addProxyRule(
@@ -33,9 +40,7 @@ async function addProxyRule(
   logs: string[],
 ) {
   await connection.write("/ip/proxy/access/add", [
-    `=src-address=${EXPIRED_NETWORK}`,
-    "=action=redirect",
-    `=action-data=${domain}`,
+    ...getProxyRuleArgs(domain),
     `=comment=${PROXY_RULE_COMMENT}`,
   ]);
   await delay(200);
@@ -63,9 +68,7 @@ function logWebProxyError(logs: string[], action: string, error: unknown) {
 }
 
 async function removeProxyRules(connection: RouterOSAPI, logs: string[]) {
-  const proxyRules = (await connection.write("/ip/proxy/access/print", [
-    `?comment=${PROXY_RULE_COMMENT}`,
-  ])) as Array<{ ".id": string }>;
+  const proxyRules = await readProxyRules(connection);
 
   for (const rule of proxyRules) {
     await connection.write("/ip/proxy/access/remove", [`=.id=${rule[".id"]}`]);
@@ -86,9 +89,20 @@ export async function provisionWebProxy(params: {
 
   try {
     await enableWebProxy(params.connection, params.logs);
-    if (!(await hasExistingProxyRule(params.connection))) {
+    const existing = await readProxyRules(params.connection);
+    if (existing.length === 0) {
       await addProxyRule(params.connection, domain, params.logs);
+      return;
     }
+    // Catches an ISOLIR_URL changed after the router was provisioned.
+    await restoreRows({
+      connection: params.connection,
+      path: "/ip/proxy/access",
+      rows: existing,
+      args: getProxyRuleArgs(domain),
+      logs: params.logs,
+      label: "Web Proxy Access Rule",
+    });
   } catch (error: unknown) {
     logWebProxyError(params.logs, "configure Web Proxy", error);
   }
