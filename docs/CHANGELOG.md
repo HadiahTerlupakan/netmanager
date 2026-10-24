@@ -43,7 +43,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ### [2026-10-24] — Pilihan protokol VPN per router (WireGuard atau L2TP/IPsec)
 
-- **Tipe**: [ADDED] | [CHANGED]
+- **Tipe**: [ADDED] | [CHANGED] | [DOCS]
 - **Scope**: `modules/network` | `app/` | `docs/`
 - **Author**: agent
 - **Deskripsi**:

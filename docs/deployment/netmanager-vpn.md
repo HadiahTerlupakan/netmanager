@@ -98,43 +98,67 @@ hub satu per satu agar router bisa pindah ke hub lain di daftarnya.
 Hub L2TP di radpro adalah hub terpisah dari hub WireGuard yang sudah ada. Ia
 dibuat di netmanager lewat "Tambah Server VPN" dengan `publicHost` `31.56.30.53`
 dan port WireGuard yang belum terpakai (51821 hub A dan 51823 hub B sudah
-dipakai; contoh: 51824). Perintah instal dari modal tidak dipakai di radpro.
+dipakai; contoh: 51824). Perintah instal dari modal tidak dijalankan di radpro;
+hanya bundle-nya yang dipakai.
 
 Kenapa dipasang manual sebagai container bridge:
 
 - radpro kernel 5.15, menjalankan k3s dan Docker. Hub WireGuard yang ada juga
   container bridge, bukan host network, sehingga rute /32-nya tidak bentrok
   dengan core di host yang sama. Hub L2TP mengikuti pola itu.
-- TCP 443 di radpro dipegang Traefik (DNAT), jadi tidak ada SSTP di sana. Per
-  2026-10-24 UDP 500, 4500, 1701 dan TCP 1723 masih bebas.
+- TCP 443 di radpro dipegang Traefik (DNAT), jadi tidak ada SSTP di sana.
 
-Langkah (ganti `<wgport>`, `<state>`, `<env>`, `<image>`):
+Langkah (ganti `<wgport>`, `<image>`; state di `/var/lib/netmanager-vpn-hub-l2tp`,
+env di `/etc/netmanager-vpn-hub-l2tp/env`):
+
+0. Periksa dulu bahwa port belum dipakai. Ketiga perintah pertama harus tidak
+   mencetak apa pun, dan `docker ps` tidak boleh memuat container bernama
+   `netmanager-vpn-hub-l2tp`:
+
+   ```
+   sudo ss -Hlnu | grep -E ':(500|4500|<wgport>)\b'
+   sudo iptables-save -t nat | grep -E -- '--dports? [^ ]*(500|4500|<wgport>)'
+   sudo docker ps --filter name=netmanager-vpn-hub-l2tp
+   ```
+
+   Buka UDP `<wgport>`, 500 dan 4500 di firewall provider radpro, dan di
+   firewall host bila aktif.
 
 1. Muat modul host sekali, lalu buat bertahan reboot:
 
    ```
-   sudo modprobe ppp_generic l2tp_ppp l2tp_netlink esp4 xfrm_user af_key nft_fib_inet nft_xfrm
+   sudo modprobe -a ppp_generic l2tp_ppp l2tp_netlink esp4 xfrm_user af_key nft_fib_inet nft_xfrm
    printf '%s\n' ppp_generic l2tp_ppp l2tp_netlink esp4 xfrm_user af_key nft_fib_inet nft_xfrm \
      | sudo tee /etc/modules-load.d/netmanager-vpn-ppp.conf
    ```
 
-2. Buat direktori state dan env sendiri (mode 700), misalnya
-   `/var/lib/netmanager-vpn-hub-l2tp` dan `/etc/netmanager-vpn-hub-l2tp`. File
-   `env` (mode 600) berisi `NMVPN_ENCRYPTION_KEY`, dibuat seperti
-   `install-hub.sh`:
+2. Buat direktori state dan env sendiri (mode 700) dan file `env` (mode 600)
+   berisi `NMVPN_ENCRYPTION_KEY`, dibuat seperti `install-hub.sh`
+   (`head -c 32 /dev/urandom | base64`). Perintah ini tidak mencetak kunci:
 
    ```
-   echo "NMVPN_ENCRYPTION_KEY=$(head -c 32 /dev/urandom | base64)" | sudo tee /etc/netmanager-vpn-hub-l2tp/env
-   sudo chmod 600 /etc/netmanager-vpn-hub-l2tp/env
+   sudo install -d -m 700 /var/lib/netmanager-vpn-hub-l2tp /etc/netmanager-vpn-hub-l2tp
+   sudo sh -c 'umask 077; printf "NMVPN_ENCRYPTION_KEY=%s\n" "$(head -c 32 /dev/urandom | base64)" > /etc/netmanager-vpn-hub-l2tp/env'
    ```
 
-3. Join (sekali). Tulis bundle ke berkas sementara bermode 600; jangan lewat
-   argumen perintah atau riwayat shell, dan hapus setelah join:
+   Jangan jalankan langkah ini lagi untuk hub yang sudah ada: kunci baru
+   membuat state tersimpan tidak terbaca. Upgrade memakai file env yang sama.
+   Kunci di file env terlihat lewat `docker inspect` bagi siapa pun yang punya
+   akses docker atau root di radpro; ini bawaan `--env-file` dan sama untuk hub
+   A dan B.
+
+3. Join (sekali). Bundle berasal dari perintah instal yang ditampilkan "Tambah
+   Server VPN": argumen panjang setelah `sh -s --`. Simpan ke berkas sementara
+   bermode 600; jangan lewat argumen perintah atau riwayat shell:
 
    ```
+   umask 077; f=$(mktemp)
+   cat > "$f"    # tempel bundle, lalu Ctrl-D
    sudo docker run -i --rm --cap-add NET_ADMIN --sysctl net.ipv4.ip_forward=1 \
-     -v <state>:/var/lib/netmanager-vpn --env-file <env> \
-     <image> hub join - < <berkas-bundle>
+     -v /var/lib/netmanager-vpn-hub-l2tp:/var/lib/netmanager-vpn \
+     --env-file /etc/netmanager-vpn-hub-l2tp/env \
+     <image> hub join - < "$f"
+   rm -f "$f"
    ```
 
 4. Jalankan:
@@ -143,27 +167,39 @@ Langkah (ganti `<wgport>`, `<state>`, `<env>`, `<image>`):
    sudo docker run -d --name netmanager-vpn-hub-l2tp --restart unless-stopped \
      --cap-add NET_ADMIN --sysctl net.ipv4.ip_forward=1 --device /dev/ppp \
      -p <wgport>:<wgport>/udp -p 500:500/udp -p 4500:4500/udp \
-     --env-file <env> -v <state>:/var/lib/netmanager-vpn \
+     --env-file /etc/netmanager-vpn-hub-l2tp/env \
+     -v /var/lib/netmanager-vpn-hub-l2tp:/var/lib/netmanager-vpn \
      <image> -mode hub
    ```
 
-5. Cek: `docker logs netmanager-vpn-hub-l2tp` tidak boleh memuat "hub serves
+5. Cek: `sudo docker logs netmanager-vpn-hub-l2tp` tidak boleh memuat "hub serves
    WireGuard only". Di netmanager, server itu harus menampilkan protokol yang
-   mencakup `l2tp`. Core mengambilnya pada sinkronisasi berikutnya, sekitar
-   semenit.
-6. Tetapkan server ini HANYA ke tenant uji sampai uji lab lulus (aturan R5).
-   Jangan tetapkan ke tenant produksi sebelum rencana rotasi PSK darurat
-   selesai.
+   mencakup `l2tp`. Core mengambilnya pada sinkron core berikutnya.
+6. Tetapkan server ini hanya ke tenant uji sampai uji lab lulus. Jangan
+   tetapkan ke tenant produksi sebelum rencana rotasi PSK darurat selesai.
 
-Upgrade: pull image baru, `docker rm -f netmanager-vpn-hub-l2tp`, lalu jalankan
-langkah 4 lagi. Direktori state menyimpan kunci, PSK, dan peer. Restart hub
-memutus tunnel L2TP sekali; router menyambung ulang dalam beberapa detik dan
-PPPoE pelanggan tidak terpengaruh.
+Upgrade: pull image baru, hapus container, lalu jalankan langkah 4 lagi.
+Direktori state menyimpan kunci, PSK, dan peer; file env tidak dibuat ulang.
+
+```
+sudo docker pull <image>
+sudo docker rm -f netmanager-vpn-hub-l2tp
+```
+
+Restart hub memutus tunnel L2TP sekali; router menyambung ulang dalam beberapa
+detik dan PPPoE pelanggan tidak terpengaruh.
 
 Mencabut: pindahkan dulu semua router L2TP dari server ini (ganti protokolnya,
-atau tetapkan server L2TP lain), hapus server di netmanager, lalu
-`docker rm -f netmanager-vpn-hub-l2tp` dan hapus direktori state dan env.
-Modul boleh tetap dimuat.
+atau tetapkan server L2TP lain), hapus server di netmanager, lalu:
+
+```
+sudo docker rm -f netmanager-vpn-hub-l2tp
+sudo rm -rf /var/lib/netmanager-vpn-hub-l2tp /etc/netmanager-vpn-hub-l2tp
+```
+
+Ini menghancurkan kunci hub ini. Periksa lagi path-nya agar direktori hub A
+dan B (`/var/lib/netmanager-vpn`, `/var/lib/netmanager-vpn-hub-b`) tidak
+tersentuh. Modul boleh tetap dimuat.
 
 Di VPS (bukan radpro), perintah instal satu baris dari modal "Tambah Server VPN"
 kini juga memuat modul, menambah `/dev/ppp`, memeriksa bentrok port (socket dan
@@ -270,9 +306,9 @@ core sekali per siklus 5 menit (maksimal 20 lookup serentak).
 
 ## Firewall provider
 
-- radpro: buka UDP 51822 (wg-core).
-- Setiap hub: buka UDP 51821 (wg-nm). Koneksi keluar ke radpro UDP 51822 harus diizinkan.
-- Hub dengan L2TP/IPsec: buka juga UDP 500 dan UDP 4500. Di VPS: UDP port server, UDP 500, UDP 4500, ditambah keluar UDP 51822 ke core.
+- radpro: buka UDP 51822 (wg-core). Hub L2TP di radpro memakai port WireGuard sendiri, ditambah UDP 500 dan 4500 (lihat "Hub L2TP di radpro").
+- Setiap hub: buka UDP 51821 (wg-nm), atau port yang dipilih saat hub dibuat. Koneksi keluar ke radpro UDP 51822 harus diizinkan.
+- Hub dengan L2TP/IPsec di VPS: UDP port server, UDP 500, UDP 4500, ditambah keluar UDP 51822 ke core.
 - Port 7480 tidak pernah dibuka ke internet.
 
 Docker memasang policy `FORWARD DROP` di iptables, dan `accept` di tabel nft
