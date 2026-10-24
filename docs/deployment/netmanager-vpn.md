@@ -111,15 +111,17 @@ Kenapa dipasang manual sebagai container bridge:
 Langkah (ganti `<wgport>`, `<image>`; state di `/var/lib/netmanager-vpn-hub-l2tp`,
 env di `/etc/netmanager-vpn-hub-l2tp/env`):
 
-0. Periksa dulu bahwa port belum dipakai. Ketiga perintah pertama harus tidak
-   mencetak apa pun, dan `docker ps` tidak boleh memuat container bernama
-   `netmanager-vpn-hub-l2tp`:
+0. Periksa dulu bahwa port belum dipakai dan container belum ada. Ketiga
+   perintah harus tidak mencetak apa pun:
 
    ```
    sudo ss -Hlnu | grep -E ':(500|4500|<wgport>)\b'
-   sudo iptables-save -t nat | grep -E -- '--dports? [^ ]*(500|4500|<wgport>)'
-   sudo docker ps --filter name=netmanager-vpn-hub-l2tp
+   sudo iptables-save -t nat | grep -E -- '--dports? ([^ ]*[,:])?(500|4500|<wgport>)([ ,:]|$)'
+   sudo docker ps -aq --filter name=^netmanager-vpn-hub-l2tp$
    ```
+
+   Aturan iptables yang memakai rentang port (misalnya `400:600`) tidak
+   tertangkap; bila ragu, baca keluaran `iptables-save -t nat` dengan mata.
 
    Buka UDP `<wgport>`, 500 dan 4500 di firewall provider radpro, dan di
    firewall host bila aktif.
@@ -152,13 +154,14 @@ env di `/etc/netmanager-vpn-hub-l2tp/env`):
    bermode 600; jangan lewat argumen perintah atau riwayat shell:
 
    ```
-   umask 077; f=$(mktemp)
-   cat > "$f"    # tempel bundle, lalu Ctrl-D
-   sudo docker run -i --rm --cap-add NET_ADMIN --sysctl net.ipv4.ip_forward=1 \
-     -v /var/lib/netmanager-vpn-hub-l2tp:/var/lib/netmanager-vpn \
-     --env-file /etc/netmanager-vpn-hub-l2tp/env \
-     <image> hub join - < "$f"
-   rm -f "$f"
+   (
+     umask 077; f=$(mktemp); trap 'rm -f "$f"' EXIT
+     cat > "$f"    # tempel bundle, lalu Ctrl-D
+     sudo docker run -i --rm --cap-add NET_ADMIN --sysctl net.ipv4.ip_forward=1 \
+       -v /var/lib/netmanager-vpn-hub-l2tp:/var/lib/netmanager-vpn \
+       --env-file /etc/netmanager-vpn-hub-l2tp/env \
+       <image> hub join - < "$f"
+   )
    ```
 
 4. Jalankan:
