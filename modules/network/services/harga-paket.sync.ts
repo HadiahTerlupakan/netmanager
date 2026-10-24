@@ -51,7 +51,10 @@ export async function syncMikroTikRateLimit(
   }
 
   try {
-    if (await shouldSkipMikroTikSync(hargaPaket)) {
+    // In RADIUS mode the package's Mikrotik-Rate-Limit reply sets the
+    // session's bandwidth and overrides the profile, so a copy on the
+    // router's profile only shows whichever package was saved last.
+    if (await isRadiusMode(getRadiusSyncService)) {
       return;
     }
 
@@ -96,14 +99,5 @@ function hasAssignedMikroTikRouter(
   return Boolean(
     hargaPaket.profilePPP?.mikroTikRouterId &&
     hargaPaket.profilePPP.mikroTikRouter,
-  );
-}
-
-async function shouldSkipMikroTikSync(
-  hargaPaket: HargaPaketWithRouter,
-): Promise<boolean> {
-  return (
-    hargaPaket.profilePPP.poolMode === "RADIUS" &&
-    (await isRadiusMode(getRadiusSyncService))
   );
 }
