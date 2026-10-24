@@ -13,6 +13,7 @@ type StatusTransitionDependencies = {
     | "unIsolateCustomer"
     | "isolateCustomer"
     | "dismantleCustomer"
+    | "disconnectCustomer"
   >;
 };
 
@@ -75,25 +76,23 @@ async function syncMikroTikStatus(params: {
   return isolateMikroTikCustomer(params);
 }
 
+// In RADIUS mode the router holds no PPP secret to re-profile: the new
+// status is in RADIUS and applies at the next login, so the session is ended
+// now. Without this an isolated customer keeps full access until they happen
+// to reconnect, and a re-activated one stays in the isolir pool.
 async function syncRadiusStatus(params: {
   pelangganId: string;
-  newStatus: Status;
   radiusRepo: StatusTransitionDependencies["radiusRepo"];
   pppSecretService: StatusTransitionDependencies["pppSecretService"];
 }) {
   await params.radiusRepo.syncPelangganToRadius(params.pelangganId);
 
-  if (params.newStatus === "AKTIF") {
-    await params.pppSecretService.unIsolateCustomer(params.pelangganId);
-    return;
+  const result = await params.pppSecretService.disconnectCustomer(
+    params.pelangganId,
+  );
+  if (result && !result.success) {
+    throw new Error(result.error ?? "Gagal memutus sesi pelanggan");
   }
-
-  if (params.newStatus === "DISMANTLE") {
-    await params.pppSecretService.dismantleCustomer(params.pelangganId);
-    return;
-  }
-
-  await params.pppSecretService.isolateCustomer(params.pelangganId);
 }
 
 async function ensurePelangganExists(params: {

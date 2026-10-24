@@ -199,6 +199,19 @@ export class MikroTikPPPSecretService {
   }
 
   /**
+   * Putus sesi aktif pelanggan di router profilnya. Null bila pelanggan
+   * tidak punya router tujuan.
+   */
+  async disconnectCustomer(
+    pelangganId: string,
+  ): Promise<PPPSecretDisconnectResult | null> {
+    const data =
+      await this.routerContextService.getRouterFromPelanggan(pelangganId);
+    if (!data) return null;
+    return this.disconnectSession(data.routerId, data.pelanggan.username);
+  }
+
+  /**
    * Isolasi pelanggan: Ubah profile ke "expired users" + disconnect
    */
   async isolateCustomer(

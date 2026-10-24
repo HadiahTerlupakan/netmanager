@@ -14,6 +14,7 @@ import {
   provisionWebProxy,
   removeWebProxy,
 } from "./mikrotik-provisioning.proxy";
+import { provisionNatRules, removeNatRules } from "./mikrotik-provisioning.nat";
 import {
   runProvisioningConnection,
   type MikroTikProvisioningResult,
@@ -76,6 +77,7 @@ export class MikroTikProvisioningService {
             logs,
           });
           await provisionWebProxy({ connection, isolirUrl, logs });
+          await provisionNatRules({ connection, logs });
         },
       });
 
@@ -107,6 +109,7 @@ export class MikroTikProvisioningService {
             logs,
           });
           await removeWebProxy({ connection, isolirUrl, logs });
+          await removeNatRules({ connection, logs });
           await disableRadiusIncoming({ connection, logs });
         },
       });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { logger } from "@/lib/logger";
+import { serializeData } from "@/lib/api-response";
 import {
   PelangganPppRouteService,
   RouteServiceError,
@@ -58,7 +59,8 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      data: result.updatedPelanggan,
+      // The row carries saldoKreditRupiah, a BigInt JSON cannot encode.
+      data: serializeData(result.updatedPelanggan),
       message: result.message,
     });
   } catch (error: unknown) {
