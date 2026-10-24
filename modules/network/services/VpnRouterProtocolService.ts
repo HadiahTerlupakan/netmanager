@@ -47,7 +47,12 @@ export class VpnRouterProtocolService {
     );
   }
 
-  /** Memindah router ke `protocol` di core; database diubah hanya bila core berhasil. */
+  /**
+   * Memindah router ke `protocol` di core dan hub; database diubah hanya bila
+   * core berhasil. Alur R1: script dari `previewScript` harus sudah ditempel di
+   * router lebih dulu. Panggilan langsung tanpa script itu tetap memindah core,
+   * dan router offline sampai script protokol baru ditempel.
+   */
   async apply(
     routerId: string,
     tenantId: string,

@@ -186,6 +186,7 @@ describe("admin VPN routes", () => {
     mocks.adminPeerConfig.mockResolvedValue("[Interface]\n");
     const res = await peerConfigRoute.GET(req() as never, route as never);
     expect(res.headers.get("content-type")).toContain("text/plain");
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
     expect(res.headers.get("content-disposition")).toBe(
       'attachment; filename="netmanager-admin-ab12.conf"',
     );

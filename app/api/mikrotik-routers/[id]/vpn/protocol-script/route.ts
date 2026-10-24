@@ -4,6 +4,7 @@ import { routerVpnProtocolSchema } from "@/lib/validations/vpn";
 import {
   createVpnRouterProtocolService,
   routerVpnAccessGuard,
+  VPN_SECRET_HEADERS,
   vpnConfiguredGuard,
   vpnErrorResponse,
 } from "@/modules/network";
@@ -28,7 +29,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       user.tenantId,
       parsed.data.protocol,
     );
-    return apiSuccess({ script });
+    return apiSuccess({ script }, { headers: VPN_SECRET_HEADERS });
   } catch (error) {
     return vpnErrorResponse(error);
   }

@@ -19,7 +19,8 @@ vi.mock("@/lib/api", () => ({
         params: route?.params ?? {},
         session: { user: { id: "u1", tenantId: "t1" } },
       }),
-  apiSuccess: (data: unknown) => NextResponse.json({ success: true, data }),
+  apiSuccess: (data: unknown, options?: { headers?: Record<string, string> }) =>
+    NextResponse.json({ success: true, data }, { headers: options?.headers }),
   ApiErrors: {
     forbidden: () => NextResponse.json({ success: false }, { status: 403 }),
     badRequest: (message: string) =>
@@ -166,6 +167,7 @@ describe("tenant VPN routes", () => {
       req({ serverIds: ["aa"] }),
       undefined as never,
     );
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
     const data = (await res.json()).data;
     expect(data.draftId).toBe("ab01");
     expect(data.script).toContain("# core");

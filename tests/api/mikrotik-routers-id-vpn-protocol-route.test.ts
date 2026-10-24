@@ -17,8 +17,14 @@ vi.mock("@/lib/api", () => ({
         params: route?.params ?? {},
         session: { user: { id: "u1", tenantId: "t1" } },
       }),
-  apiSuccess: (data: unknown, options?: { status?: number }) =>
-    NextResponse.json({ success: true, data }, { status: options?.status }),
+  apiSuccess: (
+    data: unknown,
+    options?: { status?: number; headers?: Record<string, string> },
+  ) =>
+    NextResponse.json(
+      { success: true, data },
+      { status: options?.status, headers: options?.headers },
+    ),
   ApiErrors: {
     badRequest: (message: string) =>
       NextResponse.json({ success: false, error: message }, { status: 400 }),
@@ -93,6 +99,7 @@ describe("/api/mikrotik-routers/[id]/vpn/protocol-script dan /protocol", () => {
     const res = await scriptRoute.POST(req({ protocol: "L2TP" }), params);
 
     expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
     expect((await res.json()).data).toEqual({
       script: "/interface l2tp-client add",
     });

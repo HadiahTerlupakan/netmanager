@@ -3,6 +3,7 @@ import { ApiErrors, createHandler } from "@/lib/api";
 import { vpnIdSchema } from "@/lib/validations/vpn";
 import {
   createVpnServerService,
+  VPN_SECRET_HEADERS,
   vpnAdminGuard,
   vpnErrorResponse,
 } from "@/modules/network";
@@ -17,6 +18,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     const config = await createVpnServerService().adminPeerConfig(id.data);
     return new NextResponse(config, {
       headers: {
+        ...VPN_SECRET_HEADERS,
         "Content-Type": "text/plain; charset=utf-8",
         "Content-Disposition": `attachment; filename="netmanager-admin-${id.data}.conf"`,
       },

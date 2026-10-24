@@ -129,6 +129,7 @@ export {
 } from "./vpn";
 export {
   isVpnError,
+  VPN_SECRET_HEADERS,
   vpnAdminGuard,
   vpnConfiguredGuard,
   vpnErrorResponse,

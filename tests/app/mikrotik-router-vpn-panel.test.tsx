@@ -270,7 +270,7 @@ describe("RouterVpnProtocolPanel", () => {
       },
       [`POST ${PROTOCOL_URL}`]: (init) => {
         applyBody = JSON.parse(String(init?.body));
-        handshake = new Date(Date.now() + 60_000).toISOString();
+        handshake = "2026-10-24T08:00:00.000Z";
         return responsJson(200, { success: true, data: { success: true } });
       },
     });
@@ -307,6 +307,54 @@ describe("RouterVpnProtocolPanel", () => {
       "tunnel tersambung",
     );
     expect(applyBody).toEqual({ protocol: "L2TP" });
+  });
+
+  it("tunnel tersambung hanya bila handshake core berbeda dari sebelum Terapkan", async () => {
+    // Nilai tetap tanpa Date.now: jam browser tidak boleh ikut menentukan.
+    const OLD_HANDSHAKE = "2026-10-24T09:00:00.000Z";
+    const NEW_HANDSHAKE = "2026-10-24T08:59:59.000Z";
+    let handshake = OLD_HANDSHAKE;
+    stubFetch({
+      ...baseRoutes(() => detail({ lastHandshakeAt: handshake })),
+      [`POST ${PROTOCOL_SCRIPT_URL}`]: () =>
+        responsJson(200, { success: true, data: { script: "s" } }),
+      [`POST ${PROTOCOL_URL}`]: () =>
+        responsJson(200, { success: true, data: { success: true } }),
+    });
+    await render(panggung, <RouterVpnProtocolPanel routerId="r1" />);
+    await tungguSampai(
+      () => tombolBerteks("Buat script") !== undefined,
+      "panel protokol termuat",
+    );
+    await act(async () => {
+      cari<HTMLInputElement>("#vpn-router-protocol-l2tp")!.click();
+    });
+    await klikTombol("Buat script");
+    await tungguSampai(
+      () => !tombolBerteks("Terapkan")!.disabled,
+      "script dibuat",
+    );
+    await klikTombol("Terapkan");
+    await tungguSampai(
+      () => document.body.textContent.includes("Menunggu tunnel tersambung"),
+      "menunggu tunnel",
+    );
+
+    for (let i = 0; i < 3; i += 1) {
+      await act(async () => {
+        await panggung.queryClient.refetchQueries();
+      });
+    }
+    expect(document.body.textContent).not.toContain("Tunnel tersambung");
+
+    handshake = NEW_HANDSHAKE;
+    await act(async () => {
+      await panggung.queryClient.refetchQueries();
+    });
+    await tungguSampai(
+      () => document.body.textContent.includes("Tunnel tersambung"),
+      "tunnel tersambung",
+    );
   });
 });
 

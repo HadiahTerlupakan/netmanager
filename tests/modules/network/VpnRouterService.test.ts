@@ -448,6 +448,20 @@ describe("VpnRouterService.getRouterVpn", () => {
     expect(repo.setActiveServer).toHaveBeenCalledWith("router-1", TENANT, "a");
   });
 
+  it("heals a stale vpnProtocol from the core and returns the core's protocol", async () => {
+    coreMock.getRouter.mockResolvedValue(coreRouter({ protocol: "l2tp" }));
+    const { service, repo } = makeService();
+
+    const detail = await service.getRouterVpn("router-1", TENANT);
+
+    expect(detail.protocol).toBe("L2TP");
+    expect(repo.setVpnProtocol).toHaveBeenCalledWith(
+      "router-1",
+      TENANT,
+      "L2TP",
+    );
+  });
+
   it("is not on backup on the first server and skips an unchanged write", async () => {
     coreMock.getRouter.mockResolvedValue(coreRouter({ activeHubId: "c" }));
     const { service, repo } = makeService(
@@ -458,6 +472,7 @@ describe("VpnRouterService.getRouterVpn", () => {
 
     expect(detail.isOnBackup).toBe(false);
     expect(repo.setActiveServer).not.toHaveBeenCalled();
+    expect(repo.setVpnProtocol).not.toHaveBeenCalled();
   });
 });
 

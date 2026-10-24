@@ -8,7 +8,11 @@ import {
   vpnErrorResponse,
 } from "@/modules/network";
 
-/** POST /api/mikrotik-routers/[id]/vpn/protocol - pindahkan router ke protokol baru setelah script ditempel. */
+/**
+ * POST /api/mikrotik-routers/[id]/vpn/protocol - pindahkan router ke protokol
+ * baru. Hanya setelah script dari `protocol-script` ditempel (R1): tanpa itu
+ * core tetap pindah dan router offline sampai script ditempel.
+ */
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const denied =

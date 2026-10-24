@@ -20,9 +20,17 @@ type RouterVpnStatus = {
 
 type ProtocolScript = { protocol: VpnProtocol; text: string };
 
-/** Handshake yang terjadi setelah `since` (epoch ms) berarti tunnel protokol baru hidup. */
-function isHandshakeAfter(lastHandshakeAt: string | null, since: number) {
-  return lastHandshakeAt !== null && Date.parse(lastHandshakeAt) > since;
+/** `lastHandshakeAt` core sesaat sebelum Terapkan; null bila belum diterapkan. */
+type ApplyBaseline = { handshake: string | null } | null;
+
+// Pembanding memakai nilai dari core sendiri, bukan jam browser: jam browser
+// yang tertinggal bisa membaca handshake basi tunnel lama sebagai tunnel baru.
+function isNewHandshake(lastHandshakeAt: string | null, base: ApplyBaseline) {
+  return (
+    base !== null &&
+    lastHandshakeAt !== null &&
+    lastHandshakeAt !== base.handshake
+  );
 }
 
 /**
@@ -33,16 +41,13 @@ export function RouterVpnProtocolPanel({ routerId }: { routerId: string }) {
   const vpnUrl = `/api/mikrotik-routers/${routerId}/vpn`;
   const [selected, setSelected] = useState<VpnProtocol | null>(null);
   const [script, setScript] = useState<ProtocolScript | null>(null);
-  const [appliedAt, setAppliedAt] = useState<number | null>(null);
+  const [baseline, setBaseline] = useState<ApplyBaseline>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const { data, refetch } = useApi<RouterVpnStatus>(vpnUrl, {
     refreshInterval: isPolling ? VPN_DRAFT_POLL_INTERVAL_MS : 0,
     onSuccess: (status) => {
-      if (
-        appliedAt !== null &&
-        isHandshakeAfter(status.lastHandshakeAt, appliedAt)
-      ) {
+      if (isNewHandshake(status.lastHandshakeAt, baseline)) {
         setIsPolling(false);
       }
     },
@@ -50,8 +55,7 @@ export function RouterVpnProtocolPanel({ routerId }: { routerId: string }) {
 
   if (!data) return null;
 
-  const isConnected =
-    appliedAt !== null && isHandshakeAfter(data.lastHandshakeAt, appliedAt);
+  const isConnected = isNewHandshake(data.lastHandshakeAt, baseline);
 
   const isNewProtocol = selected !== null && selected !== data.protocol;
   const hasScript = isNewProtocol && script?.protocol === selected;
@@ -80,9 +84,9 @@ export function RouterVpnProtocolPanel({ routerId }: { routerId: string }) {
   const handleApply = () =>
     run(async () => {
       if (!selected) return;
-      const pressedAt = Date.now();
+      const before = (await refetch()) ?? data;
       await sendRequest(`${vpnUrl}/protocol`, "POST", { protocol: selected });
-      setAppliedAt(pressedAt);
+      setBaseline({ handshake: before.lastHandshakeAt });
       setIsPolling(true);
       setSelected(null);
       setScript(null);
@@ -98,10 +102,7 @@ export function RouterVpnProtocolPanel({ routerId }: { routerId: string }) {
         idPrefix="vpn-router-protocol"
         value={selected ?? data.protocol}
         disabledValue={data.protocol}
-        onChange={(next) => {
-          setSelected(next);
-          setScript(null);
-        }}
+        onChange={setSelected}
       />
       <div className="flex flex-wrap gap-2">
         <Button
@@ -128,7 +129,7 @@ export function RouterVpnProtocolPanel({ routerId }: { routerId: string }) {
           <VpnCommandBox command={script.text} />
         </div>
       )}
-      {appliedAt !== null && (
+      {baseline !== null && (
         <p
           className={`text-sm font-medium ${isConnected ? "text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400"}`}
         >

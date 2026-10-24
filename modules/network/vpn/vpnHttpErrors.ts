@@ -18,6 +18,13 @@ import {
 import { isVpnConfigured, VpnCoreError } from "./VpnCoreClient";
 import { RouterNotFoundError } from "../services/mikrotik-router.access";
 
+/**
+ * Header respons yang membawa rahasia VPN dalam teks jelas (script tempel
+ * dengan PSK atau password PPP, berkas wg-quick dengan private key), agar
+ * tidak disimpan cache browser maupun proxy.
+ */
+export const VPN_SECRET_HEADERS = { "Cache-Control": "private, no-store" };
+
 const HTTP_BAD_REQUEST = 400;
 const HTTP_NOT_FOUND = 404;
 const HTTP_CONFLICT = 409;

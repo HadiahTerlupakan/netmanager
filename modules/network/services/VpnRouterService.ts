@@ -9,7 +9,7 @@ import {
   VpnRouterInvalidError,
   VpnRouterUnreachableError,
 } from "../vpn/errors";
-import { toCoreProtocol } from "../vpn/protocol";
+import { fromCoreProtocol, toCoreProtocol } from "../vpn/protocol";
 import { getVpnCoreClient } from "../vpn/VpnCoreClient";
 import { RouterNotFoundError } from "./mikrotik-router.access";
 import { assertServersUsable } from "./vpn-server-availability";
@@ -84,7 +84,7 @@ export class VpnRouterService {
     private readonly routerOs: VpnRouterOsWriter = routerOsWriter,
   ) {}
 
-  /** Detail VPN router; sekaligus menyimpan server aktif terbaru dari core. */
+  /** Detail VPN router; sekaligus menyimpan server aktif dan protokol terbaru dari core. */
   async getRouterVpn(
     routerId: string,
     tenantId: string,
@@ -97,6 +97,12 @@ export class VpnRouterService {
     const activeServerId = core.activeHubId;
     if (activeServerId !== router.vpnActiveServerId) {
       await this.repo.setActiveServer(router.id, tenantId, activeServerId);
+    }
+    // Core yang menentukan: Terapkan yang berhasil di core tetapi gagal
+    // disimpan lokal dipulihkan di sini.
+    const protocol = fromCoreProtocol(core.protocol);
+    if (protocol !== router.vpnProtocol) {
+      await this.repo.setVpnProtocol(router.id, tenantId, protocol);
     }
     return {
       servers,
@@ -112,7 +118,7 @@ export class VpnRouterService {
         at: e.at,
       })),
       scriptStale: router.vpnScriptStale,
-      protocol: router.vpnProtocol,
+      protocol,
     };
   }
 

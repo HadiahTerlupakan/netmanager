@@ -4,6 +4,7 @@ import { routerVpnEnableSchema } from "@/lib/validations/vpn";
 import {
   createVpnRouterMigrationService,
   routerVpnAccessGuard,
+  VPN_SECRET_HEADERS,
   vpnConfiguredGuard,
   vpnErrorResponse,
 } from "@/modules/network";
@@ -28,7 +29,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       user.tenantId,
       parsed.data,
     );
-    return apiSuccess(draft);
+    return apiSuccess(draft, { headers: VPN_SECRET_HEADERS });
   } catch (error) {
     return vpnErrorResponse(error);
   }
