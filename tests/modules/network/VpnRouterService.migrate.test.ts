@@ -141,6 +141,7 @@ const radiusConfig = {
 function makeService(
   router: VpnMigrationRouterRecord | null = publicRouter(),
   tombstonedIds: string[] = [],
+  serverList: typeof tenantServers = tenantServers,
 ) {
   const repo = {
     findRouter: vi.fn().mockResolvedValue(router),
@@ -168,7 +169,7 @@ function makeService(
     has: vi.fn(async (id: string) => tombstonedIds.includes(id)),
   };
   const drafts = { createExtendDraft: vi.fn() };
-  const servers = { tenantServers: vi.fn().mockResolvedValue(tenantServers) };
+  const servers = { tenantServers: vi.fn().mockResolvedValue(serverList) };
   const service = new VpnRouterMigrationService(
     repo,
     servers,
@@ -481,6 +482,22 @@ describe("VpnRouterMigrationService.migrate", () => {
     expect(coreMock.getRouter).not.toHaveBeenCalled();
     expect(routerOs.testApi).not.toHaveBeenCalled();
     expect(calls).toEqual([]);
+  });
+
+  it("migrates with an L2TP draft and stores vpnProtocol L2TP", async () => {
+    const l2tpServers = tenantServers.map((s) => ({
+      ...s,
+      protocols: ["wireguard", "l2tp"],
+    }));
+    const { service, repo } = makeService(publicRouter(), [], l2tpServers);
+    coreMock.getRouter.mockResolvedValue(draft({ protocol: "l2tp" }));
+
+    await service.migrate("router-1", TENANT, migrateInput);
+
+    expect(repo.switchToVpn).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ vpnProtocol: "L2TP" }),
+    );
   });
 
   it("changes nothing when a server does not serve the draft's protocol", async () => {

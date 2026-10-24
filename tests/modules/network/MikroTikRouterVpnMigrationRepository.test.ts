@@ -84,6 +84,7 @@ describe("MikroTikRouterVpnMigrationRepository", () => {
         vpnAddress: "10.100.0.10",
         connectionMode: "VPN",
         vpnCoreRouterId: "core-1",
+        vpnProtocol: "WIREGUARD",
       }),
     });
     expect(tx.mikroTikRouterVpnServer.createMany).toHaveBeenCalledWith({

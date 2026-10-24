@@ -160,6 +160,7 @@ export class VpnServerRepository implements IVpnServerRepository {
   async appendServerToTenantRouters(
     tenantId: string,
     serverId: string,
+    protocols: ("WIREGUARD" | "L2TP")[],
   ): Promise<number> {
     return this.client.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<{ id: string }[]>`
@@ -167,6 +168,7 @@ export class VpnServerRepository implements IVpnServerRepository {
         WHERE "tenantId" = ${tenantId}
           AND "connectionMode" = 'VPN'
           AND "vpnCoreRouterId" IS NOT NULL
+          AND "vpnProtocol"::text = ANY(${protocols})
         ORDER BY "id"
         FOR UPDATE`;
       const routerIds = locked.map((r) => r.id);

@@ -46,6 +46,7 @@ export interface IVpnServerRepository {
   appendServerToTenantRouters(
     tenantId: string,
     serverId: string,
+    protocols: ("WIREGUARD" | "L2TP")[],
   ): Promise<number>;
 
   /**

@@ -246,6 +246,15 @@ describe("VpnRouterService.updateServers", () => {
     expect(coreMock.setRouterHubs).not.toHaveBeenCalled();
   });
 
+  it("rejects a WireGuard-only server for an L2TP router before touching core", async () => {
+    const { service } = makeService(vpnRouter({ vpnProtocol: "L2TP" }));
+
+    await expect(
+      service.updateServers("router-1", TENANT, ["a"]),
+    ).rejects.toBeInstanceOf(VpnServerNotAvailableError);
+    expect(coreMock.setRouterHubs).not.toHaveBeenCalled();
+  });
+
   it("rejects routers that do not use VPN or are not in the tenant", async () => {
     await expect(
       makeService(

@@ -97,7 +97,7 @@ describeDb("VpnServerRepository.appendServerToTenantRouters (DB nyata)", () => {
     const r2 = await buatRouter(TENANT, "VPN", []);
 
     const changed = await sebagaiTenant(() =>
-      repo.appendServerToTenantRouters(TENANT, BARU),
+      repo.appendServerToTenantRouters(TENANT, BARU, ["WIREGUARD"]),
     );
 
     expect(changed).toBe(2);
@@ -117,7 +117,9 @@ describeDb("VpnServerRepository.appendServerToTenantRouters (DB nyata)", () => {
     const sudah = await buatRouter(TENANT, "VPN", [BARU, LAMA]);
 
     expect(
-      await sebagaiTenant(() => repo.appendServerToTenantRouters(TENANT, BARU)),
+      await sebagaiTenant(() =>
+        repo.appendServerToTenantRouters(TENANT, BARU, ["WIREGUARD"]),
+      ),
     ).toBe(0);
 
     expect(await daftar(sudah)).toEqual([
@@ -130,6 +132,27 @@ describeDb("VpnServerRepository.appendServerToTenantRouters (DB nyata)", () => {
     expect(row.vpnScriptStale).toBe(false);
   });
 
+  it("melewati router L2TP bila server hanya melayani WireGuard", async () => {
+    const repo = new VpnServerRepository();
+    const wg = await buatRouter(TENANT, "VPN", [LAMA]);
+    const l2tp = await buatRouter(TENANT, "VPN", [LAMA]);
+    await prismaAuth.mikroTikRouter.update({
+      where: { id: l2tp },
+      data: { vpnProtocol: "L2TP" },
+    });
+
+    const changed = await sebagaiTenant(() =>
+      repo.appendServerToTenantRouters(TENANT, BARU, ["WIREGUARD"]),
+    );
+
+    expect(changed).toBe(1);
+    expect(await daftar(wg)).toEqual([
+      [LAMA, 0],
+      [BARU, 1],
+    ]);
+    expect(await daftar(l2tp)).toEqual([[LAMA, 0]]);
+  });
+
   it("tidak menyentuh router PUBLIC maupun router tenant lain", async () => {
     const repo = new VpnServerRepository();
     const publik = await buatRouter(TENANT, "PUBLIC", []);
@@ -137,7 +160,7 @@ describeDb("VpnServerRepository.appendServerToTenantRouters (DB nyata)", () => {
     await buatRouter(TENANT, "VPN", [LAMA]);
 
     const changed = await sebagaiTenant(() =>
-      repo.appendServerToTenantRouters(TENANT, BARU),
+      repo.appendServerToTenantRouters(TENANT, BARU, ["WIREGUARD"]),
     );
 
     expect(changed).toBe(1);

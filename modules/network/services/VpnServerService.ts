@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { assertServersUsable } from "./vpn-server-availability";
+import { onlineServerProtocols } from "./vpn-server-availability";
 import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
 import { getVpnCoreClient, VpnCoreError } from "../vpn/VpnCoreClient";
 import { VpnServerInUseError, VpnServerUnknownError } from "../vpn/errors";
@@ -121,15 +121,24 @@ export class VpnServerService {
   /**
    * Menambahkan server (assigned ke tenant dan online) sebagai cadangan
    * terakhir ke semua router VPN tenant. Hanya database lokal; monitor
-   * mengirim daftar baru ke router yang online.
+   * mengirim daftar baru ke router yang online. Router yang protokolnya tidak
+   * dilayani server dilewati, karena core menolak hub tanpa protokol router.
    */
   async appendServerToTenantRouters(
     tenantId: string,
     serverId: string,
   ): Promise<{ updated: number }> {
-    await assertServersUsable(this.repo, tenantId, [serverId], "wireguard");
+    const protocols = await onlineServerProtocols(
+      this.repo,
+      tenantId,
+      serverId,
+    );
     return {
-      updated: await this.repo.appendServerToTenantRouters(tenantId, serverId),
+      updated: await this.repo.appendServerToTenantRouters(
+        tenantId,
+        serverId,
+        protocols,
+      ),
     };
   }
 

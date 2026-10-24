@@ -77,6 +77,22 @@ describe("retryStaleVpnScripts", () => {
     expect(deps.repo.findStaleOnline).toHaveBeenCalledTimes(1);
   });
 
+  it("moves on to the next router after a 4xx from core", async () => {
+    const deps = makeDeps(["t1", "t2"]);
+    deps.repo.findStaleOnline.mockResolvedValue([
+      routerRecord("r1"),
+      routerRecord("r2"),
+    ]);
+    deps.service.retryStaleScript.mockRejectedValueOnce(
+      new VpnCoreError(409, "protocol_mismatch"),
+    );
+
+    await retryStaleVpnScripts(deps);
+
+    expect(deps.service.retryStaleScript).toHaveBeenCalledTimes(4);
+    expect(deps.repo.findStaleOnline).toHaveBeenCalledTimes(2);
+  });
+
   it("moves on to the next router after a non-core failure", async () => {
     const deps = makeDeps(["t1"]);
     deps.repo.findStaleOnline.mockResolvedValue([

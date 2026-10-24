@@ -27,6 +27,9 @@ function defaultDeps(): RetryDeps {
   };
 }
 
+// 4xx berarti core menolak router ini saja, jadi router lain tetap dicoba.
+const HTTP_SERVER_ERROR = 500;
+
 // True bila core bermasalah: sisa router dan tenant menunggu siklus berikutnya.
 async function retryTenantScripts(
   tenantId: string,
@@ -40,7 +43,7 @@ async function retryTenantScripts(
     try {
       await deps.service.retryStaleScript(router, tenantId);
     } catch (error) {
-      if (error instanceof VpnCoreError) {
+      if (error instanceof VpnCoreError && error.status >= HTTP_SERVER_ERROR) {
         logger.warn(
           "[VPN] Core gagal saat mengirim ulang skrip switch:",
           error,
@@ -58,7 +61,7 @@ async function retryTenantScripts(
 
 /**
  * Kirim ulang skrip switch untuk router VPN online yang daftar servernya belum
- * sampai, per tenant. Berhenti pada galat core pertama.
+ * sampai, per tenant. Berhenti pada galat 5xx core pertama.
  */
 export async function retryStaleVpnScripts(
   deps: RetryDeps = defaultDeps(),
