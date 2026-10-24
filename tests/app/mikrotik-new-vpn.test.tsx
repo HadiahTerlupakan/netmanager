@@ -57,9 +57,27 @@ const DRAFT = {
 };
 
 const SERVERS = [
-  { id: "aa11", name: "VPS Jakarta", publicHost: "jkt.vpn", status: "online" },
-  { id: "bb22", name: "VPS Surabaya", publicHost: "sby.vpn", status: "online" },
-  { id: "cc33", name: "VPS Medan", publicHost: "mdn.vpn", status: "offline" },
+  {
+    id: "aa11",
+    name: "VPS Jakarta",
+    publicHost: "jkt.vpn",
+    status: "online",
+    protocols: ["wireguard", "l2tp"],
+  },
+  {
+    id: "bb22",
+    name: "VPS Surabaya",
+    publicHost: "sby.vpn",
+    status: "online",
+    protocols: ["wireguard"],
+  },
+  {
+    id: "cc33",
+    name: "VPS Medan",
+    publicHost: "mdn.vpn",
+    status: "offline",
+    protocols: ["wireguard"],
+  },
 ];
 
 type Route = (init?: RequestInit) => Response | Promise<Response>;
@@ -184,6 +202,7 @@ describe("Tambah Router — mode VPN", () => {
     const [, init] = callsTo(fetchPalsu, `POST ${DRAFT_URL}`)[0];
     expect(JSON.parse(String(init?.body))).toEqual({
       serverIds: ["aa11", "bb22"],
+      protocol: "WIREGUARD",
     });
     expect(document.body.textContent).toContain(DRAFT.script);
     expect(document.body.textContent).toContain("Menunggu script ditempel");
@@ -296,7 +315,7 @@ describe("Tambah Router — mode VPN", () => {
     await render(
       panggung,
       <VpnScriptModal
-        request={{ serverIds: [] }}
+        request={{ serverIds: [], protocol: "WIREGUARD" }}
         apiCheck={null}
         onClose={vi.fn()}
         onDraftReady={vi.fn()}
@@ -309,6 +328,71 @@ describe("Tambah Router — mode VPN", () => {
     expect(document.body.textContent).toContain(
       "Pilih minimal satu server VPN",
     );
+  });
+
+  it("memilih L2TP menyembunyikan server tanpa l2tp", async () => {
+    stubFetch(vpnRoutes(() => "waiting"));
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await klikElemen("#mikrotik-ros-v7");
+    await klikElemen("#mikrotik-use-vpn");
+    expect(document.body.textContent).toContain("VPS Surabaya");
+
+    await klikElemen("#mikrotik-vpn-protocol-l2tp");
+
+    expect(document.body.textContent).toContain("VPS Jakarta");
+    expect(document.body.textContent).not.toContain("VPS Surabaya");
+  });
+
+  it("tanpa server l2tp tampil pesan kosong", async () => {
+    const wgOnly = SERVERS.map((server) => ({
+      ...server,
+      protocols: ["wireguard"],
+    }));
+    stubFetch({
+      ...vpnRoutes(() => "waiting"),
+      [`GET ${SERVERS_URL}`]: () =>
+        responsJson(200, { success: true, data: { servers: wgOnly } }),
+    });
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await klikElemen("#mikrotik-ros-v7");
+    await klikElemen("#mikrotik-use-vpn");
+    await klikElemen("#mikrotik-vpn-protocol-l2tp");
+
+    expect(document.body.textContent).toContain(
+      "Belum ada server yang mendukung L2TP untuk tenant ini",
+    );
+  });
+
+  it("memilih L2TP mengirim protocol L2TP saat membuat draft", async () => {
+    const fetchPalsu = stubFetch(vpnRoutes(() => "waiting"));
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await klikElemen("#mikrotik-ros-v7");
+    await klikElemen("#mikrotik-use-vpn");
+    await klikElemen("#mikrotik-vpn-protocol-l2tp");
+    await klikTombol(SCRIPT_BUTTON);
+    await flush();
+
+    const [, init] = callsTo(fetchPalsu, `POST ${DRAFT_URL}`)[0];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      serverIds: ["aa11"],
+      protocol: "L2TP",
+    });
+  });
+
+  it("ganti protokol setelah draft dibuat menandai draft usang", async () => {
+    stubFetch(vpnRoutes(() => "waiting"));
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await openVpnScript();
+    await klikTombol("Tutup");
+    expect(document.body.textContent).not.toContain("Daftar server berubah");
+
+    await klikElemen("#mikrotik-vpn-protocol-l2tp");
+
+    expect(document.body.textContent).toContain("Daftar server berubah");
   });
 
   it("mematikan VPN mengosongkan dan membuka kunci field", async () => {
@@ -395,6 +479,7 @@ describe("Tambah Router — mode VPN", () => {
     expect(drafts).toHaveLength(2);
     expect(JSON.parse(String(drafts[1][1]?.body))).toEqual({
       serverIds: ["bb22", "aa11"],
+      protocol: "WIREGUARD",
       previousDraftId: DRAFT.draftId,
       apiUsername: DRAFT.apiUsername,
       apiPassword: DRAFT.apiPassword,

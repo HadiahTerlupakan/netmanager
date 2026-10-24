@@ -42,6 +42,7 @@ function buildOptions(
       name: s.name,
       publicHost: "-",
       status: UNAVAILABLE_SERVER_STATUS,
+      protocols: [] as string[],
     }));
   return [...tenantServers, ...missing];
 }

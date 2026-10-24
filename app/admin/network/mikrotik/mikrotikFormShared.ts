@@ -195,13 +195,26 @@ const MIN_VPN_ROUTEROS_MAJOR = 7;
 /** Pesan gagal bila router yang tersambung lewat VPN bukan RouterOS v7. */
 export const VPN_ROUTEROS_VERSION_ERROR = "RouterOS harus versi 7";
 
+/** Protokol tunnel VPN router. */
+export type VpnProtocol = "WIREGUARD" | "L2TP";
+
 /** Server VPN yang boleh dipakai tenant (`GET /api/vpn-servers`). */
 export type VpnServerOption = {
   id: string;
   name: string;
   publicHost: string;
   status: string;
+  /** Nama protokol huruf kecil dari core: "wireguard", "l2tp". */
+  protocols: string[];
 };
+
+/** True bila server melayani protokol itu (core memakai nama huruf kecil). */
+export function serverSupportsProtocol(
+  server: VpnServerOption,
+  protocol: VpnProtocol,
+): boolean {
+  return server.protocols.includes(protocol.toLowerCase());
+}
 
 /** Draft VPN dari `POST /api/mikrotik-routers/vpn-draft`. */
 export type VpnDraft = {
@@ -217,6 +230,7 @@ export type MikrotikVpnFormFields = MikrotikFormConnectionData & {
   rosVersion?: RouterOsVersion;
   connectionMode?: RouterConnectionMode;
   vpnServerIds?: string[];
+  vpnProtocol?: VpnProtocol;
   vpnDraftId?: string;
 };
 
@@ -252,6 +266,7 @@ export function applyVpnMode<T extends MikrotikVpnFormFields>(
     ...form,
     connectionMode: isVpn ? "VPN" : "PUBLIC",
     vpnServerIds: isVpn ? serverIds : [],
+    vpnProtocol: isVpn ? form.vpnProtocol : "WIREGUARD",
     vpnDraftId: undefined,
     ipAddress: "",
     apiPort: VPN_API_PORT,

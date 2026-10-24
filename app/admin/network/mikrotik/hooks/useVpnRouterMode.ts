@@ -8,6 +8,7 @@ import {
   type MikrotikTestConnectionResult,
   type MikrotikVpnFormFields,
   type VpnDraft,
+  type VpnProtocol,
 } from "@/app/admin/network/mikrotik/mikrotikFormShared";
 import type {
   VpnApiCheckState,
@@ -51,6 +52,7 @@ export function useVpnRouterMode<T extends MikrotikVpnFormFields>({
 
   const draftRequest: VpnDraftRequest = {
     serverIds: formData.vpnServerIds ?? [],
+    protocol: formData.vpnProtocol ?? "WIREGUARD",
     previousDraftId: formData.vpnDraftId,
     apiUsername: formData.apiUsername,
     apiPassword: formData.apiPassword,
@@ -74,6 +76,15 @@ export function useVpnRouterMode<T extends MikrotikVpnFormFields>({
     },
     handleServerIdsChange: (serverIds: string[]) => {
       setFormData((prev) => ({ ...prev, vpnServerIds: serverIds }));
+      if (formData.vpnDraftId) setIsDraftOutdated(true);
+    },
+    /** Ganti protokol; `serverIds` sudah dibuang yang tak mendukungnya. */
+    handleProtocolChange: (protocol: VpnProtocol, serverIds: string[]) => {
+      setFormData((prev) => ({
+        ...prev,
+        vpnProtocol: protocol,
+        vpnServerIds: serverIds,
+      }));
       if (formData.vpnDraftId) setIsDraftOutdated(true);
     },
     /** Membuang draft setelah aktivasi gagal sehingga script baru wajib dibuat. */

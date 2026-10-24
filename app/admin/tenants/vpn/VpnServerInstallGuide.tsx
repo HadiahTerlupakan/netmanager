@@ -5,7 +5,7 @@ import { VPN_CORE_LISTEN_PORT, VPN_HUB_CONTAINER } from "./vpnShared";
 
 /** Dijalankan sebagai root; keluarannya dibandingkan dengan syarat di atasnya. */
 const VPS_CHECK_COMMAND =
-  'systemd-detect-virt; uname -r; modprobe wireguard && echo "wireguard OK"';
+  'systemd-detect-virt; uname -r; modprobe wireguard && echo "wireguard OK"; modprobe l2tp_ppp && echo "l2tp OK"';
 
 const BOX_CLASS =
   "rounded-lg border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/60 dark:bg-indigo-900/20 p-3 text-sm text-gray-700 dark:text-gray-300";
@@ -34,10 +34,12 @@ export function VpnServerRequirements({ listenPort }: { listenPort: string }) {
           koneksi masuk, dan koneksi keluar ke UDP {VPN_CORE_LISTEN_PORT}{" "}
           diizinkan.
         </li>
+        <li>Untuk L2TP/IPsec: UDP 500 dan 4500 terbuka untuk koneksi masuk.</li>
       </ul>
       <p>
         Cek VPS sebagai root. Hasil yang benar: <code>kvm</code>, versi kernel
-        5.6 ke atas, lalu <code>wireguard OK</code>.
+        5.6 ke atas, lalu <code>wireguard OK</code>. <code>l2tp OK</code>{" "}
+        opsional: tanpa itu server hanya melayani WireGuard.
       </p>
       <VpnCommandBox command={VPS_CHECK_COMMAND} />
     </div>

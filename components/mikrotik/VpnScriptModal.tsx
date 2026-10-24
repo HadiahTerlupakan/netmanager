@@ -16,6 +16,7 @@ const NO_SERVER_SELECTED_MESSAGE = "Pilih minimal satu server VPN";
 /** Permintaan draft: urutan server = prioritas; kredensial dikirim ulang agar password tetap. */
 export type VpnDraftRequest = {
   serverIds: string[];
+  protocol: "WIREGUARD" | "L2TP";
   previousDraftId?: string;
   apiUsername?: string;
   apiPassword?: string;

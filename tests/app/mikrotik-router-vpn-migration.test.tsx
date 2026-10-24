@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -22,6 +23,7 @@ import { ClientComponent as MikrotikEditClient } from "@/app/admin/network/mikro
 
 import {
   bongkarPanggung,
+  cari,
   klikTombol,
   pasangPanggung,
   render,
@@ -42,12 +44,19 @@ const SERVERS_URL = "/api/vpn-servers";
 const MIGRATE_BUTTON = "Pindahkan ke VPN";
 
 const TENANT_SERVERS = [
-  { id: "aa11", name: "VPS Jakarta", publicHost: "jkt.vpn", status: "online" },
+  {
+    id: "aa11",
+    name: "VPS Jakarta",
+    publicHost: "jkt.vpn",
+    status: "online",
+    protocols: ["wireguard", "l2tp"],
+  },
   {
     id: "bb22",
     name: "VPS Surabaya",
     publicHost: "sby.vpn",
     status: "offline",
+    protocols: ["wireguard"],
   },
 ];
 
@@ -167,6 +176,7 @@ describe("MikrotikEditClient VPN migration", () => {
     );
     expect(bodyOf(fetchPalsu, `POST ${ENABLE_URL}`)).toEqual({
       serverIds: ["aa11"],
+      protocol: "WIREGUARD",
     });
     expect(bodyOf(fetchPalsu, `POST ${TUNNEL_TEST_URL}`)).toEqual({
       draftId: "d1a2",
@@ -226,7 +236,34 @@ describe("MikrotikEditClient VPN migration", () => {
     const enableBodies = fetchPalsu.mock.calls
       .filter(([url, init]) => init?.method === "POST" && url === ENABLE_URL)
       .map(([, init]) => JSON.parse(String(init?.body)));
-    expect(enableBodies[1]).toEqual({ serverIds: ["aa11"] });
+    expect(enableBodies[1]).toEqual({
+      serverIds: ["aa11"],
+      protocol: "WIREGUARD",
+    });
+  });
+
+  it("panel aktifkan VPN mengirim protokol", async () => {
+    const fetchPalsu = stubFetch({
+      ...pageRoutes(() => ({ connectionMode: "PUBLIC" })),
+      ...enableRoutes(() =>
+        responsJson(200, { success: true, data: { version: "7.16.2" } }),
+      ),
+    });
+    await openPage("Aktifkan VPN");
+
+    await act(async () => {
+      cari<HTMLElement>("#vpn-protocol-l2tp")!.click();
+    });
+    await klikTombol("Aktifkan VPN");
+    await tungguSampai(
+      () => document.body.textContent.includes("API tersambung lewat tunnel"),
+      "test API lewat tunnel lulus",
+    );
+
+    expect(bodyOf(fetchPalsu, `POST ${ENABLE_URL}`)).toEqual({
+      serverIds: ["aa11"],
+      protocol: "L2TP",
+    });
   });
 
   it("tombol pindah tetap mati bila test API lewat tunnel gagal", async () => {

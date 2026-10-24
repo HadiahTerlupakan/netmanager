@@ -6,10 +6,16 @@ import {
   isVpnNotConfigured,
   VPN_NOT_CONFIGURED_MESSAGE,
 } from "@/app/admin/tenants/vpn/vpnShared";
+import {
+  noServerForProtocolMessage,
+  serversForProtocol,
+  VpnProtocolPicker,
+} from "@/app/admin/network/mikrotik/components/VpnProtocolPicker";
 import { VpnServerList } from "@/app/admin/network/mikrotik/components/VpnServerList";
 import type {
   RouterConnectionMode,
   RouterOsVersion,
+  VpnProtocol,
   VpnServerOption,
 } from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
@@ -40,10 +46,13 @@ type VpnConnectionSectionProps = {
   rosVersion: RouterOsVersion;
   connectionMode: RouterConnectionMode;
   selectedServerIds: string[];
+  protocol: VpnProtocol;
   isDraftOutdated: boolean;
   onRosVersionChange: (isV7: boolean) => void;
   onConnectionModeChange: (isVpn: boolean, defaultServerIds: string[]) => void;
   onServerIdsChange: (serverIds: string[]) => void;
+  /** `serverIds`: pilihan saat ini tanpa server yang tak mendukung protokol baru. */
+  onProtocolChange: (protocol: VpnProtocol, serverIds: string[]) => void;
 };
 
 type ToggleProps = {
@@ -90,10 +99,12 @@ export function VpnConnectionSection({
   rosVersion,
   connectionMode,
   selectedServerIds,
+  protocol,
   isDraftOutdated,
   onRosVersionChange,
   onConnectionModeChange,
   onServerIdsChange,
+  onProtocolChange,
 }: VpnConnectionSectionProps) {
   const isV7 = rosVersion === "V7";
   const isVpn = connectionMode === "VPN";
@@ -107,11 +118,23 @@ export function VpnConnectionSection({
     servers,
   );
 
+  const protocolServers = serversForProtocol(servers, protocol);
+
   const handleVpnToggle = (isChecked: boolean) => {
-    const onlineIds = servers
+    const onlineIds = protocolServers
       .filter((server) => server.status === ONLINE_STATUS)
       .map((server) => server.id);
     onConnectionModeChange(isChecked, isChecked ? onlineIds : []);
+  };
+
+  const handleProtocolChange = (next: VpnProtocol) => {
+    const supported = new Set(
+      serversForProtocol(servers, next).map((server) => server.id),
+    );
+    onProtocolChange(
+      next,
+      selectedServerIds.filter((id) => supported.has(id)),
+    );
   };
 
   return (
@@ -137,8 +160,20 @@ export function VpnConnectionSection({
         </p>
       )}
       {isV7 && isVpn && (
+        <VpnProtocolPicker
+          value={protocol}
+          onChange={handleProtocolChange}
+          idPrefix="mikrotik-vpn-protocol"
+        />
+      )}
+      {isV7 && isVpn && protocolServers.length === 0 && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {noServerForProtocolMessage(protocol)}
+        </p>
+      )}
+      {isV7 && isVpn && protocolServers.length > 0 && (
         <VpnServerList
-          servers={servers}
+          servers={protocolServers}
           selectedIds={selectedServerIds}
           onChange={onServerIdsChange}
         />

@@ -8,6 +8,11 @@ import VpnScriptModal, {
   type VpnApiCheckState,
   type VpnScriptDraft,
 } from "@/components/mikrotik/VpnScriptModal";
+import {
+  noServerForProtocolMessage,
+  serversForProtocol,
+  VpnProtocolPicker,
+} from "@/app/admin/network/mikrotik/components/VpnProtocolPicker";
 import { VpnServerList } from "@/app/admin/network/mikrotik/components/VpnServerList";
 import {
   isVpnNotConfigured,
@@ -19,6 +24,7 @@ import {
 } from "@/app/admin/network/mikrotik/[id]/edit/routerVpnRequest";
 import {
   isVpnDraftSpent,
+  type VpnProtocol,
   type VpnServerOption,
 } from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
@@ -46,6 +52,7 @@ export function RouterVpnEnablePanel({
   const vpnUrl = `/api/mikrotik-routers/${routerId}/vpn`;
   const { data, error } = useApi<{ servers: VpnServerOption[] }>(SERVERS_URL);
   const [pickedIds, setPickedIds] = useState<string[] | null>(null);
+  const [protocol, setProtocol] = useState<VpnProtocol>("WIREGUARD");
   const [draft, setDraft] = useState<VpnScriptDraft | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiCheck, setApiCheck] = useState<VpnApiCheckState>(null);
@@ -60,7 +67,7 @@ export function RouterVpnEnablePanel({
   }
   if (!data) return null;
 
-  const servers = data.servers;
+  const servers = serversForProtocol(data.servers, protocol);
   const selectedIds = pickedIds ?? onlineIds(servers);
   const isTunnelTested = apiCheck?.status === "passed";
 
@@ -133,9 +140,20 @@ export function RouterVpnEnablePanel({
         Router ini masih memakai IP publik. Script VPN hanya menambah akses API
         dari server VPN ke user API yang sudah dipakai; tidak ada user baru.
       </p>
-      {servers.length === 0 ? (
+      <VpnProtocolPicker
+        value={protocol}
+        onChange={(next) => {
+          setProtocol(next);
+          setPickedIds(null);
+        }}
+      />
+      {data.servers.length === 0 ? (
         <p className="text-sm text-amber-700 dark:text-amber-400">
           Belum ada server VPN untuk tenant ini
+        </p>
+      ) : servers.length === 0 ? (
+        <p className="text-sm text-amber-700 dark:text-amber-400">
+          {noServerForProtocolMessage(protocol)}
         </p>
       ) : (
         <VpnServerList
@@ -155,6 +173,7 @@ export function RouterVpnEnablePanel({
         <VpnScriptModal<VpnScriptDraft>
           request={{
             serverIds: selectedIds,
+            protocol,
             previousDraftId: draft?.draftId,
           }}
           draftUrl={`${vpnUrl}/enable`}

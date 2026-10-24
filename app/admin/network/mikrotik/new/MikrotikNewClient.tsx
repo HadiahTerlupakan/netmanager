@@ -36,6 +36,7 @@ export function ClientComponent() {
     rosVersion: "V6",
     connectionMode: "PUBLIC",
     vpnServerIds: [],
+    vpnProtocol: "WIREGUARD",
   });
 
   const { pppConnectionMode } = useMikrotikFormSettings();
@@ -160,7 +161,9 @@ export function ClientComponent() {
             isDraftOutdated={vpn.isDraftOutdated}
             onRosVersionChange={handleRosVersionChange}
             onConnectionModeChange={handleConnectionModeChange}
+            protocol={formData.vpnProtocol ?? "WIREGUARD"}
             onServerIdsChange={vpn.handleServerIdsChange}
+            onProtocolChange={vpn.handleProtocolChange}
           />
         }
       />

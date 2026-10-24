@@ -333,6 +333,15 @@ describe("panduan tambah server VPN", () => {
     expect(cari("pre")?.textContent).toContain("systemd-detect-virt");
   });
 
+  it("panduan server menyebut UDP 500 dan 4500", async () => {
+    await bukaModal();
+    const teks = document.body.textContent;
+
+    expect(teks).toContain("UDP 500 dan 4500");
+    expect(teks).toContain("l2tp OK");
+    expect(cari("pre")?.textContent).toContain("modprobe l2tp_ppp");
+  });
+
   it("menyesuaikan port firewall dengan port yang diisi", async () => {
     await bukaModal();
     await isiMedan("input[name=listenPort]", "51830");
