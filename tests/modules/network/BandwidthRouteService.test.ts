@@ -55,4 +55,29 @@ describe("BandwidthRouteService", () => {
     });
     expect(result).toEqual([bandwidth]);
   });
+
+  it("menghapus parameter opsional yang dikirim null dan mempertahankan yang tidak dikirim", async () => {
+    const repository = createRepository();
+    const radiusRepository = { syncBandwidthToRadius: vi.fn() };
+    const service = new BandwidthRouteService(repository, radiusRepository);
+
+    await service.updateBandwidth("bandwidth-1", {
+      name: "Paket 10M",
+      maxLimitDownload: "10M",
+      maxLimitUpload: "5M",
+      burstLimitDownload: null,
+      burstLimitUpload: null,
+      burstTimeDownload: null,
+      priority: 5,
+    });
+
+    const payload = vi.mocked(repository.update).mock.calls[0]?.[1];
+    expect(payload).toMatchObject({
+      burstLimitDownload: null,
+      burstLimitUpload: null,
+      burstTimeDownload: null,
+      priority: 5,
+    });
+    expect(payload).not.toHaveProperty("minLimitDownload");
+  });
 });

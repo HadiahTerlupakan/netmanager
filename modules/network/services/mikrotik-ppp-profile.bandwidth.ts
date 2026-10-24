@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import { RadiusConnectionError } from "../utils/errors";
-import { formatRateLimitFromBandwidth } from "./mikrotik/ppp-rate-limit";
+import { buildMikrotikRateLimit } from "../utils/radius-rate-limit";
 
 export async function getRateLimitFromBandwidth(
   profilePPPId: string,
@@ -13,7 +13,7 @@ export async function getRateLimitFromBandwidth(
 
     if (bandwidthId) {
       const bandwidth = await networkRepo.findBandwidthById(bandwidthId);
-      return bandwidth ? formatRateLimitFromBandwidth(bandwidth) : null;
+      return bandwidth ? buildMikrotikRateLimit(bandwidth) : null;
     }
 
     const profilePPP =
@@ -26,7 +26,7 @@ export async function getRateLimitFromBandwidth(
       return null;
     }
 
-    return formatRateLimitFromBandwidth(hargaPaket.bandwidth);
+    return buildMikrotikRateLimit(hargaPaket.bandwidth);
   } catch (error) {
     logger.error(
       "[MikroTik PPP] Error getting rate limit from bandwidth:",

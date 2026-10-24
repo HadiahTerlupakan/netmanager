@@ -1,15 +1,15 @@
 type RateLimitInput = {
   maxLimitUpload: string;
   maxLimitDownload: string;
-  burstLimitUpload: string | null;
-  burstLimitDownload: string | null;
-  burstThresholdUpload: string | null;
-  burstThresholdDownload: string | null;
-  burstTimeUpload: number | null;
-  burstTimeDownload: number | null;
-  priority: number | null;
-  minLimitUpload: string | null;
-  minLimitDownload: string | null;
+  burstLimitUpload?: string | null;
+  burstLimitDownload?: string | null;
+  burstThresholdUpload?: string | null;
+  burstThresholdDownload?: string | null;
+  burstTimeUpload?: number | null;
+  burstTimeDownload?: number | null;
+  priority?: number | null;
+  minLimitUpload?: string | null;
+  minLimitDownload?: string | null;
 };
 
 /** Build burst limit segment when any burst limit exists. */

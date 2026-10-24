@@ -18,15 +18,15 @@ interface BandwidthMutationInput {
   name?: string;
   maxLimitDownload?: string;
   maxLimitUpload?: string;
-  burstLimitDownload?: string;
-  burstLimitUpload?: string;
-  minLimitDownload?: string;
-  minLimitUpload?: string;
-  burstThresholdDownload?: string;
-  burstThresholdUpload?: string;
-  burstTimeDownload?: number;
-  burstTimeUpload?: number;
-  priority?: number;
+  burstLimitDownload?: string | null;
+  burstLimitUpload?: string | null;
+  minLimitDownload?: string | null;
+  minLimitUpload?: string | null;
+  burstThresholdDownload?: string | null;
+  burstThresholdUpload?: string | null;
+  burstTimeDownload?: number | null;
+  burstTimeUpload?: number | null;
+  priority?: number | null;
   description?: string;
   status?: string;
   siteId?: string | null;
@@ -108,17 +108,17 @@ export class BandwidthRouteService {
       name: this.toSanitizedString(body.name),
       maxLimitDownload: this.toSanitizedString(body.maxLimitDownload),
       maxLimitUpload: this.toSanitizedString(body.maxLimitUpload),
-      burstLimitDownload: this.toSanitizedString(body.burstLimitDownload),
-      burstLimitUpload: this.toSanitizedString(body.burstLimitUpload),
-      minLimitDownload: this.toSanitizedString(body.minLimitDownload),
-      minLimitUpload: this.toSanitizedString(body.minLimitUpload),
-      burstThresholdDownload: this.toSanitizedString(
+      burstLimitDownload: this.toClearableString(body.burstLimitDownload),
+      burstLimitUpload: this.toClearableString(body.burstLimitUpload),
+      minLimitDownload: this.toClearableString(body.minLimitDownload),
+      minLimitUpload: this.toClearableString(body.minLimitUpload),
+      burstThresholdDownload: this.toClearableString(
         body.burstThresholdDownload,
       ),
-      burstThresholdUpload: this.toSanitizedString(body.burstThresholdUpload),
-      burstTimeDownload: this.toOptionalNumber(body.burstTimeDownload),
-      burstTimeUpload: this.toOptionalNumber(body.burstTimeUpload),
-      priority: this.toOptionalNumber(body.priority),
+      burstThresholdUpload: this.toClearableString(body.burstThresholdUpload),
+      burstTimeDownload: this.toClearableNumber(body.burstTimeDownload),
+      burstTimeUpload: this.toClearableNumber(body.burstTimeUpload),
+      priority: this.toClearableNumber(body.priority),
       description: this.toSanitizedString(body.description),
       status: this.toStatus(body.status),
       ...(siteId !== undefined ? { siteId } : {}),
@@ -206,11 +206,16 @@ export class BandwidthRouteService {
     return sanitizeInput(value);
   }
 
-  private toOptionalNumber(value: unknown): number | undefined {
-    if (value === undefined || value === null || value === "") {
-      return undefined;
-    }
+  // Optional limits: an absent field keeps the stored value, null or an
+  // empty string clears it, so a burst that was set can be removed again.
+  private toClearableString(value: unknown): string | null | undefined {
+    if (value === null || value === "") return null;
+    return this.toSanitizedString(value);
+  }
 
+  private toClearableNumber(value: unknown): number | null | undefined {
+    if (value === undefined) return undefined;
+    if (value === null || value === "") return null;
     return Number(value);
   }
 

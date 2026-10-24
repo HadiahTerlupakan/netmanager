@@ -9,14 +9,14 @@ export const bandwidthSchema = z.object({
   maxLimitDownload: z.string().min(1, 'Max Limit Download harus diisi').regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 10M, 10240k)'),
   maxLimitUpload: z.string().min(1, 'Max Limit Upload harus diisi').regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 10M, 10240k)'),
   // Burst Limit (opsional)
-  burstLimitDownload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 15M, 15360k)').optional().or(z.literal('')),
-  burstLimitUpload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 15M, 15360k)').optional().or(z.literal('')),
+  burstLimitDownload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 15M, 15360k)').optional().nullable().or(z.literal('')),
+  burstLimitUpload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 15M, 15360k)').optional().nullable().or(z.literal('')),
   // Min Limit (opsional)
-  minLimitDownload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 5M, 5120k)').optional().or(z.literal('')),
-  minLimitUpload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 5M, 5120k)').optional().or(z.literal('')),
+  minLimitDownload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 5M, 5120k)').optional().nullable().or(z.literal('')),
+  minLimitUpload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 5M, 5120k)').optional().nullable().or(z.literal('')),
   // Burst Threshold (opsional)
-  burstThresholdDownload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 12M, 12288k)').optional().or(z.literal('')),
-  burstThresholdUpload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 12M, 12288k)').optional().or(z.literal('')),
+  burstThresholdDownload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 12M, 12288k)').optional().nullable().or(z.literal('')),
+  burstThresholdUpload: z.string().regex(mikrotikFormatRegex, 'Format tidak valid (contoh: 12M, 12288k)').optional().nullable().or(z.literal('')),
   // Burst Time (opsional)
   burstTimeDownload: z.number().min(0).optional().nullable(),
   burstTimeUpload: z.number().min(0).optional().nullable(),

@@ -6,19 +6,21 @@ import {
 } from "./radius-rate-limit.helpers";
 
 const BITS_PER_MEGABIT = 1_000_000;
+const DISABLED_PAIR = "0/0";
+const DEFAULT_PRIORITY = "8";
 
 type MikroTikRateLimitInput = {
   maxLimitUpload: string;
   maxLimitDownload: string;
-  burstLimitUpload: string | null;
-  burstLimitDownload: string | null;
-  burstThresholdUpload: string | null;
-  burstThresholdDownload: string | null;
-  burstTimeUpload: number | null;
-  burstTimeDownload: number | null;
-  priority: number | null;
-  minLimitUpload: string | null;
-  minLimitDownload: string | null;
+  burstLimitUpload?: string | null;
+  burstLimitDownload?: string | null;
+  burstThresholdUpload?: string | null;
+  burstThresholdDownload?: string | null;
+  burstTimeUpload?: number | null;
+  burstTimeDownload?: number | null;
+  priority?: number | null;
+  minLimitUpload?: string | null;
+  minLimitDownload?: string | null;
 };
 
 /** Ubah bandwidth Mbps menjadi format rate-limit RADIUS. */
@@ -49,18 +51,21 @@ export function buildMikrotikRateLimit(input: MikroTikRateLimitInput): string {
   return buildRateLimitSegments(input).join(" ");
 }
 
+// RouterOS reads the rate-limit by position, so a later value needs every
+// earlier slot written: "4M/6M 5 1M/2M" makes 5 the burst limit and the
+// session fails to get a queue. 0/0 leaves burst off; 8 is the default
+// priority.
 function buildRateLimitSegments(input: MikroTikRateLimitInput): string[] {
-  const segments = [`${input.maxLimitUpload}/${input.maxLimitDownload}`];
-  appendSegment(segments, buildBurstLimitSegment(input));
-  appendSegment(segments, buildBurstThresholdSegment(input));
-  appendSegment(segments, buildBurstTimeSegment(input));
-  appendSegment(segments, input.priority ? String(input.priority) : null);
-  appendSegment(segments, buildMinLimitSegment(input));
-  return segments;
-}
-
-function appendSegment(segments: string[], segment: string | null): void {
-  if (segment) {
-    segments.push(segment);
-  }
+  const optional: Array<[string | null, string]> = [
+    [buildBurstLimitSegment(input), DISABLED_PAIR],
+    [buildBurstThresholdSegment(input), DISABLED_PAIR],
+    [buildBurstTimeSegment(input), DISABLED_PAIR],
+    [input.priority ? String(input.priority) : null, DEFAULT_PRIORITY],
+    [buildMinLimitSegment(input), DISABLED_PAIR],
+  ];
+  const lastSet = optional.findLastIndex(([segment]) => segment !== null);
+  const filled = optional
+    .slice(0, lastSet + 1)
+    .map(([segment, filler]) => segment ?? filler);
+  return [`${input.maxLimitUpload}/${input.maxLimitDownload}`, ...filled];
 }
