@@ -1,3 +1,8 @@
+-- ALTER di bawah tidak boleh menunggu lama di belakang transaksi panjang:
+-- antrean kuncinya ikut memblokir semua akses ke tabel router. Bila habis
+-- waktu, jalankan ulang job migrasi.
+SET lock_timeout = '5s';
+
 -- Protokol VPN sebuah router: WireGuard atau L2TP/IPsec.
 CREATE TYPE "VpnProtocol" AS ENUM ('WIREGUARD', 'L2TP');
 
