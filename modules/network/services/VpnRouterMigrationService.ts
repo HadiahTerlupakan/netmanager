@@ -13,7 +13,7 @@ import {
   VpnRouterMigrationError,
   VpnRouterRollbackError,
 } from "../vpn/errors";
-import { fromCoreProtocol } from "../vpn/protocol";
+import { fromCoreProtocol, toCoreProtocol } from "../vpn/protocol";
 import { getVpnCoreAddress, getVpnCoreClient } from "../vpn/VpnCoreClient";
 import type { CoreRouter } from "../vpn/types";
 import type { MikroTikProvisioningRouterDetails } from "./mikrotik-provisioning.connection";
@@ -148,7 +148,7 @@ export class VpnRouterMigrationService {
       this.servers,
       tenantId,
       input.serverIds,
-      draft.protocol,
+      toCoreProtocol(fromCoreProtocol(draft.protocol)),
     );
     assertTunnelUp(draft, this.now());
     const tunnel = routerApiConnection(router, draft.address);

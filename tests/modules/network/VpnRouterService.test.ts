@@ -6,6 +6,7 @@ const coreMock = vi.hoisted(() => ({
   setRouterHubs: vi.fn(),
   routerScript: vi.fn(),
   firstServer: vi.fn(),
+  listHubs: vi.fn(),
 }));
 
 vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
@@ -462,6 +463,16 @@ describe("VpnRouterService.getRouterVpn", () => {
     );
   });
 
+  it("keeps the stored protocol when an old core sends none", async () => {
+    coreMock.getRouter.mockResolvedValue(coreRouter({ protocol: undefined }));
+    const { service, repo } = makeService(vpnRouter({ vpnProtocol: "L2TP" }));
+
+    const detail = await service.getRouterVpn("router-1", TENANT);
+
+    expect(detail.protocol).toBe("L2TP");
+    expect(repo.setVpnProtocol).not.toHaveBeenCalled();
+  });
+
   it("is not on backup on the first server and skips an unchanged write", async () => {
     coreMock.getRouter.mockResolvedValue(coreRouter({ activeHubId: "c" }));
     const { service, repo } = makeService(
@@ -529,6 +540,49 @@ describe("VpnRouterService.returnToFirstServer", () => {
     ).rejects.toThrow(
       new VpnRouterInvalidError("Server pertama tidak tersedia"),
     );
+    expect(routerOs.writeFirstServer).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the hub list for a WireGuard router when the core has no first-server endpoint", async () => {
+    coreMock.firstServer.mockRejectedValue(new VpnCoreError(404, "not_found"));
+    coreMock.getRouter.mockResolvedValue(coreRouter());
+    coreMock.listHubs.mockResolvedValue([
+      {
+        id: "b",
+        publicHost: "b.example.com",
+        listenPort: 51822,
+        publicKey: "key-b",
+      },
+      {
+        id: "a",
+        publicHost: "a.example.com",
+        listenPort: 51821,
+        publicKey: "key-a",
+      },
+    ]);
+    const { service, routerOs } = makeService();
+
+    await service.returnToFirstServer("router-1", TENANT);
+
+    expect(routerOs.writeFirstServer).toHaveBeenCalledWith(vpnRouter(), {
+      protocol: "wireguard",
+      host: "a.example.com",
+      port: 51821,
+      publicKey: "key-a",
+    });
+  });
+
+  it("fails an L2TP router when the core has no first-server endpoint", async () => {
+    const notFound = new VpnCoreError(404, "not_found");
+    coreMock.firstServer.mockRejectedValue(notFound);
+    const { service, routerOs } = makeService(
+      vpnRouter({ vpnProtocol: "L2TP" }),
+    );
+
+    await expect(service.returnToFirstServer("router-1", TENANT)).rejects.toBe(
+      notFound,
+    );
+    expect(coreMock.listHubs).not.toHaveBeenCalled();
     expect(routerOs.writeFirstServer).not.toHaveBeenCalled();
   });
 

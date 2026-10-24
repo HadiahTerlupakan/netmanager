@@ -7,6 +7,8 @@ export function toCoreProtocol(protocol: VpnProtocol): CoreVpnProtocol {
 }
 
 /** Protokol dari core ke database; nilai kosong dari core lama berarti WireGuard. */
-export function fromCoreProtocol(protocol: CoreVpnProtocol): VpnProtocol {
+export function fromCoreProtocol(
+  protocol: CoreVpnProtocol | undefined,
+): VpnProtocol {
   return protocol === "l2tp" ? "L2TP" : "WIREGUARD";
 }

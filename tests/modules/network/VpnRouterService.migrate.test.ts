@@ -500,6 +500,18 @@ describe("VpnRouterMigrationService.migrate", () => {
     );
   });
 
+  it("migrates a draft from an old core that sends no protocol as WireGuard", async () => {
+    const { service, repo } = makeService();
+    coreMock.getRouter.mockResolvedValue(draft({ protocol: undefined }));
+
+    await service.migrate("router-1", TENANT, migrateInput);
+
+    expect(repo.switchToVpn).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ vpnProtocol: "WIREGUARD" }),
+    );
+  });
+
   it("changes nothing when a server does not serve the draft's protocol", async () => {
     const { service } = makeService();
     coreMock.getRouter.mockResolvedValue(draft({ protocol: "l2tp" }));

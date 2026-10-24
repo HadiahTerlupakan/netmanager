@@ -10,7 +10,7 @@ import {
   VpnRouterUnreachableError,
 } from "../vpn/errors";
 import { fromCoreProtocol, toCoreProtocol } from "../vpn/protocol";
-import { getVpnCoreClient } from "../vpn/VpnCoreClient";
+import { getVpnCoreClient, VpnCoreError } from "../vpn/VpnCoreClient";
 import { RouterNotFoundError } from "./mikrotik-router.access";
 import { assertServersUsable } from "./vpn-server-availability";
 import type { CoreFirstServer } from "../vpn/types";
@@ -20,6 +20,8 @@ import {
   withVpnRouterConnection,
   writeFirstServer,
 } from "./mikrotik-vpn-routeros";
+
+const HTTP_NOT_FOUND = 404;
 
 const SERVER_LIST_BUSY_MESSAGE =
   "Daftar server router ini sedang diperbarui, coba lagi sebentar";
@@ -99,8 +101,11 @@ export class VpnRouterService {
       await this.repo.setActiveServer(router.id, tenantId, activeServerId);
     }
     // Core yang menentukan: Terapkan yang berhasil di core tetapi gagal
-    // disimpan lokal dipulihkan di sini.
-    const protocol = fromCoreProtocol(core.protocol);
+    // disimpan lokal dipulihkan di sini. Core lama tidak mengirim protokol;
+    // tanpa itu DB tidak diubah, agar router L2TP tidak turun jadi WireGuard.
+    const protocol = core.protocol
+      ? fromCoreProtocol(core.protocol)
+      : router.vpnProtocol;
     if (protocol !== router.vpnProtocol) {
       await this.repo.setVpnProtocol(router.id, tenantId, protocol);
     }
@@ -182,7 +187,7 @@ export class VpnRouterService {
   /** Mengarahkan tunnel router kembali ke server prioritas pertama, per protokol. */
   async returnToFirstServer(routerId: string, tenantId: string): Promise<void> {
     const router = await requireActiveVpnRouter(this.repo, routerId, tenantId);
-    const server = await getVpnCoreClient().firstServer(router.vpnCoreRouterId);
+    const server = await this.firstServer(router);
     if (!completeFirstServer(server)) {
       throw new VpnRouterInvalidError("Server pertama tidak tersedia");
     }
@@ -195,6 +200,34 @@ export class VpnRouterService {
       );
       throw new VpnRouterUnreachableError();
     }
+  }
+
+  // Core lama belum punya endpoint first-server (404). Selama core belum
+  // di-rollout, router WireGuard tetap bisa kembali lewat daftar hub; L2TP
+  // butuh PSK dari endpoint itu, jadi 404 untuknya tetap error.
+  private async firstServer(router: ActiveVpnRouter): Promise<CoreFirstServer> {
+    const core = getVpnCoreClient();
+    try {
+      return await core.firstServer(router.vpnCoreRouterId);
+    } catch (error) {
+      const oldCore =
+        error instanceof VpnCoreError && error.status === HTTP_NOT_FOUND;
+      if (!oldCore || router.vpnProtocol !== "WIREGUARD") throw error;
+    }
+    const [coreRouter, hubs] = await Promise.all([
+      core.getRouter(router.vpnCoreRouterId),
+      core.listHubs(),
+    ]);
+    const first = [...coreRouter.hubs].sort(
+      (a, b) => a.priority - b.priority,
+    )[0];
+    const hub = first && hubs.find((h) => h.id === first.hubId);
+    return {
+      protocol: "wireguard",
+      host: hub?.publicHost,
+      port: hub?.listenPort,
+      publicKey: hub?.publicKey,
+    };
   }
 
   private async keepRemovedHubsAtTail(

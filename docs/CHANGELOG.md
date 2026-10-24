@@ -52,7 +52,8 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - [CHANGED] Respons script untuk router tidak disimpan cache (no-store).
   - [CHANGED] Panduan pasang server VPN mencantumkan port L2TP (UDP 500 dan 4500).
   - [DOCS] `docs/deployment/netmanager-vpn.md`: bagian "Hub L2TP di radpro" (modul host, container bridge, upgrade, mencabut, batas tahap 1).
-- **Migration**: tidak ada
+  - [DOCS] Core netmanager-vpn yang mendukung L2TP harus di-rollout sebelum rilis netmanager ini. Sampai core itu terpasang, app tetap jalan dengan core lama: semua router dianggap WireGuard, protokol tersimpan tidak diturunkan, dan "Kembali ke server pertama" untuk router WireGuard memakai daftar hub.
+- **Migration**: `20261024090000_add_vpn_protocol` (kolom tambahan dengan nilai bawaan: `MikroTikRouter.vpnProtocol` dan `vpn_servers.protocols`)
 - **Breaking**: ❌ Tidak
 
 ### [2026-10-23] — Panduan pasang server VPN

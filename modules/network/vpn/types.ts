@@ -18,7 +18,7 @@ export interface CoreHub {
   publicKey: string;
   status: CoreHubStatus;
   /** Protokol yang dilayani hub; core lama tidak mengirimnya. */
-  protocols: string[];
+  protocols?: string[];
   routerCount: number;
   lastSeenAt: string | null;
 }
@@ -30,7 +30,8 @@ export interface CoreRouter {
   ref: string;
   address: string;
   status: "pending" | "active";
-  protocol: CoreVpnProtocol;
+  /** Core lama tidak mengirimnya; artinya WireGuard. */
+  protocol?: CoreVpnProtocol;
   hubs: { hubId: string; name: string; priority: number; syncState: string }[];
   activeHubId: string | null;
   lastHandshakeAt: string | null;

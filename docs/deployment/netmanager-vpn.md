@@ -253,6 +253,14 @@ Urutan rollout:
 5. Tambahkan server di `/admin/tenants`.
 6. Tetapkan server itu ke tenant.
 
+Untuk rilis protokol per router (L2TP), core netmanager-vpn yang mendukung L2TP
+harus di-rollout lebih dulu, karena app terdeploy otomatis saat push ke `main`
+sedangkan core di-rollout manual. Selama core masih versi lama, app tetap jalan:
+core lama tidak mengirim `protocol`/`protocols`, jadi router dan hub dianggap
+WireGuard, protokol yang tersimpan di DB tidak diubah, dan "Kembali ke server
+pertama" untuk router WireGuard memakai daftar hub (endpoint `first-server`
+belum ada). Router L2TP baru bisa dibuat setelah core baru terpasang.
+
 Set `RADIUS_PUBLIC_IP`. Tombol "Kembali ke publik" menolak alamat yang hanya
 ditebak dari interface lokal (sumber `local` di deteksi IP publik), karena
 alamat itu bisa salah dan router akan menunjuk ke IP yang tak terjangkau.
