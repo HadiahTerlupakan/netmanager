@@ -49,10 +49,29 @@ const PROTOCOL_URL = "/api/mikrotik-routers/r1/vpn/protocol";
 const PASTE_NOTE =
   "Tempel di router, lalu tekan Terapkan. Tunnel lama putus di akhir script; router offline sampai Terapkan ditekan.";
 
+const BOTH = ["wireguard", "l2tp"];
 const TENANT_SERVERS = [
-  { id: "aa11", name: "VPS Jakarta", publicHost: "jkt.vpn", status: "online" },
-  { id: "bb22", name: "VPS Surabaya", publicHost: "sby.vpn", status: "online" },
-  { id: "cc33", name: "VPS Medan", publicHost: "mdn.vpn", status: "online" },
+  {
+    id: "aa11",
+    name: "VPS Jakarta",
+    publicHost: "jkt.vpn",
+    status: "online",
+    protocols: BOTH,
+  },
+  {
+    id: "bb22",
+    name: "VPS Surabaya",
+    publicHost: "sby.vpn",
+    status: "online",
+    protocols: BOTH,
+  },
+  {
+    id: "cc33",
+    name: "VPS Medan",
+    publicHost: "mdn.vpn",
+    status: "online",
+    protocols: ["wireguard"],
+  },
 ];
 
 function detail(overrides: Record<string, unknown> = {}) {
@@ -84,11 +103,14 @@ function stubFetch(routes: Record<string, Route>) {
   return fetchPalsu;
 }
 
-function baseRoutes(vpn: () => unknown): Record<string, Route> {
+function baseRoutes(
+  vpn: () => unknown,
+  servers: unknown[] = TENANT_SERVERS,
+): Record<string, Route> {
   return {
     [`GET ${VPN_URL}`]: () => responsJson(200, { success: true, data: vpn() }),
     [`GET ${SERVERS_URL}`]: () =>
-      responsJson(200, { success: true, data: { servers: TENANT_SERVERS } }),
+      responsJson(200, { success: true, data: { servers } }),
   };
 }
 
@@ -235,6 +257,40 @@ describe("RouterVpnPanel", () => {
     expect(text).toContain("mengunci admin");
   });
 
+  it("router L2TP tidak ditawari server yang hanya WireGuard", async () => {
+    stubFetch(baseRoutes(() => detail({ protocol: "L2TP" })));
+    await mount();
+    await tungguSampai(
+      () => cari("#vpn-server-aa11") !== null,
+      "daftar server tenant termuat",
+    );
+
+    expect(cari("#vpn-server-bb22")).not.toBeNull();
+    expect(cari("#vpn-server-cc33")).toBeNull();
+  });
+
+  it("server WireGuard yang sudah dipakai router L2TP tampil sebagai tidak tersedia", async () => {
+    stubFetch(
+      baseRoutes(() =>
+        detail({
+          protocol: "L2TP",
+          servers: [
+            { id: "aa11", name: "VPS Jakarta", priority: 0 },
+            { id: "cc33", name: "VPS Medan", priority: 1 },
+          ],
+        }),
+      ),
+    );
+    await mount();
+    await tungguSampai(
+      () => cari("#vpn-server-bb22") !== null,
+      "daftar server tenant termuat",
+    );
+
+    const medan = cari("label[for='vpn-server-cc33']");
+    expect(medan?.textContent).toContain("tidak tersedia");
+  });
+
   it("menampilkan peringatan skrip basi dari server", async () => {
     stubFetch(baseRoutes(() => detail({ scriptStale: true })));
     await mount();
@@ -307,6 +363,31 @@ describe("RouterVpnProtocolPanel", () => {
       "tunnel tersambung",
     );
     expect(applyBody).toEqual({ protocol: "L2TP" });
+  });
+
+  it("menjelaskan bila tak ada server tenant yang melayani protokol baru", async () => {
+    const wireguardOnly = TENANT_SERVERS.map((s) => ({
+      ...s,
+      protocols: ["wireguard"],
+    }));
+    stubFetch(baseRoutes(() => detail(), wireguardOnly));
+    await render(panggung, <RouterVpnProtocolPanel routerId="r1" />);
+    await tungguSampai(
+      () => tombolBerteks("Buat script") !== undefined,
+      "panel protokol termuat",
+    );
+
+    await act(async () => {
+      cari<HTMLInputElement>("#vpn-router-protocol-l2tp")!.click();
+    });
+    await tungguSampai(
+      () =>
+        document.body.textContent.includes(
+          "Belum ada server yang mendukung L2TP untuk tenant ini",
+        ),
+      "pesan tanpa server",
+    );
+    expect(tombolBerteks("Buat script")!.disabled).toBe(true);
   });
 
   it("tunnel tersambung hanya bila handshake core berbeda dari sebelum Terapkan", async () => {

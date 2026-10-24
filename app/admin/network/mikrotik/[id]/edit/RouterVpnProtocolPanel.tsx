@@ -5,11 +5,19 @@ import { toast } from "react-hot-toast";
 import { useApi } from "@/lib/hooks/useApi";
 import { Button } from "@/components/ui/Button";
 import VpnCommandBox from "@/app/admin/tenants/vpn/VpnCommandBox";
-import { VpnProtocolPicker } from "@/app/admin/network/mikrotik/components/VpnProtocolPicker";
+import {
+  noServerForProtocolMessage,
+  serversForProtocol,
+  VpnProtocolPicker,
+} from "@/app/admin/network/mikrotik/components/VpnProtocolPicker";
 import { VPN_DRAFT_POLL_INTERVAL_MS } from "@/app/admin/network/mikrotik/hooks/useVpnDraftStatus";
 import { sendRequest } from "@/app/admin/network/mikrotik/[id]/edit/routerVpnRequest";
-import type { VpnProtocol } from "@/app/admin/network/mikrotik/mikrotikFormShared";
+import type {
+  VpnProtocol,
+  VpnServerOption,
+} from "@/app/admin/network/mikrotik/mikrotikFormShared";
 
+const SERVERS_URL = "/api/vpn-servers";
 const PASTE_NOTE =
   "Tempel di router, lalu tekan Terapkan. Tunnel lama putus di akhir script; router offline sampai Terapkan ditekan.";
 
@@ -53,11 +61,21 @@ export function RouterVpnProtocolPanel({ routerId }: { routerId: string }) {
     },
   });
 
+  const { data: tenantData } = useApi<{ servers: VpnServerOption[] }>(
+    SERVERS_URL,
+  );
+
   if (!data) return null;
 
   const isConnected = isNewHandshake(data.lastHandshakeAt, baseline);
 
   const isNewProtocol = selected !== null && selected !== data.protocol;
+  // Tanpa server yang melayani protokol baru, "Buat script" pasti ditolak
+  // dengan pesan umum; operator perlu tahu alasannya lebih dulu.
+  const hasNoServer =
+    isNewProtocol &&
+    tenantData !== undefined &&
+    serversForProtocol(tenantData.servers, selected).length === 0;
   const hasScript = isNewProtocol && script?.protocol === selected;
 
   const run = async (action: () => Promise<void>, failure: string) => {
@@ -108,7 +126,7 @@ export function RouterVpnProtocolPanel({ routerId }: { routerId: string }) {
         <Button
           type="button"
           variant="secondary"
-          disabled={isBusy || !isNewProtocol}
+          disabled={isBusy || !isNewProtocol || hasNoServer}
           onClick={() => void handleGenerate()}
         >
           Buat script
@@ -121,6 +139,11 @@ export function RouterVpnProtocolPanel({ routerId }: { routerId: string }) {
           Terapkan
         </Button>
       </div>
+      {hasNoServer && (
+        <p className="text-sm text-amber-700 dark:text-amber-400">
+          {noServerForProtocolMessage(selected)}
+        </p>
+      )}
       {hasScript && (
         <div className="space-y-2">
           <p className="text-sm text-amber-700 dark:text-amber-400">

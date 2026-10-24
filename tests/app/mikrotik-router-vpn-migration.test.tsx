@@ -164,6 +164,7 @@ describe("MikrotikEditClient VPN migration", () => {
             lastHandshakeAt: null,
             events: [],
             scriptStale: false,
+            protocol: "WIREGUARD",
           },
         }),
     });
@@ -330,6 +331,7 @@ describe("MikrotikEditClient VPN migration", () => {
             lastHandshakeAt: null,
             events: [],
             scriptStale: false,
+            protocol: "WIREGUARD",
           },
         }),
       [`POST ${REVERT_URL}`]: () => {
@@ -344,9 +346,7 @@ describe("MikrotikEditClient VPN migration", () => {
 
     await klikTombol("Kembali ke publik");
     expect(document.body.textContent).toContain("198.51.100.7");
-    expect(document.body.textContent).toContain(
-      "Tunnel WireGuard tetap terpasang",
-    );
+    expect(document.body.textContent).toContain("Tunnel VPN tetap terpasang");
     const buttons = [...document.body.querySelectorAll("button")].filter(
       (b) => b.textContent.trim() === "Kembali ke publik",
     );

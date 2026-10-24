@@ -65,7 +65,7 @@ export function RevertToPublicButton({
             tetap berjalan.
           </p>
           <p>
-            Tunnel WireGuard tetap terpasang di router sampai Anda menghapusnya
+            Tunnel VPN tetap terpasang di router sampai Anda menghapusnya
             sendiri. API router lewat IP publik tidak harus bisa dijangkau
             sekarang.
           </p>

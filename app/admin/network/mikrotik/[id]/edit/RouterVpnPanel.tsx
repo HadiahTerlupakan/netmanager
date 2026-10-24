@@ -6,7 +6,11 @@ import { useApi } from "@/lib/hooks/useApi";
 import { Button } from "@/components/ui/Button";
 import { VpnServerList } from "@/app/admin/network/mikrotik/components/VpnServerList";
 import { VpnLockdownGuide } from "@/app/admin/network/mikrotik/[id]/edit/VpnLockdownGuide";
-import type { VpnServerOption } from "@/app/admin/network/mikrotik/mikrotikFormShared";
+import { serversForProtocol } from "@/app/admin/network/mikrotik/components/VpnProtocolPicker";
+import type {
+  VpnProtocol,
+  VpnServerOption,
+} from "@/app/admin/network/mikrotik/mikrotikFormShared";
 import { sendRequest } from "@/app/admin/network/mikrotik/[id]/edit/routerVpnRequest";
 import { RevertToPublicButton } from "@/app/admin/network/mikrotik/[id]/edit/RevertToPublicButton";
 
@@ -28,15 +32,21 @@ type RouterVpnDetail = {
   lastHandshakeAt: string | null;
   events: SwitchEvent[];
   scriptStale: boolean;
+  protocol: VpnProtocol;
 };
 
-/** Server tenant ditambah server router yang sudah tidak ada di daftar tenant. */
+/**
+ * Server tenant yang melayani protokol router, ditambah server router yang
+ * tidak lagi ada di daftar itu (ditandai tidak tersedia).
+ */
 function buildOptions(
   tenantServers: VpnServerOption[],
   routerServers: RouterServer[],
+  protocol: VpnProtocol,
 ): VpnServerOption[] {
+  const offered = serversForProtocol(tenantServers, protocol);
   const missing = routerServers
-    .filter((s) => !tenantServers.some((t) => t.id === s.id))
+    .filter((s) => !offered.some((t) => t.id === s.id))
     .map((s) => ({
       id: s.id,
       name: s.name,
@@ -44,7 +54,7 @@ function buildOptions(
       status: UNAVAILABLE_SERVER_STATUS,
       protocols: [] as string[],
     }));
-  return [...tenantServers, ...missing];
+  return [...offered, ...missing];
 }
 
 type RouterVpnPanelProps = {
@@ -77,9 +87,10 @@ export function RouterVpnPanel({
 
   const savedIds = data.servers.map((s) => s.id);
   const selectedIds = draftIds ?? savedIds;
-  const options = buildOptions(tenantData?.servers ?? [], data.servers);
+  const tenantServers = tenantData?.servers ?? [];
+  const options = buildOptions(tenantServers, data.servers, data.protocol);
   const nameOf = (id: string | null) =>
-    options.find((o) => o.id === id)?.name ?? id ?? "-";
+    [...options, ...tenantServers].find((o) => o.id === id)?.name ?? id ?? "-";
 
   const run = async (action: () => Promise<void>, failure: string) => {
     setIsBusy(true);
