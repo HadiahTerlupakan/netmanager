@@ -29,6 +29,7 @@ function buildVpnCreateFields(
   return {
     ...(data.rosVersion && { rosVersion: data.rosVersion }),
     ...(data.connectionMode && { connectionMode: data.connectionMode }),
+    ...(data.vpnProtocol && { vpnProtocol: data.vpnProtocol }),
     ...(data.vpnAddress && { vpnAddress: data.vpnAddress }),
     ...(data.vpnCoreRouterId && { vpnCoreRouterId: data.vpnCoreRouterId }),
     ...(vpnServerIds.length > 0 && {

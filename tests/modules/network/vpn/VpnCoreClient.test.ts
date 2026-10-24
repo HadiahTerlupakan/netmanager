@@ -193,4 +193,56 @@ describe("VpnCoreClient", () => {
     vi.stubEnv("VPN_CORE_ADDRESS", "10.99.0.5");
     expect(getVpnCoreAddress()).toBe("10.99.0.5");
   });
+
+  it("createRouter sends the protocol", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ id: "r1" }, 201));
+    await getVpnCoreClient().createRouter({
+      label: "r",
+      hubIds: ["h1"],
+      protocol: "l2tp",
+    });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://core.test:8080/v1/routers");
+    expect(JSON.parse(init.body)).toEqual({
+      label: "r",
+      hubIds: ["h1"],
+      protocol: "l2tp",
+    });
+  });
+
+  it("protocolScript POSTs to the router and reads text", async () => {
+    fetchMock.mockResolvedValue(new Response("/interface l2tp-client"));
+    const out = await getVpnCoreClient().protocolScript("r1", "l2tp");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://core.test:8080/v1/routers/r1/protocol-script");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ protocol: "l2tp" });
+    expect(out).toBe("/interface l2tp-client");
+  });
+
+  it("setRouterProtocol POSTs to /protocol and returns the router", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ id: "r1", protocol: "l2tp" }));
+    const out = await getVpnCoreClient().setRouterProtocol("r1", "l2tp");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://core.test:8080/v1/routers/r1/protocol");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ protocol: "l2tp" });
+    expect(out.protocol).toBe("l2tp");
+  });
+
+  it("firstServer GETs the first hub endpoint", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        protocol: "l2tp",
+        host: "h.example.com",
+        port: 500,
+        ipsecSecret: "psk",
+      }),
+    );
+    const out = await getVpnCoreClient().firstServer("r1");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://core.test:8080/v1/routers/r1/first-server");
+    expect(init.method).toBe("GET");
+    expect(out.ipsecSecret).toBe("psk");
+  });
 });

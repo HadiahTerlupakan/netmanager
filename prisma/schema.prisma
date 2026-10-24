@@ -681,6 +681,7 @@ model MikroTikRouter {
   vpnActiveServerId      String?
   publicIpAddress        String?
   vpnScriptStale         Boolean                   @default(false)
+  vpnProtocol            VpnProtocol               @default(WIREGUARD)
   vpnServers             MikroTikRouterVpnServer[]
 
   @@unique([tenantId, ipAddress])
@@ -6775,6 +6776,11 @@ enum RouterConnectionMode {
   VPN
 }
 
+enum VpnProtocol {
+  WIREGUARD
+  L2TP
+}
+
 /// Hub VPN milik core netmanager-vpn. id sama dengan id hub di core.
 model VpnServer {
   id         String                    @id
@@ -6782,6 +6788,7 @@ model VpnServer {
   publicHost String
   listenPort Int
   status     String                    @default("pending_install")
+  protocols  String[]                  @default(["wireguard"])
   lastSeenAt DateTime?
   createdAt  DateTime                  @default(now())
   tenants    TenantVpnServer[]

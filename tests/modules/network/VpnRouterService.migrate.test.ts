@@ -83,6 +83,7 @@ function draft(overrides: Partial<CoreRouter> = {}): CoreRouter {
     ref: "",
     address: TUNNEL_IP,
     status: "pending",
+    protocol: "wireguard",
     hubs: [
       { hubId: "b", name: "B", priority: 1, syncState: "synced" },
       { hubId: "a", name: "A", priority: 0, syncState: "synced" },

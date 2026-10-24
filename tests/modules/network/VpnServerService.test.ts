@@ -13,6 +13,8 @@ vi.mock("@/modules/network/vpn/VpnCoreClient", async (importActual) => ({
 
 import { VpnServerService } from "@/modules/network/services/VpnServerService";
 import { VpnCoreError, VpnServerInUseError } from "@/modules/network/vpn";
+import { VpnServerRepository } from "@/modules/network/repositories/VpnServerRepository";
+import type { PrismaClient } from "@prisma/client";
 import type { IVpnServerRepository } from "@/modules/network/domain/ports/IVpnServerRepository";
 
 const hub = {
@@ -21,6 +23,7 @@ const hub = {
   publicHost: "vpn.example.com",
   listenPort: 51821,
   status: "online" as const,
+  protocols: ["wireguard", "l2tp"],
   routerCount: 0,
   lastSeenAt: "2026-10-20T01:00:00.000Z",
 };
@@ -155,5 +158,25 @@ describe("VpnServerService", () => {
     await service.setTenantServers("t1", ["hub-1"]);
 
     expect(repo.replaceTenantServers).toHaveBeenCalledWith("t1", ["hub-1"]);
+  });
+});
+
+describe("VpnServerRepository.upsertHub protocols", () => {
+  async function savedProtocols(h: object) {
+    const upsert = vi.fn().mockResolvedValue(undefined);
+    const repo = new VpnServerRepository({
+      vpnServer: { upsert },
+    } as unknown as PrismaClient);
+    await repo.upsertHub(h as Parameters<typeof repo.upsertHub>[0]);
+    return upsert.mock.calls[0][0].update.protocols;
+  }
+
+  it("copies the hub protocols", async () => {
+    expect(await savedProtocols(hub)).toEqual(["wireguard", "l2tp"]);
+  });
+
+  it("stores a hub from an older core without protocols as wireguard", async () => {
+    const { protocols: _omit, ...legacy } = hub;
+    expect(await savedProtocols(legacy)).toEqual(["wireguard"]);
   });
 });

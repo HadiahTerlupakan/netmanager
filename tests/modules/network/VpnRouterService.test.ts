@@ -55,6 +55,7 @@ function coreRouter(overrides: Partial<CoreRouter> = {}): CoreRouter {
     ref: "router-1",
     address: "10.100.0.10",
     status: "active",
+    protocol: "wireguard",
     hubs: [
       { hubId: "b", name: "B", priority: 1, syncState: "synced" },
       { hubId: "a", name: "A", priority: 0, syncState: "synced" },

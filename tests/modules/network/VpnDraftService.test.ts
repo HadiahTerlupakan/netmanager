@@ -32,6 +32,7 @@ function router(overrides: Partial<CoreRouter> = {}): CoreRouter {
     ref: "",
     address: "10.100.0.10",
     status: "pending",
+    protocol: "wireguard",
     hubs: [
       { hubId: "a", name: "A", priority: 0, syncState: "synced" },
       { hubId: "b", name: "B", priority: 1, syncState: "synced" },
@@ -83,6 +84,7 @@ describe("VpnDraftService", () => {
     expect(coreMock.createRouter).toHaveBeenCalledWith({
       label: "nm:t1",
       hubIds: ["a", "b"],
+      protocol: "wireguard",
     });
     expect(result.draftId).toBe("r-1");
     expect(result.address).toBe("10.100.0.10");

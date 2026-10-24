@@ -2,7 +2,9 @@ import { logger } from "@/lib/logger";
 import type {
   CoreAdminPeer,
   CoreHub,
+  CoreFirstServer,
   CoreRouter,
+  CoreVpnProtocol,
   RouterScriptPart,
 } from "./types";
 
@@ -128,8 +130,8 @@ function json<T>(method: string, path: string, body?: unknown): Promise<T> {
   return send(method, path, (res) => res.json() as Promise<T>, body);
 }
 
-function text(path: string): Promise<string> {
-  return send("GET", path, (res) => res.text());
+function text(path: string, method = "GET", body?: unknown): Promise<string> {
+  return send(method, path, (res) => res.text(), body);
 }
 
 async function remove(path: string): Promise<void> {
@@ -171,6 +173,7 @@ export class VpnCoreClient {
   createRouter(input: {
     label: string;
     hubIds: string[];
+    protocol: CoreVpnProtocol;
   }): Promise<CoreRouter> {
     return json("POST", "/v1/routers", input);
   }
@@ -200,6 +203,30 @@ export class VpnCoreClient {
   /** Skrip RouterOS (teks) untuk bagian yang diminta. */
   routerScript(id: string, part: RouterScriptPart): Promise<string> {
     return text(`/v1/routers/${encodeURIComponent(id)}/routeros?part=${part}`);
+  }
+
+  /** Skrip RouterOS (teks) untuk protokol tertentu, tanpa mengubah protokol router. */
+  protocolScript(id: string, protocol: CoreVpnProtocol): Promise<string> {
+    return text(
+      `/v1/routers/${encodeURIComponent(id)}/protocol-script`,
+      "POST",
+      { protocol },
+    );
+  }
+
+  /** Mengganti protokol router dan mendorongnya ke semua hub. */
+  setRouterProtocol(
+    id: string,
+    protocol: CoreVpnProtocol,
+  ): Promise<CoreRouter> {
+    return json("POST", `/v1/routers/${encodeURIComponent(id)}/protocol`, {
+      protocol,
+    });
+  }
+
+  /** Endpoint hub pertama router sesuai protokolnya. */
+  firstServer(id: string): Promise<CoreFirstServer> {
+    return json("GET", `/v1/routers/${encodeURIComponent(id)}/first-server`);
   }
 
   /** Daftar peer admin. */

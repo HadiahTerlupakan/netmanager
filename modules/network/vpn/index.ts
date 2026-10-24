@@ -1,4 +1,5 @@
 export * from "./types";
+export { fromCoreProtocol, toCoreProtocol } from "./protocol";
 export {
   VpnCoreClient,
   VpnCoreError,

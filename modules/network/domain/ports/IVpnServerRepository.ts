@@ -7,6 +7,7 @@ export interface VpnServerSummary {
   name: string;
   publicHost: string;
   status: string;
+  protocols: string[];
 }
 
 export interface IVpnServerRepository {

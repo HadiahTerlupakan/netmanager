@@ -8,12 +8,16 @@ import type { CoreHub } from "../vpn/types";
 import type { VpnServerRouterUsage } from "../vpn/errors";
 import { SCRIPT_SEND_TX_TIMEOUT_MS } from "./MikroTikRouterVpnRepository";
 
+// Core lama belum melaporkan protokol hub dan hanya melayani WireGuard.
+const DEFAULT_HUB_PROTOCOLS = ["wireguard"];
+
 function hubFields(hub: CoreHub) {
   return {
     name: hub.name,
     publicHost: hub.publicHost,
     listenPort: hub.listenPort,
     status: hub.status,
+    protocols: hub.protocols?.length ? hub.protocols : DEFAULT_HUB_PROTOCOLS,
     lastSeenAt: hub.lastSeenAt ? new Date(hub.lastSeenAt) : null,
   };
 }
@@ -132,7 +136,13 @@ export class VpnServerRepository implements IVpnServerRepository {
       where: { tenantId },
       select: {
         vpnServer: {
-          select: { id: true, name: true, publicHost: true, status: true },
+          select: {
+            id: true,
+            name: true,
+            publicHost: true,
+            status: true,
+            protocols: true,
+          },
         },
       },
     });

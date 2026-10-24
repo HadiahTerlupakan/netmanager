@@ -19,6 +19,7 @@ export interface MikroTikRouterCreateData {
   vpnActiveServerId?: string | null;
   publicIpAddress?: string | null;
   vpnScriptStale?: boolean;
+  vpnProtocol?: "WIREGUARD" | "L2TP";
 }
 
 export interface MikroTikRouterUpdateData {
@@ -46,6 +47,7 @@ export interface MikroTikRouterUpdateData {
   vpnCoreRouterId?: string | null;
   publicIpAddress?: string | null;
   vpnScriptStale?: boolean;
+  vpnProtocol?: "WIREGUARD" | "L2TP";
 }
 
 export interface MikroTikRouterEntity {
@@ -53,6 +55,7 @@ export interface MikroTikRouterEntity {
   name: string;
   ipAddress: string;
   connectionMode: "PUBLIC" | "VPN";
+  vpnProtocol: "WIREGUARD" | "L2TP";
   vpnCoreRouterId: string | null;
   timezone: string;
   apiPort: number;

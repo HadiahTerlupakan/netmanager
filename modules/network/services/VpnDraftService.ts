@@ -180,6 +180,7 @@ export class VpnDraftService {
       (await core.createRouter({
         label: vpnDraftLabel(tenantId),
         hubIds: input.serverIds,
+        protocol: "wireguard",
       }));
     const coreScript = await core.routerScript(router.id, "full");
     return { router, coreScript };
