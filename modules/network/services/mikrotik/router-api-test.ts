@@ -99,11 +99,12 @@ async function handleConnected(
 }
 
 async function readRouterInfo(conn: RouterOSAPI): Promise<RouterInfo> {
-  const [identity, resource, pppActive] = await Promise.all([
-    readRouterOSData(conn, "/system/identity/print"),
-    readRouterOSData(conn, "/system/resource/print"),
-    readRouterOSData(conn, "/ppp/active/print"),
-  ]);
+  // One command at a time: node-routeros-v2 throws UNREGISTEREDTAG when
+  // RouterOS answers concurrent commands in one TCP segment, and the pending
+  // writes then never settle, so the test hangs until its timeout.
+  const identity = await readRouterOSData(conn, "/system/identity/print");
+  const resource = await readRouterOSData(conn, "/system/resource/print");
+  const pppActive = await readRouterOSData(conn, "/ppp/active/print");
 
   const identityData = normalizeRouterOSRecord(identity);
   const resourceData = normalizeRouterOSRecord(resource);
