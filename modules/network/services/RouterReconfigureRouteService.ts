@@ -7,7 +7,10 @@ import {
   MikroTikRouterService,
   RouterAccessDeniedError,
 } from "./MikroTikRouterService";
-import { getRouterReconfigureSettings } from "./radius-runtime.helpers";
+import {
+  getRadiusDefaultPorts,
+  getRouterReconfigureSettings,
+} from "./radius-runtime.helpers";
 import { resolveRadiusRouting } from "./mikrotik-router.provisioning";
 
 const FORBIDDEN_ERROR = "FORBIDDEN:Akses ditolak";
@@ -48,8 +51,10 @@ function getRouterCredentials(router: RouterCredentialsInput) {
   };
 }
 
-// Router publik dipanggil persis seperti sebelum mode VPN ada (port RADIUS
-// bawaan service); router VPN menambah alamat core dan src-address tunnel.
+// Same RADIUS ports as when the router was added: falling back to the
+// service's 1812/1813 left a router whose RADIUS listens elsewhere timing
+// out on every login after a reconfigure. A VPN router also gets the core
+// address and its tunnel IP as src-address.
 function buildProvisionRadiusArgs(
   router: RouterReconfigureRecord,
   settings: RouterSettings,
@@ -62,17 +67,15 @@ function buildProvisionRadiusArgs(
     password: credentials.password,
   };
   const { radiusServerIp, srcAddress } = resolveRadiusRouting(router);
-  if (!srcAddress) {
-    return [connection, null, settings.radiusSecret, settings.isolirUrl];
-  }
+  const { authPort, accountingPort } = getRadiusDefaultPorts();
   return [
     connection,
     radiusServerIp,
     settings.radiusSecret,
     settings.isolirUrl,
-    undefined,
-    undefined,
-    srcAddress,
+    authPort,
+    accountingPort,
+    srcAddress ?? undefined,
   ];
 }
 

@@ -153,7 +153,26 @@ describe("RouterReconfigureRouteService alamat RADIUS", () => {
     });
 
     const call = provisioningService.provisionRadius.mock.calls[0] as unknown[];
-    expect(call).toHaveLength(4);
     expect(call[1]).toBeNull();
+    expect(call[6]).toBeUndefined();
   });
+
+  it.each(["PUBLIC", "VPN"] as const)(
+    "router %s memakai port RADIUS yang sama dengan saat router ditambahkan",
+    async (mode) => {
+      vi.stubEnv("RADIUS_AUTH_PORT", "30812");
+      vi.stubEnv("RADIUS_ACCT_PORT", "30813");
+      const { service, provisioningService } = setup(mode);
+      await service.reconfigureRouters(["r1"], {
+        tenantId: "t1",
+        userId: "u1",
+        restrictedToOwnSite: false,
+      });
+
+      const call = provisioningService.provisionRadius.mock
+        .calls[0] as unknown[];
+      expect(call[4]).toBe(30812);
+      expect(call[5]).toBe(30813);
+    },
+  );
 });
