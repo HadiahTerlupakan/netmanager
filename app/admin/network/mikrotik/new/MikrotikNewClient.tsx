@@ -59,6 +59,13 @@ export function ClientComponent() {
   });
   const isSubmitAllowed = vpn.isVpnMode ? vpn.isVpnTestPassed : testPassed;
   const openScriptModal = () => setShowScriptModal(true);
+  const isVpnScriptPending = vpn.isVpnMode && !autoDraft.draft;
+  let vpnScriptPendingTitle: string | undefined;
+  if (isVpnScriptPending) {
+    vpnScriptPendingTitle = autoDraft.error
+      ? "Script VPN gagal disiapkan; tekan Coba lagi"
+      : "Script VPN sedang disiapkan";
+  }
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
@@ -140,7 +147,8 @@ export function ClientComponent() {
             type="button"
             onClick={openScriptModal}
             // Mode VPN membuka script draft otomatis; selama disiapkan belum ada script.
-            disabled={vpn.isVpnMode && !autoDraft.draft}
+            disabled={isVpnScriptPending}
+            title={vpnScriptPendingTitle}
           >
             &lt;/&gt; SCRIPT GENERATOR
           </Button>

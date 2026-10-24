@@ -44,6 +44,14 @@ export function useAutoVpnDraft({
     latest.current = { isVpnMode, request, onDraftReady };
   });
 
+  // Menyalakan VPN lagi adalah percobaan baru; galat sesi sebelumnya tak berlaku.
+  // Disesuaikan saat render, bukan di effect (aturan react-hooks/set-state-in-effect).
+  const [wasVpnMode, setWasVpnMode] = useState(isVpnMode);
+  if (wasVpnMode !== isVpnMode) {
+    setWasVpnMode(isVpnMode);
+    if (!isVpnMode) setFailure(undefined);
+  }
+
   const key = draftKey(request);
   const isCurrent =
     created?.key === key && created.draft.draftId === currentDraftId;

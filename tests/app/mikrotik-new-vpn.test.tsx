@@ -700,4 +700,97 @@ describe("Tambah Router — mode VPN", () => {
     expect(tombolBerteks(VIEW_SCRIPT_BUTTON)).toBeUndefined();
     expect(callsTo(fetchPalsu, `POST ${DRAFT_URL}`)).toHaveLength(0);
   });
+  it("draft yang selesai setelah VPN dimatikan tidak mengisi form", async () => {
+    const pending = deferred();
+    stubFetch({
+      ...vpnRoutes(() => "waiting"),
+      [`POST ${DRAFT_URL}`]: () => pending.promise,
+    });
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await turnOnVpn();
+    await flush(DEBOUNCE_MS);
+    await klikElemen("#mikrotik-use-vpn");
+
+    await act(async () => {
+      pending.resolve(responsJson(200, { success: true, data: DRAFT }));
+    });
+    await flush(DEBOUNCE_MS);
+
+    for (const id of [
+      "mikrotik-ip-address",
+      "mikrotik-api-username",
+      "mikrotik-api-password",
+    ]) {
+      expect(medan(id).value, id).toBe("");
+    }
+  });
+
+  it("draft gagal lalu VPN dimatikan dan dinyalakan lagi langsung mencoba ulang", async () => {
+    const responses = [
+      () => responsJson(500, { success: false, error: "Gagal membuat draft" }),
+      () => responsJson(200, { success: true, data: DRAFT }),
+    ];
+    const fetchPalsu = stubFetch({
+      ...vpnRoutes(() => "waiting"),
+      [`POST ${DRAFT_URL}`]: () => responses.shift()!(),
+    });
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await turnOnVpn();
+    await flush(DEBOUNCE_MS);
+    expect(document.body.textContent).toContain("Gagal membuat draft");
+
+    await klikElemen("#mikrotik-use-vpn");
+    await klikElemen("#mikrotik-use-vpn");
+    await flush(DEBOUNCE_MS);
+
+    expect(callsTo(fetchPalsu, `POST ${DRAFT_URL}`)).toHaveLength(2);
+    expect(medan("mikrotik-ip-address").value).toBe(DRAFT.address);
+    expect(document.body.textContent).not.toContain("Gagal membuat draft");
+  });
+
+  it("galat draft menyembunyikan keterangan draft sedang disiapkan", async () => {
+    const responses = [
+      () => responsJson(200, { success: true, data: DRAFT }),
+      () => responsJson(500, { success: false, error: "Gagal membuat draft" }),
+    ];
+    stubFetch({
+      ...vpnRoutes(() => "waiting"),
+      [`POST ${DRAFT_URL}`]: () => responses.shift()!(),
+    });
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await turnOnVpn();
+    await flush(DEBOUNCE_MS);
+
+    await klikElemen("#mikrotik-vpn-protocol-l2tp");
+    expect(document.body.textContent).toContain("Daftar server berubah");
+    await flush(DEBOUNCE_MS);
+
+    expect(document.body.textContent).toContain("Gagal membuat draft");
+    expect(document.body.textContent).not.toContain("Daftar server berubah");
+  });
+
+  it("SCRIPT GENERATOR yang terkunci di mode VPN menjelaskan sebabnya", async () => {
+    const responses = [
+      () => responsJson(500, { success: false, error: "Gagal membuat draft" }),
+    ];
+    stubFetch({
+      ...vpnRoutes(() => "waiting"),
+      [`POST ${DRAFT_URL}`]: () => responses.shift()!(),
+    });
+    await render(panggung, <ClientComponent />);
+    await flush();
+    await turnOnVpn();
+
+    expect(tombolBerteks(SCRIPT_BUTTON)!.disabled).toBe(true);
+    expect(tombolBerteks(SCRIPT_BUTTON)!.title).toBe(
+      "Script VPN sedang disiapkan",
+    );
+    await flush(DEBOUNCE_MS);
+    expect(tombolBerteks(SCRIPT_BUTTON)!.title).toBe(
+      "Script VPN gagal disiapkan; tekan Coba lagi",
+    );
+  });
 });

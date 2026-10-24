@@ -223,7 +223,7 @@ export function VpnConnectionSection({
       {isV7 && isVpn && protocolServers.length > 0 && (
         <VpnDraftStatus {...draftStatus} />
       )}
-      {isVpn && isDraftOutdated && (
+      {isVpn && isDraftOutdated && !draftStatus.error && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
           Daftar server berubah. Script VPN baru sedang disiapkan.
         </p>
