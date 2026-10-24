@@ -85,12 +85,12 @@ function radiusSecretLifecycle(
   return pppSecretService.isolateCustomer;
 }
 
-// RADIUS customers normally have no PPP secret on the router, and the router
-// checks local secrets before RADIUS. So a leftover secret is still
-// re-profiled (that path also disconnects), and only when there is none is
-// the session ended directly: the new status then applies at the next login.
-// Without the disconnect an isolated customer keeps full access until they
-// reconnect, and a re-activated one stays in the isolir pool.
+// RADIUS customers normally have no PPP secret on the router, but the router
+// checks local secrets before RADIUS, so a leftover one is still re-profiled.
+// The session is then always ended here, and a failure thrown for a retry:
+// the secret path reports success even when its own disconnect failed, and
+// the new status only applies at the next login. Without it an isolated
+// customer keeps full access until they reconnect.
 async function syncRadiusStatus(params: {
   pelangganId: string;
   newStatus: Status;
@@ -103,11 +103,7 @@ async function syncRadiusStatus(params: {
     params.newStatus,
     params.pppSecretService,
   );
-  const secretResult = await lifecycle.call(
-    params.pppSecretService,
-    params.pelangganId,
-  );
-  if (secretResult.success) return;
+  await lifecycle.call(params.pppSecretService, params.pelangganId);
 
   const result = await params.pppSecretService.disconnectCustomer(
     params.pelangganId,

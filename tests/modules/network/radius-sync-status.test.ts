@@ -47,7 +47,7 @@ describe("handleCustomerStatusChange mode RADIUS", () => {
     },
   );
 
-  it("secret lokal sisa tetap diganti profilnya agar tidak mengalahkan RADIUS", async () => {
+  it("secret lokal sisa tetap diganti profilnya dan sesi tetap diputus", async () => {
     const d = deps({ success: true });
     d.pppSecretService.isolateCustomer.mockResolvedValue({
       success: true,
@@ -62,7 +62,7 @@ describe("handleCustomerStatusChange mode RADIUS", () => {
     });
 
     expect(d.pppSecretService.isolateCustomer).toHaveBeenCalledWith("p1");
-    expect(d.pppSecretService.disconnectCustomer).not.toHaveBeenCalled();
+    expect(d.pppSecretService.disconnectCustomer).toHaveBeenCalledWith("p1");
   });
 
   it("gagal memutus sesi dilempar agar worker mencoba lagi", async () => {
