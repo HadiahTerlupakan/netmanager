@@ -273,11 +273,12 @@ async function saveCreatedRouter(
 export async function createRouterMutation(
   params: CreateRouterInput,
 ): Promise<{ id: string }> {
-  const { vpnDraftId, vpnServerIds, ...data } = params.data;
+  const { vpnDraftId, vpnServerIds, vpnProtocol, ...data } = params.data;
   const createData = await resolveCreateRouterData({ ...params, data });
   const router = await saveCreatedRouter(params, createData, {
     vpnDraftId,
     vpnServerIds,
+    vpnProtocol,
   });
 
   await finalizeCreatedRouter({

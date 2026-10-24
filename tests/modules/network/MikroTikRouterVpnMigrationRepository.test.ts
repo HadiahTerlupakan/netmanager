@@ -72,6 +72,7 @@ describe("MikroTikRouterVpnMigrationRepository", () => {
     await repo.switchToVpn(router, {
       tunnelAddress: "10.100.0.10",
       coreRouterId: "core-1",
+      vpnProtocol: "WIREGUARD",
       serverIds: ["a", "b"],
     });
 
@@ -107,6 +108,7 @@ describe("MikroTikRouterVpnMigrationRepository", () => {
       repo.switchToVpn(router, {
         tunnelAddress: "10.100.0.10",
         coreRouterId: "core-1",
+        vpnProtocol: "WIREGUARD",
         serverIds: ["a"],
       }),
     ).rejects.toThrow("radius db down");
@@ -119,6 +121,7 @@ describe("MikroTikRouterVpnMigrationRepository", () => {
       repo.switchToVpn(router, {
         tunnelAddress: "10.100.0.10",
         coreRouterId: "core-1",
+        vpnProtocol: "WIREGUARD",
         serverIds: ["a"],
       }),
     ).rejects.toBeInstanceOf(VpnRouterBusyError);
@@ -167,6 +170,7 @@ describe("MikroTikRouterVpnMigrationRepository", () => {
       repo.switchToVpn(router, {
         tunnelAddress: "10.100.0.10",
         coreRouterId: "core-1",
+        vpnProtocol: "WIREGUARD",
         serverIds: ["a"],
       }),
     ).rejects.toThrow("commit failed");

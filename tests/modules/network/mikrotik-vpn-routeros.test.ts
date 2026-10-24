@@ -91,6 +91,7 @@ const ROUTER: VpnRouterRecord = {
   vpnCoreRouterId: "core-1",
   vpnActiveServerId: null,
   vpnScriptStale: true,
+  vpnProtocol: "WIREGUARD",
   ipAddress: "10.100.0.10",
   apiPort: 8728,
   apiUsername: "u",

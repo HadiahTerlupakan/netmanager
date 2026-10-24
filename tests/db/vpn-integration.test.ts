@@ -325,6 +325,7 @@ describeDb("integrasi DB nyata — VPN", () => {
         repo.switchToVpn(awal, {
           tunnelAddress: "10.100.9.9",
           coreRouterId: "core-uji-mig",
+          vpnProtocol: "WIREGUARD",
           serverIds: [SERVERS[1], SERVERS[0]],
         }),
       );
@@ -367,6 +368,7 @@ describeDb("integrasi DB nyata — VPN", () => {
       const change = {
         tunnelAddress: "10.100.9.10",
         coreRouterId: "core-uji-busy",
+        vpnProtocol: "WIREGUARD" as const,
         serverIds: [SERVERS[0]],
       };
       await sebagaiTenant(() => repo.switchToVpn(awal, change));
@@ -377,6 +379,7 @@ describeDb("integrasi DB nyata — VPN", () => {
             ...change,
             tunnelAddress: "10.100.9.11",
             coreRouterId: "core-uji-busy-2",
+            vpnProtocol: "WIREGUARD",
             serverIds: [SERVERS[2]],
           }),
         ),

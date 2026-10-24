@@ -1,3 +1,4 @@
+import type { VpnProtocol } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import type { MikroTikRouterCreateData } from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
@@ -9,6 +10,7 @@ import {
 } from "../vpn/errors";
 import { getVpnCoreClient, VpnCoreError } from "../vpn/VpnCoreClient";
 import type { CoreRouter } from "../vpn/types";
+import { fromCoreProtocol } from "../vpn/protocol";
 import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
 import { tombstoneCoreRouter } from "./VpnCoreRouterCleanup";
 import {
@@ -23,6 +25,7 @@ const HTTP_NOT_FOUND = 404;
 export type VpnRouterRequest = {
   vpnDraftId?: string;
   vpnServerIds?: string[];
+  vpnProtocol?: VpnProtocol;
 };
 
 type CreateVpnRouterParams = {
@@ -33,13 +36,21 @@ type CreateVpnRouterParams = {
   tombstoneRepository: Pick<IVpnCoreRouterTombstoneRepository, "add" | "has">;
 };
 
-type ValidVpnRequest = { vpnDraftId: string; vpnServerIds: string[] };
+type ValidVpnRequest = {
+  vpnDraftId: string;
+  vpnServerIds: string[];
+  vpnProtocol: VpnProtocol;
+};
 
 function requireVpnRequest(request: VpnRouterRequest): ValidVpnRequest {
   if (!request.vpnDraftId || !request.vpnServerIds?.length) {
     throw new VpnDraftInvalidError("Draft VPN wajib diisi");
   }
-  return { vpnDraftId: request.vpnDraftId, vpnServerIds: request.vpnServerIds };
+  return {
+    vpnDraftId: request.vpnDraftId,
+    vpnServerIds: request.vpnServerIds,
+    vpnProtocol: request.vpnProtocol ?? "WIREGUARD",
+  };
 }
 
 /** Pesan untuk draft yang sudah dijadwalkan dihapus setelah claim gagal. */
@@ -100,6 +111,9 @@ async function assertDraftUsable(
   if (!hasSameHubOrder(draft, request.vpnServerIds)) {
     throw new VpnDraftInvalidError("Server VPN tidak cocok dengan draft VPN");
   }
+  if (fromCoreProtocol(draft.protocol) !== request.vpnProtocol) {
+    throw new VpnDraftInvalidError("Protokol VPN tidak cocok dengan draft VPN");
+  }
   await assertServersAssigned(params, request.vpnServerIds);
 }
 
@@ -138,7 +152,7 @@ async function claimDraft(
 
 /**
  * Buat router mode VPN: validasi draft core (milik tenant, belum dipakai,
- * alamat dan urutan server cocok, server masih di-assign) sebelum menulis apa
+ * alamat, protokol, dan urutan server cocok, server masih di-assign) sebelum menulis apa
  * pun, simpan router beserta urutan servernya, lalu claim draft. Claim gagal
  * menghapus router yang baru dibuat, menjadwalkan penghapusan draft di core, dan melempar `VpnRouterActivationError`.
  */
@@ -152,6 +166,7 @@ export async function createVpnRouter(
       ...params.createData,
       vpnAddress: params.createData.ipAddress,
       vpnCoreRouterId: request.vpnDraftId,
+      vpnProtocol: request.vpnProtocol,
     },
     request.vpnServerIds,
   );

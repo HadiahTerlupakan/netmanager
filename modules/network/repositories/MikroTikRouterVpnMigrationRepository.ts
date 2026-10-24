@@ -74,6 +74,7 @@ export class MikroTikRouterVpnMigrationRepository implements IVpnRouterMigration
           vpnAddress: change.tunnelAddress,
           connectionMode: "VPN",
           vpnCoreRouterId: change.coreRouterId,
+          vpnProtocol: change.vpnProtocol,
           vpnActiveServerId: null,
           vpnScriptStale: false,
         },

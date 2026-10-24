@@ -82,6 +82,7 @@ const coreDraft = (overrides: object = {}) => ({
   label: `nm:${TENANT}`,
   ref: "",
   status: "pending",
+  protocol: "wireguard",
   address: TUNNEL_IP,
   hubs: [
     { hubId: "bb", name: "B", priority: 1, syncState: "synced" },
@@ -216,6 +217,33 @@ describe("createRouterMutation mode VPN", () => {
     );
     expect(t.provisioningService.createApiUser).not.toHaveBeenCalled();
     expect(t.networkRepository.updateGeneratedApiUser).not.toHaveBeenCalled();
+  });
+
+  it("createVpnRouter menyimpan vpnProtocol L2TP", async () => {
+    mocks.getRouter.mockResolvedValue(coreDraft({ protocol: "l2tp" }));
+    const t = setup();
+
+    await t.run({ ...vpnData, vpnProtocol: "L2TP" });
+
+    const createArgs = t.client.mikroTikRouter.create.mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(createArgs.data).toMatchObject({ vpnProtocol: "L2TP" });
+  });
+
+  it("createVpnRouter menolak draft yang protokolnya beda dari request", async () => {
+    const t = setup();
+
+    const error = await t
+      .run({ ...vpnData, vpnProtocol: "L2TP" })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(VpnDraftInvalidError);
+    expect((error as Error).message).toBe(
+      "Protokol VPN tidak cocok dengan draft VPN",
+    );
+    expect(t.client.mikroTikRouter.create).not.toHaveBeenCalled();
+    expect(mocks.claimRouter).not.toHaveBeenCalled();
   });
 
   it("menghapus entri RADIUS netmanager lama setelah entri tunnel terpasang", async () => {

@@ -1,46 +1,52 @@
-import * as z from 'zod'
-import { VPN_API_PORT } from '@/modules/network/vpn/constants'
-import { vpnIdSchema } from './vpn'
+import * as z from "zod";
+import { VPN_API_PORT } from "@/modules/network/vpn/constants";
+import { vpnIdSchema, vpnProtocolSchema } from "./vpn";
 
 const mikrotikRouterCreateBaseSchema = z.object({
-  name: z.string().trim().min(1, 'Nama Router wajib diisi'),
-  ipAddress: z.string().trim().min(1, 'IP Router wajib diisi'),
+  name: z.string().trim().min(1, "Nama Router wajib diisi"),
+  ipAddress: z.string().trim().min(1, "IP Router wajib diisi"),
   timezone: z.string().trim().optional(),
   apiPort: z.number().int().min(1).max(65535).optional(),
-  apiUsername: z.string().trim().min(1, 'Username API wajib diisi'),
-  apiPassword: z.string().min(1, 'Password API wajib diisi'),
+  apiUsername: z.string().trim().min(1, "Username API wajib diisi"),
+  apiPassword: z.string().min(1, "Password API wajib diisi"),
   authPort: z.number().int().min(1).max(65535).optional(),
   accountingPort: z.number().int().min(1).max(65535).optional(),
   secretRadius: z.string().trim().optional(),
   isolirUrl: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   siteId: z.string().optional().nullable(),
-  rosVersion: z.enum(['V6', 'V7']).optional(),
-  connectionMode: z.enum(['PUBLIC', 'VPN']).optional(),
+  rosVersion: z.enum(["V6", "V7"]).optional(),
+  connectionMode: z.enum(["PUBLIC", "VPN"]).optional(),
   vpnServerIds: z
     .array(vpnIdSchema)
-    .refine((ids) => new Set(ids).size === ids.length, 'Server VPN harus unik')
+    .refine((ids) => new Set(ids).size === ids.length, "Server VPN harus unik")
     .optional(),
   vpnDraftId: vpnIdSchema.optional(),
-})
+  vpnProtocol: vpnProtocolSchema.optional(),
+});
 
-type MikrotikRouterCreateInput = z.infer<typeof mikrotikRouterCreateBaseSchema>
+type MikrotikRouterCreateInput = z.infer<typeof mikrotikRouterCreateBaseSchema>;
 
-function addVpnModeIssues(data: MikrotikRouterCreateInput, ctx: z.RefinementCtx) {
-  if (data.connectionMode !== 'VPN') return
+function addVpnModeIssues(
+  data: MikrotikRouterCreateInput,
+  ctx: z.RefinementCtx,
+) {
+  if (data.connectionMode !== "VPN") return;
   const addIssue = (field: keyof MikrotikRouterCreateInput, message: string) =>
-    ctx.addIssue({ code: 'custom', path: [field], message })
+    ctx.addIssue({ code: "custom", path: [field], message });
 
-  if (data.rosVersion !== 'V7') addIssue('rosVersion', 'Mode VPN memerlukan RouterOS v7')
-  if (!data.vpnServerIds?.length) addIssue('vpnServerIds', 'Pilih minimal satu server VPN')
-  if (!data.vpnDraftId) addIssue('vpnDraftId', 'Draft VPN wajib diisi')
+  if (data.rosVersion !== "V7")
+    addIssue("rosVersion", "Mode VPN memerlukan RouterOS v7");
+  if (!data.vpnServerIds?.length)
+    addIssue("vpnServerIds", "Pilih minimal satu server VPN");
+  if (!data.vpnDraftId) addIssue("vpnDraftId", "Draft VPN wajib diisi");
   if (data.apiPort !== undefined && data.apiPort !== VPN_API_PORT) {
-    addIssue('apiPort', `Port API mode VPN harus ${VPN_API_PORT}`)
+    addIssue("apiPort", `Port API mode VPN harus ${VPN_API_PORT}`);
   }
 }
 
 export const mikrotikRouterCreateSchema =
-  mikrotikRouterCreateBaseSchema.superRefine(addVpnModeIssues)
+  mikrotikRouterCreateBaseSchema.superRefine(addVpnModeIssues);
 
 export const mikrotikRouterUpdateSchema = z.object({
   name: z.string().trim().min(1).optional(),
@@ -55,6 +61,5 @@ export const mikrotikRouterUpdateSchema = z.object({
   isolirUrl: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   siteId: z.string().optional().nullable(),
-  rosVersion: z.enum(['V6', 'V7']).optional(),
-})
-
+  rosVersion: z.enum(["V6", "V7"]).optional(),
+});

@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import type { VpnProtocol } from "@prisma/client";
 import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
 import type {
   IVpnServerRepository,
@@ -11,9 +12,10 @@ import {
   VpnCoreError,
 } from "../vpn/VpnCoreClient";
 import type { CoreRouter } from "../vpn/types";
+import { fromCoreProtocol, toCoreProtocol } from "../vpn/protocol";
 import { VpnCoreRouterTombstoneRepository } from "../repositories/VpnCoreRouterTombstoneRepository";
 import { buildVpnApiUserScript } from "./vpn-api-user-script";
-import { assertServersOnline } from "./vpn-server-availability";
+import { assertServersUsable } from "./vpn-server-availability";
 
 /** Handshake dianggap segar (tunnel hidup) bila lebih baru dari ini. */
 export const VPN_HANDSHAKE_FRESH_MS = 180_000;
@@ -36,6 +38,7 @@ export function assertDraftOwned(router: CoreRouter, tenantId: string): void {
 
 export interface VpnDraftInput {
   serverIds: string[];
+  protocol: VpnProtocol;
   previousDraftId?: string;
   apiUsername?: string;
   apiPassword?: string;
@@ -141,7 +144,7 @@ export class VpnDraftService {
    */
   async createExtendDraft(
     tenantId: string,
-    input: Pick<VpnDraftInput, "serverIds" | "previousDraftId">,
+    input: Pick<VpnDraftInput, "serverIds" | "protocol" | "previousDraftId">,
     apiUsername: string,
   ): Promise<VpnExtendDraftResult> {
     const { router, coreScript } = await this.prepareDraft(tenantId, input);
@@ -170,9 +173,10 @@ export class VpnDraftService {
 
   private async prepareDraft(
     tenantId: string,
-    input: Pick<VpnDraftInput, "serverIds" | "previousDraftId">,
+    input: Pick<VpnDraftInput, "serverIds" | "protocol" | "previousDraftId">,
   ): Promise<{ router: CoreRouter; coreScript: string }> {
-    await assertServersOnline(this.repo, tenantId, input.serverIds);
+    const protocol = toCoreProtocol(input.protocol);
+    await assertServersUsable(this.repo, tenantId, input.serverIds, protocol);
     const core = getVpnCoreClient();
     const reused = await this.reusePrevious(tenantId, input);
     const router =
@@ -180,19 +184,19 @@ export class VpnDraftService {
       (await core.createRouter({
         label: vpnDraftLabel(tenantId),
         hubIds: input.serverIds,
-        protocol: "wireguard",
+        protocol,
       }));
     const coreScript = await core.routerScript(router.id, "full");
     return { router, coreScript };
   }
 
   /**
-   * Mengembalikan draft sebelumnya bila hub-nya sama; bila beda, menghapusnya.
+   * Mengembalikan draft sebelumnya bila hub dan protokolnya sama; bila beda, menghapusnya.
    * Draft yang sudah di-tombstone (claim gagal) tidak pernah dipakai lagi.
    */
   private async reusePrevious(
     tenantId: string,
-    input: Pick<VpnDraftInput, "serverIds" | "previousDraftId">,
+    input: Pick<VpnDraftInput, "serverIds" | "protocol" | "previousDraftId">,
   ): Promise<CoreRouter | null> {
     if (!input.previousDraftId) return null;
     if (await this.tombstones.has(input.previousDraftId)) return null;
@@ -208,7 +212,12 @@ export class VpnDraftService {
     }
     assertDraftOwned(previous, tenantId);
     if (!isUnclaimedDraft(previous)) return null;
-    if (hasSameHubOrder(previous, input.serverIds)) return previous;
+    if (
+      hasSameHubOrder(previous, input.serverIds) &&
+      fromCoreProtocol(previous.protocol) === input.protocol
+    ) {
+      return previous;
+    }
     await core.deleteRouter(previous.id);
     return null;
   }

@@ -38,6 +38,7 @@ function vpnRouter(overrides: Partial<VpnRouterRecord> = {}): VpnRouterRecord {
     vpnCoreRouterId: "core-1",
     vpnActiveServerId: "a",
     vpnScriptStale: false,
+    vpnProtocol: "WIREGUARD",
     ipAddress: "10.100.0.10",
     apiPort: 8728,
     apiUsername: "netmanager-0011aabb",
@@ -68,9 +69,27 @@ function coreRouter(overrides: Partial<CoreRouter> = {}): CoreRouter {
 }
 
 const tenantServers = [
-  { id: "a", name: "A", publicHost: "a.example.com", status: "online" },
-  { id: "b", name: "B", publicHost: "b.example.com", status: "online" },
-  { id: "c", name: "C", publicHost: "c.example.com", status: "online" },
+  {
+    id: "a",
+    name: "A",
+    publicHost: "a.example.com",
+    status: "online",
+    protocols: ["wireguard"],
+  },
+  {
+    id: "b",
+    name: "B",
+    publicHost: "b.example.com",
+    status: "online",
+    protocols: ["wireguard"],
+  },
+  {
+    id: "c",
+    name: "C",
+    publicHost: "c.example.com",
+    status: "online",
+    protocols: ["wireguard"],
+  },
   { id: "d", name: "D", publicHost: "d.example.com", status: "offline" },
 ];
 

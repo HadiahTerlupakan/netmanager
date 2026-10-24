@@ -7,6 +7,9 @@ const MAX_HOST_LENGTH = 253;
 /** Id dari core netmanager-vpn: heksadesimal huruf kecil. */
 export const vpnIdSchema = z.string().regex(/^[0-9a-f]{1,64}$/);
 
+/** Protokol tunnel router; tanpa isian berarti WireGuard supaya klien lama tetap jalan. */
+export const vpnProtocolSchema = z.enum(["WIREGUARD", "L2TP"]);
+
 // Urutan = prioritas: elemen pertama server utama.
 const orderedVpnServerIdsSchema = z
   .array(vpnIdSchema)
@@ -35,7 +38,12 @@ export const routerVpnServersSchema = z.object({
 
 export const routerVpnEnableSchema = z.object({
   serverIds: orderedVpnServerIdsSchema,
+  protocol: vpnProtocolSchema.default("WIREGUARD"),
   previousDraftId: vpnIdSchema.optional(),
+});
+
+export const routerVpnProtocolSchema = z.object({
+  protocol: vpnProtocolSchema,
 });
 
 export const routerVpnTunnelTestSchema = z.object({
@@ -56,6 +64,7 @@ const API_USERNAME_PATTERN = /^netmanager-[0-9a-f]{8}$/;
 
 export const vpnDraftCreateSchema = z.object({
   serverIds: orderedVpnServerIdsSchema,
+  protocol: vpnProtocolSchema.default("WIREGUARD"),
   previousDraftId: vpnIdSchema.optional(),
   apiUsername: z.string().regex(API_USERNAME_PATTERN).optional(),
   apiPassword: z.string().regex(API_PASSWORD_PATTERN).optional(),

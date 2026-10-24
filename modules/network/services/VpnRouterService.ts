@@ -9,9 +9,10 @@ import {
   VpnRouterInvalidError,
   VpnRouterUnreachableError,
 } from "../vpn/errors";
+import { toCoreProtocol } from "../vpn/protocol";
 import { getVpnCoreClient } from "../vpn/VpnCoreClient";
 import { RouterNotFoundError } from "./mikrotik-router.access";
-import { assertServersOnline } from "./vpn-server-availability";
+import { assertServersUsable } from "./vpn-server-availability";
 import {
   setPeerEndpoint,
   setSwitchScript,
@@ -109,7 +110,12 @@ export class VpnRouterService {
     serverIds: string[],
   ): Promise<{ scriptStale: boolean }> {
     const router = await this.requireVpnRouter(routerId, tenantId);
-    await assertServersOnline(this.servers, tenantId, serverIds);
+    await assertServersUsable(
+      this.servers,
+      tenantId,
+      serverIds,
+      toCoreProtocol(router.vpnProtocol),
+    );
     const result = await this.repo.withServerListLock(
       router.id,
       async (deadline) => {

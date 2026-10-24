@@ -23,6 +23,7 @@ export interface VpnMigrationRouterRecord {
 export interface VpnSwitchChange {
   tunnelAddress: string;
   coreRouterId: string;
+  vpnProtocol: "WIREGUARD" | "L2TP";
   serverIds: string[];
 }
 

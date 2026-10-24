@@ -152,6 +152,7 @@ describe("/api/mikrotik-routers/[id]/vpn migration routes", () => {
     });
     expect(mocks.enable).toHaveBeenCalledWith("router-1", "t1", {
       serverIds: ["aa"],
+      protocol: "WIREGUARD",
       previousDraftId: "c0",
     });
   });

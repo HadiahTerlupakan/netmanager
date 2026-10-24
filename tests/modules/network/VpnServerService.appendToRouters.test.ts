@@ -8,6 +8,7 @@ const summary = (id: string, status: string) => ({
   name: id,
   publicHost: "h",
   status,
+  protocols: ["wireguard"],
 });
 
 describe("VpnServerService.appendServerToTenantRouters", () => {

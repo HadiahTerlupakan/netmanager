@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { assertServersOnline } from "./vpn-server-availability";
+import { assertServersUsable } from "./vpn-server-availability";
 import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
 import { getVpnCoreClient, VpnCoreError } from "../vpn/VpnCoreClient";
 import { VpnServerInUseError, VpnServerUnknownError } from "../vpn/errors";
@@ -127,7 +127,7 @@ export class VpnServerService {
     tenantId: string,
     serverId: string,
   ): Promise<{ updated: number }> {
-    await assertServersOnline(this.repo, tenantId, [serverId]);
+    await assertServersUsable(this.repo, tenantId, [serverId], "wireguard");
     return {
       updated: await this.repo.appendServerToTenantRouters(tenantId, serverId),
     };

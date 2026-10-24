@@ -40,6 +40,7 @@ vi.mock("@/modules/network/factories/VpnDraftServiceFactory", async () => {
               name: "A",
               publicHost: "a.example.com",
               status: "online",
+              protocols: ["wireguard"],
             },
           ],
         } as never,
@@ -93,7 +94,13 @@ describe("tenant VPN routes", () => {
   it("GET /api/vpn-servers returns the tenant's servers", async () => {
     const res = await serversRoute.GET(req(), undefined as never);
     expect((await res.json()).data.servers).toEqual([
-      { id: "aa", name: "A", publicHost: "a.example.com", status: "online" },
+      {
+        id: "aa",
+        name: "A",
+        publicHost: "a.example.com",
+        status: "online",
+        protocols: ["wireguard"],
+      },
     ]);
   });
 
@@ -162,6 +169,24 @@ describe("tenant VPN routes", () => {
     const data = (await res.json()).data;
     expect(data.draftId).toBe("ab01");
     expect(data.script).toContain("# core");
+  });
+
+  it("POST vpn-draft forwards the chosen protocol and rejects an unknown one", async () => {
+    mocks.createRouter.mockResolvedValue(coreRouter());
+    mocks.routerScript.mockResolvedValue("# core\n");
+    const bad = await draftRoute.POST(
+      req({ serverIds: ["aa"], protocol: "PPTP" }),
+      undefined as never,
+    );
+    expect(bad.status).toBe(400);
+    const wg = await draftRoute.POST(
+      req({ serverIds: ["aa"] }),
+      undefined as never,
+    );
+    expect(wg.status).toBe(200);
+    expect(mocks.createRouter).toHaveBeenCalledWith(
+      expect.objectContaining({ protocol: "wireguard" }),
+    );
   });
 
   it("status is tunnel_up for a fresh handshake and waiting for a stale one", async () => {

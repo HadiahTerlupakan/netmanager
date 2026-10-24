@@ -45,9 +45,27 @@ function router(overrides: Partial<CoreRouter> = {}): CoreRouter {
 }
 
 const servers = [
-  { id: "a", name: "A", publicHost: "a.example.com", status: "online" },
-  { id: "b", name: "B", publicHost: "b.example.com", status: "online" },
-  { id: "c", name: "C", publicHost: "c.example.com", status: "offline" },
+  {
+    id: "a",
+    name: "A",
+    publicHost: "a.example.com",
+    status: "online",
+    protocols: ["wireguard", "l2tp"],
+  },
+  {
+    id: "b",
+    name: "B",
+    publicHost: "b.example.com",
+    status: "online",
+    protocols: ["wireguard"],
+  },
+  {
+    id: "c",
+    name: "C",
+    publicHost: "c.example.com",
+    status: "offline",
+    protocols: ["wireguard", "l2tp"],
+  },
 ];
 
 function makeService(tombstonedIds: string[] = []) {
@@ -69,10 +87,10 @@ describe("VpnDraftService", () => {
   it("rejects a server that is not assigned to the tenant or not online", async () => {
     const svc = makeService();
     await expect(
-      svc.createDraft("t1", { serverIds: ["zzz"] }),
+      svc.createDraft("t1", { serverIds: ["zzz"], protocol: "WIREGUARD" }),
     ).rejects.toBeInstanceOf(VpnServerNotAvailableError);
     await expect(
-      svc.createDraft("t1", { serverIds: ["a", "c"] }),
+      svc.createDraft("t1", { serverIds: ["a", "c"], protocol: "WIREGUARD" }),
     ).rejects.toBeInstanceOf(VpnServerNotAvailableError);
     expect(coreMock.createRouter).not.toHaveBeenCalled();
   });
@@ -80,6 +98,7 @@ describe("VpnDraftService", () => {
   it("creates a labelled router and builds the combined script with credentials", async () => {
     const result = await makeService().createDraft("t1", {
       serverIds: ["a", "b"],
+      protocol: "WIREGUARD",
     });
     expect(coreMock.createRouter).toHaveBeenCalledWith({
       label: "nm:t1",
@@ -98,6 +117,7 @@ describe("VpnDraftService", () => {
   it("keeps credentials supplied by the caller", async () => {
     const result = await makeService().createDraft("t1", {
       serverIds: ["a"],
+      protocol: "WIREGUARD",
       apiUsername: "netmanager-deadbeef",
       apiPassword: "A".repeat(24),
     });
@@ -109,6 +129,7 @@ describe("VpnDraftService", () => {
     coreMock.getRouter.mockResolvedValue(router({ id: "prev" }));
     const result = await makeService().createDraft("t1", {
       serverIds: ["a", "b"],
+      protocol: "WIREGUARD",
       previousDraftId: "prev",
     });
     expect(coreMock.createRouter).not.toHaveBeenCalled();
@@ -122,6 +143,7 @@ describe("VpnDraftService", () => {
     coreMock.createRouter.mockResolvedValue(router({ id: "fresh" }));
     const result = await makeService(["prev"]).createDraft("t1", {
       serverIds: ["a", "b"],
+      protocol: "WIREGUARD",
       previousDraftId: "prev",
     });
     expect(coreMock.createRouter).toHaveBeenCalledOnce();
@@ -133,6 +155,7 @@ describe("VpnDraftService", () => {
     coreMock.getRouter.mockResolvedValue(router({ id: "prev" }));
     await makeService().createDraft("t1", {
       serverIds: ["b", "a"],
+      protocol: "WIREGUARD",
       previousDraftId: "prev",
     });
     expect(coreMock.deleteRouter).toHaveBeenCalledWith("prev");
@@ -143,6 +166,7 @@ describe("VpnDraftService", () => {
     coreMock.getRouter.mockResolvedValue(router({ id: "prev" }));
     await makeService().createDraft("t1", {
       serverIds: ["a"],
+      protocol: "WIREGUARD",
       previousDraftId: "prev",
     });
     expect(coreMock.deleteRouter.mock.invocationCallOrder[0]).toBeLessThan(
@@ -154,6 +178,7 @@ describe("VpnDraftService", () => {
     coreMock.getRouter.mockRejectedValue(new VpnCoreError(404, "not_found"));
     const result = await makeService().createDraft("t1", {
       serverIds: ["a"],
+      protocol: "WIREGUARD",
       previousDraftId: "gone",
     });
     expect(coreMock.deleteRouter).not.toHaveBeenCalled();
@@ -166,10 +191,12 @@ describe("VpnDraftService", () => {
     );
     const diff = await makeService().createDraft("t1", {
       serverIds: ["a"],
+      protocol: "WIREGUARD",
       previousDraftId: "live",
     });
     const same = await makeService().createDraft("t1", {
       serverIds: ["a", "b"],
+      protocol: "WIREGUARD",
       previousDraftId: "live",
     });
     expect(coreMock.deleteRouter).not.toHaveBeenCalled();
@@ -182,11 +209,67 @@ describe("VpnDraftService", () => {
     await expect(
       makeService().createDraft("t1", {
         serverIds: ["a"],
+        protocol: "WIREGUARD",
         previousDraftId: "prev",
       }),
     ).rejects.toBeInstanceOf(VpnDraftForbiddenError);
     expect(coreMock.deleteRouter).not.toHaveBeenCalled();
     expect(coreMock.createRouter).not.toHaveBeenCalled();
+  });
+
+  it("createDraft L2TP mengirim protocol l2tp ke core", async () => {
+    coreMock.createRouter.mockResolvedValue(router({ protocol: "l2tp" }));
+    await makeService().createDraft("t1", {
+      serverIds: ["a"],
+      protocol: "L2TP",
+    });
+    expect(coreMock.createRouter).toHaveBeenCalledWith({
+      label: "nm:t1",
+      hubIds: ["a"],
+      protocol: "l2tp",
+    });
+  });
+
+  it("createDraft menolak server yang tidak mendukung L2TP", async () => {
+    await expect(
+      makeService().createDraft("t1", {
+        serverIds: ["a", "b"],
+        protocol: "L2TP",
+      }),
+    ).rejects.toBeInstanceOf(VpnServerNotAvailableError);
+    expect(coreMock.createRouter).not.toHaveBeenCalled();
+  });
+
+  it("reusePrevious menghapus draft bila protokol berbeda", async () => {
+    coreMock.getRouter.mockResolvedValue(
+      router({
+        id: "prev",
+        protocol: "wireguard",
+        hubs: [{ hubId: "a", name: "A", priority: 0, syncState: "synced" }],
+      }),
+    );
+    coreMock.createRouter.mockResolvedValue(
+      router({ id: "fresh", protocol: "l2tp" }),
+    );
+    const result = await makeService().createDraft("t1", {
+      serverIds: ["a"],
+      protocol: "L2TP",
+      previousDraftId: "prev",
+    });
+    expect(coreMock.deleteRouter).toHaveBeenCalledWith("prev");
+    expect(result.draftId).toBe("fresh");
+  });
+
+  it("createExtendDraft meneruskan protokol ke core", async () => {
+    coreMock.createRouter.mockResolvedValue(router({ protocol: "l2tp" }));
+    await makeService().createExtendDraft(
+      "t1",
+      { serverIds: ["a"], protocol: "L2TP" },
+      "netmanager-api",
+    );
+    expect(coreMock.createRouter).toHaveBeenCalledWith(
+      expect.objectContaining({ protocol: "l2tp" }),
+    );
   });
 
   describe("getStatus", () => {

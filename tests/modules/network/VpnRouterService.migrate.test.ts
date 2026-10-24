@@ -96,9 +96,27 @@ function draft(overrides: Partial<CoreRouter> = {}): CoreRouter {
 }
 
 const tenantServers = [
-  { id: "a", name: "A", publicHost: "a.example.com", status: "online" },
-  { id: "b", name: "B", publicHost: "b.example.com", status: "online" },
-  { id: "c", name: "C", publicHost: "c.example.com", status: "offline" },
+  {
+    id: "a",
+    name: "A",
+    publicHost: "a.example.com",
+    status: "online",
+    protocols: ["wireguard"],
+  },
+  {
+    id: "b",
+    name: "B",
+    publicHost: "b.example.com",
+    status: "online",
+    protocols: ["wireguard"],
+  },
+  {
+    id: "c",
+    name: "C",
+    publicHost: "c.example.com",
+    status: "offline",
+    protocols: ["wireguard"],
+  },
 ];
 
 function track(name: string) {
@@ -182,11 +200,30 @@ describe("VpnRouterMigrationService.enable", () => {
     const { service, drafts } = makeService();
     drafts.createExtendDraft.mockResolvedValue({ draftId: "core-1" });
 
-    await service.enable("router-1", TENANT, { serverIds: ["a"] });
+    await service.enable("router-1", TENANT, {
+      serverIds: ["a"],
+      protocol: "WIREGUARD",
+    });
 
     expect(drafts.createExtendDraft).toHaveBeenCalledWith(
       TENANT,
-      { serverIds: ["a"] },
+      { serverIds: ["a"], protocol: "WIREGUARD" },
+      "netmanager-api",
+    );
+  });
+
+  it("enable meneruskan protokol", async () => {
+    const { service, drafts } = makeService();
+    drafts.createExtendDraft.mockResolvedValue({ draftId: "core-1" });
+
+    await service.enable("router-1", TENANT, {
+      serverIds: ["a"],
+      protocol: "L2TP",
+    });
+
+    expect(drafts.createExtendDraft).toHaveBeenCalledWith(
+      TENANT,
+      { serverIds: ["a"], protocol: "L2TP" },
       "netmanager-api",
     );
   });
@@ -199,7 +236,10 @@ describe("VpnRouterMigrationService.enable", () => {
     const { service, drafts } = makeService(publicRouter(overrides));
 
     await expect(
-      service.enable("router-1", TENANT, { serverIds: ["a"] }),
+      service.enable("router-1", TENANT, {
+        serverIds: ["a"],
+        protocol: "WIREGUARD",
+      }),
     ).rejects.toBeInstanceOf(VpnRouterInvalidError);
     expect(drafts.createExtendDraft).not.toHaveBeenCalled();
   });
@@ -226,6 +266,7 @@ describe("VpnRouterMigrationService.enable", () => {
 
     const result = await service.enable("router-1", TENANT, {
       serverIds: ["a", "b"],
+      protocol: "WIREGUARD",
     });
 
     expect(result).toEqual({
@@ -256,6 +297,7 @@ describe("VpnRouterMigrationService.migrate", () => {
         {
           tunnelAddress: TUNNEL_IP,
           coreRouterId: "core-1",
+          vpnProtocol: "WIREGUARD",
           serverIds: ["a", "b"],
         },
       ])}`,
@@ -438,6 +480,15 @@ describe("VpnRouterMigrationService.migrate", () => {
     );
     expect(coreMock.getRouter).not.toHaveBeenCalled();
     expect(routerOs.testApi).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+  });
+
+  it("changes nothing when a server does not serve the draft's protocol", async () => {
+    const { service } = makeService();
+    coreMock.getRouter.mockResolvedValue(draft({ protocol: "l2tp" }));
+    await expect(
+      service.migrate("router-1", TENANT, migrateInput),
+    ).rejects.toBeInstanceOf(VpnServerNotAvailableError);
     expect(calls).toEqual([]);
   });
 

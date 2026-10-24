@@ -14,6 +14,7 @@ const VPN_ROUTER_SELECT = {
   vpnCoreRouterId: true,
   vpnActiveServerId: true,
   vpnScriptStale: true,
+  vpnProtocol: true,
   ipAddress: true,
   apiPort: true,
   apiUsername: true,

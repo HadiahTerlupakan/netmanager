@@ -5,6 +5,7 @@ export interface VpnRouterRecord {
   vpnCoreRouterId: string | null;
   vpnActiveServerId: string | null;
   vpnScriptStale: boolean;
+  vpnProtocol: "WIREGUARD" | "L2TP";
   ipAddress: string;
   apiPort: number;
   apiUsername: string;

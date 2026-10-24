@@ -1,3 +1,4 @@
+import type { VpnProtocol } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import type { IVpnCoreRouterTombstoneRepository } from "../domain/ports/IVpnCoreRouterTombstoneRepository";
 import type {
@@ -12,6 +13,7 @@ import {
   VpnRouterMigrationError,
   VpnRouterRollbackError,
 } from "../vpn/errors";
+import { fromCoreProtocol } from "../vpn/protocol";
 import { getVpnCoreAddress, getVpnCoreClient } from "../vpn/VpnCoreClient";
 import type { CoreRouter } from "../vpn/types";
 import type { MikroTikProvisioningRouterDetails } from "./mikrotik-provisioning.connection";
@@ -38,7 +40,7 @@ import {
   routerApiConnection,
 } from "./vpn-migration.preconditions";
 import { assertNotVpnOverlayTarget } from "./vpn-overlay-target";
-import { assertServersOnline } from "./vpn-server-availability";
+import { assertServersUsable } from "./vpn-server-availability";
 import {
   VpnMigrationRadiusSteps,
   type VpnMigrationResult,
@@ -91,7 +93,11 @@ export class VpnRouterMigrationService {
   async enable(
     routerId: string,
     tenantId: string,
-    input: { serverIds: string[]; previousDraftId?: string },
+    input: {
+      serverIds: string[];
+      protocol: VpnProtocol;
+      previousDraftId?: string;
+    },
   ): Promise<VpnExtendDraftResult> {
     const router = requirePublicV7Router(
       await this.repo.findRouter(routerId, tenantId),
@@ -138,7 +144,12 @@ export class VpnRouterMigrationService {
     if (!hasSameHubOrder(draft, input.serverIds)) {
       throw new VpnDraftInvalidError("Server VPN tidak cocok dengan draft VPN");
     }
-    await assertServersOnline(this.servers, tenantId, input.serverIds);
+    await assertServersUsable(
+      this.servers,
+      tenantId,
+      input.serverIds,
+      draft.protocol,
+    );
     assertTunnelUp(draft, this.now());
     const tunnel = routerApiConnection(router, draft.address);
     await assertTunnelApi(this.routerOs, tunnel);
@@ -149,6 +160,7 @@ export class VpnRouterMigrationService {
       await this.repo.switchToVpn(router, {
         tunnelAddress: draft.address,
         coreRouterId: draft.id,
+        vpnProtocol: fromCoreProtocol(draft.protocol),
         serverIds: input.serverIds,
       });
     } catch (error) {
