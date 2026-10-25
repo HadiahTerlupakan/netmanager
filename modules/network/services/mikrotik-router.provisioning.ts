@@ -52,10 +52,6 @@ type DeprovisionRouterParams = {
   router: StoredRouterCredentials & { connectionMode?: string | null };
 };
 
-// Data create belum membawa mode isolir, jadi router baru tersimpan dengan
-// default kolom isolirMode dan provisioning harus mengikutinya.
-const NEW_ROUTER_ISOLIR_MODE = "ROUTER_PAGE";
-
 type GeneratedApiUserResult = {
   success: boolean;
   username?: string;
@@ -193,7 +189,7 @@ async function provisionRouterRadius(
   connection: ProvisioningConnection,
 ): Promise<boolean> {
   const resolution = await tryResolveIsolirProvisioning({
-    isolirMode: NEW_ROUTER_ISOLIR_MODE,
+    isolirMode: params.createData.isolirMode ?? "ROUTER_PAGE",
     isolirUrl: params.createData.isolirUrl ?? null,
     tenantId: params.createData.tenantId,
   });

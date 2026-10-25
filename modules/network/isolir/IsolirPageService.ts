@@ -20,6 +20,15 @@ const SHARP_LIMITS = {
 };
 const ALLOWED_LOGO_FORMATS = ["png", "jpeg", "webp", "gif"];
 
+/** Status kirim halaman isolir ke satu router mode ROUTER_PAGE. */
+export type IsolirRouterSyncStatus = {
+  id: string;
+  name: string;
+  synced: boolean;
+  isolirPageSyncedAt: Date | null;
+  isolirPageError: string | null;
+};
+
 export type IsolirPageView = {
   page: IsolirPage | null;
   preview: IsolirRenderResult;
@@ -129,6 +138,22 @@ export function createIsolirPageService(pushToRouters: PushToRouters) {
       });
       pushInBackground(tenantId);
       return viewFor(page, tenantId);
+    },
+
+    async routerSyncStatus(
+      tenantId: string,
+    ): Promise<IsolirRouterSyncStatus[]> {
+      const [routers, { hash }] = await Promise.all([
+        IsolirPageRepository.findRouterSyncStatus(tenantId),
+        renderForTenant(tenantId),
+      ]);
+      return routers.map((router) => ({
+        id: router.id,
+        name: router.name,
+        synced: router.isolirPageHash === hash,
+        isolirPageSyncedAt: router.isolirPageSyncedAt,
+        isolirPageError: router.isolirPageError,
+      }));
     },
 
     async setLogo(tenantId: string, file: File): Promise<IsolirPage> {

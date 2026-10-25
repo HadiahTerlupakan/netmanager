@@ -2,6 +2,22 @@ import * as z from "zod";
 import { VPN_API_PORT } from "@/modules/network/vpn/constants";
 import { vpnIdSchema, vpnProtocolSchema } from "./vpn";
 
+const isolirModeSchema = z.enum(["ROUTER_PAGE", "REDIRECT"]).optional();
+
+// Redirect tanpa URL membuat pelanggan isolir hanya melihat koneksi gagal.
+function addIsolirModeIssue(
+  data: { isolirMode?: string; isolirUrl?: string | null },
+  ctx: z.RefinementCtx,
+) {
+  if (data.isolirMode === "REDIRECT" && !data.isolirUrl) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["isolirUrl"],
+      message: "URL isolir wajib diisi untuk mode Redirect",
+    });
+  }
+}
+
 const mikrotikRouterCreateBaseSchema = z.object({
   name: z.string().trim().min(1, "Nama Router wajib diisi"),
   ipAddress: z.string().trim().min(1, "IP Router wajib diisi"),
@@ -12,6 +28,7 @@ const mikrotikRouterCreateBaseSchema = z.object({
   authPort: z.number().int().min(1).max(65535).optional(),
   accountingPort: z.number().int().min(1).max(65535).optional(),
   secretRadius: z.string().trim().optional(),
+  isolirMode: isolirModeSchema,
   isolirUrl: z.string().trim().optional().nullable(),
   description: z.string().trim().optional().nullable(),
   siteId: z.string().optional().nullable(),
@@ -45,21 +62,25 @@ function addVpnModeIssues(
   }
 }
 
-export const mikrotikRouterCreateSchema =
-  mikrotikRouterCreateBaseSchema.superRefine(addVpnModeIssues);
+export const mikrotikRouterCreateSchema = mikrotikRouterCreateBaseSchema
+  .superRefine(addVpnModeIssues)
+  .superRefine(addIsolirModeIssue);
 
-export const mikrotikRouterUpdateSchema = z.object({
-  name: z.string().trim().min(1).optional(),
-  ipAddress: z.string().trim().min(1).optional(),
-  timezone: z.string().trim().optional(),
-  apiPort: z.number().int().min(1).max(65535).optional(),
-  apiUsername: z.string().trim().min(1).optional(),
-  apiPassword: z.string().optional(),
-  authPort: z.number().int().min(1).max(65535).optional(),
-  accountingPort: z.number().int().min(1).max(65535).optional(),
-  secretRadius: z.string().trim().min(1).optional(),
-  isolirUrl: z.string().trim().optional().nullable(),
-  description: z.string().trim().optional().nullable(),
-  siteId: z.string().optional().nullable(),
-  rosVersion: z.enum(["V6", "V7"]).optional(),
-});
+export const mikrotikRouterUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    ipAddress: z.string().trim().min(1).optional(),
+    timezone: z.string().trim().optional(),
+    apiPort: z.number().int().min(1).max(65535).optional(),
+    apiUsername: z.string().trim().min(1).optional(),
+    apiPassword: z.string().optional(),
+    authPort: z.number().int().min(1).max(65535).optional(),
+    accountingPort: z.number().int().min(1).max(65535).optional(),
+    secretRadius: z.string().trim().min(1).optional(),
+    isolirMode: isolirModeSchema,
+    isolirUrl: z.string().trim().optional().nullable(),
+    description: z.string().trim().optional().nullable(),
+    siteId: z.string().optional().nullable(),
+    rosVersion: z.enum(["V6", "V7"]).optional(),
+  })
+  .superRefine(addIsolirModeIssue);

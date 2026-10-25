@@ -10,6 +10,7 @@ import {
   MikrotikRouterForm,
   type MikrotikRouterFormData,
 } from "@/app/admin/network/mikrotik/components/mikrotikRouterForm";
+import { withIsolirUrlForMode } from "@/app/admin/network/mikrotik/components/IsolirModeField";
 import { useMikrotikConnectionTest } from "@/app/admin/network/mikrotik/hooks/useMikrotikConnectionTest";
 import { RouterVpnPanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnPanel";
 import { RouterVpnProtocolPanel } from "@/app/admin/network/mikrotik/[id]/edit/RouterVpnProtocolPanel";
@@ -38,6 +39,7 @@ export function ClientComponent() {
     apiPort: 8728,
     apiUsername: "",
     apiPassword: "",
+    isolirMode: "ROUTER_PAGE",
     isolirUrl: "",
     description: "",
   });
@@ -65,6 +67,7 @@ export function ClientComponent() {
         apiPort: routerData.apiPort,
         apiUsername: routerData.apiUsername,
         apiPassword: routerData.apiPassword,
+        isolirMode: routerData.isolirMode,
         isolirUrl: routerData.isolirUrl || "",
         description: routerData.description || "",
         rosVersion: routerData.rosVersion,
@@ -107,7 +110,7 @@ export function ClientComponent() {
       const res = await fetch(`/api/mikrotik-routers/${routerId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(withIsolirUrlForMode(formData)),
       });
 
       if (!res.ok) {
@@ -177,6 +180,7 @@ export function ClientComponent() {
         submitLabel="Update Router"
         cancelHref="/admin/network/mikrotik"
         isConnectionLocked={isVpnRouter}
+        showIsolirReconfigureHint
         connectionSection={
           !isVpnRouter && (
             <Toggle

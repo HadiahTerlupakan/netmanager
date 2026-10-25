@@ -10,6 +10,7 @@ import {
   MikrotikRouterForm,
   type MikrotikRouterFormData,
 } from "@/app/admin/network/mikrotik/components/mikrotikRouterForm";
+import { withIsolirUrlForMode } from "@/app/admin/network/mikrotik/components/IsolirModeField";
 import { VpnConnectionSection } from "@/app/admin/network/mikrotik/components/VpnConnectionSection";
 import { useMikrotikConnectionTest } from "@/app/admin/network/mikrotik/hooks/useMikrotikConnectionTest";
 import { useMikrotikFormSettings } from "@/app/admin/network/mikrotik/hooks/useMikrotikFormSettings";
@@ -31,6 +32,7 @@ export function ClientComponent() {
     apiPort: 8728,
     apiUsername: "",
     apiPassword: "",
+    isolirMode: "ROUTER_PAGE",
     isolirUrl: "",
     description: "",
     autoConfigure: true,
@@ -83,7 +85,7 @@ export function ClientComponent() {
       const res = await fetch("/api/mikrotik-routers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(withIsolirUrlForMode(formData)),
       });
 
       if (!res.ok) {

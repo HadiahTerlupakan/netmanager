@@ -13,9 +13,13 @@ vi.mock("@/lib/api", () => ({
       handler(req, { session: { user: { id: "u1", tenantId: "t1" } } }),
   apiSuccess: (data: unknown, options?: { status?: number }) =>
     NextResponse.json({ success: true, data }, { status: options?.status }),
-  apiError: (error: string, code: string, options?: { status?: number }) =>
+  apiError: (
+    error: string,
+    code: string,
+    options?: { status?: number; details?: unknown },
+  ) =>
     NextResponse.json(
-      { success: false, error, code },
+      { success: false, error, code, details: options?.details },
       { status: options?.status },
     ),
   ApiErrors: {
@@ -156,6 +160,41 @@ describe("POST /api/mikrotik-routers", () => {
 
     expect(status).toBe(expected);
     expect(body.error ?? body.message).toBe(error.message);
+  });
+
+  it("mode Redirect tanpa URL isolir -> 400 dengan pesan", async () => {
+    const { status, body } = await post({
+      ...publicBody,
+      isolirMode: "REDIRECT",
+      isolirUrl: "  ",
+    });
+
+    expect(status).toBe(400);
+    expect(body.details.fieldErrors.isolirUrl).toEqual([
+      "URL isolir wajib diisi untuk mode Redirect",
+    ]);
+    expect(mocks.createRouter).not.toHaveBeenCalled();
+  });
+
+  it("mode Redirect dengan URL diteruskan ke service", async () => {
+    const { status } = await post({
+      ...publicBody,
+      isolirMode: "REDIRECT",
+      isolirUrl: "https://isolir.example/info",
+    });
+
+    expect(status).toBe(201);
+    expect(mocks.createRouter.mock.calls[0][0].data).toMatchObject({
+      isolirMode: "REDIRECT",
+      isolirUrl: "https://isolir.example/info",
+    });
+  });
+
+  it("mode isolir di luar pilihan -> 400", async () => {
+    const { status } = await post({ ...publicBody, isolirMode: "PROXY" });
+
+    expect(status).toBe(400);
+    expect(mocks.createRouter).not.toHaveBeenCalled();
   });
 
   it("galat lain tetap 500 Gagal membuat router", async () => {

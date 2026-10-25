@@ -1,3 +1,6 @@
+/** Salinan enum Prisma IsolirMode: lapisan domain tidak boleh mengimpor @prisma/client. */
+export type RouterIsolirMode = "ROUTER_PAGE" | "REDIRECT";
+
 export interface MikroTikRouterCreateData {
   name: string;
   ipAddress: string;
@@ -8,6 +11,7 @@ export interface MikroTikRouterCreateData {
   authPort?: number;
   accountingPort?: number;
   secretRadius: string;
+  isolirMode?: RouterIsolirMode;
   isolirUrl?: string | null;
   description?: string | null;
   siteId?: string | null;
@@ -34,6 +38,7 @@ export interface MikroTikRouterUpdateData {
   authPort?: number;
   accountingPort?: number;
   secretRadius?: string;
+  isolirMode?: RouterIsolirMode;
   isolirUrl?: string | null;
   description?: string | null;
   pingStatus?: string;
@@ -66,6 +71,7 @@ export interface MikroTikRouterEntity {
   authPort: number;
   accountingPort: number;
   secretRadius: string;
+  isolirMode: RouterIsolirMode;
   isolirUrl: string | null;
   description: string | null;
   pingStatus: string;

@@ -192,6 +192,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         authPort: data.authPort ?? 7265,
         accountingPort: data.accountingPort ?? 7266,
         secretRadius: data.secretRadius,
+        isolirMode: data.isolirMode ?? "ROUTER_PAGE",
         isolirUrl: data.isolirUrl ?? null,
         description: data.description ?? null,
         pingStatus: "offline",
@@ -258,6 +259,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
         ...(data.secretRadius !== undefined && {
           secretRadius: data.secretRadius,
         }),
+        ...(data.isolirMode !== undefined && { isolirMode: data.isolirMode }),
         ...(data.isolirUrl !== undefined && { isolirUrl: data.isolirUrl }),
         ...(data.description !== undefined && {
           description: data.description,

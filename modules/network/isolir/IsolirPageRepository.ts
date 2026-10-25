@@ -18,4 +18,19 @@ export const IsolirPageRepository = {
       update: data,
     });
   },
+
+  /** Router tujuan halaman isolir tenant; kredensial sengaja tidak dibaca. */
+  findRouterSyncStatus(tenantId: string) {
+    return prisma.mikroTikRouter.findMany({
+      where: { tenantId, isolirMode: "ROUTER_PAGE" },
+      select: {
+        id: true,
+        name: true,
+        isolirPageHash: true,
+        isolirPageSyncedAt: true,
+        isolirPageError: true,
+      },
+      orderBy: { name: "asc" },
+    });
+  },
 };

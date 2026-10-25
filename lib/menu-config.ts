@@ -914,6 +914,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlinePhoto",
       },
       {
+        code: "PENGATURAN.HALAMAN_ISOLIR",
+        name: "Halaman Isolir",
+        path: "/admin/pengaturan/halaman-isolir",
+        icon: "HiOutlineNoSymbol",
+      },
+      {
         code: "PENGATURAN.EMAIL",
         name: "Email",
         path: "/admin/pengaturan/email",

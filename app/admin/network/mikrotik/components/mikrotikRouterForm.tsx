@@ -3,12 +3,14 @@ import { useState, type ReactNode } from "react";
 import { HiOutlineClipboardDocument, HiOutlineEye } from "react-icons/hi2";
 import { copyToClipboard } from "@/app/admin/tenants/vpn/vpnShared";
 import type { MikrotikVpnFormFields } from "@/app/admin/network/mikrotik/mikrotikFormShared";
+import { IsolirModeField, type IsolirMode } from "./IsolirModeField";
 
 type PppConnectionMode = "RADIUS" | "MIKROTIK_API";
 
 export type MikrotikRouterFormData = MikrotikVpnFormFields & {
   name: string;
   timezone: string;
+  isolirMode: IsolirMode;
   isolirUrl: string;
   description: string;
 };
@@ -34,6 +36,7 @@ type MikrotikRouterFormProps = {
   isConnectionLocked?: boolean;
   /** Menggantikan placeholder keempat field koneksi, mis. selama draft VPN disiapkan. */
   connectionPlaceholder?: string;
+  showIsolirReconfigureHint?: boolean;
 };
 
 const TIMEZONE_OPTIONS = [
@@ -60,6 +63,7 @@ export function MikrotikRouterForm({
   connectionSection,
   isConnectionLocked = false,
   connectionPlaceholder,
+  showIsolirReconfigureHint,
 }: MikrotikRouterFormProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   return (
@@ -215,39 +219,13 @@ export function MikrotikRouterForm({
         </div>
       </div>
 
-      <div>
-        <label
-          htmlFor="mikrotik-isolir-url"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-        >
-          URL Info Isolir (Optional)
-        </label>
-        <input
-          id="mikrotik-isolir-url"
-          type="text"
-          value={formData.isolirUrl}
-          onChange={(event) => onChange("isolirUrl", event.target.value)}
-          placeholder="mydomain.com/expired.html"
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          PATH URL LENGKAP TANPA HTTP:// ATAU HTTPS://
-        </p>
-        <ul className="mt-2 text-xs text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
-          <li>
-            FITUR INI DIGUNAKAN UNTUK MENGALIHKAN AKSES PELANGGAN PPPOE YANG
-            TERISOLIR
-          </li>
-          <li>
-            PASTIKAN FILE HTML INFORMASI ISOLIR SUDAH ADA DAN BISA DIAKSES OLEH
-            MIKROTIK
-          </li>
-          <li>
-            SETELAH FORM INI DISIMPAN, WEB PROXY MIKROTIK HARUS DIENABLE SECARA
-            MANUAL
-          </li>
-        </ul>
-      </div>
+      <IsolirModeField
+        mode={formData.isolirMode}
+        url={formData.isolirUrl}
+        onModeChange={(mode) => onChange("isolirMode", mode)}
+        onUrlChange={(url) => onChange("isolirUrl", url)}
+        showReconfigureHint={showIsolirReconfigureHint}
+      />
 
       <div>
         <label

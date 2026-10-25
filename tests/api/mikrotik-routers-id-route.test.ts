@@ -42,10 +42,15 @@ vi.mock("@/lib/api", () => ({
     success: true,
     data,
   }),
-  apiError: (error: string, code: string, options?: { status?: number }) => ({
+  apiError: (
+    error: string,
+    code: string,
+    options?: { status?: number; details?: unknown },
+  ) => ({
     success: false,
     error,
     code,
+    details: options?.details,
     status: options?.status ?? 500,
   }),
   ApiErrors: {
@@ -64,15 +69,6 @@ vi.mock("@/lib/api", () => ({
     VALIDATION_ERROR: "VALIDATION_ERROR",
     INTERNAL_ERROR: "INTERNAL_ERROR",
     CONFLICT: "CONFLICT",
-  },
-}));
-
-vi.mock("@/lib/validations/mikrotik", () => ({
-  mikrotikRouterUpdateSchema: {
-    safeParse: (data: unknown) => ({
-      success: true,
-      data,
-    }),
   },
 }));
 
@@ -281,6 +277,56 @@ describe("PATCH /api/mikrotik-routers/[id] router VPN", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe(
       "Alamat dan kredensial router VPN dikelola otomatis",
+    );
+  });
+});
+
+describe("PATCH /api/mikrotik-routers/[id] mode halaman isolir", () => {
+  const patch = async (body: unknown) => {
+    const { PATCH } = await import("@/app/api/mikrotik-routers/[id]/route");
+    const request = new Request(
+      "http://localhost/api/mikrotik-routers/router-1",
+      {
+        method: "PATCH",
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json" },
+      },
+    );
+    return (
+      PATCH as unknown as (
+        req: Request,
+        ctx: { params: { id: string } },
+      ) => Promise<{
+        status?: number;
+        details?: { fieldErrors: Record<string, string[]> };
+      }>
+    )(request, { params: { id: "router-1" } });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFns.hasPermission.mockResolvedValue(false);
+    mockFns.isSuperAdmin.mockReturnValue(false);
+    mockFns.updateRouter.mockResolvedValue(undefined);
+  });
+
+  it("menolak mode Redirect tanpa URL isolir dengan 400", async () => {
+    const res = await patch({ isolirMode: "REDIRECT", isolirUrl: null });
+
+    expect(res.status).toBe(400);
+    expect(res.details?.fieldErrors.isolirUrl).toEqual([
+      "URL isolir wajib diisi untuk mode Redirect",
+    ]);
+    expect(mockFns.updateRouter).not.toHaveBeenCalled();
+  });
+
+  it("meneruskan pindah ke halaman di router beserta URL yang dikosongkan", async () => {
+    await patch({ isolirMode: "ROUTER_PAGE", isolirUrl: null });
+
+    expect(mockFns.updateRouter).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { isolirMode: "ROUTER_PAGE", isolirUrl: null },
+      }),
     );
   });
 });

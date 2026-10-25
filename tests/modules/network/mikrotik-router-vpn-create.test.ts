@@ -458,6 +458,7 @@ describe("createRouterMutation mode PUBLIC", () => {
         "authPort",
         "accountingPort",
         "secretRadius",
+        "isolirMode",
         "isolirUrl",
         "description",
         "pingStatus",
@@ -466,6 +467,7 @@ describe("createRouterMutation mode PUBLIC", () => {
         "tenantId",
       ].sort(),
     );
+    expect(prismaData.isolirMode).toBe("ROUTER_PAGE");
     expect(t.provisioningService.provisionRadius.mock.calls[0]).toEqual([
       {
         ip: publicData.ipAddress,
@@ -489,6 +491,32 @@ describe("createRouterMutation mode PUBLIC", () => {
     expect(mocks.getRouter).not.toHaveBeenCalled();
     expect(mocks.claimRouter).not.toHaveBeenCalled();
     expect(mocks.removeOtherRadiusEntries).not.toHaveBeenCalled();
+  });
+
+  it("router baru mode Redirect disimpan dan diprovisioning sebagai Redirect", async () => {
+    const t = setup();
+
+    await t.run({
+      ...baseData,
+      ipAddress: "203.0.113.21",
+      apiPort: 8728,
+      isolirMode: "REDIRECT",
+      isolirUrl: "https://isolir.example/info",
+    });
+
+    const prismaData = (
+      t.client.mikroTikRouter.create.mock.calls[0][0] as {
+        data: Record<string, unknown>;
+      }
+    ).data;
+    expect(prismaData.isolirMode).toBe("REDIRECT");
+    const call = t.provisioningService.provisionRadius.mock
+      .calls[0] as unknown[];
+    expect(call[3]).toEqual({
+      mode: "REDIRECT",
+      target: "isolir.example/info",
+    });
+    expect(mocks.resolveIsolirContent).not.toHaveBeenCalled();
   });
 
   it("galat menyusun halaman isolir tidak menghentikan provisioning dan dicatat", async () => {

@@ -118,4 +118,22 @@ describe("adminSidebarMenu", () => {
       }),
     ).toBe(true);
   });
+
+  it("menu Halaman Isolir tampil setelah Logo bagi pemegang isolir_page:read", () => {
+    const pengaturan = ADMIN_MENU_CONFIG.filter(
+      (item) => item.code === "PENGATURAN",
+    );
+    const visibleChildren = (permissions: string[]) =>
+      filterAdminMenuItems({
+        items: pengaturan,
+        hasPermission: (permission) => permissions.includes(permission),
+        isFeatureEnabled: () => true,
+      })[0]?.children?.map((child) => child.code) ?? [];
+
+    expect(visibleChildren(["logo:read", "isolir_page:read"])).toEqual([
+      "PENGATURAN.LOGO",
+      "PENGATURAN.HALAMAN_ISOLIR",
+    ]);
+    expect(visibleChildren(["logo:read"])).toEqual(["PENGATURAN.LOGO"]);
+  });
 });

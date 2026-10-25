@@ -260,6 +260,8 @@ function getPermissionResource(code: string): string {
     "PRESURVEI.LAPORAN": "presurvei_laporan",
     // Penilaian dibuka kepala sales (rencana) maupun pemegang laporan.
     "PRESURVEI.PENILAIAN": "presurvei_rencana",
+    // Tanpa pemetaan ini kode jatuh ke resource "halaman_isolir" yang tidak ada.
+    "PENGATURAN.HALAMAN_ISOLIR": "isolir_page",
   };
 
   if (specialMappings[code]) {
