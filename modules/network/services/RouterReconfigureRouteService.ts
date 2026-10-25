@@ -18,17 +18,11 @@ import {
   tryResolveIsolirProvisioning,
   type IsolirProvisioning,
 } from "../isolir/isolir-provisioning";
+import { getRouterCredentials } from "./router-credentials";
 
 const FORBIDDEN_ERROR = "FORBIDDEN:Akses ditolak";
 const NOT_FOUND_ERROR = "NOT_FOUND:No valid routers found among selection";
 const PROVISIONING_FAILED_MESSAGE = "Provisioning failed";
-
-interface RouterCredentialsInput {
-  apiUsername: string;
-  apiPassword: string;
-  apiUsernameGenerated?: string | null;
-  apiPasswordGenerated?: string | null;
-}
 
 interface ReconfigureContext {
   tenantId?: string;
@@ -47,13 +41,6 @@ interface RouterReconfigureResult {
   success: boolean;
   logs: string[];
   error: string | null;
-}
-
-function getRouterCredentials(router: RouterCredentialsInput) {
-  return {
-    username: router.apiUsernameGenerated || router.apiUsername,
-    password: router.apiPasswordGenerated || router.apiPassword,
-  };
 }
 
 // Port RADIUS sama dengan saat router ditambahkan: kembali ke 1812/1813

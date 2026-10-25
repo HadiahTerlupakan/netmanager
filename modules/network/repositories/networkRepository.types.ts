@@ -55,6 +55,19 @@ export interface RouterReconfigureRecord {
   tenantId: string | null;
 }
 
+/** Router tujuan pengiriman halaman isolir tenant. */
+export interface IsolirPushRouterRecord {
+  id: string;
+  name: string;
+  ipAddress: string;
+  apiPort: number;
+  apiUsername: string;
+  apiPassword: string;
+  apiUsernameGenerated: string | null;
+  apiPasswordGenerated: string | null;
+  isolirPageHash: string | null;
+}
+
 export interface RouterGeneratedApiUserRecord {
   apiUsernameGenerated: string;
   apiPasswordGenerated: string;

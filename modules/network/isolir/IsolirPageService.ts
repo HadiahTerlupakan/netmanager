@@ -4,6 +4,7 @@ import path from "path";
 import sharp from "sharp";
 import { deleteUploadedFile, saveFile } from "@/lib/utils/image-upload";
 import { resolveIsolirContent } from "./isolir-content";
+import { pushIsolirPageToTenantRouters } from "./isolir-push";
 import type { IsolirPageInput } from "./isolir-page.types";
 import { renderIsolirPage, type IsolirRenderResult } from "./isolir-render";
 import { IsolirPageRepository } from "./IsolirPageRepository";
@@ -172,13 +173,11 @@ export function createIsolirPageService(pushToRouters: PushToRouters) {
 
 export type IsolirPageService = ReturnType<typeof createIsolirPageService>;
 
-// Pengiriman sungguhan ke router dipasang oleh pekerjaan pengiriman halaman;
-// sampai itu ada, penyimpanan tetap berjalan tanpa mendorong apa pun.
-const pushNothing: PushToRouters = async () => undefined;
-
 let instance: IsolirPageService | undefined;
 
 export function getIsolirPageService(): IsolirPageService {
-  instance ??= createIsolirPageService(pushNothing);
+  instance ??= createIsolirPageService((tenantId) =>
+    pushIsolirPageToTenantRouters(tenantId),
+  );
   return instance;
 }

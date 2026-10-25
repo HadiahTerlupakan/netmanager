@@ -7,6 +7,7 @@ import {
 } from "./networkRepository.selectors";
 import type {
   ActiveTenant,
+  IsolirPushRouterRecord,
   PelangganBasic,
   PelangganWithRouter,
   PelangganWithRouterBasic,
@@ -22,6 +23,7 @@ import type {
 
 export type {
   ActiveTenant,
+  IsolirPushRouterRecord,
   PelangganBasic,
   PelangganWithRouter,
   PelangganWithRouterBasic,
@@ -216,6 +218,25 @@ export class NetworkRepository {
         ...buildTenantOrGlobalScope(tenantId),
       },
       select: buildRouterReconfigureSelect(),
+    });
+  }
+
+  /**
+   * Router ROUTER_PAGE milik tenant. Filter tenant ditulis eksplisit karena
+   * pengiriman berjalan di konteks sistem, tanpa scope tenant otomatis.
+   * Router offline tidak disaring: kegagalannya dicatat di status kirim.
+   */
+  async findIsolirPageRouters(
+    tenantId: string,
+  ): Promise<IsolirPushRouterRecord[]> {
+    return prisma.mikroTikRouter.findMany({
+      where: { tenantId, isolirMode: "ROUTER_PAGE" },
+      select: {
+        ...buildRouterConnectionSelect(),
+        name: true,
+        isolirPageHash: true,
+      },
+      orderBy: DEFAULT_ROUTER_ORDER,
     });
   }
 
