@@ -102,6 +102,13 @@ export function ClientComponent() {
       },
     });
 
+  // Router publik tidak punya opsi Server isolir; nilai sisa dari mode VPN
+  // diturunkan agar tampilan dan kiriman sama dan tidak ditolak server.
+  const isolirMode =
+    !isVpnRouter && formData.isolirMode === "ISOLIR_SERVICE"
+      ? "ROUTER_PAGE"
+      : formData.isolirMode;
+
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -110,7 +117,7 @@ export function ClientComponent() {
       const res = await fetch(`/api/mikrotik-routers/${routerId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(withIsolirUrlForMode(formData)),
+        body: JSON.stringify(withIsolirUrlForMode({ ...formData, isolirMode })),
       });
 
       if (!res.ok) {
@@ -170,7 +177,7 @@ export function ClientComponent() {
       <MikrotikRouterForm
         title="Edit Router"
         pppConnectionMode={pppConnectionMode}
-        formData={formData}
+        formData={{ ...formData, isolirMode }}
         onChange={handleFormChange}
         onSubmit={handleSubmit}
         onTestClick={() => {

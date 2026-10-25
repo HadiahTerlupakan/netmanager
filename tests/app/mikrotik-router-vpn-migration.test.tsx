@@ -312,6 +312,27 @@ describe("MikrotikEditClient VPN migration", () => {
     expect(bodyOf(fetchPalsu, `PATCH ${ROUTER_URL}`).rosVersion).toBe("V7");
   });
 
+  it("router publik bermode Server isolir tampil dan tersimpan sebagai halaman di router", async () => {
+    const fetchPalsu = stubFetch({
+      ...pageRoutes(() => ({ isolirMode: "ISOLIR_SERVICE" })),
+      [`PATCH ${ROUTER_URL}`]: () =>
+        responsJson(200, { success: true, data: { success: true } }),
+    });
+    await openPage("Update Router");
+
+    expect(cari<HTMLSelectElement>("#mikrotik-isolir-mode")!.value).toBe(
+      "ROUTER_PAGE",
+    );
+    await klikTombol("Update Router");
+    await tungguSampai(
+      () => Boolean(bodyOf(fetchPalsu, `PATCH ${ROUTER_URL}`)),
+      "PATCH terkirim",
+    );
+    expect(bodyOf(fetchPalsu, `PATCH ${ROUTER_URL}`).isolirMode).toBe(
+      "ROUTER_PAGE",
+    );
+  });
+
   it("router VPN: kembali ke publik lewat konfirmasi dan meneruskan peringatan", async () => {
     let mode = "VPN";
     const warning = "Entri RADIUS lama belum terhapus dari router";

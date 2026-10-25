@@ -114,6 +114,11 @@ export class MikroTikRouterVpnMigrationRepository implements IVpnRouterMigration
           vpnCoreRouterId: null,
           vpnActiveServerId: null,
           vpnScriptStale: false,
+          // Layanan isolir hanya terjangkau lewat tunnel; tanpa reset ini form
+          // edit router publik tidak punya opsi yang cocok dan selalu gagal simpan.
+          ...(router.isolirMode === "ISOLIR_SERVICE" && {
+            isolirMode: "ROUTER_PAGE",
+          }),
         },
       });
       if (updated.count === 0) throw new VpnRouterBusyError();

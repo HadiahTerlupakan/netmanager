@@ -165,6 +165,42 @@ describe("MikroTikRouterVpnMigrationRepository", () => {
     );
   });
 
+  it("resets ISOLIR_SERVICE to ROUTER_PAGE when moving back to public", async () => {
+    const { repo, tx } = makeRepo();
+
+    await repo.switchToPublic({
+      ...router,
+      connectionMode: "VPN",
+      ipAddress: "10.100.0.10",
+      publicIpAddress: "198.51.100.7",
+      isolirMode: "ISOLIR_SERVICE",
+    });
+
+    expect(tx.mikroTikRouter.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ isolirMode: "ROUTER_PAGE" }),
+      }),
+    );
+  });
+
+  it.each(["ROUTER_PAGE", "REDIRECT"] as const)(
+    "leaves isolirMode %s untouched when moving back to public",
+    async (isolirMode) => {
+      const { repo, tx } = makeRepo();
+
+      await repo.switchToPublic({
+        ...router,
+        connectionMode: "VPN",
+        ipAddress: "10.100.0.10",
+        publicIpAddress: "198.51.100.7",
+        isolirMode,
+      });
+
+      const { data } = tx.mikroTikRouter.updateMany.mock.calls[0][0];
+      expect(data).not.toHaveProperty("isolirMode");
+    },
+  );
+
   it("moves the nasname back when the commit fails after the NAS moved", async () => {
     const { repo } = makeRepo(1, new Error("commit failed"));
 
