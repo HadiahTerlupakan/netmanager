@@ -3,10 +3,10 @@ import path from "path";
 import { access, unlink } from "fs/promises";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { getR2Settings } from "@/lib/utils/r2-client";
-import { isImageFile, saveFile } from "@/lib/utils/image-upload";
+import { saveFile } from "@/lib/utils/image-upload";
 import { SettingsRepository } from "../repositories/SettingsRepository";
 import type { ISettingsRepository } from "../domain/ports/ISettingsRepository";
-import { trimLogoPadding } from "./logo-trim";
+import { toSafeLogoFile } from "./logo-trim";
 
 export type LogoType = "invoice" | "aplikasi" | "landing";
 
@@ -82,25 +82,6 @@ function resolvePublicFilePath(publicPath: string): string {
   return path.join(process.cwd(), "public", publicPath.replace(/^\/+/, ""));
 }
 
-function resolveLogoExtension(file: File): string {
-  const extension = path.extname(file.name).toLowerCase();
-
-  if (extension) {
-    return extension;
-  }
-
-  switch (file.type) {
-    case "image/png":
-      return ".png";
-    case "image/webp":
-      return ".webp";
-    case "image/gif":
-      return ".gif";
-    default:
-      return ".jpg";
-  }
-}
-
 async function safeDeletePublicFile(publicPath: string): Promise<void> {
   if (isRemoteFilePath(publicPath)) {
     return;
@@ -162,13 +143,10 @@ export async function uploadLogo(
   tenantId?: string | null,
   repository: ISettingsRepository = defaultSettingsRepository,
 ): Promise<string> {
-  if (!isImageFile(file)) {
-    throw new Error("File harus berupa gambar (PNG, JPG, JPEG)");
-  }
-
   if (file.size > MAX_LOGO_SIZE_BYTES) {
     throw new Error("Ukuran file maksimal 5MB");
   }
+  const logo = await toSafeLogoFile(file);
 
   const activeTenantId = await resolveActiveTenantId(tenantId);
   const settingKey = getSettingKey(type);
@@ -185,12 +163,10 @@ export async function uploadLogo(
     landing: "logo-landing-page",
   };
   const fileName = logoFileNameByType[type];
-  const extension = resolveLogoExtension(file);
-  const trimmedFile = await trimLogoPadding(file);
   const savedPath = await saveFile(
-    trimmedFile,
+    logo.file,
     uploadDir,
-    `${fileName}${extension}`,
+    `${fileName}${logo.extension}`,
     "logos",
   );
   const normalizedPath = normalizeStoredLogoPath(savedPath);

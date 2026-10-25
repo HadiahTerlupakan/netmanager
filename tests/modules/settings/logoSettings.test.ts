@@ -1,16 +1,15 @@
+import sharp from "sharp";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   mockAccess,
   mockConvertAndSaveImage,
   mockGetR2Settings,
-  mockIsImageFile,
   mockSaveFile,
 } = vi.hoisted(() => ({
   mockAccess: vi.fn(),
   mockConvertAndSaveImage: vi.fn(),
   mockGetR2Settings: vi.fn(),
-  mockIsImageFile: vi.fn(),
   mockSaveFile: vi.fn(),
 }));
 
@@ -45,7 +44,6 @@ vi.mock("../../../modules/settings/repositories/SettingsRepository", () => ({
 
 vi.mock("../../../lib/utils/image-upload", () => ({
   convertAndSaveImage: mockConvertAndSaveImage,
-  isImageFile: mockIsImageFile,
   saveFile: mockSaveFile,
 }));
 
@@ -53,10 +51,20 @@ vi.mock("../../../lib/utils/r2-client", () => ({
   getR2Settings: mockGetR2Settings,
 }));
 
+async function pngLogo(): Promise<File> {
+  const png = await sharp({
+    create: { width: 32, height: 32, channels: 3, background: "#0d9488" },
+  })
+    .png()
+    .toBuffer();
+  return new File([new Uint8Array(png)], "logo.png", { type: "image/png" });
+}
+
+const savedPng = expect.objectContaining({ type: "image/png" });
+
 describe("logoSettings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsImageFile.mockReturnValue(true);
     mockGetR2Settings.mockResolvedValue(null);
     vi.mocked(getTenantIdFromContext).mockResolvedValue({
       tenantId: "tenant-1",
@@ -68,7 +76,7 @@ describe("logoSettings", () => {
   });
 
   it("menyimpan logo aplikasi tenant dengan format file asli tanpa konversi webp", async () => {
-    const file = new File(["logo"], "logo.png", { type: "image/png" });
+    const file = await pngLogo();
 
     mockSaveFile.mockResolvedValue(
       "https://cdn.example.com/uploads/logos/logo-aplikasi.png",
@@ -86,7 +94,7 @@ describe("logoSettings", () => {
       "tenant-1",
     );
     expect(mockSaveFile).toHaveBeenCalledWith(
-      file,
+      savedPng,
       expect.stringContaining("public/uploads/logos"),
       "logo-aplikasi.png",
       "logos",
@@ -105,7 +113,7 @@ describe("logoSettings", () => {
   });
 
   it("menyimpan logo landing page dengan key, deskripsi, dan nama file yang benar", async () => {
-    const file = new File(["logo"], "logo.png", { type: "image/png" });
+    const file = await pngLogo();
 
     mockSaveFile.mockResolvedValue(
       "https://cdn.example.com/uploads/logos/logo-landing-page.png",
@@ -123,7 +131,7 @@ describe("logoSettings", () => {
       "tenant-1",
     );
     expect(mockSaveFile).toHaveBeenCalledWith(
-      file,
+      savedPng,
       expect.stringContaining("public/uploads/logos"),
       "logo-landing-page.png",
       "logos",
