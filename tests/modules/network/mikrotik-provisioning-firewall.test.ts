@@ -297,4 +297,19 @@ describe("provisionFirewallBypass", () => {
 
     expect(router.filter).toEqual([]);
   });
+
+  it("deprovision mempertahankan proxy guard bila web proxy masih menyala", async () => {
+    const router = fakeRouter();
+    await provision(router);
+
+    await removeFirewallBypass({
+      connection: router as unknown as RouterOSAPI,
+      logs: [],
+      keepProxyGuard: true,
+    });
+
+    expect(router.filter.map((r) => r.comment)).toEqual([
+      "netmanager-proxy-guard",
+    ]);
+  });
 });

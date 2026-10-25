@@ -7,7 +7,10 @@ vi.mock("@/modules/network/services/mikrotik-provisioning.connection", () => ({
 vi.mock("@/lib/logger", () => ({ logger: { error: vi.fn() } }));
 
 import type { IsolirProvisioning } from "@/modules/network/isolir/isolir-provisioning";
-import { provisionWebProxy } from "@/modules/network/services/mikrotik-provisioning.proxy";
+import {
+  provisionWebProxy,
+  removeWebProxy,
+} from "@/modules/network/services/mikrotik-provisioning.proxy";
 
 const COMMENT = "added by netmanager - 10.127.0.0/18";
 const ROUTER_PAGE: IsolirProvisioning = {
@@ -153,5 +156,33 @@ describe("provisionWebProxy", () => {
     await expect(provision(fakeRouter([]), ROUTER_PAGE)).resolves.toBe(
       undefined,
     );
+  });
+});
+
+describe("removeWebProxy", () => {
+  function remove(router: ReturnType<typeof fakeRouter>) {
+    return removeWebProxy({
+      connection: router as unknown as RouterOSAPI,
+      logs: [],
+    });
+  }
+
+  it("melaporkan true setelah web proxy dimatikan", async () => {
+    const router = fakeRouter([]);
+
+    await expect(remove(router)).resolves.toBe(true);
+    expect(callsTo(router, "/ip/proxy/set")).toEqual([
+      ["/ip/proxy/set", ["=enabled=no"]],
+    ]);
+  });
+
+  it("melaporkan false bila web proxy gagal dimatikan", async () => {
+    const router = fakeRouter([]);
+    router.write.mockImplementation(async (path: string) => {
+      if (path === "/ip/proxy/set") throw new Error("timeout");
+      return [];
+    });
+
+    await expect(remove(router)).resolves.toBe(false);
   });
 });

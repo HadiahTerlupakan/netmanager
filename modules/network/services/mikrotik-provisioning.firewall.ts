@@ -182,8 +182,15 @@ async function removeAllowEntries(
   }
 }
 
-async function removeFilterRules(connection: RouterOSAPI, logs: string[]) {
+async function removeFilterRules(
+  connection: RouterOSAPI,
+  logs: string[],
+  keepProxyGuard: boolean,
+) {
   for (const rule of FILTER_RULES) {
+    if (keepProxyGuard && rule.comment === "netmanager-proxy-guard") {
+      continue;
+    }
     const rules = await readRecords(
       connection,
       "/ip/firewall/filter/print",
@@ -226,10 +233,16 @@ async function removeExpiredProfiles(connection: RouterOSAPI, logs: string[]) {
 export async function removeFirewallBypass(params: {
   connection: RouterOSAPI;
   logs: string[];
+  /** Web proxy masih menyala: tanpa guard router menjadi open proxy. */
+  keepProxyGuard?: boolean;
 }) {
   // Router dilepas dari billing: seluruh list milik netmanager ikut dibuang.
   await removeAllowEntries(params.connection, () => true, params.logs);
-  await removeFilterRules(params.connection, params.logs);
+  await removeFilterRules(
+    params.connection,
+    params.logs,
+    params.keepProxyGuard ?? false,
+  );
   await removeExpiredProfiles(params.connection, params.logs);
 }
 

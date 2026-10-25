@@ -24,9 +24,7 @@ describe("pushIsolirPageInBackground", () => {
 
     pushIsolirPageInBackground("tenant-1");
 
-    await vi.waitFor(() =>
-      expect(mocks.push).toHaveBeenCalledWith("tenant-1"),
-    );
+    await vi.waitFor(() => expect(mocks.push).toHaveBeenCalledWith("tenant-1"));
   });
 
   it.each([null, undefined, ""])(

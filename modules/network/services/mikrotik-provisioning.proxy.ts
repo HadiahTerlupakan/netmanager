@@ -115,12 +115,13 @@ export async function provisionWebProxy(params: {
 
 /**
  * Hapus rule access billing dan matikan web proxy, yang dinyalakan
- * provisioning di setiap mode isolir.
+ * provisioning di setiap mode isolir. Mengembalikan false bila proxy
+ * gagal dimatikan.
  */
 export async function removeWebProxy(params: {
   connection: RouterOSAPI;
   logs: string[];
-}) {
+}): Promise<boolean> {
   // Rule yang gagal dibuang tidak boleh menghentikan teardown: mematikan
   // proxy sesudahnya yang menutup akses lewat port 8181.
   try {
@@ -132,7 +133,9 @@ export async function removeWebProxy(params: {
   try {
     await params.connection.write("/ip/proxy/set", ["=enabled=no"]);
     params.logs.push("Disabled Web Proxy");
+    return true;
   } catch (error: unknown) {
     logWebProxyError(params.logs, "disable Web Proxy", error);
+    return false;
   }
 }

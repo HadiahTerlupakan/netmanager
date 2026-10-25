@@ -167,9 +167,14 @@ export class MikroTikProvisioningService {
           await removeRadiusConfig({ connection, serverIp, logs });
           await restoreDefaultProxyPage(connection, logs);
           // Proxy dimatikan sebelum guard 8181 dibuang bersama firewall,
-          // agar putus di tengah tidak meninggalkan open proxy tanpa guard.
-          await removeWebProxy({ connection, logs });
-          await removeFirewallBypass({ connection, logs });
+          // agar putus di tengah tidak meninggalkan open proxy tanpa guard;
+          // bila proxy gagal dimatikan, guard tetap dipasang.
+          const proxyDisabled = await removeWebProxy({ connection, logs });
+          await removeFirewallBypass({
+            connection,
+            logs,
+            keepProxyGuard: !proxyDisabled,
+          });
           await removeNatRules({ connection, logs });
           await disableRadiusIncoming({ connection, logs });
         },
