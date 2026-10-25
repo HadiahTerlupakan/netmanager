@@ -63,6 +63,7 @@ function logWebProxyError(logs: string[], action: string, error: unknown) {
   const message = getWebProxyMessage(error);
   logger.error(`[Provisioning] Web Proxy Error: ${message}`);
   logs.push(`Failed to ${action}: ${message}`);
+  return message;
 }
 
 async function removeProxyRules(connection: RouterOSAPI, logs: string[]) {
@@ -77,16 +78,17 @@ async function removeProxyRules(connection: RouterOSAPI, logs: string[]) {
 
 /**
  * Nyalakan web proxy dan pasang rule access billing sesuai mode isolir.
- * Tanpa `isolir`, web proxy tidak disentuh.
+ * Tanpa `isolir`, web proxy tidak disentuh. Galat tidak dilempar agar
+ * provisioning berlanjut; pesannya dikembalikan untuk status halaman.
  */
 export async function provisionWebProxy(params: {
   connection: RouterOSAPI;
   isolir: IsolirProvisioning | null;
   logs: string[];
-}) {
+}): Promise<string | undefined> {
   const { isolir } = params;
   if (!isolir) {
-    return;
+    return undefined;
   }
 
   try {
@@ -94,7 +96,7 @@ export async function provisionWebProxy(params: {
     const existing = await readProxyRules(params.connection);
     if (existing.length === 0) {
       await addProxyRule(params.connection, isolir, params.logs);
-      return;
+      return undefined;
     }
     // Menangkap URL isolir atau mode yang berganti setelah router diprovision.
     await restoreRows({
@@ -105,8 +107,9 @@ export async function provisionWebProxy(params: {
       logs: params.logs,
       label: "Web Proxy Access Rule",
     });
+    return undefined;
   } catch (error: unknown) {
-    logWebProxyError(params.logs, "configure Web Proxy", error);
+    return logWebProxyError(params.logs, "configure Web Proxy", error);
   }
 }
 
@@ -118,7 +121,13 @@ export async function removeWebProxy(params: {
   connection: RouterOSAPI;
   logs: string[];
 }) {
-  await removeProxyRules(params.connection, params.logs);
+  // Rule yang gagal dibuang tidak boleh menghentikan teardown: mematikan
+  // proxy sesudahnya yang menutup akses lewat port 8181.
+  try {
+    await removeProxyRules(params.connection, params.logs);
+  } catch (error: unknown) {
+    logWebProxyError(params.logs, "remove Web Proxy Access Rule", error);
+  }
 
   try {
     await params.connection.write("/ip/proxy/set", ["=enabled=no"]);

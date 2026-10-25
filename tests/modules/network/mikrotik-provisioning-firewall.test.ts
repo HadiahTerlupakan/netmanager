@@ -179,18 +179,22 @@ describe("provisionFirewallBypass", () => {
     },
   );
 
-  it("menghapus entri netmanager_allow lain, kecuali entri dinamis hasil DNS", async () => {
+  const allowRow = (id: string, address: string, extra: Partial<Row> = {}) =>
+    ({ ".id": id, list: "netmanager_allow", address, ...extra }) as Row;
+
+  it("hanya menghapus host isolir lama; entri IP, operator, dan dinamis tetap", async () => {
     const router = fakeRouter(
       [],
       [
-        { ".id": "*1", list: "netmanager_allow", address: "10.99.0.1" },
-        { ".id": "*2", list: "netmanager_allow", address: "isolir.lama.id" },
-        {
-          ".id": "*3",
-          list: "netmanager_allow",
-          address: "203.0.113.9",
+        allowRow("*1", "10.99.0.1", { comment: "accept.10.99.0.1" }),
+        allowRow("*2", "isolir.lama.id", { comment: "accept.isolir.lama.id" }),
+        allowRow("*3", "203.0.113.5", { comment: "accept.203.0.113.5" }),
+        allowRow("*4", "198.51.100.0/24", { comment: "NOC kantor" }),
+        allowRow("*5", "noc.operator.id", { comment: "NOC cadangan" }),
+        allowRow("*6", "isolir.dns.id", {
+          comment: "accept.isolir.dns.id",
           dynamic: "true",
-        },
+        }),
       ],
     );
 
@@ -205,6 +209,45 @@ describe("provisionFirewallBypass", () => {
         "=address=isolir.baru.id",
         "=comment=accept.isolir.baru.id",
       ],
+    ]);
+  });
+
+  it("migrasi VPN memasang IP tunnel tanpa membuang IP billing publik", async () => {
+    // Saat migrasi PUBLIC -> VPN provisionRadius dipanggil dengan IP tunnel;
+    // IP publik lama masih dipakai input-bypass sampai migrasi selesai atau
+    // dibatalkan.
+    const router = fakeRouter(
+      [],
+      [allowRow("*1", "203.0.113.5", { comment: "accept.203.0.113.5" })],
+    );
+
+    await provision(router);
+
+    expect(calls(router, "/ip/firewall/address-list/remove")).toEqual([]);
+    expect(router.allow.map((r) => r.address)).toEqual([
+      "203.0.113.5",
+      "10.99.0.1",
+    ]);
+  });
+
+  it("deprovision membuang seluruh entri statis netmanager_allow", async () => {
+    const router = fakeRouter(
+      [],
+      [
+        allowRow("*1", "203.0.113.5", { comment: "accept.203.0.113.5" }),
+        allowRow("*2", "isolir.lama.id", { comment: "accept.isolir.lama.id" }),
+        allowRow("*3", "isolir.dns.id", { dynamic: "true" }),
+      ],
+    );
+
+    await removeFirewallBypass({
+      connection: router as unknown as RouterOSAPI,
+      logs: [],
+    });
+
+    expect(calls(router, "/ip/firewall/address-list/remove")).toEqual([
+      ["=.id=*1"],
+      ["=.id=*2"],
     ]);
   });
 

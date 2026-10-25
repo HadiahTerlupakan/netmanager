@@ -19,6 +19,7 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import {
+  buildIsolirPageSync,
   resolveIsolirProvisioning,
   splitIsolirTarget,
 } from "@/modules/network/isolir/isolir-provisioning";
@@ -206,6 +207,12 @@ describe("deprovisionRadius", () => {
         if (path === "/ip/proxy/access/print") {
           return [{ ".id": "*p1" }, { ".id": "*p2" }];
         }
+        if (
+          path === "/ip/firewall/filter/print" &&
+          args.includes("?comment=netmanager-proxy-guard")
+        ) {
+          return [{ ".id": "*g1" }];
+        }
         return [];
       },
     );
@@ -244,5 +251,122 @@ describe("deprovisionRadius", () => {
     );
     expect(disableAt).toBeGreaterThan(-1);
     expect(order.indexOf("/ip/proxy/reset-html")).toBeLessThan(disableAt);
+  });
+
+  function proxyDisableIndex() {
+    return mocks.connection.write.mock.calls.findIndex(
+      ([p, args]) => p === "/ip/proxy/set" && args?.includes("=enabled=no"),
+    );
+  }
+
+  function guardRemoveIndex() {
+    return mocks.connection.write.mock.calls.findIndex(
+      ([p, args]) =>
+        p === "/ip/firewall/filter/remove" && args?.includes("=.id=*g1"),
+    );
+  }
+
+  it("mematikan web proxy sebelum membuang guard 8181", async () => {
+    await new MikroTikProvisioningService().deprovisionRadius(
+      { ip: "203.0.113.20", port: 8728, username: "u", password: "p" },
+      "10.99.0.1",
+    );
+
+    expect(proxyDisableIndex()).toBeGreaterThan(-1);
+    expect(guardRemoveIndex()).toBeGreaterThan(proxyDisableIndex());
+  });
+
+  it("rule proxy yang gagal dibuang dicatat dan teardown berlanjut", async () => {
+    const base = mocks.connection.write.getMockImplementation()!;
+    mocks.connection.write.mockImplementation(
+      async (path: string, args: string[] = []) => {
+        if (path === "/ip/proxy/access/remove") throw new Error("busy");
+        return base(path, args);
+      },
+    );
+
+    const result = await new MikroTikProvisioningService().deprovisionRadius(
+      { ip: "203.0.113.20", port: 8728, username: "u", password: "p" },
+      "10.99.0.1",
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.logs).toContain(
+      "Failed to remove Web Proxy Access Rule: busy",
+    );
+    expect(proxyDisableIndex()).toBeGreaterThan(-1);
+    expect(guardRemoveIndex()).toBeGreaterThan(proxyDisableIndex());
+    expect(removed("/ip/firewall/nat/print").length).toBeGreaterThan(0);
+  });
+});
+
+describe("provisionRadius", () => {
+  const routerDetails = {
+    ip: "203.0.113.20",
+    port: 8728,
+    username: "u",
+    password: "p",
+  };
+  const page = { mode: "ROUTER_PAGE", html: "<html>x</html>", hash: "h" };
+
+  function setRouter(fail: Partial<Record<string, string>> = {}) {
+    mocks.connection.write.mockReset();
+    mocks.connection.write.mockImplementation(async (path: string) => {
+      if (fail[path]) throw new Error(fail[path]);
+      if (path === "/file/print") return [{ ".id": "*f1", name: PAGE_FILE }];
+      return [];
+    });
+  }
+
+  function provision() {
+    return new MikroTikProvisioningService().provisionRadius(
+      routerDetails,
+      "10.99.0.1",
+      "secret",
+      page as never,
+    );
+  }
+
+  function indexOf(path: string) {
+    return mocks.connection.write.mock.calls.findIndex(([p]) => p === path);
+  }
+
+  it("menulis halaman isolir setelah rule NAT terpasang", async () => {
+    setRouter();
+
+    const result = await provision();
+
+    expect(result).toMatchObject({ success: true });
+    expect(result.isolirPageError).toBeUndefined();
+    expect(indexOf("/ip/firewall/nat/add")).toBeGreaterThan(-1);
+    expect(indexOf("/file/set")).toBeGreaterThan(
+      indexOf("/ip/firewall/nat/add"),
+    );
+  });
+
+  it("halaman yang gagal ditulis tidak menahan NAT", async () => {
+    setRouter({ "/file/set": "file busy" });
+
+    const result = await provision();
+
+    expect(result).toMatchObject({
+      success: true,
+      isolirPageError: "file busy",
+    });
+    expect(indexOf("/ip/firewall/nat/add")).toBeGreaterThan(-1);
+  });
+
+  it("web proxy yang gagal menjadi galat halaman tanpa menggagalkan provisioning", async () => {
+    setRouter({ "/ip/proxy/set": "proxy down" });
+
+    const result = await provision();
+
+    expect(result).toMatchObject({
+      success: true,
+      isolirPageError: "proxy down",
+    });
+    expect(
+      buildIsolirPageSync({ isolir: page as never, error: null }, result),
+    ).toEqual({ hash: null, error: "proxy down" });
   });
 });

@@ -6,6 +6,7 @@ import {
   getAllowListArgs,
   getExpiredProfileArgs,
   getExpiredProfileSetArgs,
+  isStaleIsolirHostEntry,
   type AddressListItem,
 } from "./mikrotik-provisioning.firewall.helpers";
 import { restoreRows, type RouterRow } from "./mikrotik-provisioning.restore";
@@ -153,14 +154,13 @@ async function removeRecord(input: {
 }
 
 /**
- * Hapus entri statis netmanager_allow selain `keep`; list itu milik billing
- * seluruhnya, jadi host isolir lama ikut hilang. Entri dinamis hasil resolve
- * DNS ditolak RouterOS bila dihapus langsung dan hilang bersama entri
- * domainnya.
+ * Hapus entri statis netmanager_allow yang lolos `shouldRemove`. Entri dinamis
+ * hasil resolve DNS ditolak RouterOS bila dihapus langsung dan hilang bersama
+ * entri domainnya.
  */
-async function pruneAllowList(
+async function removeAllowEntries(
   connection: RouterOSAPI,
-  keep: readonly string[],
+  shouldRemove: (item: RouterRow) => boolean,
   logs: string[],
 ) {
   const items = await readRecords(
@@ -170,9 +170,7 @@ async function pruneAllowList(
   );
 
   for (const item of items) {
-    if (item.dynamic === "true" || keep.includes(item.address ?? "")) {
-      continue;
-    }
+    if (item.dynamic === "true" || !shouldRemove(item)) continue;
     await removeRecord({
       connection,
       path: "/ip/firewall/address-list/remove",
@@ -229,7 +227,8 @@ export async function removeFirewallBypass(params: {
   connection: RouterOSAPI;
   logs: string[];
 }) {
-  await pruneAllowList(params.connection, [], params.logs);
+  // Router dilepas dari billing: seluruh list milik netmanager ikut dibuang.
+  await removeAllowEntries(params.connection, () => true, params.logs);
   await removeFilterRules(params.connection, params.logs);
   await removeExpiredProfiles(params.connection, params.logs);
 }
@@ -238,9 +237,10 @@ export async function removeFirewallBypass(params: {
 export async function provisionFirewallBypass(params: FirewallBypassParams) {
   const items = buildAddressListItems(params.serverIp, params.isolir);
   await ensureAddressList(params.connection, items, params.logs);
-  await pruneAllowList(
+  const keep = items.map((item) => item.address);
+  await removeAllowEntries(
     params.connection,
-    items.map((item) => item.address),
+    (item) => isStaleIsolirHostEntry(item, keep),
     params.logs,
   );
   await ensureFilterRules(params.connection, params.logs);

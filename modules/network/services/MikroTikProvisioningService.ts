@@ -123,15 +123,21 @@ export class MikroTikProvisioningService {
           });
           await enableRadiusIncoming({ connection, logs });
           await provisionFirewallBypass({ connection, serverIp, isolir, logs });
-          await provisionWebProxy({ connection, isolir, logs });
-          if (isolir?.mode === "ROUTER_PAGE") {
-            isolirPageError = await provisionIsolirPage(
-              connection,
-              isolir.html,
-              logs,
-            );
-          }
+          // Proxy yang gagal membuat halaman tidak tersaji, jadi galatnya
+          // dicatat sebagai galat halaman tanpa menggagalkan provisioning.
+          const proxyError = await provisionWebProxy({
+            connection,
+            isolir,
+            logs,
+          });
           await provisionNatRules({ connection, logs });
+          // Ditulis paling akhir: reset-html atau /file/set yang macet atau
+          // gagal tidak boleh menahan rule NAT isolir.
+          const pageError =
+            isolir?.mode === "ROUTER_PAGE"
+              ? await provisionIsolirPage(connection, isolir.html, logs)
+              : undefined;
+          isolirPageError = proxyError ?? pageError;
         },
       });
 
@@ -159,9 +165,11 @@ export class MikroTikProvisioningService {
         operation: async (connection) => {
           logs.push(`Connected to MikroTik at ${routerDetails.ip}`);
           await removeRadiusConfig({ connection, serverIp, logs });
-          await removeFirewallBypass({ connection, logs });
           await restoreDefaultProxyPage(connection, logs);
+          // Proxy dimatikan sebelum guard 8181 dibuang bersama firewall,
+          // agar putus di tengah tidak meninggalkan open proxy tanpa guard.
           await removeWebProxy({ connection, logs });
+          await removeFirewallBypass({ connection, logs });
           await removeNatRules({ connection, logs });
           await disableRadiusIncoming({ connection, logs });
         },

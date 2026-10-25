@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import {
   splitIsolirTarget,
   type IsolirProvisioning,
@@ -27,6 +28,31 @@ export function buildAddressListItems(
     items.push({ address: host, comment: `accept.${host}` });
   }
   return items;
+}
+
+// Alamat address-list RouterOS bisa berupa IP, CIDR, rentang a-b, atau nama
+// host; hanya nama host yang tidak lolos isIP di setiap bagiannya.
+function isHostname(address: string) {
+  return !address.split(/[/-]/).every((part) => isIP(part) !== 0);
+}
+
+/**
+ * Entri host isolir REDIRECT lama yang boleh dibuang saat provisioning.
+ * netmanager_allow juga dipakai rule input-bypass untuk akses manajemen dan
+ * CoA, jadi entri IP (server billing lama saat migrasi VPN, IP NOC operator)
+ * tidak pernah dihapus; yang dibuang hanya nama host berkomentar `accept.`
+ * yang dulu ditulis provisioning dan kini bukan host isolir lagi.
+ */
+export function isStaleIsolirHostEntry(
+  item: Record<string, string | undefined>,
+  keep: readonly string[],
+) {
+  const address = item.address ?? "";
+  return (
+    isHostname(address) &&
+    (item.comment ?? "").startsWith("accept.") &&
+    !keep.includes(address)
+  );
 }
 
 export function getAddressListArgs(address: string) {

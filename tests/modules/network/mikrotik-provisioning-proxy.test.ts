@@ -140,4 +140,18 @@ describe("provisionWebProxy", () => {
       ["/ip/proxy/set", ["=enabled=yes", "=port=8181"]],
     ]);
   });
+
+  it("mengembalikan pesan galat bila web proxy gagal dikonfigurasi", async () => {
+    const router = fakeRouter([]);
+    router.write.mockRejectedValueOnce(new Error("proxy down"));
+
+    await expect(provision(router, ROUTER_PAGE)).resolves.toBe("proxy down");
+    expect(callsTo(router, "/ip/proxy/access/add")).toEqual([]);
+  });
+
+  it("tidak mengembalikan galat saat berhasil", async () => {
+    await expect(provision(fakeRouter([]), ROUTER_PAGE)).resolves.toBe(
+      undefined,
+    );
+  });
 });
