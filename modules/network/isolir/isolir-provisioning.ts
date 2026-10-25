@@ -1,16 +1,18 @@
-import type { IsolirMode } from "@prisma/client";
+import type { IsolirMode, RouterConnectionMode } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import type {
   IRouterAccessRepository,
   IsolirPageSyncUpdate,
 } from "../domain/ports/IRouterAccessRepository";
+import { getVpnCoreAddress } from "../vpn/VpnCoreClient";
 import { resolveIsolirContent } from "./isolir-content";
 import { renderIsolirPage } from "./isolir-render";
 
 /** Yang dipasang provisioning di router untuk pelanggan isolir. */
 export type IsolirProvisioning =
   | { mode: "ROUTER_PAGE"; html: string; hash: string }
-  | { mode: "REDIRECT"; target: string };
+  | { mode: "REDIRECT"; target: string }
+  | { mode: "ISOLIR_SERVICE"; address: string };
 
 /** Hasil provisioning yang menentukan status kirim halaman isolir. */
 type IsolirPageOutcome = {
@@ -44,13 +46,25 @@ export function splitIsolirTarget(url: string): {
 /**
  * Tentukan konfigurasi isolir router. Mode REDIRECT tanpa URL yang bisa
  * dipakai (data lama yang rusak) jatuh ke halaman di router, karena tanpa
- * itu pelanggan isolir hanya melihat koneksi gagal.
+ * itu pelanggan isolir hanya melihat koneksi gagal. Mode ISOLIR_SERVICE
+ * hanya terjangkau lewat tunnel, jadi router publik juga jatuh ke halaman
+ * di router.
  */
 export async function resolveIsolirProvisioning(router: {
   isolirMode: IsolirMode;
   isolirUrl: string | null;
   tenantId: string | null;
+  connectionMode: RouterConnectionMode;
 }): Promise<IsolirProvisioning> {
+  if (router.isolirMode === "ISOLIR_SERVICE") {
+    if (router.connectionMode === "VPN") {
+      return { mode: "ISOLIR_SERVICE", address: getVpnCoreAddress() };
+    }
+    logger.warn(
+      "[Isolir] Router publik bermode ISOLIR_SERVICE, memakai halaman di router",
+    );
+  }
+
   if (router.isolirMode === "REDIRECT") {
     const { host, target } = splitIsolirTarget(router.isolirUrl ?? "");
     if (host) {

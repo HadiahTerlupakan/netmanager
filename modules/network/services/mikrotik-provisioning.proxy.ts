@@ -8,6 +8,9 @@ const PROXY_PORT = "8181";
 const EXPIRED_NETWORK = "10.127.0.0/18";
 const PROXY_RULE_COMMENT = `added by netmanager - ${EXPIRED_NETWORK}`;
 
+/** Mode isolir yang disajikan lewat web proxy router. */
+type ProxyIsolir = Exclude<IsolirProvisioning, { mode: "ISOLIR_SERVICE" }>;
+
 async function enableWebProxy(connection: RouterOSAPI, logs: string[]) {
   await connection.write("/ip/proxy/set", [
     "=enabled=yes",
@@ -19,7 +22,7 @@ async function enableWebProxy(connection: RouterOSAPI, logs: string[]) {
 
 // deny membuat router menyajikan webproxy/error.html, yaitu halaman isolir
 // yang ditulis billing.
-function getProxyRuleArgs(isolir: IsolirProvisioning) {
+function getProxyRuleArgs(isolir: ProxyIsolir) {
   if (isolir.mode === "ROUTER_PAGE") {
     return [`=src-address=${EXPIRED_NETWORK}`, "=action=deny"];
   }
@@ -30,7 +33,7 @@ function getProxyRuleArgs(isolir: IsolirProvisioning) {
   ];
 }
 
-function describeProxyRule(isolir: IsolirProvisioning) {
+function describeProxyRule(isolir: ProxyIsolir) {
   return isolir.mode === "ROUTER_PAGE"
     ? `Deny ${EXPIRED_NETWORK} (router isolir page)`
     : `Redirect ${EXPIRED_NETWORK} to ${isolir.target}`;
@@ -44,7 +47,7 @@ async function readProxyRules(connection: RouterOSAPI) {
 
 async function addProxyRule(
   connection: RouterOSAPI,
-  isolir: IsolirProvisioning,
+  isolir: ProxyIsolir,
   logs: string[],
 ) {
   await connection.write("/ip/proxy/access/add", [
@@ -78,7 +81,8 @@ async function removeProxyRules(connection: RouterOSAPI, logs: string[]) {
 
 /**
  * Nyalakan web proxy dan pasang rule access billing sesuai mode isolir.
- * Tanpa `isolir`, web proxy tidak disentuh. Galat tidak dilempar agar
+ * Tanpa `isolir`, atau di mode ISOLIR_SERVICE yang membelokkan pelanggan
+ * lewat NAT ke servis isolir, web proxy tidak disentuh. Galat tidak dilempar agar
  * provisioning berlanjut; pesannya dikembalikan untuk status halaman.
  */
 export async function provisionWebProxy(params: {
@@ -87,7 +91,7 @@ export async function provisionWebProxy(params: {
   logs: string[];
 }): Promise<string | undefined> {
   const { isolir } = params;
-  if (!isolir) {
+  if (!isolir || isolir.mode === "ISOLIR_SERVICE") {
     return undefined;
   }
 

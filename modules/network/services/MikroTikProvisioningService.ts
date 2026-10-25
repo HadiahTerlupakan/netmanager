@@ -130,7 +130,7 @@ export class MikroTikProvisioningService {
             isolir,
             logs,
           });
-          await provisionNatRules({ connection, logs });
+          await provisionNatRules({ connection, logs, isolir });
           // Ditulis paling akhir: reset-html atau /file/set yang macet atau
           // gagal tidak boleh menahan rule NAT isolir.
           const pageError =

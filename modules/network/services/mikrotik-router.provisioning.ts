@@ -192,6 +192,7 @@ async function provisionRouterRadius(
     isolirMode: params.createData.isolirMode ?? "ROUTER_PAGE",
     isolirUrl: params.createData.isolirUrl ?? null,
     tenantId: params.createData.tenantId,
+    connectionMode: params.createData.connectionMode ?? "PUBLIC",
   });
   const provisioningResult = await params.provisioningService.provisionRadius(
     ...createRadiusProvisioningArgs({

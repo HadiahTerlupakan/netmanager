@@ -155,7 +155,7 @@ export class VpnRouterMigrationService {
     await assertTunnelApi(this.routerOs, tunnel);
 
     const coreAddress = getVpnCoreAddress();
-    await this.radius.add(tunnel, coreAddress, draft.address, router);
+    await this.radius.add(tunnel, coreAddress, draft.address, router, "VPN");
     try {
       await this.repo.switchToVpn(router, {
         tunnelAddress: draft.address,
@@ -192,7 +192,7 @@ export class VpnRouterMigrationService {
     await assertNotVpnOverlayTarget(router.publicIpAddress);
     const tunnel = routerApiConnection(router, router.ipAddress);
     const publicAddress = await this.certainPublicRadiusAddress();
-    await this.radius.add(tunnel, publicAddress, null, router);
+    await this.radius.add(tunnel, publicAddress, null, router, "PUBLIC");
     try {
       await this.repo.switchToPublic(router);
     } catch (error) {

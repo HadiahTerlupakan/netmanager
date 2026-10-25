@@ -140,6 +140,9 @@ const radiusConfig = {
   isolirUrl: null as string | null,
   tenantId: TENANT,
 };
+// Rule isolir dipasang untuk mode tujuan, bukan mode yang masih tersimpan.
+const vpnRadiusConfig = { ...radiusConfig, connectionMode: "VPN" };
+const publicRadiusConfig = { ...radiusConfig, connectionMode: "PUBLIC" };
 
 function makeService(
   router: VpnMigrationRouterRecord | null = publicRouter(),
@@ -295,7 +298,7 @@ describe("VpnRouterMigrationService.migrate", () => {
     expect(result).toEqual({});
     expect(routerOs.testApi).toHaveBeenCalledWith(tunnelConn);
     expect(calls).toEqual([
-      `addRadiusEntry ${JSON.stringify([tunnelConn, CORE_ADDRESS, TUNNEL_IP, radiusConfig])}`,
+      `addRadiusEntry ${JSON.stringify([tunnelConn, CORE_ADDRESS, TUNNEL_IP, vpnRadiusConfig])}`,
       `switchToVpn ${JSON.stringify([
         publicRouter(),
         {
@@ -329,7 +332,7 @@ describe("VpnRouterMigrationService.migrate", () => {
       service.migrate("router-1", TENANT, migrateInput),
     ).rejects.toBeInstanceOf(VpnRouterMigrationError);
     expect(calls).toEqual([
-      `addRadiusEntry ${JSON.stringify([tunnelConn, CORE_ADDRESS, TUNNEL_IP, radiusConfig])}`,
+      `addRadiusEntry ${JSON.stringify([tunnelConn, CORE_ADDRESS, TUNNEL_IP, vpnRadiusConfig])}`,
       `removeRadiusEntry ${JSON.stringify([tunnelConn, CORE_ADDRESS])}`,
     ]);
     expect(coreMock.claimRouter).not.toHaveBeenCalled();
@@ -379,7 +382,7 @@ describe("VpnRouterMigrationService.migrate", () => {
       service.migrate("router-1", TENANT, migrateInput),
     ).rejects.toBeInstanceOf(VpnRouterBusyError);
     expect(calls).toEqual([
-      `addRadiusEntry ${JSON.stringify([tunnelConn, CORE_ADDRESS, TUNNEL_IP, radiusConfig])}`,
+      `addRadiusEntry ${JSON.stringify([tunnelConn, CORE_ADDRESS, TUNNEL_IP, vpnRadiusConfig])}`,
     ]);
     expect(coreMock.claimRouter).not.toHaveBeenCalled();
   });
@@ -576,7 +579,7 @@ describe("VpnRouterMigrationService.revert", () => {
 
     expect(result).toEqual({});
     expect(calls).toEqual([
-      `addRadiusEntry ${JSON.stringify([tunnelConn, NETMANAGER_PUBLIC_IP, null, radiusConfig])}`,
+      `addRadiusEntry ${JSON.stringify([tunnelConn, NETMANAGER_PUBLIC_IP, null, publicRadiusConfig])}`,
       `switchToPublic ${JSON.stringify([vpnRouter()])}`,
       `removeOtherRadiusEntries ${JSON.stringify([tunnelConn, NETMANAGER_PUBLIC_IP])}`,
       `deleteCore ${JSON.stringify(["core-1"])}`,
@@ -647,7 +650,7 @@ describe("VpnRouterMigrationService.revert", () => {
       VpnRouterBusyError,
     );
     expect(calls).toEqual([
-      `addRadiusEntry ${JSON.stringify([tunnelConn, NETMANAGER_PUBLIC_IP, null, radiusConfig])}`,
+      `addRadiusEntry ${JSON.stringify([tunnelConn, NETMANAGER_PUBLIC_IP, null, publicRadiusConfig])}`,
     ]);
     expect(coreMock.deleteRouter).not.toHaveBeenCalled();
   });

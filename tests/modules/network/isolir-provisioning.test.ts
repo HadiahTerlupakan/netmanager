@@ -23,6 +23,7 @@ import {
   resolveIsolirProvisioning,
   splitIsolirTarget,
 } from "@/modules/network/isolir/isolir-provisioning";
+import { logger } from "@/lib/logger";
 import { renderIsolirPage } from "@/modules/network/isolir/isolir-render";
 import type { IsolirContent } from "@/modules/network/isolir/isolir-page.types";
 import { writeIsolirPageFile } from "@/modules/network/services/mikrotik-provisioning.isolir-page";
@@ -64,6 +65,7 @@ describe("splitIsolirTarget", () => {
 
 describe("resolveIsolirProvisioning", () => {
   beforeEach(() => {
+    vi.unstubAllEnvs();
     mocks.resolveIsolirContent.mockReset();
     mocks.resolveIsolirContent.mockResolvedValue(content);
   });
@@ -74,6 +76,7 @@ describe("resolveIsolirProvisioning", () => {
         isolirMode: "REDIRECT",
         isolirUrl: "https://isolir.x.id/abc",
         tenantId: "t1",
+        connectionMode: "PUBLIC",
       }),
     ).resolves.toEqual({ mode: "REDIRECT", target: "isolir.x.id/abc" });
     expect(mocks.resolveIsolirContent).not.toHaveBeenCalled();
@@ -84,6 +87,7 @@ describe("resolveIsolirProvisioning", () => {
       isolirMode: "ROUTER_PAGE",
       isolirUrl: null,
       tenantId: "t1",
+      connectionMode: "PUBLIC",
     });
 
     const rendered = renderIsolirPage(content);
@@ -95,6 +99,34 @@ describe("resolveIsolirProvisioning", () => {
     expect(mocks.resolveIsolirContent).toHaveBeenCalledWith("t1");
   });
 
+  it("ISOLIR_SERVICE pada router VPN memakai alamat core VPN", async () => {
+    vi.stubEnv("VPN_CORE_ADDRESS", "10.50.0.1");
+
+    await expect(
+      resolveIsolirProvisioning({
+        isolirMode: "ISOLIR_SERVICE",
+        isolirUrl: null,
+        tenantId: "t1",
+        connectionMode: "VPN",
+      }),
+    ).resolves.toEqual({ mode: "ISOLIR_SERVICE", address: "10.50.0.1" });
+    expect(mocks.resolveIsolirContent).not.toHaveBeenCalled();
+  });
+
+  it("ISOLIR_SERVICE pada router publik jatuh ke ROUTER_PAGE dengan peringatan", async () => {
+    const result = await resolveIsolirProvisioning({
+      isolirMode: "ISOLIR_SERVICE",
+      isolirUrl: null,
+      tenantId: "t1",
+      connectionMode: "PUBLIC",
+    });
+
+    expect(result.mode).toBe("ROUTER_PAGE");
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("ISOLIR_SERVICE"),
+    );
+  });
+
   it.each([null, "", "   "])(
     "REDIRECT dengan URL kosong (%j) jatuh ke ROUTER_PAGE",
     async (isolirUrl) => {
@@ -102,6 +134,7 @@ describe("resolveIsolirProvisioning", () => {
         isolirMode: "REDIRECT",
         isolirUrl,
         tenantId: null,
+        connectionMode: "PUBLIC",
       });
 
       expect(result.mode).toBe("ROUTER_PAGE");

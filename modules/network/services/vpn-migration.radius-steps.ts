@@ -1,3 +1,4 @@
+import type { RouterConnectionMode } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import type { VpnMigrationRouterRecord } from "../domain/ports/IVpnRouterMigrationRepository";
 import { VpnRouterMigrationError } from "../vpn/errors";
@@ -20,12 +21,16 @@ export interface VpnMigrationResult {
 export class VpnMigrationRadiusSteps {
   constructor(private readonly routerOs: VpnMigrationRouterOs) {}
 
-  /** Pasang entri untuk `serverIp`; melempar `VpnRouterMigrationError` bila gagal. */
+  /**
+   * Pasang entri untuk `serverIp` dengan rule isolir untuk `targetMode`;
+   * melempar `VpnRouterMigrationError` bila gagal.
+   */
   async add(
     conn: MikroTikProvisioningRouterDetails,
     serverIp: string,
     srcAddress: string | null,
     router: VpnMigrationRouterRecord,
+    targetMode: RouterConnectionMode,
   ): Promise<void> {
     try {
       await this.routerOs.addRadiusEntry(conn, serverIp, srcAddress, {
@@ -35,6 +40,7 @@ export class VpnMigrationRadiusSteps {
         isolirMode: router.isolirMode,
         isolirUrl: router.isolirUrl,
         tenantId: router.tenantId,
+        connectionMode: targetMode,
       });
     } catch (error) {
       logger.error(
