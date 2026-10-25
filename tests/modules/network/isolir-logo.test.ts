@@ -1,7 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { mkdir, writeFile, rm } from "fs/promises";
 import path from "path";
+const r2 = vi.hoisted(() => ({ getR2PublicBaseUrl: vi.fn() }));
+vi.mock("@/lib/utils/r2-client", () => r2);
+
 import { buildLogoDataUri } from "@/modules/network/isolir/isolir-logo";
 
 async function bigPng(): Promise<Buffer> {
@@ -22,6 +25,12 @@ async function sizeOf(dataUri: string) {
   return sharp(Buffer.from(base64, "base64")).metadata();
 }
 
+const R2_BASE = "https://cdn.example.test/media";
+
+beforeEach(() => {
+  r2.getR2PublicBaseUrl.mockResolvedValue(R2_BASE);
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -34,7 +43,7 @@ describe("buildLogoDataUri", () => {
       vi.fn().mockResolvedValue(new Response(new Uint8Array(png))),
     );
 
-    const uri = await buildLogoDataUri("https://x.test/logo.png");
+    const uri = await buildLogoDataUri(`${R2_BASE}/logo.png`);
 
     expect(uri).toMatch(/^data:image\/webp;base64,/);
     expect(uri!.length).toBeLessThanOrEqual(8 * 1024);
@@ -62,18 +71,65 @@ describe("buildLogoDataUri", () => {
     expect(await buildLogoDataUri(null)).toBeNull();
 
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("timeout")));
-    expect(await buildLogoDataUri("https://x.test/a.png")).toBeNull();
+    expect(await buildLogoDataUri(`${R2_BASE}/a.png`)).toBeNull();
 
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("bukan gambar")),
     );
-    expect(await buildLogoDataUri("https://x.test/a.txt")).toBeNull();
+    expect(await buildLogoDataUri(`${R2_BASE}/a.txt`)).toBeNull();
 
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 404 })),
     );
-    expect(await buildLogoDataUri("https://x.test/404.png")).toBeNull();
+    expect(await buildLogoDataUri(`${R2_BASE}/404.png`)).toBeNull();
+  });
+
+  it("tidak mengunduh URL di luar penyimpanan R2 sendiri", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    for (const url of [
+      "http://127.0.0.1/logo.png",
+      "http://169.254.169.254/latest",
+      "https://cdn.example.test/mediaevil/logo.png",
+    ]) {
+      expect(await buildLogoDataUri(url)).toBeNull();
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("tanpa basis R2 terkonfigurasi, URL http mana pun ditolak", async () => {
+    r2.getR2PublicBaseUrl.mockResolvedValue(null);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await buildLogoDataUri(`${R2_BASE}/logo.png`)).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("mengunduh URL R2 tanpa mengikuti redirect", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array(await bigPng())));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await buildLogoDataUri(`${R2_BASE}/logo.png`);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${R2_BASE}/logo.png`,
+      expect.objectContaining({ redirect: "error" }),
+    );
+  });
+
+  it("respons lebih dari 2 MiB menghasilkan null", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response(new Uint8Array(2 * 1024 * 1024 + 1))),
+    );
+    expect(await buildLogoDataUri(`${R2_BASE}/big.png`)).toBeNull();
   });
 });

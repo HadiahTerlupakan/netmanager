@@ -2,10 +2,12 @@ import path from "path";
 import { readFile } from "fs/promises";
 import sharp from "sharp";
 import { logger } from "@/lib/logger";
+import { getR2PublicBaseUrl } from "@/lib/utils/r2-client";
 
 const LOGO_MAX_SIDE_PX = 160;
 const LOGO_WEBP_QUALITY = 70;
 const LOGO_FETCH_TIMEOUT_MS = 5_000;
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 const PUBLIC_DIRECTORY = "public";
 
 async function readLocalLogo(source: string): Promise<Buffer | null> {
@@ -18,14 +20,59 @@ async function readLocalLogo(source: string): Promise<Buffer | null> {
   return readFile(filePath);
 }
 
-async function readRemoteLogo(url: string): Promise<Buffer | null> {
-  const response = await fetch(url, {
-    signal: AbortSignal.timeout(LOGO_FETCH_TIMEOUT_MS),
-  });
-  if (!response.ok) {
+/** Hanya URL di bawah basis publik R2 aplikasi sendiri yang dianggap aman. */
+async function isOwnStorageUrl(url: string): Promise<boolean> {
+  const base = await getR2PublicBaseUrl();
+  if (!base) {
+    return false;
+  }
+  try {
+    const target = new URL(url);
+    const root = new URL(base);
+    const rootPath = root.pathname.replace(/\/+$/, "");
+    return (
+      target.origin === root.origin &&
+      (target.pathname === rootPath ||
+        target.pathname.startsWith(`${rootPath}/`))
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function readBodyWithinCap(response: Response): Promise<Buffer | null> {
+  const declared = Number(response.headers.get("content-length") ?? 0);
+  if (declared > LOGO_MAX_BYTES || !response.body) {
     return null;
   }
-  return Buffer.from(await response.arrayBuffer());
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = response.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      return Buffer.concat(chunks);
+    }
+    total += value.byteLength;
+    if (total > LOGO_MAX_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+}
+
+// logoUrl diisi tenant, jadi hanya penyimpanan kita sendiri yang diunduh;
+// URL lain bisa mengarah ke jaringan internal (SSRF).
+async function readRemoteLogo(url: string): Promise<Buffer | null> {
+  if (!(await isOwnStorageUrl(url))) {
+    return null;
+  }
+  const response = await fetch(url, {
+    redirect: "error",
+    signal: AbortSignal.timeout(LOGO_FETCH_TIMEOUT_MS),
+  });
+  return response.ok ? readBodyWithinCap(response) : null;
 }
 
 /**
