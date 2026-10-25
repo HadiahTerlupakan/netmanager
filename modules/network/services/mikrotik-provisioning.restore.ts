@@ -12,14 +12,21 @@ function parseArg(arg: string): [string, string] {
 
 // RouterOS menerima yes/no saat menulis tetapi mencetak boolean sebagai
 // true/false; tanpa ini rule seperti passthrough=yes di-set ulang setiap kali.
-const PRINTED_BOOLEANS: Record<string, string> = { yes: "true", no: "false" };
+const PRINTED_BOOLEANS = new Map([
+  ["yes", "true"],
+  ["no", "false"],
+]);
+
+function matchesArg(printed: string | undefined, value: string) {
+  return printed === value || printed === PRINTED_BOOLEANS.get(value);
+}
 
 /** Baris yang dinonaktifkan atau nilainya tidak lagi sama dengan standar. */
 export function needsRestore(row: RouterRow, args: readonly string[]) {
   if (row.disabled === "true") return true;
   return args.some((arg) => {
     const [key, value] = parseArg(arg);
-    return row[key] !== value && row[key] !== PRINTED_BOOLEANS[value];
+    return row[key] === undefined || !matchesArg(row[key], value);
   });
 }
 
