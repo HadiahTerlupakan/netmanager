@@ -402,4 +402,126 @@ describe("provisionRadius", () => {
       buildIsolirPageSync({ isolir: page as never, error: null }, result),
     ).toEqual({ hash: null, error: "proxy down" });
   });
+
+  describe("mode ISOLIR_SERVICE", () => {
+    const service = { mode: "ISOLIR_SERVICE", address: "10.50.0.1" };
+    const GUARD = "netmanager-proxy-guard";
+    let filter: Record<string, string>[];
+    let proxyEnabled: boolean;
+
+    // RouterOS mencetak boolean sebagai "true"/"false".
+    function statefulRouter(failProxyOff = false) {
+      filter = [];
+      proxyEnabled = true;
+      mocks.connection.write.mockReset();
+      mocks.connection.write.mockImplementation(
+        async (path: string, args: string[] = []) => {
+          if (path === "/ip/proxy/set") {
+            if (args.includes("=enabled=no")) {
+              if (failProxyOff) throw new Error("proxy busy");
+              proxyEnabled = false;
+            } else {
+              proxyEnabled = args.includes("=enabled=yes");
+            }
+          }
+          if (path === "/ip/firewall/filter/add") {
+            filter.push({
+              ".id": `*f${filter.length}`,
+              comment: args.find((a) => a.startsWith("=comment="))!.slice(9),
+              disabled: "false",
+            });
+          }
+          if (path === "/ip/firewall/filter/remove") {
+            const id = args[0].slice("=.id=".length);
+            filter = filter.filter((r) => r[".id"] !== id);
+          }
+          if (path === "/ip/firewall/filter/print") {
+            const q = args.find((a) => a.startsWith("?comment="));
+            return q
+              ? filter.filter((r) => `?comment=${r.comment}` === q)
+              : filter;
+          }
+          return [];
+        },
+      );
+    }
+
+    function run(isolir: unknown) {
+      return new MikroTikProvisioningService().provisionRadius(
+        routerDetails,
+        "10.99.0.1",
+        "secret",
+        isolir as never,
+      );
+    }
+
+    const hasGuard = () => filter.some((r) => r.comment === GUARD);
+    const paths = () => mocks.connection.write.mock.calls.map(([p]) => p);
+
+    it("mematikan web proxy dan membuang guard, tanpa menulis error.html", async () => {
+      statefulRouter();
+      await run(page);
+      expect(hasGuard()).toBe(true);
+      expect(proxyEnabled).toBe(true);
+      mocks.connection.write.mockClear();
+
+      const result = await run(service);
+
+      expect(result).toMatchObject({ success: true });
+      expect(result.isolirPageError).toBeUndefined();
+      expect(proxyEnabled).toBe(false);
+      expect(hasGuard()).toBe(false);
+      expect(paths()).toContain("/ip/proxy/access/print");
+      expect(paths()).not.toContain("/ip/proxy/access/add");
+      expect(paths()).not.toContain("/file/set");
+      expect(paths()).not.toContain("/file/print");
+    });
+
+    it("guard baru dibuang sesudah proxy dimatikan", async () => {
+      statefulRouter();
+      await run(page);
+      mocks.connection.write.mockClear();
+
+      await run(service);
+
+      const calls = mocks.connection.write.mock.calls;
+      const off = calls.findIndex(([, a]) => a?.includes("=enabled=no"));
+      const rm = calls.findIndex(([p]) => p === "/ip/firewall/filter/remove");
+      expect(off).toBeGreaterThan(-1);
+      expect(rm).toBeGreaterThan(off);
+    });
+
+    it("proxy gagal dimatikan: guard dipertahankan dan galat dilaporkan", async () => {
+      statefulRouter(true);
+      await run(page);
+
+      const result = await run(service);
+
+      expect(result).toMatchObject({
+        success: true,
+        isolirPageError: "Web proxy gagal dimatikan; guard 8181 dipertahankan",
+      });
+      expect(hasGuard()).toBe(true);
+    });
+
+    it("proxy gagal dimatikan: guard yang hilang dipasang kembali", async () => {
+      statefulRouter(true);
+
+      await run(service);
+
+      expect(hasGuard()).toBe(true);
+    });
+
+    it("kembali ke ROUTER_PAGE menyalakan proxy dan memasang guard lagi", async () => {
+      statefulRouter();
+      await run(service);
+      expect(proxyEnabled).toBe(false);
+      expect(hasGuard()).toBe(false);
+
+      await run(page);
+
+      expect(proxyEnabled).toBe(true);
+      expect(hasGuard()).toBe(true);
+    });
+  });
 });

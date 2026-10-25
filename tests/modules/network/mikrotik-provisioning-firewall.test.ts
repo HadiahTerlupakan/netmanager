@@ -286,6 +286,28 @@ describe("provisionFirewallBypass", () => {
     ]);
   });
 
+  it("mode ISOLIR_SERVICE tidak menambah proxy guard dan tidak menyentuh yang ada", async () => {
+    const router = fakeRouter();
+    await provision(router, {
+      mode: "ISOLIR_SERVICE",
+      address: "10.50.0.1",
+    });
+    expect(router.filter.map((r) => r.comment)).not.toContain(
+      "netmanager-proxy-guard",
+    );
+
+    await provision(router);
+    const guardCount = () =>
+      router.filter.filter((r) => r.comment === "netmanager-proxy-guard")
+        .length;
+    expect(guardCount()).toBe(1);
+
+    router.write.mockClear();
+    await provision(router, { mode: "ISOLIR_SERVICE", address: "10.50.0.1" });
+    expect(guardCount()).toBe(1);
+    expect(calls(router, "/ip/firewall/filter/remove")).toEqual([]);
+  });
+
   it("deprovision menghapus proxy guard bersama rule billing lain", async () => {
     const router = fakeRouter();
     await provision(router);

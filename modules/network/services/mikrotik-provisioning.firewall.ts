@@ -9,6 +9,11 @@ import {
   isStaleIsolirHostEntry,
   type AddressListItem,
 } from "./mikrotik-provisioning.firewall.helpers";
+import {
+  ensureProxyGuard,
+  removeProxyGuard,
+  resolvePlaceBeforeArgs,
+} from "./mikrotik-provisioning.proxy-guard";
 import { restoreRows, type RouterRow } from "./mikrotik-provisioning.restore";
 import type { IsolirProvisioning } from "../isolir/isolir-provisioning";
 
@@ -71,20 +76,6 @@ const FILTER_RULES = [
       `=dst-address-list=!${ADDRESS_LIST_NAME}`,
     ],
     log: "Added Firewall Filter: Drop Expired ICMP",
-  },
-  {
-    comment: "netmanager-proxy-guard",
-    // Web proxy dinyalakan di setiap router dan port 8181 terbuka dari WAN,
-    // jadi tanpa rule ini router menjadi open proxy. Trafik isolir yang
-    // di-redirect NAT masuk ke input dari 10.127.0.0/18 dan tidak terkena.
-    addArgs: [
-      "=chain=input",
-      "=action=drop",
-      "=protocol=tcp",
-      "=dst-port=8181",
-      `=src-address=!${EXPIRED_NETWORK}`,
-    ],
-    log: "Added Firewall Filter: Web Proxy Guard",
   },
 ] as const;
 
@@ -187,10 +178,10 @@ async function removeFilterRules(
   logs: string[],
   keepProxyGuard: boolean,
 ) {
+  if (!keepProxyGuard) {
+    await removeProxyGuard(connection, logs);
+  }
   for (const rule of FILTER_RULES) {
-    if (keepProxyGuard && rule.comment === "netmanager-proxy-guard") {
-      continue;
-    }
     const rules = await readRecords(
       connection,
       "/ip/firewall/filter/print",
@@ -256,7 +247,7 @@ export async function provisionFirewallBypass(params: FirewallBypassParams) {
     (item) => isStaleIsolirHostEntry(item, keep),
     params.logs,
   );
-  await ensureFilterRules(params.connection, params.logs);
+  await ensureFilterRules(params.connection, params.logs, params.isolir);
   await ensureExpiredPool(params.connection, params.logs);
   await ensureExpiredProfile(params.connection, params.logs);
 }
@@ -308,7 +299,11 @@ async function addFilterRule(
   logs.push(rule.log);
 }
 
-async function ensureFilterRules(connection: RouterOSAPI, logs: string[]) {
+async function ensureFilterRules(
+  connection: RouterOSAPI,
+  logs: string[],
+  isolir: IsolirProvisioning | null,
+) {
   const placeBeforeArgs = await resolvePlaceBeforeArgs(connection);
 
   for (const rule of FILTER_RULES) {
@@ -330,19 +325,11 @@ async function ensureFilterRules(connection: RouterOSAPI, logs: string[]) {
       label: `Firewall Filter: ${rule.comment}`,
     });
   }
-}
 
-async function resolvePlaceBeforeArgs(connection: RouterOSAPI) {
-  try {
-    const firstRule = await readRecords(
-      connection,
-      "/ip/firewall/filter/print",
-      ["=.proplist=.id", "=.limit=1"],
-    );
-    const firstRuleId = firstRule[0]?.[".id"];
-    return firstRuleId ? [`=place-before=${firstRuleId}`] : [];
-  } catch {
-    return [];
+  // Mode Server isolir mematikan web proxy, dan guard dibuang oleh
+  // provisioning setelah proxy terbukti mati.
+  if (isolir?.mode !== "ISOLIR_SERVICE") {
+    await ensureProxyGuard(connection, logs, placeBeforeArgs);
   }
 }
 

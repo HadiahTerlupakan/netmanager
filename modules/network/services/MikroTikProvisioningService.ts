@@ -14,6 +14,10 @@ import {
   provisionWebProxy,
   removeWebProxy,
 } from "./mikrotik-provisioning.proxy";
+import {
+  ensureProxyGuard,
+  removeProxyGuard,
+} from "./mikrotik-provisioning.proxy-guard";
 import { provisionNatRules, removeNatRules } from "./mikrotik-provisioning.nat";
 import {
   removeIsolirPageFile,
@@ -85,6 +89,24 @@ async function restoreDefaultProxyPage(
   }
 }
 
+const PROXY_STILL_ON_ERROR =
+  "Web proxy gagal dimatikan; guard 8181 dipertahankan";
+
+// Pelanggan isolir dibelokkan lewat NAT ke servis isolir, jadi web proxy
+// dimatikan. Guard dibuang hanya setelah proxy terbukti mati: proxy yang
+// masih menyala tanpa guard adalah open proxy.
+async function disableWebProxyForIsolirService(
+  connection: Parameters<typeof removeWebProxy>[0]["connection"],
+  logs: string[],
+): Promise<string | undefined> {
+  if (await removeWebProxy({ connection, logs })) {
+    await removeProxyGuard(connection, logs);
+    return undefined;
+  }
+  await ensureProxyGuard(connection, logs);
+  return PROXY_STILL_ON_ERROR;
+}
+
 export class MikroTikProvisioningService {
   /**
    * Provision konfigurasi RADIUS, firewall, dan proxy pada router MikroTik.
@@ -125,11 +147,10 @@ export class MikroTikProvisioningService {
           await provisionFirewallBypass({ connection, serverIp, isolir, logs });
           // Proxy yang gagal membuat halaman tidak tersaji, jadi galatnya
           // dicatat sebagai galat halaman tanpa menggagalkan provisioning.
-          const proxyError = await provisionWebProxy({
-            connection,
-            isolir,
-            logs,
-          });
+          const proxyError =
+            isolir?.mode === "ISOLIR_SERVICE"
+              ? await disableWebProxyForIsolirService(connection, logs)
+              : await provisionWebProxy({ connection, isolir, logs });
           await provisionNatRules({ connection, logs, isolir });
           // Ditulis paling akhir: reset-html atau /file/set yang macet atau
           // gagal tidak boleh menahan rule NAT isolir.
