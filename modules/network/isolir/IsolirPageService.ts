@@ -1,18 +1,15 @@
 import type { IsolirPage } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import path from "path";
-import {
-  deleteUploadedFile,
-  isImageFile,
-  saveFile,
-} from "@/lib/utils/image-upload";
+import sharp from "sharp";
+import { deleteUploadedFile, saveFile } from "@/lib/utils/image-upload";
 import { resolveIsolirContent } from "./isolir-content";
 import type { IsolirPageInput } from "./isolir-page.types";
 import { renderIsolirPage, type IsolirRenderResult } from "./isolir-render";
 import { IsolirPageRepository } from "./IsolirPageRepository";
 
 const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
-const DEFAULT_LOGO_EXTENSION = ".png";
+const ALLOWED_LOGO_FORMATS = ["png", "jpeg", "webp", "gif"];
 
 export type IsolirPageView = {
   page: IsolirPage | null;
@@ -26,9 +23,23 @@ export class IsolirLogoError extends Error {}
 
 type PushToRouters = (tenantId: string) => Promise<unknown>;
 
-function extensionOf(file: File): string {
-  const match = /\.[a-z0-9]{1,5}$/i.exec(file.name);
-  return match ? match[0].toLowerCase() : DEFAULT_LOGO_EXTENSION;
+// Tipe dan ekstensi dari klien tidak dipercaya: berkas HTML/SVG di origin
+// aplikasi bisa menjalankan skrip. Hanya hasil decode sharp yang disimpan.
+async function toWebp(file: File): Promise<File> {
+  const input = Buffer.from(await file.arrayBuffer());
+  try {
+    const { format } = await sharp(input).metadata();
+    if (!format || !ALLOWED_LOGO_FORMATS.includes(format)) {
+      throw new IsolirLogoError("Logo harus berupa PNG, JPG, WebP, atau GIF");
+    }
+    const output = await sharp(input).webp().toBuffer();
+    return new File([new Uint8Array(output)], "logo.webp", {
+      type: "image/webp",
+    });
+  } catch (error) {
+    if (error instanceof IsolirLogoError) throw error;
+    throw new IsolirLogoError("File harus berupa gambar yang valid");
+  }
 }
 
 // Berkas lokal dirujuk "/uploads/...", sedangkan R2 memberi URL penuh.
@@ -98,22 +109,26 @@ export function createIsolirPageService(pushToRouters: PushToRouters) {
     },
 
     async setLogo(tenantId: string, file: File): Promise<IsolirPage> {
-      if (!isImageFile(file)) {
-        throw new IsolirLogoError("File harus berupa gambar");
-      }
       if (file.size > MAX_LOGO_SIZE_BYTES) {
         throw new IsolirLogoError("Ukuran file maksimal 5MB");
       }
+      const webp = await toWebp(file);
       const previous = await IsolirPageRepository.findByTenant(tenantId);
       const stored = await saveFile(
-        file,
+        webp,
         path.join(process.cwd(), "public", "uploads", "logos"),
-        `isolir-${tenantId}-${Date.now()}${extensionOf(file)}`,
+        `isolir-${tenantId}-${Date.now()}.webp`,
         "logos",
       );
-      const page = await IsolirPageRepository.upsertForTenant(tenantId, {
-        logoUrl: stored,
-      });
+      let page: IsolirPage;
+      try {
+        page = await IsolirPageRepository.upsertForTenant(tenantId, {
+          logoUrl: stored,
+        });
+      } catch (error) {
+        await deleteStoredLogo(stored);
+        throw error;
+      }
       if (previous?.logoUrl && previous.logoUrl !== stored) {
         await deleteStoredLogo(previous.logoUrl);
       }

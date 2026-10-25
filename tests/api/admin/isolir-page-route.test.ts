@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import sharp from "sharp";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockHasPermission = vi.fn();
@@ -40,7 +41,6 @@ vi.mock("@/lib/logger", () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 vi.mock("@/lib/utils/image-upload", () => ({
-  isImageFile: (file: File) => file.type.startsWith("image/"),
   saveFile: (...args: unknown[]) => mockSaveFile(...args),
   deleteUploadedFile: (...args: unknown[]) => mockDeleteUploaded(...args),
 }));
@@ -85,6 +85,25 @@ const jsonRequest = (method: string, body: unknown) =>
     method,
     body: JSON.stringify(body),
   });
+const realPng = async () =>
+  new File(
+    [
+      new Uint8Array(
+        await sharp({
+          create: {
+            width: 4,
+            height: 4,
+            channels: 3,
+            background: "#ff0000",
+          },
+        })
+          .png()
+          .toBuffer(),
+      ),
+    ],
+    "logo.png",
+    { type: "image/png" },
+  );
 const logoRequest = (file: File) => {
   const form = new FormData();
   form.append("file", file);
@@ -188,10 +207,10 @@ describe("API halaman isolir", () => {
   describe("logo", () => {
     it("unggah menyimpan path ke tenant sesi dan memicu pengiriman", async () => {
       mockSaveFile.mockResolvedValue("/uploads/logos/isolir-t1-1.png");
-      const result = await POST(
-        logoRequest(new File(["x"], "logo.png", { type: "image/png" })),
-        session("t1"),
-      );
+      const result = await POST(logoRequest(await realPng()), session("t1"));
+      const [saved, , name] = mockSaveFile.mock.calls[0];
+      expect(name).toMatch(/^isolir-t1-\d+\.webp$/);
+      expect((saved as File).type).toBe("image/webp");
       expect(mockUpsert).toHaveBeenCalledWith("t1", {
         logoUrl: "/uploads/logos/isolir-t1-1.png",
       });
@@ -202,10 +221,7 @@ describe("API halaman isolir", () => {
     it("unggah ulang menghapus berkas lama", async () => {
       mockFind.mockResolvedValue({ logoUrl: "/uploads/logos/lama.png" });
       mockSaveFile.mockResolvedValue("/uploads/logos/baru.png");
-      await POST(
-        logoRequest(new File(["x"], "logo.png", { type: "image/png" })),
-        session("t1"),
-      );
+      await POST(logoRequest(await realPng()), session("t1"));
       expect(mockDeleteUploaded).toHaveBeenCalledWith(
         "http://localhost/uploads/logos/lama.png",
       );
@@ -213,22 +229,53 @@ describe("API halaman isolir", () => {
 
     it("menolak unggah tanpa isolir_page:update", async () => {
       mockHasPermission.mockResolvedValue(false);
-      const result = await POST(
-        logoRequest(new File(["x"], "logo.png", { type: "image/png" })),
-        session("t1"),
-      );
+      const result = await POST(logoRequest(await realPng()), session("t1"));
       expect(result).toMatchObject({ status: 403 });
       expect(mockSaveFile).not.toHaveBeenCalled();
     });
 
-    it("menolak berkas yang bukan gambar", async () => {
+    it.each([
+      [
+        "HTML berkedok image/png",
+        "x.html",
+        "image/png",
+        "<script>alert(1)</script>",
+      ],
+      [
+        "SVG",
+        "x.svg",
+        "image/svg+xml",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><script>alert(1)</script></svg>',
+      ],
+      ["PDF", "a.pdf", "application/pdf", "%PDF-1.4"],
+    ])("menolak %s", async (_name, fileName, type, body) => {
       const result = await POST(
-        logoRequest(new File(["x"], "a.pdf", { type: "application/pdf" })),
+        logoRequest(new File([body], fileName, { type })),
         session("t1"),
       );
       expect(result).toMatchObject({ status: 400 });
       expect(mockSaveFile).not.toHaveBeenCalled();
       expect(mockUpsert).not.toHaveBeenCalled();
+    });
+
+    it("menolak berkas lebih dari 5MB", async () => {
+      const big = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "b.png", {
+        type: "image/png",
+      });
+      const result = await POST(logoRequest(big), session("t1"));
+      expect(result).toMatchObject({ status: 400 });
+      expect(mockSaveFile).not.toHaveBeenCalled();
+    });
+
+    it("menghapus berkas yang baru disimpan bila basis data gagal", async () => {
+      mockSaveFile.mockResolvedValue("/uploads/logos/baru.webp");
+      mockUpsert.mockRejectedValue(new Error("db"));
+      await expect(
+        POST(logoRequest(await realPng()), session("t1")),
+      ).rejects.toThrow("db");
+      expect(mockDeleteUploaded).toHaveBeenCalledWith(
+        "http://localhost/uploads/logos/baru.webp",
+      );
     });
 
     it("hapus mengosongkan logoUrl, menghapus berkas, dan memicu pengiriman", async () => {
