@@ -7,7 +7,7 @@ import { renderIsolirPage, type IsolirRenderResult } from "./isolir-render";
 export class IsolirServicePageService {
   /**
    * Renderer yang sama dengan mode router, jadi halaman identik di kedua mode.
-   * Alamat tak dikenal tetap dilayani dengan isi default: pelanggan yang
+   * Alamat tak dikenal tetap dilayani dengan halaman global (IsolirPage tanpa tenant): pelanggan yang
    * terisolir harus melihat halaman, bukan galat.
    */
   getPage(address: string): Promise<IsolirRenderResult> {

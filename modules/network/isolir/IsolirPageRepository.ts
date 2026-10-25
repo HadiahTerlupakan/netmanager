@@ -28,6 +28,7 @@ export const IsolirPageRepository = {
   ): Promise<{ tenantId: string | null } | null> {
     return prisma.mikroTikRouter.findFirst({
       where: { vpnAddress: address },
+      orderBy: { createdAt: "asc" },
       select: { tenantId: true },
     });
   },

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getPage: vi.fn() }));
 
@@ -37,6 +37,30 @@ describe("GET /api/internal/isolir/page", () => {
       html: "<html>ISP T</html>",
       hash: "abc",
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each(["pendek-10ch", "REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY"])(
+    "503 untuk token terkonfigurasi yang tidak layak: %s",
+    async (configured) => {
+      vi.stubEnv("ISOLIR_SERVICE_TOKEN", configured);
+      const res = await call("10.100.0.4", {
+        authorization: `Bearer ${configured}`,
+      });
+      expect(res.status).toBe(503);
+      expect(mocks.getPage).not.toHaveBeenCalled();
+    },
+  );
+
+  it("304 saat If-None-Match berupa ETag lemah", async () => {
+    const res = await call("10.100.0.4", {
+      authorization: `Bearer ${TOKEN}`,
+      "if-none-match": 'W/"abc"',
+    });
+    expect(res.status).toBe(304);
   });
 
   it("401 tanpa header Authorization", async () => {
