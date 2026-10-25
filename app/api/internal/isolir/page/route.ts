@@ -7,6 +7,13 @@ import { IsolirServicePageService } from "@/modules/network";
 const BEARER_PREFIX = "Bearer ";
 const MIN_TOKEN_LENGTH = 32;
 const PLACEHOLDER_TOKEN = "REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY";
+/**
+ * Traefik selalu menambahkan X-Real-Ip pada permintaan dari ingress, sedangkan
+ * klien Go netmanager-isolir di dalam cluster tidak mengirimnya. X-Forwarded-For
+ * tidak bisa dipakai: server Next.js sendiri mengisinya dengan alamat soket
+ * pada setiap permintaan (base-server.js), termasuk yang dari dalam cluster.
+ */
+const PROXY_HEADERS = ["x-real-ip", "forwarded"];
 
 /** Route ini membaca env langsung, jadi aturan min(32) di lib/env.ts tidak berlaku di sini. */
 function usableToken(value: string | undefined): string | null {
@@ -40,6 +47,10 @@ function tokenMatches(header: string | null, expected: string): boolean {
  * Dilindungi ISOLIR_SERVICE_TOKEN (tanpa sesi), dipanggil layanan netmanager-isolir.
  */
 export async function GET(req: NextRequest) {
+  // proxy.ts meloloskan /api* dari internet; route ini hanya untuk dalam cluster.
+  if (PROXY_HEADERS.some((name) => req.headers.has(name))) {
+    return NextResponse.json({ error: "Not Found" }, { status: 404 });
+  }
   const expected = usableToken(process.env.ISOLIR_SERVICE_TOKEN);
   if (!expected) {
     logger.error(

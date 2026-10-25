@@ -43,6 +43,26 @@ describe("GET /api/internal/isolir/page", () => {
     vi.unstubAllEnvs();
   });
 
+  it.each([
+    ["x-real-ip", "203.0.113.7"],
+    ["forwarded", "for=203.0.113.7"],
+  ])("404 untuk permintaan lewat ingress (header %s)", async (name, value) => {
+    const res = await call("10.100.0.4", {
+      authorization: `Bearer ${TOKEN}`,
+      [name]: value,
+    });
+    expect(res.status).toBe(404);
+    expect(mocks.getPage).not.toHaveBeenCalled();
+  });
+
+  it("tetap melayani saat hanya ada X-Forwarded-For yang diisi Next.js", async () => {
+    const res = await call("10.100.0.4", {
+      authorization: `Bearer ${TOKEN}`,
+      "x-forwarded-for": "10.42.0.17",
+    });
+    expect(res.status).toBe(200);
+  });
+
   it.each(["pendek-10ch", "REPLACE_WITH_REAL_SECRET_BEFORE_DEPLOY"])(
     "503 untuk token terkonfigurasi yang tidak layak: %s",
     async (configured) => {
