@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-25] — Halaman isolir per tenant
+
+- **Tipe**: [ADDED] | [CHANGED] | [SECURITY] | [MIGRATION]
+- **Scope**: `modules/network` | `app/` | `app/api/admin/isolir-page`
+- **Author**: agent
+- **Deskripsi**:
+  - [ADDED] Menu Pengaturan → Halaman Isolir per tenant: nama ISP, judul, warna, logo, pesan, info pembayaran, WhatsApp CS, link pembayaran, dan kontak, lengkap dengan pratinjau dan status kirim per router. Kolom kosong memakai isi bawaan (logo dari Pengaturan → Logo, rekening aktif dari Rekening Perusahaan).
+  - [ADDED] Mode isolir per NAS di form router: "Halaman di router" (halaman disajikan web proxy router) atau "Redirect" (ke URL yang diisi).
+  - [ADDED] Halaman dikirim ke semua router tenant bermode "Halaman di router" saat disimpan, juga saat logo aplikasi atau rekening perusahaan berubah. Router yang gagal diperbarui saat Reconfigurasi Mikrotik berikutnya.
+  - [SECURITY] Rule filter `netmanager-proxy-guard` menutup port web proxy 8181 dari luar jaringan isolir agar router tidak menjadi open proxy.
+  - [CHANGED] Mode Redirect menambah host tujuan ke `netmanager_allow`. Saat host berganti, provisioning hanya membuang host isolir lama; entri IP di list itu (server billing lama, IP NOC operator) tidak disentuh.
+  - [CHANGED] Setelah deploy, setiap router perlu satu kali Reconfigurasi Mikrotik agar proxy guard, rule proxy, dan halaman terpasang.
+- **Migration**: `20261025090000_add_isolir_page`, `20261025090100_grant_isolir_page_permissions`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-24] — Pilihan protokol VPN per router (WireGuard atau L2TP/IPsec)
 
 - **Tipe**: [ADDED] | [CHANGED] | [DOCS]
