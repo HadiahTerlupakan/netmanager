@@ -10,7 +10,7 @@ export const IsolirPageRepository = {
 
   upsertForTenant(
     tenantId: string,
-    data: IsolirPageInput,
+    data: Partial<IsolirPageInput>,
   ): Promise<IsolirPage> {
     return prisma.isolirPage.upsert({
       where: { tenantId },
