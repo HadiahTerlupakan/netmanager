@@ -19,6 +19,19 @@ export const IsolirPageRepository = {
     });
   },
 
+  /**
+   * Dipanggil layanan isolir tanpa sesi, jadi pemanggil wajib berada di
+   * konteks sistem agar filter tenant tidak menyembunyikan router.
+   */
+  findTenantIdByVpnAddress(
+    address: string,
+  ): Promise<{ tenantId: string | null } | null> {
+    return prisma.mikroTikRouter.findFirst({
+      where: { vpnAddress: address },
+      select: { tenantId: true },
+    });
+  },
+
   /** Router tujuan halaman isolir tenant; kredensial sengaja tidak dibaca. */
   findRouterSyncStatus(tenantId: string) {
     return prisma.mikroTikRouter.findMany({

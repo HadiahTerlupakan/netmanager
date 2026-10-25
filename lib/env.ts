@@ -21,6 +21,9 @@ const baseEnvSchema = z.object({
   // Cron Security
   CRON_SECRET: z.string().min(32).optional(),
 
+  // Token bearer layanan netmanager-isolir untuk mengambil halaman isolir
+  ISOLIR_SERVICE_TOKEN: z.string().min(32).optional(),
+
   // Node Environment
   NODE_ENV: z
     .enum(["development", "production", "test"])

@@ -18,6 +18,7 @@ export type {
 } from "./dto/NetworkDTO";
 
 export * from "./isolir/IsolirPageService";
+export * from "./isolir/IsolirServicePageService";
 export * from "./services/RadiusAdminService";
 export * from "./services/RadiusMonitor";
 export * from "./services/radius-sync-service";
