@@ -71,7 +71,7 @@ isinya dibatasi tenant pengguna. Di menu yang sama ada:
 - **Pratinjau** halaman bawaan, berupa HTML yang sama persis dengan yang dikirim
   ke router, dirender di admin;
 - **status pengiriman** ke router-router tenant (bagian 3);
-- **domain isolir tenant** dan statusnya (bagian 4), atau tautan ke tempat
+- **domain isolir tenant** dan statusnya (bagian 5), atau tautan ke tempat
   domain dikelola.
 
 Satu renderer menghasilkan HTML dari konfigurasi. Renderer yang sama dipakai
