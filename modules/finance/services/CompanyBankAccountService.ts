@@ -34,6 +34,11 @@ export class CompanyBankAccountService {
     }
   }
 
+  /** Rekening aktif satu tenant; tenantId eksplisit agar aman dari job latar belakang. */
+  async listActiveAccounts(tenantId: string) {
+    return this.repository.findActive(tenantId)
+  }
+
   async createAccount(input: CompanyBankAccountInput): Promise<ServiceResult<Awaited<ReturnType<CompanyBankAccountRepository['create']>>>> {
     try {
       const account = await this.repository.create(normalizeInput(input))
