@@ -86,20 +86,35 @@ async function deleteStoredLogo(stored: string | null): Promise<void> {
   }
 }
 
+// Sengaja tanpa await: pengiriman ke router lambat dan hasilnya dipantau
+// lewat status sinkronisasi, bukan lewat respons HTTP.
+function runPushInBackground(push: PushToRouters, tenantId: string): void {
+  void Promise.resolve()
+    .then(() => push(tenantId))
+    .catch((error) => {
+      logger.error("[isolir] Pengiriman halaman isolir gagal:", error);
+    });
+}
+
+/**
+ * Kirim ulang halaman isolir tenant ke router-routernya tanpa ditunggu, untuk
+ * perubahan di luar menu Halaman Isolir yang ikut tampil di halaman (rekening
+ * perusahaan, logo aplikasi). Tanpa tenant tidak ada router yang dituju.
+ */
+export function pushIsolirPageInBackground(
+  tenantId: string | null | undefined,
+): void {
+  if (!tenantId) return;
+  runPushInBackground(pushIsolirPageToTenantRouters, tenantId);
+}
+
 /**
  * `pushToRouters` diinjeksi supaya layanan ini bisa dites tanpa router;
  * kegagalannya tidak boleh menggagalkan penyimpanan di halaman pengaturan.
  */
 export function createIsolirPageService(pushToRouters: PushToRouters) {
-  // Sengaja tanpa await: pengiriman ke router lambat dan hasilnya dipantau
-  // lewat status sinkronisasi, bukan lewat respons HTTP.
-  function pushInBackground(tenantId: string): void {
-    void Promise.resolve()
-      .then(() => pushToRouters(tenantId))
-      .catch((error) => {
-        logger.error("[isolir] Pengiriman halaman isolir gagal:", error);
-      });
-  }
+  const pushInBackground = (tenantId: string) =>
+    runPushInBackground(pushToRouters, tenantId);
 
   async function renderForTenant(
     tenantId: string,

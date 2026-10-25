@@ -1,5 +1,6 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
+import { pushIsolirPageInBackground } from "@/modules/network";
 import {
   companyBankAccountSchema,
   type CompanyBankAccountInput,
@@ -54,6 +55,9 @@ export const POST = createHandler(
       return ApiErrors.internalError(result.error);
     }
 
+    // Rekening aktif tampil sebagai info pembayaran bawaan halaman isolir di
+    // router, jadi perubahannya ikut dikirim ulang.
+    pushIsolirPageInBackground(session.user?.tenantId);
     return apiSuccess(result.data, { status: 201 });
   },
 );

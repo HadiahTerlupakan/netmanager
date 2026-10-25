@@ -2,6 +2,7 @@ import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logActivitySafe } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import { logoDeleteSchema, logoTypeSchema } from "@/lib/validations/settings";
+import { pushIsolirPageInBackground } from "@/modules/network";
 import { getLogoSettings, uploadLogo, deleteLogo } from "@/modules/settings";
 
 /**
@@ -52,6 +53,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       : type === "aplikasi"
         ? "LOGO_APLIKASI"
         : "LOGO_LANDING_PAGE";
+  // Logo aplikasi menjadi logo bawaan halaman isolir di router.
+  if (type === "aplikasi") {
+    pushIsolirPageInBackground(ctx.session?.user?.tenantId);
+  }
 
   // System Log
   if (ctx.session?.user?.id) {
@@ -96,6 +101,9 @@ export const DELETE = createHandler<{
           ? "LOGO_APLIKASI"
           : "LOGO_LANDING_PAGE";
     await deleteLogo(type, ctx.session?.user?.tenantId ?? null);
+    if (type === "aplikasi") {
+      pushIsolirPageInBackground(ctx.session?.user?.tenantId);
+    }
 
     // System Log
     if (ctx.session?.user?.id) {

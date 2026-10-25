@@ -6,6 +6,7 @@ const mockUploadLogo = vi.fn();
 const mockDeleteLogo = vi.fn();
 const mockHasPermission = vi.fn();
 const mockLogActivitySafe = vi.fn();
+const mockPushIsolirPage = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   createHandler: (
@@ -31,6 +32,11 @@ vi.mock("@/modules/settings", () => ({
   getLogoSettings: (...args: unknown[]) => mockGetLogoSettings(...args),
   uploadLogo: (...args: unknown[]) => mockUploadLogo(...args),
   deleteLogo: (...args: unknown[]) => mockDeleteLogo(...args),
+}));
+
+vi.mock("@/modules/network", () => ({
+  pushIsolirPageInBackground: (...args: unknown[]) =>
+    mockPushIsolirPage(...args),
 }));
 
 import { DELETE, GET, POST } from "@/app/api/settings/logo/route";
@@ -175,5 +181,65 @@ describe("settings logo route tenant scope", () => {
         details: expect.objectContaining({ key: "LOGO_APLIKASI" }),
       }),
     );
+  });
+
+  function uploadRequest(type: string) {
+    const formData = new FormData();
+    formData.append("file", new File(["logo"], "l.png", { type: "image/png" }));
+    formData.append("type", type);
+    return new NextRequest("http://localhost/api/settings/logo", {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  const session = { user: { id: "user-1", tenantId: "tenant-1" } };
+
+  it("logo aplikasi diunggah: halaman isolir tenant dikirim ulang", async () => {
+    mockUploadLogo.mockResolvedValue("/uploads/logos/logo-aplikasi.png");
+
+    await POST(uploadRequest("aplikasi"), { session } as never);
+
+    expect(mockPushIsolirPage).toHaveBeenCalledWith("tenant-1");
+  });
+
+  it("logo selain aplikasi tidak mengirim halaman isolir", async () => {
+    mockUploadLogo.mockResolvedValue("/uploads/logos/logo-invoice.png");
+
+    await POST(uploadRequest("invoice"), { session } as never);
+
+    expect(mockPushIsolirPage).not.toHaveBeenCalled();
+  });
+
+  it("unggah logo aplikasi yang gagal tidak mengirim halaman isolir", async () => {
+    mockUploadLogo.mockRejectedValue(new Error("disk penuh"));
+
+    await expect(
+      POST(uploadRequest("aplikasi"), { session } as never),
+    ).rejects.toThrow("disk penuh");
+    expect(mockPushIsolirPage).not.toHaveBeenCalled();
+  });
+
+  it("logo aplikasi dihapus: halaman isolir tenant dikirim ulang", async () => {
+    mockDeleteLogo.mockResolvedValue(undefined);
+
+    await DELETE(new NextRequest("http://localhost/api/settings/logo"), {
+      session,
+      validated: { type: "aplikasi" },
+    } as never);
+
+    expect(mockPushIsolirPage).toHaveBeenCalledWith("tenant-1");
+  });
+
+  it("hapus logo aplikasi yang gagal tidak mengirim halaman isolir", async () => {
+    mockDeleteLogo.mockRejectedValue(new Error("db down"));
+
+    await expect(
+      DELETE(new NextRequest("http://localhost/api/settings/logo"), {
+        session,
+        validated: { type: "aplikasi" },
+      } as never),
+    ).rejects.toThrow("db down");
+    expect(mockPushIsolirPage).not.toHaveBeenCalled();
   });
 });
