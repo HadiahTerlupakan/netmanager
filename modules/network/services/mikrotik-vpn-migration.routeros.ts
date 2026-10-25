@@ -1,5 +1,5 @@
 import type { IsolirMode } from "@prisma/client";
-import { resolveIsolirProvisioning } from "../isolir/isolir-provisioning";
+import { tryResolveIsolirProvisioning } from "../isolir/isolir-provisioning";
 import { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import {
   runProvisioningConnection,
@@ -71,11 +71,13 @@ export const vpnMigrationRouterOs: VpnMigrationRouterOs = {
       password: conn.password,
     }),
   async addRadiusEntry(conn, serverIp, srcAddress, config) {
+    // Galat isolir sudah dicatat di log; migrasi tetap memasang RADIUS.
+    const { isolir } = await tryResolveIsolirProvisioning(config);
     const result = await new MikroTikProvisioningService().provisionRadius(
       conn,
       serverIp,
       config.secretRadius,
-      await resolveIsolirProvisioning(config),
+      isolir,
       config.authPort,
       config.accountingPort,
       srcAddress,

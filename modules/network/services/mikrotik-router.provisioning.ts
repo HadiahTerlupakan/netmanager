@@ -8,7 +8,7 @@ import { vpnMigrationRouterOs } from "./mikrotik-vpn-migration.routeros";
 import {
   buildIsolirPageSync,
   recordIsolirPageSync,
-  resolveIsolirProvisioning,
+  tryResolveIsolirProvisioning,
   type IsolirProvisioning,
 } from "../isolir/isolir-provisioning";
 
@@ -161,7 +161,7 @@ function createRadiusProvisioningArgs(params: {
   connection: ProvisioningConnection;
   radiusConfig: RadiusConfig;
   createData: MikroTikRouterCreateData;
-  isolir: IsolirProvisioning;
+  isolir: IsolirProvisioning | null;
 }): ProvisionRadiusArgs {
   const { radiusServerIp, srcAddress } = resolveRadiusRouting(
     params.createData,
@@ -192,7 +192,7 @@ async function provisionRouterRadius(
   params: AutoConfigureCreatedRouterParams,
   connection: ProvisioningConnection,
 ): Promise<boolean> {
-  const isolir = await resolveIsolirProvisioning({
+  const resolution = await tryResolveIsolirProvisioning({
     isolirMode: NEW_ROUTER_ISOLIR_MODE,
     isolirUrl: params.createData.isolirUrl ?? null,
     tenantId: params.createData.tenantId,
@@ -202,13 +202,13 @@ async function provisionRouterRadius(
       connection,
       radiusConfig: params.radiusConfig,
       createData: params.createData,
-      isolir,
+      isolir: resolution.isolir,
     }),
   );
   await recordIsolirPageSync(
     params.networkRepository,
     params.routerId,
-    buildIsolirPageSync(isolir, provisioningResult),
+    buildIsolirPageSync(resolution, provisioningResult),
   );
 
   if (!provisioningResult.success) {

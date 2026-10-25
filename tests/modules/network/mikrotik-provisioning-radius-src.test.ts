@@ -280,4 +280,18 @@ describe("RouterReconfigureRouteService alamat RADIUS", () => {
       );
     },
   );
+
+  it("galat menyusun halaman tidak menghentikan provisioning dan dicatat", async () => {
+    mocks.resolveIsolirContent.mockRejectedValue(new Error("db down"));
+    const { service, provisioningService, networkRepository } = setup("PUBLIC");
+
+    await service.reconfigureRouters(["r1"], context);
+
+    expect(provisioningService.provisionRadius).toHaveBeenCalledTimes(1);
+    expect(provisioningService.provisionRadius.mock.calls[0][3]).toBeNull();
+    expect(networkRepository.updateIsolirPageSync).toHaveBeenCalledWith("r1", {
+      hash: null,
+      error: "db down",
+    });
+  });
 });

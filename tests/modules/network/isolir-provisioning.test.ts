@@ -48,6 +48,17 @@ describe("splitIsolirTarget", () => {
       target: "a.b/c/d",
     });
   });
+
+  it("membuang query dan fragment dari host maupun target", () => {
+    expect(splitIsolirTarget("https://a.b/c?x=1#y")).toEqual({
+      host: "a.b",
+      target: "a.b/c",
+    });
+    expect(splitIsolirTarget("https://a.b?x=1")).toEqual({
+      host: "a.b",
+      target: "a.b",
+    });
+  });
 });
 
 describe("resolveIsolirProvisioning", () => {
@@ -227,5 +238,11 @@ describe("deprovisionRadius", () => {
       ["=.id=*p2"],
     ]);
     expect(removed("/ip/proxy/reset-html")).toHaveLength(1);
+    const order = mocks.connection.write.mock.calls.map(([p]) => p);
+    const disableAt = mocks.connection.write.mock.calls.findIndex(
+      ([p, args]) => p === "/ip/proxy/set" && args?.includes("=enabled=no"),
+    );
+    expect(disableAt).toBeGreaterThan(-1);
+    expect(order.indexOf("/ip/proxy/reset-html")).toBeLessThan(disableAt);
   });
 });

@@ -6,7 +6,10 @@ vi.mock("@/modules/network/services/mikrotik-provisioning.connection", () => ({
 }));
 
 import type { IsolirProvisioning } from "@/modules/network/isolir/isolir-provisioning";
-import { provisionFirewallBypass } from "@/modules/network/services/mikrotik-provisioning.firewall";
+import {
+  provisionFirewallBypass,
+  removeFirewallBypass,
+} from "@/modules/network/services/mikrotik-provisioning.firewall";
 
 type Row = { ".id": string; [key: string]: string | undefined };
 
@@ -50,6 +53,13 @@ function fakeRouter(existingFilter: Row[] = [], existingAllow: Row[] = []) {
     }
     if (path === "/ip/firewall/filter/add") {
       filter.push({ ".id": `*f${filter.length}`, ...toProps(args) });
+    }
+    if (path === "/ip/firewall/filter/remove") {
+      const id = args[0].slice("=.id=".length);
+      filter.splice(
+        filter.findIndex((r) => r[".id"] === id),
+        1,
+      );
     }
     return [];
   });
@@ -196,5 +206,52 @@ describe("provisionFirewallBypass", () => {
         "=comment=accept.isolir.baru.id",
       ],
     ]);
+  });
+
+  const guardArgs = [
+    "=chain=input",
+    "=action=drop",
+    "=protocol=tcp",
+    "=dst-port=8181",
+    "=src-address=!10.127.0.0/18",
+  ];
+
+  it("menutup port web proxy 8181 dari luar jaringan isolir", async () => {
+    const router = fakeRouter();
+
+    await provision(router);
+
+    const guard = calls(router, "/ip/firewall/filter/add").find((args) =>
+      args?.includes("=comment=netmanager-proxy-guard"),
+    );
+    expect(guard).toEqual(expect.arrayContaining(guardArgs));
+  });
+
+  it("mengembalikan proxy guard yang dinonaktifkan", async () => {
+    const router = fakeRouter();
+    await provision(router);
+    const guard = router.filter.find(
+      (r) => r.comment === "netmanager-proxy-guard",
+    )!;
+    guard.disabled = "true";
+    router.write.mockClear();
+
+    await provision(router);
+
+    expect(calls(router, "/ip/firewall/filter/set")).toEqual([
+      [`=.id=${guard[".id"]}`, ...guardArgs, "=disabled=no"],
+    ]);
+  });
+
+  it("deprovision menghapus proxy guard bersama rule billing lain", async () => {
+    const router = fakeRouter();
+    await provision(router);
+
+    await removeFirewallBypass({
+      connection: router as unknown as RouterOSAPI,
+      logs: [],
+    });
+
+    expect(router.filter).toEqual([]);
   });
 });

@@ -490,4 +490,21 @@ describe("createRouterMutation mode PUBLIC", () => {
     expect(mocks.claimRouter).not.toHaveBeenCalled();
     expect(mocks.removeOtherRadiusEntries).not.toHaveBeenCalled();
   });
+
+  it("galat menyusun halaman isolir tidak menghentikan provisioning dan dicatat", async () => {
+    const t = setup();
+    mocks.resolveIsolirContent.mockRejectedValueOnce(new Error("db down"));
+
+    await t.run({ ...baseData, ipAddress: "203.0.113.20", apiPort: 8728 });
+
+    expect(t.provisioningService.provisionRadius).toHaveBeenCalledTimes(1);
+    const call = t.provisioningService.provisionRadius.mock
+      .calls[0] as unknown[];
+    expect(call[3]).toBeNull();
+    expect(t.networkRepository.updateIsolirPageSync).toHaveBeenCalledWith(
+      expect.any(String),
+      { hash: null, error: "db down" },
+    );
+    expect(t.provisioningService.createApiUser).toHaveBeenCalled();
+  });
 });

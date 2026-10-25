@@ -71,6 +71,20 @@ const FILTER_RULES = [
     ],
     log: "Added Firewall Filter: Drop Expired ICMP",
   },
+  {
+    comment: "netmanager-proxy-guard",
+    // Web proxy dinyalakan di setiap router dan port 8181 terbuka dari WAN,
+    // jadi tanpa rule ini router menjadi open proxy. Trafik isolir yang
+    // di-redirect NAT masuk ke input dari 10.127.0.0/18 dan tidak terkena.
+    addArgs: [
+      "=chain=input",
+      "=action=drop",
+      "=protocol=tcp",
+      "=dst-port=8181",
+      `=src-address=!${EXPIRED_NETWORK}`,
+    ],
+    log: "Added Firewall Filter: Web Proxy Guard",
+  },
 ] as const;
 
 type FirewallBypassParams = {

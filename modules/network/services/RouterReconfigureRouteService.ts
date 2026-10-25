@@ -15,7 +15,7 @@ import { resolveRadiusRouting } from "./mikrotik-router.provisioning";
 import {
   buildIsolirPageSync,
   recordIsolirPageSync,
-  resolveIsolirProvisioning,
+  tryResolveIsolirProvisioning,
   type IsolirProvisioning,
 } from "../isolir/isolir-provisioning";
 
@@ -56,15 +56,16 @@ function getRouterCredentials(router: RouterCredentialsInput) {
   };
 }
 
-// Same RADIUS ports as when the router was added: falling back to the
-// service's 1812/1813 left a router whose RADIUS listens elsewhere timing
-// out on every login after a reconfigure. A VPN router also gets the core
-// address and its tunnel IP as src-address. The isolir setup follows the
-// router's own mode and URL; the global ISOLIR_URL is no longer used.
+// Port RADIUS sama dengan saat router ditambahkan: kembali ke 1812/1813
+// bawaan service membuat router yang RADIUS-nya di port lain timeout di
+// setiap login setelah reconfigure. Router VPN juga memakai alamat core dan
+// IP tunnel-nya sebagai src-address. Isolir mengikuti mode dan URL milik
+// router sendiri, supaya hasilnya sama dengan saat router ditambahkan dan
+// tidak berubah karena setting global ISOLIR_URL.
 function buildProvisionRadiusArgs(
   router: RouterReconfigureRecord,
   settings: RouterSettings,
-  isolir: IsolirProvisioning,
+  isolir: IsolirProvisioning | null,
 ): Parameters<MikroTikProvisioningService["provisionRadius"]> {
   const credentials = getRouterCredentials(router);
   const connection = {
@@ -187,14 +188,14 @@ export class RouterReconfigureRouteService {
     settings: RouterSettings,
   ): Promise<RouterReconfigureResult> {
     try {
-      const isolir = await resolveIsolirProvisioning(router);
+      const resolution = await tryResolveIsolirProvisioning(router);
       const result = await this.provisioningService.provisionRadius(
-        ...buildProvisionRadiusArgs(router, settings, isolir),
+        ...buildProvisionRadiusArgs(router, settings, resolution.isolir),
       );
       await recordIsolirPageSync(
         this.networkRepository,
         router.id,
-        buildIsolirPageSync(isolir, result),
+        buildIsolirPageSync(resolution, result),
       );
 
       return buildRouterResult(
