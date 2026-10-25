@@ -179,6 +179,39 @@ describe("provisionFirewallBypass", () => {
     },
   );
 
+  // Target dst-nat layanan dan IP server RADIUS berasal dari sumber berbeda;
+  // bila berbeda, rule forward menolak trafik ke layanan tanpa entri ini.
+  it.each([
+    ["berbeda", "10.50.0.1", ["10.99.0.1", "10.50.0.1"]],
+    ["sama", "10.99.0.1", ["10.99.0.1"]],
+  ])(
+    "mode ISOLIR_SERVICE memasukkan alamat layanan (%s dengan IP server)",
+    async (_case, address, expected) => {
+      const router = fakeRouter();
+
+      await provision(router, { mode: "ISOLIR_SERVICE", address });
+
+      expect(router.allow.map((r) => [r.address, r.comment])).toEqual(
+        expected.map((ip) => [ip, `accept.${ip}`]),
+      );
+    },
+  );
+
+  it("mode ISOLIR_SERVICE tidak membuang alamat layanan saat dijalankan ulang", async () => {
+    const service: IsolirProvisioning = {
+      mode: "ISOLIR_SERVICE",
+      address: "10.50.0.1",
+    };
+    const router = fakeRouter();
+    await provision(router, service);
+    router.write.mockClear();
+
+    await provision(router, service);
+
+    expect(calls(router, "/ip/firewall/address-list/remove")).toEqual([]);
+    expect(calls(router, "/ip/firewall/address-list/add")).toEqual([]);
+  });
+
   const allowRow = (id: string, address: string, extra: Partial<Row> = {}) =>
     ({ ".id": id, list: "netmanager_allow", address, ...extra }) as Row;
 

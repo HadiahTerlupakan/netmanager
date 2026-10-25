@@ -14,7 +14,10 @@ export type AddressListItem = { address: string; comment: string };
 
 /**
  * Entri netmanager_allow: IP server billing, ditambah host isolir untuk mode
- * REDIRECT agar pelanggan isolir bisa membuka halaman tujuan redirect.
+ * REDIRECT agar pelanggan isolir bisa membuka halaman tujuan redirect, dan
+ * alamat layanan untuk mode ISOLIR_SERVICE. Target dst-nat layanan dan IP
+ * server RADIUS berasal dari sumber berbeda; bila suatu saat berbeda, tanpa
+ * entri ini rule forward diam-diam menolak trafik ke layanan.
  */
 export function buildAddressListItems(
   serverIp: string,
@@ -26,6 +29,12 @@ export function buildAddressListItems(
   if (isolir?.mode === "REDIRECT") {
     const { host } = splitIsolirTarget(isolir.target);
     items.push({ address: host, comment: `accept.${host}` });
+  }
+  if (isolir?.mode === "ISOLIR_SERVICE" && isolir.address !== serverIp) {
+    items.push({
+      address: isolir.address,
+      comment: `accept.${isolir.address}`,
+    });
   }
   return items;
 }
