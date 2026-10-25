@@ -180,6 +180,7 @@ export function ClientComponent() {
         submitLabel="Update Router"
         cancelHref="/admin/network/mikrotik"
         isConnectionLocked={isVpnRouter}
+        connectionMode={isVpnRouter ? "VPN" : "PUBLIC"}
         showIsolirReconfigureHint
         connectionSection={
           !isVpnRouter && (

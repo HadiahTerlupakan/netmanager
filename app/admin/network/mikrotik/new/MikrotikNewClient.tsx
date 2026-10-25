@@ -59,6 +59,12 @@ export function ClientComponent() {
     currentDraftId: formData.vpnDraftId,
     onDraftReady: vpn.handleDraftReady,
   });
+  // Server isolir tidak ditawarkan lagi saat router kembali ke publik; nilainya
+  // diturunkan di sini agar tampilan dan kiriman sama dan tidak ditolak server.
+  const isolirMode =
+    !vpn.isVpnMode && formData.isolirMode === "ISOLIR_SERVICE"
+      ? "ROUTER_PAGE"
+      : formData.isolirMode;
   const isSubmitAllowed = vpn.isVpnMode ? vpn.isVpnTestPassed : testPassed;
   const openScriptModal = () => setShowScriptModal(true);
   const isVpnScriptPending = vpn.isVpnMode && !autoDraft.draft;
@@ -85,7 +91,7 @@ export function ClientComponent() {
       const res = await fetch("/api/mikrotik-routers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(withIsolirUrlForMode(formData)),
+        body: JSON.stringify(withIsolirUrlForMode({ ...formData, isolirMode })),
       });
 
       if (!res.ok) {
@@ -160,7 +166,7 @@ export function ClientComponent() {
       <MikrotikRouterForm
         title="Tambah Router"
         pppConnectionMode={pppConnectionMode}
-        formData={formData}
+        formData={{ ...formData, isolirMode }}
         onChange={handleFormChange}
         onSubmit={handleSubmit}
         onTestClick={() => {
@@ -176,6 +182,7 @@ export function ClientComponent() {
         }
         cancelHref="/admin/network/mikrotik"
         isConnectionLocked={vpn.isVpnMode}
+        connectionMode={vpn.isVpnMode ? "VPN" : "PUBLIC"}
         connectionPlaceholder={
           autoDraft.isPreparing ? "Sedang disiapkan…" : undefined
         }

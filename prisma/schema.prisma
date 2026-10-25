@@ -6786,10 +6786,12 @@ enum VpnProtocol {
   L2TP
 }
 
-/// Cara router menampilkan halaman isolir: HTML di router sendiri atau redirect ke isolirUrl.
+/// Cara router menampilkan halaman isolir: HTML di router sendiri, redirect ke isolirUrl,
+/// atau diarahkan ke server isolir (hanya router VPN).
 enum IsolirMode {
   ROUTER_PAGE
   REDIRECT
+  ISOLIR_SERVICE
 }
 
 /// Isi halaman isolir satu tenant. logoUrl kosong berarti memakai logo tenant;

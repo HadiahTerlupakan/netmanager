@@ -1,8 +1,10 @@
-export type IsolirMode = "ROUTER_PAGE" | "REDIRECT";
+export type IsolirMode = "ROUTER_PAGE" | "REDIRECT" | "ISOLIR_SERVICE";
 
 type IsolirModeFieldProps = {
   mode: IsolirMode;
   url: string;
+  /** Server isolir hanya ditawarkan untuk router VPN. */
+  connectionMode?: "PUBLIC" | "VPN";
   onModeChange: (mode: IsolirMode) => void;
   onUrlChange: (url: string) => void;
   /** Form edit: mode baru baru sampai ke router setelah Reconfigurasi. */
@@ -30,6 +32,7 @@ export function withIsolirUrlForMode<
 export function IsolirModeField({
   mode,
   url,
+  connectionMode,
   onModeChange,
   onUrlChange,
   showReconfigureHint = false,
@@ -48,6 +51,9 @@ export function IsolirModeField({
         >
           <option value="ROUTER_PAGE">Halaman di router (bawaan)</option>
           <option value="REDIRECT">Redirect ke URL</option>
+          {connectionMode === "VPN" && (
+            <option value="ISOLIR_SERVICE">Server isolir</option>
+          )}
         </select>
         {showReconfigureHint && (
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">

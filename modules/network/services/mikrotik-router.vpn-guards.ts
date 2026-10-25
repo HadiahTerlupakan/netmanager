@@ -2,6 +2,8 @@ import type {
   MikroTikRouterEntity,
   MikroTikRouterUpdateData,
 } from "../domain/entities/MikroTikRouterEntity";
+import { ValidationError } from "@/lib/errors";
+import { ISOLIR_SERVICE_VPN_ONLY_MESSAGE } from "@/lib/validations/mikrotik";
 import { VpnRouterInvalidError } from "../vpn/errors";
 import { isVpnOverlayAddress } from "../vpn/overlay";
 import {
@@ -43,13 +45,17 @@ function changesLockedField(
  * Data PATCH yang aman untuk router. Router VPN: alamat tunnel dan kredensial
  * API tidak boleh berubah (nasname harus tetap IP tunnel), nilai yang sama
  * tetap diterima agar form edit bisa menyimpan, dan versi RouterOS tetap v7.
- * Router publik: alamat baru tidak boleh menunjuk ke overlay VPN.
+ * Router publik: alamat baru tidak boleh menunjuk ke overlay VPN dan mode
+ * Server isolir ditolak.
  */
 export async function guardRouterUpdate(
   router: LockedRouter,
   data: MikroTikRouterUpdateData,
 ): Promise<MikroTikRouterUpdateData> {
   if (router.connectionMode !== "VPN") {
+    if (data.isolirMode === "ISOLIR_SERVICE") {
+      throw new ValidationError(ISOLIR_SERVICE_VPN_ONLY_MESSAGE);
+    }
     if (data.ipAddress !== undefined && data.ipAddress !== router.ipAddress) {
       await assertNotVpnOverlayTarget(data.ipAddress);
     }

@@ -24,6 +24,7 @@ import { updateRouterMutation } from "@/modules/network/services/mikrotik-router
 import { testRouterConnection } from "@/modules/network/services/mikrotik-router.connection-test";
 import { isVpnOverlayAddress } from "@/modules/network/vpn/overlay";
 import { VpnRouterInvalidError } from "@/modules/network/vpn/errors";
+import { ValidationError } from "@/lib/errors";
 
 const VPN_ROUTER = {
   id: "router-1",
@@ -113,6 +114,31 @@ describe("updateRouterMutation router publik", () => {
 
     await expect(done).rejects.toThrow("Alamat ini khusus jaringan VPN");
     expect(routerRepository.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateRouterMutation mode Server isolir", () => {
+  it("menolak router publik tanpa menulis", async () => {
+    const { done, routerRepository } = runUpdate(
+      { ...VPN_ROUTER, connectionMode: "PUBLIC", ipAddress: "203.0.113.9" },
+      { isolirMode: "ISOLIR_SERVICE" },
+    );
+
+    await expect(done).rejects.toThrow(
+      new ValidationError("Mode Server isolir hanya untuk router VPN"),
+    );
+    expect(routerRepository.update).not.toHaveBeenCalled();
+  });
+
+  it("menerima router VPN", async () => {
+    const { done, routerRepository } = runUpdate(VPN_ROUTER, {
+      isolirMode: "ISOLIR_SERVICE",
+    });
+
+    await done;
+    expect(routerRepository.update.mock.calls[0][1]).toMatchObject({
+      isolirMode: "ISOLIR_SERVICE",
+    });
   });
 });
 

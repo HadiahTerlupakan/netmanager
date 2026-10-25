@@ -15,6 +15,7 @@ import {
   vpnErrorResponse,
 } from "@/modules/network";
 import { isSuperAdmin } from "@/lib/auth";
+import { ValidationError } from "@/lib/errors";
 import * as z from "zod";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -84,6 +85,12 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 
     if (isVpnError(error)) {
       return vpnErrorResponse(error);
+    }
+
+    if (error instanceof ValidationError) {
+      return apiError(error.message, ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
     }
 
     return apiError(

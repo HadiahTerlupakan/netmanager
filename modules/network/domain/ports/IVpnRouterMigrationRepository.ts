@@ -1,3 +1,5 @@
+import type { RouterIsolirMode } from "../entities/MikroTikRouterEntity";
+
 /** Router beserta kolom yang dibutuhkan untuk pindah PUBLIC ⇄ VPN. */
 export interface VpnMigrationRouterRecord {
   id: string;
@@ -16,7 +18,7 @@ export interface VpnMigrationRouterRecord {
   secretRadius: string;
   authPort: number;
   accountingPort: number;
-  isolirMode: "ROUTER_PAGE" | "REDIRECT";
+  isolirMode: RouterIsolirMode;
   isolirUrl: string | null;
 }
 

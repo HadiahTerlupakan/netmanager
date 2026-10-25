@@ -34,6 +34,7 @@ type MikrotikRouterFormProps = {
   connectionSection?: ReactNode;
   /** Mode VPN: IP, port, username, password diisi script VPN dan tidak bisa diketik. */
   isConnectionLocked?: boolean;
+  connectionMode?: "PUBLIC" | "VPN";
   /** Menggantikan placeholder keempat field koneksi, mis. selama draft VPN disiapkan. */
   connectionPlaceholder?: string;
   showIsolirReconfigureHint?: boolean;
@@ -62,6 +63,7 @@ export function MikrotikRouterForm({
   cancelHref,
   connectionSection,
   isConnectionLocked = false,
+  connectionMode,
   connectionPlaceholder,
   showIsolirReconfigureHint,
 }: MikrotikRouterFormProps) {
@@ -222,6 +224,7 @@ export function MikrotikRouterForm({
       <IsolirModeField
         mode={formData.isolirMode}
         url={formData.isolirUrl}
+        connectionMode={connectionMode}
         onModeChange={(mode) => onChange("isolirMode", mode)}
         onUrlChange={(url) => onChange("isolirUrl", url)}
         showReconfigureHint={showIsolirReconfigureHint}

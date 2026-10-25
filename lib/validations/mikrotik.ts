@@ -2,7 +2,12 @@ import * as z from "zod";
 import { VPN_API_PORT } from "@/modules/network/vpn/constants";
 import { vpnIdSchema, vpnProtocolSchema } from "./vpn";
 
-const isolirModeSchema = z.enum(["ROUTER_PAGE", "REDIRECT"]).optional();
+const isolirModeSchema = z
+  .enum(["ROUTER_PAGE", "REDIRECT", "ISOLIR_SERVICE"])
+  .optional();
+
+export const ISOLIR_SERVICE_VPN_ONLY_MESSAGE =
+  "Mode Server isolir hanya untuk router VPN";
 
 // Redirect tanpa URL membuat pelanggan isolir hanya melihat koneksi gagal.
 function addIsolirModeIssue(
@@ -48,7 +53,16 @@ function addVpnModeIssues(
   data: MikrotikRouterCreateInput,
   ctx: z.RefinementCtx,
 ) {
-  if (data.connectionMode !== "VPN") return;
+  if (data.connectionMode !== "VPN") {
+    if (data.isolirMode === "ISOLIR_SERVICE") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["isolirMode"],
+        message: ISOLIR_SERVICE_VPN_ONLY_MESSAGE,
+      });
+    }
+    return;
+  }
   const addIssue = (field: keyof MikrotikRouterCreateInput, message: string) =>
     ctx.addIssue({ code: "custom", path: [field], message });
 

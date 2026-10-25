@@ -331,6 +331,35 @@ describe("PATCH /api/mikrotik-routers/[id] mode halaman isolir", () => {
   });
 });
 
+describe("PATCH /api/mikrotik-routers/[id] Server isolir pada router publik", () => {
+  it("dijawab 400 dengan pesan ValidationError, bukan konflik 409", async () => {
+    const { ValidationError } = await import("@/lib/errors");
+    mockFns.hasPermission.mockResolvedValue(false);
+    mockFns.isSuperAdmin.mockReturnValue(false);
+    mockFns.updateRouter.mockRejectedValue(
+      new ValidationError("Mode Server isolir hanya untuk router VPN"),
+    );
+    const { PATCH } = await import("@/app/api/mikrotik-routers/[id]/route");
+
+    const res = (await (
+      PATCH as unknown as (
+        req: Request,
+        ctx: { params: { id: string } },
+      ) => Promise<{ status?: number; error?: string }>
+    )(
+      new Request("http://localhost/api/mikrotik-routers/router-1", {
+        method: "PATCH",
+        body: JSON.stringify({ isolirMode: "ISOLIR_SERVICE" }),
+        headers: { "content-type": "application/json" },
+      }),
+      { params: { id: "router-1" } },
+    )) as { status?: number; error?: string };
+
+    expect(res.status).toBe(400);
+    expect(res.error).toBe("Mode Server isolir hanya untuk router VPN");
+  });
+});
+
 describe("DELETE /api/mikrotik-routers/[id]", () => {
   let DELETE: (typeof import("@/app/api/mikrotik-routers/[id]/route"))["DELETE"];
 

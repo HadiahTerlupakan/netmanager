@@ -1,5 +1,5 @@
 /** Salinan enum Prisma IsolirMode: lapisan domain tidak boleh mengimpor @prisma/client. */
-export type RouterIsolirMode = "ROUTER_PAGE" | "REDIRECT";
+export type RouterIsolirMode = "ROUTER_PAGE" | "REDIRECT" | "ISOLIR_SERVICE";
 
 export interface MikroTikRouterCreateData {
   name: string;
