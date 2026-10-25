@@ -89,7 +89,7 @@ describe("PWA precache safety", () => {
       "0.4.4",
     );
     expect(packages["node_modules/serialize-javascript"]?.version).toBe(
-      "7.0.5",
+      "7.1.4",
     );
   });
 });

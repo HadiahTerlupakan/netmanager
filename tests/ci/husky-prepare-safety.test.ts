@@ -8,7 +8,7 @@ import { shouldInstallHusky } from "../../scripts/run-husky-prepare.js";
 function readPackageJson(): {
   scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
-  overrides?: Record<string, string>;
+  overrides?: Record<string, string | Record<string, string>>;
 } {
   return JSON.parse(
     readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
@@ -32,8 +32,12 @@ describe("Husky prepare safety", () => {
 
     expect(packageJson.dependencies?.hono).toBe("^4.12.14");
     expect(packageJson.overrides?.hono).toBe("^4.12.14");
-    expect(packageJson.dependencies?.nodemailer).toBe("^8.0.5");
-    expect(packageJson.overrides?.nodemailer).toBe("^8.0.5");
+    expect(packageJson.dependencies?.nodemailer).toBe("^10.2.1");
+    expect(packageJson.overrides?.nodemailer).toBe("^10.2.1");
+    expect(packageJson.dependencies?.["adm-zip"]).toBe("^0.6.1");
+    expect(packageJson.overrides?.["@firebase/firestore"]).toEqual({
+      "@grpc/grpc-js": "^1.14.5",
+    });
     expect(packageJson.overrides?.protobufjs).toBe("^7.5.5");
     expect(packageJson.overrides?.["protocol-buffers-schema"]).toBe("^3.6.1");
     expect(packageJson.overrides?.["node-forge"]).toBe("^1.4.0");
