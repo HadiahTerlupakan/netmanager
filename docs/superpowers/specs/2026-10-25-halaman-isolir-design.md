@@ -223,8 +223,9 @@ domain yang gagal jatuh ke Halaman di router pada provisioning berikutnya.
   Rule `action=deny` menyajikan isi itu utuh (6045 byte, HTTP 403) tanpa
   menghubungi server. Rule uji dan isi file sudah dikembalikan.
 
-Belum diketahui: batas ukuran `contents` lewat RouterOS API. Builder mengukurnya
-di lab dan memakai batas itu dengan cadangan aman sebagai batas ukuran halaman.
+- **Batas ukuran lewat RouterOS API** (node-routeros-v2, `/file/add =contents=`):
+  4, 16, dan 32 KiB tertulis utuh, sedangkan 64 KiB memutus koneksi API. Batas
+  ukuran halaman di router karena itu **24 KiB**.
 
 ## Keputusan perancang (bukan pemilik)
 
