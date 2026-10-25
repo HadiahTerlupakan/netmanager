@@ -154,6 +154,9 @@ Mode publik masih bisa berisi router v6.
 
 ### 4. Server pusat (mode tanpa web proxy router)
 
+> Digantikan oleh `2026-10-25-layanan-isolir-design.md` (layanan isolir
+> sendiri lewat tunnel VPN). Bagian ini tidak dibangun.
+
 - Satu layanan di radpro yang menjawab setiap request HTTP, apa pun host dan
   path-nya, dengan halaman isolir tenant. Halamannya memakai renderer yang
   sama. Ini bukan proxy (bukan Squid): tidak ada yang diteruskan ke internet.
