@@ -247,7 +247,7 @@ export async function provisionFirewallBypass(params: FirewallBypassParams) {
     (item) => isStaleIsolirHostEntry(item, keep),
     params.logs,
   );
-  await ensureFilterRules(params.connection, params.logs, params.isolir);
+  await ensureFilterRules(params.connection, params.logs);
   await ensureExpiredPool(params.connection, params.logs);
   await ensureExpiredProfile(params.connection, params.logs);
 }
@@ -299,11 +299,7 @@ async function addFilterRule(
   logs.push(rule.log);
 }
 
-async function ensureFilterRules(
-  connection: RouterOSAPI,
-  logs: string[],
-  isolir: IsolirProvisioning | null,
-) {
+async function ensureFilterRules(connection: RouterOSAPI, logs: string[]) {
   const placeBeforeArgs = await resolvePlaceBeforeArgs(connection);
 
   for (const rule of FILTER_RULES) {
@@ -326,11 +322,9 @@ async function ensureFilterRules(
     });
   }
 
-  // Mode Server isolir mematikan web proxy, dan guard dibuang oleh
-  // provisioning setelah proxy terbukti mati.
-  if (isolir?.mode !== "ISOLIR_SERVICE") {
-    await ensureProxyGuard(connection, logs, placeBeforeArgs);
-  }
+  // Juga di mode Server isolir: guard baru dibuang provisioning setelah proxy
+  // terbukti mati, jadi run yang putus sebelum itu tetap meninggalkan guard.
+  await ensureProxyGuard(connection, logs, placeBeforeArgs);
 }
 
 async function ensureExpiredPool(connection: RouterOSAPI, logs: string[]) {

@@ -286,25 +286,27 @@ describe("provisionFirewallBypass", () => {
     ]);
   });
 
-  it("mode ISOLIR_SERVICE tidak menambah proxy guard dan tidak menyentuh yang ada", async () => {
-    const router = fakeRouter();
-    await provision(router, {
+  // Guard baru dibuang provisioning setelah web proxy terbukti mati; run yang
+  // putus sebelum itu tidak boleh meninggalkan proxy menyala tanpa guard.
+  it("mode ISOLIR_SERVICE tetap memasang dan memulihkan proxy guard", async () => {
+    const service: IsolirProvisioning = {
       mode: "ISOLIR_SERVICE",
       address: "10.50.0.1",
-    });
-    expect(router.filter.map((r) => r.comment)).not.toContain(
-      "netmanager-proxy-guard",
-    );
+    };
+    const router = fakeRouter();
+    await provision(router, service);
+    const guard = router.filter.find(
+      (r) => r.comment === "netmanager-proxy-guard",
+    )!;
+    expect(guard).toEqual(expect.objectContaining(toProps(guardArgs)));
 
-    await provision(router);
-    const guardCount = () =>
-      router.filter.filter((r) => r.comment === "netmanager-proxy-guard")
-        .length;
-    expect(guardCount()).toBe(1);
-
+    guard.disabled = "true";
     router.write.mockClear();
-    await provision(router, { mode: "ISOLIR_SERVICE", address: "10.50.0.1" });
-    expect(guardCount()).toBe(1);
+    await provision(router, service);
+
+    expect(calls(router, "/ip/firewall/filter/set")).toEqual([
+      [`=.id=${guard[".id"]}`, ...guardArgs, "=disabled=no"],
+    ]);
     expect(calls(router, "/ip/firewall/filter/remove")).toEqual([]);
   });
 

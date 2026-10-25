@@ -408,16 +408,24 @@ describe("provisionRadius", () => {
     const GUARD = "netmanager-proxy-guard";
     let filter: Record<string, string>[];
     let proxyEnabled: boolean;
+    let isConnectionDropped: boolean;
 
-    // RouterOS mencetak boolean sebagai "true"/"false".
-    function statefulRouter(failProxyOff = false) {
+    // RouterOS mencetak boolean sebagai "true"/"false". `dropAtProxyOff`
+    // memutus koneksi saat proxy hendak dimatikan: semua tulis sesudahnya gagal.
+    function statefulRouter(failProxyOff = false, dropAtProxyOff = false) {
       filter = [];
       proxyEnabled = true;
+      isConnectionDropped = false;
       mocks.connection.write.mockReset();
       mocks.connection.write.mockImplementation(
         async (path: string, args: string[] = []) => {
+          if (isConnectionDropped) throw new Error("connection lost");
           if (path === "/ip/proxy/set") {
             if (args.includes("=enabled=no")) {
+              if (dropAtProxyOff) {
+                isConnectionDropped = true;
+                throw new Error("connection lost");
+              }
               if (failProxyOff) throw new Error("proxy busy");
               proxyEnabled = false;
             } else {
@@ -434,6 +442,11 @@ describe("provisionRadius", () => {
           if (path === "/ip/firewall/filter/remove") {
             const id = args[0].slice("=.id=".length);
             filter = filter.filter((r) => r[".id"] !== id);
+          }
+          if (path === "/ip/firewall/filter/set") {
+            const id = args[0].slice("=.id=".length);
+            const row = filter.find((r) => r[".id"] === id);
+            if (row && args.includes("=disabled=no")) row.disabled = "false";
           }
           if (path === "/ip/firewall/filter/print") {
             const q = args.find((a) => a.startsWith("?comment="));
@@ -510,6 +523,31 @@ describe("provisionRadius", () => {
       await run(service);
 
       expect(hasGuard()).toBe(true);
+    });
+
+    const guardRow = () => filter.find((r) => r.comment === GUARD)!;
+
+    it("proxy gagal dimatikan: guard yang dinonaktifkan dinyalakan lagi", async () => {
+      statefulRouter(true);
+      await run(page);
+      guardRow().disabled = "true";
+
+      await run(service);
+
+      expect(proxyEnabled).toBe(true);
+      expect(guardRow().disabled).toBe("false");
+    });
+
+    it("putus sebelum proxy mati: guard sudah dipulihkan langkah firewall", async () => {
+      statefulRouter(false, true);
+      await run(page);
+      guardRow().disabled = "true";
+
+      const result = await run(service);
+
+      expect(result).toMatchObject({ success: false });
+      expect(proxyEnabled).toBe(true);
+      expect(guardRow().disabled).toBe("false");
     });
 
     it("kembali ke ROUTER_PAGE menyalakan proxy dan memasang guard lagi", async () => {
