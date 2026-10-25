@@ -123,6 +123,10 @@ export function useIsolirPage() {
   const refreshStatus = () => status.mutate();
 
   const save = async () => {
+    // PUT mengganti seluruh konfigurasi dan mengirimnya ke semua router;
+    // menyimpan form kosong sebelum data awal termuat menghapus isian
+    // tersimpan.
+    if (!didHydrate) return;
     setSaving(true);
     try {
       const res = await fetch(PAGE_URL, {
@@ -179,6 +183,10 @@ export function useIsolirPage() {
     setPayments,
     loading: view.isLoading,
     loadError: view.error?.message ?? null,
+    hydrated: didHydrate,
+    retry: () => {
+      void view.refetch();
+    },
     saving,
     logoUrl: view.data?.page?.logoUrl ?? null,
     preview: view.data?.preview ?? null,

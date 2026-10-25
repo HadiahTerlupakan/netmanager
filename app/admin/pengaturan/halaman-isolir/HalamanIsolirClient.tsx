@@ -127,9 +127,15 @@ export function ClientComponent() {
       </div>
 
       {page.loadError && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-          {page.loadError}
-        </p>
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 text-sm text-red-600 dark:text-red-400"
+        >
+          <span>{page.loadError}</span>
+          <Button type="button" variant="outline" onClick={page.retry}>
+            Coba lagi
+          </Button>
+        </div>
       )}
 
       <form
@@ -139,7 +145,12 @@ export function ClientComponent() {
           void page.save();
         }}
       >
-        <fieldset disabled={!canUpdate || page.saving} className="space-y-5">
+        {/* Sebelum data awal termuat form masih berisi nilai kosong; Simpan
+            saat itu akan menimpa seluruh konfigurasi tersimpan. */}
+        <fieldset
+          disabled={!canUpdate || !page.hydrated || page.saving}
+          className="space-y-5"
+        >
           <Section title="Identitas">
             {text("ispName", "Nama ISP", 120, "Nama tenant")}
             {text(
@@ -268,7 +279,11 @@ export function ClientComponent() {
 
           {canUpdate && (
             <div className="flex justify-end">
-              <Button type="submit" variant="primary" disabled={page.saving}>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={!page.hydrated || page.saving}
+              >
                 {page.saving ? "Menyimpan..." : "Simpan"}
               </Button>
             </div>

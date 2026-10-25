@@ -1,16 +1,21 @@
-import React from "react";
+// @vitest-environment jsdom
+
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const apiData = vi.hoisted(() => new Map<string, unknown>());
+const apiErrors = vi.hoisted(() => new Map<string, Error>());
 const permissions = vi.hoisted(() => new Set<string>());
 
 vi.mock("@/lib/hooks/useApi", () => ({
   useApi: (key: string) => ({
     data: apiData.get(key),
-    error: null as Error | null,
+    error: apiErrors.get(key) ?? null,
     isLoading: false,
     mutate: vi.fn(),
+    refetch: vi.fn(),
   }),
 }));
 vi.mock("@/hooks/use-permission", () => ({
@@ -28,6 +33,10 @@ vi.mock("@/components/ui/Button", () => ({
   }) => <button disabled={disabled}>{children}</button>,
 }));
 
+(
+  globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
 import { ClientComponent } from "@/app/admin/pengaturan/halaman-isolir/HalamanIsolirClient";
 
 const payment = { label: "BCA", number: "123", holder: "PT Net" };
@@ -43,8 +52,13 @@ function setView(
 }
 
 describe("Pengaturan Halaman Isolir", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     apiData.clear();
+    apiErrors.clear();
     permissions.clear();
     permissions.add("isolir_page:update");
     apiData.set("/api/admin/isolir-page/status", []);
@@ -104,5 +118,32 @@ describe("Pengaturan Halaman Isolir", () => {
 
     expect(html).toContain("<fieldset disabled=");
     expect(html).not.toContain("Simpan");
+  });
+
+  it("GET gagal: form dan Simpan terkunci, submit tidak mengirim PUT", async () => {
+    apiErrors.set("/api/admin/isolir-page", new Error("Gagal memuat"));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () => root.render(<ClientComponent />));
+    expect(container.textContent).toContain("Gagal memuat");
+    expect(container.textContent).toContain("Coba lagi");
+    expect(container.querySelector("fieldset")?.disabled).toBe(true);
+    const simpan = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Simpan",
+    );
+    expect(simpan?.disabled).toBe(true);
+
+    await act(async () => {
+      container
+        .querySelector("form")
+        ?.dispatchEvent(
+          new Event("submit", { bubbles: true, cancelable: true }),
+        );
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => root.unmount());
   });
 });
