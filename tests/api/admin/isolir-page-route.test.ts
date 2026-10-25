@@ -258,6 +258,45 @@ describe("API halaman isolir", () => {
       expect(mockUpsert).not.toHaveBeenCalled();
     });
 
+    it("menolak PNG berdimensi melebihi batas", async () => {
+      const wide = await sharp({
+        create: { width: 4000, height: 10, channels: 3, background: "#000" },
+      })
+        .png()
+        .toBuffer();
+      const result = await POST(
+        logoRequest(
+          new File([new Uint8Array(wide)], "w.png", { type: "image/png" }),
+        ),
+        session("t1"),
+      );
+      expect(result).toMatchObject({ status: 400 });
+      expect(mockSaveFile).not.toHaveBeenCalled();
+    });
+
+    it("memperkecil logo besar hingga maksimal 512px", async () => {
+      mockSaveFile.mockResolvedValue("/uploads/logos/x.webp");
+      const big = await sharp({
+        create: { width: 800, height: 800, channels: 3, background: "#00f" },
+      })
+        .png()
+        .toBuffer();
+      await POST(
+        logoRequest(
+          new File([new Uint8Array(big)], "b.png", { type: "image/png" }),
+        ),
+        session("t1"),
+      );
+      const saved = mockSaveFile.mock.calls[0][0] as File;
+      const meta = await sharp(
+        Buffer.from(await saved.arrayBuffer()),
+      ).metadata();
+      expect(meta.format).toBe("webp");
+      expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(
+        512,
+      );
+    });
+
     it("menolak berkas lebih dari 5MB", async () => {
       const big = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "b.png", {
         type: "image/png",

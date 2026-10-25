@@ -9,6 +9,14 @@ import { renderIsolirPage, type IsolirRenderResult } from "./isolir-render";
 import { IsolirPageRepository } from "./IsolirPageRepository";
 
 const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024;
+// Batas piksel mencegah PNG kecil yang mendeklarasikan dimensi raksasa
+// menghabiskan memori saat didecode; logo hanya perlu ukuran kecil.
+const MAX_LOGO_SIDE_PX = 2048;
+const STORED_LOGO_SIDE_PX = 512;
+const SHARP_LIMITS = {
+  limitInputPixels: MAX_LOGO_SIDE_PX * MAX_LOGO_SIDE_PX,
+  animated: false,
+};
 const ALLOWED_LOGO_FORMATS = ["png", "jpeg", "webp", "gif"];
 
 export type IsolirPageView = {
@@ -28,11 +36,25 @@ type PushToRouters = (tenantId: string) => Promise<unknown>;
 async function toWebp(file: File): Promise<File> {
   const input = Buffer.from(await file.arrayBuffer());
   try {
-    const { format } = await sharp(input).metadata();
+    const { format, width, height } = await sharp(
+      input,
+      SHARP_LIMITS,
+    ).metadata();
     if (!format || !ALLOWED_LOGO_FORMATS.includes(format)) {
       throw new IsolirLogoError("Logo harus berupa PNG, JPG, WebP, atau GIF");
     }
-    const output = await sharp(input).webp().toBuffer();
+    if ((width ?? 0) > MAX_LOGO_SIDE_PX || (height ?? 0) > MAX_LOGO_SIDE_PX) {
+      throw new IsolirLogoError(`Dimensi logo maksimal ${MAX_LOGO_SIDE_PX}px`);
+    }
+    const output = await sharp(input, SHARP_LIMITS)
+      .resize({
+        width: STORED_LOGO_SIDE_PX,
+        height: STORED_LOGO_SIDE_PX,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp()
+      .toBuffer();
     return new File([new Uint8Array(output)], "logo.webp", {
       type: "image/webp",
     });
