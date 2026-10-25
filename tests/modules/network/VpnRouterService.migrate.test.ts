@@ -62,6 +62,7 @@ function publicRouter(
     secretRadius: "radius-secret",
     authPort: 7265,
     accountingPort: 7266,
+    isolirMode: "ROUTER_PAGE",
     isolirUrl: null,
     ...overrides,
   };
@@ -135,7 +136,9 @@ const radiusConfig = {
   secretRadius: "radius-secret",
   authPort: 7265,
   accountingPort: 7266,
+  isolirMode: "ROUTER_PAGE",
   isolirUrl: null as string | null,
+  tenantId: TENANT,
 };
 
 function makeService(

@@ -10,6 +10,10 @@ export type MikroTikProvisioningRouterDetails = {
 export type MikroTikProvisioningResult = {
   success: boolean;
   logs: string[];
+  /** Pesan galat bila provisioning gagal. */
+  error?: string;
+  /** Galat menulis halaman isolir, sementara provisioning lainnya berhasil. */
+  isolirPageError?: string;
 };
 
 const CONNECTION_TIMEOUT = 10000;

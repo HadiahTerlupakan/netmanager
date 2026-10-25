@@ -1,3 +1,5 @@
+import type { IsolirMode } from "@prisma/client";
+
 export interface ActiveTenant {
   id: string;
 }
@@ -48,7 +50,9 @@ export interface RouterReconfigureRecord {
   apiPasswordGenerated: string | null;
   siteId: string | null;
   connectionMode: "PUBLIC" | "VPN";
+  isolirMode: IsolirMode;
   isolirUrl: string | null;
+  tenantId: string | null;
 }
 
 export interface RouterGeneratedApiUserRecord {

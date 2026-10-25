@@ -1,9 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({ resolveIsolirContent: vi.fn() }));
+
 vi.mock("@/modules/network/services/mikrotik-provisioning.connection", () => ({
   delay: async (): Promise<void> => undefined,
 }));
+vi.mock("@/modules/network/isolir/isolir-content", () => ({
+  resolveIsolirContent: mocks.resolveIsolirContent,
+}));
 
+import { renderIsolirPage } from "@/modules/network/isolir/isolir-render";
+import type { IsolirContent } from "@/modules/network/isolir/isolir-page.types";
 import { provisionRadiusConfig } from "@/modules/network/services/mikrotik-provisioning.radius";
 import { RouterReconfigureRouteService } from "@/modules/network/services/RouterReconfigureRouteService";
 
@@ -101,40 +108,64 @@ describe("RouterReconfigureRouteService alamat RADIUS", () => {
     apiPasswordGenerated: null as string | null,
     siteId: null as string | null,
     connectionMode,
+    isolirMode: "ROUTER_PAGE" as "ROUTER_PAGE" | "REDIRECT",
     isolirUrl: null as string | null,
+    tenantId: "t1" as string | null,
   });
+
+  const content: IsolirContent = {
+    ispName: "Net Tenant",
+    title: "Judul",
+    message: "Pesan",
+    logoDataUri: null,
+    payments: [],
+    whatsapp: null,
+    link: null,
+    contactText: null,
+    primaryColor: "#1d4ed8",
+  };
 
   function setup(
     connectionMode: "PUBLIC" | "VPN",
-    isolir: { router?: string; setting?: string } = {},
+    isolir: Partial<ReturnType<typeof storedRouter>> = {},
   ) {
     const provisioningService = {
-      provisionRadius: vi.fn(async () => ({ success: true, logs: [] })),
+      provisionRadius: vi.fn<
+        (...args: unknown[]) => Promise<{
+          success: boolean;
+          logs: string[];
+          error?: string;
+          isolirPageError?: string;
+        }>
+      >(async () => ({ success: true, logs: [] })),
     };
     const routerService = { getRouterById: vi.fn(async () => ({ id: "r1" })) };
     const networkRepository = {
       findSettingsByKeys: vi.fn(async () => [
         { key: "RADIUS_SECRET", value: "s" },
-        ...(isolir.setting
-          ? [{ key: "ISOLIR_URL", value: isolir.setting }]
-          : []),
+        { key: "ISOLIR_URL", value: "https://isolir.global.id" },
       ]),
       findRouterForReconfigure: vi.fn(async () => ({
         ...storedRouter(connectionMode),
-        isolirUrl: isolir.router ?? null,
+        ...isolir,
       })),
+      updateIsolirPageSync: vi.fn(async () => undefined),
     };
     const service = new RouterReconfigureRouteService(
       provisioningService as never,
       routerService as never,
       networkRepository as never,
     );
-    return { service, provisioningService };
+    return { service, provisioningService, networkRepository };
   }
+
+  const context = { tenantId: "t1", userId: "u1", restrictedToOwnSite: false };
 
   beforeEach(() => {
     vi.stubEnv("RADIUS_SECRET", "");
     vi.stubEnv("VPN_CORE_ADDRESS", "");
+    mocks.resolveIsolirContent.mockReset();
+    mocks.resolveIsolirContent.mockResolvedValue(content);
   });
 
   afterEach(() => {
@@ -186,35 +217,67 @@ describe("RouterReconfigureRouteService alamat RADIUS", () => {
     },
   );
 
+  it("router REDIRECT memakai URL miliknya sendiri, bukan ISOLIR_URL global", async () => {
+    const { service, provisioningService, networkRepository } = setup("VPN", {
+      isolirMode: "REDIRECT",
+      isolirUrl: "https://isolir.router.id/bayar",
+    });
+    await service.reconfigureRouters(["r1"], context);
+
+    const call = provisioningService.provisionRadius.mock.calls[0];
+    expect(call[3]).toEqual({
+      mode: "REDIRECT",
+      target: "isolir.router.id/bayar",
+    });
+    expect(networkRepository.updateIsolirPageSync).not.toHaveBeenCalled();
+  });
+
+  it("router ROUTER_PAGE mengirim halaman tenant router dan mencatat hash-nya", async () => {
+    const { service, provisioningService, networkRepository } = setup(
+      "PUBLIC",
+      {
+        tenantId: "t-router",
+      },
+    );
+    await service.reconfigureRouters(["r1"], context);
+
+    const { html, hash } = renderIsolirPage(content);
+    expect(mocks.resolveIsolirContent).toHaveBeenCalledWith("t-router");
+    expect(provisioningService.provisionRadius.mock.calls[0][3]).toEqual({
+      mode: "ROUTER_PAGE",
+      html,
+      hash,
+    });
+    expect(networkRepository.updateIsolirPageSync).toHaveBeenCalledWith("r1", {
+      hash,
+      syncedAt: expect.any(Date),
+      error: null,
+    });
+  });
+
   it.each([
     [
-      "URL milik router",
-      "https://isolir.router.id",
-      "https://isolir.global.id",
-      "https://isolir.router.id",
+      "provisioning gagal",
+      { success: false, logs: [], error: "timeout" },
+      "timeout",
     ],
     [
-      "setting global bila router tidak punya",
-      undefined,
-      "https://isolir.global.id",
-      "https://isolir.global.id",
+      "halaman gagal ditulis",
+      { success: true, logs: [], isolirPageError: "disk full" },
+      "disk full",
     ],
   ])(
-    "memakai %s sebagai halaman isolir",
-    async (_case, router, setting, expected) => {
-      const { service, provisioningService } = setup("VPN", {
-        router,
-        setting,
-      });
-      await service.reconfigureRouters(["r1"], {
-        tenantId: "t1",
-        userId: "u1",
-        restrictedToOwnSite: false,
-      });
+    "router ROUTER_PAGE: %s mencatat galat tanpa hash",
+    async (_case, result, error) => {
+      const { service, provisioningService, networkRepository } =
+        setup("PUBLIC");
+      provisioningService.provisionRadius.mockResolvedValue(result);
+      await service.reconfigureRouters(["r1"], context);
 
-      const call = provisioningService.provisionRadius.mock
-        .calls[0] as unknown[];
-      expect(call[3]).toBe(expected);
+      expect(networkRepository.updateIsolirPageSync).toHaveBeenCalledWith(
+        "r1",
+        { hash: null, error },
+      );
     },
   );
 });

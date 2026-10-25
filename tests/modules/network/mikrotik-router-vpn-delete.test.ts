@@ -93,7 +93,6 @@ describe("deleteRouterMutation", () => {
     expect(t.provisioningService.deprovisionRadius).toHaveBeenCalledWith(
       { ip: TUNNEL_IP, port: 8728, username: "u", password: "p" },
       "10.99.0.1",
-      null,
     );
     expect(mocks.deleteCoreRouter).toHaveBeenCalledWith("core-1");
     expect(t.tombstoneRepository.add).not.toHaveBeenCalled();
@@ -110,7 +109,6 @@ describe("deleteRouterMutation", () => {
 
     expect(t.provisioningService.deprovisionRadius).toHaveBeenCalledWith(
       expect.objectContaining({ ip: TUNNEL_IP }),
-      null,
       null,
     );
     expect(mocks.deleteCoreRouter).not.toHaveBeenCalled();

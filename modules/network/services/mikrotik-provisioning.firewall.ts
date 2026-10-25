@@ -3,12 +3,13 @@ import { delay } from "./mikrotik-provisioning.connection";
 import {
   buildAddressListItems,
   getAddressListArgs,
+  getAllowListArgs,
   getExpiredProfileArgs,
   getExpiredProfileSetArgs,
-  getFirewallAddresses,
   type AddressListItem,
 } from "./mikrotik-provisioning.firewall.helpers";
 import { restoreRows, type RouterRow } from "./mikrotik-provisioning.restore";
+import type { IsolirProvisioning } from "../isolir/isolir-provisioning";
 
 const ADDRESS_LIST_NAME = "netmanager_allow";
 const EXPIRED_NETWORK = "10.127.0.0/18";
@@ -75,7 +76,7 @@ const FILTER_RULES = [
 type FirewallBypassParams = {
   connection: RouterOSAPI;
   serverIp: string;
-  isolirUrl?: string | null;
+  isolir: IsolirProvisioning | null;
   logs: string[];
 };
 
@@ -137,24 +138,33 @@ async function removeRecord(input: {
   input.logs.push(input.message);
 }
 
-async function removeAddressListEntries(
+/**
+ * Hapus entri statis netmanager_allow selain `keep`; list itu milik billing
+ * seluruhnya, jadi host isolir lama ikut hilang. Entri dinamis hasil resolve
+ * DNS ditolak RouterOS bila dihapus langsung dan hilang bersama entri
+ * domainnya.
+ */
+async function pruneAllowList(
   connection: RouterOSAPI,
-  address: string,
+  keep: readonly string[],
   logs: string[],
 ) {
   const items = await readRecords(
     connection,
     "/ip/firewall/address-list/print",
-    getAddressListArgs(address),
+    getAllowListArgs(),
   );
 
   for (const item of items) {
+    if (item.dynamic === "true" || keep.includes(item.address ?? "")) {
+      continue;
+    }
     await removeRecord({
       connection,
       path: "/ip/firewall/address-list/remove",
       id: item[".id"],
       logs,
-      message: `Removed Firewall Address List: ${address}`,
+      message: `Removed Firewall Address List: ${item.address}`,
       delayMs: 100,
     });
   }
@@ -200,26 +210,25 @@ async function removeExpiredProfiles(connection: RouterOSAPI, logs: string[]) {
   }
 }
 
-async function removeFirewallAddresses(params: FirewallBypassParams) {
-  for (const address of getFirewallAddresses(
-    params.serverIp,
-    params.isolirUrl,
-  )) {
-    await removeAddressListEntries(params.connection, address, params.logs);
-  }
-}
-
 /** Hapus bypass firewall dan profile isolir yang dibuat provisioning. */
-export async function removeFirewallBypass(params: FirewallBypassParams) {
-  await removeFirewallAddresses(params);
+export async function removeFirewallBypass(params: {
+  connection: RouterOSAPI;
+  logs: string[];
+}) {
+  await pruneAllowList(params.connection, [], params.logs);
   await removeFilterRules(params.connection, params.logs);
   await removeExpiredProfiles(params.connection, params.logs);
 }
 
 /** Pastikan bypass firewall dan profile isolir tersedia di router. */
 export async function provisionFirewallBypass(params: FirewallBypassParams) {
-  const items = buildAddressListItems(params.serverIp, params.isolirUrl);
+  const items = buildAddressListItems(params.serverIp, params.isolir);
   await ensureAddressList(params.connection, items, params.logs);
+  await pruneAllowList(
+    params.connection,
+    items.map((item) => item.address),
+    params.logs,
+  );
   await ensureFilterRules(params.connection, params.logs);
   await ensureExpiredPool(params.connection, params.logs);
   await ensureExpiredProfile(params.connection, params.logs);
@@ -257,7 +266,6 @@ async function ensureAddressList(
     logs.push(`Added Firewall Address List: ${item.address}`);
   }
 }
-
 
 async function addFilterRule(
   connection: RouterOSAPI,

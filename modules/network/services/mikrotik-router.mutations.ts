@@ -52,7 +52,10 @@ type CreateRouterInput = {
   routerRepository: Pick<IMikroTikRouterRepository, "create" | "delete">;
   networkRepository: Pick<
     IRouterAccessRepository,
-    "findSettingByKey" | "findUserSite" | "updateGeneratedApiUser"
+    | "findSettingByKey"
+    | "findUserSite"
+    | "updateGeneratedApiUser"
+    | "updateIsolirPageSync"
   >;
   provisioningService: Pick<
     MikroTikProvisioningService,

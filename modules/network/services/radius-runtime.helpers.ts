@@ -4,7 +4,6 @@ import type { NetworkRepository } from "../repositories/NetworkRepository";
 const DEFAULT_RADIUS_AUTH_PORT = 1812;
 const DEFAULT_RADIUS_ACCOUNTING_PORT = 1813;
 const RADIUS_SECRET_KEY = "RADIUS_SECRET";
-const ISOLIR_URL_KEY = "ISOLIR_URL";
 const DEFAULT_RADIUS_SECRET = "testing123";
 const MISSING_RADIUS_SECRET_ERROR = "RADIUS secret belum dikonfigurasi";
 
@@ -72,17 +71,14 @@ export async function getRouterReconfigureSettings(
   networkRepository: Pick<NetworkRepository, "findSettingsByKeys">,
 ): Promise<{
   radiusSecret: string;
-  isolirUrl?: string;
 }> {
   const settings = await networkRepository.findSettingsByKeys([
     RADIUS_SECRET_KEY,
-    ISOLIR_URL_KEY,
   ]);
 
   return {
     radiusSecret: requireRadiusSecret(
       getEnvRadiusSecret() ?? getSettingValue(settings, RADIUS_SECRET_KEY),
     ),
-    isolirUrl: getSettingValue(settings, ISOLIR_URL_KEY),
   };
 }

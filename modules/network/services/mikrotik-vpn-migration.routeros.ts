@@ -1,3 +1,5 @@
+import type { IsolirMode } from "@prisma/client";
+import { resolveIsolirProvisioning } from "../isolir/isolir-provisioning";
 import { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import {
   runProvisioningConnection,
@@ -16,12 +18,14 @@ import {
   type TestConnectionResult,
 } from "./mikrotik/router-api-test";
 
-/** Rahasia dan port RADIUS router, sama dengan entri NAS-nya. */
+/** Rahasia dan port RADIUS router (sama dengan entri NAS-nya) beserta mode isolirnya. */
 export interface RadiusEntryConfig {
   secretRadius: string;
   authPort: number;
   accountingPort: number;
+  isolirMode: IsolirMode;
   isolirUrl: string | null;
+  tenantId: string;
 }
 
 /**
@@ -71,7 +75,7 @@ export const vpnMigrationRouterOs: VpnMigrationRouterOs = {
       conn,
       serverIp,
       config.secretRadius,
-      config.isolirUrl,
+      await resolveIsolirProvisioning(config),
       config.authPort,
       config.accountingPort,
       srcAddress,

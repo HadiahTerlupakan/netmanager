@@ -35,6 +35,7 @@ const router: VpnMigrationRouterRecord = {
   secretRadius: "radius-secret",
   authPort: 7265,
   accountingPort: 7266,
+  isolirMode: "ROUTER_PAGE",
   isolirUrl: null,
 };
 

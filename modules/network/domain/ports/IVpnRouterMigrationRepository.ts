@@ -16,6 +16,7 @@ export interface VpnMigrationRouterRecord {
   secretRadius: string;
   authPort: number;
   accountingPort: number;
+  isolirMode: "ROUTER_PAGE" | "REDIRECT";
   isolirUrl: string | null;
 }
 

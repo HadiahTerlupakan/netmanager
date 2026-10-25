@@ -12,6 +12,12 @@ import {
   getRouterReconfigureSettings,
 } from "./radius-runtime.helpers";
 import { resolveRadiusRouting } from "./mikrotik-router.provisioning";
+import {
+  buildIsolirPageSync,
+  recordIsolirPageSync,
+  resolveIsolirProvisioning,
+  type IsolirProvisioning,
+} from "../isolir/isolir-provisioning";
 
 const FORBIDDEN_ERROR = "FORBIDDEN:Akses ditolak";
 const NOT_FOUND_ERROR = "NOT_FOUND:No valid routers found among selection";
@@ -33,7 +39,6 @@ interface ReconfigureContext {
 
 interface RouterSettings {
   radiusSecret: string;
-  isolirUrl?: string;
 }
 
 interface RouterReconfigureResult {
@@ -54,12 +59,12 @@ function getRouterCredentials(router: RouterCredentialsInput) {
 // Same RADIUS ports as when the router was added: falling back to the
 // service's 1812/1813 left a router whose RADIUS listens elsewhere timing
 // out on every login after a reconfigure. A VPN router also gets the core
-// address and its tunnel IP as src-address. The isolir page is the router's
-// own, as stored when it was added and used when it is removed; the global
-// ISOLIR_URL only covers routers saved without one.
+// address and its tunnel IP as src-address. The isolir setup follows the
+// router's own mode and URL; the global ISOLIR_URL is no longer used.
 function buildProvisionRadiusArgs(
   router: RouterReconfigureRecord,
   settings: RouterSettings,
+  isolir: IsolirProvisioning,
 ): Parameters<MikroTikProvisioningService["provisionRadius"]> {
   const credentials = getRouterCredentials(router);
   const connection = {
@@ -74,7 +79,7 @@ function buildProvisionRadiusArgs(
     connection,
     radiusServerIp,
     settings.radiusSecret,
-    router.isolirUrl || settings.isolirUrl,
+    isolir,
     authPort,
     accountingPort,
     srcAddress ?? undefined,
@@ -182,8 +187,14 @@ export class RouterReconfigureRouteService {
     settings: RouterSettings,
   ): Promise<RouterReconfigureResult> {
     try {
+      const isolir = await resolveIsolirProvisioning(router);
       const result = await this.provisioningService.provisionRadius(
-        ...buildProvisionRadiusArgs(router, settings),
+        ...buildProvisionRadiusArgs(router, settings, isolir),
+      );
+      await recordIsolirPageSync(
+        this.networkRepository,
+        router.id,
+        buildIsolirPageSync(isolir, result),
       );
 
       return buildRouterResult(

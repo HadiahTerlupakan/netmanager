@@ -5,6 +5,7 @@ vi.mock("@/modules/network/services/mikrotik-provisioning.connection", () => ({
   delay: async (): Promise<void> => undefined,
 }));
 
+import type { IsolirProvisioning } from "@/modules/network/isolir/isolir-provisioning";
 import { provisionFirewallBypass } from "@/modules/network/services/mikrotik-provisioning.firewall";
 
 type Row = { ".id": string; [key: string]: string | undefined };
@@ -20,11 +21,27 @@ function toProps(args: string[]) {
   );
 }
 
-// Holds filter rows with their properties, so prints see what earlier adds
-// and sets wrote; every other print comes back empty.
-function fakeRouter(existingFilter: Row[] = []) {
+function queryValue(args: string[], key: string) {
+  return args.find((a) => a.startsWith(`?${key}=`))?.slice(key.length + 2);
+}
+
+// Holds filter and address-list rows with their properties, so prints see
+// what earlier adds wrote; every other print comes back empty.
+function fakeRouter(existingFilter: Row[] = [], existingAllow: Row[] = []) {
   const filter = [...existingFilter];
+  const allow = [...existingAllow];
   const write = vi.fn(async (path: string, args: string[] = []) => {
+    if (path === "/ip/firewall/address-list/print") {
+      const address = queryValue(args, "address");
+      return allow.filter(
+        (r) =>
+          r.list === queryValue(args, "list") &&
+          (address === undefined || r.address === address),
+      );
+    }
+    if (path === "/ip/firewall/address-list/add") {
+      allow.push({ ".id": `*a${allow.length}`, ...toProps(args) });
+    }
     if (path === "/ip/firewall/filter/print") {
       const comment = args
         .find((a) => a.startsWith("?comment="))
@@ -36,13 +53,23 @@ function fakeRouter(existingFilter: Row[] = []) {
     }
     return [];
   });
-  return { write, filter };
+  return { write, filter, allow };
 }
 
-function provision(router: ReturnType<typeof fakeRouter>) {
+const ROUTER_PAGE: IsolirProvisioning = {
+  mode: "ROUTER_PAGE",
+  html: "<html></html>",
+  hash: "h",
+};
+
+function provision(
+  router: ReturnType<typeof fakeRouter>,
+  isolir: IsolirProvisioning = ROUTER_PAGE,
+) {
   return provisionFirewallBypass({
     connection: router as unknown as RouterOSAPI,
     serverIp: "10.99.0.1",
+    isolir,
     logs: [],
   });
 }
@@ -119,5 +146,55 @@ describe("provisionFirewallBypass", () => {
       ],
     ]);
     expect(calls(router, "/ip/firewall/filter/add")).toHaveLength(0);
+  });
+
+  it.each([
+    ["ROUTER_PAGE", ROUTER_PAGE, ["10.99.0.1"]],
+    [
+      "REDIRECT",
+      { mode: "REDIRECT", target: "isolir.x.id/abc" } as const,
+      ["10.99.0.1", "isolir.x.id"],
+    ],
+  ])(
+    "netmanager_allow mode %s berisi IP server dan host isolir hanya untuk REDIRECT",
+    async (_mode, isolir, expected) => {
+      const router = fakeRouter();
+
+      await provision(router, isolir);
+
+      expect(router.allow.map((r) => r.address)).toEqual(expected);
+      expect(router.allow.every((r) => r.list === "netmanager_allow")).toBe(
+        true,
+      );
+    },
+  );
+
+  it("menghapus entri netmanager_allow lain, kecuali entri dinamis hasil DNS", async () => {
+    const router = fakeRouter(
+      [],
+      [
+        { ".id": "*1", list: "netmanager_allow", address: "10.99.0.1" },
+        { ".id": "*2", list: "netmanager_allow", address: "isolir.lama.id" },
+        {
+          ".id": "*3",
+          list: "netmanager_allow",
+          address: "203.0.113.9",
+          dynamic: "true",
+        },
+      ],
+    );
+
+    await provision(router, { mode: "REDIRECT", target: "isolir.baru.id" });
+
+    expect(calls(router, "/ip/firewall/address-list/remove")).toEqual([
+      ["=.id=*2"],
+    ]);
+    expect(calls(router, "/ip/firewall/address-list/add")).toEqual([
+      [
+        "=list=netmanager_allow",
+        "=address=isolir.baru.id",
+        "=comment=accept.isolir.baru.id",
+      ],
+    ]);
   });
 });

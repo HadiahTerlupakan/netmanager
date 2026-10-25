@@ -5,6 +5,12 @@ import type { MikroTikProvisioningService } from "./MikroTikProvisioningService"
 import { checkSingleMikroTikRouterStatus } from "./mikrotik-ping-check";
 import { getVpnCoreAddress } from "../vpn/VpnCoreClient";
 import { vpnMigrationRouterOs } from "./mikrotik-vpn-migration.routeros";
+import {
+  buildIsolirPageSync,
+  recordIsolirPageSync,
+  resolveIsolirProvisioning,
+  type IsolirProvisioning,
+} from "../isolir/isolir-provisioning";
 
 type ProvisioningConnection = {
   ip: string;
@@ -31,7 +37,10 @@ type AutoConfigureCreatedRouterParams = {
   routerId: string;
   createData: MikroTikRouterCreateData;
   radiusConfig: RadiusConfig;
-  networkRepository: Pick<IRouterAccessRepository, "updateGeneratedApiUser">;
+  networkRepository: Pick<
+    IRouterAccessRepository,
+    "updateGeneratedApiUser" | "updateIsolirPageSync"
+  >;
   provisioningService: Pick<
     MikroTikProvisioningService,
     "provisionRadius" | "createApiUser"
@@ -40,11 +49,12 @@ type AutoConfigureCreatedRouterParams = {
 
 type DeprovisionRouterParams = {
   provisioningService: Pick<MikroTikProvisioningService, "deprovisionRadius">;
-  router: StoredRouterCredentials & {
-    isolirUrl: string | null;
-    connectionMode?: string | null;
-  };
+  router: StoredRouterCredentials & { connectionMode?: string | null };
 };
+
+// Data create belum membawa mode isolir, jadi router baru tersimpan dengan
+// default kolom isolirMode dan provisioning harus mengikutinya.
+const NEW_ROUTER_ISOLIR_MODE = "ROUTER_PAGE";
 
 type GeneratedApiUserResult = {
   success: boolean;
@@ -151,6 +161,7 @@ function createRadiusProvisioningArgs(params: {
   connection: ProvisioningConnection;
   radiusConfig: RadiusConfig;
   createData: MikroTikRouterCreateData;
+  isolir: IsolirProvisioning;
 }): ProvisionRadiusArgs {
   const { radiusServerIp, srcAddress } = resolveRadiusRouting(
     params.createData,
@@ -159,7 +170,7 @@ function createRadiusProvisioningArgs(params: {
     params.connection,
     radiusServerIp,
     params.radiusConfig.secretRadius,
-    params.createData.isolirUrl,
+    params.isolir,
     params.radiusConfig.authPort,
     params.radiusConfig.accountingPort,
   ] as const;
@@ -181,12 +192,23 @@ async function provisionRouterRadius(
   params: AutoConfigureCreatedRouterParams,
   connection: ProvisioningConnection,
 ): Promise<boolean> {
+  const isolir = await resolveIsolirProvisioning({
+    isolirMode: NEW_ROUTER_ISOLIR_MODE,
+    isolirUrl: params.createData.isolirUrl ?? null,
+    tenantId: params.createData.tenantId,
+  });
   const provisioningResult = await params.provisioningService.provisionRadius(
     ...createRadiusProvisioningArgs({
       connection,
       radiusConfig: params.radiusConfig,
       createData: params.createData,
+      isolir,
     }),
+  );
+  await recordIsolirPageSync(
+    params.networkRepository,
+    params.routerId,
+    buildIsolirPageSync(isolir, provisioningResult),
   );
 
   if (!provisioningResult.success) {
@@ -277,7 +299,6 @@ export async function deprovisionRouter(
     const result = await params.provisioningService.deprovisionRadius(
       createStoredRouterProvisioningConnection(params.router),
       resolveRadiusRouting(params.router).radiusServerIp,
-      params.router.isolirUrl,
     );
 
     if (!result.success) {

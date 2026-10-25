@@ -7,6 +7,11 @@ const mocks = vi.hoisted(() => ({
   getNasByIp: vi.fn(),
   deleteNas: vi.fn(),
   removeOtherRadiusEntries: vi.fn(),
+  resolveIsolirContent: vi.fn(),
+}));
+
+vi.mock("@/modules/network/isolir/isolir-content", () => ({
+  resolveIsolirContent: mocks.resolveIsolirContent,
 }));
 
 vi.mock("@/modules/network/services/mikrotik-vpn-migration.routeros", () => ({
@@ -50,6 +55,18 @@ import {
 const TENANT = "t1";
 const TUNNEL_IP = "10.100.0.10";
 const SECRET = "radius-secret";
+
+mocks.resolveIsolirContent.mockResolvedValue({
+  ispName: "Net Tenant",
+  title: "Judul",
+  message: "Pesan",
+  logoDataUri: null,
+  payments: [],
+  whatsapp: null,
+  link: null,
+  contactText: null,
+  primaryColor: "#1d4ed8",
+});
 
 function fakeClient() {
   return {
@@ -126,6 +143,7 @@ function setup() {
     findSettingByKey: vi.fn(async () => ({ value: SECRET })),
     findUserSite: vi.fn(),
     updateGeneratedApiUser: vi.fn(),
+    updateIsolirPageSync: vi.fn(async () => undefined),
   };
   const vpnServerRepository = {
     tenantServerIds: vi.fn(async () => ["aa", "bb"]),
@@ -207,7 +225,7 @@ describe("createRouterMutation mode VPN", () => {
       },
       "10.99.0.1",
       SECRET,
-      undefined,
+      expect.objectContaining({ mode: "ROUTER_PAGE" }),
       expect.any(Number),
       expect.any(Number),
       TUNNEL_IP,
@@ -405,7 +423,7 @@ describe("createRouterMutation mode PUBLIC", () => {
     },
   );
 
-  it("payload repository dan provisioning sama seperti sebelum mode VPN", async () => {
+  it("payload repository sama seperti sebelum mode VPN; router baru memakai halaman di router", async () => {
     const t = setup();
     const createSpy = vi.spyOn(t.routerRepository, "create");
 
@@ -457,10 +475,15 @@ describe("createRouterMutation mode PUBLIC", () => {
       },
       null,
       SECRET,
-      "http://isolir",
+      expect.objectContaining({ mode: "ROUTER_PAGE" }),
       expect.any(Number),
       expect.any(Number),
     ]);
+    expect(mocks.resolveIsolirContent).toHaveBeenCalledWith(TENANT);
+    expect(t.networkRepository.updateIsolirPageSync).toHaveBeenCalledWith(
+      expect.any(String),
+      { hash: expect.any(String), syncedAt: expect.any(Date), error: null },
+    );
     expect(t.provisioningService.createApiUser).toHaveBeenCalled();
     expect(t.networkRepository.updateGeneratedApiUser).toHaveBeenCalled();
     expect(mocks.getRouter).not.toHaveBeenCalled();

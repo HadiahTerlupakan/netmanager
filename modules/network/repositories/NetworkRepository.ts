@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { IsolirPageSyncUpdate } from "../domain/ports/IRouterAccessRepository";
 import {
   buildRouterReconfigureSelect,
   buildTenantOrGlobalScope,
@@ -226,6 +227,21 @@ export class NetworkRepository {
     await prisma.mikroTikRouter.update({
       where: { id },
       data: buildGeneratedApiUserData(credentials),
+    });
+  }
+
+  /** Simpan status kirim halaman isolir router. */
+  async updateIsolirPageSync(
+    id: string,
+    sync: IsolirPageSyncUpdate,
+  ): Promise<void> {
+    await prisma.mikroTikRouter.update({
+      where: { id },
+      data: {
+        isolirPageHash: sync.hash,
+        isolirPageError: sync.error,
+        ...(sync.syncedAt && { isolirPageSyncedAt: sync.syncedAt }),
+      },
     });
   }
 

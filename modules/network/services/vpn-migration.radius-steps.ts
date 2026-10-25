@@ -32,7 +32,9 @@ export class VpnMigrationRadiusSteps {
         secretRadius: router.secretRadius,
         authPort: router.authPort,
         accountingPort: router.accountingPort,
+        isolirMode: router.isolirMode,
         isolirUrl: router.isolirUrl,
+        tenantId: router.tenantId,
       });
     } catch (error) {
       logger.error(

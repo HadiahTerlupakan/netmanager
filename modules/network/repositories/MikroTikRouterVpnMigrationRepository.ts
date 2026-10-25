@@ -27,6 +27,7 @@ const MIGRATION_ROUTER_SELECT = {
   secretRadius: true,
   authPort: true,
   accountingPort: true,
+  isolirMode: true,
   isolirUrl: true,
 } as const;
 
