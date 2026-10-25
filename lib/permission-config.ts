@@ -68,6 +68,7 @@ export const PERMISSION_GROUPS = {
     "pengaturan",
     "umum",
     "logo",
+    "isolir_page",
     "email",
     "whatsapp",
     "roles",

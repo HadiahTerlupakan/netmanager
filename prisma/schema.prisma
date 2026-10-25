@@ -658,6 +658,10 @@ model MikroTikRouter {
   accountingPort         Int                       @default(7266)
   secretRadius           String
   isolirUrl              String?
+  isolirMode             IsolirMode                @default(ROUTER_PAGE)
+  isolirPageHash         String?
+  isolirPageSyncedAt     DateTime?
+  isolirPageError        String?
   description            String?
   pingStatus             String                    @default("offline")
   userOnline             Int                       @default(0)
@@ -4209,6 +4213,7 @@ model Tenant {
   mRRMovement               MRRMovement[]
   message                   Message[]
   mikroTikRouter            MikroTikRouter[]
+  isolirPage                IsolirPage?
   vpnServers                TenantVpnServer[]
   accelPppServer            AccelPppServer[]
   odc                       Odc[]
@@ -6779,6 +6784,35 @@ enum RouterConnectionMode {
 enum VpnProtocol {
   WIREGUARD
   L2TP
+}
+
+/// Cara router menampilkan halaman isolir: HTML di router sendiri atau redirect ke isolirUrl.
+enum IsolirMode {
+  ROUTER_PAGE
+  REDIRECT
+}
+
+/// Isi halaman isolir satu tenant. logoUrl kosong berarti memakai logo tenant;
+/// payments berisi array { label, number, holder }.
+model IsolirPage {
+  id             String   @id @default(uuid())
+  tenantId       String?  @unique
+  tenant         Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  ispName        String?
+  title          String?
+  message        String?
+  logoUrl        String?
+  payments       Json     @default("[]")
+  whatsappNumber String?
+  whatsappText   String?
+  linkLabel      String?
+  linkUrl        String?
+  contactText    String?
+  primaryColor   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("isolir_pages")
 }
 
 /// Hub VPN milik core netmanager-vpn. id sama dengan id hub di core.
