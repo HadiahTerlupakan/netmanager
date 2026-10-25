@@ -12,13 +12,18 @@ import {
 
 type Row = { ".id": string; [key: string]: string | undefined };
 
+// RouterOS menerima yes/no saat menulis tetapi mencetak boolean sebagai
+// true/false.
+const PRINTED_BOOLEANS: Record<string, string> = { yes: "true", no: "false" };
+
 function toProps(args: string[]) {
   return Object.fromEntries(
     args
       .filter((a) => a.startsWith("=") && !a.startsWith("=place-before="))
       .map((a) => {
         const split = a.indexOf("=", 1);
-        return [a.slice(1, split), a.slice(split + 1)];
+        const value = a.slice(split + 1);
+        return [a.slice(1, split), PRINTED_BOOLEANS[value] ?? value];
       }),
   );
 }
