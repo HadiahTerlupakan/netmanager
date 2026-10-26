@@ -99,12 +99,18 @@ function serviceRedirectArgs(address: string, toPort: number, port: number) {
   ];
 }
 
-// Pelanggan isolir dibelokkan lewat tunnel ke servis isolir di core. Masquerade
-// ke IP overlay router dipasang paling atas supaya srcnat operator tidak
+// Pelanggan isolir dibelokkan lewat tunnel ke servis isolir di core. Source
+// NAT ke IP overlay router dipasang paling atas supaya srcnat operator tidak
 // mendahuluinya: core hanya bisa membalas ke alamat tunnel, bukan ke
-// 10.127.0.0/18. MSS di-clamp karena MTU tunnel lebih kecil dari jalur
-// pelanggan, sehingga paket TCP besar tidak hilang di tengah jalan.
-function serviceRules(address: string): FirewallRule[] {
+// 10.127.0.0/18. IP itu ada di bridge netmanager-lo, bukan di interface
+// WireGuard, jadi masquerade akan memakai IP publik router dan hub membuang
+// paketnya; masquerade hanya dipakai bila IP tunnel tidak diketahui. MSS
+// di-clamp karena MTU tunnel lebih kecil dari jalur pelanggan, sehingga paket
+// TCP besar tidak hilang di tengah jalan.
+function serviceRules(
+  address: string,
+  srcAddress: string | null | undefined,
+): FirewallRule[] {
   const toService = [
     `=src-address=${EXPIRED_NETWORK}`,
     `=dst-address=${address}`,
@@ -126,7 +132,9 @@ function serviceRules(address: string): FirewallRule[] {
       placeFirst: true,
       args: [
         "=chain=srcnat",
-        "=action=masquerade",
+        ...(srcAddress
+          ? ["=action=src-nat", `=to-addresses=${srcAddress}`]
+          : ["=action=masquerade"]),
         "=protocol=tcp",
         ...toService,
       ],
@@ -147,9 +155,12 @@ function serviceRules(address: string): FirewallRule[] {
   ];
 }
 
-function rulesForMode(isolir: IsolirProvisioning): FirewallRule[] {
+function rulesForMode(
+  isolir: IsolirProvisioning,
+  srcAddress: string | null | undefined,
+): FirewallRule[] {
   return isolir.mode === "ISOLIR_SERVICE"
-    ? serviceRules(isolir.address)
+    ? serviceRules(isolir.address, srcAddress)
     : [PROXY_REDIRECT_RULE];
 }
 
@@ -246,15 +257,19 @@ async function removeRule(
 /**
  * Pasang rule NAT isolir sesuai mode dan masquerade pelanggan beralamat
  * privat. `isolir = null` (konfigurasi gagal disusun) membiarkan rule bermode
- * apa adanya, karena mode yang benar tidak diketahui.
+ * apa adanya, karena mode yang benar tidak diketahui. `srcAddress` adalah IP
+ * tunnel router VPN, alamat sumber lalu lintas pelanggan ke servis isolir.
  */
 export async function provisionNatRules(
-  params: NatParams & { isolir: IsolirProvisioning | null },
+  params: NatParams & {
+    isolir: IsolirProvisioning | null;
+    srcAddress?: string | null;
+  },
 ) {
   await ensurePrivateList(params);
 
   if (params.isolir) {
-    const rules = rulesForMode(params.isolir);
+    const rules = rulesForMode(params.isolir, params.srcAddress);
     for (const rule of rules) {
       await ensureRule(params, rule);
     }

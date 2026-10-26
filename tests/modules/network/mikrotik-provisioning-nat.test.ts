@@ -268,13 +268,14 @@ const ROUTER_PAGE_REDIRECT = {
 };
 
 describe("provisionNatRules mode ISOLIR_SERVICE", () => {
-  it("dst-nat HTTP/HTTPS ke servis isolir lewat tunnel, masquerade paling atas, dan clamp MSS", async () => {
+  it("dst-nat HTTP/HTTPS ke servis isolir lewat tunnel, src-nat ke IP tunnel paling atas, dan clamp MSS", async () => {
     const router = fakeRouter([{ ".id": "*1", comment: "operator nat" }]);
 
     await provisionNatRules({
       connection: router,
       logs: [],
       isolir: ISOLIR_SERVICE,
+      srcAddress: "10.100.0.4",
     });
 
     const added = addedNat(router);
@@ -310,7 +311,8 @@ describe("provisionNatRules mode ISOLIR_SERVICE", () => {
     expect(masquerade).toEqual(
       expect.arrayContaining([
         "=chain=srcnat",
-        "=action=masquerade",
+        "=action=src-nat",
+        "=to-addresses=10.100.0.4",
         "=protocol=tcp",
         "=src-address=10.127.0.0/18",
         "=dst-address=10.99.0.1",
@@ -340,12 +342,47 @@ describe("provisionNatRules mode ISOLIR_SERVICE", () => {
     expect(natRule(router, "netmanager-masquerade")).toBeDefined();
   });
 
+  // IP tunnel router VPN ada di bridge netmanager-lo, bukan di interface
+  // WireGuard, sehingga masquerade memakai IP publik router dan hub menolak
+  // paketnya (ditemukan di lab 2026-10-26).
+  it("rule masquerade-isolir lama di-set menjadi src-nat ke IP tunnel", async () => {
+    const seeded = serviceModeRows();
+    const router = fakeRouter(seeded.nat, seeded.mangle);
+
+    await provisionNatRules({
+      connection: router,
+      logs: [],
+      isolir: ISOLIR_SERVICE,
+      srcAddress: "10.100.0.4",
+    });
+
+    expect(natRule(router, "netmanager-masquerade-isolir")).toMatchObject({
+      action: "src-nat",
+      "to-addresses": "10.100.0.4",
+    });
+  });
+
+  it("tanpa IP tunnel, rule servis memakai masquerade", async () => {
+    const router = fakeRouter();
+
+    await provisionNatRules({
+      connection: router,
+      logs: [],
+      isolir: ISOLIR_SERVICE,
+    });
+
+    expect(natRule(router, "netmanager-masquerade-isolir")).toMatchObject({
+      action: "masquerade",
+    });
+  });
+
   it("dijalankan ulang tidak menambah atau mengubah apa pun", async () => {
     const router = fakeRouter();
     const params = {
       connection: router,
       logs: [] as string[],
       isolir: ISOLIR_SERVICE,
+      srcAddress: "10.100.0.4",
     };
     await provisionNatRules(params);
     router.write.mockClear();
