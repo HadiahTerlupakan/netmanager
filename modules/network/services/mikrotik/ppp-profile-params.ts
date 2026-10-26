@@ -98,9 +98,31 @@ function appendOptionalUpdateParams(
   appendNullableParam(params, "local-address", profileData.localAddress);
   appendRemoteAddressUpdate(params, profileData);
   appendNullableParam(params, "dns-server", profileData.dnsServer);
-  appendNullableParam(params, "session-timeout", profileData.sessionTimeout);
-  appendNullableParam(params, "idle-timeout", profileData.idleTimeout);
+  appendTimeParam(params, "session-timeout", profileData.sessionTimeout);
+  appendTimeParam(params, "idle-timeout", profileData.idleTimeout);
   appendRateLimitUpdate(params, profileData);
+}
+
+// RouterOS menolak timeout kosong ("invalid time value"), jadi timeout yang
+// dikosongkan dihapus lewat unset (lihat getProfileUnsetKeys), bukan di-set.
+function appendTimeParam(
+  params: string[],
+  key: string,
+  value: number | null | undefined,
+) {
+  if (value) params.push(`=${key}=${value}`);
+}
+
+/** Properti profile yang dikosongkan operator dan harus di-unset di router. */
+export function getProfileUnsetKeys(
+  profileData: Partial<PPPProfileData>,
+): string[] {
+  return [
+    ["session-timeout", profileData.sessionTimeout],
+    ["idle-timeout", profileData.idleTimeout],
+  ]
+    .filter(([, value]) => value === null)
+    .map(([key]) => key as string);
 }
 
 function appendRemoteAddressUpdate(

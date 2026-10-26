@@ -189,6 +189,17 @@ async function updateProfileOnAssignedRouter(
   );
 }
 
+// null, bukan field yang dihilangkan: update profile hanya menulis field
+// yang ada, jadi field yang dikosongkan operator harus dikirim kosong agar
+// nilai lamanya terhapus dari router.
+function clearableFields(data: ProfilePPPSchema) {
+  return {
+    dnsServer: data.dnsServer || null,
+    sessionTimeout: data.sessionTimeout || null,
+    idleTimeout: data.idleTimeout || null,
+  };
+}
+
 function buildBroadcastProfilePayload(data: ProfilePPPSchema) {
   const isRadiusPool = data.poolMode === "RADIUS";
   return {
@@ -196,9 +207,7 @@ function buildBroadcastProfilePayload(data: ProfilePPPSchema) {
     localAddress: data.localAddress,
     remoteAddress: data.remoteAddress,
     ...(!isRadiusPool && data.ipRange && { ipRange: data.ipRange }),
-    ...(data.dnsServer && { dnsServer: data.dnsServer }),
-    ...(data.sessionTimeout && { sessionTimeout: data.sessionTimeout }),
-    ...(data.idleTimeout && { idleTimeout: data.idleTimeout }),
+    ...clearableFields(data),
     skipPoolCheck: isRadiusPool,
     skipRateLimit: true,
   };
@@ -230,9 +239,7 @@ function buildAssignedRouterProfilePayload(
     localAddress: data.localAddress,
     remoteAddress: data.remoteAddress,
     ...(data.ipRange && { ipRange: data.ipRange }),
-    ...(data.dnsServer && { dnsServer: data.dnsServer }),
-    ...(data.sessionTimeout && { sessionTimeout: data.sessionTimeout }),
-    ...(data.idleTimeout && { idleTimeout: data.idleTimeout }),
+    ...clearableFields(data),
     ...(rateLimit && { rateLimit }),
     skipPoolCheck: false,
   };

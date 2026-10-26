@@ -15,6 +15,7 @@ import {
   verifyProfileUpdate,
   warnRateLimitMismatch,
 } from "./mikrotik-ppp-profile.lifecycle";
+import { getProfileUnsetKeys } from "./mikrotik/ppp-profile-params";
 import type { PPPProfileData } from "./mikrotik/ppp-profile.types";
 
 type ProfileOperationResult = { success: boolean; error?: string };
@@ -92,7 +93,27 @@ async function setProfile(
     getProfileSetCommand(profile[".id"], updateParams),
   );
   const trapError = getTrapErrorMessage(result);
-  return trapError ? createTrapResult(trapError) : null;
+  if (trapError) return createTrapResult(trapError);
+  return unsetClearedFields(conn, profile, profileData);
+}
+
+async function unsetClearedFields(
+  conn: WritableConnection,
+  profile: Record<string, string>,
+  profileData: Partial<PPPProfileData>,
+) {
+  const keys = getProfileUnsetKeys(profileData).filter(
+    (key) => profile[key] !== undefined,
+  );
+  for (const key of keys) {
+    const result = await conn.write("/ppp/profile/unset", [
+      `=numbers=${profile[".id"]}`,
+      `=value-name=${key}`,
+    ]);
+    const trapError = getTrapErrorMessage(result);
+    if (trapError) return createTrapResult(trapError);
+  }
+  return null;
 }
 
 async function createProfileWithConnection(
