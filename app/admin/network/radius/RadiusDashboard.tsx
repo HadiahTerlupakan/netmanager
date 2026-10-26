@@ -104,8 +104,8 @@ export default function RadiusDashboard() {
           onlineUsers={stats.onlineUsers}
           offlineUsers={stats.offlineUsers}
           trafficToday={{
-            downloadGB: stats.totalTrafficToday.downloadGB,
-            uploadGB: stats.totalTrafficToday.uploadGB,
+            downloadBytes: stats.totalTrafficToday.download,
+            uploadBytes: stats.totalTrafficToday.upload,
           }}
           loading={false}
         />
@@ -116,7 +116,7 @@ export default function RadiusDashboard() {
           totalUsers={0}
           onlineUsers={0}
           offlineUsers={0}
-          trafficToday={{ downloadGB: 0, uploadGB: 0 }}
+          trafficToday={{ downloadBytes: "0", uploadBytes: "0" }}
           loading
         />
       )}

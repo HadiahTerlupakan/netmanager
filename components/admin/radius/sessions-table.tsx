@@ -3,27 +3,7 @@
 import { SessionStatusBadge } from "./session-status-badge";
 import { formatDistanceToNow } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-
-function formatUsage(valueMB: number): string {
-  if (!Number.isFinite(valueMB) || valueMB <= 0) return "0 B";
-
-  const units = ["KB", "MB", "GB", "TB"];
-  let value = valueMB;
-  let unitIndex = 1;
-
-  if (value < 1) {
-    value *= 1024;
-    unitIndex = 0;
-  }
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex++;
-  }
-
-  const decimals = value >= 100 ? 0 : value >= 10 ? 1 : 2;
-  return `${value.toFixed(decimals)} ${units[unitIndex]}`;
-}
+import { formatBytes } from "./format-bytes";
 
 interface Session {
   radAcctId: string;
@@ -32,8 +12,8 @@ interface Session {
   framedIpAddress: string | null;
   acctStartTime: string | null;
   uptimeHours: number;
-  downloadMB: number;
-  uploadMB: number;
+  acctInputOctets: string;
+  acctOutputOctets: string;
   isOnline: boolean;
 }
 
@@ -184,8 +164,8 @@ export function SessionsTable({
                 {session.uptimeHours.toFixed(2)} hrs
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono text-gray-700 dark:text-gray-300">
-                {formatUsage(session.downloadMB)} /{" "}
-                {formatUsage(session.uploadMB)}
+                {formatBytes(session.acctOutputOctets)} /{" "}
+                {formatBytes(session.acctInputOctets)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right">
                 <div className="inline-flex items-center gap-2">
