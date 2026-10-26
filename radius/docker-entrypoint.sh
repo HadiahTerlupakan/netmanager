@@ -45,6 +45,17 @@ if [ -f "$CONFIG_DIR/sites-enabled/default" ]; then
     # Disable 'detail' module in sites-enabled/default
     # This prevents errors related to writing to /var/log/freeradius/radacct/
     sed -i '/^[[:space:]]*detail[[:space:]]*$/s/^/#/' "$CONFIG_DIR/sites-enabled/default"
+    # On an Interim-Update for a session with no lease in radippool (address
+    # from the router's own pool, or a static one) sqlippool returns
+    # notfound, which ends the accounting section before sql runs and sends
+    # no Accounting-Response: usage never updates and the NAS counts a
+    # timeout. Give notfound a priority instead, so sql still runs.
+    awk '/^accounting \{/ { acct = 1 }
+         acct && /^\tsqlippool[ \t]*$/ { print "\tsqlippool {\n\t\tnotfound = 1\n\t}"; next }
+         /^}/ { acct = 0 }
+         { print }' "$CONFIG_DIR/sites-enabled/default" > /tmp/default.site
+    cat /tmp/default.site > "$CONFIG_DIR/sites-enabled/default"
+    rm -f /tmp/default.site
     echo "[entrypoint] Enabled 'sqlippool' and disabled 'detail' in sites-enabled/default"
 fi
 
