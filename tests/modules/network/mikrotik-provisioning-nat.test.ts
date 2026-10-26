@@ -111,7 +111,7 @@ describe("provisionNatRules", () => {
       isolir: ROUTER_PAGE,
     });
 
-    const [redirect, masquerade] = addedNat(router);
+    const [redirect, , masquerade] = addedNat(router);
     expect(redirect).toEqual(
       expect.arrayContaining([
         "=chain=dstnat",
@@ -447,6 +447,7 @@ describe("provisionNatRules saat mode berganti atau tidak diketahui", () => {
       ...ROUTER_PAGE_REDIRECT,
     });
     expect(commentsOf(router.nat).sort()).toEqual([
+      "netmanager-isolir-dns",
       "netmanager-masquerade",
       "netmanager-redirect-expired",
     ]);
@@ -510,14 +511,79 @@ describe("provisionNatRules saat mode berganti atau tidak diketahui", () => {
       changes
         .filter(([path]) => !path.endsWith("/print"))
         .map(([path, args]) => [path, args.at(-1)]),
-    ).toEqual([["/ip/firewall/nat/add", "=comment=netmanager-masquerade"]]);
-    expect(JSON.stringify([router.nat.slice(0, -1), router.mangle])).toBe(
-      before,
-    );
+    ).toEqual([
+      ["/ip/firewall/nat/add", "=comment=netmanager-isolir-dns"],
+      ["/ip/firewall/nat/add", "=comment=netmanager-masquerade"],
+    ]);
+    expect(
+      JSON.stringify([
+        router.nat.filter((r) => !r.comment?.match(/isolir-dns|-masquerade$/)),
+        router.mangle,
+      ]),
+    ).toBe(before);
+  });
+});
+
+describe("provisionNatRules DNS pelanggan isolir", () => {
+  it.each([ROUTER_PAGE, ISOLIR_SERVICE])(
+    "mode $mode: DNS UDP isolir dipaksa ke resolver tetap, paling atas",
+    async (isolir) => {
+      const router = fakeRouter([{ ".id": "*1", comment: "operator nat" }]);
+
+      await provisionNatRules({ connection: router, logs: [], isolir });
+
+      expect(addedNat(router)).toContainEqual([
+        "=chain=dstnat",
+        "=action=dst-nat",
+        "=to-addresses=8.8.8.8",
+        "=to-ports=53",
+        "=protocol=udp",
+        "=src-address=10.127.0.0/18",
+        "=dst-port=53",
+        "=place-before=*1",
+        "=comment=netmanager-isolir-dns",
+      ]);
+    },
+  );
+
+  it("rule DNS yang diubah operator dikembalikan ke resolver tetap", async () => {
+    const router = fakeRouter([
+      {
+        ".id": "*d",
+        comment: "netmanager-isolir-dns",
+        chain: "dstnat",
+        action: "dst-nat",
+        "to-addresses": "203.0.113.9",
+        "to-ports": "53",
+        protocol: "udp",
+        "src-address": "10.127.0.0/18",
+        "dst-port": "53",
+      },
+    ]);
+
+    await provisionNatRules({ connection: router, logs: [], isolir: null });
+
+    expect(
+      router.nat.filter((r) => r.comment === "netmanager-isolir-dns"),
+    ).toEqual([expect.objectContaining({ "to-addresses": "8.8.8.8" })]);
   });
 });
 
 describe("removeNatRules", () => {
+  it("menghapus rule DNS isolir", async () => {
+    const router = fakeRouter();
+    await provisionNatRules({
+      connection: router,
+      logs: [],
+      isolir: ISOLIR_SERVICE,
+      srcAddress: "10.100.0.4",
+    });
+
+    await removeNatRules({ connection: router, logs: [] });
+
+    expect(router.nat).toEqual([]);
+  });
+
   it("menghapus rule NAT dan mangle mode servis menurut comment", async () => {
     const seeded = serviceModeRows();
     const router = fakeRouter(

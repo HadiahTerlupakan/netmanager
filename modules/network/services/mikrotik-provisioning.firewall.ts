@@ -60,7 +60,7 @@ const FILTER_RULES = [
       "=action=reject",
       "=protocol=udp",
       `=src-address=${EXPIRED_NETWORK}`,
-      "=dst-port=!53,5353",
+      "=dst-port=!53",
     ],
     log: "Added Firewall Filter: Drop Expired UDP",
   },

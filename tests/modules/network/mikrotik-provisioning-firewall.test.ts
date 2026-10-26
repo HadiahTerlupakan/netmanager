@@ -151,7 +151,7 @@ describe("provisionFirewallBypass", () => {
         "=action=reject",
         "=protocol=udp",
         "=src-address=10.127.0.0/18",
-        "=dst-port=!53,5353",
+        "=dst-port=!53",
         "=disabled=no",
       ],
     ]);

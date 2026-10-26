@@ -77,6 +77,25 @@ const PROXY_REDIRECT_RULE: FirewallRule = {
   ],
 };
 
+// Pelanggan isolir hanya boleh UDP 53 keluar. Tanpa rule ini port itu
+// terbuka ke host mana pun, cukup untuk VPN di port 53 yang membuka internet
+// penuh; semua query dibelokkan ke satu resolver, jadi DNS pilihan pelanggan
+// tetap terjawab dan halaman isolir tetap bisa dibuka.
+const DNS_REDIRECT_RULE: FirewallRule = {
+  path: NAT_PATH,
+  comment: "netmanager-isolir-dns",
+  placeFirst: true,
+  args: [
+    "=chain=dstnat",
+    "=action=dst-nat",
+    "=to-addresses=8.8.8.8",
+    "=to-ports=53",
+    "=protocol=udp",
+    `=src-address=${EXPIRED_NETWORK}`,
+    "=dst-port=53",
+  ],
+};
+
 const MASQUERADE_RULE: FirewallRule = {
   path: NAT_PATH,
   comment: "netmanager-masquerade",
@@ -291,6 +310,7 @@ export async function provisionNatRules(
     }
   }
 
+  await ensureRule(params, DNS_REDIRECT_RULE);
   await ensureRule(params, MASQUERADE_RULE);
 }
 
@@ -300,7 +320,7 @@ export async function provisionNatRules(
  */
 export async function removeNatRules(params: NatParams) {
   const { connection, logs } = params;
-  for (const rule of [...MODE_RULES, MASQUERADE_RULE]) {
+  for (const rule of [...MODE_RULES, DNS_REDIRECT_RULE, MASQUERADE_RULE]) {
     await removeRule(params, rule);
   }
 
