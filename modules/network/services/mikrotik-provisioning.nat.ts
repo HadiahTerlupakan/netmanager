@@ -20,6 +20,9 @@ const PRIVATE_RANGES = [
 const NAT_PATH = "/ip/firewall/nat";
 const MANGLE_PATH = "/ip/firewall/mangle";
 const SERVICE_PORTS = `${ISOLIR_SERVICE_HTTP_PORT},${ISOLIR_SERVICE_HTTPS_PORT}`;
+// Tujuan NAT yang berbeda antar mode pada rule ber-comment sama; yang tidak
+// dipakai mode sekarang dihapus agar router tidak menyimpan sisa mode lama.
+const NAT_TARGET_KEYS = ["to-addresses", "to-ports"] as const;
 
 type NatConnection = Pick<RouterOSAPI, "write">;
 type NatParams = { connection: NatConnection; logs: string[] };
@@ -209,6 +212,13 @@ async function firstRuleArgs(connection: NatConnection, path: string) {
   return firstId ? [`=place-before=${firstId}`] : [];
 }
 
+function staleKeys(rule: FirewallRule) {
+  if (rule.path !== NAT_PATH) return [];
+  return NAT_TARGET_KEYS.filter(
+    (key) => !rule.args.some((arg) => arg.startsWith(`=${key}=`)),
+  );
+}
+
 function ruleLabel(path: string, comment: string) {
   return `Firewall ${path === MANGLE_PATH ? "Mangle" : "NAT"}: ${comment}`;
 }
@@ -223,6 +233,7 @@ async function ensureRule({ connection, logs }: NatParams, rule: FirewallRule) {
       path: rule.path,
       rows: existing,
       args: rule.args,
+      unset: staleKeys(rule),
       logs,
       label: ruleLabel(rule.path, rule.comment),
     });

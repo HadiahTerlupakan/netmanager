@@ -61,6 +61,12 @@ function fakeRouter(existingNat: Row[] = [], existingMangle: Row[] = []) {
         toProps(args.slice(1)),
       );
     }
+    if (table && command === "unset") {
+      const id = args[0].slice("=numbers=".length);
+      delete table.find((r) => r[".id"] === id)![
+        args[1].slice("=value-name=".length)
+      ];
+    }
     if (table && command === "remove") {
       const id = args[0].slice("=.id=".length);
       table.splice(
@@ -445,6 +451,47 @@ describe("provisionNatRules saat mode berganti atau tidak diketahui", () => {
       "netmanager-redirect-expired",
     ]);
     expect(router.mangle).toEqual([]);
+  });
+
+  it("ROUTER_PAGE setelah ISOLIR_SERVICE: to-addresses sisa mode servis dihapus, sekali saja", async () => {
+    const seeded = serviceModeRows();
+    const router = fakeRouter(seeded.nat, seeded.mangle);
+    const params = {
+      connection: router,
+      logs: [] as string[],
+      isolir: ROUTER_PAGE,
+    };
+
+    await provisionNatRules(params);
+    expect(natRule(router, "netmanager-redirect-expired")).not.toHaveProperty(
+      "to-addresses",
+    );
+
+    router.write.mockClear();
+    await provisionNatRules(params);
+    expect(
+      router.write.mock.calls.filter(([path]) => path.endsWith("/unset")),
+    ).toEqual([]);
+  });
+
+  it("masquerade-isolir tanpa IP tunnel: to-addresses sisa src-nat dihapus", async () => {
+    const router = fakeRouter();
+    await provisionNatRules({
+      connection: router,
+      logs: [],
+      isolir: ISOLIR_SERVICE,
+      srcAddress: "10.100.0.4",
+    });
+
+    await provisionNatRules({
+      connection: router,
+      logs: [],
+      isolir: ISOLIR_SERVICE,
+    });
+
+    const rule = natRule(router, "netmanager-masquerade-isolir");
+    expect(rule).toMatchObject({ action: "masquerade" });
+    expect(rule).not.toHaveProperty("to-addresses");
   });
 
   it("isolir null: rule bermode tidak disentuh, masquerade tetap dipastikan", async () => {

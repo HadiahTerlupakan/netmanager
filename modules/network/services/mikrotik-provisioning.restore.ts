@@ -21,9 +21,17 @@ function matchesArg(printed: string | undefined, value: string) {
   return printed === value || printed === PRINTED_BOOLEANS.get(value);
 }
 
-/** Baris yang dinonaktifkan atau nilainya tidak lagi sama dengan standar. */
-export function needsRestore(row: RouterRow, args: readonly string[]) {
+/**
+ * Baris yang dinonaktifkan, nilainya tidak lagi sama dengan standar, atau
+ * masih memuat properti `unset` yang tidak boleh ada.
+ */
+export function needsRestore(
+  row: RouterRow,
+  args: readonly string[],
+  unset: readonly string[] = [],
+) {
   if (row.disabled === "true") return true;
+  if (unset.some((key) => row[key] !== undefined)) return true;
   return args.some((arg) => {
     const [key, value] = parseArg(arg);
     return row[key] === undefined || !matchesArg(row[key], value);
@@ -32,24 +40,32 @@ export function needsRestore(row: RouterRow, args: readonly string[]) {
 
 /**
  * Kembalikan baris milik billing yang diubah atau dinonaktifkan orang ke nilai
- * standar. Properti tambahan yang tidak ada di args dibiarkan: set RouterOS
- * hanya menimpa yang disebut.
+ * standar. Properti tambahan yang tidak ada di args dibiarkan, karena set
+ * RouterOS hanya menimpa yang disebut, kecuali yang didaftar di `unset`.
  */
 export async function restoreRows(input: {
   connection: Pick<RouterOSAPI, "write">;
   path: string;
   rows: RouterRow[];
   args: readonly string[];
+  unset?: readonly string[];
   logs: string[];
   label: string;
 }) {
+  const unset = input.unset ?? [];
   for (const row of input.rows) {
-    if (!needsRestore(row, input.args)) continue;
+    if (!needsRestore(row, input.args, unset)) continue;
     await input.connection.write(`${input.path}/set`, [
       `=.id=${row[".id"]}`,
       ...input.args,
       "=disabled=no",
     ]);
+    for (const key of unset.filter((name) => row[name] !== undefined)) {
+      await input.connection.write(`${input.path}/unset`, [
+        `=numbers=${row[".id"]}`,
+        `=value-name=${key}`,
+      ]);
+    }
     await delay(100);
     input.logs.push(`Restored ${input.label}`);
   }

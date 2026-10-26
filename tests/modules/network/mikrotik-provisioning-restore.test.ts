@@ -27,4 +27,20 @@ describe("needsRestore", () => {
   it("nilai bernama properti bawaan objek tidak dianggap alias", () => {
     expect(needsRestore({ ".id": "*1" }, ["=comment=constructor"])).toBe(true);
   });
+
+  it("properti di daftar unset yang masih ada memicu restore", () => {
+    const row = {
+      ".id": "*1",
+      "to-ports": "8181",
+      "to-addresses": "10.99.0.1",
+    };
+    expect(needsRestore(row, ["=to-ports=8181"], ["to-addresses"])).toBe(true);
+    expect(
+      needsRestore(
+        { ".id": "*1", "to-ports": "8181" },
+        ["=to-ports=8181"],
+        ["to-addresses"],
+      ),
+    ).toBe(false);
+  });
 });
