@@ -144,6 +144,19 @@ export class InvoiceRepository implements IInvoiceRepository {
     return result.count > 0;
   }
 
+  /**
+   * Pindahkan invoice ke PAID hanya bila belum PAID; true hanya untuk
+   * pemanggil yang benar-benar memindahkannya.
+   */
+  async claimPaidTransition(id: string, paidAt: Date): Promise<boolean> {
+    const result = await prismaBilling.invoice.updateMany({
+      where: { id, status: { not: "PAID" } },
+      data: { status: "PAID", paidAt },
+    });
+
+    return result.count > 0;
+  }
+
   /** Memperbarui status pembayaran invoice. */
   async updatePaymentStatus(
     id: string,

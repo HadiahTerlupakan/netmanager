@@ -96,6 +96,9 @@ model Payment {
   amount          BigInt
   // Potongan kupon untuk invoice ini; ikut dihitung terbayar saat lunas.
   discountAmount  BigInt                @default(0)
+  // Sama untuk semua payment satu checkout portal: gateway hanya mengenal
+  // payment pertama, webhook-nya melunasi seluruh kelompok.
+  checkoutId      String?
   paymentDate     DateTime
   paymentMethod   PaymentMethod
   reference       String?
@@ -124,6 +127,7 @@ model Payment {
   @@index([transactionId])
   @@index([tenantId])
   @@index([accountId])
+  @@index([checkoutId])
 }
 
 model PaymentGatewayConfig {

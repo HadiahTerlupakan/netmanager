@@ -22,25 +22,25 @@ export type CheckoutPayment = {
 /**
  * Semua payment dari satu checkout gateway. Checkout beberapa invoice membuat
  * satu payment per invoice, tetapi gateway hanya mengenal orderId payment
- * pertama dan menagih totalnya; saat dibuat, semuanya menerima paymentUrl
- * yang sama dari gateway.
+ * pertama dan menagih totalnya. Payment lama tanpa checkoutId berdiri
+ * sendiri.
  */
 export async function findCheckoutPayments(
   paymentId: string,
 ): Promise<CheckoutPayment[]> {
   const payment = await prismaBillingAuth.payment.findUnique({
     where: { id: paymentId },
-    select: { ...CHECKOUT_PAYMENT_SELECT, paymentUrl: true, pelangganId: true },
+    select: { ...CHECKOUT_PAYMENT_SELECT, checkoutId: true },
   });
   if (!payment) {
     return [];
   }
-  if (!payment.paymentUrl) {
+  if (!payment.checkoutId) {
     return [payment];
   }
 
   return prismaBillingAuth.payment.findMany({
-    where: { pelangganId: payment.pelangganId, paymentUrl: payment.paymentUrl },
+    where: { checkoutId: payment.checkoutId },
     select: CHECKOUT_PAYMENT_SELECT,
   });
 }

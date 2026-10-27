@@ -110,6 +110,7 @@ function webhook(status: string, amount = 100000) {
 describe("WebhookProcessingService — pelunasan checkout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 2 });
     prismaMock.$transaction.mockImplementation(async (callback: unknown) =>
       typeof callback === "function" ? callback(prismaMock) : callback,
     );
@@ -157,6 +158,14 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
 
     expect(mockFns.settleCheckoutInvoices).toHaveBeenCalledWith(CHECKOUT);
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("webhook ganda yang tidak lagi memindahkan payment tidak melunasi ulang", async () => {
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 0 });
+
+    await webhook("PAID");
+
+    expect(mockFns.settleCheckoutInvoices).not.toHaveBeenCalled();
   });
 
   it("EXPIRED hanya mengubah status payment tanpa melunasi invoice", async () => {

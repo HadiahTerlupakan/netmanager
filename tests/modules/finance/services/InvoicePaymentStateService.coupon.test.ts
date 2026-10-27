@@ -40,6 +40,7 @@ function repoDengan(
   };
   return {
     findWithPayment: vi.fn().mockResolvedValue(invoice),
+    claimPaidTransition: vi.fn().mockResolvedValue(true),
     updatePaymentStatus: vi.fn(
       async (_id: string, data: { status: string; paidAmount: bigint }) => ({
         ...invoice,
@@ -82,5 +83,21 @@ describe("InvoicePaymentStateService.recompute — kupon", () => {
       "inv-1",
       expect.objectContaining({ status: "SENT", paidAmount: 0n }),
     );
+  });
+
+  // Retry webhook yang berbarengan dengan pelunasan pertama dulu sama-sama
+  // mengirim INVOICE_PAID, sehingga jatuh tempo bisa maju dua kali.
+  it("pelunas yang kalah dalam peralihan ke PAID tidak mengirim INVOICE_PAID", async () => {
+    const repo = repoDengan([
+      { amount: 100000n, discountAmount: 0n, gatewayStatus: "PAID" },
+    ]);
+    repo.claimPaidTransition.mockResolvedValue(false);
+
+    const hasil = await new InvoicePaymentStateService(repo as never).recompute(
+      "inv-1",
+    );
+
+    expect(hasil?.becamePaid).toBe(false);
+    expect(palsu.onInvoicePaid).not.toHaveBeenCalled();
   });
 });

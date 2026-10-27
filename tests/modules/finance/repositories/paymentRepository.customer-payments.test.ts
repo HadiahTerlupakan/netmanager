@@ -68,4 +68,21 @@ describe("createCustomerPaymentsForInvoices", () => {
       [60000, 40000, "PENDING"],
     ]);
   });
+
+  it("semua payment satu checkout berbagi checkoutId", async () => {
+    tx.invoice.findUnique.mockImplementation(({ where }) =>
+      Promise.resolve({ id: where.id, totalAmount: 1000n, paidAmount: 0n }),
+    );
+
+    const payments = await createCustomerPaymentsForInvoices({
+      customerId: "cust-1",
+      invoiceIds: ["a", "b"],
+      discountAmount: 0,
+      paymentMethod: "QRIS",
+    });
+
+    const ids = payments.map((p) => (p as { checkoutId?: string }).checkoutId);
+    expect(ids[0]).toEqual(expect.any(String));
+    expect(ids[1]).toBe(ids[0]);
+  });
 });

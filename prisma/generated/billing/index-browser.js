@@ -184,6 +184,7 @@ exports.Prisma.PaymentScalarFieldEnum = {
   pelangganId: 'pelangganId',
   amount: 'amount',
   discountAmount: 'discountAmount',
+  checkoutId: 'checkoutId',
   paymentDate: 'paymentDate',
   paymentMethod: 'paymentMethod',
   reference: 'reference',

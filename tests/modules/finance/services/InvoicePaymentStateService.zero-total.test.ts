@@ -33,6 +33,7 @@ function repoDengan(status: string, totalAmount: bigint) {
   };
   return {
     findWithPayment: vi.fn().mockResolvedValue(invoice),
+    claimPaidTransition: vi.fn().mockResolvedValue(true),
     updatePaymentStatus: vi.fn(
       async (_id: string, data: { status: string; paidAmount: bigint }) => ({
         ...invoice,

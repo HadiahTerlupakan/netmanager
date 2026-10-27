@@ -276,7 +276,9 @@ export class WebhookProcessingService {
           paymentUpdate.paymentDate = webhookResult.paidAt;
         }
 
-        await tx.payment.updateMany({
+        // Webhook ganda yang berbarengan menunggu kunci baris di sini; yang
+        // kedua tidak lagi menemukan baris non-PAID dan tidak ikut melunasi.
+        const moved = await tx.payment.updateMany({
           where: {
             id: { in: checkout.map((p) => p.id) },
             gatewayStatus: { not: "PAID" },
@@ -296,7 +298,7 @@ export class WebhookProcessingService {
             data: { status: "PROCESSED", processedAt: new Date() },
           });
         }
-        return gatewayStatus === "PAID";
+        return gatewayStatus === "PAID" && moved.count > 0;
       });
 
       // Step 12: Lunasi invoice setelah commit. Invoice ada di database billing,

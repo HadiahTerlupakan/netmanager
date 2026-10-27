@@ -52,18 +52,23 @@ export class InvoicePaymentStateService {
       invoice.status as InvoiceStatus,
     );
 
+    // Dua pelunas bersamaan (retry webhook, persetujuan ganda) sama-sama
+    // membaca status lama; hanya yang memenangkan peralihan ke PAID yang
+    // mengirim INVOICE_PAID, supaya perpanjangan tidak berjalan dua kali.
+    const becamePaid =
+      invoice.status !== InvoiceStatus.PAID &&
+      nextStatus === InvoiceStatus.PAID &&
+      (await this.invoiceRepo.claimPaidTransition(invoice.id, new Date()));
+
     const updatedInvoice = await this.invoiceRepo.updatePaymentStatus(
       invoice.id,
       {
         paidAmount: totalPaid,
         status: nextStatus,
-        paidAt: nextStatus === InvoiceStatus.PAID ? new Date() : null,
+        // paidAt diisi oleh claimPaidTransition dan dipertahankan selama PAID.
+        ...(nextStatus === InvoiceStatus.PAID ? {} : { paidAt: null }),
       },
     );
-
-    const becamePaid =
-      invoice.status !== InvoiceStatus.PAID &&
-      nextStatus === InvoiceStatus.PAID;
 
     await this.syncSchedules(updatedInvoice, becamePaid);
     if (becamePaid) {

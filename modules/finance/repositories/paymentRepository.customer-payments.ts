@@ -75,6 +75,7 @@ async function createInvoicePayments(
   options: CreateCustomerPaymentsOptions,
 ) {
   const payments = [];
+  const checkoutId = randomUUID();
   // Diskon kupon dihitung atas total; dibagikan berurutan dan dibatasi sisa
   // tiap invoice supaya tidak ada pembayaran bernominal negatif.
   let undistributedDiscount = Math.max(options.discountAmount, 0);
@@ -98,6 +99,7 @@ async function createInvoicePayments(
         invoiceId,
         amount: remainingAmount - discountAmount,
         discountAmount,
+        checkoutId,
         options,
       }),
     );
@@ -112,6 +114,7 @@ function createInvoicePayment(
     invoiceId: string;
     amount: number;
     discountAmount: number;
+    checkoutId: string;
     options: CreateCustomerPaymentsOptions;
   },
 ) {
@@ -121,6 +124,7 @@ function createInvoicePayment(
       updatedAt: new Date(),
       amount: input.amount,
       discountAmount: input.discountAmount,
+      checkoutId: input.checkoutId,
       paymentDate: new Date(),
       paymentMethod: resolveCustomerPaymentMethod(input.options.paymentMethod),
       // Tertutup penuh oleh kupon: tidak ada yang perlu ditagih atau

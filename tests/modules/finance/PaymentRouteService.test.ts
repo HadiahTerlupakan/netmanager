@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
+  claimPaidTransition: vi.fn(async () => true),
   findPelangganById: vi.fn(),
   findInvoice: vi.fn(),
   findInvoiceWithPayment: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("@/modules/finance/repositories/InvoiceRepository", () => ({
     findRawById = mockFns.findInvoice;
     findWithPayment = mockFns.findInvoiceWithPayment;
     updatePaymentStatus = mockFns.updateInvoicePaymentStatus;
+    claimPaidTransition = mockFns.claimPaidTransition;
   },
 }));
 
@@ -143,10 +145,13 @@ describe("PaymentRouteService", () => {
       status: "created",
       data: { id: "pay-1", invoice: { id: "inv-1" } },
     });
+    expect(mockFns.claimPaidTransition).toHaveBeenCalledWith(
+      "inv-1",
+      expect.any(Date),
+    );
     expect(mockFns.updateInvoicePaymentStatus).toHaveBeenCalledWith("inv-1", {
       paidAmount: 100000n,
       status: "PAID",
-      paidAt: expect.any(Date),
     });
   });
 

@@ -45,6 +45,7 @@ export interface IInvoiceRepository {
   countByMonth(date: Date): Promise<number>;
   update(id: string, data: InvoiceUpdateInput): Promise<InvoiceEntity>;
   markOverdueIfEligible(id: string, now: Date): Promise<boolean>;
+  claimPaidTransition(id: string, paidAt: Date): Promise<boolean>;
   updatePaymentStatus(
     id: string,
     data: InvoiceUpdateInput,
