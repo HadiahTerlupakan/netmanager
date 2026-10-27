@@ -28,7 +28,7 @@ spec:
       kind: Rule
       priority: 1
       middlewares:
-        - name: redirect-to-https
+        - name: redirect-https
       services:
         - name: netmanager-app
           port: 80

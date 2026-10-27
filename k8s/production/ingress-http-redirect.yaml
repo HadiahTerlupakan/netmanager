@@ -1,0 +1,66 @@
+# Pengalihan http -> https untuk host portal. Ingress utama hanya terpasang
+# di entrypoint websecure, jadi tanpa ini port 80 dijawab 404 oleh Traefik,
+# termasuk tautan http ke portal dari pelanggan isolir. Challenge ACME
+# cert-manager tetap lolos: rute solver-nya lebih spesifik dari "/".
+# Terapkan manual: sudo kubectl apply -f k8s/production/https-redirect-middleware.yaml -f k8s/production/ingress-http-redirect.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: netmanager-ingress-http-redirect
+  namespace: netmanager-production
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    traefik.ingress.kubernetes.io/router.middlewares: netmanager-production-redirect-https@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: admin.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: karyawan.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: pelanggan.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
+    - host: investor.radpro.id
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: netmanager-app
+                port:
+                  number: 80
