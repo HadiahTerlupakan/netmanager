@@ -9,6 +9,7 @@ import type {
   PaymentGatewayTestPayload,
 } from "../hooks/usePaymentGatewayConfigs";
 import { getPublicSiteUrl } from "@/lib/utils/portal-url";
+import { getGatewayCredentialFields } from "./gateway-credential-fields";
 
 /** Dipakai hanya bila domain publik tidak bisa ditentukan sama sekali. */
 const PLACEHOLDER_SITE_URL = "https://yourdomain.com";
@@ -27,18 +28,6 @@ function getInitialFormData(
     clientKey: config?.clientKey ?? "",
     merchantId: config?.merchantId ?? "",
   };
-}
-
-function getMerchantProviderName(providerId: string) {
-  if (providerId === "TRIPAY") return "Tripay";
-  if (providerId === "DANA") return "DANA";
-  return "Duitku";
-}
-
-function canUseMerchantCode(providerId: string | null) {
-  return (
-    providerId === "DUITKU" || providerId === "TRIPAY" || providerId === "DANA"
-  );
 }
 
 interface PaymentGatewayConfigModalProps {
@@ -82,6 +71,8 @@ export function PaymentGatewayConfigModal({
   const webhookUrl = providerId
     ? `${webhookBaseUrl}/api/webhooks/${providerId.toLowerCase()}`
     : "";
+
+  const fields = getGatewayCredentialFields(providerId);
 
   const updateForm = (values: Partial<PaymentGatewayFormPayload>) => {
     setFormData((current) => ({ ...current, ...values }));
@@ -156,34 +147,38 @@ export function PaymentGatewayConfigModal({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            API Key / Server Key *
+            {fields.apiKey} *
           </label>
           <input
             type="password"
             value={formData.apiKey}
             onChange={(event) => updateForm({ apiKey: event.target.value })}
-            placeholder="Enter API key"
+            placeholder={`Masukkan ${fields.apiKey}`}
             className={INPUT_CLASS}
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            API Secret (if applicable)
-          </label>
-          <input
-            type="password"
-            value={formData.apiSecret}
-            onChange={(event) => updateForm({ apiSecret: event.target.value })}
-            placeholder="Enter API secret"
-            className={INPUT_CLASS}
-          />
-        </div>
-
-        {providerId === "MIDTRANS" && (
+        {fields.apiSecret && (
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Client Key
+              {fields.apiSecret}
+            </label>
+            <input
+              type="password"
+              value={formData.apiSecret}
+              onChange={(event) =>
+                updateForm({ apiSecret: event.target.value })
+              }
+              placeholder={`Masukkan ${fields.apiSecret}`}
+              className={INPUT_CLASS}
+            />
+          </div>
+        )}
+
+        {fields.clientKey && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {fields.clientKey}
             </label>
             <input
               type="text"
@@ -191,16 +186,16 @@ export function PaymentGatewayConfigModal({
               onChange={(event) =>
                 updateForm({ clientKey: event.target.value })
               }
-              placeholder="Enter client key"
+              placeholder={`Masukkan ${fields.clientKey}`}
               className={INPUT_CLASS}
             />
           </div>
         )}
 
-        {providerId && canUseMerchantCode(providerId) && (
+        {fields.merchantId && (
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Merchant Code *
+              {fields.merchantId} *
             </label>
             <input
               type="text"
@@ -208,12 +203,11 @@ export function PaymentGatewayConfigModal({
               onChange={(event) =>
                 updateForm({ merchantId: event.target.value })
               }
-              placeholder="Enter merchant code"
+              placeholder={`Masukkan ${fields.merchantId}`}
               className={INPUT_CLASS}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Your unique merchant code from{" "}
-              {getMerchantProviderName(providerId)} dashboard
+              Lihat di dashboard {providerName}
             </p>
           </div>
         )}

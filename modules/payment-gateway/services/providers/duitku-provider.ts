@@ -16,10 +16,13 @@ import {
   buildDuitkuWebhookResult,
   createDuitkuInvoiceSignature,
   createDuitkuStatusSignature,
-  createDuitkuWebhookSignature,
+  createDuitkuWebhookSignatures,
   mapDuitkuStatus,
 } from "./duitku-provider-helpers";
 import { timingSafeCompare } from "./signature-compare.helpers";
+
+// Batas panjang customerVaName di API Duitku.
+const VA_NAME_MAX_LENGTH = 20;
 
 export class DuitkuProvider implements PaymentProvider {
   name = "Duitku";
@@ -49,7 +52,7 @@ export class DuitkuProvider implements PaymentProvider {
         merchantOrderId,
         productDetails: params.description,
         merchantUserInfo: params.customerName,
-        customerVaName: params.customerName,
+        customerVaName: params.customerName.slice(0, VA_NAME_MAX_LENGTH),
         email: params.customerEmail,
         phoneNumber: params.customerPhone,
         callbackUrl: `${getAppUrl()}/api/webhooks/duitku`,
@@ -63,7 +66,9 @@ export class DuitkuProvider implements PaymentProvider {
         expiryPeriod: expiryHours * 60,
       };
       const response = await fetchWithTimeout(
-        `${this.baseUrl}/merchant/createinvoice`,
+        // createinvoice adalah endpoint API POP di host lain (dengan header
+        // tanda tangan sendiri); di webapi pembuatan transaksi lewat v2/inquiry.
+        `${this.baseUrl}/merchant/v2/inquiry`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -176,13 +181,13 @@ export class DuitkuProvider implements PaymentProvider {
     config: { merchantId?: string; apiKey: string },
   ) {
     const merchantCode = config.merchantId || "";
-    const expectedSignature = createDuitkuWebhookSignature({
+    const signature = payload.signature as string;
+    return createDuitkuWebhookSignatures({
       merchantCode,
       merchantOrderId: payload.merchantOrderId as string,
       amount: payload.amount as string,
       apiKey: config.apiKey,
-    });
-    return timingSafeCompare(payload.signature as string, expectedSignature);
+    }).some((expected) => timingSafeCompare(signature, expected));
   }
 
   /** Menormalkan payload webhook Duitku. */

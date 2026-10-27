@@ -5,18 +5,22 @@ import type {
   WebhookResult,
 } from "../provider-interface";
 
+// Duitku memakai HMAC-SHA256 dengan API Key sebagai kunci; MD5 dinyatakan
+// usang sejak April 2026 (docs.duitku.com/api/en, changelog).
+function hmacSha256(stringToSign: string, apiKey: string) {
+  return crypto.createHmac("sha256", apiKey).update(stringToSign).digest("hex");
+}
+
 export function createDuitkuInvoiceSignature(input: {
   merchantCode: string;
   merchantOrderId: string;
   paymentAmount: number;
   apiKey: string;
 }) {
-  return crypto
-    .createHash("md5")
-    .update(
-      `${input.merchantCode}${input.merchantOrderId}${input.paymentAmount}${input.apiKey}`,
-    )
-    .digest("hex");
+  return hmacSha256(
+    `${input.merchantCode}${input.merchantOrderId}${input.paymentAmount}`,
+    input.apiKey,
+  );
 }
 
 export function createDuitkuStatusSignature(input: {
@@ -24,24 +28,27 @@ export function createDuitkuStatusSignature(input: {
   merchantOrderId: string;
   apiKey: string;
 }) {
-  return crypto
-    .createHash("md5")
-    .update(`${input.merchantCode}${input.merchantOrderId}${input.apiKey}`)
-    .digest("hex");
+  return hmacSha256(
+    `${input.merchantCode}${input.merchantOrderId}`,
+    input.apiKey,
+  );
 }
 
-export function createDuitkuWebhookSignature(input: {
+/**
+ * Tanda tangan callback yang sah: HMAC-SHA256 saat ini, dan MD5 lama untuk
+ * merchant yang belum dipindahkan Duitku. Keduanya berkunci API Key.
+ */
+export function createDuitkuWebhookSignatures(input: {
   merchantCode: string;
   amount: string;
   merchantOrderId: string;
   apiKey: string;
 }) {
-  return crypto
-    .createHash("md5")
-    .update(
-      `${input.merchantCode}${input.amount}${input.merchantOrderId}${input.apiKey}`,
-    )
-    .digest("hex");
+  const base = `${input.merchantCode}${input.amount}${input.merchantOrderId}`;
+  return [
+    hmacSha256(base, input.apiKey),
+    crypto.createHash("md5").update(`${base}${input.apiKey}`).digest("hex"),
+  ];
 }
 
 export function mapDuitkuStatus(
