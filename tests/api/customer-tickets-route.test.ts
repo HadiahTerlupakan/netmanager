@@ -275,6 +275,43 @@ describe("customer ticket routes", () => {
     });
   });
 
+  it.each([
+    ["skema javascript:", "javascript:alert(1)"],
+    ["domain luar", "https://evil.example/uploads/tickets/foto.webp"],
+    ["keluar folder tiket", "/uploads/tickets/../logos/x.webp"],
+    ["folder lain", "/uploads/logos/x.webp"],
+  ])("menolak lampiran %s", async (_label, attachment) => {
+    const response = await replyTicket(
+      buildRequest(`/${TICKET_ID}/reply`, {
+        customerId: OWNER_ID,
+        method: "POST",
+        body: { message: "Masih mati", attachments: [attachment] },
+      }),
+      routeParams(TICKET_ID),
+    );
+
+    expect(response.status).toBe(400);
+    expect(prismaMock.ticketReplies.create).not.toHaveBeenCalled();
+  });
+
+  it("menerima lampiran di folder tiket milik tenant", async () => {
+    const response = await replyTicket(
+      buildRequest(`/${TICKET_ID}/reply`, {
+        customerId: OWNER_ID,
+        method: "POST",
+        body: {
+          message: "Masih mati",
+          attachments: [
+            "/uploads/tenants/tenant-1/tickets/1700000000-foto.webp",
+          ],
+        },
+      }),
+      routeParams(TICKET_ID),
+    );
+
+    expect(response.status).toBe(200);
+  });
+
   it("menolak balasan ke tiket yang sudah ditutup", async () => {
     mockTicketStore("CLOSED");
 
