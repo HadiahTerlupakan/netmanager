@@ -167,14 +167,6 @@ export default function CustomerPaketPage() {
                     </span>
                   </p>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    Kuota
-                  </p>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    Unlimited Fiber
-                  </span>
-                </div>
               </div>
 
               {/* Stats inside card for quick glance */}

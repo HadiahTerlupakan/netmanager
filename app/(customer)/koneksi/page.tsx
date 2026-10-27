@@ -11,8 +11,6 @@ import {
   MdRefresh,
   MdDownload,
   MdUpload,
-  MdSpeed,
-  MdPowerSettingsNew,
   MdBuild,
   MdLightbulb,
   MdHome,
@@ -155,13 +153,6 @@ export default function CustomerConnectionPage() {
                       {ipAddress}
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="bg-[#0d9488]/10 hover:bg-[#0d9488]/20 text-[#0d9488] dark:text-teal-400"
-                  >
-                    <span className="truncate">Detail Perangkat</span>
-                  </Button>
                 </div>
               </div>
             </div>
@@ -199,43 +190,7 @@ export default function CustomerConnectionPage() {
             </div>
           </div>
 
-          {/* Action Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              variant="ghost"
-              className="group flex flex-col gap-3 h-auto items-start border border-[#dbe0e6] dark:border-gray-700 active:scale-95"
-            >
-              <div className="p-2 rounded-full bg-[#0d9488]/10 text-[#0d9488] dark:text-teal-400 group-hover:bg-[#0d9488] group-hover:text-white transition-colors">
-                <MdSpeed className="text-2xl" />
-              </div>
-              <div className="text-left">
-                <h2 className="text-[#111418] dark:text-white text-base font-bold leading-tight">
-                  Tes Kecepatan
-                </h2>
-                <p className="text-xs text-[#617589] dark:text-gray-400 mt-1">
-                  Cek performa jaringan
-                </p>
-              </div>
-            </Button>
-            <Button
-              variant="ghost"
-              className="group flex flex-col gap-3 h-auto items-start border border-[#dbe0e6] dark:border-gray-700 active:scale-95"
-            >
-              <div className="p-2 rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-colors">
-                <MdPowerSettingsNew className="text-2xl" />
-              </div>
-              <div className="text-left">
-                <h2 className="text-[#111418] dark:text-white text-base font-bold leading-tight">
-                  Restart Router
-                </h2>
-                <p className="text-xs text-[#617589] dark:text-gray-400 mt-1">
-                  Perbaiki masalah ringan
-                </p>
-              </div>
-            </Button>
-          </div>
-
-          {/* Diagnosis Panel */}
+          {/* Support Panel */}
           <div className="@container">
             <div className="flex flex-col items-start justify-between gap-4 rounded-xl border border-[#dbe0e6] dark:border-gray-700 bg-linear-to-br from-white to-gray-50 dark:from-[#1c2b3e] dark:to-[#15202e] p-5 shadow-sm">
               <div className="flex gap-4 items-start">
@@ -244,16 +199,18 @@ export default function CustomerConnectionPage() {
                 </div>
                 <div className="flex flex-col gap-1">
                   <p className="text-[#111418] dark:text-white text-base font-bold leading-tight">
-                    Diagnosa Otomatis
+                    Ada Gangguan?
                   </p>
                   <p className="text-[#617589] dark:text-gray-400 text-sm font-normal leading-normal">
-                    Deteksi masalah dan optimalkan koneksi Anda secara otomatis.
+                    Laporkan ke tim kami dan pantau penanganannya.
                   </p>
                 </div>
               </div>
-              <Button className="w-full">
-                <span className="truncate">Mulai Diagnosa</span>
-              </Button>
+              <Link href="/dukungan" className="w-full">
+                <Button className="w-full">
+                  <span className="truncate">Laporkan Gangguan</span>
+                </Button>
+              </Link>
             </div>
           </div>
 

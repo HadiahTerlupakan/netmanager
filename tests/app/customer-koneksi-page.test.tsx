@@ -74,4 +74,23 @@ describe("halaman Status Koneksi pelanggan", () => {
     act(() => root.render(<CustomerConnectionPage />));
     expect(container.textContent).not.toContain("Ping");
   });
+
+  // Tes kecepatan, restart router, detail perangkat dan diagnosa belum punya
+  // fitur di belakangnya; tombol yang tidak melakukan apa-apa menyesatkan.
+  it("tidak menampilkan tombol tanpa fungsi dan mengarahkan gangguan ke dukungan", () => {
+    act(() => root.render(<CustomerConnectionPage />));
+    const teks = container.textContent ?? "";
+
+    for (const label of [
+      "Tes Kecepatan",
+      "Restart Router",
+      "Detail Perangkat",
+      "Mulai Diagnosa",
+    ]) {
+      expect(teks).not.toContain(label);
+    }
+    expect(
+      container.querySelector('a[href="/dukungan"]')?.textContent,
+    ).toContain("Laporkan Gangguan");
+  });
 });

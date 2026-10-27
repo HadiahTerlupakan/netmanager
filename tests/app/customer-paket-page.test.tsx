@@ -85,6 +85,10 @@ describe("halaman Detail Layanan pelanggan", () => {
     expect(render()).toContain("23 Okt - 23 Nov 2026");
   });
 
+  it("tidak mengklaim kuota yang tidak ada di data paket", () => {
+    expect(render()).not.toContain("Unlimited Fiber");
+  });
+
   it("menampilkan IP sesi aktif beserta jenisnya, bukan teks tetap", () => {
     const teks = render();
     expect(teks).toContain("172.31.251.254 (Privat)");
