@@ -21,6 +21,7 @@ import {
 } from "@/lib/dashboard/fetchDashboardResource";
 import { z } from "zod";
 import { CustomerNotificationBell } from "@/components/customer/CustomerNotificationBell";
+import { getServiceStatusLabel } from "./service-status";
 
 const dashboardSummarySchema = z.object({
   profile: z.object({
@@ -28,6 +29,7 @@ const dashboardSummarySchema = z.object({
     data: z
       .object({
         nama: z.string(),
+        status: z.string().optional(),
         paket: z
           .object({
             nama: z.string(),
@@ -189,6 +191,12 @@ export function CustomerDashboardContent({
     connectionSection?.state === "ready"
       ? (connectionSection.data?.isOnline ?? false)
       : false;
+  const serviceStatus = getServiceStatusLabel({
+    customerStatus: profileSection?.data?.status,
+    connectionReady: connectionSection?.state === "ready",
+    isOnline,
+    connectionErrorLabel: CONNECTION_ERROR_LABEL,
+  });
 
   if (isLoading) {
     return (
@@ -268,20 +276,16 @@ export function CustomerDashboardContent({
                     <div className="mt-2 flex items-center gap-2">
                       <span className="relative flex h-2.5 w-2.5">
                         <span
-                          className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${isOnline ? "bg-green-400" : "bg-red-400"}`}
+                          className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${serviceStatus.healthy ? "bg-green-400" : "bg-red-400"}`}
                         />
                         <span
-                          className={`relative inline-flex h-2.5 w-2.5 rounded-full ${isOnline ? "bg-green-500" : "bg-red-500"}`}
+                          className={`relative inline-flex h-2.5 w-2.5 rounded-full ${serviceStatus.healthy ? "bg-green-500" : "bg-red-500"}`}
                         />
                       </span>
                       <span
-                        className={`text-xs font-semibold ${isOnline ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        className={`text-xs font-semibold ${serviceStatus.healthy ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
                       >
-                        {connectionSection?.state === "ready"
-                          ? isOnline
-                            ? "Aktif & Stabil"
-                            : "Gangguan / Offline"
-                          : CONNECTION_ERROR_LABEL}
+                        {serviceStatus.label}
                       </span>
                     </div>
                   </div>
