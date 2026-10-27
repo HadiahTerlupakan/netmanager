@@ -5,6 +5,7 @@ import { couponService } from "@/modules/coupons";
 import {
   findPaymentMethodProvider,
   replacePendingGatewayCheckouts,
+  withCustomerCheckoutLock,
 } from "@/modules/payment-gateway";
 import {
   createCustomerPaymentsForInvoices,
@@ -47,9 +48,13 @@ const customerPortalService = new CustomerPortalService();
 const pelangganRepository = new PelangganRepository();
 
 /** Creates customer portal payments and optional payment gateway metadata. */
-export async function createCustomerPaymentForRoute(
-  input: CustomerPaymentInput,
-) {
+export function createCustomerPaymentForRoute(input: CustomerPaymentInput) {
+  return withCustomerCheckoutLock(input.customerId, () =>
+    createCustomerPayment(input),
+  );
+}
+
+async function createCustomerPayment(input: CustomerPaymentInput) {
   const { totalAmount } =
     await customerPortalService.validateInvoicesForPayment(
       input.invoiceIds,

@@ -67,6 +67,19 @@ export async function getCustomerInvoicePaymentStatus(options: {
   invoiceId: string;
   customerId: string;
 }) {
+  const snapshot = await getCustomerInvoicePaymentSnapshot(options);
+  return snapshot?.status ?? null;
+}
+
+/**
+ * Status untuk SSE portal dan aplikasi. `paymentId` membuat halaman yang
+ * terbuka di perangkat lain tahu bahwa metode bayar sudah diganti, sehingga
+ * tidak menampilkan VA/QR lama yang sudah ditutup.
+ */
+export async function getCustomerInvoicePaymentSnapshot(options: {
+  invoiceId: string;
+  customerId: string;
+}) {
   const invoice = await getInvoiceRepository().findCustomerPaymentStatus({
     invoiceId: options.invoiceId,
     pelangganId: options.customerId,
@@ -74,17 +87,25 @@ export async function getCustomerInvoicePaymentStatus(options: {
   if (!invoice) {
     return null;
   }
-  return resolveEffectivePaymentStatus(invoice);
+  const latest = invoice.payment[0];
+  return {
+    status: resolveEffectivePaymentStatus(invoice),
+    paymentId: latest?.id ?? null,
+    gatewayStatus: latest?.gatewayStatus ?? null,
+  };
 }
 
 function resolveEffectivePaymentStatus(invoice: {
   status: string;
-  payment: Array<{ gatewayStatus: string }>;
+  payment: Array<{ gatewayStatus: string | null }>;
 }) {
   if (invoice.status === "PAID" || invoice.payment.length === 0) {
     return invoice.status;
   }
   const latest = invoice.payment[0];
+  // Aplikasi mobile sudah menangani EXPIRED (muat ulang tanpa pesan "ditolak
+  // admin" yang dipakainya untuk FAILED).
+  if (latest.gatewayStatus === "EXPIRED") return "EXPIRED";
   const isFailedStatus =
     latest.gatewayStatus === "FAILED" || latest.gatewayStatus === "CANCELLED";
   return isFailedStatus ? "FAILED" : invoice.status;

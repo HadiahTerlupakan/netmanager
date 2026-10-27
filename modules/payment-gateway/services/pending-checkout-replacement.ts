@@ -1,4 +1,7 @@
+import type { Job } from "bullmq";
 import { createRouteServiceError } from "@/lib/api/route-service-error";
+import { requirePayloadString } from "@/lib/event-bus";
+import type { EventJobData } from "@/lib/event-bus/queues";
 import { logger } from "@/lib/logger";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import { releaseCheckoutCoupons } from "./abandoned-checkout";
@@ -6,6 +9,9 @@ import { findPaymentMethodProvider } from "./payment-method-catalog";
 import { PaymentGatewayManager } from "./PaymentGatewayService";
 
 const HTTP_CONFLICT = 409;
+// Pembuatan checkout memanggil gateway (beberapa detik); permintaan kedua
+// pelanggan yang sama menunggu di kunci selama itu.
+const CHECKOUT_LOCK_TIMEOUT_MS = 60_000;
 const ALREADY_PAID_MESSAGE =
   "Pembayaran sebelumnya sudah diterima dan sedang diproses. Muat ulang halaman beberapa saat lagi.";
 
@@ -41,12 +47,78 @@ export async function replacePendingGatewayCheckouts(input: {
     throw createRouteServiceError(ALREADY_PAID_MESSAGE, HTTP_CONFLICT);
   }
 
+  return closeCheckouts(gateway, pending, input.tenantId);
+}
+
+/**
+ * Satu checkout per pelanggan dalam satu waktu. Tanpa kunci, dua perangkat
+ * yang menekan "Ganti Metode" bersamaan sama-sama menutup checkout lama lalu
+ * masing-masing membuat checkout baru, sehingga ada dua VA/QR yang bisa
+ * dibayar untuk satu tagihan. Kunci advisory lepas sendiri bersama
+ * transaksinya.
+ */
+export function withCustomerCheckoutLock<T>(
+  customerId: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  const key = `checkout:${customerId}`;
+  return prismaBillingAuth.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+      return task();
+    },
+    { maxWait: CHECKOUT_LOCK_TIMEOUT_MS, timeout: CHECKOUT_LOCK_TIMEOUT_MS },
+  );
+}
+
+/**
+ * INVOICE_PAID: checkout gateway lain untuk invoice yang sudah lunas (mis.
+ * QRIS yang dibuat sebelum VA lama ternyata dibayar) ditutup, agar tidak
+ * ada pembayaran kedua. Berlaku untuk semua jalur pelunasan: webhook,
+ * transfer manual, dan admin.
+ */
+export async function handleInvoicePaidCheckoutCleanup(
+  job: Job<EventJobData>,
+): Promise<void> {
+  const { payload } = job.data;
+  const source = "InvoicePaidCheckoutCleanup";
+  const invoiceId = requirePayloadString(
+    payload.invoiceId,
+    "invoiceId",
+    source,
+  );
+  const customerId = requirePayloadString(
+    payload.pelangganId,
+    "pelangganId",
+    source,
+  );
+  const pending = await findPendingCheckoutPayments({
+    customerId,
+    invoiceIds: [invoiceId],
+  });
+  if (pending.length === 0) return;
+
+  const closed = await closeCheckouts(
+    new PaymentGatewayManager(),
+    pending,
+    pending[0].tenantId,
+  );
+  logger.info(
+    `[Checkout] ${closed} payment menunggu ditutup karena invoice ${invoiceId} lunas`,
+  );
+}
+
+async function closeCheckouts(
+  gateway: PaymentGatewayManager,
+  pending: PendingGatewayPayment[],
+  tenantId?: string | null,
+) {
   const { count } = await prismaBillingAuth.payment.updateMany({
     where: { id: { in: pending.map((p) => p.id) }, gatewayStatus: "PENDING" },
     data: { gatewayStatus: "CANCELLED" },
   });
   await releaseCheckoutCoupons(pending);
-  await cancelAtGateway(gateway, pending, input.tenantId);
+  await cancelAtGateway(gateway, pending, tenantId);
   return count;
 }
 

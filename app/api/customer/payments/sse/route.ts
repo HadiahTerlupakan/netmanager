@@ -48,12 +48,12 @@ export async function GET(request: NextRequest) {
 
       while (keepChecking) {
         try {
-          const status = await getCustomerPaymentStreamStatus({
+          const snapshot = await getCustomerPaymentStreamStatus({
             invoiceId,
             customerId: authResult.session.id,
           });
 
-          if (!status) {
+          if (!snapshot) {
             keepChecking = false;
             clearTimeout(timeout);
             try {
@@ -64,8 +64,9 @@ export async function GET(request: NextRequest) {
             break;
           }
 
-          controller.enqueue(`data: ${JSON.stringify({ status })}\n\n`);
+          controller.enqueue(`data: ${JSON.stringify(snapshot)}\n\n`);
 
+          const { status } = snapshot;
           if (status === "PAID" || status === "FAILED") {
             keepChecking = false;
             clearTimeout(timeout);

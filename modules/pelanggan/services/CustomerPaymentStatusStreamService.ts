@@ -1,9 +1,9 @@
-import { getCustomerInvoicePaymentStatus } from "@/modules/finance";
+import { getCustomerInvoicePaymentSnapshot } from "@/modules/finance";
 
 /** Returns customer invoice payment status for SSE polling. */
 export function getCustomerPaymentStreamStatus(options: {
   invoiceId: string;
   customerId: string;
 }) {
-  return getCustomerInvoicePaymentStatus(options);
+  return getCustomerInvoicePaymentSnapshot(options);
 }

@@ -16,11 +16,16 @@ const mockFns = vi.hoisted(() => ({
   publish: vi.fn(),
   routedProvider: vi.fn(),
   replacePending: vi.fn(),
+  checkoutLock: vi.fn(),
 }));
 
 vi.mock("@/modules/payment-gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/modules/payment-gateway")>()),
   replacePendingGatewayCheckouts: mockFns.replacePending,
+  withCustomerCheckoutLock: (customerId: string, task: () => unknown) => {
+    mockFns.checkoutLock(customerId);
+    return task();
+  },
 }));
 
 vi.mock("@/lib/event-bus", () => ({
@@ -106,6 +111,8 @@ describe("CustomerPaymentRouteService", () => {
       expect.objectContaining({ customerId: "cust-1", invoiceIds: ["inv-1"] }),
     );
     expect(order).toEqual(["replace", "coupon"]);
+    // Dua perangkat yang menekan "Ganti Metode" bersamaan diproses bergiliran.
+    expect(mockFns.checkoutLock).toHaveBeenCalledWith("cust-1");
   });
 
   it("creates manual customer payments through payment repository", async () => {

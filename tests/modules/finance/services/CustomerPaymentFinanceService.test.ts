@@ -272,6 +272,27 @@ describe("CustomerPaymentFinanceService", () => {
       expect(result).toBe("FAILED");
     });
 
+    // Aplikasi mobile menangani EXPIRED; dulu tidak pernah dikirim sehingga
+    // kartu "menunggu" bertahan sampai koneksi SSE habis.
+    it("harus return EXPIRED jika latest payment kedaluwarsa", async () => {
+      mockInvoiceRepository.findCustomerPaymentStatus.mockResolvedValue({
+        status: "OVERDUE",
+        payment: [{ id: "pay-9", gatewayStatus: "EXPIRED" }],
+      });
+
+      const snapshot =
+        await CustomerPaymentFinanceService.getCustomerInvoicePaymentSnapshot({
+          invoiceId: "inv-1",
+          customerId: "customer-1",
+        });
+
+      expect(snapshot).toEqual({
+        status: "EXPIRED",
+        paymentId: "pay-9",
+        gatewayStatus: "EXPIRED",
+      });
+    });
+
     it("harus return invoice status jika payment pending", async () => {
       const options = {
         invoiceId: "inv-1",

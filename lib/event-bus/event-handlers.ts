@@ -55,6 +55,7 @@ import {
   handlePackageChangedMrr,
 } from "@/modules/finance";
 import { handleInvoicePaidResellerCommission } from "@/modules/reseller";
+import { handleInvoicePaidCheckoutCleanup } from "@/modules/payment-gateway";
 import { handleEndorsementCompletedLegal } from "@/modules/legal";
 import {
   handleRegistrationCreatedPresurvei,
@@ -133,6 +134,11 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.INVOICE_PAID,
     handleInvoicePaidResellerCommission,
+  );
+  // Tutup checkout gateway lain yang masih menunggu untuk invoice ini.
+  registerEventHandler(
+    EVENT_NAMES.INVOICE_PAID,
+    handleInvoicePaidCheckoutCleanup,
   );
 
   // --- CUSTOMER LIFECYCLE EVENTS (sync MikroTik/RADIUS) ---
@@ -443,8 +449,18 @@ export function registerDefaultHandlers(): void {
       const { kabariSalesKeluhan } = await import("@/modules/pelanggan");
       const kabar =
         payload.tahap === "DIBUAT"
-          ? { jenis: "WO_DIBUAT" as const, nomorWo: payload.workOrderNumber, jadwal: payload.scheduledDate }
-          : { jenis: payload.tahap === "DIMULAI" ? ("WO_DIMULAI" as const) : ("WO_SELESAI" as const), nomorWo: payload.workOrderNumber };
+          ? {
+              jenis: "WO_DIBUAT" as const,
+              nomorWo: payload.workOrderNumber,
+              jadwal: payload.scheduledDate,
+            }
+          : {
+              jenis:
+                payload.tahap === "DIMULAI"
+                  ? ("WO_DIMULAI" as const)
+                  : ("WO_SELESAI" as const),
+              nomorWo: payload.workOrderNumber,
+            };
       await kabariSalesKeluhan(payload.ticketId, kabar, payload.triggeredBy);
     } catch (error) {
       logger.error("[Worker] Ticket WO progress handler error:", error);

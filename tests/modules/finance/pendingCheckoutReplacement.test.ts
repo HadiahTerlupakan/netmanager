@@ -29,7 +29,11 @@ vi.mock("@/modules/payment-gateway/services/PaymentGatewayService", () => ({
   },
 }));
 
-import { replacePendingGatewayCheckouts } from "@/modules/payment-gateway/services/pending-checkout-replacement";
+import {
+  handleInvoicePaidCheckoutCleanup,
+  replacePendingGatewayCheckouts,
+  withCustomerCheckoutLock,
+} from "@/modules/payment-gateway/services/pending-checkout-replacement";
 
 const VA_LAMA = {
   id: "p1",
@@ -104,5 +108,42 @@ describe("ganti metode pembayaran", () => {
     await expect(replacePendingGatewayCheckouts(INPUT)).resolves.toBe(0);
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
     expect(palsu.checkStatus).not.toHaveBeenCalled();
+  });
+
+  it("kunci checkout dipegang per pelanggan selama checkout dibuat", async () => {
+    const executeRaw = vi.fn().mockResolvedValue(0);
+    prismaMock.$transaction.mockImplementation(async (callback: unknown) =>
+      (callback as (tx: unknown) => unknown)({ $executeRaw: executeRaw }),
+    );
+    const task = vi.fn().mockResolvedValue("checkout");
+
+    await expect(withCustomerCheckoutLock("cust-1", task)).resolves.toBe(
+      "checkout",
+    );
+
+    const [sql, key] = executeRaw.mock.calls[0];
+    expect(sql.join("?")).toContain("pg_advisory_xact_lock(hashtext(?))");
+    expect(key).toBe("checkout:cust-1");
+    expect(executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      task.mock.invocationCallOrder[0],
+    );
+  });
+
+  // VA lama dibayar setelah pelanggan sudah membuat QRIS: QRIS-nya ditutup
+  // agar tidak dibayar juga.
+  it("invoice lunas menutup checkout gateway lain yang masih menunggu", async () => {
+    await handleInvoicePaidCheckoutCleanup({
+      data: {
+        eventName: "billing:invoice.paid",
+        payload: { invoiceId: "inv-1", pelangganId: "cust-1" },
+      },
+    } as never);
+
+    expect(palsu.checkStatus).not.toHaveBeenCalled();
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["p1"] }, gatewayStatus: "PENDING" },
+      data: { gatewayStatus: "CANCELLED" },
+    });
+    expect(palsu.cancelPayment).toHaveBeenCalledWith("PAY-1");
   });
 });
