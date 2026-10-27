@@ -10,6 +10,7 @@ const CHECKOUT_PAYMENT_SELECT = {
   amount: true,
   invoiceId: true,
   tenantId: true,
+  couponUsageId: true,
 } as const;
 
 export type CheckoutPayment = {
@@ -17,6 +18,7 @@ export type CheckoutPayment = {
   amount: bigint;
   invoiceId: string | null;
   tenantId: string | null;
+  couponUsageId: string | null;
 };
 
 /**

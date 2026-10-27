@@ -141,11 +141,23 @@ export class CouponRepository implements ICouponRepository {
     });
   }
 
-  async releaseUsage(usageId: string, couponId: string): Promise<void> {
+  async releaseUsage(usageId: string): Promise<void> {
     await this.db.$transaction(async (tx) => {
-      await tx.couponUsage.deleteMany({ where: { id: usageId } });
+      const usage = await tx.couponUsage.findUnique({
+        where: { id: usageId },
+        select: { couponId: true },
+      });
+      if (!usage) return;
+
+      // Kuota hanya dikembalikan oleh pemanggil yang benar-benar menghapus
+      // riwayatnya, jadi webhook ganda tidak mengembalikannya dua kali.
+      const deleted = await tx.couponUsage.deleteMany({
+        where: { id: usageId },
+      });
+      if (deleted.count === 0) return;
+
       await tx.coupon.updateMany({
-        where: { id: couponId, usedCount: { gt: 0 } },
+        where: { id: usage.couponId, usedCount: { gt: 0 } },
         data: { usedCount: { decrement: 1 } },
       });
     });

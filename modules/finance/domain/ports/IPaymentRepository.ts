@@ -42,6 +42,7 @@ export interface IPaymentRepository {
     discountAmount: number;
     paymentMethod: string;
     notes?: string | null;
+    couponUsageId?: string | null;
   }): Promise<PaymentEntity[]>;
   updateGatewayMetadata(options: {
     paymentIds: string[];

@@ -30,9 +30,27 @@ describe("settleCheckoutInvoices", () => {
 
   it("menghitung ulang tiap invoice sekali, dalam konteks tenant payment", async () => {
     await settleCheckoutInvoices([
-      { id: "p1", amount: 1n, invoiceId: "inv-1", tenantId: "t1" },
-      { id: "p2", amount: 1n, invoiceId: "inv-1", tenantId: "t1" },
-      { id: "p3", amount: 1n, invoiceId: "inv-2", tenantId: "t1" },
+      {
+        id: "p1",
+        amount: 1n,
+        invoiceId: "inv-1",
+        tenantId: "t1",
+        couponUsageId: null,
+      },
+      {
+        id: "p2",
+        amount: 1n,
+        invoiceId: "inv-1",
+        tenantId: "t1",
+        couponUsageId: null,
+      },
+      {
+        id: "p3",
+        amount: 1n,
+        invoiceId: "inv-2",
+        tenantId: "t1",
+        couponUsageId: null,
+      },
     ]);
 
     expect(palsu.recompute.mock.calls).toEqual([["inv-1"], ["inv-2"]]);

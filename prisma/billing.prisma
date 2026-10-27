@@ -99,6 +99,9 @@ model Payment {
   // Sama untuk semua payment satu checkout portal: gateway hanya mengenal
   // payment pertama, webhook-nya melunasi seluruh kelompok.
   checkoutId      String?
+  // Pemesanan kupon (CouponUsage di database utama) untuk checkout ini;
+  // dilepas bila checkout kedaluwarsa atau gagal.
+  couponUsageId   String?
   paymentDate     DateTime
   paymentMethod   PaymentMethod
   reference       String?

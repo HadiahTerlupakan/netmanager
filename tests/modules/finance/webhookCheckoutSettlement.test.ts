@@ -18,7 +18,16 @@ const mockFns = vi.hoisted(() => ({
   generateIdempotencyKey: vi.fn(),
   findCheckoutPayments: vi.fn(),
   settleCheckoutInvoices: vi.fn(),
+  releaseCheckoutCoupons: vi.fn(),
 }));
+
+vi.mock(
+  "@/modules/payment-gateway/services/abandoned-checkout",
+  async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    releaseCheckoutCoupons: mockFns.releaseCheckoutCoupons,
+  }),
+);
 
 vi.mock("@/modules/payment-gateway/services/PaymentGatewayService", () => ({
   PaymentGatewayManager: class {
@@ -177,5 +186,13 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
       }),
     );
     expect(mockFns.settleCheckoutInvoices).not.toHaveBeenCalled();
+    // Checkout yang tidak dibayar dulu menghabiskan kuota kupon pelanggan.
+    expect(mockFns.releaseCheckoutCoupons).toHaveBeenCalledWith(CHECKOUT);
+  });
+
+  it("PAID tidak mengembalikan kupon", async () => {
+    await webhook("PAID");
+
+    expect(mockFns.releaseCheckoutCoupons).not.toHaveBeenCalled();
   });
 });

@@ -116,8 +116,11 @@ describeDb("CouponRepository.reserveUsage", () => {
     await buatKupon(1);
     const usageId = await repo.reserveUsage(KUPON, PELANGGAN);
 
-    await repo.releaseUsage(usageId!, KUPON);
+    await repo.releaseUsage(usageId!);
 
+    expect(await usedCount()).toBe(0);
+    // Dipanggil ulang (webhook ganda, cron) tidak mengembalikan kuota lagi.
+    await repo.releaseUsage(usageId!);
     expect(await usedCount()).toBe(0);
     expect(await repo.reserveUsage(KUPON, PELANGGAN)).toEqual(
       expect.any(String),

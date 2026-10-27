@@ -49,8 +49,8 @@ export interface ICouponRepository {
    */
   reserveUsage(couponId: string, pelangganId: string): Promise<string | null>;
 
-  /** Batalkan pemakaian hasil reserveUsage. */
-  releaseUsage(usageId: string, couponId: string): Promise<void>;
+  /** Batalkan pemakaian hasil reserveUsage; aman dipanggil berulang. */
+  releaseUsage(usageId: string): Promise<void>;
 
   delete(id: string): Promise<void>;
 }

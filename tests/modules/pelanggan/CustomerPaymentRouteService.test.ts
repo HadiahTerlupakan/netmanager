@@ -97,6 +97,7 @@ describe("CustomerPaymentRouteService", () => {
       discountAmount: 0,
       paymentMethod: "MANUAL",
       notes: "manual transfer",
+      couponUsageId: null,
     });
   });
 
@@ -281,7 +282,7 @@ describe("CustomerPaymentRouteService", () => {
       await expect(bayarDenganKupon("QRIS")).rejects.toMatchObject({
         status: 502,
       });
-      expect(mockFns.releaseUsage).toHaveBeenCalledWith("usage-1", "coupon-1");
+      expect(mockFns.releaseUsage).toHaveBeenCalledWith("usage-1");
       expect(mockFns.publish).not.toHaveBeenCalled();
     });
 

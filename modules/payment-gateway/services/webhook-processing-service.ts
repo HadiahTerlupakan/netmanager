@@ -5,6 +5,10 @@ import { FinanceRepositoryFacade } from "@/modules/finance";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import { PaymentGatewayManager } from "./PaymentGatewayService";
 import {
+  isUnpaidTerminalStatus,
+  releaseCheckoutCoupons,
+} from "./abandoned-checkout";
+import {
   findCheckoutPayments,
   settleCheckoutInvoices,
   sumCheckoutAmount,
@@ -241,14 +245,14 @@ export class WebhookProcessingService {
       }
 
       // Step 11: Update semua payment checkout dan tandai event dalam satu tx.
-      const paid = await prismaBillingAuth.$transaction(async (tx) => {
+      const outcome = await prismaBillingAuth.$transaction(async (tx) => {
         // Re-check idempotency di dalam tx untuk mencegah race condition
         const currentPayment = await tx.payment.findUnique({
           where: { id: payment.id },
         });
 
         if (currentPayment?.gatewayStatus === "PAID") {
-          return false;
+          return null;
         }
 
         if (
@@ -257,7 +261,7 @@ export class WebhookProcessingService {
             webhookResult.transactionId,
           )
         ) {
-          return false;
+          return null;
         }
 
         const paymentUpdate: Prisma.PaymentUpdateManyMutationInput = {
@@ -298,13 +302,16 @@ export class WebhookProcessingService {
             data: { status: "PROCESSED", processedAt: new Date() },
           });
         }
-        return gatewayStatus === "PAID" && moved.count > 0;
+        return moved.count > 0 ? gatewayStatus : null;
       });
 
-      // Step 12: Lunasi invoice setelah commit. Invoice ada di database billing,
-      // event bus di database utama: keduanya tidak bisa satu transaksi.
-      if (paid) {
+      // Step 12: Lunasi invoice, atau kembalikan kupon checkout yang tidak
+      // dibayar, setelah commit. Invoice dan kupon ada di database lain dari
+      // transaksi ini, jadi tidak bisa ikut di dalamnya.
+      if (outcome === "PAID") {
         await settleCheckoutInvoices(checkout);
+      } else if (outcome && isUnpaidTerminalStatus(outcome)) {
+        await releaseCheckoutCoupons(checkout);
       }
 
       this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);

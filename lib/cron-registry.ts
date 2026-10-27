@@ -346,6 +346,34 @@ export class CronRegistry {
       .catch((err) =>
         logger.error("[CronRegistry] Failed to start Customer Cohort:", err),
       );
+
+    // Tutup checkout gateway yang ditinggalkan dan kembalikan kuponnya (15 menit)
+    import("../modules/payment-gateway")
+      .then(({ expireStaleGatewayPayments }) => {
+        const task = cron.schedule("*/15 * * * *", async () => {
+          if (!(await canRunCronJob("expireGatewayCheckouts", 840))) return;
+          await runCronTask("expireGatewayCheckouts", async () => {
+            try {
+              const expired = await expireStaleGatewayPayments();
+              if (expired > 0) {
+                logger.info(`[Cron] ${expired} checkout gateway kedaluwarsa`);
+              }
+            } catch (err) {
+              logger.error("[Cron] Expire gateway checkouts failed:", err);
+            }
+          });
+        });
+        this.tasks.set("expireGatewayCheckouts", task);
+        logger.info(
+          "[CronRegistry] Expire gateway checkouts cron scheduled (Every 15m)",
+        );
+      })
+      .catch((err) =>
+        logger.error(
+          "[CronRegistry] Failed to start expire gateway checkouts:",
+          err,
+        ),
+      );
   }
 
   public stopAll() {

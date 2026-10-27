@@ -66,6 +66,7 @@ export async function createCustomerPaymentForRoute(
       discountAmount: coupon.discountAmount,
       paymentMethod: input.paymentMethod,
       notes: input.notes,
+      couponUsageId: usageId,
     });
     gateway = await createGatewayPaymentIfNeeded({
       ...input,
@@ -75,7 +76,7 @@ export async function createCustomerPaymentForRoute(
   } catch (error) {
     // Kupon di database utama, payment di database billing: tidak bisa satu
     // transaksi, jadi pesanan kuota dibatalkan manual bila pembayaran gagal.
-    await releaseCoupon(usageId, coupon);
+    await releaseCoupon(usageId);
     throw error;
   }
 
@@ -109,13 +110,13 @@ async function reserveCoupon(
   return usageId;
 }
 
-async function releaseCoupon(usageId: string | null, coupon: ResolvedCoupon) {
-  if (!usageId || !coupon.couponId) {
+async function releaseCoupon(usageId: string | null) {
+  if (!usageId) {
     return;
   }
 
   try {
-    await couponService.releaseUsage(usageId, coupon.couponId);
+    await couponService.releaseUsage(usageId);
   } catch (error) {
     // Pembayaran sudah gagal dan error aslinya dilempar ulang; kuota yang
     // tertahan satu terlihat di riwayat pemakaian kupon.

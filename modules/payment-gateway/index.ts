@@ -52,6 +52,7 @@ export type {
   TestResult,
 } from "./services/provider-interface";
 
+export { expireStaleGatewayPayments } from "./services/abandoned-checkout";
 export {
   findPaymentMethodProvider,
   getCustomerPaymentMethodsByProvider,

@@ -103,8 +103,8 @@ export class CouponService {
   /**
    * Release a reservation made by reserveUsage.
    */
-  async releaseUsage(usageId: string, couponId: string) {
-    return this.repository.releaseUsage(usageId, couponId);
+  async releaseUsage(usageId: string) {
+    return this.repository.releaseUsage(usageId);
   }
 
   /**
