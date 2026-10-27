@@ -24,6 +24,36 @@ import { timingSafeCompare } from "./signature-compare.helpers";
 // Batas panjang customerVaName di API Duitku.
 const VA_NAME_MAX_LENGTH = 20;
 
+type DuitkuInquiryResponse = {
+  statusCode?: string;
+  statusMessage?: string;
+  Message?: string;
+  paymentUrl?: string;
+  vaNumber?: string;
+  reference?: string;
+  raw?: string;
+};
+
+// Error Duitku tidak selalu JSON berisi statusMessage: penolakan (misalnya
+// nominal di bawah minimum, merchant tidak dikenal) datang sebagai HTTP 4xx
+// dengan `Message` atau teks biasa.
+async function readDuitkuResponse(response: {
+  text: () => Promise<string>;
+}): Promise<DuitkuInquiryResponse> {
+  const raw = await response.text();
+  try {
+    return JSON.parse(raw) as DuitkuInquiryResponse;
+  } catch {
+    return { raw };
+  }
+}
+
+function describeDuitkuError(status: number, result: DuitkuInquiryResponse) {
+  const message =
+    result.statusMessage || result.Message || result.raw?.slice(0, 200);
+  return `Duitku HTTP ${status}: ${message || "tanpa pesan"}`;
+}
+
 export class DuitkuProvider implements PaymentProvider {
   name = "Duitku";
   private config?: ProviderConfig;
@@ -75,18 +105,12 @@ export class DuitkuProvider implements PaymentProvider {
           body: JSON.stringify(requestBody),
         },
       );
-      const result = (await response.json()) as {
-        statusCode?: string;
-        statusMessage?: string;
-        paymentUrl?: string;
-        vaNumber?: string;
-        reference?: string;
-      };
+      const result = await readDuitkuResponse(response);
 
       if (result.statusCode !== "00") {
         return {
           success: false,
-          error: result.statusMessage || "Failed to create payment",
+          error: describeDuitkuError(response.status, result),
         };
       }
 

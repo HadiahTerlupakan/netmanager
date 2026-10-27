@@ -34,11 +34,13 @@ describe("DuitkuProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     palsu.fetch.mockResolvedValue({
-      json: async () => ({
-        statusCode: "00",
-        paymentUrl: "https://sandbox.duitku.com/pay/1",
-        reference: "D1",
-      }),
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          statusCode: "00",
+          paymentUrl: "https://sandbox.duitku.com/pay/1",
+          reference: "D1",
+        }),
     });
   });
 
@@ -61,6 +63,32 @@ describe("DuitkuProvider", () => {
     expect(body.signature).toBe(hmac("DS123PAY-1100000"));
     expect(body.customerVaName.length).toBeLessThanOrEqual(20);
     expect(result).toMatchObject({ success: true, transactionId: "D1" });
+  });
+
+  // Penolakan Duitku dulu tercatat "Failed to create payment" saja karena
+  // hanya statusMessage yang dibaca.
+  it.each([
+    [
+      JSON.stringify({ Message: "Minimum Payment 10000 IDR" }),
+      "Minimum Payment 10000 IDR",
+    ],
+    ["Merchant not found", "Merchant not found"],
+  ])("meneruskan alasan penolakan Duitku (%s)", async (body, reason) => {
+    palsu.fetch.mockResolvedValue({ status: 400, text: async () => body });
+
+    const result = await provider().createPayment({
+      orderId: "PAY-1",
+      amount: 1110,
+      customerName: "Budi",
+      customerEmail: "a@b.c",
+      customerPhone: "08",
+      description: "Tagihan",
+      paymentMethods: ["BC"],
+    } as never);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain(reason);
+    expect(result.error).toContain("400");
   });
 
   describe("callback", () => {
