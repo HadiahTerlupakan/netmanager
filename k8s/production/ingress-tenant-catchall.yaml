@@ -7,9 +7,7 @@ spec:
   entryPoints:
     - websecure
   routes:
-    # Sintaks Traefik v3 (k3s membawa 3.x): HostRegexp menerima regex biasa.
-    # Bentuk v2 `{host:.+}` dibaca harfiah dan tidak pernah cocok.
-    - match: HostRegexp(`^.+$`)
+    - match: HostRegexp(`{host:.+}`)
       kind: Rule
       priority: 1
       services:
@@ -26,9 +24,7 @@ spec:
   entryPoints:
     - web
   routes:
-    # Sintaks Traefik v3 (k3s membawa 3.x): HostRegexp menerima regex biasa.
-    # Bentuk v2 `{host:.+}` dibaca harfiah dan tidak pernah cocok.
-    - match: HostRegexp(`^.+$`)
+    - match: HostRegexp(`{host:.+}`)
       kind: Rule
       priority: 1
       middlewares:
