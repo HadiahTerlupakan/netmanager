@@ -1,5 +1,6 @@
 import type { Job } from "bullmq";
 import { createRouteServiceError } from "@/lib/api/route-service-error";
+import { acquireLock } from "@/lib/distributed-lock";
 import { requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { logger } from "@/lib/logger";
@@ -9,9 +10,11 @@ import { findPaymentMethodProvider } from "./payment-method-catalog";
 import { PaymentGatewayManager } from "./PaymentGatewayService";
 
 const HTTP_CONFLICT = 409;
-// Pembuatan checkout memanggil gateway (beberapa detik); permintaan kedua
-// pelanggan yang sama menunggu di kunci selama itu.
-const CHECKOUT_LOCK_TIMEOUT_MS = 60_000;
+// Membuat checkout bisa memanggil gateway beberapa kali (cek status, batal,
+// buat baru), masing-masing dibatasi 30 detik oleh fetchWithTimeout.
+const CHECKOUT_LOCK_TTL_SECONDS = 120;
+const CHECKOUT_BUSY_MESSAGE =
+  "Pembayaran Anda sedang diproses di perangkat lain. Coba lagi sebentar lagi.";
 const ALREADY_PAID_MESSAGE =
   "Pembayaran sebelumnya sudah diterima dan sedang diproses. Muat ulang halaman beberapa saat lagi.";
 
@@ -54,21 +57,28 @@ export async function replacePendingGatewayCheckouts(input: {
  * Satu checkout per pelanggan dalam satu waktu. Tanpa kunci, dua perangkat
  * yang menekan "Ganti Metode" bersamaan sama-sama menutup checkout lama lalu
  * masing-masing membuat checkout baru, sehingga ada dua VA/QR yang bisa
- * dibayar untuk satu tagihan. Kunci advisory lepas sendiri bersama
- * transaksinya.
+ * dibayar untuk satu tagihan.
+ *
+ * Kuncinya di Redis, bukan advisory lock database: permintaan yang menunggu
+ * tidak boleh memegang koneksi pool, atau pool habis dan pemegang kunci tak
+ * bisa menyelesaikan query-nya sendiri. Bila kunci tidak didapat (termasuk
+ * Redis mati), permintaan ditolak, seperti perpanjangan pelanggan.
  */
-export function withCustomerCheckoutLock<T>(
+export async function withCustomerCheckoutLock<T>(
   customerId: string,
   task: () => Promise<T>,
 ): Promise<T> {
-  const key = `checkout:${customerId}`;
-  return prismaBillingAuth.$transaction(
-    async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
-      return task();
-    },
-    { maxWait: CHECKOUT_LOCK_TIMEOUT_MS, timeout: CHECKOUT_LOCK_TIMEOUT_MS },
-  );
+  const release = await acquireLock(`checkout:${customerId}`, {
+    ttlSeconds: CHECKOUT_LOCK_TTL_SECONDS,
+  });
+  if (!release) {
+    throw createRouteServiceError(CHECKOUT_BUSY_MESSAGE, HTTP_CONFLICT);
+  }
+  try {
+    return await task();
+  } finally {
+    await release();
+  }
 }
 
 /**

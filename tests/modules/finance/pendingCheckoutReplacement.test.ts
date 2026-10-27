@@ -8,7 +8,11 @@ const palsu = vi.hoisted(() => ({
   checkStatus: vi.fn(),
   cancelPayment: vi.fn(),
   providerFor: vi.fn(),
+  acquireLock: vi.fn(),
+  release: vi.fn(),
 }));
+
+vi.mock("@/lib/distributed-lock", () => ({ acquireLock: palsu.acquireLock }));
 
 vi.mock("@/modules/coupons", () => ({
   couponService: {
@@ -111,22 +115,39 @@ describe("ganti metode pembayaran", () => {
   });
 
   it("kunci checkout dipegang per pelanggan selama checkout dibuat", async () => {
-    const executeRaw = vi.fn().mockResolvedValue(0);
-    prismaMock.$transaction.mockImplementation(async (callback: unknown) =>
-      (callback as (tx: unknown) => unknown)({ $executeRaw: executeRaw }),
-    );
+    palsu.acquireLock.mockResolvedValue(palsu.release);
     const task = vi.fn().mockResolvedValue("checkout");
 
     await expect(withCustomerCheckoutLock("cust-1", task)).resolves.toBe(
       "checkout",
     );
 
-    const [sql, key] = executeRaw.mock.calls[0];
-    expect(sql.join("?")).toContain("pg_advisory_xact_lock(hashtext(?))");
-    expect(key).toBe("checkout:cust-1");
-    expect(executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
-      task.mock.invocationCallOrder[0],
+    expect(palsu.acquireLock).toHaveBeenCalledWith(
+      "checkout:cust-1",
+      expect.objectContaining({ ttlSeconds: 120 }),
     );
+    expect(palsu.release).toHaveBeenCalledTimes(1);
+  });
+
+  it("kunci dilepas walau pembuatan checkout gagal", async () => {
+    palsu.acquireLock.mockResolvedValue(palsu.release);
+
+    await expect(
+      withCustomerCheckoutLock("cust-1", () =>
+        Promise.reject(new Error("gateway")),
+      ),
+    ).rejects.toThrow("gateway");
+    expect(palsu.release).toHaveBeenCalledTimes(1);
+  });
+
+  it("kunci yang sedang dipegang perangkat lain menolak dengan 409", async () => {
+    palsu.acquireLock.mockResolvedValue(null);
+    const task = vi.fn();
+
+    await expect(
+      withCustomerCheckoutLock("cust-1", task),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(task).not.toHaveBeenCalled();
   });
 
   // VA lama dibayar setelah pelanggan sudah membuat QRIS: QRIS-nya ditutup
