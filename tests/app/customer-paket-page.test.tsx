@@ -63,7 +63,7 @@ describe("halaman Detail Layanan pelanggan", () => {
   beforeEach(() => {
     respons["/api/customer/profile"] = { profile: profilTesLab };
     respons["/api/customer/usage"] = {
-      connection: { isOnline: true, ipAddress: "172.31.251.254" },
+      connection: { isOnline: true, ipAddress: "172.31.251.254/32" },
     };
     respons["/api/customer/package"] = { upgradeOptions: [] };
     container = document.createElement("div");

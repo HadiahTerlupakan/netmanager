@@ -19,6 +19,11 @@ describe("classifyIpAddress", () => {
     expect(classifyIpAddress(ip)).toBe(jenis);
   });
 
+  it("menerima alamat dengan prefix inet seperti dikirim API", () => {
+    expect(classifyIpAddress("172.31.251.254/32")).toBe("Privat");
+    expect(classifyIpAddress("103.10.20.30/32")).toBe("Publik");
+  });
+
   it("mengembalikan null untuk alamat yang bukan IPv4", () => {
     expect(classifyIpAddress("bukan-ip")).toBeNull();
     expect(classifyIpAddress("10.0.0.256")).toBeNull();

@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import {
   classifyIpAddress,
+  stripIpPrefix,
   findCheapestUpgrade,
   formatBillingPeriod,
 } from "./paket-helpers";
@@ -87,9 +88,10 @@ export default function CustomerPaketPage() {
   const { profile } = data;
   const { paket } = profile;
   const isAktif = profile.status === "AKTIF";
-  const ipAddress = usage?.connection?.isOnline
+  const sessionIp = usage?.connection?.isOnline
     ? usage.connection.ipAddress
     : null;
+  const ipAddress = sessionIp ? stripIpPrefix(sessionIp) : null;
   // Hanya Privat/Publik: statis atau dinamis tidak bisa dipastikan karena
   // portal tidak mengekspos Framed-IP-Address dari radreply.
   const ipKind = ipAddress ? classifyIpAddress(ipAddress) : null;

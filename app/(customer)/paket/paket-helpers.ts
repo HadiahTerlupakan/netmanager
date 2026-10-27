@@ -32,9 +32,18 @@ function parseIpv4(ip: string): number | null {
   return value;
 }
 
+/**
+ * Alamat sesi tanpa prefix. radacct.framedipaddress bertipe inet, jadi API
+ * mengirim "172.31.251.254/32"; tanpa dipotong, alamat itu ditolak sebagai
+ * bukan IPv4 dan baris IP di halaman paket ikut hilang.
+ */
+export function stripIpPrefix(ip: string): string {
+  return ip.split("/")[0] ?? ip;
+}
+
 /** Golongkan IPv4 sebagai Privat (RFC 1918/CGNAT) atau Publik. */
 export function classifyIpAddress(ip: string): IpAddressKind | null {
-  const value = parseIpv4(ip);
+  const value = parseIpv4(stripIpPrefix(ip));
   if (value === null) return null;
   const isPrivate = PRIVATE_IPV4_RANGES.some(({ base, prefix }) => {
     const baseValue = base[0] * 2 ** 24 + base[1] * 2 ** 16;
