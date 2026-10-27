@@ -15,6 +15,8 @@ const mockFns = vi.hoisted(() => ({
   approveManualPayment: vi.fn(),
   rejectManualPayment: vi.fn(),
   findByIdWithInvoice: vi.fn(),
+  checkSiteRestriction: vi.fn(),
+  findPelangganById: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mockFns.getServerSession }));
@@ -38,12 +40,12 @@ vi.mock("@/modules/finance/repositories/PaymentRepository", () => ({
 vi.mock("@/modules/finance/repositories/InvoiceRepository", () => ({
   InvoiceRepository: class {},
 }));
+vi.mock("@/modules/finance/pelanggan-registry", () => ({
+  getPelangganBillingBridge: () => ({ findById: mockFns.findPelangganById }),
+}));
 vi.mock("@/modules/roles", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  checkSiteRestriction: () => ({
-    isRestricted: false,
-    siteIds: [] as string[],
-  }),
+  checkSiteRestriction: mockFns.checkSiteRestriction,
 }));
 
 const { POST } = await import("@/app/api/admin/payments/verify-manual/route");
@@ -72,6 +74,14 @@ describe("verify-manual — route dan layanan asli", () => {
       gatewayStatus: "PENDING",
     });
     mockFns.approveManualPayment.mockResolvedValue({ ok: true });
+    mockFns.checkSiteRestriction.mockReturnValue({
+      isRestricted: false,
+      siteIds: [] as string[],
+    });
+    mockFns.findPelangganById.mockResolvedValue({
+      id: "pel-1",
+      siteId: "site-a",
+    });
     mockFns.rejectManualPayment.mockResolvedValue({ ok: true });
   });
 
@@ -87,5 +97,29 @@ describe("verify-manual — route dan layanan asli", () => {
 
     expect(response.status).toBe(200);
     expect(mockFns.rejectManualPayment).toHaveBeenCalledTimes(1);
+  });
+
+  it("admin terbatas tanpa site ditolak, bukan dibebaskan", async () => {
+    mockFns.checkSiteRestriction.mockReturnValue({
+      isRestricted: true,
+      siteIds: [] as string[],
+    });
+
+    const response = await verify("APPROVE");
+
+    expect(response.status).toBe(400);
+    expect(mockFns.approveManualPayment).not.toHaveBeenCalled();
+  });
+
+  it("admin terbatas hanya bisa memverifikasi pelanggan di site-nya", async () => {
+    mockFns.checkSiteRestriction.mockReturnValue({
+      isRestricted: true,
+      siteIds: ["site-b"],
+    });
+
+    const response = await verify("APPROVE");
+
+    expect(response.status).toBe(400);
+    expect(mockFns.approveManualPayment).not.toHaveBeenCalled();
   });
 });

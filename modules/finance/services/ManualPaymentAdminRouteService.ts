@@ -85,8 +85,11 @@ export class ManualPaymentAdminRouteService {
       throw createRouteServiceError(PAYMENT_NOT_FOUND_MESSAGE, 404);
     }
 
-    // Validate scope: payment must belong to pelanggan in allowed sites
-    if (input.allowedSiteIds && input.allowedSiteIds.length > 0) {
+    // Validate scope: payment must belong to pelanggan in allowed sites.
+    // Daftar kosong berarti admin terbatas tanpa site, bukan tanpa batas:
+    // dulu pemeriksaan dilewati dan admin itu bisa memverifikasi pembayaran
+    // pelanggan site mana pun.
+    if (input.allowedSiteIds) {
       const pelanggan = await this.pelangganRepository.findById(
         payment.pelangganId,
       );
