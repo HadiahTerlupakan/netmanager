@@ -92,6 +92,14 @@ export function getCustomerPortalHost(): string {
   return `${CUSTOMER_PORTAL_SUBDOMAIN}.${baseDomain}`;
 }
 
+/**
+ * Halaman tagihan portal pelanggan: tujuan kembali setelah membayar lewat
+ * gateway dan tautan bayar di halaman isolir. Hanya bermakna di server.
+ */
+export function getCustomerPortalBillingUrl(): string {
+  return `https://${getCustomerPortalHost()}/tagihan`;
+}
+
 /** Host portal admin untuk sebuah host publik. */
 export function buildAdminPortalHostname(hostname: string): string {
   if (

@@ -1,4 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const palsu = vi.hoisted(() => ({ recompute: vi.fn() }));
+vi.mock("@/modules/finance/services/InvoicePaymentStateService", () => ({
+  recomputeInvoicePaymentState: palsu.recompute,
+}));
+
 import { UnmatchedMutationService } from "@/modules/finance/services/UnmatchedMutationService";
 
 function createDeps() {
@@ -80,5 +86,23 @@ describe("UnmatchedMutationService.resolve — id pembayaran", () => {
     });
 
     expect(deps.createdPayments[0]?.id).not.toMatch(/^PAY-\d+$/);
+  });
+
+  // Regresi: mutasi yang dicocokkan admin membuat payment PAID tanpa
+  // menghitung ulang invoice, jadi tagihan tetap belum lunas.
+  it("menghitung ulang invoice yang dicocokkan", async () => {
+    const { unmatchedRepo, billingRepo } = createDeps();
+    const service = new UnmatchedMutationService(
+      unmatchedRepo as never,
+      billingRepo as never,
+    );
+
+    await service.resolve({
+      mutationId: "mut-1",
+      invoiceId: "inv-1",
+      userId: "u1",
+    });
+
+    expect(palsu.recompute).toHaveBeenCalledWith("inv-1");
   });
 });

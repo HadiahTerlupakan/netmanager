@@ -1,7 +1,7 @@
 import { prismaAuth } from "@/modules/database";
 import { getCompanyBankAccountService } from "@/modules/finance";
 import { getLogoSettings } from "@/modules/settings";
-import { getCustomerPortalHost } from "@/lib/utils/portal-url";
+import { getCustomerPortalBillingUrl } from "@/lib/utils/portal-url";
 import type { IsolirPage } from "@prisma/client";
 import { IsolirPageRepository } from "./IsolirPageRepository";
 import { buildLogoDataUri } from "./isolir-logo";
@@ -109,7 +109,7 @@ function buildLink(page: IsolirPage | null): IsolirContent["link"] {
   }
   return {
     label: DEFAULT_LINK_LABEL,
-    url: `https://${getCustomerPortalHost()}/tagihan`,
+    url: getCustomerPortalBillingUrl(),
   };
 }
 

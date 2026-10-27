@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { getAppUrl } from "@/lib/utils/env";
+import { getCustomerPortalBillingUrl } from "@/lib/utils/portal-url";
 import type {
   CreatePaymentParams,
   PaymentResult,
@@ -110,9 +111,11 @@ export function buildDanaCreatePayload(
       },
       orderDescription: params.description,
       expiryTime,
-      callbackUrl: `${getAppUrl()}/api/payment/webhook/dana`,
-      returnUrl: `${getAppUrl()}/payment/success`,
-      cancelUrl: `${getAppUrl()}/payment/failed`,
+      // Webhook dilayani /api/webhooks/[provider]; /api/payment/webhook/dana
+      // tidak pernah ada.
+      callbackUrl: `${getAppUrl()}/api/webhooks/dana`,
+      returnUrl: getCustomerPortalBillingUrl(),
+      cancelUrl: getCustomerPortalBillingUrl(),
     },
     expiryTime,
   };

@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { getAppUrl } from "@/lib/utils/env";
+import { getCustomerPortalBillingUrl } from "@/lib/utils/portal-url";
 import * as crypto from "crypto";
 import midtransClient from "midtrans-client";
 import type {
@@ -58,9 +58,10 @@ export class MidtransProvider implements PaymentProvider {
           },
         ],
         callbacks: {
-          finish: `${getAppUrl()}/payment/success`,
-          error: `${getAppUrl()}/payment/failed`,
-          pending: `${getAppUrl()}/payment/pending`,
+          // /payment/* tidak pernah ada; pelanggan kembali ke tagihannya.
+          finish: getCustomerPortalBillingUrl(),
+          error: getCustomerPortalBillingUrl(),
+          pending: getCustomerPortalBillingUrl(),
         },
       });
 

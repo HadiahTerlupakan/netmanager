@@ -64,7 +64,11 @@ export function mapDuitkuStatus(
 export function buildDuitkuWebhookResult(
   payload: Record<string, unknown>,
 ): WebhookResult {
-  const status = mapDuitkuStatus(payload.resultCode as string | undefined);
+  // Callback Duitku hanya mengenal resultCode "00" (sukses) dan "01"
+  // (gagal); "01" pada cek status berarti masih diproses, jadi pemetaan
+  // mapDuitkuStatus tidak berlaku di sini.
+  const status: WebhookResult["status"] =
+    payload.resultCode === "00" ? "PAID" : "FAILED";
 
   return {
     orderId: payload.merchantOrderId as string,

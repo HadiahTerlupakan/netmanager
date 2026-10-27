@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { getAppUrl } from "@/lib/utils/env";
+import { getCustomerPortalBillingUrl } from "@/lib/utils/portal-url";
 import { fetchWithTimeout } from "./fetch-with-timeout";
 import type {
   CreatePaymentParams,
@@ -52,7 +53,7 @@ export class DuitkuProvider implements PaymentProvider {
         email: params.customerEmail,
         phoneNumber: params.customerPhone,
         callbackUrl: `${getAppUrl()}/api/webhooks/duitku`,
-        returnUrl: `${getAppUrl()}/payment/success`,
+        returnUrl: getCustomerPortalBillingUrl(),
         signature: createDuitkuInvoiceSignature({
           merchantCode,
           merchantOrderId,

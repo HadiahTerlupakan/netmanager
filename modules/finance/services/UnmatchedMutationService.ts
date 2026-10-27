@@ -3,6 +3,7 @@ import type { Prisma } from "../lib/billing-prisma-boundary";
 import type { Payment, UnmatchedMutation } from "../types/invoice.enums";
 import { BillingRepository } from "../repositories/BillingRepository";
 import { UnmatchedMutationRepository } from "../repositories/UnmatchedMutationRepository";
+import { recomputeInvoicePaymentState } from "./InvoicePaymentStateService";
 
 export class UnmatchedMutationNotFoundError extends Error {}
 export class InvoiceNotFoundError extends Error {}
@@ -108,6 +109,10 @@ export class UnmatchedMutationService {
       resolvedAt: new Date(),
       resolvedById: params.userId,
     });
+
+    // Payment PAID saja tidak melunasi invoice atau mengaktifkan kembali
+    // pelanggan isolir; itu tugas recompute (INVOICE_PAID).
+    await recomputeInvoicePaymentState(invoice.id);
 
     return { payment, mutation: updatedMutation };
   }
