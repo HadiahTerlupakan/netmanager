@@ -20,7 +20,7 @@ vi.mock("@/lib/customer-auth", async (importOriginal) => ({
 
 const SECRET = "test-secret";
 
-function accessToken(expiresIn: string | number = "15m") {
+function accessToken(expiresIn = 15 * 60) {
   return jwt.sign(
     { id: "pel-1", idPelanggan: "67863587", nama: "TES", status: "ISOLIR" },
     SECRET,
