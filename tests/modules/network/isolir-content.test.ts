@@ -71,7 +71,10 @@ describe("resolveIsolirContent", () => {
       logoDataUri: "data:image/webp;base64,AAA",
       payments: [{ label: "BCA", number: "123", holder: "PT Net Jaya" }],
       whatsapp: null,
-      link: null,
+      link: {
+        label: "Bayar Tagihan",
+        url: "https://pelanggan.radpro.id/tagihan",
+      },
       contactText: null,
       primaryColor: DEFAULT_PRIMARY_COLOR,
     });

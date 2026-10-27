@@ -1,6 +1,7 @@
 import { prismaAuth } from "@/modules/database";
 import { getCompanyBankAccountService } from "@/modules/finance";
 import { getLogoSettings } from "@/modules/settings";
+import { getCustomerPortalHost } from "@/lib/utils/portal-url";
 import type { IsolirPage } from "@prisma/client";
 import { IsolirPageRepository } from "./IsolirPageRepository";
 import { buildLogoDataUri } from "./isolir-logo";
@@ -11,6 +12,7 @@ export const DEFAULT_TITLE = "Layanan Internet Anda Sedang Diisolir";
 export const DEFAULT_MESSAGE =
   "Layanan internet Anda dihentikan sementara. Silakan lakukan pembayaran atau hubungi layanan pelanggan kami agar layanan aktif kembali.";
 export const DEFAULT_ISP_NAME = "Layanan Internet";
+export const DEFAULT_LINK_LABEL = "Bayar Tagihan";
 
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const INDONESIA_COUNTRY_CODE = "62";
@@ -96,10 +98,19 @@ function buildWhatsapp(page: IsolirPage | null): IsolirContent["whatsapp"] {
   return number ? { number, text: page?.whatsappText ?? "" } : null;
 }
 
+// Tanpa tautan dari admin, arahkan ke tagihan di portal pelanggan: portal
+// itu ada di walled garden isolir, jadi pelanggan bisa membayar dari sini.
+// https eksplisit karena http portal tidak dialihkan.
 function buildLink(page: IsolirPage | null): IsolirContent["link"] {
   const label = filled(page?.linkLabel);
   const url = filled(page?.linkUrl);
-  return label && url ? { label, url } : null;
+  if (label && url) {
+    return { label, url };
+  }
+  return {
+    label: DEFAULT_LINK_LABEL,
+    url: `https://${getCustomerPortalHost()}/tagihan`,
+  };
 }
 
 /**
