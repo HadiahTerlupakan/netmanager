@@ -14,6 +14,7 @@ import {
 } from "@/lib/api-response";
 
 const HTTP_BAD_GATEWAY = 502;
+const PAYMENT_METHOD_REQUIRED_MESSAGE = "Metode pembayaran wajib diisi";
 
 const customerPortalService = new CustomerPortalService();
 
@@ -23,7 +24,11 @@ const customerPaymentSchema = z.object({
       z.string().includes("-", { message: "Invoice ID harus berformat UUID" }),
     )
     .min(1, "Pilih minimal satu tagihan untuk dibayar"),
-  paymentMethod: z.string().min(1, "Metode pembayaran wajib diisi").optional(),
+  // Wajib: portal web dan aplikasi mobile selalu mengirimnya, dan service
+  // memakainya untuk memilih transfer manual atau gateway.
+  paymentMethod: z
+    .string({ error: PAYMENT_METHOD_REQUIRED_MESSAGE })
+    .min(1, PAYMENT_METHOD_REQUIRED_MESSAGE),
   // Portal web dan aplikasi mobile mengirim `null` atau "" saat tanpa kupon;
   // zod 4 menolak `null` pada `.optional()`, sehingga setiap pembayaran tanpa
   // kupon dulu gagal 400. Semua bentuk kosong diseragamkan jadi `undefined`.

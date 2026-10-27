@@ -250,6 +250,21 @@ describe("customer payments route", () => {
     expect(response.status).toBe(400);
     expect(body.error).toBe("Kuota kupon habis");
   });
+
+  it("menolak 400 bila paymentMethod tidak dikirim, sebelum service dipanggil", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/customer/payments", {
+        method: "POST",
+        body: JSON.stringify({ invoiceIds: ["invoice-1"] }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("Metode pembayaran wajib diisi");
+    expect(mockFns.createCustomerPaymentForRoute).not.toHaveBeenCalled();
+  });
 });
 
 function buildPaymentRequest(overrides: Record<string, unknown> = {}) {

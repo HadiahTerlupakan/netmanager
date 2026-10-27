@@ -63,6 +63,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - [SECURITY] Kupon saat bayar dicari dengan tenantId dari konteks; bila tenant tidak diketahui kupon ditolak 400, seperti `POST /api/customer/coupons/verify`. Sebelumnya `findByCode` tanpa tenant mencari di semua tenant, sehingga kupon ISP lain bisa terpakai.
   - [FIXED] Bila payment gateway menjawab `success: false` (atau pelanggan tidak ditemukan), rute dulu menjawab "Pembayaran berhasil diproses" dan meninggalkan payment PENDING tanpa URL bayar. Kini payment itu ditandai FAILED dan rute menjawab 502 dengan pesan coba lagi, sama seperti saat gateway melempar error (yang dulu 500). Transfer manual tetap membuat payment PENDING.
   - [FIXED] Payment PENDING untuk invoice PARTIAL_PAID kini sebesar sisa tagihan (total − paidAmount) dikurangi diskon, sama dengan yang ditagih gateway. Sebelumnya memakai total invoice, sehingga cek nominal OCR struk transfer manual memperingatkan selisih yang tidak ada dan saat disetujui `paidAmount` (jumlah amount payment) melebihi total invoice.
+  - [FIXED] `paymentMethod` di `POST /api/customer/payments` kini wajib (400 "Metode pembayaran wajib diisi"). Sebelumnya opsional di schema, lalu service memanggil `.startsWith` pada `undefined` dan rute menjawab 500. Portal web dan aplikasi mobile selalu mengirimnya.
 - **Breaking**: ❌ Tidak
 
 ### [2026-10-27] — Tiket dukungan portal pelanggan bisa dipakai lagi
