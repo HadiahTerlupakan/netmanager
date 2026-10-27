@@ -73,7 +73,7 @@ export class ManualPaymentAdminRouteService {
   /** Verify a manual payment and trigger related invoice side effects. */
   async verifyManualPayment(input: {
     paymentId: string;
-    action: string;
+    action: "APPROVE" | "REJECT";
     notes?: string | null;
     allowedSiteIds?: string[];
   }) {
