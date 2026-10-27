@@ -18,18 +18,33 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import {
+  classifyIpAddress,
+  findCheapestUpgrade,
+  formatBillingPeriod,
+} from "./paket-helpers";
+import { UpgradePromoCard } from "./UpgradePromoCard";
 
 interface PackageData {
   nama: string;
   idPelanggan: string;
   status: string;
   alamat: string;
+  tanggalAktif: string;
   jatuhTempo: string;
   paket: {
     nama: string;
     harga: number;
     bandwidth: { download: string; upload: string } | null;
   } | null;
+}
+
+interface UsageData {
+  connection?: { isOnline: boolean; ipAddress: string | null };
+}
+
+interface PackageUpgradeData {
+  upgradeOptions: Array<{ nama: string; priceDifference: number }>;
 }
 
 export default function CustomerPaketPage() {
@@ -46,13 +61,12 @@ export default function CustomerPaketPage() {
     isAuthenticated ? "/api/customer/profile" : null,
   );
 
-  const getPeriodString = (jatuhTempo: string) => {
-    if (!jatuhTempo) return "-";
-    const due = new Date(jatuhTempo);
-    const start = new Date(due);
-    start.setMonth(start.getMonth() - 1);
-    return `${start.toLocaleDateString("id-ID", { day: "numeric" })} - ${due.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
-  };
+  const { data: usage } = useApi<UsageData>(
+    isAuthenticated ? "/api/customer/usage" : null,
+  );
+  const { data: packageData } = useApi<PackageUpgradeData>(
+    isAuthenticated ? "/api/customer/package" : null,
+  );
 
   if (authLoading || isLoading) {
     return (
@@ -73,6 +87,15 @@ export default function CustomerPaketPage() {
   const { profile } = data;
   const { paket } = profile;
   const isAktif = profile.status === "AKTIF";
+  const ipAddress = usage?.connection?.isOnline
+    ? usage.connection.ipAddress
+    : null;
+  // Hanya Privat/Publik: statis atau dinamis tidak bisa dipastikan karena
+  // portal tidak mengekspos Framed-IP-Address dari radreply.
+  const ipKind = ipAddress ? classifyIpAddress(ipAddress) : null;
+  const upgradeCandidate = findCheapestUpgrade(
+    packageData?.upgradeOptions ?? [],
+  );
 
   return (
     <div className="min-h-screen w-full bg-[#f6f7f8] dark:bg-[#101922] font-sans text-gray-900 dark:text-white transition-colors duration-200">
@@ -213,21 +236,28 @@ export default function CustomerPaketPage() {
                   </p>
                 </div>
                 <p className="text-gray-900 dark:text-white text-sm font-medium text-right">
-                  {getPeriodString(profile.jatuhTempo)}
+                  {formatBillingPeriod(
+                    profile.jatuhTempo,
+                    profile.tanggalAktif,
+                  )}
                 </p>
               </div>
-              <div className="w-full h-px bg-gray-50 dark:bg-gray-700/50"></div>
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                  <MdRouter className="text-gray-400 text-xl" />
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
-                    Jenis IP Address
-                  </p>
-                </div>
-                <p className="text-gray-900 dark:text-white text-sm font-medium text-right">
-                  Dynamic Public
-                </p>
-              </div>
+              {ipAddress && ipKind && (
+                <>
+                  <div className="w-full h-px bg-gray-50 dark:bg-gray-700/50"></div>
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <MdRouter className="text-gray-400 text-xl" />
+                      <p className="text-gray-500 dark:text-gray-400 text-sm">
+                        Jenis IP Address
+                      </p>
+                    </div>
+                    <p className="text-gray-900 dark:text-white text-sm font-medium text-right">
+                      {ipAddress} ({ipKind})
+                    </p>
+                  </div>
+                </>
+              )}
               <div className="w-full h-px bg-gray-50 dark:bg-gray-700/50"></div>
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
@@ -243,26 +273,9 @@ export default function CustomerPaketPage() {
             </div>
           </div>
 
-          {/* Promo Banner (Optional) */}
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-600 to-teal-700 p-4 text-white shadow-lg">
-            <div className="absolute right-0 top-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-white/10 blur-xl"></div>
-            <div className="relative z-10 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-teal-100">
-                  Rekomendasi untukmu
-                </p>
-                <p className="text-lg font-bold">Upgrade ke 200 Mbps?</p>
-                <p className="text-xs text-teal-100 mt-1">
-                  Hanya tambah Rp 50rb/bln
-                </p>
-              </div>
-              <Link href="/upgrade-paket">
-                <Button variant="ghost" size="sm" className="shrink-0">
-                  Lihat
-                </Button>
-              </Link>
-            </div>
-          </div>
+          {upgradeCandidate && (
+            <UpgradePromoCard candidate={upgradeCandidate} />
+          )}
         </main>
 
         {/* Fixed Bottom Actions */}
