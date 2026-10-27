@@ -1,68 +1,51 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { HiArrowLeft, HiExclamationCircle } from "react-icons/hi2";
 import Link from "next/link";
 import PageLoader from "@/components/ui/PageLoader";
-import { toStartOfDay } from "@/lib/utils/datetime";
 import { useApi } from "@/lib/hooks/useApi";
+import { RenewPaymentFields } from "./RenewPaymentFields";
+import { RenewSummaryCard, type RenewPelanggan } from "./RenewSummaryCard";
+import {
+  INITIAL_RENEW_FORM,
+  buildRenewRequestBody,
+  findTagihanTerbuka,
+  formatTanggal,
+  getRenewalWindowWarning,
+  type RenewFormState,
+} from "./renew-form.helpers";
 
-type Pelanggan = {
-  id: string;
-  idPelanggan: string;
-  nama: string;
-  tipe: "REGULER" | "NON_REGULER";
-  status: "AKTIF" | "NONAKTIF" | "MAINTENANCE";
-  hargaPaketId: string;
-  hargaPaket?: {
-    id: string;
-    name: string;
-    harga: number;
-  } | null;
-  jatuhTempo: string;
+const DEFAULT_DISABLE_DURATION_DAYS = 5;
+
+type RenewResult = {
+  invoiceId: string;
+  invoiceStatus: string;
+  expectedJatuhTempo: string | null;
 };
 
-type HargaPaket = {
-  id: string;
-  name: string;
-  harga: number;
-  durasi: number;
-  durasiUnit: "JAM" | "HARI" | "BULAN" | "TAHUN";
-};
+/** Ambil `disablePerpanjanganPaket` (hari) dari respons setting umum. */
+function readDisableDuration(settingsRaw: unknown): number {
+  const obj = (settingsRaw ?? {}) as Record<string, unknown>;
+  const settings = (obj.data as Record<string, unknown>) || obj;
+  const value = settings.disablePerpanjanganPaket;
+  if (value === undefined) return DEFAULT_DISABLE_DURATION_DAYS;
+  return parseInt(String(value)) || DEFAULT_DISABLE_DURATION_DAYS;
+}
 
-type Tagihan = {
-  id: string;
-  noTagihan: string;
-  total: number;
-  ppn: number;
-  status: "BELUM_LUNAS" | "LUNAS" | "TERLAMBAT";
-  jatuhTempo: string;
-};
+async function readErrorMessage(res: Response, fallback: string) {
+  const body = (await res.json().catch(() => ({}))) as { error?: unknown };
+  return typeof body.error === "string" ? body.error : fallback;
+}
 
 export function PppClientRenewForm() {
   const params = useParams();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [pelanggan, setPelanggan] = useState<Pelanggan | null>(null);
-  const [tagihanAktif, setTagihanAktif] = useState<Tagihan | null>(null);
-  const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [disableDuration, setDisableDuration] = useState<number>(5);
-
-  const [formData, setFormData] = useState({
-    hargaPaketId: "", // Optional: untuk ubah paket
-    diskon: 0,
-    tipeLangganan: "SEKALI_BELI", // SEKALI_BELI, PERPANJANG
-    statusBayar: "LUNAS",
-    statusAkun: "AKTIF",
-    metodePembayaran: "PEMBAYARAN_MANUAL",
-    ownerDataTransaksi: "",
-    catatan: "",
-  });
-
   const id = params.id as string;
+  const [form, setForm] = useState<RenewFormState>(INITIAL_RENEW_FORM);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [renewResult, setRenewResult] = useState<RenewResult | null>(null);
 
   const { data: settingsRaw } = useApi<unknown>("/api/settings/general");
   const { data: pelangganRaw, error: pelangganError } = useApi<unknown>(
@@ -71,62 +54,15 @@ export function PppClientRenewForm() {
   const { data: tagihanRaw } = useApi<unknown>(
     id ? `/api/tagihan/pelanggan/${id}` : null,
   );
-  const { data: paketRaw } = useApi<unknown>("/api/hargapakets");
 
-  // Hydrate settings -> disableDuration
-  const [didHydrateSettings, setDidHydrateSettings] = useState(false);
-  if (settingsRaw && !didHydrateSettings) {
-    setDidHydrateSettings(true);
-    const obj = settingsRaw as Record<string, unknown>;
-    const settings = (obj.data as Record<string, unknown>) || obj;
-    const value = settings.disablePerpanjanganPaket as
-      | string
-      | number
-      | undefined;
-    if (value !== undefined) {
-      setDisableDuration(parseInt(String(value)) || 5);
-    }
-  }
-
-  // Hydrate pelanggan -> formData + state
-  const [didHydratePel, setDidHydratePel] = useState(false);
-  if (pelangganRaw && !didHydratePel) {
-    setDidHydratePel(true);
-    const data = pelangganRaw as Record<string, unknown>;
-    setPelanggan(data as Pelanggan);
-    setFormData((prev) => ({
-      ...prev,
-      hargaPaketId: (data.hargaPaketId as string) || "",
-      statusAkun: ((data.status as string) || "AKTIF") as "AKTIF" | "ISOLIR",
-    }));
-    setLoading(false);
-  }
-
-  if (pelangganError && !error) {
-    setError(pelangganError.message || "Gagal memuat data pelanggan");
-    setLoading(false);
-  }
-
-  // Hydrate tagihan aktif
-  const [didHydrateTagihan, setDidHydrateTagihan] = useState(false);
-  if (tagihanRaw && !didHydrateTagihan) {
-    setDidHydrateTagihan(true);
-    const list = Array.isArray(tagihanRaw) ? (tagihanRaw as Tagihan[]) : [];
-    const tagihanBelumLunas = list.find(
-      (t) => t.status === "BELUM_LUNAS" || t.status === "TERLAMBAT",
-    );
-    setTagihanAktif(tagihanBelumLunas || null);
-  }
-
-  // Hydrate daftar paket
-  const [didHydratePaket, setDidHydratePaket] = useState(false);
-  if (paketRaw && !didHydratePaket) {
-    setDidHydratePaket(true);
-    const list = Array.isArray(paketRaw)
-      ? (paketRaw as HargaPaket[])
-      : ((paketRaw as { data?: HargaPaket[] }).data ?? []);
-    setHargaPakets(list);
-  }
+  const pelanggan = (pelangganRaw as RenewPelanggan | undefined) ?? null;
+  const tagihanAktif = findTagihanTerbuka(tagihanRaw);
+  const warningMessage = pelanggan
+    ? getRenewalWindowWarning(
+        pelanggan.jatuhTempo,
+        readDisableDuration(settingsRaw),
+      )
+    : null;
 
   const handleCancelInvoice = async () => {
     if (!tagihanAktif) return;
@@ -138,16 +74,16 @@ export function PppClientRenewForm() {
       return;
 
     try {
-      setSubmitting(true);
+      setIsSubmitting(true);
       const res = await fetch(`/api/invoices/${tagihanAktif.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "CANCELLED" }),
       });
-
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Gagal membatalkan tagihan");
+        throw new Error(
+          await readErrorMessage(res, "Gagal membatalkan tagihan"),
+        );
       }
 
       alert("Tagihan berhasil dibatalkan.");
@@ -159,189 +95,74 @@ export function PppClientRenewForm() {
           : "Terjadi kesalahan saat membatalkan tagihan",
       );
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
-
-  // Pattern A: derive renewal eligibility warning during render
-  let warningMessage: string | null = null;
-  if (pelanggan && !loading) {
-    const today = new Date();
-    today.setTime(toStartOfDay(today).getTime());
-
-    const jatuhTempoDate = new Date(pelanggan.jatuhTempo);
-    jatuhTempoDate.setTime(toStartOfDay(jatuhTempoDate).getTime());
-
-    const allowedDate = new Date(jatuhTempoDate);
-    allowedDate.setDate(allowedDate.getDate() - disableDuration);
-
-    if (today < allowedDate) {
-      warningMessage = `Pelanggan ini belum dapat diperpanjang. Perpanjangan baru bisa dilakukan mulai ${allowedDate.toLocaleDateString("id-ID", { year: "numeric", month: "long", day: "numeric" })}.`;
-    }
-  }
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
-    if (warningMessage) return; // Prevent submission if blocked
+    if (warningMessage) return;
 
-    setSubmitting(true);
+    setIsSubmitting(true);
     setError(null);
-
     try {
-      const id = params.id as string;
-
-      // Jika ubah paket, update paket dulu
-      if (
-        formData.hargaPaketId &&
-        formData.hargaPaketId !== pelanggan?.hargaPaketId
-      ) {
-        const updatePaketRes = await fetch(`/api/pelanggan-ppp/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            hargaPaketId: formData.hargaPaketId,
-          }),
-        });
-
-        if (!updatePaketRes.ok) {
-          throw new Error("Gagal mengubah paket");
-        }
-      }
-
-      // Update status pembayaran tagihan jika ada
-      if (tagihanAktif && formData.statusBayar === "LUNAS") {
-        const bayarRes = await fetch(`/api/tagihan/${tagihanAktif.id}/bayar`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            metodePembayaran: formData.metodePembayaran,
-            catatan: formData.catatan,
-          }),
-        });
-
-        if (!bayarRes.ok) {
-          throw new Error("Gagal update status pembayaran");
-        }
-      }
-
-      // Update status akun
-      if (formData.statusAkun !== pelanggan?.status) {
-        const updateStatusRes = await fetch(`/api/pelanggan-ppp/${id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: formData.statusAkun,
-          }),
-        });
-
-        if (!updateStatusRes.ok) {
-          throw new Error("Gagal update status akun");
-        }
-      }
-
-      // Renew pelanggan dengan opsi admin
-      const renewRes = await fetch(`/api/pelanggan-ppp/${id}/renew`, {
+      const res = await fetch(`/api/pelanggan-ppp/${id}/renew`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tipeLangganan: formData.tipeLangganan,
-          hargaPaketId: formData.hargaPaketId || null,
-          diskon: formData.diskon || 0,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildRenewRequestBody(form)),
       });
-
-      if (!renewRes.ok) {
-        const errorData = await renewRes.json();
-        throw new Error(errorData.error || "Gagal memperpanjang langganan");
+      if (!res.ok) {
+        throw new Error(
+          await readErrorMessage(res, "Gagal memperpanjang langganan"),
+        );
       }
 
-      const result = await renewRes.json();
-      alert(
-        `Langganan berhasil diperpanjang!\nJatuh tempo baru: ${new Date(
-          result.jatuhTempoBaru,
-        ).toLocaleDateString("id-ID", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })}`,
-      );
-
-      router.push(`/admin/pelanggan/ppp/${id}`);
+      const body = (await res.json()) as { data: RenewResult };
+      setRenewResult(body.data);
     } catch (err: unknown) {
-      const message =
+      setError(
         err instanceof Error
           ? err.message
-          : "Terjadi kesalahan saat memperpanjang langganan";
-      setError(message);
+          : "Terjadi kesalahan saat memperpanjang langganan",
+      );
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
-  const formatRupiah = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  if (loading) {
-    return <PageLoader />;
-  }
-
-  if (error && !pelanggan) {
+  if (pelangganError && !pelanggan) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="mb-4 text-4xl">❌</div>
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          <Link
-            href="/admin/pelanggan/ppp"
-            className="mt-4 inline-block px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400"
-          >
-            <span className="text-white">Kembali</span>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (warningMessage) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-w-md">
-          <div className="mb-4 text-4xl">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-            Perpanjangan Belum Tersedia
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            {warningMessage}
-          </p>
-          <Link
-            href="/admin/pelanggan/ppp"
-            className="px-6 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors"
-          >
-            <span className="text-white">Kembali ke Daftar Pelanggan</span>
-          </Link>
-        </div>
-      </div>
+      <CenteredNotice
+        icon="❌"
+        message={pelangganError.message || "Gagal memuat data pelanggan"}
+        backHref="/admin/pelanggan/ppp"
+        backLabel="Kembali"
+      />
     );
   }
 
   if (!pelanggan) {
-    return null;
+    return <PageLoader />;
   }
 
-  const totalTagihan = tagihanAktif ? tagihanAktif.total : 0;
-  const ppnTagihan = tagihanAktif ? tagihanAktif.ppn : 0;
-  const subtotalTagihan = totalTagihan - ppnTagihan;
+  if (warningMessage) {
+    return (
+      <CenteredNotice
+        icon="⚠️"
+        title="Perpanjangan Belum Tersedia"
+        message={warningMessage}
+        backHref="/admin/pelanggan/ppp"
+        backLabel="Kembali ke Daftar Pelanggan"
+      />
+    );
+  }
+
+  if (renewResult) {
+    return <RenewResultNotice pelangganId={id} result={renewResult} />;
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -360,64 +181,13 @@ export function PppClientRenewForm() {
         </Link>
       </div>
 
-      {/* Summary Box */}
-      <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 rounded-lg p-6">
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-orange-800 dark:text-orange-400 mb-2">
-                {tagihanAktif ? "BELUM BAYAR" : "TIDAK ADA TAGIHAN"}
-              </h2>
-              {tagihanAktif && (
-                <p className="text-lg text-gray-700 dark:text-gray-300">
-                  {formatRupiah(subtotalTagihan)} (+ PPN{" "}
-                  {formatRupiah(ppnTagihan)})
-                </p>
-              )}
-            </div>
-            {tagihanAktif && (
-              <button
-                type="button"
-                onClick={handleCancelInvoice}
-                disabled={submitting}
-                className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 font-semibold rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-800 disabled:opacity-50"
-              >
-                Batalkan Tagihan
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-gray-600 dark:text-gray-400">ID Pelanggan</p>
-              <p className="font-semibold text-gray-900 dark:text-white">
-                {pelanggan.idPelanggan}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 dark:text-gray-400">Nama Lengkap</p>
-              <p className="font-semibold text-gray-900 dark:text-white">
-                {pelanggan.nama}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 dark:text-gray-400">Paket [PPP]</p>
-              <p className="font-semibold text-gray-900 dark:text-white">
-                {pelanggan.hargaPaket?.name || "-"} -{" "}
-                {pelanggan.hargaPaket
-                  ? formatRupiah(pelanggan.hargaPaket.harga)
-                  : "-"}
-              </p>
-            </div>
-            <div className="flex gap-2 items-end">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                {pelanggan.tipe === "REGULER" ? "REGULER" : "NON_REGULAR"}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <RenewSummaryCard
+        pelanggan={pelanggan}
+        tagihanAktif={tagihanAktif}
+        isSubmitting={isSubmitting}
+        onCancelInvoice={handleCancelInvoice}
+      />
 
-      {/* Error Message */}
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <div className="flex items-start gap-3">
@@ -427,226 +197,87 @@ export function PppClientRenewForm() {
         </div>
       )}
 
-      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Ubah Paket (Optional) */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Ubah Paket (Optional)
-          </h3>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Pilih Paket Baru
-            </label>
-            <select
-              value={formData.hargaPaketId}
-              onChange={(e) =>
-                setFormData({ ...formData, hargaPaketId: e.target.value })
-              }
-              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-            >
-              <option value="">- Pilih paket atau biarkan kosong -</option>
-              {hargaPakets.map((paket) => (
-                <option key={paket.id} value={paket.id}>
-                  {paket.name} - {formatRupiah(paket.harga)}
-                </option>
-              ))}
-            </select>
-          </div>
+        <RenewPaymentFields
+          pelangganId={pelanggan.id}
+          form={form}
+          onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+        />
 
-          {/* Catatan Upgrade/Downgrade */}
-          {formData.hargaPaketId &&
-            formData.hargaPaketId !== pelanggan.hargaPaketId && (
-              <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <h4 className="text-sm font-semibold text-green-800 dark:text-green-400 mb-2">
-                  Catatan Upgrade | Downgrade
-                </h4>
-                <ul className="space-y-1 text-xs text-green-700 dark:text-green-300">
-                  <li>
-                    • PERUBAHAN PAKET AKAN MERESET FEE RESELLER YANG DITENTUKAN
-                    MANUAL
-                  </li>
-                  <li>
-                    • SELISIH HARGA JUAL DAN HARGA MODAL PAKET AKAN DIGUNAKAN
-                    SEBAGAI FEE RESELLER
-                  </li>
-                  <li>
-                    • IP PELANGGAN YANG DISET STATIK AKAN DIATUR KE IP DINAMIS
-                    (JIKA GRUP PROFIL BERBEDA)
-                  </li>
-                </ul>
-              </div>
-            )}
-        </div>
-
-        {/* Diskon */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Diskon (1x Waktu)
-          </h3>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Jumlah Diskon (Rp)
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.diskon}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  diskon: parseFloat(e.target.value) || 0,
-                })
-              }
-              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-              placeholder="0"
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              TANPA PEMISAH RIBUAN, GUNAKAN TITIK (.) UNTUK PECAHAN
-            </p>
-          </div>
-        </div>
-
-        {/* Tipe Langganan */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Tipe Langganan
-          </h3>
-          <div className="mb-2">
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                pelanggan.tipe === "REGULER"
-                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                  : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-              }`}
-            >
-              {pelanggan.tipe}
-            </span>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Mode Perpanjangan
-            </label>
-            <select
-              value={formData.tipeLangganan}
-              onChange={(e) =>
-                setFormData({ ...formData, tipeLangganan: e.target.value })
-              }
-              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-            >
-              <option value="SEKALI_BELI">
-                SEKALI BELI (AKTIF DARI SEKARANG)
-              </option>
-              <option value="PERPANJANG">
-                PERPANJANG (LANJUTKAN DARI JATUH TEMPO)
-              </option>
-            </select>
-            {formData.tipeLangganan === "SEKALI_BELI" && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                SEMUA TUNGGAKAN SEBELUMNYA AKAN DIABAIKAN
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Status Bayar & Status Akun */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Status Bayar
-              </label>
-              <select
-                value={formData.statusBayar}
-                onChange={(e) =>
-                  setFormData({ ...formData, statusBayar: e.target.value })
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-              >
-                <option value="BELUM_LUNAS">BELUM LUNAS</option>
-                <option value="LUNAS">LUNAS (TERBAYAR)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Status Akun
-              </label>
-              <select
-                value={formData.statusAkun}
-                onChange={(e) =>
-                  setFormData({ ...formData, statusAkun: e.target.value })
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-              >
-                <option value="AKTIF">ENABLED</option>
-                <option value="NONAKTIF">DISABLED</option>
-                <option value="MAINTENANCE">MAINTENANCE</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Dibayar melalui */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Dibayar melalui
-          </h3>
-          <div>
-            <select
-              value={formData.metodePembayaran}
-              onChange={(e) =>
-                setFormData({ ...formData, metodePembayaran: e.target.value })
-              }
-              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-            >
-              <option value="PEMBAYARAN_MANUAL">Pembayaran Manual</option>
-              <option value="TRANSFER">Transfer</option>
-              <option value="CASH">Cash</option>
-              <option value="OVO">OVO</option>
-              <option value="DANA">DANA</option>
-              <option value="GOPAY">GoPay</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Catatan */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Catatan
-          </h3>
-          <div>
-            <textarea
-              value={formData.catatan}
-              onChange={(e) =>
-                setFormData({ ...formData, catatan: e.target.value })
-              }
-              className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-              rows={3}
-              placeholder="Catatan tambahan..."
-            />
-          </div>
-        </div>
-
-        {/* Action Buttons */}
         <div className="flex items-center justify-end gap-4">
           <Link
             href={`/admin/pelanggan/ppp/${pelanggan.id}`}
             className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
           >
-            Or Batal
+            Batal
           </Link>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={isSubmitting}
             className="px-6 py-3 bg-indigo-600 dark:bg-indigo-500 text-white font-medium rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <span className="text-white">
-              {submitting ? "Memproses..." : "Perpanjang Langganan"}
+              {isSubmitting ? "Memproses..." : "Perpanjang Langganan"}
             </span>
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * Jatuh tempo digeser worker INVOICE_PAID secara asinkron, jadi halaman
+ * menyebut tanggal yang akan dipasang, bukan tanggal yang sudah tersimpan.
+ */
+function RenewResultNotice({
+  pelangganId,
+  result,
+}: {
+  pelangganId: string;
+  result: RenewResult;
+}) {
+  const message = result.expectedJatuhTempo
+    ? `Tagihan lunas. Jatuh tempo baru ${formatTanggal(result.expectedJatuhTempo)} diterapkan otomatis dalam beberapa saat, begitu juga aktivasi akun bila sedang terisolir.`
+    : "Tagihan siklus ini sudah diterbitkan dan menunggu pembayaran. Jatuh tempo bergeser otomatis setelah tagihan lunas.";
+
+  return (
+    <CenteredNotice
+      icon="✅"
+      title="Perpanjangan Tersimpan"
+      message={message}
+      backHref={`/admin/pelanggan/ppp/${pelangganId}`}
+      backLabel="Kembali ke Detail Pelanggan"
+    />
+  );
+}
+
+function CenteredNotice(props: {
+  icon: string;
+  title?: string;
+  message: string;
+  backHref: string;
+  backLabel: string;
+}) {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-w-md">
+        <div className="mb-4 text-4xl">{props.icon}</div>
+        {props.title && (
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            {props.title}
+          </h2>
+        )}
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          {props.message}
+        </p>
+        <Link
+          href={props.backHref}
+          className="px-6 py-2 bg-indigo-600 dark:bg-indigo-500 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-400 transition-colors"
+        >
+          <span className="text-white">{props.backLabel}</span>
+        </Link>
+      </div>
     </div>
   );
 }

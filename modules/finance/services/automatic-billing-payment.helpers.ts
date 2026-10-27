@@ -181,7 +181,12 @@ async function syncPaidCustomerDueDate(
   // Activation customer handled by INVOICE_PAID event handler di lib/event-bus/event-handlers.ts
 }
 
-function calculateNextDueDate(
+/**
+ * Jatuh tempo baru setelah invoice lunas. Diekspor supaya perpanjangan admin
+ * bisa memberi tahu tanggal yang akan dipasang worker INVOICE_PAID tanpa
+ * menyalin aturannya.
+ */
+export function calculateNextDueDate(
   customer: { jatuhTempo: Date; tipe?: string; status?: string },
   invoiceDueDate: Date,
 ) {

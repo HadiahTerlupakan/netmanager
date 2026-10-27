@@ -69,9 +69,12 @@ const SCOPE_ONLY_ACTIONS = new Set(["site_only", "department_only"]);
 const INLINE_CAPABILITY_CHECK =
   /(?:hasPermission\s*\(\s*|ctx\.permissions\.includes\s*\(\s*)["'`]([a-z_]+):([a-z_]+)/g;
 
-/** `permissions:` boleh berupa array literal maupun konstanta bersama. */
+/**
+ * `permissions:` boleh berupa array literal maupun konstanta bersama;
+ * `permissionsAll:` (semua izin wajib) gerbang yang lebih ketat lagi.
+ */
 const OTHER_GUARDS =
-  /permissions:\s*(?:\[|[A-Z][A-Z0-9_]*)|ensureAdminAccess|ensureAnyPermission|ensurePermission|canAccess|requireCustomerAuth|CRON_SECRET|requireMitraAuth/;
+  /permissions(?:All)?:\s*(?:\[|[A-Z][A-Z0-9_]*)|ensureAdminAccess|ensureAnyPermission|ensurePermission|canAccess|requireCustomerAuth|CRON_SECRET|requireMitraAuth/;
 
 function collectRouteFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {

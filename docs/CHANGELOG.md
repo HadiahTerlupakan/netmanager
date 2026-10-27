@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-27] — Perpanjangan layanan dari admin berjalan lagi
+
+- **Tipe**: [FIXED] | [ADDED] | [REMOVED]
+- **Scope**: `app/admin/pelanggan/ppp/[id]/renew` | `app/api/pelanggan-ppp/[id]/renew` | `modules/finance` | `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**:
+  - [FIXED] Halaman Perpanjang Langganan memanggil endpoint yang sudah dihapus bersama model tagihan lama (`POST /api/pelanggan-ppp/{id}/renew`, `PUT /api/tagihan/{id}/bayar`) dan PUT JSON ke route yang hanya menerima multipart, sehingga admin sama sekali tidak bisa memperpanjang pelanggan. Daftar tagihan juga dibaca sebagai array padahal route mengembalikan `{ data: [...] }`, jadi tagihan terbuka tidak pernah tampil.
+  - [ADDED] `POST /api/pelanggan-ppp/[id]/renew` (izin `pelanggan:update` DAN `payments:create`; body `statusBayar`, `paymentMethod`, `reference?`, `notes?`). Memakai ulang invoice yang masih terbuka atau menerbitkan invoice untuk jatuh tempo berjalan (tidak pernah dua), lalu bila LUNAS mencatat payment sebesar sisa tagihan lewat jalur `POST /api/payments`. Respons `{ invoiceId, invoiceStatus, expectedJatuhTempo }`; jatuh tempo, aktivasi, dan notifikasi tetap dijalankan worker INVOICE_PAID.
+  - [FIXED] `InvoicePaymentStateService.recompute` kini menandai invoice Rp0 (paket gratis, atau tertutup saldo kredit) sebagai PAID. Payment minimal Rp1, jadi sebelumnya invoice itu tertahan SENT dan jadwal overdue/isolir tetap berjalan.
+  - [REMOVED] Opsi ubah paket (diganti tautan ke halaman edit), diskon, mode SEKALI_BELI/PERPANJANG, dan status akun di halaman perpanjangan: backend-nya sudah tidak ada, dan aktivasi berjalan otomatis setelah lunas.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-25] — Halaman isolir per tenant
 
 - **Tipe**: [ADDED] | [CHANGED] | [SECURITY] | [MIGRATION]

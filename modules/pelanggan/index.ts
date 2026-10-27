@@ -101,6 +101,8 @@ export {
   PelangganAdminMutationError,
   PelangganAdminMutationService,
 } from "./services/PelangganAdminMutationService";
+export { PelangganRenewalService } from "./services/PelangganRenewalService";
+export { renewPelangganSchema } from "./validators/pelanggan-renewal";
 export {
   PelangganPppRouteService,
   RouteServiceError,

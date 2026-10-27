@@ -122,7 +122,16 @@ function resolveNextStatus(
   totalAmount: bigint,
   currentStatus: InvoiceStatus,
 ): InvoiceStatus {
-  if (paidAmount >= totalAmount && totalAmount > 0n) {
+  // Invoice Rp0 (paket gratis, atau tertutup saldo kredit) tidak bisa
+  // menerima payment karena amount minimal 1. Tanpa cabang ini invoice itu
+  // tertahan SENT selamanya dan jadwal overdue/isolir tetap berjalan.
+  if (totalAmount === 0n) {
+    return currentStatus === InvoiceStatus.CANCELLED
+      ? currentStatus
+      : InvoiceStatus.PAID;
+  }
+
+  if (paidAmount >= totalAmount) {
     return InvoiceStatus.PAID;
   }
 
