@@ -356,20 +356,18 @@ export default function CustomerInvoicesPage() {
     setAppliedDiscount(null);
 
     try {
-      const res = await fetch("/api/coupons/verify", {
+      // `/api/coupons/verify` khusus staf (NextAuth) dan selalu 401 untuk
+      // pelanggan; endpoint pelanggan mengambil id pelanggan dari sesi.
+      const res = await fetch("/api/customer/coupons/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: couponCode,
-          amount: totalPending,
-          pelangganId: "CURRENT_USER",
-        }),
+        body: JSON.stringify({ code: couponCode, amount: totalPending }),
       });
       const data = await res.json();
-      if (data.valid) {
+      if (data.success && data.data?.valid) {
         setAppliedDiscount({
-          code: data.code,
-          amount: data.discountAmount,
+          code: data.data.code,
+          amount: data.data.discountAmount,
         });
       } else {
         setCouponError(data.error || "Kupon tidak valid");
@@ -390,7 +388,7 @@ export default function CustomerInvoicesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           invoiceIds: pendingInvoices.map((inv) => inv.id),
-          couponCode: appliedDiscount?.code || null,
+          couponCode: appliedDiscount?.code,
           paymentMethod: effectiveMethodCode,
           notes: "Payment via Customer Portal",
         }),
