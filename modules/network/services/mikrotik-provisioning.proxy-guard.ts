@@ -30,7 +30,6 @@ export async function resolvePlaceBeforeArgs(connection: GuardConnection) {
   try {
     const firstRule = (await connection.write("/ip/firewall/filter/print", [
       "=.proplist=.id",
-      "=.limit=1",
     ])) as RouterRow[];
     const firstRuleId = firstRule[0]?.[".id"];
     return firstRuleId ? [`=place-before=${firstRuleId}`] : [];

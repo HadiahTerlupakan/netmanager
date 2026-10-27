@@ -135,7 +135,6 @@ export class FirewallProvisioningService {
     try {
       const firstRule = (await conn.write("/ip/firewall/filter/print", [
         "=.proplist=.id",
-        "=.limit=1",
       ])) as Array<{ ".id": string }>;
 
       if (firstRule && firstRule.length > 0) {

@@ -63,6 +63,10 @@ function fakeRouter(filter: Row[] = [], addressList: Row[] = []) {
     const table = tables[path.slice(0, split)];
     const command = path.slice(split + 1);
     if (!table) return [];
+    // RouterOS menolak parameter print yang tidak dikenalnya, mis. .limit.
+    if (command === "print" && args.some((a) => a.startsWith("=.limit="))) {
+      throw new Error("unknown parameter .limit");
+    }
     if (command === "print") return table.filter((r) => matchesQuery(r, args));
     const id = args[0]?.slice("=.id=".length);
     const row = table.find((r) => r[".id"] === id);
