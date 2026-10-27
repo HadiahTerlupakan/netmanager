@@ -41,6 +41,7 @@ export const POST = createHandler(
       }
       if (error instanceof CustomerRenewalError) {
         if (error.code === "NOT_FOUND") return ApiErrors.notFound("Pelanggan");
+        if (error.code === "BUSY") return ApiErrors.conflict(error.message);
         return apiError(error.message, "VALIDATION_ERROR", { status: 400 });
       }
       throw error;

@@ -8,6 +8,12 @@ const palsu = vi.hoisted(() => ({
   createInvoiceForCustomer: vi.fn(),
   recompute: vi.fn(),
   createPaymentForRoute: vi.fn(),
+  acquireLock: vi.fn(),
+  release: vi.fn(),
+}));
+
+vi.mock("@/lib/distributed-lock", () => ({
+  acquireLock: palsu.acquireLock,
 }));
 
 vi.mock("@/modules/finance/pelanggan-registry", () => ({
@@ -98,6 +104,7 @@ describe("CustomerRenewalService.renewCurrentCycle", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     service = new CustomerRenewalService();
+    palsu.acquireLock.mockResolvedValue(palsu.release);
     palsu.findByIdWithHargaPaket.mockResolvedValue(pelanggan());
     palsu.findUnpaidInvoices.mockResolvedValue([]);
     palsu.findManyForExactDueDate.mockResolvedValue([]);
@@ -222,6 +229,29 @@ describe("CustomerRenewalService.renewCurrentCycle", () => {
       code: "NOT_RENEWABLE",
     });
     expect(palsu.createInvoiceForCustomer).not.toHaveBeenCalled();
+  });
+
+  it("menolak tanpa menyentuh tagihan bila perpanjangan lain sedang berjalan", async () => {
+    palsu.acquireLock.mockResolvedValue(null);
+
+    await expect(service.renewCurrentCycle(INPUT_LUNAS)).rejects.toMatchObject({
+      code: "BUSY",
+    });
+    expect(palsu.findUnpaidInvoices).not.toHaveBeenCalled();
+    expect(palsu.createInvoiceForCustomer).not.toHaveBeenCalled();
+    expect(palsu.createPaymentForRoute).not.toHaveBeenCalled();
+  });
+
+  it("melepas lock setelah selesai, juga saat gagal", async () => {
+    palsu.findByIdWithHargaPaket.mockResolvedValue(null);
+
+    await expect(service.renewCurrentCycle(INPUT_LUNAS)).rejects.toBeInstanceOf(
+      CustomerRenewalError,
+    );
+    expect(palsu.acquireLock).toHaveBeenCalledWith("renewal:pel-1", {
+      ttlSeconds: 30,
+    });
+    expect(palsu.release).toHaveBeenCalledTimes(1);
   });
 
   it("melapor NOT_FOUND bila pelanggan tidak ada", async () => {

@@ -47,7 +47,7 @@ vi.mock("@/modules/finance", () => ({
   CustomerRenewalError: class CustomerRenewalError extends Error {
     constructor(
       message: string,
-      readonly code: "NOT_FOUND" | "NOT_RENEWABLE",
+      readonly code: "NOT_FOUND" | "NOT_RENEWABLE" | "BUSY",
     ) {
       super(message);
     }
@@ -158,5 +158,16 @@ describe("POST /api/pelanggan-ppp/[id]/renew", () => {
 
     expect(response.status).toBe(400);
     expect((await response.json()).error).toBe("Pelanggan sudah dismantle");
+  });
+
+  it("memetakan perpanjangan yang sedang berjalan ke 409", async () => {
+    sesiDenganIzin(IZIN_LENGKAP);
+    palsu.renew.mockRejectedValue(
+      new CustomerRenewalError("Perpanjangan sedang diproses", "BUSY"),
+    );
+
+    const response = await POST(buatRequest(BODY_SAH), KONTEKS_ROUTE);
+
+    expect(response.status).toBe(409);
   });
 });

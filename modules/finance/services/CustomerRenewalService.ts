@@ -1,3 +1,4 @@
+import { acquireLock } from "@/lib/distributed-lock";
 import type { PelangganBillingBridgeService } from "@/modules/pelanggan";
 import type { PaymentMethod } from "../lib/billing-prisma-boundary";
 import { getPelangganBillingBridge } from "../pelanggan-registry";
@@ -20,6 +21,8 @@ const OUTSTANDING_STATUSES = [
   InvoiceStatus.OVERDUE,
   InvoiceStatus.PARTIAL_PAID,
 ];
+
+const RENEWAL_LOCK_TTL_SECONDS = 30;
 
 export type RenewalPaymentStatus = "LUNAS" | "BELUM_LUNAS";
 
@@ -58,7 +61,7 @@ function getInvoiceRepository() {
 export class CustomerRenewalError extends Error {
   constructor(
     message: string,
-    public readonly code: "NOT_FOUND" | "NOT_RENEWABLE",
+    public readonly code: "NOT_FOUND" | "NOT_RENEWABLE" | "BUSY",
   ) {
     super(message);
     this.name = "CustomerRenewalError";
@@ -83,6 +86,30 @@ export class CustomerRenewalService {
 
   /** Pastikan invoice siklus berjalan ada, lunasi bila diminta. */
   async renewCurrentCycle(
+    input: RenewCustomerCycleInput,
+  ): Promise<RenewCustomerCycleResult> {
+    // Dua klik atau dua admin sekaligus sama-sama tidak melihat invoice
+    // terbuka lalu menerbitkan dua, atau sama-sama membayar sisa yang sama.
+    // Tanpa lock tidak ada yang dijalankan: pembayaran ganda lebih mahal
+    // daripada meminta admin mencoba lagi.
+    const release = await acquireLock(`renewal:${input.pelangganId}`, {
+      ttlSeconds: RENEWAL_LOCK_TTL_SECONDS,
+    });
+    if (!release) {
+      throw new CustomerRenewalError(
+        "Perpanjangan pelanggan ini sedang diproses, coba lagi sebentar lagi",
+        "BUSY",
+      );
+    }
+
+    try {
+      return await this.renewLocked(input);
+    } finally {
+      await release();
+    }
+  }
+
+  private async renewLocked(
     input: RenewCustomerCycleInput,
   ): Promise<RenewCustomerCycleResult> {
     const customer = await this.loadRenewableCustomer(input.pelangganId);
