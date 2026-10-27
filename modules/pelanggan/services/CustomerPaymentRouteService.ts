@@ -20,6 +20,8 @@ type GatewayPaymentResult = {
   success: boolean;
   paymentUrl?: string;
   qrCodeUrl?: string;
+  qrString?: string;
+  vaNumber?: string;
   expiresAt?: Date;
   transactionId?: string;
   providerName?: string;
@@ -63,7 +65,7 @@ export async function createCustomerPaymentForRoute(
   const usageId = await reserveCoupon(input, coupon);
 
   let payments: Awaited<ReturnType<typeof createCustomerPaymentsForInvoices>>;
-  let gateway: { paymentUrl: string | null; transactionId: string | null };
+  let gateway: GatewayCheckout;
   try {
     payments = await createCustomerPaymentsForInvoices({
       customerId: input.customerId,
@@ -90,12 +92,22 @@ export async function createCustomerPaymentForRoute(
   await settleFullyDiscountedPayments(payments);
   await publishCouponUsed(input, coupon, usageId);
 
-  return {
-    payments,
-    paymentUrl: gateway.paymentUrl,
-    transactionId: gateway.transactionId,
-  };
+  return { payments, ...gateway };
 }
+
+type GatewayCheckout = {
+  paymentUrl: string | null;
+  transactionId: string | null;
+  vaNumber: string | null;
+  qrString: string | null;
+};
+
+const NO_GATEWAY_CHECKOUT: GatewayCheckout = {
+  paymentUrl: null,
+  transactionId: null,
+  vaNumber: null,
+  qrString: null,
+};
 
 type ResolvedCoupon = { discountAmount: number; couponId: string | null };
 
@@ -206,13 +218,15 @@ type GatewayPaymentInput = CustomerPaymentInput & {
   finalAmount: number;
 };
 
-async function createGatewayPaymentIfNeeded(input: GatewayPaymentInput) {
+async function createGatewayPaymentIfNeeded(
+  input: GatewayPaymentInput,
+): Promise<GatewayCheckout> {
   if (
     isManualPayment(input.paymentMethod) ||
     input.payments.length === 0 ||
     input.finalAmount <= 0
   ) {
-    return { paymentUrl: null, transactionId: null };
+    return NO_GATEWAY_CHECKOUT;
   }
 
   const paymentIds = input.payments.map((payment) => payment.id);
@@ -231,7 +245,7 @@ async function createGatewayPaymentIfNeeded(input: GatewayPaymentInput) {
 async function requestGatewayPayment(
   input: GatewayPaymentInput,
   paymentIds: string[],
-) {
+): Promise<GatewayCheckout> {
   const customer = await pelangganRepository.findById(input.customerId);
   if (!customer) {
     throw new Error(`Pelanggan ${input.customerId} tidak ditemukan`);
@@ -264,6 +278,8 @@ async function requestGatewayPayment(
 
   const paymentUrl = result.paymentUrl || result.qrCodeUrl || null;
   const transactionId = result.transactionId || null;
+  const vaNumber = result.vaNumber || null;
+  const qrString = result.qrString || null;
 
   if (transactionId || paymentUrl) {
     await updateCustomerPaymentGatewayMetadata({
@@ -271,12 +287,14 @@ async function requestGatewayPayment(
       tenantId: input.tenantId,
       transactionId,
       paymentUrl,
+      vaNumber,
+      qrString,
       expiresAt: result.expiresAt ?? null,
       gatewayProvider: result.providerName ?? input.paymentMethod,
     });
   }
 
-  return { paymentUrl, transactionId };
+  return { paymentUrl, transactionId, vaNumber, qrString };
 }
 
 function isManualPayment(paymentMethod: string) {

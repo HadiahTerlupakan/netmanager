@@ -50,6 +50,8 @@ export interface IPaymentRepository {
     tenantId?: string | null;
     transactionId?: string | null;
     paymentUrl?: string | null;
+    vaNumber?: string | null;
+    qrString?: string | null;
     expiresAt?: Date | null;
     gatewayProvider?: string | null;
   }): Promise<{ count: number }>;

@@ -67,6 +67,37 @@ describe("DuitkuProvider", () => {
 
   // Sandbox menolak HMAC dengan "Wrong signature" untuk merchant yang belum
   // dipindahkan Duitku (2026-10-27); MD5 lama harus dicoba sesudahnya.
+  // Respons nyata sandbox 2026-10-28: QRIS (SP) membawa qrString, VA
+  // membawa vaNumber; portal menggambar keduanya sendiri.
+  it("meneruskan qrString dan vaNumber dari Duitku", async () => {
+    palsu.fetch.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          statusCode: "00",
+          paymentUrl: "https://sandbox.duitku.com/pay/1",
+          reference: "D1",
+          qrString: "00020101021226610016ID.CO.SHOPEE.WWW",
+          vaNumber: "7007014001179806",
+        }),
+    });
+
+    const result = await provider().createPayment({
+      orderId: "PAY-1",
+      amount: 11100,
+      customerName: "Uji",
+      customerEmail: "a@b.c",
+      customerPhone: "08",
+      description: "Tagihan",
+      paymentMethods: ["SP"],
+    } as never);
+
+    expect(result).toMatchObject({
+      qrString: "00020101021226610016ID.CO.SHOPEE.WWW",
+      vaNumber: "7007014001179806",
+    });
+  });
+
   it("mengulang dengan tanda tangan MD5 bila HMAC ditolak", async () => {
     palsu.fetch.mockResolvedValueOnce({
       status: 401,

@@ -80,6 +80,9 @@ function formatLastPayment(invoice: InvoiceWithRelations) {
     gatewayStatus: payment.gatewayStatus,
     expiresAt: payment.expiresAt,
     paymentUrl: payment.paymentUrl,
+    vaNumber: payment.vaNumber,
+    qrString: payment.qrString,
+    gatewayProvider: payment.gatewayProvider,
     receiptUrl: payment.receiptUrl,
   };
 }

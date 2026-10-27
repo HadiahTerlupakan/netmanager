@@ -121,6 +121,8 @@ describe("CustomerPaymentRouteService", () => {
       payments: [{ id: "pay-1", reference: "PAY-1" }],
       paymentUrl: null,
       transactionId: null,
+      vaNumber: null,
+      qrString: null,
     });
     expect(mockFns.createPaymentsForInvoices).toHaveBeenCalledWith({
       customerId: "cust-1",
@@ -160,6 +162,8 @@ describe("CustomerPaymentRouteService", () => {
       success: true,
       paymentUrl: "https://pay.example",
       transactionId: "trx-1",
+      vaNumber: "7007014001179806",
+      qrString: "000201010212",
       expiresAt: new Date("2026-04-10T01:00:00Z"),
       providerName: "midtrans",
     });
@@ -173,11 +177,19 @@ describe("CustomerPaymentRouteService", () => {
 
     expect(result.paymentUrl).toBe("https://pay.example");
     expect(result.transactionId).toBe("trx-1");
+    // Portal menampilkan nomor VA / QRIS sendiri, tanpa mengalihkan
+    // pelanggan ke halaman bayar gateway.
+    expect(result).toMatchObject({
+      vaNumber: "7007014001179806",
+      qrString: "000201010212",
+    });
     expect(mockFns.updateGatewayMetadata).toHaveBeenCalledWith({
       paymentIds: ["pay-1"],
       tenantId: "tenant-1",
       transactionId: "trx-1",
       paymentUrl: "https://pay.example",
+      vaNumber: "7007014001179806",
+      qrString: "000201010212",
       expiresAt: new Date("2026-04-10T01:00:00Z"),
       gatewayProvider: "midtrans",
     });

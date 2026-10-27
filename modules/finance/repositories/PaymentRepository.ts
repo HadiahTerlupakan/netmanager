@@ -151,6 +151,8 @@ export class PaymentRepository implements IPaymentRepository {
     tenantId?: string | null;
     transactionId?: string | null;
     paymentUrl?: string | null;
+    vaNumber?: string | null;
+    qrString?: string | null;
     expiresAt?: Date | null;
     gatewayProvider?: string | null;
   }) {
@@ -162,6 +164,8 @@ export class PaymentRepository implements IPaymentRepository {
       data: {
         transactionId: options.transactionId,
         paymentUrl: options.paymentUrl,
+        vaNumber: options.vaNumber,
+        qrString: options.qrString,
         expiresAt: options.expiresAt,
         gatewayProvider: options.gatewayProvider,
       },

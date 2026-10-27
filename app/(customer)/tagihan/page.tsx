@@ -6,6 +6,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
+import { GatewayPendingCard } from "./GatewayPayInstructions";
 import { useApi } from "@/lib/hooks/useApi";
 import { useInfiniteApi } from "@/lib/hooks/useInfiniteApi";
 import { InfiniteScrollSentinel } from "@/components/ui/InfiniteScrollSentinel";
@@ -47,6 +48,9 @@ interface LastPayment {
   gatewayStatus?: string;
   expiresAt?: string;
   paymentUrl?: string;
+  vaNumber?: string | null;
+  qrString?: string | null;
+  gatewayProvider?: string | null;
   receiptUrl?: string;
 }
 
@@ -248,6 +252,15 @@ export default function CustomerInvoicesPage() {
     return null;
   }, [activePayment, paymentMethods]);
 
+  // Portal menyimpan kode channel (mis. "BC") di gatewayProvider.
+  const activeGatewayMethod = useMemo(
+    () =>
+      paymentMethods.find(
+        (method) => method.code === activePayment?.gatewayProvider,
+      ),
+    [activePayment, paymentMethods],
+  );
+
   // Connect to SSE if there's a pending payment
   useEffect(() => {
     if (activePayment && pendingPaymentInvoice) {
@@ -400,9 +413,12 @@ export default function CustomerInvoicesPage() {
         // Refresh immediately to show PENDING state
         await mutateInvoices();
 
-        // If it's URL-based (like Duitku) and there's a payment URL, redirect
+        // Nomor VA / QRIS ditampilkan di kartu menunggu pembayaran; hanya
+        // metode tanpa instruksi (kartu kredit, e-wallet login) dialihkan.
         if (
           result.data?.paymentUrl &&
+          !result.data?.vaNumber &&
+          !result.data?.qrString &&
           !effectiveMethodCode.startsWith("MANUAL_") &&
           effectiveMethodCode !== "MOOTA_MANUAL"
         ) {
@@ -601,33 +617,16 @@ export default function CustomerInvoicesPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="bg-white dark:bg-[#1a2632] rounded-lg p-4 border border-gray-100 dark:border-gray-800 shadow-sm mb-4">
-                    <p className="text-xs text-center text-gray-500 dark:text-gray-400 mb-2 font-medium">
-                      Total Pembayaran
-                    </p>
-                    <p className="font-bold text-center text-[#0d9488] text-2xl">
-                      {formatCurrency(activePayment.amount)}
-                    </p>
-                    {activePayment.paymentUrl && (
-                      <Button
-                        className="w-full mt-4"
-                        onClick={() => {
-                          window.location.href = activePayment.paymentUrl!;
-                        }}
-                      >
-                        Lanjutkan ke Halaman Pembayaran
-                      </Button>
-                    )}
-                    {/* VA yang belum dibayar bisa diganti QRIS dan
-                        sebaliknya; backend menutup checkout lama. */}
-                    <Button
-                      variant="outline"
-                      className="w-full mt-2"
-                      onClick={() => setShowPaymentModal(true)}
-                    >
-                      Ganti Metode Pembayaran
-                    </Button>
-                  </div>
+                  <GatewayPendingCard
+                    amount={formatCurrency(activePayment.amount)}
+                    vaNumber={activePayment.vaNumber}
+                    qrString={activePayment.qrString}
+                    paymentUrl={activePayment.paymentUrl}
+                    methodName={activeGatewayMethod?.name}
+                    methodType={activeGatewayMethod?.type}
+                    onCopy={copyToClipboard}
+                    onChangeMethod={() => setShowPaymentModal(true)}
+                  />
                 )}
               </div>
             </div>

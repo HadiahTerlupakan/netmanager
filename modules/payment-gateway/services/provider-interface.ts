@@ -57,6 +57,8 @@ export interface PaymentResult {
   success: boolean;
   paymentUrl?: string;
   qrCodeUrl?: string;
+  // Isi QRIS mentah (EMVCo) untuk digambar sendiri oleh portal.
+  qrString?: string;
   vaNumber?: string;
   bankCode?: string;
   expiresAt?: Date;

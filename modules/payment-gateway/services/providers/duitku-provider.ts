@@ -30,6 +30,7 @@ type DuitkuInquiryResponse = {
   Message?: string;
   paymentUrl?: string;
   vaNumber?: string;
+  qrString?: string;
   reference?: string;
   raw?: string;
 };
@@ -144,6 +145,7 @@ export class DuitkuProvider implements PaymentProvider {
         success: true,
         paymentUrl: result.paymentUrl,
         vaNumber: result.vaNumber,
+        qrString: result.qrString,
         transactionId: result.reference,
         expiresAt: new Date(Date.now() + expiryHours * 60 * 60 * 1000),
       };
