@@ -80,7 +80,7 @@ export function PaymentGatewayConfigModal({
     ? publicSiteUrl
     : PLACEHOLDER_SITE_URL;
   const webhookUrl = providerId
-    ? `${webhookBaseUrl}/api/payment/webhook/${providerId.toLowerCase()}`
+    ? `${webhookBaseUrl}/api/webhooks/${providerId.toLowerCase()}`
     : "";
 
   const updateForm = (values: Partial<PaymentGatewayFormPayload>) => {

@@ -129,7 +129,7 @@ export class PaymentGatewayConfigService {
           clientKey: normalizedClientKey ?? null,
           merchantId: normalizedMerchantId ?? null,
           settings: normalizedSettings ?? Prisma.JsonNull,
-          webhookUrl: `${params.appBaseUrl}/api/payment/webhook/${params.provider.toLowerCase()}`,
+          webhookUrl: `${params.appBaseUrl}/api/webhooks/${params.provider.toLowerCase()}`,
           callbackUrl: `${params.appBaseUrl}/payment/callback`,
           updatedAt: new Date(),
         },
