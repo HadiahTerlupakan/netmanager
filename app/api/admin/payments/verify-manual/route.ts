@@ -16,9 +16,14 @@ const manualPaymentAdminRouteService = new ManualPaymentAdminRouteService();
 
 const verifyManualPaymentSchema = z.object({
   paymentId: z.string().min(1, "paymentId wajib diisi"),
-  action: z.enum(["approve", "reject"], {
-    message: "Action harus 'approve' atau 'reject'",
-  }),
+  // Halaman admin mengirim "APPROVE"/"REJECT"; huruf besar dulu ditolak dan
+  // tidak ada pembayaran manual yang bisa disetujui dari UI.
+  action: z.preprocess(
+    (value) => (typeof value === "string" ? value.toLowerCase() : value),
+    z.enum(["approve", "reject"], {
+      message: "Action harus 'approve' atau 'reject'",
+    }),
+  ),
   notes: z.string().optional(),
 });
 

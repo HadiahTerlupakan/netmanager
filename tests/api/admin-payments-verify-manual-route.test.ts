@@ -92,4 +92,40 @@ describe("admin verify-manual payment route", () => {
       allowedSiteIds: undefined,
     });
   });
+
+  // Regresi: halaman Verifikasi Pembayaran Manual mengirim "APPROVE"/"REJECT",
+  // skema hanya menerima huruf kecil, sehingga tombol "Setujui & Lunasi
+  // Tagihan" selalu 400 dan tidak ada pembayaran manual yang bisa disetujui.
+  it.each([
+    ["APPROVE", "approve"],
+    ["REJECT", "reject"],
+  ])("menerima action %s dari halaman admin", async (sent, expected) => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/admin/payments/verify-manual", {
+        method: "POST",
+        body: JSON.stringify({ paymentId: "pay-1", action: sent }),
+        headers: { "content-type": "application/json" },
+      }),
+      { params: Promise.resolve({}) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFns.verifyManualPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ action: expected }),
+    );
+  });
+
+  it("tetap menolak action yang tidak dikenal", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/admin/payments/verify-manual", {
+        method: "POST",
+        body: JSON.stringify({ paymentId: "pay-1", action: "LUNASI" }),
+        headers: { "content-type": "application/json" },
+      }),
+      { params: Promise.resolve({}) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockFns.verifyManualPayment).not.toHaveBeenCalled();
+  });
 });
