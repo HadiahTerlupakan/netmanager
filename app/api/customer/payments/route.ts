@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { NextRequest } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
+import { isRouteServiceError } from "@/lib/api/route-service-error";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { CustomerPortalService } from "@/modules/pelanggan";
 import { createCustomerPaymentForRoute } from "@/modules/pelanggan";
@@ -92,10 +93,13 @@ export async function POST(request: NextRequest) {
     const err = error as Error;
     logger.error("[Payment Create Error]:", err);
 
-    if (
-      err.message === "Beberapa tagihan tidak valid atau sudah dibayar" ||
-      err.message === "Kupon tidak valid"
-    ) {
+    if (isRouteServiceError(err)) {
+      return apiError(err.message, ErrorCodes.VALIDATION_ERROR, {
+        status: err.status,
+      });
+    }
+
+    if (err.message === "Beberapa tagihan tidak valid atau sudah dibayar") {
       return apiError(err.message, ErrorCodes.VALIDATION_ERROR, {
         status: 400,
       });

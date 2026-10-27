@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { createRouteServiceError } from "@/lib/api/route-service-error";
 import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 import { couponService } from "@/modules/coupons";
 import {
@@ -28,6 +29,8 @@ type CustomerPaymentInput = {
   paymentMethod: string;
   notes?: string | null;
 };
+
+const HTTP_BAD_REQUEST = 400;
 
 const customerPortalService = new CustomerPortalService();
 const pelangganRepository = new PelangganRepository();
@@ -90,8 +93,13 @@ async function resolveCoupon(input: CustomerPaymentInput, totalAmount: number) {
     input.tenantId,
   );
 
+  // Penolakan kupon (kuota habis, kedaluwarsa, minimal belanja) adalah
+  // kesalahan input pelanggan; tanpa status rute menjawabnya 500.
   if (!verification.valid) {
-    throw new Error(verification.error || "Kupon tidak valid");
+    throw createRouteServiceError(
+      verification.error || "Kupon tidak valid",
+      HTTP_BAD_REQUEST,
+    );
   }
 
   return {

@@ -131,4 +131,22 @@ describe("CustomerPaymentRouteService", () => {
       gatewayProvider: "midtrans",
     });
   });
+
+  it("kupon yang ditolak (mis. kuota habis) menjadi error 400 berpesan", async () => {
+    mockFns.verifyCoupon.mockResolvedValue({
+      valid: false,
+      error: "Kuota kupon habis",
+    });
+
+    await expect(
+      createCustomerPaymentForRoute({
+        customerId: "cust-1",
+        tenantId: "tenant-1",
+        invoiceIds: ["inv-1"],
+        couponCode: "HEMAT10",
+        paymentMethod: "MANUAL",
+      }),
+    ).rejects.toMatchObject({ message: "Kuota kupon habis", status: 400 });
+    expect(mockFns.createPaymentsForInvoices).not.toHaveBeenCalled();
+  });
 });

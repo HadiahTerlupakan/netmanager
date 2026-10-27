@@ -52,6 +52,14 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   - [FIXED] Kartu "Upgrade ke 200 Mbps? Hanya tambah Rp 50rb/bln" adalah teks tetap. Kini memakai kandidat termurah dari `upgradeOptions` `/api/customer/package` dan tersembunyi bila tidak ada kandidat.
   - [FIXED] Kecepatan 150/50 Mbps dan ping 12 ms di /koneksi adalah angka contoh. Kini menampilkan rate limit paket dari `/api/customer/profile` (sumber yang sama dengan dashboard) berlabel "Kecepatan paket"; ping dihapus karena tidak ada pengukurannya.
 - **Files**: `app/(customer)/paket/page.tsx`, `app/(customer)/paket/paket-helpers.ts`, `app/(customer)/paket/UpgradePromoCard.tsx`, `app/(customer)/koneksi/page.tsx`, `tests/app/customer-paket-page.test.tsx`, `tests/app/customer-paket-helpers.test.ts`, `tests/app/customer-koneksi-page.test.tsx`
+
+### [2026-10-27] — Pembayaran tagihan portal pelanggan lebih tepat
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/customer/payments` | `modules/pelanggan` | `modules/finance`
+- **Author**: agent
+- **Deskripsi**:
+  - [FIXED] Penolakan kupon saat bayar selain "Kupon tidak valid" (kuota habis, kedaluwarsa, minimal belanja) kini dijawab 400 dengan pesannya, bukan 500.
 - **Breaking**: ❌ Tidak
 
 ### [2026-10-27] — Tiket dukungan portal pelanggan bisa dipakai lagi

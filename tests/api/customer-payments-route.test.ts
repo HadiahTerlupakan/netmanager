@@ -73,6 +73,7 @@ vi.mock("@/lib/api-response", () => ({
 }));
 
 import { POST } from "@/app/api/customer/payments/route";
+import { RouteServiceError } from "@/lib/api/route-service-error";
 
 describe("customer payments route", () => {
   beforeEach(() => {
@@ -237,4 +238,28 @@ describe("customer payments route", () => {
       }),
     );
   });
+
+  it("kupon yang ditolak service dijawab 400 dengan pesannya", async () => {
+    mockFns.createCustomerPaymentForRoute.mockRejectedValue(
+      new RouteServiceError("Kuota kupon habis", 400),
+    );
+
+    const response = await POST(buildPaymentRequest({ couponCode: "HEMAT10" }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("Kuota kupon habis");
+  });
 });
+
+function buildPaymentRequest(overrides: Record<string, unknown> = {}) {
+  return new NextRequest("http://localhost/api/customer/payments", {
+    method: "POST",
+    body: JSON.stringify({
+      invoiceIds: ["invoice-1"],
+      paymentMethod: "MANUAL",
+      ...overrides,
+    }),
+    headers: { "content-type": "application/json" },
+  });
+}
