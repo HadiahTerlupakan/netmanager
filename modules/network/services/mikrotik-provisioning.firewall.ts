@@ -9,6 +9,11 @@ import {
   isStaleIsolirHostEntry,
   type AddressListItem,
 } from "./mikrotik-provisioning.firewall.helpers";
+import { FILTER_RULES } from "./mikrotik-provisioning.filter-rules";
+import {
+  provisionIsolirAllowList,
+  removeIsolirAllowList,
+} from "./mikrotik-provisioning.isolir-allow";
 import {
   ensureProxyGuard,
   removeProxyGuard,
@@ -18,66 +23,10 @@ import { restoreRows, type RouterRow } from "./mikrotik-provisioning.restore";
 import type { IsolirProvisioning } from "../isolir/isolir-provisioning";
 
 const ADDRESS_LIST_NAME = "netmanager_allow";
-const EXPIRED_NETWORK = "10.127.0.0/18";
 const EXPIRED_POOL_NAME = "expired-pool";
 const EXPIRED_POOL_RANGE = "10.127.0.2-10.127.63.254";
 const EXPIRED_PROFILE_NAME = "expired users";
 const EXPIRED_POOL_COMMENT = "added by netmanager - expired users";
-
-const FILTER_RULES = [
-  {
-    comment: "netmanager-input-bypass",
-    addArgs: [
-      "=chain=input",
-      "=action=accept",
-      `=src-address-list=${ADDRESS_LIST_NAME}`,
-    ],
-    log: "Added Firewall Filter: Input Bypass (Top Priority)",
-  },
-  {
-    comment: "netmanager-forward-bypass",
-    addArgs: [
-      "=chain=forward",
-      "=action=accept",
-      `=dst-address-list=${ADDRESS_LIST_NAME}`,
-    ],
-    log: "Added Firewall Filter: Forward Bypass (Top Priority)",
-  },
-  {
-    comment: "netmanager-drop-expired-tcp",
-    addArgs: [
-      "=chain=forward",
-      "=action=reject",
-      "=protocol=tcp",
-      `=src-address=${EXPIRED_NETWORK}`,
-    ],
-    log: "Added Firewall Filter: Drop Expired TCP",
-  },
-  {
-    comment: "netmanager-drop-expired-udp",
-    addArgs: [
-      "=chain=forward",
-      "=action=reject",
-      "=protocol=udp",
-      `=src-address=${EXPIRED_NETWORK}`,
-      "=dst-port=!53",
-    ],
-    log: "Added Firewall Filter: Drop Expired UDP",
-  },
-  {
-    comment: "netmanager-drop-expired-icmp",
-    // Added at the top on routers provisioned before it existed, above the
-    // forward bypass, so it exempts the allow list itself.
-    addArgs: [
-      "=chain=forward",
-      "=action=reject",
-      "=protocol=icmp",
-      `=src-address=${EXPIRED_NETWORK}`,
-      `=dst-address-list=!${ADDRESS_LIST_NAME}`,
-    ],
-    log: "Added Firewall Filter: Drop Expired ICMP",
-  },
-] as const;
 
 type FirewallBypassParams = {
   connection: RouterOSAPI;
@@ -229,6 +178,7 @@ export async function removeFirewallBypass(params: {
 }) {
   // Router dilepas dari billing: seluruh list milik netmanager ikut dibuang.
   await removeAllowEntries(params.connection, () => true, params.logs);
+  await removeIsolirAllowList(params.connection, params.logs);
   await removeFilterRules(
     params.connection,
     params.logs,
@@ -247,6 +197,7 @@ export async function provisionFirewallBypass(params: FirewallBypassParams) {
     (item) => isStaleIsolirHostEntry(item, keep),
     params.logs,
   );
+  await provisionIsolirAllowList(params);
   await ensureFilterRules(params.connection, params.logs);
   await ensureExpiredPool(params.connection, params.logs);
   await ensureExpiredProfile(params.connection, params.logs);

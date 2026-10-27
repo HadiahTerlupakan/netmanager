@@ -14,6 +14,8 @@ const STAGING_LABEL = "staging";
 const STAGING_SUFFIX = `-${STAGING_LABEL}`;
 const STAGING_PREFIX = `${STAGING_LABEL}.`;
 const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1"];
+const CUSTOMER_PORTAL_SUBDOMAIN = "pelanggan";
+const DEFAULT_BASE_DOMAIN = "radpro.id";
 
 /** Label subdomain yang dikenali `proxy.ts` sebagai portal, bukan tenant. */
 export const PORTAL_SUBDOMAINS = ["admin", "karyawan", "investor", "pelanggan"];
@@ -79,6 +81,15 @@ export function getPublicSiteUrl(): string {
   }
 
   return "/";
+}
+
+/**
+ * Host portal pelanggan, `pelanggan.<DOMAIN>`, seperti yang dikenali
+ * `proxy.ts`. Hanya bermakna di server: `DOMAIN` tidak ikut ke bundel klien.
+ */
+export function getCustomerPortalHost(): string {
+  const baseDomain = (process.env.DOMAIN || DEFAULT_BASE_DOMAIN).toLowerCase();
+  return `${CUSTOMER_PORTAL_SUBDOMAIN}.${baseDomain}`;
 }
 
 /** Host portal admin untuk sebuah host publik. */

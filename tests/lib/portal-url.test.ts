@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildAdminPortalHostname,
   getAdminPortalUrl,
+  getCustomerPortalHost,
   resolveAdminPortalHref,
   stripPortalSubdomain,
 } from "@/lib/utils/portal-url";
@@ -141,5 +142,17 @@ describe("stripPortalSubdomain", () => {
     for (const host of ["radpro.id", "staging.radpro.id"]) {
       expect(stripPortalSubdomain(buildAdminPortalHostname(host))).toBe(host);
     }
+  });
+});
+
+describe("getCustomerPortalHost", () => {
+  it("menurunkan host portal pelanggan dari DOMAIN", () => {
+    vi.stubEnv("DOMAIN", "Contoh.NET");
+    expect(getCustomerPortalHost()).toBe("pelanggan.contoh.net");
+  });
+
+  it("memakai radpro.id bila DOMAIN kosong", () => {
+    vi.stubEnv("DOMAIN", "");
+    expect(getCustomerPortalHost()).toBe("pelanggan.radpro.id");
   });
 });

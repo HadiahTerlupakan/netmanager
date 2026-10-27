@@ -119,7 +119,7 @@ describe("provisionNatRules", () => {
         "=to-ports=8181",
         "=protocol=tcp",
         "=src-address=10.127.0.0/18",
-        "=dst-address-list=!netmanager_allow",
+        "=dst-address-list=!netmanager_isolir_allow",
         "=dst-port=80,443",
         "=place-before=*1",
       ]),
@@ -269,7 +269,7 @@ const ROUTER_PAGE_REDIRECT = {
   "to-ports": "8181",
   protocol: "tcp",
   "src-address": "10.127.0.0/18",
-  "dst-address-list": "!netmanager_allow",
+  "dst-address-list": "!netmanager_isolir_allow",
   "dst-port": "80,443",
 };
 
@@ -295,7 +295,7 @@ describe("provisionNatRules mode ISOLIR_SERVICE", () => {
         "=to-ports=30880",
         "=protocol=tcp",
         "=src-address=10.127.0.0/18",
-        "=dst-address-list=!netmanager_allow",
+        "=dst-address-list=!netmanager_isolir_allow",
         "=dst-port=80",
         "=place-before=*1",
       ]),
@@ -308,7 +308,7 @@ describe("provisionNatRules mode ISOLIR_SERVICE", () => {
         "=to-ports=30443",
         "=protocol=tcp",
         "=src-address=10.127.0.0/18",
-        "=dst-address-list=!netmanager_allow",
+        "=dst-address-list=!netmanager_isolir_allow",
         "=dst-port=443",
         expect.stringMatching(/^=place-before=/),
       ]),
@@ -596,4 +596,72 @@ describe("removeNatRules", () => {
     expect(commentsOf(router.nat)).toEqual(["operator nat"]);
     expect(router.mangle).toEqual([]);
   });
+});
+
+// Router yang diprovisioning sebelum walled garden mengecualikan
+// netmanager_allow; list itu juga sumber input-bypass, jadi portal pelanggan
+// tidak boleh dimasukkan ke sana.
+describe("provisionNatRules migrasi ke walled garden", () => {
+  const legacyRedirect = (extra: Partial<Row>): Row => ({
+    ".id": "*old",
+    comment: "netmanager-redirect-expired",
+    chain: "dstnat",
+    protocol: "tcp",
+    "src-address": "10.127.0.0/18",
+    "dst-address-list": "!netmanager_allow",
+    ...extra,
+  });
+
+  it.each([
+    [
+      "ROUTER_PAGE",
+      ROUTER_PAGE,
+      legacyRedirect({
+        action: "redirect",
+        "to-ports": "8181",
+        "dst-port": "80,443",
+      }),
+    ],
+    [
+      "ISOLIR_SERVICE",
+      ISOLIR_SERVICE,
+      legacyRedirect({
+        action: "dst-nat",
+        "to-addresses": "10.99.0.1",
+        "to-ports": "30880",
+        "dst-port": "80",
+      }),
+    ],
+  ])(
+    "mode %s: redirect lama dipindah ke netmanager_isolir_allow, run berikutnya tanpa tulis",
+    async (_mode, isolir, legacy) => {
+      const router = fakeRouter([legacy]);
+      const params = {
+        connection: router,
+        logs: [] as string[],
+        isolir,
+        srcAddress: "10.100.0.4",
+      };
+
+      await provisionNatRules(params);
+
+      expect(natRule(router, "netmanager-redirect-expired")).toMatchObject({
+        ".id": "*old",
+        "dst-address-list": "!netmanager_isolir_allow",
+      });
+      const redirects = router.nat.filter((r) =>
+        r.comment?.startsWith("netmanager-redirect-expired"),
+      );
+      expect(redirects.map((r) => r["dst-address-list"])).toEqual(
+        redirects.map(() => "!netmanager_isolir_allow"),
+      );
+
+      router.write.mockClear();
+      await provisionNatRules(params);
+      const writes = router.write.mock.calls.filter(
+        ([path]) => !path.endsWith("/print"),
+      );
+      expect(writes).toEqual([]);
+    },
+  );
 });

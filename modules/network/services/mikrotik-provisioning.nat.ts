@@ -5,10 +5,10 @@ import {
   ISOLIR_SERVICE_HTTPS_PORT,
 } from "../isolir/isolir-service.constants";
 import { delay } from "./mikrotik-provisioning.connection";
+import { ISOLIR_ALLOW_LIST } from "./mikrotik-provisioning.isolir-allow";
 import { restoreRows, type RouterRow } from "./mikrotik-provisioning.restore";
 
 const EXPIRED_NETWORK = "10.127.0.0/18";
-const ALLOW_LIST = "netmanager_allow";
 const PRIVATE_LIST = "netmanager_private";
 const PROXY_PORT = "8181";
 const PRIVATE_RANGES = [
@@ -72,7 +72,7 @@ const PROXY_REDIRECT_RULE: FirewallRule = {
     `=to-ports=${PROXY_PORT}`,
     "=protocol=tcp",
     `=src-address=${EXPIRED_NETWORK}`,
-    `=dst-address-list=!${ALLOW_LIST}`,
+    `=dst-address-list=!${ISOLIR_ALLOW_LIST}`,
     "=dst-port=80,443",
   ],
 };
@@ -116,7 +116,7 @@ function serviceRedirectArgs(address: string, toPort: number, port: number) {
     `=to-ports=${toPort}`,
     "=protocol=tcp",
     `=src-address=${EXPIRED_NETWORK}`,
-    `=dst-address-list=!${ALLOW_LIST}`,
+    `=dst-address-list=!${ISOLIR_ALLOW_LIST}`,
     `=dst-port=${port}`,
   ];
 }

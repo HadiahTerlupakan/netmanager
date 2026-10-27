@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-27] — Walled garden: pelanggan isolir bisa membuka portal pelanggan
+
+- **Tipe**: [ADDED] | [SECURITY]
+- **Scope**: `modules/network/services` | `lib/utils/portal-url.ts`
+- **Author**: agent
+- **Deskripsi**: Pelanggan isolir (10.127.0.0/18) diminta membayar tetapi tidak bisa membuka portal pelanggan: HTTP/HTTPS dibelokkan ke halaman isolir dan TCP lain ditolak. Provisioning kini memasang address list `netmanager_isolir_allow` berisi alamat yang sebelumnya dibutuhkan pelanggan isolir dari `netmanager_allow` (server billing, host isolir REDIRECT, layanan isolir) ditambah `pelanggan.<DOMAIN>` sebagai nama host (RouterOS me-resolve-nya sendiri). Redirect NAT isolir (proxy 8181 dan servis isolir) serta reject ICMP isolir kini mengecualikan list ini, dan rule baru `netmanager-isolir-allow` (forward accept src 10.127.0.0/18 ke list ini) disisipkan di atas rule reject. Portal sengaja tidak dimasukkan ke `netmanager_allow` karena list itu sumber `netmanager-input-bypass` (akses manajemen router); list baru tidak dipakai di chain input. Router lama dimigrasi otomatis saat provisioning ulang (rule yang argumennya berbeda di-set ulang). Entri milik provisioning yang tidak dipakai mode sekarang dibuang; entri operator berkomentar lain dibiarkan; deprovision membuang seluruh list dan rule-nya. Rule filter dipindah ke `mikrotik-provisioning.filter-rules.ts` agar file firewall di bawah 350 baris.
+- **Files**: `modules/network/services/mikrotik-provisioning.isolir-allow.ts`, `modules/network/services/mikrotik-provisioning.filter-rules.ts`, `modules/network/services/mikrotik-provisioning.firewall.ts`, `modules/network/services/mikrotik-provisioning.nat.ts`, `lib/utils/portal-url.ts`, `tests/modules/network/mikrotik-provisioning-isolir-allow.test.ts`, `tests/modules/network/mikrotik-provisioning-nat.test.ts`, `tests/modules/network/mikrotik-provisioning-firewall.test.ts`, `tests/lib/portal-url.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-27] — Halaman Paket dan Koneksi portal menampilkan data nyata
 
 - **Tipe**: [FIXED]

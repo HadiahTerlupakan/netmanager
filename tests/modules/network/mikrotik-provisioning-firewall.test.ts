@@ -90,8 +90,18 @@ function calls(router: ReturnType<typeof fakeRouter>, path: string) {
     .map(([, args]) => args);
 }
 
+function listRows(router: ReturnType<typeof fakeRouter>, list: string) {
+  return router.allow.filter((r) => r.list === list);
+}
+
+function listAdds(router: ReturnType<typeof fakeRouter>, list: string) {
+  return calls(router, "/ip/firewall/address-list/add").filter((args) =>
+    args?.includes(`=list=${list}`),
+  );
+}
+
 describe("provisionFirewallBypass", () => {
-  it("menolak ICMP dari pelanggan isolir kecuali ke server billing", async () => {
+  it("menolak ICMP dari pelanggan isolir kecuali ke walled garden", async () => {
     const router = fakeRouter();
 
     await provision(router);
@@ -105,7 +115,7 @@ describe("provisionFirewallBypass", () => {
         "=action=reject",
         "=protocol=icmp",
         "=src-address=10.127.0.0/18",
-        "=dst-address-list=!netmanager_allow",
+        "=dst-address-list=!netmanager_isolir_allow",
       ]),
     );
   });
@@ -172,10 +182,9 @@ describe("provisionFirewallBypass", () => {
 
       await provision(router, isolir);
 
-      expect(router.allow.map((r) => r.address)).toEqual(expected);
-      expect(router.allow.every((r) => r.list === "netmanager_allow")).toBe(
-        true,
-      );
+      expect(
+        listRows(router, "netmanager_allow").map((r) => r.address),
+      ).toEqual(expected);
     },
   );
 
@@ -191,9 +200,9 @@ describe("provisionFirewallBypass", () => {
 
       await provision(router, { mode: "ISOLIR_SERVICE", address });
 
-      expect(router.allow.map((r) => [r.address, r.comment])).toEqual(
-        expected.map((ip) => [ip, `accept.${ip}`]),
-      );
+      expect(
+        listRows(router, "netmanager_allow").map((r) => [r.address, r.comment]),
+      ).toEqual(expected.map((ip) => [ip, `accept.${ip}`]));
     },
   );
 
@@ -236,7 +245,7 @@ describe("provisionFirewallBypass", () => {
     expect(calls(router, "/ip/firewall/address-list/remove")).toEqual([
       ["=.id=*2"],
     ]);
-    expect(calls(router, "/ip/firewall/address-list/add")).toEqual([
+    expect(listAdds(router, "netmanager_allow")).toEqual([
       [
         "=list=netmanager_allow",
         "=address=isolir.baru.id",
@@ -257,7 +266,7 @@ describe("provisionFirewallBypass", () => {
     await provision(router);
 
     expect(calls(router, "/ip/firewall/address-list/remove")).toEqual([]);
-    expect(router.allow.map((r) => r.address)).toEqual([
+    expect(listRows(router, "netmanager_allow").map((r) => r.address)).toEqual([
       "203.0.113.5",
       "10.99.0.1",
     ]);
