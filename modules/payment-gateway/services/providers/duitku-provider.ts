@@ -49,6 +49,7 @@ async function readDuitkuResponse<T>(response: {
 }
 
 const WRONG_SIGNATURE = /wrong signature/i;
+const TRANSACTION_NOT_FOUND = /transaction not found/i;
 
 function isWrongSignature(result: DuitkuInquiryResponse) {
   return WRONG_SIGNATURE.test(
@@ -249,7 +250,7 @@ export class DuitkuProvider implements PaymentProvider {
       const config = this.requireConfig();
       const merchantCode = config.merchantId || "";
       const testOrderId = `TEST-${Date.now()}`;
-      const { result } = await postSigned<DuitkuInquiryResponse>(
+      const { status, result } = await postSigned<DuitkuInquiryResponse>(
         `${this.baseUrl}/merchant/transactionStatus`,
         { merchantCode, merchantOrderId: testOrderId },
         createDuitkuStatusSignatures({
@@ -259,14 +260,17 @@ export class DuitkuProvider implements PaymentProvider {
         }),
       );
 
-      if (!result.statusCode && !result.statusMessage) {
-        return {
-          success: false,
-          message: "Respon tidak valid dari Duitku API",
-        };
+      // Order uji memang tidak ada: Duitku baru menjawab "Transaction not
+      // found" setelah merchant dan tanda tangannya lolos. "Wrong signature"
+      // atau "Merchant not found" berarti kredensialnya salah.
+      if (
+        result.statusCode ||
+        TRANSACTION_NOT_FOUND.test(result.Message || "")
+      ) {
+        return buildDuitkuTestResult(config);
       }
 
-      return buildDuitkuTestResult(config);
+      return { success: false, message: describeDuitkuError(status, result) };
     } catch (error: unknown) {
       return {
         success: false,

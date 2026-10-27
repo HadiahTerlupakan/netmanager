@@ -205,6 +205,7 @@ export class PaymentGatewayManager {
     tempConfig?: {
       apiKey: string;
       apiSecret?: string;
+      merchantId?: string;
       clientKey?: string;
       isProduction: boolean;
     },

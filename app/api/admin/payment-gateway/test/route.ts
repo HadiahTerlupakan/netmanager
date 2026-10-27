@@ -9,6 +9,8 @@ const testService = getPaymentGatewayTestService();
 const paymentGatewayTestSchema = z.object({
   provider: z.string().trim().min(1, "Provider tidak valid"),
   apiKey: z.string().nullable().optional(),
+  apiSecret: z.string().nullable().optional(),
+  merchantId: z.string().nullable().optional(),
   clientKey: z.string().nullable().optional(),
   isProduction: z.boolean().optional(),
 });
@@ -29,19 +31,25 @@ export const POST = createHandler(
       return NextResponse.json({ success: false, message }, { status: 400 });
     }
 
-    const { provider, apiKey, clientKey, isProduction } = validation.data as PaymentGatewayTestRequest;
+    const { provider, apiKey, apiSecret, merchantId, clientKey, isProduction } =
+      validation.data as PaymentGatewayTestRequest;
 
+    // Duitku, Tripay dan DANA menandatangani dengan Merchant Code; tanpa ia
+    // tes koneksi selalu memakai merchant kosong.
     const result = await testService.testConnection({
       provider,
       apiKey,
+      apiSecret,
+      merchantId,
       clientKey,
       isProduction,
     });
 
     const success = Boolean(result.success);
     const message =
-      result.message || (success ? "Koneksi berhasil" : "Gagal menghubungkan provider");
+      result.message ||
+      (success ? "Koneksi berhasil" : "Gagal menghubungkan provider");
 
     return NextResponse.json({ success, message });
-  }
+  },
 );

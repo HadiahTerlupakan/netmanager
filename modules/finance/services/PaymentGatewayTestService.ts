@@ -3,8 +3,10 @@ import type { TestResult } from "@/modules/payment-gateway";
 
 export type PaymentGatewayTestConnectionParams = {
   provider: string;
-  apiKey?: string;
-  clientKey?: string;
+  apiKey?: string | null;
+  apiSecret?: string | null;
+  merchantId?: string | null;
+  clientKey?: string | null;
   isProduction?: boolean;
 };
 
@@ -14,8 +16,12 @@ export class PaymentGatewayTestService {
   async testConnection(
     params: PaymentGatewayTestConnectionParams,
   ): Promise<TestResult> {
+    const apiSecret = params.apiSecret?.trim();
+    const merchantId = params.merchantId?.trim();
     const tempConfig = {
       apiKey: (params.apiKey ?? "").trim(),
+      ...(apiSecret ? { apiSecret } : {}),
+      ...(merchantId ? { merchantId } : {}),
       clientKey: (params.clientKey ?? "").trim(),
       isProduction: Boolean(params.isProduction),
     };

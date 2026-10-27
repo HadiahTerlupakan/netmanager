@@ -96,6 +96,25 @@ describe("DuitkuProvider", () => {
     expect(result).toMatchObject({ success: true, transactionId: "D1" });
   });
 
+  // Respons nyata sandbox 2026-10-28: kredensial benar dijawab 404
+  // "Transaction not found" untuk order uji; dulu itu dilaporkan "Respon
+  // tidak valid", sementara "Wrong signature" justru dianggap berhasil.
+  it.each([
+    [404, { Message: "Transaction not found" }, true],
+    [401, { Message: "Wrong signature" }, false],
+    [404, { Message: "Merchant not found" }, false],
+  ])("tes koneksi HTTP %i %j → berhasil=%s", async (status, body, ok) => {
+    palsu.fetch.mockResolvedValue({
+      status,
+      text: async () => JSON.stringify(body),
+    });
+
+    const result = await provider().testConnection();
+
+    expect(result.success).toBe(ok);
+    if (!ok) expect(result.message).toContain(body.Message);
+  });
+
   // Penolakan Duitku dulu tercatat "Failed to create payment" saja karena
   // hanya statusMessage yang dibaca.
   it.each([
