@@ -3,13 +3,20 @@ import React from "react";
 type ProrateOption = "NONE" | "PRORATE_CHARGE" | "PRORATE_CREDIT";
 type DowngradeAdjustment = "NONE" | "REFUND" | "CREDIT";
 type UpgradeApplyTime = "IMMEDIATE" | "NEXT_CYCLE";
+export type PackageChangeDirection = "UPGRADE" | "DOWNGRADE" | "SAME_PRICE";
+
+const DIRECTION_LABELS: Record<PackageChangeDirection, string> = {
+  UPGRADE: "Upgrade",
+  DOWNGRADE: "Downgrade",
+  SAME_PRICE: "Ganti Paket",
+};
 
 type PppClientPackageChangeSectionProps = {
   prorateOption: ProrateOption;
   downgradeAdjustment: DowngradeAdjustment;
   upgradeApplyTime: UpgradeApplyTime;
-  /** true jika harga paket baru lebih rendah dari paket lama */
-  isDowngrade: boolean;
+  /** Arah perubahan menurut harga paket lama dan baru */
+  direction: PackageChangeDirection;
   loading: boolean;
   onFieldChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
   roundedClassName: string;
@@ -23,17 +30,18 @@ export function PppClientPackageChangeSection({
   prorateOption,
   downgradeAdjustment,
   upgradeApplyTime,
-  isDowngrade,
+  direction,
   loading,
   onFieldChange,
   roundedClassName,
 }: PppClientPackageChangeSectionProps) {
+  const isDowngrade = direction === "DOWNGRADE";
   return (
     <div className="space-y-4 border-t-2 border-amber-200 dark:border-amber-800 pt-4 mt-4 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg">
       <h3 className="text-md font-semibold text-gray-900 dark:text-white flex items-center gap-2">
         <span>Perubahan Paket Terdeteksi</span>
         <span className="px-2 py-0.5 text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 rounded">
-          {isDowngrade ? "Downgrade" : "Upgrade"}
+          {DIRECTION_LABELS[direction]}
         </span>
       </h3>
       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -84,7 +92,7 @@ export function PppClientPackageChangeSection({
           <option value="NONE">
             Tidak ada prorate (paket baru berlaku penuh)
           </option>
-          {!isDowngrade && (
+          {direction === "UPGRADE" && (
             <option value="PRORATE_CHARGE">
               Tagih selisih prorate (buat invoice baru)
             </option>

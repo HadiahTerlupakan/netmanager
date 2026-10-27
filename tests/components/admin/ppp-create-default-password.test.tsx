@@ -21,8 +21,8 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 vi.mock("@/lib/hooks/useApi", () => ({
   useApi: () => ({
-    data: undefined,
-    error: undefined,
+    data: undefined as unknown,
+    error: undefined as Error | undefined,
     isLoading: false,
     mutate: vi.fn(),
   }),
