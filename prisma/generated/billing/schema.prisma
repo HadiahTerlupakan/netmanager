@@ -119,6 +119,10 @@ model Payment {
   gatewayProvider String?
   transactionId   String?
   paymentUrl      String?
+  // Instruksi bayar dari gateway (nomor VA atau kode bayar minimarket, dan
+  // string QRIS) yang ditampilkan portal sendiri.
+  vaNumber        String?
+  qrString        String?
   expiresAt       DateTime?
 
   unmatchedMutationId String?            @unique
