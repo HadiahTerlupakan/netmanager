@@ -140,6 +140,7 @@ export class PaymentRepository implements IPaymentRepository {
     paymentMethod: string;
     notes?: string | null;
     couponUsageId?: string | null;
+    couponId?: string | null;
   }) {
     return createCustomerPaymentsForInvoices(options);
   }

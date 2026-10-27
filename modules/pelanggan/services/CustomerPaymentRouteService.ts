@@ -67,6 +67,7 @@ export async function createCustomerPaymentForRoute(
       paymentMethod: input.paymentMethod,
       notes: input.notes,
       couponUsageId: usageId,
+      couponId: coupon.couponId,
     });
     gateway = await createGatewayPaymentIfNeeded({
       ...input,

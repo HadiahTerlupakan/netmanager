@@ -21,6 +21,7 @@ type CreateCustomerPaymentsOptions = {
   paymentMethod: string;
   notes?: string | null;
   couponUsageId?: string | null;
+  couponId?: string | null;
 };
 
 /** Memetakan payment Prisma menjadi entity pembayaran domain. */
@@ -127,6 +128,7 @@ function createInvoicePayment(
       discountAmount: input.discountAmount,
       checkoutId: input.checkoutId,
       couponUsageId: input.options.couponUsageId ?? null,
+      couponId: input.options.couponUsageId ? input.options.couponId : null,
       paymentDate: new Date(),
       paymentMethod: resolveCustomerPaymentMethod(input.options.paymentMethod),
       // Tertutup penuh oleh kupon: tidak ada yang perlu ditagih atau

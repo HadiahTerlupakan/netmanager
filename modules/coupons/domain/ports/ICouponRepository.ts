@@ -49,6 +49,12 @@ export interface ICouponRepository {
    */
   reserveUsage(couponId: string, pelangganId: string): Promise<string | null>;
 
+  /**
+   * Catat pemakaian tanpa cek kuota: potongannya sudah dinikmati pelanggan
+   * (checkout kedaluwarsa yang ternyata dibayar), jadi riwayat harus jujur.
+   */
+  restoreUsage(couponId: string, pelangganId: string): Promise<string>;
+
   /** Batalkan pemakaian hasil reserveUsage; aman dipanggil berulang. */
   releaseUsage(usageId: string): Promise<void>;
 

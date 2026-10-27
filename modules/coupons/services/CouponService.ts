@@ -101,6 +101,13 @@ export class CouponService {
   }
 
   /**
+   * Record a use regardless of quota, for a discount already granted.
+   */
+  async restoreUsage(couponId: string, pelangganId: string) {
+    return this.repository.restoreUsage(couponId, pelangganId);
+  }
+
+  /**
    * Release a reservation made by reserveUsage.
    */
   async releaseUsage(usageId: string) {

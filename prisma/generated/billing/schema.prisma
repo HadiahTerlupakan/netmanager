@@ -102,6 +102,9 @@ model Payment {
   // Pemesanan kupon (CouponUsage di database utama) untuk checkout ini;
   // dilepas bila checkout kedaluwarsa atau gagal.
   couponUsageId   String?
+  // Kupon yang memberi potongan; dipakai mencatat ulang pemakaian bila
+  // checkout yang sudah kedaluwarsa ternyata dibayar.
+  couponId        String?
   paymentDate     DateTime
   paymentMethod   PaymentMethod
   reference       String?

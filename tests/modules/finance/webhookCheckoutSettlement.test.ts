@@ -19,6 +19,7 @@ const mockFns = vi.hoisted(() => ({
   findCheckoutPayments: vi.fn(),
   settleCheckoutInvoices: vi.fn(),
   releaseCheckoutCoupons: vi.fn(),
+  restoreReleasedCoupons: vi.fn(),
 }));
 
 vi.mock(
@@ -26,6 +27,7 @@ vi.mock(
   async (importOriginal) => ({
     ...(await importOriginal<object>()),
     releaseCheckoutCoupons: mockFns.releaseCheckoutCoupons,
+    restoreReleasedCoupons: mockFns.restoreReleasedCoupons,
   }),
 );
 
@@ -139,6 +141,7 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
       where: { id: { in: ["pay-1", "pay-2"] }, gatewayStatus: { not: "PAID" } },
       data: expect.objectContaining({ gatewayStatus: "PAID" }),
     });
+    expect(mockFns.restoreReleasedCoupons).toHaveBeenCalledWith(CHECKOUT);
     expect(mockFns.settleCheckoutInvoices).toHaveBeenCalledWith(CHECKOUT);
     const { webhookEvent } = prismaMock as unknown as {
       webhookEvent: { update: ReturnType<typeof vi.fn> };

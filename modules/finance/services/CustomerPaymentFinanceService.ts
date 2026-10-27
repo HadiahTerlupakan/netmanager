@@ -18,6 +18,7 @@ export function createCustomerPaymentsForInvoices(options: {
   paymentMethod: string;
   notes?: string | null;
   couponUsageId?: string | null;
+  couponId?: string | null;
 }) {
   return getPaymentRepository().createCustomerPaymentsForInvoices(options);
 }

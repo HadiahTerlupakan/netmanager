@@ -186,6 +186,7 @@ exports.Prisma.PaymentScalarFieldEnum = {
   discountAmount: 'discountAmount',
   checkoutId: 'checkoutId',
   couponUsageId: 'couponUsageId',
+  couponId: 'couponId',
   paymentDate: 'paymentDate',
   paymentMethod: 'paymentMethod',
   reference: 'reference',

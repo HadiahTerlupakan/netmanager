@@ -141,6 +141,14 @@ export class CouponRepository implements ICouponRepository {
     });
   }
 
+  async restoreUsage(couponId: string, pelangganId: string): Promise<string> {
+    return this.db.$transaction(async (tx) => {
+      await this.incrementUsage(couponId, tx);
+      const usage = await this.recordUsage(couponId, pelangganId, tx);
+      return usage.id;
+    });
+  }
+
   async releaseUsage(usageId: string): Promise<void> {
     await this.db.$transaction(async (tx) => {
       const usage = await tx.couponUsage.findUnique({

@@ -36,6 +36,8 @@ describe("settleCheckoutInvoices", () => {
         invoiceId: "inv-1",
         tenantId: "t1",
         couponUsageId: null,
+        couponId: null,
+        pelangganId: "pel-1",
       },
       {
         id: "p2",
@@ -43,6 +45,8 @@ describe("settleCheckoutInvoices", () => {
         invoiceId: "inv-1",
         tenantId: "t1",
         couponUsageId: null,
+        couponId: null,
+        pelangganId: "pel-1",
       },
       {
         id: "p3",
@@ -50,6 +54,8 @@ describe("settleCheckoutInvoices", () => {
         invoiceId: "inv-2",
         tenantId: "t1",
         couponUsageId: null,
+        couponId: null,
+        pelangganId: "pel-1",
       },
     ]);
 

@@ -98,6 +98,7 @@ describe("CustomerPaymentRouteService", () => {
       paymentMethod: "MANUAL",
       notes: "manual transfer",
       couponUsageId: null,
+      couponId: null,
     });
   });
 

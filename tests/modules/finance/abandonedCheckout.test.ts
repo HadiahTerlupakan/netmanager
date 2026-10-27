@@ -2,15 +2,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { prismaMock } from "../../setup";
 
-const palsu = vi.hoisted(() => ({ releaseUsage: vi.fn() }));
+const palsu = vi.hoisted(() => ({
+  releaseUsage: vi.fn(),
+  restoreUsage: vi.fn(),
+}));
 
 vi.mock("@/modules/coupons", () => ({
-  couponService: { releaseUsage: palsu.releaseUsage },
+  couponService: {
+    releaseUsage: palsu.releaseUsage,
+    restoreUsage: palsu.restoreUsage,
+  },
 }));
 
 import {
   expireStaleGatewayPayments,
   releaseCheckoutCoupons,
+  restoreReleasedCoupons,
 } from "@/modules/payment-gateway/services/abandoned-checkout";
 
 /**
@@ -62,5 +69,50 @@ describe("checkout gateway yang ditinggalkan", () => {
     ]);
 
     expect(palsu.releaseUsage.mock.calls).toEqual([["u1"], ["u2"]]);
+  });
+
+  it("kupon yang dikembalikan ditandai di payment checkout-nya", async () => {
+    await releaseCheckoutCoupons([{ couponUsageId: "u1", tenantId: "t1" }]);
+
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { couponUsageId: "u1" },
+      data: { couponUsageId: null },
+    });
+  });
+
+  // Checkout kedaluwarsa (kupon sudah dikembalikan) yang ternyata dibayar
+  // dulu dilunasi dengan potongan tanpa pemakaian kupon tercatat.
+  it("checkout yang kuponnya sudah dikembalikan lalu dibayar mencatat ulang kupon", async () => {
+    palsu.restoreUsage.mockResolvedValue("u-baru");
+
+    await restoreReleasedCoupons([
+      {
+        id: "p1",
+        couponUsageId: null,
+        couponId: "c1",
+        pelangganId: "pel-1",
+        tenantId: "t1",
+      },
+    ]);
+
+    expect(palsu.restoreUsage).toHaveBeenCalledWith("c1", "pel-1");
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["p1"] }, couponId: "c1", couponUsageId: null },
+      data: { couponUsageId: "u-baru" },
+    });
+  });
+
+  it("checkout yang kuponnya masih dipesan tidak mencatat ulang", async () => {
+    await restoreReleasedCoupons([
+      {
+        id: "p1",
+        couponUsageId: "u1",
+        couponId: "c1",
+        pelangganId: "pel-1",
+        tenantId: "t1",
+      },
+    ]);
+
+    expect(palsu.restoreUsage).not.toHaveBeenCalled();
   });
 });

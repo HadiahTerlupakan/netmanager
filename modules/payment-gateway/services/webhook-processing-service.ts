@@ -7,6 +7,7 @@ import { PaymentGatewayManager } from "./PaymentGatewayService";
 import {
   isUnpaidTerminalStatus,
   releaseCheckoutCoupons,
+  restoreReleasedCoupons,
 } from "./abandoned-checkout";
 import {
   findCheckoutPayments,
@@ -309,6 +310,7 @@ export class WebhookProcessingService {
       // dibayar, setelah commit. Invoice dan kupon ada di database lain dari
       // transaksi ini, jadi tidak bisa ikut di dalamnya.
       if (outcome === "PAID") {
+        await restoreReleasedCoupons(checkout);
         await settleCheckoutInvoices(checkout);
       } else if (outcome && isUnpaidTerminalStatus(outcome)) {
         await releaseCheckoutCoupons(checkout);
