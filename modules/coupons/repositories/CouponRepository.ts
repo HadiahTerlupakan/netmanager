@@ -114,6 +114,13 @@ export class CouponRepository implements ICouponRepository {
     return CouponMapper.toUsageDomain(usage);
   }
 
+  async consumeUsage(couponId: string, pelangganId: string): Promise<void> {
+    await this.db.$transaction(async (tx) => {
+      await this.recordUsage(couponId, pelangganId, tx);
+      await this.incrementUsage(couponId, tx);
+    });
+  }
+
   async delete(id: string): Promise<void> {
     await this.db.coupon.delete({ where: { id } });
   }

@@ -94,6 +94,13 @@ export class CouponService {
   }
 
   /**
+   * Consume coupon for a customer: usage history and usage count together.
+   */
+  async consumeUsage(couponId: string, pelangganId: string) {
+    return this.repository.consumeUsage(couponId, pelangganId);
+  }
+
+  /**
    * Delete coupon when safe.
    */
   async deleteCoupon(id: string): Promise<void> {

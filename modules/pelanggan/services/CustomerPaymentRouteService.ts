@@ -6,6 +6,7 @@ import {
   createCustomerPaymentsForInvoices,
   markCustomerPaymentsAsFailed,
   PaymentGatewayManager,
+  recomputeInvoicePaymentState,
   updateCustomerPaymentGatewayMetadata,
 } from "@/modules/finance";
 import { PelangganRepository } from "../repositories/PelangganRepository";
@@ -56,26 +57,17 @@ export async function createCustomerPaymentForRoute(
     discountAmount: coupon.discountAmount,
     paymentMethod: input.paymentMethod,
     notes: input.notes,
-    couponId: coupon.couponId,
-    couponService,
   });
-
-  if (coupon.couponId && coupon.discountAmount > 0) {
-    await eventBus.publish(EVENT_NAMES.COUPON_USED, {
-      couponId: coupon.couponId,
-      pelangganId: input.customerId,
-      invoiceIds: input.invoiceIds,
-      discountAmount: coupon.discountAmount,
-      appliedAt: new Date().toISOString(),
-      tenantId: input.tenantId ?? undefined,
-    });
-  }
 
   const gateway = await createGatewayPaymentIfNeeded({
     ...input,
     payments,
     finalAmount,
   });
+  await settleFullyDiscountedPayments(payments);
+  // Baru dipakai setelah gateway menerima: gateway yang gagal tidak boleh
+  // menghabiskan kuota kupon pelanggan.
+  await consumeCoupon(input, coupon);
 
   return {
     payments,
@@ -84,9 +76,54 @@ export async function createCustomerPaymentForRoute(
   };
 }
 
-async function resolveCoupon(input: CustomerPaymentInput, totalAmount: number) {
+type ResolvedCoupon = { discountAmount: number; couponId: string | null };
+
+// Payment yang tertutup penuh oleh kupon dibuat langsung PAID; invoice-nya
+// perlu dihitung ulang agar lunas dan pelanggan isolir aktif kembali.
+async function settleFullyDiscountedPayments(
+  payments: Array<{ invoiceId?: string | null; gatewayStatus?: string | null }>,
+) {
+  for (const payment of payments) {
+    if (payment.gatewayStatus === "PAID" && payment.invoiceId) {
+      await recomputeInvoicePaymentState(payment.invoiceId);
+    }
+  }
+}
+
+async function consumeCoupon(
+  input: CustomerPaymentInput,
+  coupon: ResolvedCoupon,
+) {
+  if (!coupon.couponId || coupon.discountAmount <= 0) {
+    return;
+  }
+
+  // Kupon ada di database utama, pembayaran di database billing, jadi
+  // keduanya tidak bisa satu transaksi. Pembayaran sudah sah di titik ini;
+  // kegagalan mencatat kupon dicatat ke log, bukan menggagalkan pembayaran.
+  try {
+    await couponService.consumeUsage(coupon.couponId, input.customerId);
+  } catch (error) {
+    logger.error("[Coupon] Gagal mencatat pemakaian kupon:", error);
+    return;
+  }
+
+  await eventBus.publish(EVENT_NAMES.COUPON_USED, {
+    couponId: coupon.couponId,
+    pelangganId: input.customerId,
+    invoiceIds: input.invoiceIds,
+    discountAmount: coupon.discountAmount,
+    appliedAt: new Date().toISOString(),
+    tenantId: input.tenantId ?? undefined,
+  });
+}
+
+async function resolveCoupon(
+  input: CustomerPaymentInput,
+  totalAmount: number,
+): Promise<ResolvedCoupon> {
   if (!input.couponCode) {
-    return { discountAmount: 0, couponId: null as string | null };
+    return { discountAmount: 0, couponId: null };
   }
 
   // `findByCode` tanpa tenantId mencari di semua tenant; sama seperti rute
@@ -126,7 +163,11 @@ type GatewayPaymentInput = CustomerPaymentInput & {
 };
 
 async function createGatewayPaymentIfNeeded(input: GatewayPaymentInput) {
-  if (isManualPayment(input.paymentMethod) || input.payments.length === 0) {
+  if (
+    isManualPayment(input.paymentMethod) ||
+    input.payments.length === 0 ||
+    input.finalAmount <= 0
+  ) {
     return { paymentUrl: null, transactionId: null };
   }
 

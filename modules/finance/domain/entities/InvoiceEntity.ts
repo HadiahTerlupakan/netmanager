@@ -19,6 +19,7 @@ export interface InvoiceItemEntity {
 export interface InvoicePaymentEntity {
   id: string;
   amount: bigint;
+  discountAmount?: bigint;
   paymentDate: Date;
   paymentMethod?: string | null;
   reference?: string | null;

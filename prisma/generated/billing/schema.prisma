@@ -94,6 +94,8 @@ model Payment {
   invoiceId       String?
   pelangganId     String
   amount          BigInt
+  // Potongan kupon untuk invoice ini; ikut dihitung terbayar saat lunas.
+  discountAmount  BigInt                @default(0)
   paymentDate     DateTime
   paymentMethod   PaymentMethod
   reference       String?

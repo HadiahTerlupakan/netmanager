@@ -7,6 +7,7 @@ export interface PaymentEntity {
   pelangganId: string;
   tenantId?: string | null;
   amount: bigint;
+  discountAmount?: bigint;
   paymentDate: Date;
   paymentMethod?: string | null;
   gatewayStatus?: string | null;

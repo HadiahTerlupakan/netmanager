@@ -10,6 +10,14 @@ const mockFns = vi.hoisted(() => ({
   createGatewayPayment: vi.fn(),
   updateGatewayMetadata: vi.fn(),
   markPaymentsAsFailed: vi.fn(),
+  consumeUsage: vi.fn(),
+  recomputeInvoice: vi.fn(),
+  publish: vi.fn(),
+}));
+
+vi.mock("@/lib/event-bus", () => ({
+  eventBus: { publish: mockFns.publish },
+  EVENT_NAMES: { COUPON_USED: "billing:coupon.used" },
 }));
 
 vi.mock("@/modules/coupons", () => ({
@@ -17,6 +25,7 @@ vi.mock("@/modules/coupons", () => ({
     verifyCoupon: mockFns.verifyCoupon,
     recordUsage: mockFns.recordUsage,
     incrementUsage: mockFns.incrementUsage,
+    consumeUsage: mockFns.consumeUsage,
   },
   CouponService: class MockCouponService {
     verifyCoupon = mockFns.verifyCoupon;
@@ -32,6 +41,7 @@ vi.mock("@/modules/finance", () => ({
   createCustomerPaymentsForInvoices: mockFns.createPaymentsForInvoices,
   updateCustomerPaymentGatewayMetadata: mockFns.updateGatewayMetadata,
   markCustomerPaymentsAsFailed: mockFns.markPaymentsAsFailed,
+  recomputeInvoicePaymentState: mockFns.recomputeInvoice,
 }));
 
 vi.mock("@/modules/pelanggan/services/CustomerPortalService", () => ({
@@ -80,8 +90,6 @@ describe("CustomerPaymentRouteService", () => {
       discountAmount: 0,
       paymentMethod: "MANUAL",
       notes: "manual transfer",
-      couponId: null,
-      couponService: expect.any(Object),
     });
   });
 
@@ -96,7 +104,7 @@ describe("CustomerPaymentRouteService", () => {
 
     expect(mockFns.verifyCoupon).not.toHaveBeenCalled();
     expect(mockFns.createPaymentsForInvoices).toHaveBeenCalledWith(
-      expect.objectContaining({ discountAmount: 0, couponId: null }),
+      expect.objectContaining({ discountAmount: 0 }),
     );
   });
 
@@ -192,7 +200,10 @@ describe("CustomerPaymentRouteService", () => {
   ])(
     "gateway yang %s menggagalkan pembayaran PENDING dan menolak permintaan",
     async (_label, arrangeGateway) => {
-      mockFns.findPelangganById.mockResolvedValue({ id: "cust-1", nama: "Budi" });
+      mockFns.findPelangganById.mockResolvedValue({
+        id: "cust-1",
+        nama: "Budi",
+      });
       arrangeGateway();
 
       await expect(
@@ -207,4 +218,80 @@ describe("CustomerPaymentRouteService", () => {
       expect(mockFns.updateGatewayMetadata).not.toHaveBeenCalled();
     },
   );
+
+  describe("kupon", () => {
+    const gatewayPelanggan = () => {
+      mockFns.findPelangganById.mockResolvedValue({
+        id: "cust-1",
+        nama: "Budi",
+      });
+    };
+    const bayarDenganKupon = (paymentMethod: string) =>
+      createCustomerPaymentForRoute({
+        customerId: "cust-1",
+        tenantId: "tenant-1",
+        invoiceIds: ["inv-1"],
+        couponCode: "HEMAT10",
+        paymentMethod,
+      });
+
+    beforeEach(() => {
+      mockFns.verifyCoupon.mockResolvedValue({
+        valid: true,
+        discountAmount: 10000,
+        couponId: "coupon-1",
+      });
+    });
+
+    it("dipakai setelah gateway menerima, ditagih sebesar sisa setelah potongan", async () => {
+      gatewayPelanggan();
+      mockFns.createGatewayPayment.mockResolvedValue({
+        success: true,
+        paymentUrl: "https://pay.example",
+      });
+
+      await bayarDenganKupon("QRIS");
+
+      expect(mockFns.createGatewayPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 90000 }),
+      );
+      expect(mockFns.consumeUsage).toHaveBeenCalledWith("coupon-1", "cust-1");
+      expect(mockFns.publish).toHaveBeenCalledWith(
+        "billing:coupon.used",
+        expect.objectContaining({
+          couponId: "coupon-1",
+          discountAmount: 10000,
+        }),
+      );
+    });
+
+    it("tidak terpakai bila gateway gagal", async () => {
+      gatewayPelanggan();
+      mockFns.createGatewayPayment.mockRejectedValue(new Error("timeout"));
+
+      await expect(bayarDenganKupon("QRIS")).rejects.toMatchObject({
+        status: 502,
+      });
+      expect(mockFns.consumeUsage).not.toHaveBeenCalled();
+      expect(mockFns.publish).not.toHaveBeenCalled();
+    });
+
+    it("potongan 100% tidak memanggil gateway dan melunasi invoice", async () => {
+      mockFns.verifyCoupon.mockResolvedValue({
+        valid: true,
+        discountAmount: 100000,
+        couponId: "coupon-1",
+      });
+      mockFns.createPaymentsForInvoices.mockResolvedValue([
+        { id: "pay-1", invoiceId: "inv-1", gatewayStatus: "PAID" },
+      ]);
+
+      const result = await bayarDenganKupon("QRIS");
+
+      expect(mockFns.createGatewayPayment).not.toHaveBeenCalled();
+      expect(mockFns.recomputeInvoice).toHaveBeenCalledWith("inv-1");
+      expect(mockFns.consumeUsage).toHaveBeenCalledWith("coupon-1", "cust-1");
+      expect(result.paymentUrl).toBeNull();
+    });
+  });
 });

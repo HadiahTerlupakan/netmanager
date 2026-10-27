@@ -5523,10 +5523,12 @@ export namespace Prisma {
 
   export type PaymentAvgAggregateOutputType = {
     amount: number | null
+    discountAmount: number | null
   }
 
   export type PaymentSumAggregateOutputType = {
     amount: bigint | null
+    discountAmount: bigint | null
   }
 
   export type PaymentMinAggregateOutputType = {
@@ -5534,6 +5536,7 @@ export namespace Prisma {
     invoiceId: string | null
     pelangganId: string | null
     amount: bigint | null
+    discountAmount: bigint | null
     paymentDate: Date | null
     paymentMethod: $Enums.PaymentMethod | null
     reference: string | null
@@ -5558,6 +5561,7 @@ export namespace Prisma {
     invoiceId: string | null
     pelangganId: string | null
     amount: bigint | null
+    discountAmount: bigint | null
     paymentDate: Date | null
     paymentMethod: $Enums.PaymentMethod | null
     reference: string | null
@@ -5582,6 +5586,7 @@ export namespace Prisma {
     invoiceId: number
     pelangganId: number
     amount: number
+    discountAmount: number
     paymentDate: number
     paymentMethod: number
     reference: number
@@ -5605,10 +5610,12 @@ export namespace Prisma {
 
   export type PaymentAvgAggregateInputType = {
     amount?: true
+    discountAmount?: true
   }
 
   export type PaymentSumAggregateInputType = {
     amount?: true
+    discountAmount?: true
   }
 
   export type PaymentMinAggregateInputType = {
@@ -5616,6 +5623,7 @@ export namespace Prisma {
     invoiceId?: true
     pelangganId?: true
     amount?: true
+    discountAmount?: true
     paymentDate?: true
     paymentMethod?: true
     reference?: true
@@ -5640,6 +5648,7 @@ export namespace Prisma {
     invoiceId?: true
     pelangganId?: true
     amount?: true
+    discountAmount?: true
     paymentDate?: true
     paymentMethod?: true
     reference?: true
@@ -5664,6 +5673,7 @@ export namespace Prisma {
     invoiceId?: true
     pelangganId?: true
     amount?: true
+    discountAmount?: true
     paymentDate?: true
     paymentMethod?: true
     reference?: true
@@ -5775,6 +5785,7 @@ export namespace Prisma {
     invoiceId: string | null
     pelangganId: string
     amount: bigint
+    discountAmount: bigint
     paymentDate: Date
     paymentMethod: $Enums.PaymentMethod
     reference: string | null
@@ -5818,6 +5829,7 @@ export namespace Prisma {
     invoiceId?: boolean
     pelangganId?: boolean
     amount?: boolean
+    discountAmount?: boolean
     paymentDate?: boolean
     paymentMethod?: boolean
     reference?: boolean
@@ -5844,6 +5856,7 @@ export namespace Prisma {
     invoiceId?: boolean
     pelangganId?: boolean
     amount?: boolean
+    discountAmount?: boolean
     paymentDate?: boolean
     paymentMethod?: boolean
     reference?: boolean
@@ -5870,6 +5883,7 @@ export namespace Prisma {
     invoiceId?: boolean
     pelangganId?: boolean
     amount?: boolean
+    discountAmount?: boolean
     paymentDate?: boolean
     paymentMethod?: boolean
     reference?: boolean
@@ -5896,6 +5910,7 @@ export namespace Prisma {
     invoiceId?: boolean
     pelangganId?: boolean
     amount?: boolean
+    discountAmount?: boolean
     paymentDate?: boolean
     paymentMethod?: boolean
     reference?: boolean
@@ -5915,7 +5930,7 @@ export namespace Prisma {
     tenantId?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "tenantId", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "discountAmount" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "tenantId", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -5940,6 +5955,7 @@ export namespace Prisma {
       invoiceId: string | null
       pelangganId: string
       amount: bigint
+      discountAmount: bigint
       paymentDate: Date
       paymentMethod: $Enums.PaymentMethod
       reference: string | null
@@ -6386,6 +6402,7 @@ export namespace Prisma {
     readonly invoiceId: FieldRef<"Payment", 'String'>
     readonly pelangganId: FieldRef<"Payment", 'String'>
     readonly amount: FieldRef<"Payment", 'BigInt'>
+    readonly discountAmount: FieldRef<"Payment", 'BigInt'>
     readonly paymentDate: FieldRef<"Payment", 'DateTime'>
     readonly paymentMethod: FieldRef<"Payment", 'PaymentMethod'>
     readonly reference: FieldRef<"Payment", 'String'>
@@ -10512,6 +10529,7 @@ export namespace Prisma {
     invoiceId: 'invoiceId',
     pelangganId: 'pelangganId',
     amount: 'amount',
+    discountAmount: 'discountAmount',
     paymentDate: 'paymentDate',
     paymentMethod: 'paymentMethod',
     reference: 'reference',
@@ -11230,6 +11248,7 @@ export namespace Prisma {
     invoiceId?: StringNullableFilter<"Payment"> | string | null
     pelangganId?: StringFilter<"Payment"> | string
     amount?: BigIntFilter<"Payment"> | bigint | number
+    discountAmount?: BigIntFilter<"Payment"> | bigint | number
     paymentDate?: DateTimeFilter<"Payment"> | Date | string
     paymentMethod?: EnumPaymentMethodFilter<"Payment"> | $Enums.PaymentMethod
     reference?: StringNullableFilter<"Payment"> | string | null
@@ -11256,6 +11275,7 @@ export namespace Prisma {
     invoiceId?: SortOrderInput | SortOrder
     pelangganId?: SortOrder
     amount?: SortOrder
+    discountAmount?: SortOrder
     paymentDate?: SortOrder
     paymentMethod?: SortOrder
     reference?: SortOrderInput | SortOrder
@@ -11286,6 +11306,7 @@ export namespace Prisma {
     invoiceId?: StringNullableFilter<"Payment"> | string | null
     pelangganId?: StringFilter<"Payment"> | string
     amount?: BigIntFilter<"Payment"> | bigint | number
+    discountAmount?: BigIntFilter<"Payment"> | bigint | number
     paymentDate?: DateTimeFilter<"Payment"> | Date | string
     paymentMethod?: EnumPaymentMethodFilter<"Payment"> | $Enums.PaymentMethod
     reference?: StringNullableFilter<"Payment"> | string | null
@@ -11311,6 +11332,7 @@ export namespace Prisma {
     invoiceId?: SortOrderInput | SortOrder
     pelangganId?: SortOrder
     amount?: SortOrder
+    discountAmount?: SortOrder
     paymentDate?: SortOrder
     paymentMethod?: SortOrder
     reference?: SortOrderInput | SortOrder
@@ -11343,6 +11365,7 @@ export namespace Prisma {
     invoiceId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     pelangganId?: StringWithAggregatesFilter<"Payment"> | string
     amount?: BigIntWithAggregatesFilter<"Payment"> | bigint | number
+    discountAmount?: BigIntWithAggregatesFilter<"Payment"> | bigint | number
     paymentDate?: DateTimeWithAggregatesFilter<"Payment"> | Date | string
     paymentMethod?: EnumPaymentMethodWithAggregatesFilter<"Payment"> | $Enums.PaymentMethod
     reference?: StringNullableWithAggregatesFilter<"Payment"> | string | null
@@ -12116,6 +12139,7 @@ export namespace Prisma {
     id: string
     pelangganId: string
     amount: bigint | number
+    discountAmount?: bigint | number
     paymentDate: Date | string
     paymentMethod: $Enums.PaymentMethod
     reference?: string | null
@@ -12141,6 +12165,7 @@ export namespace Prisma {
     invoiceId?: string | null
     pelangganId: string
     amount: bigint | number
+    discountAmount?: bigint | number
     paymentDate: Date | string
     paymentMethod: $Enums.PaymentMethod
     reference?: string | null
@@ -12164,6 +12189,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     pelangganId?: StringFieldUpdateOperationsInput | string
     amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
     paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
     reference?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12189,6 +12215,7 @@ export namespace Prisma {
     invoiceId?: NullableStringFieldUpdateOperationsInput | string | null
     pelangganId?: StringFieldUpdateOperationsInput | string
     amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
     paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
     reference?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12213,6 +12240,7 @@ export namespace Prisma {
     invoiceId?: string | null
     pelangganId: string
     amount: bigint | number
+    discountAmount?: bigint | number
     paymentDate: Date | string
     paymentMethod: $Enums.PaymentMethod
     reference?: string | null
@@ -12236,6 +12264,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     pelangganId?: StringFieldUpdateOperationsInput | string
     amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
     paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
     reference?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12259,6 +12288,7 @@ export namespace Prisma {
     invoiceId?: NullableStringFieldUpdateOperationsInput | string | null
     pelangganId?: StringFieldUpdateOperationsInput | string
     amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
     paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
     reference?: NullableStringFieldUpdateOperationsInput | string | null
@@ -13259,6 +13289,7 @@ export namespace Prisma {
     invoiceId?: SortOrder
     pelangganId?: SortOrder
     amount?: SortOrder
+    discountAmount?: SortOrder
     paymentDate?: SortOrder
     paymentMethod?: SortOrder
     reference?: SortOrder
@@ -13280,6 +13311,7 @@ export namespace Prisma {
 
   export type PaymentAvgOrderByAggregateInput = {
     amount?: SortOrder
+    discountAmount?: SortOrder
   }
 
   export type PaymentMaxOrderByAggregateInput = {
@@ -13287,6 +13319,7 @@ export namespace Prisma {
     invoiceId?: SortOrder
     pelangganId?: SortOrder
     amount?: SortOrder
+    discountAmount?: SortOrder
     paymentDate?: SortOrder
     paymentMethod?: SortOrder
     reference?: SortOrder
@@ -13311,6 +13344,7 @@ export namespace Prisma {
     invoiceId?: SortOrder
     pelangganId?: SortOrder
     amount?: SortOrder
+    discountAmount?: SortOrder
     paymentDate?: SortOrder
     paymentMethod?: SortOrder
     reference?: SortOrder
@@ -13332,6 +13366,7 @@ export namespace Prisma {
 
   export type PaymentSumOrderByAggregateInput = {
     amount?: SortOrder
+    discountAmount?: SortOrder
   }
 
   export type EnumPaymentMethodWithAggregatesFilter<$PrismaModel = never> = {
@@ -14411,6 +14446,7 @@ export namespace Prisma {
     id: string
     pelangganId: string
     amount: bigint | number
+    discountAmount?: bigint | number
     paymentDate: Date | string
     paymentMethod: $Enums.PaymentMethod
     reference?: string | null
@@ -14434,6 +14470,7 @@ export namespace Prisma {
     id: string
     pelangganId: string
     amount: bigint | number
+    discountAmount?: bigint | number
     paymentDate: Date | string
     paymentMethod: $Enums.PaymentMethod
     reference?: string | null
@@ -14573,6 +14610,7 @@ export namespace Prisma {
     invoiceId?: StringNullableFilter<"Payment"> | string | null
     pelangganId?: StringFilter<"Payment"> | string
     amount?: BigIntFilter<"Payment"> | bigint | number
+    discountAmount?: BigIntFilter<"Payment"> | bigint | number
     paymentDate?: DateTimeFilter<"Payment"> | Date | string
     paymentMethod?: EnumPaymentMethodFilter<"Payment"> | $Enums.PaymentMethod
     reference?: StringNullableFilter<"Payment"> | string | null
@@ -15079,6 +15117,7 @@ export namespace Prisma {
     id: string
     pelangganId: string
     amount: bigint | number
+    discountAmount?: bigint | number
     paymentDate: Date | string
     paymentMethod: $Enums.PaymentMethod
     reference?: string | null
@@ -15103,6 +15142,7 @@ export namespace Prisma {
     invoiceId?: string | null
     pelangganId: string
     amount: bigint | number
+    discountAmount?: bigint | number
     paymentDate: Date | string
     paymentMethod: $Enums.PaymentMethod
     reference?: string | null
@@ -15141,6 +15181,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     pelangganId?: StringFieldUpdateOperationsInput | string
     amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
     paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
     reference?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15165,6 +15206,7 @@ export namespace Prisma {
     invoiceId?: NullableStringFieldUpdateOperationsInput | string | null
     pelangganId?: StringFieldUpdateOperationsInput | string
     amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
     paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
     reference?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15197,6 +15239,7 @@ export namespace Prisma {
     id: string
     pelangganId: string
     amount: bigint | number
+    discountAmount?: bigint | number
     paymentDate: Date | string
     paymentMethod: $Enums.PaymentMethod
     reference?: string | null
@@ -15273,6 +15316,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     pelangganId?: StringFieldUpdateOperationsInput | string
     amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
     paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
     reference?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15296,6 +15340,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     pelangganId?: StringFieldUpdateOperationsInput | string
     amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
     paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
     reference?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15319,6 +15364,7 @@ export namespace Prisma {
     id?: StringFieldUpdateOperationsInput | string
     pelangganId?: StringFieldUpdateOperationsInput | string
     amount?: BigIntFieldUpdateOperationsInput | bigint | number
+    discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     paymentDate?: DateTimeFieldUpdateOperationsInput | Date | string
     paymentMethod?: EnumPaymentMethodFieldUpdateOperationsInput | $Enums.PaymentMethod
     reference?: NullableStringFieldUpdateOperationsInput | string | null

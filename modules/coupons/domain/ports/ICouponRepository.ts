@@ -43,5 +43,8 @@ export interface ICouponRepository {
     tx?: unknown,
   ): Promise<CouponUsageEntity>;
 
+  /** Catat pemakaian dan naikkan usedCount dalam satu transaksi. */
+  consumeUsage(couponId: string, pelangganId: string): Promise<void>;
+
   delete(id: string): Promise<void>;
 }

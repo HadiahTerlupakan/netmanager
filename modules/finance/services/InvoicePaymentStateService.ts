@@ -111,7 +111,8 @@ function sumActivePayments(invoice: InvoiceWithPayment): bigint {
   return invoice.payment.reduce<bigint>((sum, payment) => {
     const status = payment.gatewayStatus ?? null;
     if (status === null || status === "PAID") {
-      return sum + payment.amount;
+      // Potongan kupon menutup bagian tagihan yang tidak dibayar pelanggan.
+      return sum + payment.amount + (payment.discountAmount ?? 0n);
     }
     return sum;
   }, 0n);

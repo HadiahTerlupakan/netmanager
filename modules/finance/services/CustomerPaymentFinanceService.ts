@@ -1,15 +1,6 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 
-type CustomerPaymentCouponService = {
-  recordUsage(
-    couponId: string,
-    customerId: string,
-    tx: unknown,
-  ): Promise<unknown>;
-  incrementUsage(couponId: string, tx: unknown): Promise<unknown>;
-};
-
 function getPaymentRepository() {
   return new PaymentRepository();
 }
@@ -26,8 +17,6 @@ export function createCustomerPaymentsForInvoices(options: {
   discountAmount: number;
   paymentMethod: string;
   notes?: string | null;
-  couponId?: string | null;
-  couponService?: CustomerPaymentCouponService;
 }) {
   return getPaymentRepository().createCustomerPaymentsForInvoices(options);
 }
