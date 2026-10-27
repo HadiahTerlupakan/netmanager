@@ -61,6 +61,7 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Deskripsi**:
   - [FIXED] Penolakan kupon saat bayar selain "Kupon tidak valid" (kuota habis, kedaluwarsa, minimal belanja) kini dijawab 400 dengan pesannya, bukan 500.
   - [SECURITY] Kupon saat bayar dicari dengan tenantId dari konteks; bila tenant tidak diketahui kupon ditolak 400, seperti `POST /api/customer/coupons/verify`. Sebelumnya `findByCode` tanpa tenant mencari di semua tenant, sehingga kupon ISP lain bisa terpakai.
+  - [FIXED] Bila payment gateway menjawab `success: false` (atau pelanggan tidak ditemukan), rute dulu menjawab "Pembayaran berhasil diproses" dan meninggalkan payment PENDING tanpa URL bayar. Kini payment itu ditandai FAILED dan rute menjawab 502 dengan pesan coba lagi, sama seperti saat gateway melempar error (yang dulu 500). Transfer manual tetap membuat payment PENDING.
 - **Breaking**: ❌ Tidak
 
 ### [2026-10-27] — Tiket dukungan portal pelanggan bisa dipakai lagi

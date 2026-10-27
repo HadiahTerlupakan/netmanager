@@ -9,6 +9,7 @@ const mockFns = vi.hoisted(() => ({
   findPelangganById: vi.fn(),
   createGatewayPayment: vi.fn(),
   updateGatewayMetadata: vi.fn(),
+  markPaymentsAsFailed: vi.fn(),
 }));
 
 vi.mock("@/modules/coupons", () => ({
@@ -30,6 +31,7 @@ vi.mock("@/modules/finance", () => ({
   },
   createCustomerPaymentsForInvoices: mockFns.createPaymentsForInvoices,
   updateCustomerPaymentGatewayMetadata: mockFns.updateGatewayMetadata,
+  markCustomerPaymentsAsFailed: mockFns.markPaymentsAsFailed,
 }));
 
 vi.mock("@/modules/pelanggan/services/CustomerPortalService", () => ({
@@ -172,4 +174,37 @@ describe("CustomerPaymentRouteService", () => {
     expect(mockFns.verifyCoupon).not.toHaveBeenCalled();
     expect(mockFns.createPaymentsForInvoices).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [
+      "menjawab success:false",
+      () =>
+        mockFns.createGatewayPayment.mockResolvedValue({
+          success: false,
+          error: "merchant nonaktif",
+        }),
+    ],
+    [
+      "melempar error",
+      () =>
+        mockFns.createGatewayPayment.mockRejectedValue(new Error("timeout")),
+    ],
+  ])(
+    "gateway yang %s menggagalkan pembayaran PENDING dan menolak permintaan",
+    async (_label, arrangeGateway) => {
+      mockFns.findPelangganById.mockResolvedValue({ id: "cust-1", nama: "Budi" });
+      arrangeGateway();
+
+      await expect(
+        createCustomerPaymentForRoute({
+          customerId: "cust-1",
+          tenantId: "tenant-1",
+          invoiceIds: ["inv-1"],
+          paymentMethod: "QRIS",
+        }),
+      ).rejects.toMatchObject({ status: 502 });
+      expect(mockFns.markPaymentsAsFailed).toHaveBeenCalledWith(["pay-1"]);
+      expect(mockFns.updateGatewayMetadata).not.toHaveBeenCalled();
+    },
+  );
 });

@@ -13,6 +13,8 @@ import {
   apiError,
 } from "@/lib/api-response";
 
+const HTTP_BAD_GATEWAY = 502;
+
 const customerPortalService = new CustomerPortalService();
 
 const customerPaymentSchema = z.object({
@@ -94,9 +96,11 @@ export async function POST(request: NextRequest) {
     logger.error("[Payment Create Error]:", err);
 
     if (isRouteServiceError(err)) {
-      return apiError(err.message, ErrorCodes.VALIDATION_ERROR, {
-        status: err.status,
-      });
+      const code =
+        err.status === HTTP_BAD_GATEWAY
+          ? ErrorCodes.EXTERNAL_SERVICE_ERROR
+          : ErrorCodes.VALIDATION_ERROR;
+      return apiError(err.message, code, { status: err.status });
     }
 
     if (err.message === "Beberapa tagihan tidak valid atau sudah dibayar") {

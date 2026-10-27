@@ -31,6 +31,9 @@ type CustomerPaymentInput = {
 };
 
 const HTTP_BAD_REQUEST = 400;
+const HTTP_BAD_GATEWAY = 502;
+const GATEWAY_FAILED_MESSAGE =
+  "Gagal menghubungi payment gateway. Silakan coba lagi atau gunakan metode pembayaran lain.";
 
 const customerPortalService = new CustomerPortalService();
 const pelangganRepository = new PelangganRepository();
@@ -117,65 +120,71 @@ async function resolveCoupon(input: CustomerPaymentInput, totalAmount: number) {
   };
 }
 
-async function createGatewayPaymentIfNeeded(
-  input: CustomerPaymentInput & {
-    payments: Array<{ id: string; reference?: string | null }>;
-    finalAmount: number;
-  },
-) {
+type GatewayPaymentInput = CustomerPaymentInput & {
+  payments: Array<{ id: string; reference?: string | null }>;
+  finalAmount: number;
+};
+
+async function createGatewayPaymentIfNeeded(input: GatewayPaymentInput) {
   if (isManualPayment(input.paymentMethod) || input.payments.length === 0) {
     return { paymentUrl: null, transactionId: null };
   }
 
+  const paymentIds = input.payments.map((payment) => payment.id);
   try {
-    const customer = await pelangganRepository.findById(input.customerId);
-    if (!customer) {
-      return { paymentUrl: null, transactionId: null };
-    }
-
-    const gatewayManager = new PaymentGatewayManager();
-    const result = (await gatewayManager.createPayment({
-      orderId: input.payments[0].reference || input.payments[0].id,
-      amount: Number(input.finalAmount),
-      customerName: customer.nama,
-      customerEmail: customer.email
-        ? String(customer.email)
-        : "customer@example.com",
-      customerPhone: customer.noTelp ? String(customer.noTelp) : "",
-      description: "Pembayaran Tagihan NetManager",
-      paymentMethods: [input.paymentMethod],
-      tenantId: input.tenantId || undefined,
-    })) as GatewayPaymentResult;
-
-    if (!result.success) {
-      logger.error("[Gateway Payment Error]:", result.error);
-      return { paymentUrl: null, transactionId: null };
-    }
-
-    const paymentUrl = result.paymentUrl || result.qrCodeUrl || null;
-    const transactionId = result.transactionId || null;
-
-    if (transactionId || paymentUrl) {
-      await updateCustomerPaymentGatewayMetadata({
-        paymentIds: input.payments.map((payment) => payment.id),
-        tenantId: input.tenantId,
-        transactionId,
-        paymentUrl,
-        expiresAt: result.expiresAt ?? null,
-        gatewayProvider: result.providerName ?? input.paymentMethod,
-      });
-    }
-
-    return { paymentUrl, transactionId };
+    return await requestGatewayPayment(input, paymentIds);
   } catch (error) {
+    // Payment PENDING tanpa URL tidak bisa dibayar pelanggan namun tetap
+    // tampil sebagai tagihan menunggu; tandai FAILED agar pelanggan bisa
+    // mencoba lagi atau memilih transfer manual.
     logger.error("[Gateway Integration Error]:", error);
-    await markCustomerPaymentsAsFailed(
-      input.payments.map((payment) => payment.id),
-    );
-    throw new Error(
-      "Gagal menghubungi payment gateway. Silakan coba lagi atau gunakan metode pembayaran lain.",
-    );
+    await markCustomerPaymentsAsFailed(paymentIds);
+    throw createRouteServiceError(GATEWAY_FAILED_MESSAGE, HTTP_BAD_GATEWAY);
   }
+}
+
+async function requestGatewayPayment(
+  input: GatewayPaymentInput,
+  paymentIds: string[],
+) {
+  const customer = await pelangganRepository.findById(input.customerId);
+  if (!customer) {
+    throw new Error(`Pelanggan ${input.customerId} tidak ditemukan`);
+  }
+
+  const gatewayManager = new PaymentGatewayManager();
+  const result = (await gatewayManager.createPayment({
+    orderId: input.payments[0].reference || input.payments[0].id,
+    amount: Number(input.finalAmount),
+    customerName: customer.nama,
+    customerEmail: customer.email
+      ? String(customer.email)
+      : "customer@example.com",
+    customerPhone: customer.noTelp ? String(customer.noTelp) : "",
+    description: "Pembayaran Tagihan NetManager",
+    paymentMethods: [input.paymentMethod],
+    tenantId: input.tenantId || undefined,
+  })) as GatewayPaymentResult;
+
+  if (!result.success) {
+    throw new Error(`Payment gateway menolak: ${String(result.error)}`);
+  }
+
+  const paymentUrl = result.paymentUrl || result.qrCodeUrl || null;
+  const transactionId = result.transactionId || null;
+
+  if (transactionId || paymentUrl) {
+    await updateCustomerPaymentGatewayMetadata({
+      paymentIds,
+      tenantId: input.tenantId,
+      transactionId,
+      paymentUrl,
+      expiresAt: result.expiresAt ?? null,
+      gatewayProvider: result.providerName ?? input.paymentMethod,
+    });
+  }
+
+  return { paymentUrl, transactionId };
 }
 
 function isManualPayment(paymentMethod: string) {
