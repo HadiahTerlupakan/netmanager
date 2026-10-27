@@ -15,6 +15,12 @@ const mockFns = vi.hoisted(() => ({
   recomputeInvoice: vi.fn(),
   publish: vi.fn(),
   routedProvider: vi.fn(),
+  replacePending: vi.fn(),
+}));
+
+vi.mock("@/modules/payment-gateway", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/payment-gateway")>()),
+  replacePendingGatewayCheckouts: mockFns.replacePending,
 }));
 
 vi.mock("@/lib/event-bus", () => ({
@@ -74,6 +80,32 @@ describe("CustomerPaymentRouteService", () => {
     mockFns.createPaymentsForInvoices.mockResolvedValue([
       { id: "pay-1", reference: "PAY-1" },
     ]);
+  });
+
+  // Pelanggan yang mengganti metode (VA ke QRIS) membayar lagi invoice yang
+  // checkout lamanya masih menunggu; checkout itu ditutup lebih dulu.
+  it("menutup checkout gateway lama sebelum kupon diverifikasi", async () => {
+    const order: string[] = [];
+    mockFns.replacePending.mockImplementation(async () => {
+      order.push("replace");
+    });
+    mockFns.verifyCoupon.mockImplementation(async () => {
+      order.push("coupon");
+      return { valid: false, error: "x" };
+    });
+
+    await createCustomerPaymentForRoute({
+      customerId: "cust-1",
+      tenantId: "tenant-1",
+      invoiceIds: ["inv-1"],
+      couponCode: "HEMAT",
+      paymentMethod: "SP",
+    }).catch(() => undefined);
+
+    expect(mockFns.replacePending).toHaveBeenCalledWith(
+      expect.objectContaining({ customerId: "cust-1", invoiceIds: ["inv-1"] }),
+    );
+    expect(order).toEqual(["replace", "coupon"]);
   });
 
   it("creates manual customer payments through payment repository", async () => {

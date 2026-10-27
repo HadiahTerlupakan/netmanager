@@ -53,6 +53,7 @@ export type {
 } from "./services/provider-interface";
 
 export { expireStaleGatewayPayments } from "./services/abandoned-checkout";
+export { replacePendingGatewayCheckouts } from "./services/pending-checkout-replacement";
 export {
   findPaymentMethodProvider,
   getCustomerPaymentMethodsByProvider,

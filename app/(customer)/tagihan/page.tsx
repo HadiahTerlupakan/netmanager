@@ -618,6 +618,15 @@ export default function CustomerInvoicesPage() {
                         Lanjutkan ke Halaman Pembayaran
                       </Button>
                     )}
+                    {/* VA yang belum dibayar bisa diganti QRIS dan
+                        sebaliknya; backend menutup checkout lama. */}
+                    <Button
+                      variant="outline"
+                      className="w-full mt-2"
+                      onClick={() => setShowPaymentModal(true)}
+                    >
+                      Ganti Metode Pembayaran
+                    </Button>
                   </div>
                 )}
               </div>

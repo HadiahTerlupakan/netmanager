@@ -2,7 +2,10 @@ import { logger } from "@/lib/logger";
 import { createRouteServiceError } from "@/lib/api/route-service-error";
 import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 import { couponService } from "@/modules/coupons";
-import { findPaymentMethodProvider } from "@/modules/payment-gateway";
+import {
+  findPaymentMethodProvider,
+  replacePendingGatewayCheckouts,
+} from "@/modules/payment-gateway";
 import {
   createCustomerPaymentsForInvoices,
   markCustomerPaymentsAsFailed,
@@ -50,6 +53,9 @@ export async function createCustomerPaymentForRoute(
       input.invoiceIds,
       input.customerId,
     );
+  // Membayar lagi invoice yang masih punya checkout gateway menunggu berarti
+  // ganti metode; checkout lama ditutup sebelum kupon diverifikasi ulang.
+  await replacePendingGatewayCheckouts(input);
   const coupon = await resolveCoupon(input, totalAmount);
   const finalAmount = totalAmount - coupon.discountAmount;
   // Kuota dipesan sebelum payment dibuat: payment yang tertutup penuh oleh

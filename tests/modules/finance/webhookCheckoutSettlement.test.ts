@@ -152,6 +152,23 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
     });
   });
 
+  // Checkout yang ditutup karena pelanggan ganti metode tetap bisa dibayar
+  // lewat VA lamanya (Duitku tidak bisa menutup VA lebih awal).
+  it("PAID untuk checkout yang dibatalkan saat ganti metode tetap melunasi", async () => {
+    const cancelled = { ...PAYMENT, gatewayStatus: "CANCELLED" };
+    prismaMock.payment.findFirst.mockResolvedValue(cancelled);
+    prismaMock.payment.findUnique.mockResolvedValue(cancelled);
+
+    await webhook("PAID");
+
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ gatewayStatus: "PAID" }),
+      }),
+    );
+    expect(mockFns.settleCheckoutInvoices).toHaveBeenCalledWith(CHECKOUT);
+  });
+
   it("nominal dicocokkan dengan total checkout, bukan payment pertama", async () => {
     const result = await webhook("PAID", 60000);
 
