@@ -149,4 +149,27 @@ describe("CustomerPaymentRouteService", () => {
     ).rejects.toMatchObject({ message: "Kuota kupon habis", status: 400 });
     expect(mockFns.createPaymentsForInvoices).not.toHaveBeenCalled();
   });
+
+  it("menolak kupon bila tenant tidak diketahui agar kupon ISP lain tak terpakai", async () => {
+    mockFns.verifyCoupon.mockResolvedValue({
+      valid: true,
+      discountAmount: 10000,
+      couponId: "coupon-tenant-lain",
+    });
+
+    await expect(
+      createCustomerPaymentForRoute({
+        customerId: "cust-1",
+        tenantId: null,
+        invoiceIds: ["inv-1"],
+        couponCode: "HEMAT10",
+        paymentMethod: "MANUAL",
+      }),
+    ).rejects.toMatchObject({
+      message: "Tenant ID tidak ditemukan",
+      status: 400,
+    });
+    expect(mockFns.verifyCoupon).not.toHaveBeenCalled();
+    expect(mockFns.createPaymentsForInvoices).not.toHaveBeenCalled();
+  });
 });

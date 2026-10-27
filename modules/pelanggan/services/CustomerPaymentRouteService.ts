@@ -86,6 +86,15 @@ async function resolveCoupon(input: CustomerPaymentInput, totalAmount: number) {
     return { discountAmount: 0, couponId: null as string | null };
   }
 
+  // `findByCode` tanpa tenantId mencari di semua tenant; sama seperti rute
+  // verifikasi kupon pelanggan, tolak daripada memakai kupon milik ISP lain.
+  if (!input.tenantId) {
+    throw createRouteServiceError(
+      "Tenant ID tidak ditemukan",
+      HTTP_BAD_REQUEST,
+    );
+  }
+
   const verification = await couponService.verifyCoupon(
     input.couponCode,
     totalAmount,
