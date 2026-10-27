@@ -18,6 +18,7 @@ import {
   ODP_TIDAK_VALID_MESSAGE,
   isOdpAssignable,
 } from "./pelanggan-odp.validator";
+import { parseLocalDate } from "./local-date";
 
 export async function validateCreatePelangganInput(
   repository: IPelangganRepository,
@@ -240,11 +241,6 @@ async function validateGlobalIdentifier(value: string, label: string) {
       `CONFLICT: ${label} sudah digunakan sebagai ${globalCheck.role}`,
     );
   }
-}
-
-function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, day);
 }
 
 function trimNullable(value?: string | null) {

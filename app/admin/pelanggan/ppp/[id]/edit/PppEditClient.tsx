@@ -25,6 +25,7 @@ import {
 import { usePppDocumentUploads } from "@/app/admin/pelanggan/ppp/hooks/usePppDocumentUploads";
 import { usePppFormOrchestration } from "@/app/admin/pelanggan/ppp/hooks/usePppFormOrchestration";
 import { usePppIdValidation } from "@/app/admin/pelanggan/ppp/hooks/usePppIdValidation";
+import { toDateInputValue } from "@/app/admin/pelanggan/ppp/shared/date-input";
 
 type HargaPaket = {
   id: string;
@@ -242,14 +243,11 @@ export function PppClientEditForm() {
         passwordLogin: "",
         hargaPaketId: data.hargaPaketId || "",
         tipe: data.tipe || "REGULER",
-        tanggalAktif: data.tanggalAktif
-          ? (new Date(data.tanggalAktif).toISOString().split("T")[0] ?? "")
-          : ((() => {
-              const d = new Date();
-              return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-            })() ?? ""),
+        tanggalAktif: toDateInputValue(
+          data.tanggalAktif ? new Date(data.tanggalAktif) : new Date(),
+        ),
         jatuhTempo: data.jatuhTempo
-          ? (new Date(data.jatuhTempo).toISOString().split("T")[0] ?? "")
+          ? toDateInputValue(new Date(data.jatuhTempo))
           : "",
         status: data.status || "AKTIF",
         autoIsolir: data.autoIsolir ?? true, // Load from DB, default true

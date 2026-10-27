@@ -7,6 +7,7 @@ import type {
   UpdatePppByIdInput,
 } from "./PelangganAdminMutationService";
 import type { UpdatePelangganProfileInput } from "../validators/pelanggan";
+import { parseLocalDate } from "./local-date";
 
 export type NormalizedUpdatePayload = {
   idPelanggan: string;
@@ -85,8 +86,12 @@ const parseEnumValue = <T extends string>(
   );
 };
 
-const toDate = (value: Date | string) =>
-  value instanceof Date ? value : new Date(value);
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+const toDate = (value: Date | string) => {
+  if (value instanceof Date) return value;
+  return DATE_ONLY.test(value) ? parseLocalDate(value) : new Date(value);
+};
 
 /**
  * Password sengaja TIDAK termasuk field wajib saat update.
