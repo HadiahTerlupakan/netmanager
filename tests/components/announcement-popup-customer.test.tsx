@@ -33,7 +33,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function renderPopup(portal: "customer" | "admin") {
+async function renderPopup(portal: "customer" | "employee") {
   const { default: AnnouncementPopup } =
     await import("@/components/announcement/AnnouncementPopup");
   await act(async () => root.render(<AnnouncementPopup portal={portal} />));
@@ -46,10 +46,10 @@ describe("AnnouncementPopup", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/customer/announcements");
   });
 
-  it("portal admin tetap memakai endpoint staf", async () => {
-    await renderPopup("admin");
+  it("portal karyawan tetap memakai endpoint staf", async () => {
+    await renderPopup("employee");
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/announcements?portal=admin&active=true",
+      "/api/announcements?portal=employee&active=true",
     );
   });
 });
