@@ -3,10 +3,12 @@ import type { GatewayPaymentStatus, Prisma } from "@/modules/finance";
 
 import { FinanceRepositoryFacade } from "@/modules/finance";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
-import { saveToOutboxTx } from "@/lib/event-bus/outbox";
-import { EVENT_NAMES, JOB_PRIORITIES } from "@/lib/event-bus";
 import { PaymentGatewayManager } from "./PaymentGatewayService";
-import { WebhookInvoiceSettlementService } from "./webhook-invoice-settlement-service";
+import {
+  findCheckoutPayments,
+  settleCheckoutInvoices,
+  sumCheckoutAmount,
+} from "./webhook-checkout-settlement";
 import { WebhookPaymentLookupService } from "./webhook-payment-lookup-service";
 import {
   WebhookPayloadParser,
@@ -20,7 +22,6 @@ import { WebhookIdempotencyService } from "./WebhookIdempotencyService";
 import { getPaymentGatewayMetrics } from "./PaymentGatewayMetrics";
 import type { WebhookResult } from "./provider-interface";
 import {
-  extractInvoiceIdsFromNotes,
   hasAmountMismatch,
   normalizePaymentMethod,
   hasTransactionMismatch,
@@ -28,9 +29,6 @@ import {
 
 type PaymentRepository = ReturnType<
   typeof FinanceRepositoryFacade.createPaymentRepository
->;
-type InvoiceRepository = ReturnType<
-  typeof FinanceRepositoryFacade.createInvoiceRepository
 >;
 type UnmatchedMutationRepository = ReturnType<
   typeof FinanceRepositoryFacade.createUnmatchedMutationRepository
@@ -61,8 +59,6 @@ const GATEWAY_STATUS_MAP: Record<
 
 export class WebhookProcessingService {
   private readonly gatewayManager: PaymentGatewayManager;
-  private readonly invoiceRepository: InvoiceRepository;
-  private readonly invoiceSettlementService: WebhookInvoiceSettlementService;
   private readonly paymentLookupService: WebhookPaymentLookupService;
   private readonly payloadParser: WebhookPayloadParser;
   private readonly verificationService: WebhookVerificationService;
@@ -72,9 +68,7 @@ export class WebhookProcessingService {
   constructor(dependencies?: {
     gatewayManager?: PaymentGatewayManager;
     paymentRepository?: PaymentRepository;
-    invoiceRepository?: InvoiceRepository;
     unmatchedMutationRepository?: UnmatchedMutationRepository;
-    invoiceSettlementService?: WebhookInvoiceSettlementService;
     paymentLookupService?: WebhookPaymentLookupService;
     payloadParser?: WebhookPayloadParser;
     verificationService?: WebhookVerificationService;
@@ -82,12 +76,6 @@ export class WebhookProcessingService {
   }) {
     this.gatewayManager =
       dependencies?.gatewayManager ?? new PaymentGatewayManager();
-    this.invoiceRepository =
-      dependencies?.invoiceRepository ??
-      FinanceRepositoryFacade.createInvoiceRepository();
-    this.invoiceSettlementService =
-      dependencies?.invoiceSettlementService ??
-      new WebhookInvoiceSettlementService(this.invoiceRepository);
     this.paymentLookupService =
       dependencies?.paymentLookupService ??
       new WebhookPaymentLookupService(
@@ -159,10 +147,13 @@ export class WebhookProcessingService {
         GATEWAY_STATUS_MAP[webhookResult.status] ?? "FAILED";
 
       // Step 5: Check idempotency
+      // Status ikut di kunci: notifikasi pending lalu settlement untuk
+      // transaksi yang sama adalah dua kejadian berbeda.
       const idempotencyKey = this.idempotencyService.generateIdempotencyKey(
         provider,
         webhookResult.transactionId,
         webhookResult.orderId,
+        webhookResult.status,
       );
 
       const existingEvent =
@@ -198,14 +189,17 @@ export class WebhookProcessingService {
         });
       }
 
+      const checkout = payment ? await findCheckoutPayments(payment.id) : [];
+      const chargedAmount = sumCheckoutAmount(checkout);
+
       // Step 8: Validate amount
-      if (payment && hasAmountMismatch(payment.amount, webhookResult.amount)) {
+      if (payment && hasAmountMismatch(chargedAmount, webhookResult.amount)) {
         logger.warn(
-          `[Webhook] Amount mismatch for payment ${payment.id}: expected ${payment.amount}, received ${webhookResult.amount}`,
+          `[Webhook] Amount mismatch for payment ${payment.id}: expected ${chargedAmount}, received ${webhookResult.amount}`,
         );
         await this.idempotencyService.markAsFailed(
           webhookEventId,
-          `Amount mismatch: expected ${payment.amount}, received ${webhookResult.amount}`,
+          `Amount mismatch: expected ${chargedAmount}, received ${webhookResult.amount}`,
         );
         this.metrics.recordWebhookFailed(provider, "Amount mismatch");
         return {
@@ -234,8 +228,10 @@ export class WebhookProcessingService {
         };
       }
 
-      // Step 10: Check if already processed
+      // Step 10: Check if already processed. Invoice tetap dihitung ulang:
+      // proses yang mati setelah commit dipulihkan oleh retry gateway.
       if (payment.gatewayStatus === "PAID") {
+        await settleCheckoutInvoices(checkout);
         await this.idempotencyService.markAsProcessed(webhookEventId);
         this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);
         return {
@@ -244,17 +240,15 @@ export class WebhookProcessingService {
         };
       }
 
-      // Step 11 & 12: Update payment + invoice + emit outbox secara atomik dalam satu tx.
-      // Ini memastikan: kalau tx commit → event PASTI masuk outbox → processor dispatch
-      // dengan retry. Kalau tx rollback → outbox insert juga rollback (durability Phase 4).
-      await prismaBillingAuth.$transaction(async (tx) => {
+      // Step 11: Update semua payment checkout dan tandai event dalam satu tx.
+      const paid = await prismaBillingAuth.$transaction(async (tx) => {
         // Re-check idempotency di dalam tx untuk mencegah race condition
         const currentPayment = await tx.payment.findUnique({
           where: { id: payment.id },
         });
 
         if (currentPayment?.gatewayStatus === "PAID") {
-          return;
+          return false;
         }
 
         if (
@@ -263,16 +257,11 @@ export class WebhookProcessingService {
             webhookResult.transactionId,
           )
         ) {
-          return;
+          return false;
         }
 
-        // Update payment status
-        const paymentUpdate: Prisma.PaymentUpdateInput = {
+        const paymentUpdate: Prisma.PaymentUpdateManyMutationInput = {
           gatewayStatus,
-          transactionId:
-            webhookResult.transactionId ||
-            currentPayment?.transactionId ||
-            null,
           gatewayProvider: provider,
         };
 
@@ -287,73 +276,34 @@ export class WebhookProcessingService {
           paymentUpdate.paymentDate = webhookResult.paidAt;
         }
 
-        await tx.payment.update({
-          where: { id: payment.id },
+        await tx.payment.updateMany({
+          where: {
+            id: { in: checkout.map((p) => p.id) },
+            gatewayStatus: { not: "PAID" },
+          },
           data: paymentUpdate,
         });
-
-        if (gatewayStatus !== "PAID") {
-          return;
-        }
-
-        // Update invoice status dalam tx yang sama
-        await this.invoiceSettlementService.updateInvoicesOnPaymentTx(
-          tx,
-          payment.id,
-          payment.notes,
-        );
-
-        // Emit INVOICE_PAID ke outbox secara atomik dalam tx yang sama.
-        // Kalau tx commit → event PASTI masuk outbox → processor dispatch dengan retry.
-        // Kalau tx rollback → outbox insert juga rollback.
-        const invoiceIds = extractInvoiceIdsFromNotes(payment.notes);
-        const targetIds =
-          invoiceIds.length > 0
-            ? invoiceIds
-            : payment.invoiceId
-              ? [payment.invoiceId]
-              : [];
-
-        for (const invId of targetIds) {
-          const invoice = await tx.invoice.findUnique({
-            where: { id: invId },
-            select: {
-              id: true,
-              pelangganId: true,
-              totalAmount: true,
-              status: true,
-              tenantId: true,
-            },
-          });
-          if (invoice?.status !== "PAID") continue;
-
-          await saveToOutboxTx(tx, {
-            eventName: EVENT_NAMES.INVOICE_PAID,
-            payload: {
-              invoiceId: invoice.id,
-              pelangganId: invoice.pelangganId,
-              amount: Number(invoice.totalAmount),
-              paidAt: (webhookResult.paidAt ?? new Date()).toISOString(),
-              paymentMethod: webhookResult.paymentMethod,
-              tenantId: invoice.tenantId ?? undefined,
-            },
-            priority: JOB_PRIORITIES.CRITICAL,
-            category: "billing",
-            aggregateId: invoice.id,
-            aggregateType: "Invoice",
+        if (webhookResult.transactionId) {
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: { transactionId: webhookResult.transactionId },
           });
         }
 
-        // markAsProcessed di DALAM transaction supaya atomic — kalau crash
-        // setelah outbox insert tapi sebelum mark, gateway retry tidak
-        // double-emit INVOICE_PAID.
         if (webhookEventId) {
           await tx.webhookEvent.update({
             where: { id: webhookEventId },
             data: { status: "PROCESSED", processedAt: new Date() },
           });
         }
+        return gatewayStatus === "PAID";
       });
+
+      // Step 12: Lunasi invoice setelah commit. Invoice ada di database billing,
+      // event bus di database utama: keduanya tidak bisa satu transaksi.
+      if (paid) {
+        await settleCheckoutInvoices(checkout);
+      }
 
       this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);
 

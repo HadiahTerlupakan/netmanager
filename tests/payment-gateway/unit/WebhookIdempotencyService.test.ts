@@ -149,6 +149,34 @@ describe("WebhookIdempotencyService", () => {
     });
   });
 
+  // idempotencyKey unik: retry gateway setelah kegagalan dulu membuat baris
+  // baru yang ditolak constraint, jadi webhook itu gagal 500 selamanya.
+  it("retry memakai baris event yang sudah ada, bukan membuat baru", async () => {
+    const existing = {
+      id: "event-lama",
+      idempotencyKey: "TRIPAY:tx-1:PAID",
+      status: "FAILED",
+    };
+    vi.mocked(mockRepository.findByIdempotencyKey).mockResolvedValue(
+      existing as never,
+    );
+
+    const event = await service.recordWebhookEvent({
+      idempotencyKey: "TRIPAY:tx-1:PAID",
+      provider: "TRIPAY",
+      payload: {},
+    });
+
+    expect(event.id).toBe("event-lama");
+    expect(mockRepository.save).not.toHaveBeenCalled();
+  });
+
+  it("status ikut di kunci supaya pending lalu settlement tidak bertabrakan", () => {
+    expect(
+      service.generateIdempotencyKey("MIDTRANS", "tx-1", null, "PAID"),
+    ).toBe("MIDTRANS:tx-1:PAID");
+  });
+
   describe("markAsProcessed", () => {
     it("should mark event as processed", async () => {
       await service.markAsProcessed("evt-1");

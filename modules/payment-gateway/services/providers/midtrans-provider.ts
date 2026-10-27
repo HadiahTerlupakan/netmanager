@@ -67,7 +67,9 @@ export class MidtransProvider implements PaymentProvider {
       return {
         success: true,
         paymentUrl: transaction.redirect_url,
-        transactionId: transaction.token,
+        // Tanpa transactionId: token Snap bukan transaction_id yang dikirim
+        // webhook Midtrans, dan menyimpannya membuat settlement ditolak
+        // sebagai transaksi lain.
         expiresAt: new Date(
           Date.now() + (params.expiryHours || 24) * 60 * 60 * 1000,
         ),

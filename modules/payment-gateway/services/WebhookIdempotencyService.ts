@@ -23,6 +23,7 @@ export class WebhookIdempotencyService {
     provider: ProviderType,
     transactionId?: string | null,
     orderId?: string | null,
+    status?: string | null,
   ): string {
     const identifier = transactionId || orderId;
     if (!identifier) {
@@ -30,7 +31,9 @@ export class WebhookIdempotencyService {
         `Cannot generate idempotency key for ${provider}: no transactionId or orderId provided`,
       );
     }
-    return `${provider}:${identifier}`;
+    return status
+      ? `${provider}:${identifier}:${status}`
+      : `${provider}:${identifier}`;
   }
 
   /**
@@ -62,6 +65,15 @@ export class WebhookIdempotencyService {
     transactionId?: string | null;
     tenantId?: string | null;
   }): Promise<WebhookEvent> {
+    // idempotencyKey unik: retry gateway setelah kegagalan memakai baris yang
+    // sama, bukan membuat baris baru yang ditolak constraint selamanya.
+    const existing = await this.webhookEventRepository.findByIdempotencyKey(
+      params.idempotencyKey,
+    );
+    if (existing) {
+      return existing;
+    }
+
     const event: WebhookEvent = {
       id: uuidv4(),
       idempotencyKey: params.idempotencyKey,

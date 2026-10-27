@@ -26,25 +26,6 @@ export function parseWebhookPayload(rawBody: string, providerType: string) {
   }
 }
 
-/** Ekstrak invoice IDs dari metadata notes payment. */
-export function extractInvoiceIdsFromNotes(notes: string | null): string[] {
-  if (!notes) {
-    return [];
-  }
-
-  try {
-    const metadata = JSON.parse(notes);
-    if (!hasInvoiceIds(metadata)) {
-      return [];
-    }
-
-    return metadata.invoiceIds.filter(isNonEmptyString);
-  } catch (error) {
-    logger.warn("[Webhook] Failed to parse payment notes metadata:", error);
-    return [];
-  }
-}
-
 /** Normalize nama metode pembayaran gateway ke enum billing. */
 export function normalizePaymentMethod(paymentMethod: string | undefined) {
   if (!paymentMethod) {
@@ -115,19 +96,6 @@ function parseFormPayload(rawBody: string, providerType: string) {
     );
     return null;
   }
-}
-
-function hasInvoiceIds(value: unknown): value is { invoiceIds: unknown[] } {
-  return Boolean(
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    Array.isArray((value as { invoiceIds?: unknown }).invoiceIds),
-  );
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
 }
 
 export type GatewayStatusMap = Record<WebhookResult["status"], string>;

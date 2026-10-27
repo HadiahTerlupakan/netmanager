@@ -43,6 +43,23 @@ vi.mock(
   }),
 );
 
+vi.mock(
+  "@/modules/payment-gateway/services/webhook-checkout-settlement",
+  () => ({
+    findCheckoutPayments: async (id: string) => [
+      {
+        id,
+        amount: BigInt(100000),
+        invoiceId: "inv-1",
+        tenantId: null as string | null,
+      },
+    ],
+    sumCheckoutAmount: (payments: Array<{ amount: bigint }>) =>
+      payments.reduce((sum, p) => sum + p.amount, 0n),
+    settleCheckoutInvoices: vi.fn(),
+  }),
+);
+
 vi.mock("@/modules/payment-gateway/services/PaymentGatewayMetrics", () => ({
   getPaymentGatewayMetrics: () => ({
     recordWebhookReceived: vi.fn(),
@@ -251,12 +268,11 @@ describe("payment gateway hardening", () => {
       tenantId: "tenant-a",
     });
 
-    expect(prismaMock.payment.update).toHaveBeenCalledWith({
-      where: { id: "pay-1" },
-      data: expect.objectContaining({
-        transactionId: "tx-stored",
-      }),
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["pay-1"] }, gatewayStatus: { not: "PAID" } },
+      data: expect.not.objectContaining({ transactionId: expect.anything() }),
     });
+    expect(prismaMock.payment.update).not.toHaveBeenCalled();
   });
 
   it("does not auto-match Moota webhook by amount only", async () => {
@@ -397,13 +413,16 @@ describe("payment gateway hardening", () => {
     expect(prismaMock.payment.findFirst).toHaveBeenCalledWith({
       where: { reference: "INV-1" },
     });
-    expect(prismaMock.payment.update).toHaveBeenCalledWith({
-      where: { id: "pay-foreign" },
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["pay-foreign"] }, gatewayStatus: { not: "PAID" } },
       data: expect.objectContaining({
         gatewayStatus: "PAID",
-        transactionId: "tx-foreign",
         gatewayProvider: "TRIPAY",
       }),
+    });
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { id: "pay-foreign" },
+      data: { transactionId: "tx-foreign" },
     });
   });
 });
