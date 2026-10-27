@@ -7,6 +7,7 @@ import {
 } from "@/lib/security/login-rate-limit";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
+import { canUseCustomerPortal } from "@/lib/customer-portal-access";
 
 interface LoginResult {
   success: boolean;
@@ -109,7 +110,7 @@ export class CustomerAuthService {
     }
 
     // Check status
-    if (pelanggan.status !== "AKTIF") {
+    if (!canUseCustomerPortal(pelanggan.status)) {
       return {
         success: false,
         error: "Akun tidak aktif",

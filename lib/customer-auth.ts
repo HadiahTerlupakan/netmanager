@@ -26,6 +26,7 @@ import {
   generatePelangganAccessToken,
 } from "./jwt";
 import { prisma } from "./prisma";
+import { canUseCustomerPortal } from "./customer-portal-access";
 
 // Cookie names
 export const CUSTOMER_ACCESS_TOKEN_COOKIE = "customer-token";
@@ -130,7 +131,7 @@ export async function requireCustomerPageAuth(): Promise<CustomerSession> {
     redirect("/login");
   }
 
-  if (session.status !== "AKTIF") {
+  if (!canUseCustomerPortal(session.status)) {
     redirect("/login?reason=inactive");
   }
 
@@ -165,8 +166,8 @@ export async function requireCustomerAuth(request: NextRequest): Promise<
     };
   }
 
-  // Check if customer is still active
-  if (session.status !== "AKTIF") {
+  // Pelanggan dismantle tidak lagi punya akses portal
+  if (!canUseCustomerPortal(session.status)) {
     return {
       response: NextResponse.json(
         {
@@ -251,7 +252,7 @@ export async function refreshCustomerToken(request: NextRequest): Promise<{
       },
     });
 
-    if (!pelanggan || pelanggan.status !== "AKTIF") {
+    if (!pelanggan || !canUseCustomerPortal(pelanggan.status)) {
       return null;
     }
 

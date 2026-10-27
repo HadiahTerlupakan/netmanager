@@ -15,6 +15,7 @@ import {
   buildVersionUpdate,
   MobileAuthVersionService,
 } from "./MobileAuthVersionService";
+import { canUseCustomerPortal } from "@/lib/customer-portal-access";
 
 const CUSTOMER_ROLE = "CUSTOMER";
 
@@ -56,6 +57,14 @@ export class MobileCustomerAuthService {
         status: 401,
       };
     }
+    if (!canUseCustomerPortal(customer.status)) {
+      return {
+        found: true,
+        success: false,
+        error: "Akun tidak aktif",
+        status: 403,
+      };
+    }
 
     const unsupportedResponse =
       await this.versionService.buildUnsupportedVersionResponse(
@@ -76,7 +85,7 @@ export class MobileCustomerAuthService {
     if (!verified.valid) return null;
 
     const customer = await findCustomerForRefresh(verified.id);
-    if (!customer || customer.status !== "AKTIF") return null;
+    if (!customer || !canUseCustomerPortal(customer.status)) return null;
     return this.buildCustomerRefreshResult(verified, customer);
   }
 

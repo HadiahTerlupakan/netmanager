@@ -4,6 +4,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaMitraAuth } from "@/lib/prisma-mitra";
 import { evaluateMobileVersion } from "@/modules/app-version";
+import { canUseCustomerPortal } from "./customer-portal-access";
 
 /** Hasil evaluasi versi native mobile.
  * OTA (JS bundle) di-handle oleh expo-updates di sisi mobile; server hanya
@@ -325,7 +326,10 @@ async function verifyCustomerToken(
 
   const customerTokenVersion = customer.tokenVersion ?? 0;
   const tokenVersion = (payload.tokenVersion as number) ?? 0;
-  if (customer.status !== "AKTIF" || customerTokenVersion > tokenVersion) {
+  if (
+    !canUseCustomerPortal(customer.status) ||
+    customerTokenVersion > tokenVersion
+  ) {
     return null;
   }
 

@@ -36,7 +36,7 @@ const activeSession: CustomerSession = {
 
 const inactiveSession: CustomerSession = {
   ...activeSession,
-  status: "NONAKTIF",
+  status: "DISMANTLE",
 };
 
 describe("customer page auth", () => {
@@ -87,7 +87,7 @@ describe("customer page auth", () => {
     expect(mockFns.redirect).toHaveBeenCalledWith("/login");
   });
 
-  it("redirects inactive customers to login with inactive reason", async () => {
+  it("redirects dismantled customers to login with inactive reason", async () => {
     mockFns.cookies.mockResolvedValue({
       get: vi.fn().mockReturnValue({ value: "inactive-token" }),
     });
@@ -101,6 +101,26 @@ describe("customer page auth", () => {
     );
     expect(mockFns.redirect).toHaveBeenCalledWith("/login?reason=inactive");
   });
+
+  // Pelanggan isolir/nonaktif harus bisa masuk untuk melihat dan membayar
+  // tagihannya; dulu semua selain AKTIF dikembalikan ke /login.
+  it.each(["ISOLIR", "NONAKTIF"])(
+    "membuka portal untuk pelanggan %s",
+    async (status) => {
+      mockFns.cookies.mockResolvedValue({
+        get: vi.fn().mockReturnValue({ value: "token" }),
+      });
+      mockFns.verifyPelangganAccessToken.mockReturnValue({
+        ...activeSession,
+        status,
+      });
+
+      const session = await requireCustomerPageAuth();
+
+      expect(session.status).toBe(status);
+      expect(mockFns.redirect).not.toHaveBeenCalled();
+    },
+  );
 
   it("returns the active session for authenticated customers", async () => {
     mockFns.cookies.mockResolvedValue({

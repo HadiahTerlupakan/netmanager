@@ -15,6 +15,7 @@ import jwt from "jsonwebtoken";
  * seperti `MobileCustomerAuthService` yang memang sudah memakai `prismaAuth`.
  */
 import { prismaAuth as prisma } from "./prisma";
+import { canUseCustomerPortal } from "./customer-portal-access";
 
 interface PelangganJWTPayload {
   id: string;
@@ -183,7 +184,7 @@ export async function verifyPelangganRefreshToken(token: string): Promise<{
       select: { tokenVersion: true, status: true },
     });
 
-    if (!pelanggan || pelanggan.status !== "AKTIF") {
+    if (!pelanggan || !canUseCustomerPortal(pelanggan.status)) {
       return { id: "", valid: false };
     }
 
