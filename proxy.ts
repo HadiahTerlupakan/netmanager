@@ -3,6 +3,11 @@ import type { NextRequest } from "next/server";
 import { handleCors, addCorsHeaders } from "./lib/middleware/cors";
 import { getToken, type JWT } from "next-auth/jwt";
 import { isSuperAdmin } from "./lib/auth";
+import {
+  persistCustomerAccessToken,
+  refreshCustomerAccessToken,
+  withCustomerAccessToken,
+} from "./lib/customer-session-refresh";
 
 const FIREBASE_RTDB_HOST_PATTERN =
   "https://*.asia-southeast1.firebasedatabase.app";
@@ -21,6 +26,23 @@ const CONTENT_SECURITY_POLICY = [
 ].join("; ");
 
 export async function proxy(request: NextRequest) {
+  const hostname = request.headers.get("host") || "";
+  const isCustomerPortal =
+    hostname.startsWith("pelanggan.") ||
+    hostname.startsWith("pelanggan-staging.");
+  const refreshedToken = isCustomerPortal
+    ? await refreshCustomerAccessToken(request)
+    : null;
+  if (!refreshedToken) return handleRequest(request);
+
+  const response = await handleRequest(
+    withCustomerAccessToken(request, refreshedToken),
+  );
+  await persistCustomerAccessToken(response, refreshedToken);
+  return response;
+}
+
+async function handleRequest(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get("host") || "";
   const pathname = url.pathname;
