@@ -83,6 +83,21 @@ describe("CustomerPaymentRouteService", () => {
     });
   });
 
+  it("couponCode null diperlakukan sebagai tanpa kupon", async () => {
+    await createCustomerPaymentForRoute({
+      customerId: "cust-1",
+      tenantId: "tenant-1",
+      invoiceIds: ["inv-1"],
+      couponCode: null,
+      paymentMethod: "MANUAL",
+    });
+
+    expect(mockFns.verifyCoupon).not.toHaveBeenCalled();
+    expect(mockFns.createPaymentsForInvoices).toHaveBeenCalledWith(
+      expect.objectContaining({ discountAmount: 0, couponId: null }),
+    );
+  });
+
   it("creates gateway payment and stores gateway metadata", async () => {
     mockFns.findPelangganById.mockResolvedValue({
       id: "cust-1",

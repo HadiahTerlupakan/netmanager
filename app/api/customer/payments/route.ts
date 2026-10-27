@@ -21,7 +21,14 @@ const customerPaymentSchema = z.object({
     )
     .min(1, "Pilih minimal satu tagihan untuk dibayar"),
   paymentMethod: z.string().min(1, "Metode pembayaran wajib diisi").optional(),
-  couponCode: z.string().optional(),
+  // Portal web dan aplikasi mobile mengirim `null` atau "" saat tanpa kupon;
+  // zod 4 menolak `null` pada `.optional()`, sehingga setiap pembayaran tanpa
+  // kupon dulu gagal 400. Semua bentuk kosong diseragamkan jadi `undefined`.
+  couponCode: z
+    .string()
+    .trim()
+    .nullish()
+    .transform((code) => code || undefined),
   notes: z.string().max(500, "Catatan maksimal 500 karakter").optional(),
 });
 

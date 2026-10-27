@@ -162,6 +162,53 @@ describe("customer payments route", () => {
     );
   });
 
+  it.each([
+    ["null", { couponCode: null }],
+    ["string kosong", { couponCode: "  " }],
+    ["tanpa field", {}],
+  ])(
+    "menerima pembayaran tanpa kupon (couponCode %s) dan meneruskannya sebagai absen",
+    async (_label, couponField) => {
+      const request = new NextRequest(
+        "http://localhost/api/customer/payments",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            invoiceIds: ["invoice-1"],
+            paymentMethod: "MANUAL_bank-1",
+            ...couponField,
+          }),
+          headers: { "content-type": "application/json" },
+        },
+      );
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      const input = mockFns.createCustomerPaymentForRoute.mock.calls[0][0];
+      expect(input.couponCode).toBeUndefined();
+    },
+  );
+
+  it("meneruskan kode kupon yang diisi apa adanya", async () => {
+    const request = new NextRequest("http://localhost/api/customer/payments", {
+      method: "POST",
+      body: JSON.stringify({
+        invoiceIds: ["invoice-1"],
+        paymentMethod: "MANUAL_bank-1",
+        couponCode: "HEMAT10",
+      }),
+      headers: { "content-type": "application/json" },
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(mockFns.createCustomerPaymentForRoute).toHaveBeenCalledWith(
+      expect.objectContaining({ couponCode: "HEMAT10" }),
+    );
+  });
+
   it("stores gateway metadata without any cast when gateway payment succeeds", async () => {
     const request = new NextRequest("http://localhost/api/customer/payments", {
       method: "POST",
