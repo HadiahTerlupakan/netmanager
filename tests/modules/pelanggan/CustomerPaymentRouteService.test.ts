@@ -100,7 +100,7 @@ describe("CustomerPaymentRouteService", () => {
       invoiceIds: ["inv-1"],
       couponCode: "HEMAT",
       paymentMethod: "SP",
-    }).catch(() => undefined);
+    }).catch((): undefined => undefined);
 
     expect(mockFns.replacePending).toHaveBeenCalledWith(
       expect.objectContaining({ customerId: "cust-1", invoiceIds: ["inv-1"] }),
