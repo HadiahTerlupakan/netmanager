@@ -1,44 +1,31 @@
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { SupportTicketService } from "@/modules/pelanggan";
 import { NextRequest } from "next/server";
+import { requireCustomerAuth } from "@/lib/customer-auth";
+import { SupportTicketService } from "@/modules/pelanggan";
+import {
+  customerTicketErrorResponse,
+  customerTicketSuccess,
+  type TicketRouteParams,
+} from "../route-helpers";
 
 const ticketService = new SupportTicketService();
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
-
 /**
  * GET /api/customer/tickets/[id]
- * Get ticket detail with replies
+ * Detail tiket beserta balasan; tiket pelanggan lain dijawab 404.
  */
-export async function GET(request: NextRequest, routeContext: RouteParams) {
-  const handler = createHandler(
-    { auth: true, permissions: ["tickets:read"] },
-    async (_req, ctx) => {
-      const session = ctx.session!;
-      const { id } = await routeContext.params;
+export async function GET(request: NextRequest, { params }: TicketRouteParams) {
+  const auth = await requireCustomerAuth(request);
+  if (auth.response) return auth.response;
 
-      try {
-        const ticket = await ticketService.getCustomerTicketDetail(
-          session.user.id,
-          id,
-        );
-        return apiSuccess({ ticket });
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Gagal mengambil detail tiket";
+  const { id } = await params;
 
-        if (message === "Tiket tidak ditemukan") {
-          return ApiErrors.notFound(message);
-        }
-
-        throw error;
-      }
-    },
-  );
-
-  return handler(request, routeContext);
+  try {
+    const ticket = await ticketService.getCustomerTicketDetail(
+      auth.session.id,
+      id,
+    );
+    return customerTicketSuccess({ ticket });
+  } catch (error) {
+    return customerTicketErrorResponse(error, "GET detail");
+  }
 }

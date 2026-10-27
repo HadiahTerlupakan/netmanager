@@ -19,7 +19,6 @@ import { formatNomorTiket } from "../utils/daily-document-number";
 /** Service for customer support ticket business logic. */
 const CLOSED_TICKET_MESSAGE = "Tiket sudah ditutup";
 const TICKET_NOT_FOUND_MESSAGE = "Tiket tidak ditemukan";
-const TICKET_FORBIDDEN_MESSAGE = "Anda tidak memiliki akses ke tiket ini";
 const EMPTY_REPLY_MESSAGE = "Pesan atau lampiran tidak boleh kosong";
 const CLOSED_REPLY_MESSAGE = "Tiket sudah ditutup dan tidak dapat dibalas";
 const CLOSE_SUCCESS_MESSAGE =
@@ -123,8 +122,9 @@ export class SupportTicketService {
     ticketId: string,
     input: { feedback?: string; rating?: number },
   ) {
-    const ticket = await this.requireOwnedTicket(ticketId);
-    this.ensureTicketOwnership(ticket.pelangganId, customerId);
+    // Lookup dibatasi pemilik agar tiket pelanggan lain tampak tidak ada (404),
+    // bukan 403 yang membocorkan bahwa id tiket itu valid.
+    const ticket = await this.requireCustomerTicket(customerId, ticketId);
     this.ensureTicketClosable(ticket.status);
     await this.repository.updateCustomerStatus(
       ticketId,
@@ -191,28 +191,6 @@ export class SupportTicketService {
     }
 
     throw new Error(TICKET_NOT_FOUND_MESSAGE);
-  }
-
-  /** Require a ticket by id for ownership checks. */
-  private async requireOwnedTicket(ticketId: string) {
-    const ticket = await this.repository.findByIdBasic(ticketId);
-    if (ticket) {
-      return ticket;
-    }
-
-    throw new Error(TICKET_NOT_FOUND_MESSAGE);
-  }
-
-  /** Ensure customer owns the ticket. */
-  private ensureTicketOwnership(
-    ticketCustomerId?: string,
-    customerId?: string,
-  ) {
-    if (ticketCustomerId === customerId) {
-      return;
-    }
-
-    throw new Error(TICKET_FORBIDDEN_MESSAGE);
   }
 
   /** Ensure ticket can still receive replies. */

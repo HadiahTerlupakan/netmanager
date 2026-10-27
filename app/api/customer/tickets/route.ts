@@ -1,7 +1,13 @@
-import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { SupportTicketService } from "@/modules/pelanggan";
-import { parsePaginationParams } from "@/lib/constants/pagination";
+import { NextRequest } from "next/server";
 import { z } from "zod";
+import { requireCustomerAuth } from "@/lib/customer-auth";
+import { parsePaginationParams } from "@/lib/constants/pagination";
+import { SupportTicketService } from "@/modules/pelanggan";
+import {
+  customerTicketErrorResponse,
+  customerTicketSuccess,
+  parseCustomerTicketBody,
+} from "./route-helpers";
 
 const ticketService = new SupportTicketService();
 
@@ -14,69 +20,47 @@ const createTicketSchema = z.object({
 
 /**
  * GET /api/customer/tickets
- * Get customer's support tickets
+ * Daftar tiket milik pelanggan yang sedang login (sesi JWT portal).
  */
-export const GET = createHandler(
-  { auth: true, permissions: ["tickets:read"] },
-  async (req, ctx) => {
-    const session = ctx.session!;
-    const { searchParams } = req.nextUrl;
+export async function GET(request: NextRequest) {
+  const auth = await requireCustomerAuth(request);
+  if (auth.response) return auth.response;
 
-    const { page, limit } = parsePaginationParams(searchParams);
-    const status = searchParams.get("status") || undefined;
+  const { searchParams } = request.nextUrl;
+  const { page, limit } = parsePaginationParams(searchParams);
+  const status = searchParams.get("status") || undefined;
 
+  try {
     const result = await ticketService.getCustomerTickets(
-      session.user.id,
+      auth.session.id,
       page,
       limit,
       status,
     );
-
-    return apiSuccess(result);
-  },
-);
+    return customerTicketSuccess(result);
+  } catch (error) {
+    return customerTicketErrorResponse(error, "GET list");
+  }
+}
 
 /**
  * POST /api/customer/tickets
- * Create new support ticket
+ * Buat tiket baru atas nama pelanggan dari sesi.
  */
-export const POST = createHandler(
-  {
-    auth: true,
-    permissions: ["tickets:create"],
-    schema: createTicketSchema,
-  },
-  async (_req, ctx) => {
-    const session = ctx.session!;
-    const body = ctx.validated;
+export async function POST(request: NextRequest) {
+  const auth = await requireCustomerAuth(request);
+  if (auth.response) return auth.response;
 
-    try {
-      const ticket = await ticketService.createTicket(session.user.id, {
-        category: body.category,
-        subject: body.subject,
-        description: body.description,
-        priority: body.priority,
-      });
+  const body = await parseCustomerTicketBody(request, createTicketSchema);
+  if (body.response) return body.response;
 
-      return apiSuccess(
-        { ticket },
-        { status: 201, message: "Tiket berhasil dibuat" },
-      );
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Gagal membuat tiket";
-
-      // Map validation errors to 400
-      const validationErrors = [
-        "Kategori, subjek, dan deskripsi wajib diisi",
-        "Kategori tidak valid",
-      ];
-
-      if (validationErrors.includes(message)) {
-        return ApiErrors.badRequest(message);
-      }
-
-      throw error; // Let createHandler handle general errors
-    }
-  },
-);
+  try {
+    const ticket = await ticketService.createTicket(auth.session.id, body.data);
+    return customerTicketSuccess(
+      { message: "Tiket berhasil dibuat", ticket },
+      201,
+    );
+  } catch (error) {
+    return customerTicketErrorResponse(error, "POST create");
+  }
+}
