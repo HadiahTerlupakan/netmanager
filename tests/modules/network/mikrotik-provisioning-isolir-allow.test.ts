@@ -151,6 +151,8 @@ describe("walled garden pelanggan isolir", () => {
     expect(accept).toMatchObject({
       chain: "forward",
       action: "accept",
+      protocol: "tcp",
+      "dst-port": "80,443",
       "src-address": "10.127.0.0/18",
       "dst-address-list": LIST,
     });

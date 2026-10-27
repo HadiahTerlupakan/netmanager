@@ -29,10 +29,13 @@ export const FILTER_RULES = [
   {
     comment: "netmanager-isolir-allow",
     // Di router lama rule ini ditambahkan paling atas, tetap di atas rule
-    // reject isolir di bawah.
+    // reject isolir di bawah. Hanya web: IP portal adalah host bersama yang
+    // juga melayani port lain. DNS sudah lolos lewat pengecualian UDP 53.
     addArgs: [
       "=chain=forward",
       "=action=accept",
+      "=protocol=tcp",
+      "=dst-port=80,443",
       `=src-address=${EXPIRED_NETWORK}`,
       `=dst-address-list=${ISOLIR_ALLOW_LIST}`,
     ],
