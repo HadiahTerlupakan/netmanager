@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { handleCors, addCorsHeaders } from "./lib/middleware/cors";
-import { getToken } from "next-auth/jwt";
+import { getToken, type JWT } from "next-auth/jwt";
 import { isSuperAdmin } from "./lib/auth";
 
 const FIREBASE_RTDB_HOST_PATTERN =
@@ -138,17 +138,9 @@ export async function proxy(request: NextRequest) {
   }
 
   // Redirect unauthorized access to Customer Subdomain
-  if (subdomain === "pelanggan") {
-    if (!pathname.includes("/login")) {
-      if (!token) {
-        return NextResponse.redirect(new URL("/login", request.url));
-      }
-
-      if (token.role !== "CUSTOMER" && !isSuperAdmin(token)) {
-        const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("error", "AccessDenied");
-        return NextResponse.redirect(loginUrl);
-      }
+  if (subdomain === "pelanggan" && !pathname.includes("/login")) {
+    if (!(await hasCustomerPortalAccess(request, token))) {
+      return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
@@ -212,9 +204,8 @@ export async function proxy(request: NextRequest) {
     }
     if (pathname.startsWith("/dashboard") || pathname.startsWith("/customer")) {
       if (
-        token?.role !== "CUSTOMER" &&
-        !isSuperAdmin(token) &&
-        !pathname.includes("/login")
+        !pathname.includes("/login") &&
+        !(await hasCustomerPortalAccess(request, token))
       ) {
         return NextResponse.redirect(new URL("/login", request.url));
       }
@@ -230,6 +221,27 @@ export async function proxy(request: NextRequest) {
   response.headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
 
   return response;
+}
+
+/**
+ * Pelanggan masuk portal dengan JWT sendiri di cookie `customer-token`, bukan
+ * sesi NextAuth. Penjaga ini dulu hanya membaca token NextAuth, jadi sejak
+ * 986c334cd pelanggan yang login selalu dikembalikan ke /login; hanya staf
+ * yang kebetulan masih login di browser yang sama yang bisa melihat portal.
+ * Verifikasi penuh (status AKTIF) tetap dilakukan requireCustomerPageAuth.
+ */
+async function hasCustomerPortalAccess(
+  request: NextRequest,
+  token: JWT | null,
+): Promise<boolean> {
+  if (token?.role === "CUSTOMER" || isSuperAdmin(token)) return true;
+
+  const customerToken = request.cookies.get("customer-token")?.value;
+  if (!customerToken) return false;
+
+  // Import dinamis: lib/jwt memuat Prisma, yang tidak perlu untuk rute lain.
+  const { verifyPelangganAccessToken } = await import("./lib/jwt");
+  return verifyPelangganAccessToken(customerToken) !== null;
 }
 
 export const config = {
