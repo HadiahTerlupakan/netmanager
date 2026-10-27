@@ -33,6 +33,7 @@ type CustomerPaymentInput = {
 
 const HTTP_BAD_REQUEST = 400;
 const HTTP_BAD_GATEWAY = 502;
+const EXHAUSTED_COUPON_MESSAGE = "Kuota kupon habis";
 const GATEWAY_FAILED_MESSAGE =
   "Gagal menghubungi payment gateway. Silakan coba lagi atau gunakan metode pembayaran lain.";
 
@@ -50,24 +51,35 @@ export async function createCustomerPaymentForRoute(
     );
   const coupon = await resolveCoupon(input, totalAmount);
   const finalAmount = totalAmount - coupon.discountAmount;
-  const payments = await createCustomerPaymentsForInvoices({
-    customerId: input.customerId,
-    tenantId: input.tenantId,
-    invoiceIds: input.invoiceIds,
-    discountAmount: coupon.discountAmount,
-    paymentMethod: input.paymentMethod,
-    notes: input.notes,
-  });
+  // Kuota dipesan sebelum payment dibuat: payment yang tertutup penuh oleh
+  // kupon langsung PAID, jadi kupon harus sudah sah lebih dulu.
+  const usageId = await reserveCoupon(input, coupon);
 
-  const gateway = await createGatewayPaymentIfNeeded({
-    ...input,
-    payments,
-    finalAmount,
-  });
+  let payments: Awaited<ReturnType<typeof createCustomerPaymentsForInvoices>>;
+  let gateway: { paymentUrl: string | null; transactionId: string | null };
+  try {
+    payments = await createCustomerPaymentsForInvoices({
+      customerId: input.customerId,
+      tenantId: input.tenantId,
+      invoiceIds: input.invoiceIds,
+      discountAmount: coupon.discountAmount,
+      paymentMethod: input.paymentMethod,
+      notes: input.notes,
+    });
+    gateway = await createGatewayPaymentIfNeeded({
+      ...input,
+      payments,
+      finalAmount,
+    });
+  } catch (error) {
+    // Kupon di database utama, payment di database billing: tidak bisa satu
+    // transaksi, jadi pesanan kuota dibatalkan manual bila pembayaran gagal.
+    await releaseCoupon(usageId, coupon);
+    throw error;
+  }
+
   await settleFullyDiscountedPayments(payments);
-  // Baru dipakai setelah gateway menerima: gateway yang gagal tidak boleh
-  // menghabiskan kuota kupon pelanggan.
-  await consumeCoupon(input, coupon);
+  await publishCouponUsed(input, coupon, usageId);
 
   return {
     payments,
@@ -77,6 +89,38 @@ export async function createCustomerPaymentForRoute(
 }
 
 type ResolvedCoupon = { discountAmount: number; couponId: string | null };
+
+async function reserveCoupon(
+  input: CustomerPaymentInput,
+  coupon: ResolvedCoupon,
+) {
+  if (!coupon.couponId || coupon.discountAmount <= 0) {
+    return null;
+  }
+
+  const usageId = await couponService.reserveUsage(
+    coupon.couponId,
+    input.customerId,
+  );
+  if (!usageId) {
+    throw createRouteServiceError(EXHAUSTED_COUPON_MESSAGE, HTTP_BAD_REQUEST);
+  }
+  return usageId;
+}
+
+async function releaseCoupon(usageId: string | null, coupon: ResolvedCoupon) {
+  if (!usageId || !coupon.couponId) {
+    return;
+  }
+
+  try {
+    await couponService.releaseUsage(usageId, coupon.couponId);
+  } catch (error) {
+    // Pembayaran sudah gagal dan error aslinya dilempar ulang; kuota yang
+    // tertahan satu terlihat di riwayat pemakaian kupon.
+    logger.error("[Coupon] Gagal membatalkan pemakaian kupon:", error);
+  }
+}
 
 // Payment yang tertutup penuh oleh kupon dibuat langsung PAID; invoice-nya
 // perlu dihitung ulang agar lunas dan pelanggan isolir aktif kembali.
@@ -90,21 +134,12 @@ async function settleFullyDiscountedPayments(
   }
 }
 
-async function consumeCoupon(
+async function publishCouponUsed(
   input: CustomerPaymentInput,
   coupon: ResolvedCoupon,
+  usageId: string | null,
 ) {
-  if (!coupon.couponId || coupon.discountAmount <= 0) {
-    return;
-  }
-
-  // Kupon ada di database utama, pembayaran di database billing, jadi
-  // keduanya tidak bisa satu transaksi. Pembayaran sudah sah di titik ini;
-  // kegagalan mencatat kupon dicatat ke log, bukan menggagalkan pembayaran.
-  try {
-    await couponService.consumeUsage(coupon.couponId, input.customerId);
-  } catch (error) {
-    logger.error("[Coupon] Gagal mencatat pemakaian kupon:", error);
+  if (!usageId || !coupon.couponId) {
     return;
   }
 

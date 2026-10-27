@@ -10,7 +10,8 @@ const mockFns = vi.hoisted(() => ({
   createGatewayPayment: vi.fn(),
   updateGatewayMetadata: vi.fn(),
   markPaymentsAsFailed: vi.fn(),
-  consumeUsage: vi.fn(),
+  reserveUsage: vi.fn(),
+  releaseUsage: vi.fn(),
   recomputeInvoice: vi.fn(),
   publish: vi.fn(),
 }));
@@ -25,7 +26,8 @@ vi.mock("@/modules/coupons", () => ({
     verifyCoupon: mockFns.verifyCoupon,
     recordUsage: mockFns.recordUsage,
     incrementUsage: mockFns.incrementUsage,
-    consumeUsage: mockFns.consumeUsage,
+    reserveUsage: mockFns.reserveUsage,
+    releaseUsage: mockFns.releaseUsage,
   },
   CouponService: class MockCouponService {
     verifyCoupon = mockFns.verifyCoupon;
@@ -241,9 +243,10 @@ describe("CustomerPaymentRouteService", () => {
         discountAmount: 10000,
         couponId: "coupon-1",
       });
+      mockFns.reserveUsage.mockResolvedValue("usage-1");
     });
 
-    it("dipakai setelah gateway menerima, ditagih sebesar sisa setelah potongan", async () => {
+    it("dipesan sebelum pembayaran dibuat, ditagih sebesar sisa setelah potongan", async () => {
       gatewayPelanggan();
       mockFns.createGatewayPayment.mockResolvedValue({
         success: true,
@@ -255,7 +258,8 @@ describe("CustomerPaymentRouteService", () => {
       expect(mockFns.createGatewayPayment).toHaveBeenCalledWith(
         expect.objectContaining({ amount: 90000 }),
       );
-      expect(mockFns.consumeUsage).toHaveBeenCalledWith("coupon-1", "cust-1");
+      expect(mockFns.reserveUsage).toHaveBeenCalledWith("coupon-1", "cust-1");
+      expect(mockFns.releaseUsage).not.toHaveBeenCalled();
       expect(mockFns.publish).toHaveBeenCalledWith(
         "billing:coupon.used",
         expect.objectContaining({
@@ -265,14 +269,14 @@ describe("CustomerPaymentRouteService", () => {
       );
     });
 
-    it("tidak terpakai bila gateway gagal", async () => {
+    it("dilepas lagi bila gateway gagal", async () => {
       gatewayPelanggan();
       mockFns.createGatewayPayment.mockRejectedValue(new Error("timeout"));
 
       await expect(bayarDenganKupon("QRIS")).rejects.toMatchObject({
         status: 502,
       });
-      expect(mockFns.consumeUsage).not.toHaveBeenCalled();
+      expect(mockFns.releaseUsage).toHaveBeenCalledWith("usage-1", "coupon-1");
       expect(mockFns.publish).not.toHaveBeenCalled();
     });
 
@@ -290,8 +294,17 @@ describe("CustomerPaymentRouteService", () => {
 
       expect(mockFns.createGatewayPayment).not.toHaveBeenCalled();
       expect(mockFns.recomputeInvoice).toHaveBeenCalledWith("inv-1");
-      expect(mockFns.consumeUsage).toHaveBeenCalledWith("coupon-1", "cust-1");
       expect(result.paymentUrl).toBeNull();
+    });
+
+    it("kuota habis saat dipesan menolak tanpa membuat pembayaran", async () => {
+      mockFns.reserveUsage.mockResolvedValue(null);
+
+      await expect(bayarDenganKupon("QRIS")).rejects.toMatchObject({
+        message: "Kuota kupon habis",
+        status: 400,
+      });
+      expect(mockFns.createPaymentsForInvoices).not.toHaveBeenCalled();
     });
   });
 });

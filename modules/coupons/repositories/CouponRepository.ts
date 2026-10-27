@@ -114,10 +114,40 @@ export class CouponRepository implements ICouponRepository {
     return CouponMapper.toUsageDomain(usage);
   }
 
-  async consumeUsage(couponId: string, pelangganId: string): Promise<void> {
+  async reserveUsage(
+    couponId: string,
+    pelangganId: string,
+  ): Promise<string | null> {
+    return this.db.$transaction(async (tx) => {
+      // Cek kuota dan kenaikan usedCount dalam satu UPDATE, jadi dua
+      // permintaan bersamaan tidak bisa sama-sama lolos dari kuota terakhir.
+      const reserved = await tx.coupon.updateMany({
+        where: {
+          id: couponId,
+          isActive: true,
+          OR: [
+            { quota: 0 },
+            { usedCount: { lt: this.db.coupon.fields.quota } },
+          ],
+        },
+        data: { usedCount: { increment: 1 } },
+      });
+      if (reserved.count === 0) {
+        return null;
+      }
+
+      const usage = await this.recordUsage(couponId, pelangganId, tx);
+      return usage.id;
+    });
+  }
+
+  async releaseUsage(usageId: string, couponId: string): Promise<void> {
     await this.db.$transaction(async (tx) => {
-      await this.recordUsage(couponId, pelangganId, tx);
-      await this.incrementUsage(couponId, tx);
+      await tx.couponUsage.deleteMany({ where: { id: usageId } });
+      await tx.coupon.updateMany({
+        where: { id: couponId, usedCount: { gt: 0 } },
+        data: { usedCount: { decrement: 1 } },
+      });
     });
   }
 

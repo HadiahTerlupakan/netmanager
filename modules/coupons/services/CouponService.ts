@@ -94,10 +94,17 @@ export class CouponService {
   }
 
   /**
-   * Consume coupon for a customer: usage history and usage count together.
+   * Reserve one coupon use within quota; null when the quota is exhausted.
    */
-  async consumeUsage(couponId: string, pelangganId: string) {
-    return this.repository.consumeUsage(couponId, pelangganId);
+  async reserveUsage(couponId: string, pelangganId: string) {
+    return this.repository.reserveUsage(couponId, pelangganId);
+  }
+
+  /**
+   * Release a reservation made by reserveUsage.
+   */
+  async releaseUsage(usageId: string, couponId: string) {
+    return this.repository.releaseUsage(usageId, couponId);
   }
 
   /**
