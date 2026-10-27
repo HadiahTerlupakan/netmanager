@@ -92,7 +92,9 @@ export default function AnnouncementPopup({ portal }: AnnouncementPopupProps) {
     const fetchAnnouncements = async () => {
       try {
         const res = await fetch(
-          `/api/announcements?portal=${portal}&active=true`,
+          portal === "customer"
+            ? "/api/customer/announcements"
+            : `/api/announcements?portal=${portal}&active=true`,
         );
         if (res.ok) {
           const data = await res.json();
