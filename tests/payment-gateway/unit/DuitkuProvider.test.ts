@@ -65,6 +65,37 @@ describe("DuitkuProvider", () => {
     expect(result).toMatchObject({ success: true, transactionId: "D1" });
   });
 
+  // Sandbox menolak HMAC dengan "Wrong signature" untuk merchant yang belum
+  // dipindahkan Duitku (2026-10-27); MD5 lama harus dicoba sesudahnya.
+  it("mengulang dengan tanda tangan MD5 bila HMAC ditolak", async () => {
+    palsu.fetch.mockResolvedValueOnce({
+      status: 401,
+      text: async () => JSON.stringify({ Message: "Wrong signature" }),
+    });
+
+    const result = await provider().createPayment({
+      orderId: "PAY-1",
+      amount: 100000,
+      customerName: "Uji",
+      customerEmail: "a@b.c",
+      customerPhone: "08",
+      description: "Tagihan",
+      paymentMethods: ["BC"],
+    } as never);
+
+    const signatures = palsu.fetch.mock.calls.map(
+      ([, init]) => JSON.parse((init as { body: string }).body).signature,
+    );
+    expect(signatures).toEqual([
+      hmac("DS123PAY-1100000"),
+      crypto
+        .createHash("md5")
+        .update(`DS123PAY-1100000${CONFIG.apiKey}`)
+        .digest("hex"),
+    ]);
+    expect(result).toMatchObject({ success: true, transactionId: "D1" });
+  });
+
   // Penolakan Duitku dulu tercatat "Failed to create payment" saja karena
   // hanya statusMessage yang dibaca.
   it.each([

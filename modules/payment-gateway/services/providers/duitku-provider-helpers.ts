@@ -11,27 +11,33 @@ function hmacSha256(stringToSign: string, apiKey: string) {
   return crypto.createHmac("sha256", apiKey).update(stringToSign).digest("hex");
 }
 
-export function createDuitkuInvoiceSignature(input: {
+function md5(text: string) {
+  return crypto.createHash("md5").update(text).digest("hex");
+}
+
+/**
+ * Tanda tangan permintaan, dicoba berurutan: HMAC-SHA256 lalu MD5 lama.
+ * Sandbox Duitku masih menolak HMAC dengan "Wrong signature" untuk merchant
+ * yang belum dipindahkan (terlihat 2026-10-27), meski dokumentasinya sudah
+ * hanya memuat HMAC.
+ */
+export function createDuitkuInvoiceSignatures(input: {
   merchantCode: string;
   merchantOrderId: string;
   paymentAmount: number;
   apiKey: string;
 }) {
-  return hmacSha256(
-    `${input.merchantCode}${input.merchantOrderId}${input.paymentAmount}`,
-    input.apiKey,
-  );
+  const base = `${input.merchantCode}${input.merchantOrderId}${input.paymentAmount}`;
+  return [hmacSha256(base, input.apiKey), md5(`${base}${input.apiKey}`)];
 }
 
-export function createDuitkuStatusSignature(input: {
+export function createDuitkuStatusSignatures(input: {
   merchantCode: string;
   merchantOrderId: string;
   apiKey: string;
 }) {
-  return hmacSha256(
-    `${input.merchantCode}${input.merchantOrderId}`,
-    input.apiKey,
-  );
+  const base = `${input.merchantCode}${input.merchantOrderId}`;
+  return [hmacSha256(base, input.apiKey), md5(`${base}${input.apiKey}`)];
 }
 
 /**
@@ -45,10 +51,7 @@ export function createDuitkuWebhookSignatures(input: {
   apiKey: string;
 }) {
   const base = `${input.merchantCode}${input.amount}${input.merchantOrderId}`;
-  return [
-    hmacSha256(base, input.apiKey),
-    crypto.createHash("md5").update(`${base}${input.apiKey}`).digest("hex"),
-  ];
+  return [hmacSha256(base, input.apiKey), md5(`${base}${input.apiKey}`)];
 }
 
 export function mapDuitkuStatus(

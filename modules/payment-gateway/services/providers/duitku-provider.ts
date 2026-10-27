@@ -14,8 +14,8 @@ import type {
 import {
   buildDuitkuTestResult,
   buildDuitkuWebhookResult,
-  createDuitkuInvoiceSignature,
-  createDuitkuStatusSignature,
+  createDuitkuInvoiceSignatures,
+  createDuitkuStatusSignatures,
   createDuitkuWebhookSignatures,
   mapDuitkuStatus,
 } from "./duitku-provider-helpers";
@@ -37,15 +37,45 @@ type DuitkuInquiryResponse = {
 // Error Duitku tidak selalu JSON berisi statusMessage: penolakan (misalnya
 // nominal di bawah minimum, merchant tidak dikenal) datang sebagai HTTP 4xx
 // dengan `Message` atau teks biasa.
-async function readDuitkuResponse(response: {
+async function readDuitkuResponse<T>(response: {
   text: () => Promise<string>;
-}): Promise<DuitkuInquiryResponse> {
+}): Promise<T & { raw?: string }> {
   const raw = await response.text();
   try {
-    return JSON.parse(raw) as DuitkuInquiryResponse;
+    return JSON.parse(raw) as T;
   } catch {
-    return { raw };
+    return { raw } as T & { raw?: string };
   }
+}
+
+const WRONG_SIGNATURE = /wrong signature/i;
+
+function isWrongSignature(result: DuitkuInquiryResponse) {
+  return WRONG_SIGNATURE.test(
+    result.statusMessage || result.Message || result.raw || "",
+  );
+}
+
+/** POST ke Duitku, mengulang dengan tanda tangan berikutnya bila ditolak. */
+async function postSigned<T>(
+  url: string,
+  body: Record<string, unknown>,
+  signatures: string[],
+) {
+  let attempt!: { status: number; result: T & DuitkuInquiryResponse };
+  for (const signature of signatures) {
+    const response = await fetchWithTimeout(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, signature }),
+    });
+    attempt = {
+      status: response.status,
+      result: await readDuitkuResponse<T & DuitkuInquiryResponse>(response),
+    };
+    if (!isWrongSignature(attempt.result)) break;
+  }
+  return attempt;
 }
 
 function describeDuitkuError(status: number, result: DuitkuInquiryResponse) {
@@ -87,30 +117,25 @@ export class DuitkuProvider implements PaymentProvider {
         phoneNumber: params.customerPhone,
         callbackUrl: `${getAppUrl()}/api/webhooks/duitku`,
         returnUrl: getCustomerPortalBillingUrl(),
-        signature: createDuitkuInvoiceSignature({
+        expiryPeriod: expiryHours * 60,
+      };
+      const { status, result } = await postSigned<DuitkuInquiryResponse>(
+        // createinvoice adalah endpoint API POP di host lain (dengan header
+        // tanda tangan sendiri); di webapi pembuatan transaksi lewat v2/inquiry.
+        `${this.baseUrl}/merchant/v2/inquiry`,
+        requestBody,
+        createDuitkuInvoiceSignatures({
           merchantCode,
           merchantOrderId,
           paymentAmount,
           apiKey: config.apiKey,
         }),
-        expiryPeriod: expiryHours * 60,
-      };
-      const response = await fetchWithTimeout(
-        // createinvoice adalah endpoint API POP di host lain (dengan header
-        // tanda tangan sendiri); di webapi pembuatan transaksi lewat v2/inquiry.
-        `${this.baseUrl}/merchant/v2/inquiry`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(requestBody),
-        },
       );
-      const result = await readDuitkuResponse(response);
 
       if (result.statusCode !== "00") {
         return {
           success: false,
-          error: describeDuitkuError(response.status, result),
+          error: describeDuitkuError(status, result),
         };
       }
 
@@ -136,30 +161,20 @@ export class DuitkuProvider implements PaymentProvider {
     try {
       const config = this.requireConfig();
       const merchantCode = config.merchantId || "";
-      const response = await fetchWithTimeout(
-        `${this.baseUrl}/merchant/transactionStatus`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            merchantCode,
-            merchantOrderId: orderId,
-            signature: createDuitkuStatusSignature({
-              merchantCode,
-              merchantOrderId: orderId,
-              apiKey: config.apiKey,
-            }),
-          }),
-        },
-      );
-      const result = (await response.json()) as {
-        statusCode?: string;
+      const { result } = await postSigned<{
         settlementDate?: string;
         paymentCode?: string;
         paymentMethod?: string;
         amount?: number;
-        reference?: string;
-      };
+      }>(
+        `${this.baseUrl}/merchant/transactionStatus`,
+        { merchantCode, merchantOrderId: orderId },
+        createDuitkuStatusSignatures({
+          merchantCode,
+          merchantOrderId: orderId,
+          apiKey: config.apiKey,
+        }),
+      );
       const status = mapDuitkuStatus(result.statusCode);
 
       return {
@@ -234,26 +249,15 @@ export class DuitkuProvider implements PaymentProvider {
       const config = this.requireConfig();
       const merchantCode = config.merchantId || "";
       const testOrderId = `TEST-${Date.now()}`;
-      const response = await fetchWithTimeout(
+      const { result } = await postSigned<DuitkuInquiryResponse>(
         `${this.baseUrl}/merchant/transactionStatus`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            merchantCode,
-            merchantOrderId: testOrderId,
-            signature: createDuitkuStatusSignature({
-              merchantCode,
-              merchantOrderId: testOrderId,
-              apiKey: config.apiKey,
-            }),
-          }),
-        },
+        { merchantCode, merchantOrderId: testOrderId },
+        createDuitkuStatusSignatures({
+          merchantCode,
+          merchantOrderId: testOrderId,
+          apiKey: config.apiKey,
+        }),
       );
-      const result = (await response.json()) as {
-        statusCode?: string;
-        statusMessage?: string;
-      };
 
       if (!result.statusCode && !result.statusMessage) {
         return {
