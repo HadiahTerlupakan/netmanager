@@ -45,6 +45,24 @@ const DUITKU_PAYMENT_METHODS: PaymentMethodCatalogItem[] = [
     code: "SP",
     group: "E-Wallet & QRIS",
   },
+  // E-wallet tidak memberi nomor atau QR: Duitku mengembalikan link ke
+  // aplikasi e-wallet, tempat pelanggan menyetujui pembayaran. GoPay tidak
+  // tersedia sebagai channel langsung di Duitku; pelanggannya memakai QRIS.
+  ...(
+    [
+      ["dana", "DANA", "DA"],
+      ["ovo", "OVO", "OV"],
+      ["shopeepay", "ShopeePay", "SA"],
+      ["linkaja", "LinkAja", "LA"],
+    ] as const
+  ).map(([id, name, code]) => ({
+    id: `duitku_${id}`,
+    name,
+    provider: "DUITKU",
+    type: "EWALLET",
+    code,
+    group: "E-Wallet & QRIS",
+  })),
   {
     id: "duitku_alfamart",
     name: "Alfamart / Indomaret",

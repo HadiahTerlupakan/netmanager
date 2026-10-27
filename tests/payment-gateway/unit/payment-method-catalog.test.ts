@@ -28,6 +28,14 @@ describe("katalog metode pembayaran", () => {
     }
   });
 
+  // Kode channel dari getpaymentmethod sandbox Duitku (2026-10-28).
+  it("Duitku menawarkan DANA, OVO, ShopeePay dan LinkAja", () => {
+    const codes = getCustomerPaymentMethodsByProvider("DUITKU")
+      .filter((m) => m.type === "EWALLET")
+      .map((m) => m.code);
+    expect(codes).toEqual(["DA", "OV", "SA", "LA"]);
+  });
+
   it("kode di luar katalog tidak menunjuk gateway mana pun", () => {
     expect(findPaymentMethodProvider("MANUAL_bank-1")).toBeNull();
     expect(findPaymentMethodProvider("ONLINE")).toBeNull();
