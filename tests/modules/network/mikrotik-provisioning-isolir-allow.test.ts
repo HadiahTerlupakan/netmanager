@@ -48,6 +48,16 @@ function insertRow(table: Row[], row: Row, args: string[]) {
   table.splice(index === -1 ? table.length : index, 0, row);
 }
 
+function moveRow(table: Row[], args: string[]) {
+  const value = (key: string) =>
+    args.find((a) => a.startsWith(`=${key}=`))?.slice(key.length + 2);
+  const moving = table.find((r) => r[".id"] === value("numbers"));
+  if (!moving) return;
+  table.splice(table.indexOf(moving), 1);
+  const at = table.findIndex((r) => r[".id"] === value("destination"));
+  table.splice(at === -1 ? table.length : at, 0, moving);
+}
+
 // RouterOS tiruan untuk filter dan address-list: print membaca baris yang
 // sudah ditulis, add menghormati place-before, set/remove mengubah baris.
 function fakeRouter(filter: Row[] = [], addressList: Row[] = []) {
@@ -75,6 +85,7 @@ function fakeRouter(filter: Row[] = [], addressList: Row[] = []) {
     }
     if (command === "set" && row) Object.assign(row, toProps(args.slice(1)));
     if (command === "remove" && row) table.splice(table.indexOf(row), 1);
+    if (command === "move") moveRow(table, args);
     return [];
   });
   return { write, filter, addressList };
@@ -182,6 +193,24 @@ describe("walled garden pelanggan isolir", () => {
     for (const rule of inputRules) {
       expect(Object.values(rule).join(" ")).not.toContain(LIST);
     }
+  });
+
+  // Provisioning sebelum perbaikan place-before menambahkan rule ini di
+  // paling bawah; di router lab ia jatuh di bawah reject dan portal terblokir.
+  it("rule walled garden yang jatuh di bawah reject dipindah ke atasnya", async () => {
+    const placed = fakeRouter();
+    await provision(placed);
+    const misplaced = [
+      ...placed.filter.filter((r) => r.comment !== "netmanager-isolir-allow"),
+      placed.filter[filterIndex(placed, "netmanager-isolir-allow")],
+    ];
+    const router = fakeRouter(misplaced);
+
+    await provision(router);
+
+    expect(filterIndex(router, "netmanager-isolir-allow")).toBeLessThan(
+      filterIndex(router, "netmanager-drop-expired-tcp"),
+    );
   });
 
   it("router lama: reject ICMP dipindah ke walled garden, accept disisipkan paling atas", async () => {

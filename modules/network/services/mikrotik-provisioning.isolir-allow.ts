@@ -131,3 +131,32 @@ export async function removeIsolirAllowList(
 ) {
   await removeEntries(connection, () => true, logs);
 }
+
+const FILTER_PATH = "/ip/firewall/filter";
+const ALLOW_RULE_COMMENT = "netmanager-isolir-allow";
+const FIRST_REJECT_COMMENT = "netmanager-drop-expired-tcp";
+
+/**
+ * Pindahkan rule accept walled garden ke atas rule reject isolir bila jatuh
+ * di bawahnya. Provisioning lama gagal membaca rule pertama dan menambahkan
+ * setiap rule di paling bawah; memulihkan argumen rule tidak mengubah
+ * posisinya, jadi router itu tetap memblokir portal tanpa langkah ini.
+ */
+export async function ensureIsolirAllowAboveRejects(
+  connection: AllowConnection,
+  logs: string[],
+) {
+  const rows = (await connection.write(`${FILTER_PATH}/print`, [
+    "=.proplist=.id,comment",
+  ])) as RouterRow[];
+  const allowAt = rows.findIndex((r) => r.comment === ALLOW_RULE_COMMENT);
+  const rejectAt = rows.findIndex((r) => r.comment === FIRST_REJECT_COMMENT);
+  if (allowAt === -1 || rejectAt === -1 || allowAt < rejectAt) return;
+
+  await connection.write(`${FILTER_PATH}/move`, [
+    `=numbers=${rows[allowAt][".id"]}`,
+    `=destination=${rows[rejectAt][".id"]}`,
+  ]);
+  await delay(100);
+  logs.push("Moved Firewall Filter: Isolir Walled Garden above reject rules");
+}

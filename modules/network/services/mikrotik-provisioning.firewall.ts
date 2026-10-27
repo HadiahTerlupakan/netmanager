@@ -11,6 +11,7 @@ import {
 } from "./mikrotik-provisioning.firewall.helpers";
 import { FILTER_RULES } from "./mikrotik-provisioning.filter-rules";
 import {
+  ensureIsolirAllowAboveRejects,
   provisionIsolirAllowList,
   removeIsolirAllowList,
 } from "./mikrotik-provisioning.isolir-allow";
@@ -272,6 +273,8 @@ async function ensureFilterRules(connection: RouterOSAPI, logs: string[]) {
       label: `Firewall Filter: ${rule.comment}`,
     });
   }
+
+  await ensureIsolirAllowAboveRejects(connection, logs);
 
   // Juga di mode Server isolir: guard baru dibuang provisioning setelah proxy
   // terbukti mati, jadi run yang putus sebelum itu tetap meninggalkan guard.
