@@ -66,19 +66,72 @@ const MOOTA_PAYMENT_METHODS: PaymentMethodCatalogItem[] = [
   },
 ];
 
+// Kode channel resmi Tripay (tripay.co.id/developer). Dikirim apa adanya
+// sebagai `method` saat membuat transaksi.
+const TRIPAY_PAYMENT_METHODS: PaymentMethodCatalogItem[] = [
+  ["BRIVA", "BRI Virtual Account", "VA", "Virtual Account"],
+  ["BNIVA", "BNI Virtual Account", "VA", "Virtual Account"],
+  ["MANDIRIVA", "Mandiri Virtual Account", "VA", "Virtual Account"],
+  ["BCAVA", "BCA Virtual Account", "VA", "Virtual Account"],
+  ["QRIS", "QRIS (Gopay, OVO, Dana, LinkAja)", "QRIS", "E-Wallet & QRIS"],
+  ["ALFAMART", "Alfamart", "RETAIL", "Minimarket"],
+  ["INDOMARET", "Indomaret", "RETAIL", "Minimarket"],
+].map(([code, name, type, group]) => ({
+  id: `tripay_${code.toLowerCase()}`,
+  name,
+  provider: "TRIPAY",
+  type,
+  code,
+  group,
+}));
+
+// Gateway berhalaman bayar sendiri: pelanggan memilih channel di halaman
+// gateway, jadi cukup satu metode. Kodenya unik supaya rute pembayaran tahu
+// gateway mana yang dipakai.
+const HOSTED_CHECKOUT_METHODS: Record<string, PaymentMethodCatalogItem[]> = {
+  MIDTRANS: [hostedCheckout("MIDTRANS", "MIDTRANS_SNAP", "Midtrans")],
+  XENDIT: [hostedCheckout("XENDIT", "XENDIT_INVOICE", "Xendit")],
+  DANA: [hostedCheckout("DANA", "DANA_CHECKOUT", "DANA")],
+};
+
+function hostedCheckout(
+  provider: string,
+  code: string,
+  label: string,
+): PaymentMethodCatalogItem {
+  return {
+    id: code.toLowerCase(),
+    name: `Bayar Online (${label})`,
+    provider,
+    type: "ONLINE",
+    code,
+    group: "Pembayaran Online",
+  };
+}
+
+const CATALOG: Record<string, PaymentMethodCatalogItem[]> = {
+  DUITKU: DUITKU_PAYMENT_METHODS,
+  MOOTA: MOOTA_PAYMENT_METHODS,
+  TRIPAY: TRIPAY_PAYMENT_METHODS,
+  ...HOSTED_CHECKOUT_METHODS,
+};
+
 /**
  * Get static customer payment methods for an enabled provider.
  */
 export function getCustomerPaymentMethodsByProvider(
   provider: string,
 ): PaymentMethodCatalogItem[] {
-  if (provider === "DUITKU") {
-    return DUITKU_PAYMENT_METHODS;
-  }
+  return CATALOG[provider] ?? [];
+}
 
-  if (provider === "MOOTA") {
-    return MOOTA_PAYMENT_METHODS;
+/**
+ * Gateway pemilik kode metode yang dipilih pelanggan; null untuk kode di
+ * luar katalog (transfer manual, metode generik ONLINE).
+ */
+export function findPaymentMethodProvider(code: string): string | null {
+  for (const [provider, methods] of Object.entries(CATALOG)) {
+    if (methods.some((method) => method.code === code)) return provider;
   }
-
-  return [];
+  return null;
 }

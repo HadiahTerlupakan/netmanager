@@ -14,6 +14,7 @@ const mockFns = vi.hoisted(() => ({
   releaseUsage: vi.fn(),
   recomputeInvoice: vi.fn(),
   publish: vi.fn(),
+  routedProvider: vi.fn(),
 }));
 
 vi.mock("@/lib/event-bus", () => ({
@@ -39,6 +40,10 @@ vi.mock("@/modules/coupons", () => ({
 vi.mock("@/modules/finance", () => ({
   PaymentGatewayManager: class MockPaymentGatewayManager {
     createPayment = mockFns.createGatewayPayment;
+    createPaymentWithProvider = (provider: string, params: unknown) => {
+      mockFns.routedProvider(provider);
+      return mockFns.createGatewayPayment(params);
+    };
   },
   createCustomerPaymentsForInvoices: mockFns.createPaymentsForInvoices,
   updateCustomerPaymentGatewayMetadata: mockFns.updateGatewayMetadata,
@@ -306,5 +311,28 @@ describe("CustomerPaymentRouteService", () => {
       });
       expect(mockFns.createPaymentsForInvoices).not.toHaveBeenCalled();
     });
+  });
+
+  // Tenant dengan beberapa gateway dulu selalu ditagih lewat gateway
+  // pertama, yang tidak mengenal kode channel gateway lain.
+  it.each([
+    ["BRIVA", "TRIPAY"],
+    ["BC", "DUITKU"],
+    ["MIDTRANS_SNAP", "MIDTRANS"],
+  ])("kode %s ditagih lewat %s", async (paymentMethod, provider) => {
+    mockFns.findPelangganById.mockResolvedValue({ id: "cust-1", nama: "Budi" });
+    mockFns.createGatewayPayment.mockResolvedValue({
+      success: true,
+      paymentUrl: "https://pay.example",
+    });
+
+    await createCustomerPaymentForRoute({
+      customerId: "cust-1",
+      tenantId: "tenant-1",
+      invoiceIds: ["inv-1"],
+      paymentMethod,
+    });
+
+    expect(mockFns.routedProvider).toHaveBeenCalledWith(provider);
   });
 });

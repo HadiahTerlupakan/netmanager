@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { createRouteServiceError } from "@/lib/api/route-service-error";
 import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 import { couponService } from "@/modules/coupons";
+import { findPaymentMethodProvider } from "@/modules/payment-gateway";
 import {
   createCustomerPaymentsForInvoices,
   markCustomerPaymentsAsFailed,
@@ -229,7 +230,7 @@ async function requestGatewayPayment(
   }
 
   const gatewayManager = new PaymentGatewayManager();
-  const result = (await gatewayManager.createPayment({
+  const params = {
     orderId: input.payments[0].reference || input.payments[0].id,
     amount: Number(input.finalAmount),
     customerName: customer.nama,
@@ -240,7 +241,14 @@ async function requestGatewayPayment(
     description: "Pembayaran Tagihan NetManager",
     paymentMethods: [input.paymentMethod],
     tenantId: input.tenantId || undefined,
-  })) as GatewayPaymentResult;
+  };
+  // Kode metode menentukan gateway-nya; tanpa ini tenant dengan beberapa
+  // gateway selalu ditagih lewat gateway pertama, yang tidak mengenal kode
+  // channel gateway lain.
+  const provider = findPaymentMethodProvider(input.paymentMethod);
+  const result = (await (provider
+    ? gatewayManager.createPaymentWithProvider(provider, params)
+    : gatewayManager.createPayment(params))) as GatewayPaymentResult;
 
   if (!result.success) {
     throw new Error(`Payment gateway menolak: ${String(result.error)}`);

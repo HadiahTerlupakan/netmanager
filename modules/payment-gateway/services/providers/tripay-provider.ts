@@ -229,7 +229,11 @@ export class TripayProvider implements PaymentProvider {
           : {}),
       paymentMethod: payload.payment_method as string,
       transactionId: payload.reference as string,
-      amount: payload.total_amount as number,
+      // total_amount = yang dibayar pelanggan, termasuk fee_customer bila
+      // biaya dibebankan ke pelanggan; payment menyimpan nominal tagihan.
+      amount:
+        (payload.total_amount as number) -
+        ((payload.fee_customer as number | undefined) ?? 0),
       raw: payload,
     };
   }

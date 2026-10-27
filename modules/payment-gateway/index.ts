@@ -52,4 +52,7 @@ export type {
   TestResult,
 } from "./services/provider-interface";
 
-export { getCustomerPaymentMethodsByProvider } from "./services/payment-method-catalog";
+export {
+  findPaymentMethodProvider,
+  getCustomerPaymentMethodsByProvider,
+} from "./services/payment-method-catalog";
