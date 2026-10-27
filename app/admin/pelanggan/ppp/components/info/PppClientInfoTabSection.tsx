@@ -543,7 +543,7 @@ export function PppClientInfoTabSection({
           <p className="text-xs text-gray-500 dark:text-gray-500">
             {isEditMode
               ? "Biarkan kosong bila password PPPoE tidak diubah. Mengisi field ini akan menimpa password lama dan menyinkronkannya ke RADIUS/MikroTik."
-              : "Default: 123456, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE."}
+              : "Dibuat acak, bisa diubah manual jika diperlukan. Password ini digunakan untuk koneksi PPPoE."}
           </p>
         </div>
 
@@ -588,7 +588,7 @@ export function PppClientInfoTabSection({
             </button>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-500">
-            Default: 123456, bisa diubah manual jika diperlukan. Password ini
+            Dibuat acak, bisa diubah manual jika diperlukan. Password ini
             digunakan untuk login di portal pelanggan (/login).
           </p>
         </div>

@@ -24,6 +24,7 @@ import {
 import { usePppDocumentUploads } from "@/app/admin/pelanggan/ppp/hooks/usePppDocumentUploads";
 import { usePppFormOrchestration } from "@/app/admin/pelanggan/ppp/hooks/usePppFormOrchestration";
 import { usePppIdValidation } from "@/app/admin/pelanggan/ppp/hooks/usePppIdValidation";
+import { generateStrongPassword } from "@/app/admin/users/lib/password-generator";
 
 type HargaPaket = {
   id: string;
@@ -73,8 +74,10 @@ export function PppClientCreateForm() {
     idPelanggan: "",
     nama: "",
     username: "",
-    password: "123456", // Default password PPPoE
-    passwordLogin: "123456", // Default password untuk login portal pelanggan
+    // Diisi acak setelah mount; nilai acak di state awal berbeda antara
+    // render server dan browser.
+    password: "",
+    passwordLogin: "",
     hargaPaketId: "",
     tipe: "REGULER" as "REGULER" | "NON_REGULER",
     tanggalAktif:
@@ -151,6 +154,20 @@ export function PppClientCreateForm() {
     hargaPakets,
     allowNonPositiveProrate: false,
   });
+
+  // Password bawaan dulu "123456" untuk semua pelanggan baru; admin yang tidak
+  // menggantinya meninggalkan akun PPPoE dan portal yang mudah ditebak.
+  useEffect(() => {
+    setFormData((prev) =>
+      prev.password
+        ? prev
+        : {
+            ...prev,
+            password: generateStrongPassword(),
+            passwordLogin: generateStrongPassword(),
+          },
+    );
+  }, [setFormData]);
 
   const { idPelangganError, checkingId, resetIdPelangganError } =
     usePppIdValidation({
@@ -426,7 +443,9 @@ export function PppClientCreateForm() {
 
                   <PppClientSalesSection
                     salesId={formData.salesId}
-                    onSalesChange={(salesId) => setFormData((prev) => ({ ...prev, salesId }))}
+                    onSalesChange={(salesId) =>
+                      setFormData((prev) => ({ ...prev, salesId }))
+                    }
                   />
 
                   <PppClientStatusTypeSection

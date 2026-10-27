@@ -90,8 +90,8 @@ export function PppClientEditForm() {
     idPelanggan: "",
     nama: "",
     username: "",
-    password: "123456", // Default password PPPoE
-    passwordLogin: "123456", // Default password untuk login portal pelanggan
+    password: "",
+    passwordLogin: "",
     hargaPaketId: "",
     tipe: "REGULER" as "REGULER" | "NON_REGULER",
     tanggalAktif:
