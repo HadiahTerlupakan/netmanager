@@ -142,11 +142,17 @@ async function createInvoicePayment(
     return null;
   }
 
+  // Gateway ditagih sebesar sisa (total − paidAmount), dan nominal struk
+  // transfer manual dicocokkan ke amount ini; memakai total membuat invoice
+  // PARTIAL_PAID tertagih ulang bagian yang sudah dibayar.
+  const remainingAmount =
+    Number(invoice.totalAmount) - Number(invoice.paidAmount);
+
   return tx.payment.create({
     data: {
       id: randomUUID(),
       updatedAt: new Date(),
-      amount: Number(invoice.totalAmount) - input.discountAmount,
+      amount: remainingAmount - input.discountAmount,
       paymentDate: new Date(),
       paymentMethod: resolveCustomerPaymentMethod(input.options.paymentMethod),
       gatewayStatus: GatewayPaymentStatus.PENDING,
