@@ -1,3 +1,4 @@
+import type XenditClient from "xendit-node";
 import { logger } from "@/lib/logger";
 import { getCustomerPortalBillingUrl } from "@/lib/utils/portal-url";
 import type {
@@ -20,21 +21,22 @@ import {
 export class XenditProvider implements PaymentProvider {
   name = "Xendit";
   private config?: ProviderConfig;
-  private xendit: unknown = null;
-  private xenditPromise: Promise<unknown> | null = null;
+  private xendit: XenditClient | null = null;
+  private xenditPromise: Promise<XenditClient> | null = null;
 
   initialize(config: ProviderConfig): void {
     this.config = config;
   }
 
   /** Lazy-load SDK Xendit saat pertama kali dibutuhkan. */
-  private async getXenditInstance(): Promise<unknown> {
+  private async getXenditInstance(): Promise<XenditClient> {
     if (this.xendit) return this.xendit;
 
     if (!this.xenditPromise) {
       this.xenditPromise = import("xendit-node").then(({ default: Xendit }) => {
-        this.xendit = new Xendit({ secretKey: this.config!.apiKey });
-        return this.xendit;
+        const client = new Xendit({ secretKey: this.config!.apiKey });
+        this.xendit = client;
+        return client;
       });
     }
 
@@ -44,27 +46,31 @@ export class XenditProvider implements PaymentProvider {
   async createPayment(params: CreatePaymentParams): Promise<PaymentResult> {
     try {
       const invoiceApi = await this.getInvoiceApi();
+      // xendit-node 7 membungkus body di `data` dan menjawab camelCase; bentuk
+      // datar lama ditolak SDK sehingga setiap checkout Xendit gagal.
       const invoice = await invoiceApi.createInvoice({
-        externalId: params.orderId,
-        amount: params.amount,
-        description: params.description,
-        invoiceDuration: (params.expiryHours || 24) * 3600,
-        currency: "IDR",
-        payerEmail: params.customerEmail || undefined,
-        customer: {
-          givenNames: params.customerName,
-          email: params.customerEmail,
-          mobileNumber: params.customerPhone,
+        data: {
+          externalId: params.orderId,
+          amount: params.amount,
+          description: params.description,
+          invoiceDuration: (params.expiryHours || 24) * 3600,
+          currency: "IDR",
+          payerEmail: params.customerEmail || undefined,
+          customer: {
+            givenNames: params.customerName,
+            email: params.customerEmail,
+            mobileNumber: params.customerPhone,
+          },
+          successRedirectUrl: getCustomerPortalBillingUrl(),
+          failureRedirectUrl: getCustomerPortalBillingUrl(),
         },
-        successRedirectUrl: getCustomerPortalBillingUrl(),
-        failureRedirectUrl: getCustomerPortalBillingUrl(),
       });
 
       return {
         success: true,
-        paymentUrl: invoice.invoice_url,
+        paymentUrl: invoice.invoiceUrl,
         transactionId: invoice.id,
-        expiresAt: new Date(invoice.expiry_date),
+        expiresAt: new Date(invoice.expiryDate),
       };
     } catch (error: unknown) {
       logger.error("Xendit createPayment error:", error);
@@ -92,8 +98,7 @@ export class XenditProvider implements PaymentProvider {
       return {
         orderId,
         status: mapXenditStatus(invoice.status),
-        ...(invoice.paid_at ? { paidAt: new Date(invoice.paid_at) } : {}),
-        paymentMethod: invoice.payment_method,
+        paymentMethod: invoice.paymentMethod,
         amount: invoice.amount,
         transactionId: invoice.id,
       };
@@ -190,33 +195,8 @@ export class XenditProvider implements PaymentProvider {
   }
 
   private async getInvoiceApi() {
-    await this.getXenditInstance();
-
-    if (!this.xendit) {
-      throw new Error("Xendit not initialized");
-    }
-
-    return (
-      this.xendit as {
-        Invoice: {
-          createInvoice: (params: unknown) => Promise<{
-            invoice_url: string;
-            id: string;
-            expiry_date: string;
-          }>;
-          getInvoices: (params: unknown) => Promise<
-            Array<{
-              status: string;
-              paid_at?: string;
-              payment_method: string;
-              amount: number;
-              id: string;
-            }>
-          >;
-          expireInvoice: (params: { invoiceId: string }) => Promise<void>;
-        };
-      }
-    ).Invoice;
+    const client = await this.getXenditInstance();
+    return client.Invoice;
   }
 
   private isRecord(payload: unknown): payload is Record<string, unknown> {

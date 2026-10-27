@@ -8,11 +8,19 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("xendit-node", () => ({
   default: class MockXendit {
     Invoice = {
-      createInvoice: vi.fn().mockResolvedValue({
-        invoice_url: "https://xendit.co/pay/123",
-        id: "inv-123",
-        expiry_date: "2026-05-22T00:00:00Z",
-      }),
+      // Bentuk xendit-node 7: request dibungkus `data`, respons camelCase.
+      createInvoice: vi.fn(
+        async (request: { data?: { externalId?: string } }) => {
+          if (!request.data?.externalId) {
+            throw new Error("RequiredError: data");
+          }
+          return {
+            invoiceUrl: "https://xendit.co/pay/123",
+            id: "inv-123",
+            expiryDate: new Date("2026-05-22T00:00:00Z"),
+          };
+        },
+      ),
       getInvoices: vi.fn().mockResolvedValue([]),
       expireInvoice: vi.fn().mockResolvedValue(undefined),
     };
