@@ -180,14 +180,14 @@ export default function TicketDetailPage() {
     formData.append("file", file);
 
     try {
-      const res = await fetch("/api/uploads", {
+      const res = await fetch("/api/customer/tickets/attachments", {
         method: "POST",
         body: formData,
       });
 
       if (res.ok) {
-        const data = await res.json();
-        setAttachments((prev) => [...prev, data.url]);
+        const json = await res.json();
+        setAttachments((prev) => [...prev, json.data.url]);
       } else {
         alert("Gagal mengupload gambar");
       }

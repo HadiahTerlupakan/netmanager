@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-27] — Tiket dukungan portal pelanggan bisa dipakai lagi
+
+- **Tipe**: [FIXED] | [SECURITY] | [ADDED]
+- **Scope**: `app/api/customer/tickets` | `app/(customer)/dukungan` | `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**:
+  - [FIXED] Sejak 6fb6eec29 semua rute `/api/customer/tickets*` memakai `createHandler({ auth: true })` (sesi staf NextAuth) dan `session.user.id`, sehingga pelanggan selalu mendapat 401: tidak bisa membuat, membaca, membalas, atau menutup tiket. Rute kembali memakai `requireCustomerAuth` dan id pelanggan dari JWT portal, dengan bentuk respons datar (`{ success, ticket }`, `{ success, reply }`, `{ success, tickets, pagination }`) yang dibaca halaman /dukungan dan aplikasi mobile. Pesan error tak dikenal tidak lagi diteruskan ke klien.
+  - [SECURITY] Menutup tiket pelanggan lain kini 404 (lookup dibatasi pemilik), bukan 403 yang membocorkan bahwa id tiket itu ada.
+  - [ADDED] `POST /api/customer/tickets/attachments` untuk lampiran balasan dari portal, memakai `supportTicketUploadService` yang sama dengan `/api/uploads` (JPG/PNG/WEBP/GIF, cek signature, maks 5MB, `public/uploads/tickets`). `/api/uploads` tetap khusus staf.
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-27] — Perpanjangan layanan dari admin berjalan lagi
 
 - **Tipe**: [FIXED] | [ADDED] | [REMOVED]
