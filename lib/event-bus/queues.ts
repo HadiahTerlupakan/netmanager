@@ -241,7 +241,12 @@ export async function addEventJob(
   eventName: EventName,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: Record<string, any>,
-  options?: { priority?: number; category?: string; delay?: number },
+  options?: {
+    priority?: number;
+    category?: string;
+    delay?: number;
+    jobId?: string;
+  },
 ): Promise<void> {
   const queue = getQueue(QUEUE_NAMES.EVENTS);
   const jobData: EventJobData = {
@@ -257,6 +262,10 @@ export async function addEventJob(
 
   if (options?.delay) {
     jobOptions.delay = options.delay;
+  }
+
+  if (options?.jobId) {
+    jobOptions.jobId = options.jobId;
   }
 
   const safeJobName = `event:${eventName}`.replace(/:/g, ".");

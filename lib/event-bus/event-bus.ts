@@ -115,10 +115,11 @@ class EventBus {
     }
 
     // 2. Persist to outbox if persistent and not skipped
+    let outboxId: string | undefined;
     if (metadata.persistent && !options?.skipOutbox) {
       try {
         const { saveToOutbox } = await import("./outbox");
-        await saveToOutbox({
+        outboxId = await saveToOutbox({
           eventName,
           payload: enrichedPayload,
           priority: options?.priority ?? metadata.priority,
@@ -129,15 +130,6 @@ class EventBus {
           `[EventBus] Failed to save to outbox for ${eventName}:`,
           error,
         );
-        // Fallback: try direct async processing
-        if (metadata.async && !options?.skipAsync) {
-          await this.dispatchToQueue(
-            eventName,
-            enrichedPayload,
-            metadata,
-            options?.priority,
-          );
-        }
       }
     }
 
@@ -148,6 +140,7 @@ class EventBus {
         enrichedPayload,
         metadata,
         options?.priority,
+        outboxId,
       );
     }
   }
@@ -161,19 +154,40 @@ class EventBus {
     payload: Record<string, any>,
     metadata: EventMetadata,
     priorityOverride?: number,
+    outboxId?: string,
   ): Promise<void> {
     try {
       const { addEventJob } = await import("./queues");
+      // The outbox processor dispatches the same PENDING row. Sharing the
+      // outbox id as jobId lets BullMQ drop whichever copy arrives second,
+      // and closing the row stops the processor from trying at all; without
+      // both every handler ran twice (sessions cut twice, two notifications).
       await addEventJob(eventName, payload, {
         priority: priorityOverride ?? metadata.priority,
         category: metadata.category,
+        jobId: outboxId,
       });
     } catch (error) {
       logger.error(
         `[EventBus] Failed to dispatch ${eventName} to queue:`,
         error,
       );
-      // Queue dispatch failure is non-fatal — the outbox processor will retry
+      // Left PENDING, so the outbox processor dispatches it later.
+      return;
+    }
+
+    if (outboxId) {
+      await this.closeOutboxRow(outboxId);
+    }
+  }
+
+  private async closeOutboxRow(outboxId: string): Promise<void> {
+    try {
+      const { markEventProcessed } = await import("./outbox");
+      await markEventProcessed(outboxId);
+    } catch (error) {
+      // The processor will dispatch the row again; jobId keeps it a no-op.
+      logger.error(`[EventBus] Failed to close outbox row ${outboxId}:`, error);
     }
   }
 

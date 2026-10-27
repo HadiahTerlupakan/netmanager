@@ -48,6 +48,8 @@ async function processOutbox(): Promise<{
           {
             priority: event.priority || JOB_PRIORITIES.NORMAL,
             category: event.category,
+            // Same id publish used, so a row it already queued is a no-op.
+            jobId: event.id,
           },
         );
 
