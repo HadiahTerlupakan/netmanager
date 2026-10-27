@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-27] — Halaman Paket dan Koneksi portal menampilkan data nyata
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/(customer)/paket` | `app/(customer)/koneksi`
+- **Author**: agent
+- **Deskripsi**:
+  - [FIXED] Periode Tagihan di /paket tercetak "23 - 23 Nov 2026" karena awal periode hanya memuat tanggal. Kini "23 Okt - 23 Nov 2026" (tahun awal ikut bila berbeda); awal periode = jatuh tempo mundur satu bulan kalender dengan aturan akhir bulan yang sama dengan `addSafeMonth`, atau tanggal aktif bila lebih baru.
+  - [FIXED] "Jenis IP Address: Dynamic Public" adalah teks tetap. Kini menampilkan IP sesi aktif dari `/api/customer/usage` beserta Privat (RFC 1918/CGNAT 100.64/10) atau Publik; baris disembunyikan saat offline. Statis/dinamis tidak ditampilkan karena portal tidak mengekspos Framed-IP-Address.
+  - [FIXED] Kartu "Upgrade ke 200 Mbps? Hanya tambah Rp 50rb/bln" adalah teks tetap. Kini memakai kandidat termurah dari `upgradeOptions` `/api/customer/package` dan tersembunyi bila tidak ada kandidat.
+  - [FIXED] Kecepatan 150/50 Mbps dan ping 12 ms di /koneksi adalah angka contoh. Kini menampilkan rate limit paket dari `/api/customer/profile` (sumber yang sama dengan dashboard) berlabel "Kecepatan paket"; ping dihapus karena tidak ada pengukurannya.
+- **Files**: `app/(customer)/paket/page.tsx`, `app/(customer)/paket/paket-helpers.ts`, `app/(customer)/paket/UpgradePromoCard.tsx`, `app/(customer)/koneksi/page.tsx`, `tests/app/customer-paket-page.test.tsx`, `tests/app/customer-paket-helpers.test.ts`, `tests/app/customer-koneksi-page.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-27] — Tiket dukungan portal pelanggan bisa dipakai lagi
 
 - **Tipe**: [FIXED] | [SECURITY] | [ADDED]

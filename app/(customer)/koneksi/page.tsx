@@ -11,7 +11,6 @@ import {
   MdRefresh,
   MdDownload,
   MdUpload,
-  MdSensors,
   MdSpeed,
   MdPowerSettingsNew,
   MdBuild,
@@ -30,6 +29,14 @@ interface ConnectionData {
   };
 }
 
+interface ProfilePackageData {
+  profile?: {
+    paket: {
+      bandwidth: { download: string | null; upload: string | null } | null;
+    } | null;
+  };
+}
+
 export default function CustomerConnectionPage() {
   const { isLoading: authLoading, isAuthenticated } = useCustomerAuth();
   const router = useRouter();
@@ -42,6 +49,10 @@ export default function CustomerConnectionPage() {
 
   const { data, isLoading, mutate } = useApi<ConnectionData>(
     isAuthenticated ? "/api/customer/usage" : null,
+  );
+
+  const { data: profileData } = useApi<ProfilePackageData>(
+    isAuthenticated ? "/api/customer/profile" : null,
   );
 
   const handleRefresh = () => {
@@ -59,9 +70,11 @@ export default function CustomerConnectionPage() {
   const isOnline = data?.connection?.isOnline ?? false;
   const ipAddress = data?.connection?.ipAddress ?? "-";
   const uptime = data?.connection?.sessionDurationFormatted ?? "0j 0m";
-  const downloadSpeed = "150"; // Placeholder as API might not return real-time speed yet
-  const uploadSpeed = "50"; // Placeholder
-  const ping = "12"; // Placeholder
+  // Rate limit paket (sumber yang sama dengan "Kecepatan" di dashboard), bukan
+  // hasil ukur: belum ada pengukuran throughput atau ping per pelanggan.
+  const bandwidth = profileData?.profile?.paket?.bandwidth;
+  const downloadSpeed = bandwidth?.download ?? "-";
+  const uploadSpeed = bandwidth?.upload ?? "-";
 
   return (
     <div className="bg-[#f6f7f8] dark:bg-[#101922] font-sans text-[#111418] dark:text-white transition-colors duration-200 min-h-screen">
@@ -155,7 +168,7 @@ export default function CustomerConnectionPage() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2 rounded-xl p-4 bg-white dark:bg-[#1c2b3e] shadow-sm border border-[#dbe0e6] dark:border-gray-800">
               <div className="flex items-center gap-2 text-[#617589] dark:text-gray-400">
                 <MdDownload className="text-[20px]" />
@@ -166,7 +179,7 @@ export default function CustomerConnectionPage() {
                   {downloadSpeed}
                 </p>
                 <p className="text-[#617589] dark:text-gray-400 text-xs">
-                  Mbps
+                  Kecepatan paket
                 </p>
               </div>
             </div>
@@ -180,20 +193,8 @@ export default function CustomerConnectionPage() {
                   {uploadSpeed}
                 </p>
                 <p className="text-[#617589] dark:text-gray-400 text-xs">
-                  Mbps
+                  Kecepatan paket
                 </p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 rounded-xl p-4 bg-white dark:bg-[#1c2b3e] shadow-sm border border-[#dbe0e6] dark:border-gray-800">
-              <div className="flex items-center gap-2 text-[#617589] dark:text-gray-400">
-                <MdSensors className="text-[20px]" />
-                <p className="text-xs font-medium uppercase">Ping</p>
-              </div>
-              <div>
-                <p className="text-[#111418] dark:text-white tracking-tight text-xl font-bold leading-tight">
-                  {ping}
-                </p>
-                <p className="text-[#617589] dark:text-gray-400 text-xs">ms</p>
               </div>
             </div>
           </div>
