@@ -176,6 +176,7 @@ export function PppClientEditForm() {
     initialFormData,
     hargaPakets,
     allowNonPositiveProrate: true,
+    keepLoadedDueDate: true,
   });
 
   const { idPelangganError, checkingId, resetIdPelangganError } =
