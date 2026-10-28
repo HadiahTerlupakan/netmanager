@@ -1,4 +1,4 @@
-import { jsPDF } from "jspdf";
+import { GState, jsPDF } from "jspdf";
 import type {
   PpnMode,
   SampleCustomer,
@@ -70,7 +70,7 @@ function drawSampleMarks(doc: jsPDF) {
   doc.text(SAMPLE_BAND_TEXT, PAGE_WIDTH / 2, 8, { align: "center" });
 
   doc.saveGraphicsState();
-  doc.setGState(new doc.GState({ opacity: 0.12 }));
+  doc.setGState(new GState({ opacity: 0.12 }));
   doc.setTextColor(220, 38, 38);
   doc.setFontSize(110);
   doc.text("CONTOH", PAGE_WIDTH / 2, 190, { align: "center", angle: 30 });
