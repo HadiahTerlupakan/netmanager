@@ -623,6 +623,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineShieldCheck",
       },
       {
+        code: "FINANCE.PAYMENT_GATEWAY_TRANSACTIONS",
+        name: "Transaksi Payment Gateway",
+        path: "/admin/finance/payment-gateway",
+        icon: "HiOutlineCreditCard",
+      },
+      {
         code: "FINANCE.AR_AGING",
         name: "AR Aging",
         path: "/admin/finance/ar-aging",

@@ -265,9 +265,10 @@ export class WebhookProcessingService {
           return null;
         }
 
+        // gatewayProvider tetap kode channel dari portal (mis. "SP"), agar
+        // admin tahu metode yang dipakai; gateway-nya bisa diturunkan darinya.
         const paymentUpdate: Prisma.PaymentUpdateManyMutationInput = {
           gatewayStatus,
-          gatewayProvider: provider,
         };
 
         const normalizedPaymentMethod = normalizePaymentMethod(

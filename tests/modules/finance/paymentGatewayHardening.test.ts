@@ -416,11 +416,13 @@ describe("payment gateway hardening", () => {
     });
     expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["pay-foreign"] }, gatewayStatus: { not: "PAID" } },
-      data: expect.objectContaining({
-        gatewayStatus: "PAID",
-        gatewayProvider: "TRIPAY",
-      }),
+      data: expect.objectContaining({ gatewayStatus: "PAID" }),
     });
+    // Kode metode dari portal (mis. "SP") tidak ditimpa nama gateway, agar
+    // halaman transaksi admin tetap tahu metode yang dipakai.
+    expect(
+      prismaMock.payment.updateMany.mock.calls[0][0].data,
+    ).not.toHaveProperty("gatewayProvider");
     expect(prismaMock.payment.update).toHaveBeenCalledWith({
       where: { id: "pay-foreign" },
       data: { transactionId: "tx-foreign" },

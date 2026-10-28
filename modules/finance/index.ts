@@ -42,6 +42,11 @@ export * from "./services/PaymentRouteService";
 export * from "./services/CustomerRenewalService";
 export * from "./services/ManualPaymentAdminRouteService";
 export * from "./services/CustomerPaymentFinanceService";
+export {
+  listPaymentGatewayTransactions,
+  resolveDisplayStatus,
+  type GatewayDisplayStatus,
+} from "./services/PaymentGatewayTransactionService";
 export * from "./services/CustomerPaymentMethodService";
 export * from "./services/FinanceExpenseBridgeService";
 export * from "./services/ExpenseRouteService";

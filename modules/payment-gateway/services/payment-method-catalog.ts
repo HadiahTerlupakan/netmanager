@@ -147,6 +147,17 @@ export function getCustomerPaymentMethodsByProvider(
  * Gateway pemilik kode metode yang dipilih pelanggan; null untuk kode di
  * luar katalog (transfer manual, metode generik ONLINE).
  */
+/** Metode katalog dengan kode channel ini, di gateway mana pun. */
+export function findPaymentMethodByCode(
+  code: string,
+): PaymentMethodCatalogItem | null {
+  for (const methods of Object.values(CATALOG)) {
+    const method = methods.find((item) => item.code === code);
+    if (method) return method;
+  }
+  return null;
+}
+
 export function findPaymentMethodProvider(code: string): string | null {
   for (const [provider, methods] of Object.entries(CATALOG)) {
     if (methods.some((method) => method.code === code)) return provider;

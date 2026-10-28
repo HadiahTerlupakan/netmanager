@@ -59,6 +59,7 @@ export {
   withCustomerCheckoutLock,
 } from "./services/pending-checkout-replacement";
 export {
+  findPaymentMethodByCode,
   findPaymentMethodProvider,
   getCustomerPaymentMethodsByProvider,
 } from "./services/payment-method-catalog";

@@ -61,4 +61,12 @@ export class PelangganBillingBridgeService {
   findBySiteId(siteId: string) {
     return this.pelangganRepo.findAll({ siteId });
   }
+
+  /** Id pelanggan yang nama, kode, atau username-nya memuat teks ini. */
+  async findIdsBySearch(search: string) {
+    const customers = (await this.pelangganRepo.findAll({ search })) as Array<{
+      id: string;
+    }>;
+    return customers.map((customer) => customer.id);
+  }
 }
