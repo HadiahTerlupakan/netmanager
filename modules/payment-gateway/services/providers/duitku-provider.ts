@@ -169,6 +169,7 @@ export class DuitkuProvider implements PaymentProvider {
         paymentCode?: string;
         paymentMethod?: string;
         amount?: number;
+        fee?: string;
       }>(
         `${this.baseUrl}/merchant/transactionStatus`,
         { merchantCode, merchantOrderId: orderId },
@@ -193,6 +194,8 @@ export class DuitkuProvider implements PaymentProvider {
         paymentMethod: result.paymentCode || result.paymentMethod,
         amount: result.amount,
         transactionId: result.reference,
+        // Duitku hanya melaporkan biaya di cek status, tidak di callback.
+        ...(result.fee !== undefined ? { fee: Number(result.fee) } : {}),
       };
     } catch (error: unknown) {
       logger.error("Duitku checkStatus error:", error);

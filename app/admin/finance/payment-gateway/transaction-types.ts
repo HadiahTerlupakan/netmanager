@@ -24,6 +24,9 @@ export interface GatewayTransaction {
   status: GatewayDisplayStatus;
   reference: string | null;
   transactionId: string | null;
+  pgTransactionId: string | null;
+  fee: number | null;
+  receivedAmount: number | null;
   vaNumber: string | null;
   paymentUrl: string | null;
   expiresAt: string | null;

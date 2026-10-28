@@ -147,6 +147,16 @@ function describeMethod(row: GatewayTransactionRow) {
   };
 }
 
+/** ID transaksi di sisi gateway, mis. `BC261EVTS…` pada `topupdirectv2.aspx?ref=`. */
+export function gatewayTransactionIdFromUrl(paymentUrl: string | null) {
+  if (!paymentUrl) return null;
+  try {
+    return new URL(paymentUrl).searchParams.get("ref");
+  } catch {
+    return null;
+  }
+}
+
 function toTransaction(
   row: GatewayTransactionRow,
   customerName: string | undefined,
@@ -165,8 +175,16 @@ function toTransaction(
     ...describeMethod(row),
     gatewayStatus: row.gatewayStatus,
     status: resolveDisplayStatus(row, switched),
+    // Nama kolom mengikuti catatan pembayaran Duitku: No. Order Merchant,
+    // No. Referensi, dan PG Transaction ID.
     reference: row.reference,
     transactionId: row.transactionId,
+    pgTransactionId: gatewayTransactionIdFromUrl(row.paymentUrl),
+    fee: row.gatewayFee === null ? null : Number(row.gatewayFee),
+    receivedAmount:
+      row.gatewayFee === null
+        ? null
+        : Number(row.amount) - Number(row.gatewayFee),
     vaNumber: row.vaNumber,
     paymentUrl: row.paymentUrl,
     expiresAt: row.expiresAt,

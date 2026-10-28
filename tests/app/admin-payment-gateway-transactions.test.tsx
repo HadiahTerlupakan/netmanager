@@ -28,7 +28,10 @@ const data: GatewayTransactionsResponse = {
       gatewayStatus: "CANCELLED",
       status: "DIGANTI_METODE",
       reference: "PAY-VA",
-      transactionId: null,
+      transactionId: "DS3715826GVEO4776KHCL30Y",
+      pgTransactionId: "BC261EVTS1N27GPDQE5",
+      fee: 5000,
+      receivedAmount: 6100,
       vaNumber: "7007014007428430",
       paymentUrl: null,
       expiresAt: "2026-10-29T01:02:31Z",
@@ -58,6 +61,12 @@ describe("halaman transaksi payment gateway", () => {
     expect(text).toContain("7007014007428430");
     expect(text).toContain("Diganti metode");
     expect(text).toContain("Rp 11.100");
+    // Kolom seperti catatan pembayaran Duitku.
+    expect(text).toContain("DS3715826GVEO4776KHCL30Y");
+    expect(text).toContain("PAY-VA");
+    expect(text).toContain("BC261EVTS1N27GPDQE5");
+    expect(text).toContain("Rp 6.100");
+    expect(text).toContain("Rp 5.000");
     act(() => root.unmount());
   });
 });

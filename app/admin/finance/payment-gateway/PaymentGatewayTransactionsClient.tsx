@@ -4,10 +4,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import { InvoicePaymentHistoryModal } from "./InvoicePaymentHistoryModal";
-import { TransactionStatusBadge } from "./TransactionStatusBadge";
+import { TransactionsTable } from "./TransactionsTable";
 import {
   RAW_STATUS_LABEL,
-  formatDateTime,
   formatRupiah,
   type GatewayTransaction,
   type GatewayTransactionsResponse,
@@ -78,37 +77,7 @@ export default function PaymentGatewayTransactionsClient() {
 
       <div className="bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-900/50">
-              <tr>
-                {[
-                  "Waktu",
-                  "Pelanggan & Tagihan",
-                  "Metode",
-                  "Nominal",
-                  "Status",
-                  "Dibayar / Batas",
-                  "",
-                ].map((label) => (
-                  <th
-                    key={label}
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
-                  >
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {items.map((row) => (
-                <TransactionRow
-                  key={row.id}
-                  row={row}
-                  onHistory={() => setSelected(row)}
-                />
-              ))}
-            </tbody>
-          </table>
+          <TransactionsTable items={items} onHistory={setSelected} />
         </div>
         {items.length === 0 && (
           <p className="p-6 text-center text-gray-500">
@@ -252,52 +221,5 @@ function SummaryCards({
         );
       })}
     </div>
-  );
-}
-
-function TransactionRow({
-  row,
-  onHistory,
-}: {
-  row: GatewayTransaction;
-  onHistory: () => void;
-}) {
-  return (
-    <tr className="align-top">
-      <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">
-        {formatDateTime(row.createdAt)}
-      </td>
-      <td className="px-4 py-3">
-        <p className="font-medium text-gray-900 dark:text-white">
-          {row.customerName ?? "-"}
-        </p>
-        <p className="text-xs text-gray-500 font-mono">
-          {row.invoiceNumber ?? "-"}
-        </p>
-      </td>
-      <td className="px-4 py-3">
-        <p className="text-gray-900 dark:text-white">
-          {row.methodName ?? row.methodCode ?? "-"}
-        </p>
-        <p className="text-xs text-gray-500">
-          {row.gateway}
-          {row.vaNumber ? ` · ${row.vaNumber}` : ""}
-        </p>
-      </td>
-      <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900 dark:text-white">
-        {formatRupiah(row.amount)}
-      </td>
-      <td className="px-4 py-3">
-        <TransactionStatusBadge status={row.status} />
-      </td>
-      <td className="px-4 py-3 whitespace-nowrap text-gray-600 dark:text-gray-300">
-        {formatDateTime(row.paidAt ?? row.expiresAt)}
-      </td>
-      <td className="px-4 py-3 text-right">
-        <Button variant="outline" size="sm" onClick={onHistory}>
-          Riwayat
-        </Button>
-      </td>
-    </tr>
   );
 }

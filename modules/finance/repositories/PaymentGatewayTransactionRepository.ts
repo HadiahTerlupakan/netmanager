@@ -23,6 +23,7 @@ export const GATEWAY_TRANSACTION_SELECT = {
   paymentMethod: true,
   vaNumber: true,
   paymentUrl: true,
+  gatewayFee: true,
   expiresAt: true,
   paymentDate: true,
   createdAt: true,

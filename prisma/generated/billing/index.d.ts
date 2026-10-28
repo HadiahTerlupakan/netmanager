@@ -5524,11 +5524,13 @@ export namespace Prisma {
   export type PaymentAvgAggregateOutputType = {
     amount: number | null
     discountAmount: number | null
+    gatewayFee: number | null
   }
 
   export type PaymentSumAggregateOutputType = {
     amount: bigint | null
     discountAmount: bigint | null
+    gatewayFee: bigint | null
   }
 
   export type PaymentMinAggregateOutputType = {
@@ -5555,6 +5557,7 @@ export namespace Prisma {
     paymentUrl: string | null
     vaNumber: string | null
     qrString: string | null
+    gatewayFee: bigint | null
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
@@ -5585,6 +5588,7 @@ export namespace Prisma {
     paymentUrl: string | null
     vaNumber: string | null
     qrString: string | null
+    gatewayFee: bigint | null
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
@@ -5615,6 +5619,7 @@ export namespace Prisma {
     paymentUrl: number
     vaNumber: number
     qrString: number
+    gatewayFee: number
     expiresAt: number
     unmatchedMutationId: number
     receiptUrl: number
@@ -5626,11 +5631,13 @@ export namespace Prisma {
   export type PaymentAvgAggregateInputType = {
     amount?: true
     discountAmount?: true
+    gatewayFee?: true
   }
 
   export type PaymentSumAggregateInputType = {
     amount?: true
     discountAmount?: true
+    gatewayFee?: true
   }
 
   export type PaymentMinAggregateInputType = {
@@ -5657,6 +5664,7 @@ export namespace Prisma {
     paymentUrl?: true
     vaNumber?: true
     qrString?: true
+    gatewayFee?: true
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
@@ -5687,6 +5695,7 @@ export namespace Prisma {
     paymentUrl?: true
     vaNumber?: true
     qrString?: true
+    gatewayFee?: true
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
@@ -5717,6 +5726,7 @@ export namespace Prisma {
     paymentUrl?: true
     vaNumber?: true
     qrString?: true
+    gatewayFee?: true
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
@@ -5834,6 +5844,7 @@ export namespace Prisma {
     paymentUrl: string | null
     vaNumber: string | null
     qrString: string | null
+    gatewayFee: bigint | null
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
@@ -5883,6 +5894,7 @@ export namespace Prisma {
     paymentUrl?: boolean
     vaNumber?: boolean
     qrString?: boolean
+    gatewayFee?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
@@ -5915,6 +5927,7 @@ export namespace Prisma {
     paymentUrl?: boolean
     vaNumber?: boolean
     qrString?: boolean
+    gatewayFee?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
@@ -5947,6 +5960,7 @@ export namespace Prisma {
     paymentUrl?: boolean
     vaNumber?: boolean
     qrString?: boolean
+    gatewayFee?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
@@ -5979,13 +5993,14 @@ export namespace Prisma {
     paymentUrl?: boolean
     vaNumber?: boolean
     qrString?: boolean
+    gatewayFee?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
     tenantId?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "discountAmount" | "checkoutId" | "couponUsageId" | "couponId" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "vaNumber" | "qrString" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "tenantId", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "discountAmount" | "checkoutId" | "couponUsageId" | "couponId" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "vaNumber" | "qrString" | "gatewayFee" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "tenantId", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -6029,6 +6044,7 @@ export namespace Prisma {
       paymentUrl: string | null
       vaNumber: string | null
       qrString: string | null
+      gatewayFee: bigint | null
       expiresAt: Date | null
       unmatchedMutationId: string | null
       receiptUrl: string | null
@@ -6481,6 +6497,7 @@ export namespace Prisma {
     readonly paymentUrl: FieldRef<"Payment", 'String'>
     readonly vaNumber: FieldRef<"Payment", 'String'>
     readonly qrString: FieldRef<"Payment", 'String'>
+    readonly gatewayFee: FieldRef<"Payment", 'BigInt'>
     readonly expiresAt: FieldRef<"Payment", 'DateTime'>
     readonly unmatchedMutationId: FieldRef<"Payment", 'String'>
     readonly receiptUrl: FieldRef<"Payment", 'String'>
@@ -10613,6 +10630,7 @@ export namespace Prisma {
     paymentUrl: 'paymentUrl',
     vaNumber: 'vaNumber',
     qrString: 'qrString',
+    gatewayFee: 'gatewayFee',
     expiresAt: 'expiresAt',
     unmatchedMutationId: 'unmatchedMutationId',
     receiptUrl: 'receiptUrl',
@@ -11337,6 +11355,7 @@ export namespace Prisma {
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     vaNumber?: StringNullableFilter<"Payment"> | string | null
     qrString?: StringNullableFilter<"Payment"> | string | null
+    gatewayFee?: BigIntNullableFilter<"Payment"> | bigint | number | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
@@ -11369,6 +11388,7 @@ export namespace Prisma {
     paymentUrl?: SortOrderInput | SortOrder
     vaNumber?: SortOrderInput | SortOrder
     qrString?: SortOrderInput | SortOrder
+    gatewayFee?: SortOrderInput | SortOrder
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
     receiptUrl?: SortOrderInput | SortOrder
@@ -11405,6 +11425,7 @@ export namespace Prisma {
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     vaNumber?: StringNullableFilter<"Payment"> | string | null
     qrString?: StringNullableFilter<"Payment"> | string | null
+    gatewayFee?: BigIntNullableFilter<"Payment"> | bigint | number | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
     tenantId?: StringNullableFilter<"Payment"> | string | null
@@ -11436,6 +11457,7 @@ export namespace Prisma {
     paymentUrl?: SortOrderInput | SortOrder
     vaNumber?: SortOrderInput | SortOrder
     qrString?: SortOrderInput | SortOrder
+    gatewayFee?: SortOrderInput | SortOrder
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
     receiptUrl?: SortOrderInput | SortOrder
@@ -11474,6 +11496,7 @@ export namespace Prisma {
     paymentUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     vaNumber?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     qrString?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    gatewayFee?: BigIntNullableWithAggregatesFilter<"Payment"> | bigint | number | null
     expiresAt?: DateTimeNullableWithAggregatesFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     receiptUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
@@ -12253,6 +12276,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     vaNumber?: string | null
     qrString?: string | null
+    gatewayFee?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
     tenantId?: string | null
@@ -12284,6 +12308,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     vaNumber?: string | null
     qrString?: string | null
+    gatewayFee?: bigint | number | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
@@ -12313,6 +12338,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12344,6 +12370,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12374,6 +12401,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     vaNumber?: string | null
     qrString?: string | null
+    gatewayFee?: bigint | number | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
@@ -12403,6 +12431,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12432,6 +12461,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -13409,6 +13439,17 @@ export namespace Prisma {
     not?: NestedEnumGatewayPaymentStatusNullableFilter<$PrismaModel> | $Enums.GatewayPaymentStatus | null
   }
 
+  export type BigIntNullableFilter<$PrismaModel = never> = {
+    equals?: bigint | number | BigIntFieldRefInput<$PrismaModel> | null
+    in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    notIn?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    lt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    lte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    not?: NestedBigIntNullableFilter<$PrismaModel> | bigint | number | null
+  }
+
   export type UnmatchedMutationNullableScalarRelationFilter = {
     is?: UnmatchedMutationWhereInput | null
     isNot?: UnmatchedMutationWhereInput | null
@@ -13438,6 +13479,7 @@ export namespace Prisma {
     paymentUrl?: SortOrder
     vaNumber?: SortOrder
     qrString?: SortOrder
+    gatewayFee?: SortOrder
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
@@ -13447,6 +13489,7 @@ export namespace Prisma {
   export type PaymentAvgOrderByAggregateInput = {
     amount?: SortOrder
     discountAmount?: SortOrder
+    gatewayFee?: SortOrder
   }
 
   export type PaymentMaxOrderByAggregateInput = {
@@ -13473,6 +13516,7 @@ export namespace Prisma {
     paymentUrl?: SortOrder
     vaNumber?: SortOrder
     qrString?: SortOrder
+    gatewayFee?: SortOrder
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
@@ -13503,6 +13547,7 @@ export namespace Prisma {
     paymentUrl?: SortOrder
     vaNumber?: SortOrder
     qrString?: SortOrder
+    gatewayFee?: SortOrder
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
@@ -13512,6 +13557,7 @@ export namespace Prisma {
   export type PaymentSumOrderByAggregateInput = {
     amount?: SortOrder
     discountAmount?: SortOrder
+    gatewayFee?: SortOrder
   }
 
   export type EnumPaymentMethodWithAggregatesFilter<$PrismaModel = never> = {
@@ -13532,6 +13578,22 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedEnumGatewayPaymentStatusNullableFilter<$PrismaModel>
     _max?: NestedEnumGatewayPaymentStatusNullableFilter<$PrismaModel>
+  }
+
+  export type BigIntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: bigint | number | BigIntFieldRefInput<$PrismaModel> | null
+    in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    notIn?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    lt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    lte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    not?: NestedBigIntNullableWithAggregatesFilter<$PrismaModel> | bigint | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedBigIntNullableFilter<$PrismaModel>
+    _min?: NestedBigIntNullableFilter<$PrismaModel>
+    _max?: NestedBigIntNullableFilter<$PrismaModel>
   }
 
   export type BoolFilter<$PrismaModel = never> = {
@@ -14075,6 +14137,14 @@ export namespace Prisma {
     set?: $Enums.GatewayPaymentStatus | null
   }
 
+  export type NullableBigIntFieldUpdateOperationsInput = {
+    set?: bigint | number | null
+    increment?: bigint | number
+    decrement?: bigint | number
+    multiply?: bigint | number
+    divide?: bigint | number
+  }
+
   export type InvoiceUpdateOneWithoutPaymentNestedInput = {
     create?: XOR<InvoiceCreateWithoutPaymentInput, InvoiceUncheckedCreateWithoutPaymentInput>
     connectOrCreate?: InvoiceCreateOrConnectWithoutPaymentInput
@@ -14440,6 +14510,17 @@ export namespace Prisma {
     not?: NestedEnumGatewayPaymentStatusNullableFilter<$PrismaModel> | $Enums.GatewayPaymentStatus | null
   }
 
+  export type NestedBigIntNullableFilter<$PrismaModel = never> = {
+    equals?: bigint | number | BigIntFieldRefInput<$PrismaModel> | null
+    in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    notIn?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    lt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    lte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    not?: NestedBigIntNullableFilter<$PrismaModel> | bigint | number | null
+  }
+
   export type NestedEnumPaymentMethodWithAggregatesFilter<$PrismaModel = never> = {
     equals?: $Enums.PaymentMethod | EnumPaymentMethodFieldRefInput<$PrismaModel>
     in?: $Enums.PaymentMethod[] | ListEnumPaymentMethodFieldRefInput<$PrismaModel>
@@ -14458,6 +14539,33 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>
     _min?: NestedEnumGatewayPaymentStatusNullableFilter<$PrismaModel>
     _max?: NestedEnumGatewayPaymentStatusNullableFilter<$PrismaModel>
+  }
+
+  export type NestedBigIntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: bigint | number | BigIntFieldRefInput<$PrismaModel> | null
+    in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    notIn?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    lt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    lte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    not?: NestedBigIntNullableWithAggregatesFilter<$PrismaModel> | bigint | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedBigIntNullableFilter<$PrismaModel>
+    _min?: NestedBigIntNullableFilter<$PrismaModel>
+    _max?: NestedBigIntNullableFilter<$PrismaModel>
+  }
+
+  export type NestedFloatNullableFilter<$PrismaModel = never> = {
+    equals?: number | FloatFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListFloatFieldRefInput<$PrismaModel> | null
+    lt?: number | FloatFieldRefInput<$PrismaModel>
+    lte?: number | FloatFieldRefInput<$PrismaModel>
+    gt?: number | FloatFieldRefInput<$PrismaModel>
+    gte?: number | FloatFieldRefInput<$PrismaModel>
+    not?: NestedFloatNullableFilter<$PrismaModel> | number | null
   }
 
   export type NestedBoolFilter<$PrismaModel = never> = {
@@ -14610,6 +14718,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     vaNumber?: string | null
     qrString?: string | null
+    gatewayFee?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
     tenantId?: string | null
@@ -14639,6 +14748,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     vaNumber?: string | null
     qrString?: string | null
+    gatewayFee?: bigint | number | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
@@ -14784,6 +14894,7 @@ export namespace Prisma {
     paymentUrl?: StringNullableFilter<"Payment"> | string | null
     vaNumber?: StringNullableFilter<"Payment"> | string | null
     qrString?: StringNullableFilter<"Payment"> | string | null
+    gatewayFee?: BigIntNullableFilter<"Payment"> | bigint | number | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
@@ -15296,6 +15407,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     vaNumber?: string | null
     qrString?: string | null
+    gatewayFee?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
     tenantId?: string | null
@@ -15326,6 +15438,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     vaNumber?: string | null
     qrString?: string | null
+    gatewayFee?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
     tenantId?: string | null
@@ -15370,6 +15483,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15400,6 +15514,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15438,6 +15553,7 @@ export namespace Prisma {
     paymentUrl?: string | null
     vaNumber?: string | null
     qrString?: string | null
+    gatewayFee?: bigint | number | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
@@ -15520,6 +15636,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15549,6 +15666,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15578,6 +15696,7 @@ export namespace Prisma {
     paymentUrl?: NullableStringFieldUpdateOperationsInput | string | null
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
+    gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null

@@ -74,6 +74,8 @@ export interface TransactionStatus {
   paymentMethod?: string;
   amount?: number;
   transactionId?: string;
+  /** Biaya yang dipotong gateway, bila gateway melaporkannya. */
+  fee?: number;
 }
 
 // Webhook Processing Result

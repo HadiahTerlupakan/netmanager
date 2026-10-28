@@ -67,6 +67,18 @@ export function InvoicePaymentHistoryModal({
                 <Item label="No. VA / kode" value={attempt.vaNumber ?? "-"} />
                 <Item label="Order ID" value={attempt.reference ?? "-"} />
                 <Item
+                  label="PG Transaction ID"
+                  value={attempt.pgTransactionId ?? "-"}
+                />
+                <Item
+                  label="Biaya / diterima"
+                  value={
+                    attempt.fee === null || attempt.receivedAmount === null
+                      ? "-"
+                      : `${formatRupiah(attempt.fee)} / ${formatRupiah(attempt.receivedAmount)}`
+                  }
+                />
+                <Item
                   label="Ref. gateway"
                   value={attempt.transactionId ?? "-"}
                 />

@@ -26,6 +26,7 @@ import {
 import { WebhookIdempotencyService } from "./WebhookIdempotencyService";
 import { getPaymentGatewayMetrics } from "./PaymentGatewayMetrics";
 import type { WebhookResult } from "./provider-interface";
+import { recordGatewayFee } from "./gateway-fee";
 import {
   hasAmountMismatch,
   normalizePaymentMethod,
@@ -313,6 +314,7 @@ export class WebhookProcessingService {
       if (outcome === "PAID") {
         await restoreReleasedCoupons(checkout);
         await settleCheckoutInvoices(checkout);
+        await recordGatewayFee(provider, payment);
       } else if (outcome && isUnpaidTerminalStatus(outcome)) {
         await releaseCheckoutCoupons(checkout);
       }

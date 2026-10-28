@@ -123,6 +123,8 @@ model Payment {
   // string QRIS) yang ditampilkan portal sendiri.
   vaNumber        String?
   qrString        String?
+  // Biaya gateway untuk payment lunas, dari API cek status gateway.
+  gatewayFee      BigInt?
   expiresAt       DateTime?
 
   unmatchedMutationId String?            @unique
