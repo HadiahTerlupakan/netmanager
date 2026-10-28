@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import type { InvoiceRepository } from "../repositories/InvoiceRepository";
+import { reverseJournalsOfCancelledInvoice } from "./invoice-cancellation-journals";
 
 /** Status invoice yang masih dianggap tagihan hidup dan boleh diganti. */
 const REPLACEABLE_STATUSES = ["DRAFT", "SENT", "OVERDUE"] as const;
@@ -8,6 +9,7 @@ type CancellableInvoice = {
   id: string;
   status: string;
   paidAmount: bigint;
+  tenantId: string | null;
 };
 
 /**
@@ -27,6 +29,12 @@ export async function cancelOutstandingInvoices(options: {
 
   for (const invoice of cancellable) {
     await cancelSingleInvoice(options.invoiceRepo, invoice.id);
+    await reverseJournalsOfCancelledInvoice({
+      invoiceId: invoice.id,
+      tenantId: invoice.tenantId,
+      reason: "Tagihan diganti dengan tagihan baru",
+      reversedBy: "Sistem",
+    });
     cancelledIds.push(invoice.id);
   }
 
@@ -43,7 +51,7 @@ async function findCancellableInvoices(options: {
       pelangganId: options.pelangganId,
       status: { in: [...REPLACEABLE_STATUSES] },
     },
-    { id: true, status: true, paidAmount: true },
+    { id: true, status: true, paidAmount: true, tenantId: true },
   )) as unknown as CancellableInvoice[];
 
   return candidates.filter(

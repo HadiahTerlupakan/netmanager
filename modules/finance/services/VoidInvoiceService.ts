@@ -1,4 +1,5 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
+import { reverseJournalsOfCancelledInvoice } from "./invoice-cancellation-journals";
 import type { PelangganBillingBridgeService } from "@/modules/pelanggan";
 import { getPelangganBillingBridge } from "../pelanggan-registry";
 import { CustomerEventDispatcher } from "@/modules/events";
@@ -61,6 +62,12 @@ export class VoidInvoiceService {
         reason,
         invoice.notes,
       );
+      await reverseJournalsOfCancelledInvoice({
+        invoiceId: invoice.id,
+        tenantId: invoice.tenantId,
+        reason: `Tagihan dibatalkan: ${reason}`,
+        reversedBy: adminUserId,
+      });
       const { cancelInvoiceBillingSchedules } =
         await import("./billingScheduleLifecycle");
       await cancelInvoiceBillingSchedules(invoice.id);

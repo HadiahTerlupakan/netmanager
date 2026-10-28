@@ -84,20 +84,29 @@ export async function resolveInvoiceReceiptCoa(
   return { piutang, defaultBank, gatewayBalance, gatewayFee, accountCoa };
 }
 
+/**
+ * Pengeluaran: Debit beban kategori (Beban Lainnya bila tanpa kategori),
+ * Kredit rekening sumber dana. Pengeluaran tanpa rekening dibayar tunai,
+ * jadi mengurangi Kas; dulu ia tidak berjurnal dan tak tampil di arus kas.
+ */
 export async function resolveExpenseApprovedCoa(
   tenantId: string,
-  expenseCategoryId: string,
-  accountId: string,
+  expenseCategoryId: string | null,
+  accountId: string | null,
 ): Promise<ResolvedCoa> {
-  const category = await prisma.expenseCategory.findUnique({
-    where: { id: expenseCategoryId },
-    select: { coaId: true },
-  });
+  const category = expenseCategoryId
+    ? await prisma.expenseCategory.findUnique({
+        where: { id: expenseCategoryId },
+        select: { coaId: true },
+      })
+    : null;
 
   const debitCoaId =
     category?.coaId ??
     (await resolveCoaId(tenantId, "BEBAN_LAINNYA").then((ids) => ids[0]));
-  const creditCoaId = await findBankCoaByAccountId(tenantId, accountId);
+  const creditCoaId = accountId
+    ? await findBankCoaByAccountId(tenantId, accountId)
+    : (await resolveCoaId(tenantId, "KAS_UTAMA"))[0];
 
   return { debitCoaId, creditCoaId };
 }

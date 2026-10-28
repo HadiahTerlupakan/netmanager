@@ -41,30 +41,27 @@ export async function cancelPaidPayment(options: {
   }
 
   await cancelPayment(options.paymentId, options.adminLabel);
-  const result = await new InvoicePaymentStateService().recompute(invoice.id);
-  await reverseReceiptIfUnpaid(result, invoice, options.adminLabel);
+  await new InvoicePaymentStateService().recompute(invoice.id);
+  await reverseCancelledReceipt(payment.id, invoice, options.adminLabel);
   await notifyCustomer(payment.id, invoice.id, invoice.pelangganId);
 }
 
 /**
- * Invoice yang tidak lagi lunas setelah pembatalan: jurnal penerimaannya
- * dibalik, agar kas dan piutang di pembukuan kembali seperti sebelum dibayar.
- * Dulu pembatalan tidak membalik jurnal apa pun, sehingga kas tetap tercatat
- * bertambah untuk uang yang dianggap batal.
+ * Jurnal penerimaan pembayaran yang dibatalkan dibalik, agar kas dan piutang
+ * di pembukuan kembali seperti sebelum dibayar. Penerimaan dibukukan per
+ * pembayaran, jadi pembatalan pembayaran sebagian juga dibalik.
  */
-async function reverseReceiptIfUnpaid(
-  result: { previousStatus: string; invoice: { status: string } } | null,
+async function reverseCancelledReceipt(
+  paymentId: string,
   invoice: { id: string; tenantId?: string | null },
   adminLabel: string,
 ) {
-  const wasPaid = result?.previousStatus === "PAID";
-  if (!wasPaid || result.invoice.status === "PAID" || !invoice.tenantId) {
-    return;
-  }
+  if (!invoice.tenantId) return;
   try {
     await reverseInvoiceReceiptJournals({
       tenantId: invoice.tenantId,
       invoiceId: invoice.id,
+      paymentId,
       reason: `Pembayaran dibatalkan oleh ${adminLabel}`,
       reversedBy: adminLabel,
     });

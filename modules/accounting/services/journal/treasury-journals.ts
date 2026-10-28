@@ -1,10 +1,6 @@
 import { ChartOfAccountRepository } from "../../repositories/ChartOfAccountRepository";
-import { JournalRepository } from "../../repositories/JournalRepository";
-import { PeriodRepository } from "../../repositories/PeriodRepository";
 import { getCoaCode } from "../event-handlers/coa-mapping-config";
-import { PeriodService } from "../period/PeriodService";
-import { JournalNumberGenerator } from "./JournalNumberGenerator";
-import { JournalPostingService } from "./JournalPostingService";
+import { autoPostingService, ensurePeriod } from "./auto-posting";
 
 /**
  * Jurnal untuk rekening Kas & Bank. Saldo rekening yang ditautkan ke COA
@@ -12,22 +8,6 @@ import { JournalPostingService } from "./JournalPostingService";
  * transfer antar rekening dan saldo awal hanya mengubah angka tersimpan, dan
  * angka itu tidak pernah cocok dengan buku besar maupun arus kas.
  */
-function postingService() {
-  const journalRepo = new JournalRepository();
-  return new JournalPostingService(
-    journalRepo,
-    new ChartOfAccountRepository(),
-    new PeriodRepository(),
-    new JournalNumberGenerator(journalRepo),
-  );
-}
-
-async function ensurePeriod(tenantId: string, date: Date) {
-  await new PeriodService(new PeriodRepository()).ensureCurrentPeriod(
-    tenantId,
-    date,
-  );
-}
 
 /** Pindah dana antar rekening: Debit rekening tujuan, Kredit rekening asal. */
 export async function postTreasuryTransferJournal(input: {
@@ -42,7 +22,7 @@ export async function postTreasuryTransferJournal(input: {
 }) {
   await ensurePeriod(input.tenantId, input.date);
   const amount = String(input.amount);
-  return postingService().postAuto(input.tenantId, {
+  return autoPostingService().postAuto(input.tenantId, {
     source: "MANUAL",
     sourceRefType: "TreasuryMutation",
     sourceRefId: input.mutationId,
@@ -73,7 +53,7 @@ export async function postAccountOpeningJournal(input: {
   );
   if (!equity) throw new Error("COA Modal Disetor belum tersedia");
   const amount = String(input.amount);
-  return postingService().postAuto(input.tenantId, {
+  return autoPostingService().postAuto(input.tenantId, {
     source: "OPENING_BALANCE",
     sourceRefType: "FinancialAccount",
     sourceRefId: input.accountId,

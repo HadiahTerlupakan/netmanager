@@ -45,6 +45,20 @@ export class BillingEventDispatcher {
     );
   }
 
+  /** Sebagian tagihan dibayar; dipakai untuk membukukan uang yang masuk. */
+  static async onInvoicePartiallyPaid(
+    invoiceId: string,
+    pelangganId: string,
+    amount: number,
+  ) {
+    await eventBus.publish(EVENT_NAMES.INVOICE_PARTIALLY_PAID, {
+      invoiceId,
+      pelangganId,
+      amount,
+      paidAt: new Date().toISOString(),
+    });
+  }
+
   /**
    * Checkout gateway berakhir tanpa dibayar (kedaluwarsa); pelanggan diberi
    * tahu agar membayar lagi.

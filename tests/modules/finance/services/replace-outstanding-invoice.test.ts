@@ -13,10 +13,20 @@ vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
   cancelInvoiceBillingSchedules,
 }));
 
+const reverseCancelledInvoiceJournals = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(1),
+);
+vi.mock("@/modules/accounting", () => ({ reverseCancelledInvoiceJournals }));
+
 import { cancelOutstandingInvoices } from "@/modules/finance/services/outstanding-invoice.helpers";
 
 function createInvoiceRepo(
-  invoices: Array<{ id: string; status: string; paidAmount: bigint }>,
+  invoices: Array<{
+    id: string;
+    status: string;
+    paidAmount: bigint;
+    tenantId?: string;
+  }>,
 ) {
   return {
     findUnpaidInvoices: vi.fn().mockResolvedValue(invoices),
@@ -44,6 +54,22 @@ describe("cancelOutstandingInvoices", () => {
       expect.objectContaining({ status: "CANCELLED" }),
     );
     expect(cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-1");
+  });
+
+  // Dulu tagihan yang diganti tetap tercatat sebagai piutang dan pendapatan.
+  it("membalik jurnal tagihan yang dibatalkan", async () => {
+    const invoiceRepo = createInvoiceRepo([
+      { id: "inv-1", status: "SENT", paidAmount: 0n, tenantId: "t1" },
+    ]);
+
+    await cancelOutstandingInvoices({
+      pelangganId: "cust-1",
+      invoiceRepo: invoiceRepo as never,
+    });
+
+    expect(reverseCancelledInvoiceJournals).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: "t1", invoiceId: "inv-1" }),
+    );
   });
 
   it("membatalkan invoice yang sudah lewat jatuh tempo", async () => {

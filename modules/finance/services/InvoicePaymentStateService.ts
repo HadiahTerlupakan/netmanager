@@ -25,7 +25,8 @@ type RecomputeResult = {
  * 1. Hitung ulang `paidAmount` dari payment dengan gatewayStatus PAID/null.
  * 2. Tentukan dan persist status invoice (PAID / PARTIAL_PAID / SENT-restore).
  * 3. Sinkronisasi durable billing schedule (cancel saat PAID, sync sebaliknya).
- * 4. Emit event `INVOICE_PAID` sekali ketika invoice transisi menjadi PAID.
+ * 4. Emit event `INVOICE_PAID` sekali ketika invoice transisi menjadi PAID,
+ *    atau `INVOICE_PARTIALLY_PAID` saat pembayaran sebagian bertambah.
  *
  * Catatan: HANYA service ini yang boleh memanggil
  * `BillingEventDispatcher.onInvoicePaid` untuk transisi pembayaran.
@@ -73,6 +74,11 @@ export class InvoicePaymentStateService {
     await this.syncSchedules(updatedInvoice, becamePaid);
     if (becamePaid) {
       await this.publishInvoicePaid(updatedInvoice);
+    } else if (
+      nextStatus === InvoiceStatus.PARTIAL_PAID &&
+      totalPaid > invoice.paidAmount
+    ) {
+      await this.publishPartialPayment(updatedInvoice, totalPaid);
     }
 
     return {
@@ -106,6 +112,21 @@ export class InvoicePaymentStateService {
     ).catch((error) =>
       logger.error(
         "[InvoicePaymentState] Failed to publish INVOICE_PAID event",
+        error instanceof Error ? error : undefined,
+      ),
+    );
+  }
+
+  /** Uang dari pembayaran sebagian harus dibukukan walau tagihan belum lunas. */
+  private async publishPartialPayment(invoice: InvoiceEntity, paid: bigint) {
+    if (!invoice.pelangganId) return;
+    await BillingEventDispatcher.onInvoicePartiallyPaid(
+      invoice.id,
+      invoice.pelangganId,
+      Number(paid),
+    ).catch((error) =>
+      logger.error(
+        "[InvoicePaymentState] Failed to publish INVOICE_PARTIALLY_PAID event",
         error instanceof Error ? error : undefined,
       ),
     );

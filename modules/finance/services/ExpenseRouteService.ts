@@ -1,4 +1,8 @@
 import { randomUUID } from "crypto";
+import {
+  publishExpenseRecorded,
+  resyncExpenseBooks,
+} from "./expense-journal-events";
 import { Prisma } from "../repositories/prisma-boundary";
 
 import { ExpenseRepository } from "../repositories/ExpenseRepository";
@@ -6,8 +10,6 @@ import {
   createRouteServiceError,
   RouteServiceError,
 } from "./RouteServiceError";
-import { eventBus } from "@/lib/event-bus";
-import { EVENT_NAMES } from "@/lib/event-bus/types";
 
 const ZERO_DEPRECIATION = 0n;
 const ZERO_USEFUL_LIFE = 0;
@@ -89,18 +91,7 @@ export class ExpenseRouteService {
     const expenses = await this.expenseRepository.createManyExpenses(entries);
 
     for (const expense of expenses) {
-      if (expense.tenantId && expense.accountId) {
-        eventBus
-          .publish(EVENT_NAMES.EXPENSE_APPROVED, {
-            expenseId: expense.id,
-            tenantId: expense.tenantId,
-            amount: expense.amount.toString(),
-            accountId: expense.accountId,
-            expenseCategoryId: expense.expenseCategoryId ?? "",
-            expenseDate: expense.date.toISOString(),
-          })
-          .catch(() => {});
-      }
+      publishExpenseRecorded(expense);
     }
 
     return expenses.map(this.serializeExpense);
@@ -120,6 +111,11 @@ export class ExpenseRouteService {
 
     try {
       const expense = await this.expenseRepository.updateExpense(where, data);
+      await resyncExpenseBooks({
+        tenantId: expense.tenantId,
+        expenseId: expense.id,
+        reason: "Pengeluaran diubah",
+      });
       return this.serializeExpense(expense);
     } catch (error) {
       this.rethrowNotFound(error);
@@ -140,6 +136,11 @@ export class ExpenseRouteService {
     }
 
     const deletedExpense = await this.expenseRepository.deleteExpense(where);
+    await resyncExpenseBooks({
+      tenantId: deletedExpense.tenantId,
+      expenseId: deletedExpense.id,
+      reason: "Pengeluaran dihapus",
+    });
     return this.serializeExpense(deletedExpense);
   }
 

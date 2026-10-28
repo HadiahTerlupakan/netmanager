@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { publishExpenseRecorded } from "./expense-journal-events";
 import { Prisma } from "../repositories/prisma-boundary";
 import { ExpenseCategoryRepository, ExpenseRepository } from "../repositories";
 
@@ -76,6 +77,7 @@ export class FinanceExpenseFacadeService {
       invoiceFile: data.invoiceFile,
       accountId: data.accountId,
     });
+    publishExpenseRecorded(expense);
 
     return {
       ...expense,

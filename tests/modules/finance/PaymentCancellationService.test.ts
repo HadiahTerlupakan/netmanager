@@ -128,7 +128,7 @@ describe("cancelPaidPayment", () => {
 
   // Dulu pembatalan tidak membalik jurnal: kas tetap tercatat bertambah untuk
   // uang yang dianggap batal.
-  it("membalik jurnal penerimaan bila invoice tidak lagi lunas", async () => {
+  it("membalik jurnal penerimaan pembayaran yang dibatalkan", async () => {
     mockFns.paymentFindUnique.mockResolvedValue({
       id: "pay-1",
       gatewayStatus: "PAID",
@@ -146,12 +146,15 @@ describe("cancelPaidPayment", () => {
       expect.objectContaining({
         tenantId: "t1",
         invoiceId: "inv-1",
+        paymentId: "pay-1",
         reversedBy: "Admin",
       }),
     );
   });
 
-  it("invoice yang tetap lunas tidak dibalik jurnalnya", async () => {
+  // Penerimaan dibukukan per pembayaran: invoice yang tetap lunas karena
+  // pembayaran lain hanya kehilangan jurnal pembayaran yang dibatalkan.
+  it("invoice yang tetap lunas hanya dibalik jurnal pembayaran yang dibatalkan", async () => {
     mockFns.paymentFindUnique.mockResolvedValue({
       id: "pay-1",
       gatewayStatus: "PAID",
@@ -165,6 +168,9 @@ describe("cancelPaidPayment", () => {
 
     await cancelPaidPayment({ paymentId: "pay-1", adminLabel: "Admin" });
 
-    expect(mockFns.reverseReceipt).not.toHaveBeenCalled();
+    expect(mockFns.reverseReceipt).toHaveBeenCalledTimes(1);
+    expect(mockFns.reverseReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ invoiceId: "inv-1", paymentId: "pay-1" }),
+    );
   });
 });

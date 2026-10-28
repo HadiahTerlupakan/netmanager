@@ -13,6 +13,16 @@ import { CoaNotFoundError } from "../../errors";
 
 const SOURCE = "CouponUsedAccountingHandler";
 
+/**
+ * Satu jurnal per pemakaian kupon. Dulu kuncinya id kupon saja, jadi pemakaian
+ * kedua dan seterusnya mendapat jurnal pemakaian pertama: potongannya tidak
+ * pernah mengkredit Piutang, dan tagihan lunas tetap menyisakan piutang.
+ */
+export function couponUseRef(couponId: string, invoiceIds: unknown) {
+  const ids = Array.isArray(invoiceIds) ? [...invoiceIds].sort() : [];
+  return ids.length ? `${couponId}:${ids.join(",")}` : couponId;
+}
+
 export async function handleCouponUsedAccounting(
   job: Job<EventJobData>,
 ): Promise<void> {
@@ -48,7 +58,7 @@ export async function handleCouponUsedAccounting(
     await postingService.postAuto(tenantId, {
       source: "AUTO_COUPON_USED",
       sourceRefType: "Coupon",
-      sourceRefId: couponId,
+      sourceRefId: couponUseRef(couponId, payload.invoiceIds),
       entryDate,
       description: `Jurnal otomatis: Potongan penjualan kupon ${couponId}`,
       lines: [

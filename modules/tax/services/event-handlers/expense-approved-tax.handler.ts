@@ -27,6 +27,8 @@ export async function handleExpenseApprovedTax(
   );
   const tenantId = requirePayloadString(payload.tenantId, "tenantId", SOURCE);
   const amount = requirePayloadString(payload.amount, "amount", SOURCE);
+  // PPh ditentukan dari kategori; pengeluaran tanpa kategori tidak dipotong.
+  if (!payload.expenseCategoryId) return;
   const expenseCategoryId = requirePayloadString(
     payload.expenseCategoryId,
     "expenseCategoryId",

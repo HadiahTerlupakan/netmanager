@@ -37,6 +37,7 @@ export const EVENT_NAMES = {
   // Billing Events
   INVOICE_CREATED: "billing:invoice.created",
   INVOICE_PAID: "billing:invoice.paid",
+  INVOICE_PARTIALLY_PAID: "billing:invoice.partially_paid",
   INVOICE_OVERDUE: "billing:invoice.overdue",
   INVOICE_REMINDER_DUE: "billing:invoice.reminder_due",
   INVOICE_AUTO_ISOLATE_REQUESTED: "billing:invoice.auto_isolate_requested",
@@ -356,8 +357,9 @@ export interface ExpenseApprovedPayload extends BaseEventPayload {
   expenseId: string;
   tenantId: string;
   amount: string;
-  accountId: string;
-  expenseCategoryId: string;
+  /** Kosong: dibayar tunai dari Kas. */
+  accountId?: string;
+  expenseCategoryId?: string;
   expenseDate: string;
 }
 
@@ -664,6 +666,7 @@ export interface UserDeactivatedPayload extends BaseEventPayload {
 export interface EventPayloadMap {
   [EVENT_NAMES.INVOICE_CREATED]: InvoiceCreatedPayload;
   [EVENT_NAMES.INVOICE_PAID]: InvoicePaidPayload;
+  [EVENT_NAMES.INVOICE_PARTIALLY_PAID]: InvoicePaidPayload;
   [EVENT_NAMES.INVOICE_OVERDUE]: InvoiceCreatedPayload;
   [EVENT_NAMES.INVOICE_REMINDER_DUE]: InvoiceReminderDuePayload;
   [EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED]: InvoiceAutoIsolatePayload;
@@ -782,6 +785,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     name: EVENT_NAMES.INVOICE_PAID,
     category: "billing",
     priority: JOB_PRIORITIES.CRITICAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVOICE_PARTIALLY_PAID]: {
+    name: EVENT_NAMES.INVOICE_PARTIALLY_PAID,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
     persistent: true,
     async: true,
   },

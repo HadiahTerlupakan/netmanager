@@ -14,9 +14,9 @@ vi.mock("@/lib/event-bus", () => ({
 import { ExpenseRouteService } from "@/modules/finance/services/ExpenseRouteService";
 
 /**
- * Event `EXPENSE_APPROVED` — satu-satunya pemicu jurnal pengeluaran — hanya
- * dikirim bila `expense.accountId` terisi. Sebelumnya jalur batch tidak pernah
- * meneruskan akun kas sama sekali, sehingga 147 pengeluaran di produksi
+ * Event `EXPENSE_APPROVED` adalah satu-satunya pemicu jurnal pengeluaran.
+ * Sebelumnya jalur batch tidak pernah meneruskan akun kas, dan event hanya
+ * dikirim bila akun kas terisi, sehingga 147 pengeluaran di produksi
  * tersimpan tanpa sumber dana dan tidak satu pun menghasilkan jurnal.
  */
 
@@ -95,7 +95,8 @@ describe("batch pengeluaran meneruskan akun kas", () => {
     );
   });
 
-  it("tidak mengirim event bila akun kas tidak dipilih", async () => {
+  // Pengeluaran tanpa rekening dibayar tunai dan dibukukan keluar dari Kas.
+  it("tetap mengirim event bila akun kas tidak dipilih", async () => {
     publish.mockClear();
     const { service } = createService([
       {
@@ -115,6 +116,10 @@ describe("batch pengeluaran meneruskan akun kas", () => {
       "user-1",
     );
 
-    expect(publish).not.toHaveBeenCalled();
+    expect(publish).toHaveBeenCalledWith(
+      "finance:expense.approved",
+      expect.objectContaining({ expenseId: "exp-2" }),
+    );
+    expect(publish.mock.calls[0][1]).not.toHaveProperty("accountId");
   });
 });
