@@ -9,8 +9,14 @@ import {
 } from "./paymentRepository.customer-payments";
 
 export class PaymentRepository implements IPaymentRepository {
-  /** Mengambil pembayaran dalam rentang tanggal pembayaran. */
-  async findManyByDateRange(
+  /**
+   * Pembayaran yang uangnya benar-benar diterima dalam rentang tanggal:
+   * lunas lewat gateway/verifikasi (PAID), atau dicatat langsung tanpa status
+   * gateway (mis. pembayaran registrasi). Checkout yang menunggu, kedaluwarsa,
+   * gagal, atau dibatalkan dulu ikut terjumlah, sehingga setiap ganti metode
+   * bayar menambah "pendapatan".
+   */
+  async findReceivedByDateRange(
     startDate: Date,
     endDate: Date,
   ): Promise<PaymentEntity[]> {
@@ -20,6 +26,7 @@ export class PaymentRepository implements IPaymentRepository {
           gte: startDate,
           lte: endDate,
         },
+        OR: [{ gatewayStatus: "PAID" }, { gatewayStatus: null }],
       },
     });
     return payments.map(mapPaymentEntity);

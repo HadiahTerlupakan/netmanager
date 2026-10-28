@@ -7,7 +7,10 @@ export type PaymentUpdateManyInput = Record<string, unknown>;
 
 /** Repository port for finance payment persistence. */
 export interface IPaymentRepository {
-  findManyByDateRange(startDate: Date, endDate: Date): Promise<PaymentEntity[]>;
+  findReceivedByDateRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<PaymentEntity[]>;
   findMany(
     where: PaymentWhereInput,
     select?: PaymentSelectInput,

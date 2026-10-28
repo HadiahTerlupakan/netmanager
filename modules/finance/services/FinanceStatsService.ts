@@ -83,7 +83,7 @@ export class FinanceStatsService {
   }
 
   private async getPayments(dateRange: DateRange) {
-    return this.paymentRepo.findManyByDateRange(
+    return this.paymentRepo.findReceivedByDateRange(
       dateRange.startDate,
       dateRange.endDate,
     );

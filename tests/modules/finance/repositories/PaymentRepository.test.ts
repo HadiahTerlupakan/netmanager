@@ -47,7 +47,7 @@ describe("PaymentRepository", () => {
     vi.clearAllMocks();
   });
 
-  describe("findManyByDateRange", () => {
+  describe("findReceivedByDateRange", () => {
     it("harus return payments dalam date range", async () => {
       const startDate = new Date("2026-05-01");
       const endDate = new Date("2026-05-31");
@@ -56,18 +56,21 @@ describe("PaymentRepository", () => {
         mockPayment,
       ] as never);
 
-      const result = await paymentRepository.findManyByDateRange(
+      const result = await paymentRepository.findReceivedByDateRange(
         startDate,
         endDate,
       );
 
       expect(result).toHaveLength(1);
+      // Hanya uang yang benar-benar diterima: checkout menunggu, kedaluwarsa,
+      // gagal, atau dibatalkan dulu ikut terjumlah sebagai pendapatan.
       expect(prismaBilling.payment.findMany).toHaveBeenCalledWith({
         where: {
           paymentDate: {
             gte: startDate,
             lte: endDate,
           },
+          OR: [{ gatewayStatus: "PAID" }, { gatewayStatus: null }],
         },
       });
     });
@@ -78,7 +81,7 @@ describe("PaymentRepository", () => {
 
       vi.mocked(prismaBilling.payment.findMany).mockResolvedValue([]);
 
-      const result = await paymentRepository.findManyByDateRange(
+      const result = await paymentRepository.findReceivedByDateRange(
         startDate,
         endDate,
       );
