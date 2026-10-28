@@ -4234,6 +4234,7 @@ model Tenant {
   reminderLog               ReminderLog[]
   revenueSnapshot           RevenueSnapshot[]
   settings                  Settings[]
+  sampleInvoiceBatches      SampleInvoiceBatch[]
   shift                     Shift[]
   systemLog                 SystemLog[]
   user                      User[]
@@ -6868,4 +6869,29 @@ model VpnCoreRouterTombstone {
   createdAt    DateTime @default(now())
 
   @@map("vpn_core_router_tombstones")
+}
+
+/// Riwayat generate invoice contoh. Terpisah dari billing: tidak ada relasi ke
+/// Invoice, Payment, atau Pelanggan, dan isinya fiktif. mitraId tanpa relasi
+/// karena mitra ada di database terpisah.
+model SampleInvoiceBatch {
+  id            String   @id @default(uuid())
+  tenantId      String
+  mitraId       String
+  mitraName     String
+  createdById   String
+  createdByName String
+  /// Hari yang dipakai saat generate; tanggal cetak berasal dari set tersimpan.
+  generatedAt   DateTime
+  input         Json
+  sampleSet     Json
+  customerCount Int
+  invoiceCount  Int
+  fromMonth     String
+  toMonth       String
+  createdAt     DateTime @default(now())
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, mitraId, createdAt])
+  @@map("sample_invoice_batches")
 }
