@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { createLazyPrismaClient } from "./prisma-lazy-client";
 import { withTenantIsolation } from "./prisma-extension";
 import { ignoreModels } from "./prisma-ignore-models";
+import { normalizeCustomerDueDates } from "./prisma-customer-due-date";
 import "dotenv/config";
 
 const globalForPrismaAuth = globalThis as unknown as {
@@ -37,7 +38,11 @@ const createPrismaClientBase = (): PrismaClient => {
 
 const getPrismaAuthClient = () => {
   if (!globalForPrismaAuth.prismaAuth) {
-    globalForPrismaAuth.prismaAuth = createPrismaClientBase();
+    // Dipasang di client dasar agar prisma (berisolasi tenant) dan prismaAuth
+    // sama-sama menyimpan jatuh tempo pelanggan sebagai tanggal.
+    globalForPrismaAuth.prismaAuth = createPrismaClientBase().$extends(
+      normalizeCustomerDueDates,
+    ) as unknown as PrismaClient;
   }
   return globalForPrismaAuth.prismaAuth;
 };

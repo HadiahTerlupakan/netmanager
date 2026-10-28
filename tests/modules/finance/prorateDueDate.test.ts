@@ -15,7 +15,11 @@ const CUSTOMER = {
   status: "AKTIF",
 };
 
-function setup(invoice: { invoiceNumber: string; dueDate: Date }) {
+function setup(invoice: {
+  invoiceNumber: string;
+  kind: "SUBSCRIPTION" | "PRORATE";
+  dueDate: Date;
+}) {
   const invoiceRepo = {
     findUnique: vi.fn().mockResolvedValue({
       id: "inv-1",
@@ -42,6 +46,7 @@ describe("jatuh tempo setelah invoice lunas", () => {
   it("invoice prorate tidak menggeser jatuh tempo pelanggan", async () => {
     const deps = setup({
       invoiceNumber: "PRORATE/1793144094127/abc123",
+      kind: "PRORATE",
       dueDate: new Date("2026-11-03T17:00:00.000Z"),
     });
 
@@ -58,6 +63,7 @@ describe("jatuh tempo setelah invoice lunas", () => {
   it("invoice langganan biasa tetap memperpanjang jatuh tempo", async () => {
     const deps = setup({
       invoiceNumber: "INV/2026/11/27-ABC",
+      kind: "SUBSCRIPTION",
       dueDate: new Date("2026-11-26T17:00:00.000Z"),
     });
 

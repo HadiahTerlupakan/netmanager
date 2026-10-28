@@ -88,6 +88,7 @@ export class ProrateRepository implements IProrateRepository {
         issueDate: now,
         dueDate: input.dueAt,
         status: "SENT",
+        kind: "PRORATE",
         subtotal: input.amount,
         totalAmount: input.amount,
         notes: input.description,

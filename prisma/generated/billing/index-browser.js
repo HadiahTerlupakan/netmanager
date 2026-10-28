@@ -127,6 +127,7 @@ exports.Prisma.InvoiceScalarFieldEnum = {
   issueDate: 'issueDate',
   dueDate: 'dueDate',
   status: 'status',
+  kind: 'kind',
   subtotal: 'subtotal',
   taxAmount: 'taxAmount',
   discountAmount: 'discountAmount',
@@ -303,6 +304,11 @@ exports.InvoiceStatus = exports.$Enums.InvoiceStatus = {
   PAID: 'PAID',
   PARTIAL_PAID: 'PARTIAL_PAID',
   CANCELLED: 'CANCELLED'
+};
+
+exports.InvoiceKind = exports.$Enums.InvoiceKind = {
+  SUBSCRIPTION: 'SUBSCRIPTION',
+  PRORATE: 'PRORATE'
 };
 
 exports.BillingScheduleJobType = exports.$Enums.BillingScheduleJobType = {

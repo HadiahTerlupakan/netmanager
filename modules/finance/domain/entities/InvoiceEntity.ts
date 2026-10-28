@@ -41,6 +41,8 @@ export interface InvoiceEntity {
   totalAmount: bigint;
   paidAmount: bigint;
   status: string;
+  /** SUBSCRIPTION atau PRORATE; invoice prorate tidak memperpanjang langganan. */
+  kind?: string;
   notes?: string | null;
   terms?: string | null;
   createdAt: Date;

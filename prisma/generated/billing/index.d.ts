@@ -165,6 +165,14 @@ export const PaymentStatus: {
 export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus]
 
 
+export const InvoiceKind: {
+  SUBSCRIPTION: 'SUBSCRIPTION',
+  PRORATE: 'PRORATE'
+};
+
+export type InvoiceKind = (typeof InvoiceKind)[keyof typeof InvoiceKind]
+
+
 export const GatewayPaymentStatus: {
   PENDING: 'PENDING',
   PAID: 'PAID',
@@ -221,6 +229,10 @@ export const ExpenseType: typeof $Enums.ExpenseType
 export type PaymentStatus = $Enums.PaymentStatus
 
 export const PaymentStatus: typeof $Enums.PaymentStatus
+
+export type InvoiceKind = $Enums.InvoiceKind
+
+export const InvoiceKind: typeof $Enums.InvoiceKind
 
 export type GatewayPaymentStatus = $Enums.GatewayPaymentStatus
 
@@ -1700,6 +1712,7 @@ export namespace Prisma {
     issueDate: Date | null
     dueDate: Date | null
     status: $Enums.InvoiceStatus | null
+    kind: $Enums.InvoiceKind | null
     subtotal: bigint | null
     taxAmount: bigint | null
     discountAmount: bigint | null
@@ -1723,6 +1736,7 @@ export namespace Prisma {
     issueDate: Date | null
     dueDate: Date | null
     status: $Enums.InvoiceStatus | null
+    kind: $Enums.InvoiceKind | null
     subtotal: bigint | null
     taxAmount: bigint | null
     discountAmount: bigint | null
@@ -1746,6 +1760,7 @@ export namespace Prisma {
     issueDate: number
     dueDate: number
     status: number
+    kind: number
     subtotal: number
     taxAmount: number
     discountAmount: number
@@ -1787,6 +1802,7 @@ export namespace Prisma {
     issueDate?: true
     dueDate?: true
     status?: true
+    kind?: true
     subtotal?: true
     taxAmount?: true
     discountAmount?: true
@@ -1810,6 +1826,7 @@ export namespace Prisma {
     issueDate?: true
     dueDate?: true
     status?: true
+    kind?: true
     subtotal?: true
     taxAmount?: true
     discountAmount?: true
@@ -1833,6 +1850,7 @@ export namespace Prisma {
     issueDate?: true
     dueDate?: true
     status?: true
+    kind?: true
     subtotal?: true
     taxAmount?: true
     discountAmount?: true
@@ -1943,6 +1961,7 @@ export namespace Prisma {
     issueDate: Date
     dueDate: Date
     status: $Enums.InvoiceStatus
+    kind: $Enums.InvoiceKind
     subtotal: bigint
     taxAmount: bigint
     discountAmount: bigint
@@ -1985,6 +2004,7 @@ export namespace Prisma {
     issueDate?: boolean
     dueDate?: boolean
     status?: boolean
+    kind?: boolean
     subtotal?: boolean
     taxAmount?: boolean
     discountAmount?: boolean
@@ -2012,6 +2032,7 @@ export namespace Prisma {
     issueDate?: boolean
     dueDate?: boolean
     status?: boolean
+    kind?: boolean
     subtotal?: boolean
     taxAmount?: boolean
     discountAmount?: boolean
@@ -2035,6 +2056,7 @@ export namespace Prisma {
     issueDate?: boolean
     dueDate?: boolean
     status?: boolean
+    kind?: boolean
     subtotal?: boolean
     taxAmount?: boolean
     discountAmount?: boolean
@@ -2058,6 +2080,7 @@ export namespace Prisma {
     issueDate?: boolean
     dueDate?: boolean
     status?: boolean
+    kind?: boolean
     subtotal?: boolean
     taxAmount?: boolean
     discountAmount?: boolean
@@ -2074,7 +2097,7 @@ export namespace Prisma {
     tenantId?: boolean
   }
 
-  export type InvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceNumber" | "pelangganId" | "issueDate" | "dueDate" | "status" | "subtotal" | "taxAmount" | "discountAmount" | "totalAmount" | "paidAmount" | "notes" | "terms" | "sentAt" | "paidAt" | "createdBy" | "createdAt" | "updatedAt" | "siteId" | "tenantId", ExtArgs["result"]["invoice"]>
+  export type InvoiceOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceNumber" | "pelangganId" | "issueDate" | "dueDate" | "status" | "kind" | "subtotal" | "taxAmount" | "discountAmount" | "totalAmount" | "paidAmount" | "notes" | "terms" | "sentAt" | "paidAt" | "createdBy" | "createdAt" | "updatedAt" | "siteId" | "tenantId", ExtArgs["result"]["invoice"]>
   export type InvoiceInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoiceItem?: boolean | Invoice$invoiceItemArgs<ExtArgs>
     payment?: boolean | Invoice$paymentArgs<ExtArgs>
@@ -2098,6 +2121,7 @@ export namespace Prisma {
       issueDate: Date
       dueDate: Date
       status: $Enums.InvoiceStatus
+      kind: $Enums.InvoiceKind
       subtotal: bigint
       taxAmount: bigint
       discountAmount: bigint
@@ -2544,6 +2568,7 @@ export namespace Prisma {
     readonly issueDate: FieldRef<"Invoice", 'DateTime'>
     readonly dueDate: FieldRef<"Invoice", 'DateTime'>
     readonly status: FieldRef<"Invoice", 'InvoiceStatus'>
+    readonly kind: FieldRef<"Invoice", 'InvoiceKind'>
     readonly subtotal: FieldRef<"Invoice", 'BigInt'>
     readonly taxAmount: FieldRef<"Invoice", 'BigInt'>
     readonly discountAmount: FieldRef<"Invoice", 'BigInt'>
@@ -10546,6 +10571,7 @@ export namespace Prisma {
     issueDate: 'issueDate',
     dueDate: 'dueDate',
     status: 'status',
+    kind: 'kind',
     subtotal: 'subtotal',
     taxAmount: 'taxAmount',
     discountAmount: 'discountAmount',
@@ -10803,6 +10829,20 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'InvoiceKind'
+   */
+  export type EnumInvoiceKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InvoiceKind'>
+    
+
+
+  /**
+   * Reference to a field of type 'InvoiceKind[]'
+   */
+  export type ListEnumInvoiceKindFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'InvoiceKind[]'>
+    
+
+
+  /**
    * Reference to a field of type 'BigInt'
    */
   export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt'>
@@ -10990,6 +11030,7 @@ export namespace Prisma {
     issueDate?: DateTimeFilter<"Invoice"> | Date | string
     dueDate?: DateTimeFilter<"Invoice"> | Date | string
     status?: EnumInvoiceStatusFilter<"Invoice"> | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFilter<"Invoice"> | $Enums.InvoiceKind
     subtotal?: BigIntFilter<"Invoice"> | bigint | number
     taxAmount?: BigIntFilter<"Invoice"> | bigint | number
     discountAmount?: BigIntFilter<"Invoice"> | bigint | number
@@ -11016,6 +11057,7 @@ export namespace Prisma {
     issueDate?: SortOrder
     dueDate?: SortOrder
     status?: SortOrder
+    kind?: SortOrder
     subtotal?: SortOrder
     taxAmount?: SortOrder
     discountAmount?: SortOrder
@@ -11046,6 +11088,7 @@ export namespace Prisma {
     issueDate?: DateTimeFilter<"Invoice"> | Date | string
     dueDate?: DateTimeFilter<"Invoice"> | Date | string
     status?: EnumInvoiceStatusFilter<"Invoice"> | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFilter<"Invoice"> | $Enums.InvoiceKind
     subtotal?: BigIntFilter<"Invoice"> | bigint | number
     taxAmount?: BigIntFilter<"Invoice"> | bigint | number
     discountAmount?: BigIntFilter<"Invoice"> | bigint | number
@@ -11072,6 +11115,7 @@ export namespace Prisma {
     issueDate?: SortOrder
     dueDate?: SortOrder
     status?: SortOrder
+    kind?: SortOrder
     subtotal?: SortOrder
     taxAmount?: SortOrder
     discountAmount?: SortOrder
@@ -11103,6 +11147,7 @@ export namespace Prisma {
     issueDate?: DateTimeWithAggregatesFilter<"Invoice"> | Date | string
     dueDate?: DateTimeWithAggregatesFilter<"Invoice"> | Date | string
     status?: EnumInvoiceStatusWithAggregatesFilter<"Invoice"> | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindWithAggregatesFilter<"Invoice"> | $Enums.InvoiceKind
     subtotal?: BigIntWithAggregatesFilter<"Invoice"> | bigint | number
     taxAmount?: BigIntWithAggregatesFilter<"Invoice"> | bigint | number
     discountAmount?: BigIntWithAggregatesFilter<"Invoice"> | bigint | number
@@ -11844,6 +11889,7 @@ export namespace Prisma {
     issueDate?: Date | string
     dueDate: Date | string
     status?: $Enums.InvoiceStatus
+    kind?: $Enums.InvoiceKind
     subtotal?: bigint | number
     taxAmount?: bigint | number
     discountAmount?: bigint | number
@@ -11870,6 +11916,7 @@ export namespace Prisma {
     issueDate?: Date | string
     dueDate: Date | string
     status?: $Enums.InvoiceStatus
+    kind?: $Enums.InvoiceKind
     subtotal?: bigint | number
     taxAmount?: bigint | number
     discountAmount?: bigint | number
@@ -11896,6 +11943,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
@@ -11922,6 +11970,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
@@ -11948,6 +11997,7 @@ export namespace Prisma {
     issueDate?: Date | string
     dueDate: Date | string
     status?: $Enums.InvoiceStatus
+    kind?: $Enums.InvoiceKind
     subtotal?: bigint | number
     taxAmount?: bigint | number
     discountAmount?: bigint | number
@@ -11971,6 +12021,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
@@ -11994,6 +12045,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
@@ -12911,6 +12963,13 @@ export namespace Prisma {
     not?: NestedEnumInvoiceStatusFilter<$PrismaModel> | $Enums.InvoiceStatus
   }
 
+  export type EnumInvoiceKindFilter<$PrismaModel = never> = {
+    equals?: $Enums.InvoiceKind | EnumInvoiceKindFieldRefInput<$PrismaModel>
+    in?: $Enums.InvoiceKind[] | ListEnumInvoiceKindFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InvoiceKind[] | ListEnumInvoiceKindFieldRefInput<$PrismaModel>
+    not?: NestedEnumInvoiceKindFilter<$PrismaModel> | $Enums.InvoiceKind
+  }
+
   export type BigIntFilter<$PrismaModel = never> = {
     equals?: bigint | number | BigIntFieldRefInput<$PrismaModel>
     in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel>
@@ -12995,6 +13054,7 @@ export namespace Prisma {
     issueDate?: SortOrder
     dueDate?: SortOrder
     status?: SortOrder
+    kind?: SortOrder
     subtotal?: SortOrder
     taxAmount?: SortOrder
     discountAmount?: SortOrder
@@ -13026,6 +13086,7 @@ export namespace Prisma {
     issueDate?: SortOrder
     dueDate?: SortOrder
     status?: SortOrder
+    kind?: SortOrder
     subtotal?: SortOrder
     taxAmount?: SortOrder
     discountAmount?: SortOrder
@@ -13049,6 +13110,7 @@ export namespace Prisma {
     issueDate?: SortOrder
     dueDate?: SortOrder
     status?: SortOrder
+    kind?: SortOrder
     subtotal?: SortOrder
     taxAmount?: SortOrder
     discountAmount?: SortOrder
@@ -13113,6 +13175,16 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumInvoiceStatusFilter<$PrismaModel>
     _max?: NestedEnumInvoiceStatusFilter<$PrismaModel>
+  }
+
+  export type EnumInvoiceKindWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.InvoiceKind | EnumInvoiceKindFieldRefInput<$PrismaModel>
+    in?: $Enums.InvoiceKind[] | ListEnumInvoiceKindFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InvoiceKind[] | ListEnumInvoiceKindFieldRefInput<$PrismaModel>
+    not?: NestedEnumInvoiceKindWithAggregatesFilter<$PrismaModel> | $Enums.InvoiceKind
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumInvoiceKindFilter<$PrismaModel>
+    _max?: NestedEnumInvoiceKindFilter<$PrismaModel>
   }
 
   export type BigIntWithAggregatesFilter<$PrismaModel = never> = {
@@ -13967,6 +14039,10 @@ export namespace Prisma {
     set?: $Enums.InvoiceStatus
   }
 
+  export type EnumInvoiceKindFieldUpdateOperationsInput = {
+    set?: $Enums.InvoiceKind
+  }
+
   export type BigIntFieldUpdateOperationsInput = {
     set?: bigint | number
     increment?: bigint | number
@@ -14249,6 +14325,13 @@ export namespace Prisma {
     not?: NestedEnumInvoiceStatusFilter<$PrismaModel> | $Enums.InvoiceStatus
   }
 
+  export type NestedEnumInvoiceKindFilter<$PrismaModel = never> = {
+    equals?: $Enums.InvoiceKind | EnumInvoiceKindFieldRefInput<$PrismaModel>
+    in?: $Enums.InvoiceKind[] | ListEnumInvoiceKindFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InvoiceKind[] | ListEnumInvoiceKindFieldRefInput<$PrismaModel>
+    not?: NestedEnumInvoiceKindFilter<$PrismaModel> | $Enums.InvoiceKind
+  }
+
   export type NestedBigIntFilter<$PrismaModel = never> = {
     equals?: bigint | number | BigIntFieldRefInput<$PrismaModel>
     in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel>
@@ -14335,6 +14418,16 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedEnumInvoiceStatusFilter<$PrismaModel>
     _max?: NestedEnumInvoiceStatusFilter<$PrismaModel>
+  }
+
+  export type NestedEnumInvoiceKindWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.InvoiceKind | EnumInvoiceKindFieldRefInput<$PrismaModel>
+    in?: $Enums.InvoiceKind[] | ListEnumInvoiceKindFieldRefInput<$PrismaModel>
+    notIn?: $Enums.InvoiceKind[] | ListEnumInvoiceKindFieldRefInput<$PrismaModel>
+    not?: NestedEnumInvoiceKindWithAggregatesFilter<$PrismaModel> | $Enums.InvoiceKind
+    _count?: NestedIntFilter<$PrismaModel>
+    _min?: NestedEnumInvoiceKindFilter<$PrismaModel>
+    _max?: NestedEnumInvoiceKindFilter<$PrismaModel>
   }
 
   export type NestedBigIntWithAggregatesFilter<$PrismaModel = never> = {
@@ -14951,6 +15044,7 @@ export namespace Prisma {
     issueDate?: Date | string
     dueDate: Date | string
     status?: $Enums.InvoiceStatus
+    kind?: $Enums.InvoiceKind
     subtotal?: bigint | number
     taxAmount?: bigint | number
     discountAmount?: bigint | number
@@ -14976,6 +15070,7 @@ export namespace Prisma {
     issueDate?: Date | string
     dueDate: Date | string
     status?: $Enums.InvoiceStatus
+    kind?: $Enums.InvoiceKind
     subtotal?: bigint | number
     taxAmount?: bigint | number
     discountAmount?: bigint | number
@@ -15017,6 +15112,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
@@ -15042,6 +15138,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
@@ -15067,6 +15164,7 @@ export namespace Prisma {
     issueDate?: Date | string
     dueDate: Date | string
     status?: $Enums.InvoiceStatus
+    kind?: $Enums.InvoiceKind
     subtotal?: bigint | number
     taxAmount?: bigint | number
     discountAmount?: bigint | number
@@ -15092,6 +15190,7 @@ export namespace Prisma {
     issueDate?: Date | string
     dueDate: Date | string
     status?: $Enums.InvoiceStatus
+    kind?: $Enums.InvoiceKind
     subtotal?: bigint | number
     taxAmount?: bigint | number
     discountAmount?: bigint | number
@@ -15133,6 +15232,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
@@ -15158,6 +15258,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
@@ -15183,6 +15284,7 @@ export namespace Prisma {
     issueDate?: Date | string
     dueDate: Date | string
     status?: $Enums.InvoiceStatus
+    kind?: $Enums.InvoiceKind
     subtotal?: bigint | number
     taxAmount?: bigint | number
     discountAmount?: bigint | number
@@ -15208,6 +15310,7 @@ export namespace Prisma {
     issueDate?: Date | string
     dueDate: Date | string
     status?: $Enums.InvoiceStatus
+    kind?: $Enums.InvoiceKind
     subtotal?: bigint | number
     taxAmount?: bigint | number
     discountAmount?: bigint | number
@@ -15292,6 +15395,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
@@ -15317,6 +15421,7 @@ export namespace Prisma {
     issueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     dueDate?: DateTimeFieldUpdateOperationsInput | Date | string
     status?: EnumInvoiceStatusFieldUpdateOperationsInput | $Enums.InvoiceStatus
+    kind?: EnumInvoiceKindFieldUpdateOperationsInput | $Enums.InvoiceKind
     subtotal?: BigIntFieldUpdateOperationsInput | bigint | number
     taxAmount?: BigIntFieldUpdateOperationsInput | bigint | number
     discountAmount?: BigIntFieldUpdateOperationsInput | bigint | number
