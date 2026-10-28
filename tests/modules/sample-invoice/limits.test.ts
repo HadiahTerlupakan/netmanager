@@ -6,6 +6,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: { settings: palsu } }));
 
 import {
   DEFAULT_SAMPLE_INVOICE_LIMITS,
+  HARD_SAMPLE_INVOICE_LIMITS,
   getSampleInvoiceLimits,
   saveSampleInvoiceLimits,
 } from "@/modules/sample-invoice/services/sample-invoice-limits";
@@ -72,5 +73,31 @@ describe("batas generate invoice contoh", () => {
       key: "invoice_contoh.limits",
       tenantId: "t1",
     });
+  });
+
+  // Set contoh dibangun dan disimpan utuh dalam satu permintaan; tanpa plafon,
+  // admin yang mengubah batas bisa membuat satu generate menghabiskan memori.
+  it("refuses limits above the technical ceiling", async () => {
+    await expect(
+      saveSampleInvoiceLimits("t1", {
+        ...DEFAULT_SAMPLE_INVOICE_LIMITS,
+        maxPdfs: HARD_SAMPLE_INVOICE_LIMITS.maxPdfs + 1,
+      }),
+    ).rejects.toThrow(/maksimal/);
+    expect(palsu.upsert).not.toHaveBeenCalled();
+  });
+
+  it("caps stored limits at the technical ceiling", async () => {
+    palsu.findFirst.mockResolvedValue({
+      value: JSON.stringify({
+        maxCustomers: 10 ** 9,
+        maxMonths: 12,
+        maxPdfs: 2000,
+      }),
+    });
+
+    expect((await getSampleInvoiceLimits("t1")).maxCustomers).toBe(
+      HARD_SAMPLE_INVOICE_LIMITS.maxCustomers,
+    );
   });
 });

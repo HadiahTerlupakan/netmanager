@@ -13,6 +13,17 @@ export const DEFAULT_SAMPLE_INVOICE_LIMITS: SampleInvoiceLimits = {
   maxPdfs: 2000,
 };
 
+/**
+ * Plafon teknis yang tidak bisa dinaikkan admin: set contoh dibangun dan
+ * disimpan utuh dalam satu permintaan, jadi tanpa plafon satu generate bisa
+ * menghabiskan memori pod. Batas yang diatur admin berada di bawahnya.
+ */
+export const HARD_SAMPLE_INVOICE_LIMITS: SampleInvoiceLimits = {
+  maxCustomers: 10000,
+  maxMonths: 36,
+  maxPdfs: 100000,
+};
+
 const SETTINGS_KEY = "invoice_contoh.limits";
 const LIMIT_FIELDS = Object.keys(
   DEFAULT_SAMPLE_INVOICE_LIMITS,
@@ -44,7 +55,7 @@ export async function getSampleInvoiceLimits(
     LIMIT_FIELDS.map((field) => [
       field,
       isLimit(stored[field])
-        ? stored[field]
+        ? Math.min(stored[field], HARD_SAMPLE_INVOICE_LIMITS[field])
         : DEFAULT_SAMPLE_INVOICE_LIMITS[field],
     ]),
   ) as SampleInvoiceLimits;
@@ -56,6 +67,15 @@ export async function saveSampleInvoiceLimits(
 ): Promise<SampleInvoiceLimits> {
   if (!LIMIT_FIELDS.every((field) => isLimit(limits[field]))) {
     throw new Error("Setiap batas harus bilangan bulat minimal 1");
+  }
+  const tooHigh = LIMIT_FIELDS.find(
+    (field) => limits[field] > HARD_SAMPLE_INVOICE_LIMITS[field],
+  );
+  if (tooHigh) {
+    const { maxCustomers, maxMonths, maxPdfs } = HARD_SAMPLE_INVOICE_LIMITS;
+    throw new Error(
+      `Batas maksimal: ${maxCustomers.toLocaleString("id-ID")} pelanggan, ${maxMonths} bulan, ${maxPdfs.toLocaleString("id-ID")} PDF`,
+    );
   }
   const value = JSON.stringify(
     Object.fromEntries(LIMIT_FIELDS.map((field) => [field, limits[field]])),
