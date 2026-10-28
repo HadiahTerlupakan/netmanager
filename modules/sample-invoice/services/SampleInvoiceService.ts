@@ -10,6 +10,7 @@ import type {
 import { SampleInvoiceBatchRepository } from "../repositories/SampleInvoiceBatchRepository";
 import { parseGenerateInput } from "../validators/generate-input";
 import { packSampleZip, planZipParts, zipFileName } from "./pack-sample-zip";
+import { findMitraOption } from "./mitra-options";
 import { getSampleInvoiceLimits } from "./sample-invoice-limits";
 
 /** Isian yang disimpan di riwayat: tanpa daftar jalan, dengan seed acaknya. */
@@ -41,9 +42,16 @@ export async function generateSampleBatch(
     today,
   );
   if ("message" in parsed) throw new SampleInvoiceInputError(parsed.message);
+  // Id dan nama mitra datang dari browser; nama yang disimpan dari database.
+  const mitra = await findMitraOption(parsed.input.mitraId);
+  if (!mitra) throw new SampleInvoiceInputError("Mitra tidak ditemukan");
 
   const { streets: _streets, ...rest } = parsed.input;
-  const input: StoredSampleInput = { ...rest, seed: randomInt(MAX_SEED) };
+  const input: StoredSampleInput = {
+    ...rest,
+    mitraName: mitra.name,
+    seed: randomInt(MAX_SEED),
+  };
   const sampleSet = generateSampleSet(parsed.input, {
     today,
     random: createRandom(input.seed),

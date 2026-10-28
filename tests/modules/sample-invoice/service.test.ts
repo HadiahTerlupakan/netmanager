@@ -7,6 +7,11 @@ const palsu = vi.hoisted(() => ({
   rows: new Map<string, Record<string, unknown>>(),
   taxConfig: vi.fn(),
   limits: vi.fn(),
+  findMitra: vi.fn(),
+}));
+
+vi.mock("@/modules/sample-invoice/services/mitra-options", () => ({
+  findMitraOption: palsu.findMitra,
 }));
 
 vi.mock(
@@ -85,6 +90,24 @@ describe("SampleInvoiceService", () => {
   beforeEach(() => {
     palsu.rows.clear();
     palsu.limits.mockResolvedValue(DEFAULT_SAMPLE_INVOICE_LIMITS);
+    palsu.findMitra.mockResolvedValue({ id: "m1", name: "Mitra Selawangi" });
+  });
+
+  // Id dan nama mitra datang dari browser; nama diambil dari database tenant.
+  it("rejects a mitra outside the tenant and stores the server-side name", async () => {
+    palsu.findMitra.mockResolvedValueOnce(null);
+    await expect(generateSampleBatch("t1", actor, raw, NOW)).rejects.toThrow(
+      /Mitra tidak ditemukan/,
+    );
+
+    palsu.findMitra.mockResolvedValueOnce({ id: "m1", name: "Mitra Asli" });
+    const { batchId } = await generateSampleBatch(
+      "t1",
+      actor,
+      { ...raw, mitraName: "Nama Palsu" },
+      NOW,
+    );
+    expect(palsu.rows.get(batchId)?.mitraName).toBe("Mitra Asli");
   });
 
   it("stores the generated set with the generation time and without the street list", async () => {

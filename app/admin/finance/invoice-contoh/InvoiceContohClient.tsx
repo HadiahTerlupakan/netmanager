@@ -30,15 +30,12 @@ export default function InvoiceContohClient({
 }) {
   const { showToast } = useToast();
   const [refreshKey, setRefreshKey] = useState(0);
-  const mitraQuery = useApi<{ mitras: Mitra[] }>("/api/admin/mitra?limit=100");
+  const mitraQuery = useApi<Mitra[]>("/api/admin/sample-invoices/mitras");
   const issuerQuery = useApi<SampleIssuer>("/api/admin/sample-invoices/issuer");
   const limitsQuery = useApi<SampleInvoiceLimits>(
     "/api/admin/sample-invoices/limits",
   );
-  const mitras = (mitraQuery.data?.mitras ?? []).map(({ id, name }) => ({
-    id,
-    name,
-  }));
+  const mitras = mitraQuery.data ?? [];
 
   async function generate(input: SampleGenerateInput) {
     const response = await fetch("/api/admin/sample-invoices", {

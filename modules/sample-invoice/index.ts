@@ -7,6 +7,8 @@ export {
   getSampleBatchParts,
   listSampleBatches,
 } from "./services/SampleInvoiceService";
+export { listMitraOptions } from "./services/mitra-options";
+export type { MitraOption } from "./services/mitra-options";
 export {
   getSampleInvoiceLimits,
   saveSampleInvoiceLimits,
