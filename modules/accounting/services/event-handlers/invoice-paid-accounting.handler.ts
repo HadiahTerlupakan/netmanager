@@ -11,6 +11,7 @@ import { PeriodRepository } from "../../repositories/PeriodRepository";
 import { PeriodService } from "../period/PeriodService";
 import { resolveInvoiceReceiptCoa } from "./coa-resolver";
 import { buildInvoicePaidLines } from "./invoice-paid-lines";
+import { invoiceReceiptRef } from "../journal/invoice-receipt-reversal";
 import { CoaNotFoundError } from "../../errors";
 
 const SOURCE = "InvoicePaidAccountingHandler";
@@ -45,6 +46,7 @@ export async function handleInvoicePaidAccounting(
     },
     orderBy: { paymentDate: "desc" },
     select: {
+      id: true,
       amount: true,
       gatewayFee: true,
       accountId: true,
@@ -99,7 +101,7 @@ export async function handleInvoicePaidAccounting(
     await postingService.postAuto(tenantId, {
       source: "AUTO_INVOICE_PAID",
       sourceRefType: "Invoice",
-      sourceRefId: invoiceId,
+      sourceRefId: invoiceReceiptRef(invoiceId, received[0].id),
       entryDate,
       description: `Penerimaan pembayaran invoice ${invoice.invoiceNumber}`,
       lines,

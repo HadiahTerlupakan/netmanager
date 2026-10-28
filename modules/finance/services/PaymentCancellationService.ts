@@ -1,3 +1,5 @@
+import { logger } from "@/lib/logger";
+import { reverseInvoiceReceiptJournals } from "@/modules/accounting";
 import { prismaBilling } from "@/modules/database";
 import { sendCustomerPushNotification } from "@/modules/notification";
 import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
@@ -39,8 +41,41 @@ export async function cancelPaidPayment(options: {
   }
 
   await cancelPayment(options.paymentId, options.adminLabel);
-  await new InvoicePaymentStateService().recompute(invoice.id);
+  const result = await new InvoicePaymentStateService().recompute(invoice.id);
+  await reverseReceiptIfUnpaid(result, invoice, options.adminLabel);
   await notifyCustomer(payment.id, invoice.id, invoice.pelangganId);
+}
+
+/**
+ * Invoice yang tidak lagi lunas setelah pembatalan: jurnal penerimaannya
+ * dibalik, agar kas dan piutang di pembukuan kembali seperti sebelum dibayar.
+ * Dulu pembatalan tidak membalik jurnal apa pun, sehingga kas tetap tercatat
+ * bertambah untuk uang yang dianggap batal.
+ */
+async function reverseReceiptIfUnpaid(
+  result: { previousStatus: string; invoice: { status: string } } | null,
+  invoice: { id: string; tenantId?: string | null },
+  adminLabel: string,
+) {
+  const wasPaid = result?.previousStatus === "PAID";
+  if (!wasPaid || result.invoice.status === "PAID" || !invoice.tenantId) {
+    return;
+  }
+  try {
+    await reverseInvoiceReceiptJournals({
+      tenantId: invoice.tenantId,
+      invoiceId: invoice.id,
+      reason: `Pembayaran dibatalkan oleh ${adminLabel}`,
+      reversedBy: adminLabel,
+    });
+  } catch (error) {
+    // Pembatalan sudah tersimpan; jurnal yang gagal dibalik dilaporkan dan
+    // bisa dibalik manual dari menu Jurnal.
+    logger.error(
+      `[PaymentCancellation] Gagal membalik jurnal penerimaan invoice ${invoice.id}:`,
+      error,
+    );
+  }
 }
 
 async function findPaymentWithInvoice(paymentId: string) {

@@ -9,6 +9,11 @@ const mockFns = vi.hoisted(() => ({
   recompute: vi.fn<(invoiceId: string) => Promise<unknown>>(() =>
     Promise.resolve(null),
   ),
+  reverseReceipt: vi.fn(),
+}));
+
+vi.mock("@/modules/accounting", () => ({
+  reverseInvoiceReceiptJournals: mockFns.reverseReceipt,
 }));
 
 vi.mock("@/modules/database", () => ({
@@ -119,5 +124,47 @@ describe("cancelPaidPayment", () => {
     ).rejects.toMatchObject({ status: 409 });
     expect(mockFns.paymentUpdate).not.toHaveBeenCalled();
     expect(mockFns.recompute).not.toHaveBeenCalled();
+  });
+
+  // Dulu pembatalan tidak membalik jurnal: kas tetap tercatat bertambah untuk
+  // uang yang dianggap batal.
+  it("membalik jurnal penerimaan bila invoice tidak lagi lunas", async () => {
+    mockFns.paymentFindUnique.mockResolvedValue({
+      id: "pay-1",
+      gatewayStatus: "PAID",
+      amount: 50000n,
+      invoice: { id: "inv-1", pelangganId: "cust-1", tenantId: "t1" },
+    });
+    mockFns.recompute.mockResolvedValue({
+      previousStatus: "PAID",
+      invoice: { status: "SENT" },
+    });
+
+    await cancelPaidPayment({ paymentId: "pay-1", adminLabel: "Admin" });
+
+    expect(mockFns.reverseReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "t1",
+        invoiceId: "inv-1",
+        reversedBy: "Admin",
+      }),
+    );
+  });
+
+  it("invoice yang tetap lunas tidak dibalik jurnalnya", async () => {
+    mockFns.paymentFindUnique.mockResolvedValue({
+      id: "pay-1",
+      gatewayStatus: "PAID",
+      amount: 50000n,
+      invoice: { id: "inv-1", pelangganId: "cust-1", tenantId: "t1" },
+    });
+    mockFns.recompute.mockResolvedValue({
+      previousStatus: "PAID",
+      invoice: { status: "PAID" },
+    });
+
+    await cancelPaidPayment({ paymentId: "pay-1", adminLabel: "Admin" });
+
+    expect(mockFns.reverseReceipt).not.toHaveBeenCalled();
   });
 });

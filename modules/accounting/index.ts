@@ -153,6 +153,7 @@ export {
   postAccountOpeningJournal,
   postTreasuryTransferJournal,
 } from "./services/journal/treasury-journals";
+export { reverseInvoiceReceiptJournals } from "./services/journal/invoice-receipt-reversal";
 export { CashBookService } from "./services/reports/CashBookService";
 export { GeneralLedgerService } from "./services/reports/GeneralLedgerService";
 
