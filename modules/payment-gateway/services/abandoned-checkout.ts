@@ -5,6 +5,7 @@ import {
   runWithRequestTenantContext,
 } from "@/lib/tenant-context";
 import { couponService } from "@/modules/coupons";
+import { BillingEventDispatcher } from "@/modules/events";
 
 const UNPAID_TERMINAL_STATUSES = new Set(["EXPIRED", "FAILED", "CANCELLED"]);
 // Gateway kadang mengirim notifikasi PAID sedikit setelah batas waktunya;
@@ -106,7 +107,16 @@ export async function expireStaleGatewayPayments(now = new Date()) {
       gatewayStatus: "PENDING",
       expiresAt: { lt: new Date(now.getTime() - EXPIRY_GRACE_MS) },
     },
-    select: { id: true, couponUsageId: true, tenantId: true },
+    select: {
+      id: true,
+      couponUsageId: true,
+      tenantId: true,
+      checkoutId: true,
+      pelangganId: true,
+      invoiceId: true,
+      amount: true,
+      invoice: { select: { dueDate: true } },
+    },
     take: SWEEP_BATCH_SIZE,
   });
   if (stale.length === 0) return 0;
@@ -116,5 +126,42 @@ export async function expireStaleGatewayPayments(now = new Date()) {
     data: { gatewayStatus: "EXPIRED" },
   });
   await releaseCheckoutCoupons(stale);
+  await notifyExpiredCheckouts(stale);
   return count;
+}
+
+type ExpiredPayment = {
+  id: string;
+  checkoutId: string | null;
+  pelangganId: string;
+  invoiceId: string | null;
+  amount: bigint;
+  tenantId: string | null;
+  invoice: { dueDate: Date } | null;
+};
+
+// Satu pemberitahuan per checkout, bukan per invoice di dalamnya.
+async function notifyExpiredCheckouts(payments: ExpiredPayment[]) {
+  const checkouts = new Map<string, ExpiredPayment[]>();
+  for (const payment of payments) {
+    const key = payment.checkoutId ?? payment.id;
+    checkouts.set(key, [...(checkouts.get(key) ?? []), payment]);
+  }
+
+  for (const group of checkouts.values()) {
+    const first = group[0];
+    if (!first.invoiceId) continue;
+    try {
+      await BillingEventDispatcher.onPaymentFailed({
+        invoiceId: first.invoiceId,
+        pelangganId: first.pelangganId,
+        amount: Number(group.reduce((sum, p) => sum + p.amount, 0n)),
+        dueDate: (first.invoice?.dueDate ?? new Date()).toISOString(),
+        tenantId: first.tenantId ?? undefined,
+      });
+    } catch (error) {
+      // Pemberitahuan gagal tidak membatalkan penutupan checkout.
+      logger.error("[Checkout] Gagal mengirim event kedaluwarsa:", error);
+    }
+  }
 }

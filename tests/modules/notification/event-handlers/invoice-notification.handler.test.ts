@@ -73,6 +73,28 @@ describe("InvoiceNotificationHandler", () => {
     );
   });
 
+  // Checkout yang ditinggal dulu kedaluwarsa tanpa pemberitahuan apa pun.
+  it("PAYMENT_FAILED → paymentExpired lewat in-app dan push saja", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.PAYMENT_FAILED, {
+        invoiceId: "inv-1",
+        pelangganId: "cust-1",
+        amount: 11100,
+        dueDate: "2026-10-27T17:00:00.000Z",
+      }),
+    );
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "paymentExpired",
+        channels: ["inApp", "push"],
+        params: expect.objectContaining({
+          amountDue: 11100,
+          invoiceNumber: "INV/2026/001",
+        }),
+      }),
+    );
+  });
+
   it("INVOICE_REMINDER_DUE → dispatch invoiceReminder dengan reminderType", async () => {
     await handleInvoiceNotification(
       buildJob(EVENT_NAMES.INVOICE_REMINDER_DUE, {

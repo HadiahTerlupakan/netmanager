@@ -7,6 +7,7 @@ import type {
   GatewayPaymentStatus,
 } from "../types/payment.types";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
+import { InvoiceStatus } from "../types/invoice.enums";
 import { InvoicePaymentStateService } from "./InvoicePaymentStateService";
 
 export type PendingManualPaymentsInput = {
@@ -164,15 +165,20 @@ export async function approveManualPayment(
   });
 
   if (payment.invoiceId) {
-    await new InvoicePaymentStateService(invoiceRepository).recompute(
-      payment.invoiceId,
-    );
+    const result = await new InvoicePaymentStateService(
+      invoiceRepository,
+    ).recompute(payment.invoiceId);
 
-    if (payment.invoice?.pelangganId) {
+    // Invoice yang jadi lunas sudah diberitahukan lewat INVOICE_PAID (in-app,
+    // push, WhatsApp, email); push langsung di sini dulu membuat pelanggan
+    // menerima dua push. Yang tersisa hanya pembayaran sebagian.
+    const stillOutstanding =
+      result && result.invoice.status !== InvoiceStatus.PAID;
+    if (payment.invoice?.pelangganId && stillOutstanding) {
       await sendCustomerPushNotification(
         payment.invoice.pelangganId,
-        "Pembayaran Berhasil!",
-        "Tagihan Anda telah dilunasi.",
+        "Pembayaran Diterima",
+        "Pembayaran Anda sudah kami terima. Sisa tagihan masih perlu dilunasi.",
         {
           paymentId: payment.id,
           invoiceId: payment.invoiceId,

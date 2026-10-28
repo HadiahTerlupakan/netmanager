@@ -94,6 +94,19 @@ export const BILLING_TEMPLATES = {
     push: (p) =>
       `Pembayaran${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} berhasil`,
   },
+  paymentExpired: {
+    title: "Waktu pembayaran habis",
+    inApp: (p) =>
+      `Pembayaran${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} sebesar ${formatRupiah(p.amountDue)} belum selesai dan batas waktunya habis. Silakan bayar lagi lewat menu Tagihan.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nBatas waktu pembayaran${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} (${formatRupiah(p.amountDue)}) sudah habis. Silakan bayar lagi lewat menu Tagihan di portal pelanggan.`,
+    email: (p) => ({
+      subject: `Waktu pembayaran${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} habis`,
+      body: `Halo ${p.customerName},\n\nPembayaran sebesar ${formatRupiah(p.amountDue)} belum selesai dan batas waktunya habis. Silakan bayar lagi lewat portal pelanggan.`,
+    }),
+    push: (p) =>
+      `Waktu bayar${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} habis, silakan bayar lagi`,
+  },
   customerIsolated: {
     title: "Layanan diisolir",
     inApp: () =>

@@ -46,15 +46,17 @@ export class BillingEventDispatcher {
   }
 
   /**
-   * Hook untuk event pembayaran gagal.
+   * Checkout gateway berakhir tanpa dibayar (kedaluwarsa); pelanggan diberi
+   * tahu agar membayar lagi.
    */
-  static async onPaymentFailed(invoiceId: string, pelangganId: string) {
-    await eventBus.publish(EVENT_NAMES.PAYMENT_FAILED, {
-      invoiceId,
-      pelangganId,
-      amount: 0,
-      dueDate: new Date().toISOString(),
-    });
+  static async onPaymentFailed(data: {
+    invoiceId: string;
+    pelangganId: string;
+    amount: number;
+    dueDate: string;
+    tenantId?: string;
+  }) {
+    await eventBus.publish(EVENT_NAMES.PAYMENT_FAILED, data);
   }
 
   /**

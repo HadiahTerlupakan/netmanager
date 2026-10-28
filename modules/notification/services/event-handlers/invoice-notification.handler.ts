@@ -6,6 +6,7 @@ import type { EventJobData } from "@/lib/event-bus/queues";
 import {
   NotificationDispatcher,
   type BillingTemplateKey,
+  type NotificationChannel,
 } from "@/modules/notification";
 
 const SOURCE = "InvoiceNotificationHandler";
@@ -34,6 +35,13 @@ const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.INVOICE_PAID]: "invoicePaid",
   [EVENT_NAMES.INVOICE_REMINDER_DUE]: "invoiceReminder",
   [EVENT_NAMES.INVOICE_OVERDUE]: "invoiceReminder",
+  [EVENT_NAMES.PAYMENT_FAILED]: "paymentExpired",
+};
+
+// Checkout yang ditinggal cukup diingatkan di portal dan aplikasi; WhatsApp
+// dan email disimpan untuk tagihan itu sendiri.
+const EVENT_CHANNELS: Partial<Record<string, NotificationChannel[]>> = {
+  [EVENT_NAMES.PAYMENT_FAILED]: ["inApp", "push"],
 };
 
 /**
@@ -103,6 +111,7 @@ export async function handleInvoiceNotification(
     },
     sourceType: "BILLING",
     sourceId: invoiceId,
+    channels: EVENT_CHANNELS[eventName],
     // Idempotency: cegah double-send saat BullMQ retry job sama.
     dedupeKey: job.id ? `${eventName}:${job.id}` : undefined,
   });

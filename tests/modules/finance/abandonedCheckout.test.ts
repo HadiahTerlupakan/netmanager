@@ -5,6 +5,11 @@ import { prismaMock } from "../../setup";
 const palsu = vi.hoisted(() => ({
   releaseUsage: vi.fn(),
   restoreUsage: vi.fn(),
+  onPaymentFailed: vi.fn(),
+}));
+
+vi.mock("@/modules/events", () => ({
+  BillingEventDispatcher: { onPaymentFailed: palsu.onPaymentFailed },
 }));
 
 vi.mock("@/modules/coupons", () => ({
@@ -30,8 +35,26 @@ describe("checkout gateway yang ditinggalkan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.payment.findMany.mockResolvedValue([
-      { id: "p1", couponUsageId: "u1", tenantId: "t1" },
-      { id: "p2", couponUsageId: "u1", tenantId: "t1" },
+      {
+        id: "p1",
+        couponUsageId: "u1",
+        tenantId: "t1",
+        checkoutId: "c1",
+        pelangganId: "cust-1",
+        invoiceId: "inv-1",
+        amount: 6000n,
+        invoice: { dueDate: new Date("2026-10-27T17:00:00Z") },
+      },
+      {
+        id: "p2",
+        couponUsageId: "u1",
+        tenantId: "t1",
+        checkoutId: "c1",
+        pelangganId: "cust-1",
+        invoiceId: "inv-2",
+        amount: 5100n,
+        invoice: { dueDate: new Date("2026-10-27T17:00:00Z") },
+      },
     ]);
     prismaMock.payment.updateMany.mockResolvedValue({ count: 2 });
   });
@@ -51,6 +74,19 @@ describe("checkout gateway yang ditinggalkan", () => {
     expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["p1", "p2"] }, gatewayStatus: "PENDING" },
       data: { gatewayStatus: "EXPIRED" },
+    });
+  });
+
+  it("pelanggan diberi tahu sekali per checkout, dengan total nominalnya", async () => {
+    await expireStaleGatewayPayments(NOW);
+
+    expect(palsu.onPaymentFailed).toHaveBeenCalledTimes(1);
+    expect(palsu.onPaymentFailed).toHaveBeenCalledWith({
+      invoiceId: "inv-1",
+      pelangganId: "cust-1",
+      amount: 11100,
+      dueDate: "2026-10-27T17:00:00.000Z",
+      tenantId: "t1",
     });
   });
 
