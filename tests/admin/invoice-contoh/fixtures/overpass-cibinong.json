@@ -1,0 +1,496 @@
+{
+  "version": 0.6,
+  "elements": [
+    {
+      "type": "way",
+      "id": 31068752,
+      "center": {
+        "lat": -6.4713146,
+        "lon": 106.8375343
+      },
+      "tags": {
+        "name": "Jalan Raya Cikaret",
+        "highway": "secondary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 55063075,
+      "center": {
+        "lat": -6.4722941,
+        "lon": 106.8598495
+      },
+      "tags": {
+        "name": "Jalan Raya Mayor Oking",
+        "highway": "primary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 89974355,
+      "center": {
+        "lat": -6.4832101,
+        "lon": 106.8339219
+      },
+      "tags": {
+        "name": "Jalan Tegar Beriman",
+        "highway": "primary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 89976538,
+      "center": {
+        "lat": -6.4582863,
+        "lon": 106.8253673
+      },
+      "tags": {
+        "name": "Jalan Pondok Rajeg",
+        "highway": "secondary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 106808152,
+      "center": {
+        "lat": -6.4664,
+        "lon": 106.8547265
+      },
+      "tags": {
+        "name": "Jalan Raya Bogor",
+        "highway": "trunk"
+      }
+    },
+    {
+      "type": "way",
+      "id": 106808153,
+      "center": {
+        "lat": -6.4634776,
+        "lon": 106.8560847
+      },
+      "tags": {
+        "name": "Jalan Raya Bogor",
+        "highway": "trunk"
+      }
+    },
+    {
+      "type": "way",
+      "id": 167408905,
+      "center": {
+        "lat": -6.5015572,
+        "lon": 106.8138285
+      },
+      "tags": {
+        "name": "Jalan Kp. Pajeleran Gn.",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 184130208,
+      "center": {
+        "lat": -6.4831055,
+        "lon": 106.8337509
+      },
+      "tags": {
+        "name": "Jalan Tegar Beriman",
+        "highway": "primary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 188795248,
+      "center": {
+        "lat": -6.4699413,
+        "lon": 106.8229058
+      },
+      "tags": {
+        "name": "Gang Kancil",
+        "highway": "living_street"
+      }
+    },
+    {
+      "type": "way",
+      "id": 190654840,
+      "center": {
+        "lat": -6.5015572,
+        "lon": 106.8118937
+      },
+      "tags": {
+        "name": "Jalan Raya Sukahati",
+        "highway": "secondary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 200931293,
+      "center": {
+        "lat": -6.4606942,
+        "lon": 106.8399921
+      },
+      "tags": {
+        "name": "Jalan Al Fallah",
+        "highway": "tertiary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 200931295,
+      "center": {
+        "lat": -6.4586275,
+        "lon": 106.8387336
+      },
+      "tags": {
+        "name": "Jalan Pesona",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 207905934,
+      "center": {
+        "lat": -6.4779379,
+        "lon": 106.8234935
+      },
+      "tags": {
+        "name": "Jalan Bersih",
+        "highway": "tertiary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 207911115,
+      "center": {
+        "lat": -6.4687499,
+        "lon": 106.8543088
+      },
+      "tags": {
+        "name": "Jalan HR Lukman",
+        "highway": "tertiary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 207911118,
+      "center": {
+        "lat": -6.4949312,
+        "lon": 106.847718
+      },
+      "tags": {
+        "name": "Jalan H.A. Ashari",
+        "highway": "service"
+      }
+    },
+    {
+      "type": "way",
+      "id": 231442310,
+      "center": {
+        "lat": -6.4839391,
+        "lon": 106.8174818
+      },
+      "tags": {
+        "name": "Jalan Raya Sukahati",
+        "highway": "secondary"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259519838,
+      "center": {
+        "lat": -6.4634584,
+        "lon": 106.8559918
+      },
+      "tags": {
+        "name": "Jalan Raya Bogor",
+        "highway": "trunk"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259519839,
+      "center": {
+        "lat": -6.4590938,
+        "lon": 106.8560854
+      },
+      "tags": {
+        "name": "Jalan Raya Bogor",
+        "highway": "trunk"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259519840,
+      "center": {
+        "lat": -6.4593534,
+        "lon": 106.8561431
+      },
+      "tags": {
+        "name": "Jalan Raya Bogor",
+        "highway": "trunk"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259520061,
+      "center": {
+        "lat": -6.4654261,
+        "lon": 106.8554432
+      },
+      "tags": {
+        "name": "Jalan Raya Bogor",
+        "highway": "trunk"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259521197,
+      "center": {
+        "lat": -6.4681778,
+        "lon": 106.8622941
+      },
+      "tags": {
+        "name": "Jalan Golf",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259521198,
+      "center": {
+        "lat": -6.4669809,
+        "lon": 106.8608165
+      },
+      "tags": {
+        "name": "Jalan Kranji Timur",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259525554,
+      "center": {
+        "lat": -6.4725508,
+        "lon": 106.8444104
+      },
+      "tags": {
+        "name": "Puri Nirwana 1",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259525555,
+      "center": {
+        "lat": -6.4724732,
+        "lon": 106.843223
+      },
+      "tags": {
+        "name": "Puri Nirwana 1",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259525558,
+      "center": {
+        "lat": -6.4705053,
+        "lon": 106.8450719
+      },
+      "tags": {
+        "name": "Puri Nirwana 1",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 259525865,
+      "center": {
+        "lat": -6.4727739,
+        "lon": 106.8422968
+      },
+      "tags": {
+        "name": "Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 307004754,
+      "center": {
+        "lat": -6.4666199,
+        "lon": 106.8545012
+      },
+      "tags": {
+        "name": "Jalan Raya Bogor",
+        "highway": "trunk"
+      }
+    },
+    {
+      "type": "way",
+      "id": 361909482,
+      "center": {
+        "lat": -6.4705366,
+        "lon": 106.8476615
+      },
+      "tags": {
+        "name": "Puri Nirwana 2",
+        "highway": "living_street"
+      }
+    },
+    {
+      "type": "way",
+      "id": 361909484,
+      "center": {
+        "lat": -6.4699044,
+        "lon": 106.8466768
+      },
+      "tags": {
+        "name": "Puri Nirwana 2",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 361909486,
+      "center": {
+        "lat": -6.4702731,
+        "lon": 106.8460894
+      },
+      "tags": {
+        "name": "Puri Nirwana 1",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 361909487,
+      "center": {
+        "lat": -6.471533,
+        "lon": 106.8462239
+      },
+      "tags": {
+        "name": "Puri Nirwana 1",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 368274249,
+      "center": {
+        "lat": -6.4795017,
+        "lon": 106.8424988
+      },
+      "tags": {
+        "name": "Jalan Perumahan Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 368274461,
+      "center": {
+        "lat": -6.4797237,
+        "lon": 106.8429119
+      },
+      "tags": {
+        "name": "Jalan Perumahan Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 368274462,
+      "center": {
+        "lat": -6.4767796,
+        "lon": 106.8414475
+      },
+      "tags": {
+        "name": "Jalan Perumahan Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 368274463,
+      "center": {
+        "lat": -6.4767166,
+        "lon": 106.8407471
+      },
+      "tags": {
+        "name": "Jalan Perumahan Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 368280115,
+      "center": {
+        "lat": -6.4769269,
+        "lon": 106.8403462
+      },
+      "tags": {
+        "name": "Jalan Perumahan Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 368280116,
+      "center": {
+        "lat": -6.4765767,
+        "lon": 106.8402714
+      },
+      "tags": {
+        "name": "Jalan Perumahan Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 368280117,
+      "center": {
+        "lat": -6.4771317,
+        "lon": 106.8403264
+      },
+      "tags": {
+        "name": "Jalan Perumahan Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 368280118,
+      "center": {
+        "lat": -6.4777246,
+        "lon": 106.8395293
+      },
+      "tags": {
+        "name": "Jalan Perumahan Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 368280119,
+      "center": {
+        "lat": -6.4755745,
+        "lon": 106.8432939
+      },
+      "tags": {
+        "name": "Jalan Perumahan Nirwana Estate",
+        "highway": "residential"
+      }
+    },
+    {
+      "type": "way",
+      "id": 1,
+      "center": {
+        "lat": -6.48,
+        "lon": 106.84
+      },
+      "tags": {
+        "highway": "residential"
+      }
+    }
+  ]
+}
