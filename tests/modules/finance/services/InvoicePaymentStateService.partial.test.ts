@@ -28,7 +28,7 @@ function repoDengan(paidAmount: bigint, amounts: bigint[]) {
     payment: amounts.map((amount) => ({
       amount,
       discountAmount: 0n,
-      gatewayStatus: null,
+      gatewayStatus: null as string | null,
     })),
   };
   return {

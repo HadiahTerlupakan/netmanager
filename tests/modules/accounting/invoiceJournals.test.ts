@@ -55,10 +55,10 @@ function payment(id: string, amount: bigint) {
   return {
     id,
     amount,
-    gatewayFee: null,
-    accountId: null,
-    expiresAt: null,
-    gatewayProvider: null,
+    gatewayFee: null as bigint | null,
+    accountId: null as string | null,
+    expiresAt: null as Date | null,
+    gatewayProvider: null as string | null,
     paymentDate: new Date("2026-10-05T00:00:00Z"),
   };
 }

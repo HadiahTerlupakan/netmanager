@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { prismaBilling } from "@/lib/prisma-billing";
 import {
@@ -134,7 +135,7 @@ type ReversalInput = {
 };
 
 async function reverseEntries(
-  where: { tenantId: string; source: string; OR: object[] },
+  where: Prisma.JournalEntryWhereInput,
   input: ReversalInput,
 ) {
   const entries = await prisma.journalEntry.findMany({

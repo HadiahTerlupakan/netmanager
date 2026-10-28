@@ -64,7 +64,6 @@ export class VoidInvoiceService {
       );
       await reverseJournalsOfCancelledInvoice({
         invoiceId: invoice.id,
-        tenantId: invoice.tenantId,
         reason: `Tagihan dibatalkan: ${reason}`,
         reversedBy: adminUserId,
       });

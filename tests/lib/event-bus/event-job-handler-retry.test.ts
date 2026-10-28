@@ -31,14 +31,15 @@ function fakeJob() {
 }
 
 describe("processEventJob handler isolation", () => {
-  let notify: ReturnType<typeof vi.fn>;
-  let accounting: ReturnType<typeof vi.fn>;
-  let tax: ReturnType<typeof vi.fn>;
+  type Handler = (job: unknown) => Promise<void>;
+  let notify: ReturnType<typeof vi.fn<Handler>>;
+  let accounting: ReturnType<typeof vi.fn<Handler>>;
+  let tax: ReturnType<typeof vi.fn<Handler>>;
 
   beforeEach(() => {
-    notify = vi.fn(async () => {});
-    accounting = vi.fn(async () => {});
-    tax = vi.fn(async () => {});
+    notify = vi.fn<Handler>(async () => {});
+    accounting = vi.fn<Handler>(async () => {});
+    tax = vi.fn<Handler>(async () => {});
     Object.defineProperty(notify, "name", { value: "handleNotify" });
     Object.defineProperty(accounting, "name", { value: "handleAccounting" });
     Object.defineProperty(tax, "name", { value: "handleTax" });
