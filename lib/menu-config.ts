@@ -629,6 +629,12 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
         icon: "HiOutlineCreditCard",
       },
       {
+        code: "FINANCE.SAMPLE_INVOICES",
+        name: "Invoice Contoh",
+        path: "/admin/finance/invoice-contoh",
+        icon: "HiOutlineDocumentDuplicate",
+      },
+      {
         code: "FINANCE.AR_AGING",
         name: "AR Aging",
         path: "/admin/finance/ar-aging",

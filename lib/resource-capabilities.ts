@@ -372,6 +372,10 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     actions: ["read", "update"],
     description: "Pengaturan payment gateway",
   },
+  invoice_contoh: {
+    actions: ["read", "create", "update", "delete"],
+    description: "Invoice contoh untuk demo dan contoh format",
+  },
   api: {
     actions: ["read", "create", "update", "delete"],
     description: "API keys",

@@ -52,6 +52,7 @@ export const PERMISSION_GROUPS = {
   ],
   FINANCE: [
     "finance",
+    "invoice_contoh",
     "accounts",
     "debts_receivables",
     "treasury",

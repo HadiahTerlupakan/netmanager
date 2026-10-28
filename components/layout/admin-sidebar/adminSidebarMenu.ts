@@ -194,6 +194,7 @@ function getPermissionResource(code: string): string {
   const specialMappings: Record<string, string> = {
     "FINANCE.PROYEK": "expense",
     "FINANCE.PAYMENT_GATEWAY_TRANSACTIONS": "payment_gateway",
+    "FINANCE.SAMPLE_INVOICES": "invoice_contoh",
     "MITRA.LIST": "mitra",
     "MITRA.WITHDRAWALS": "withdrawals",
     "INVESTORS.LIST": "investors",
