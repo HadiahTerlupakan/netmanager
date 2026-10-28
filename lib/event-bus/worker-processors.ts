@@ -58,8 +58,30 @@ export async function processEventJob(job: Job<EventJobData>): Promise<void> {
     `[Worker] Processing event: ${eventName} (handlers: ${handlers.length})`,
   );
 
-  for (const handler of handlers) {
-    await handler(job);
+  // Handler yang sudah berhasil dicatat di job, karena BullMQ me-retry satu
+  // job utuh: tanpa catatan ini satu handler yang gagal membuat handler lain
+  // (mis. notifikasi ke pelanggan) jalan ulang di setiap percobaan.
+  const completed = new Set(job.data.completedHandlers ?? []);
+  const failures: string[] = [];
+
+  for (const [index, handler] of handlers.entries()) {
+    const key = handler.name || `handler#${index}`;
+    if (completed.has(key)) continue;
+    try {
+      await handler(job);
+      completed.add(key);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`[Worker] ${eventName} handler ${key} failed:`, error);
+      failures.push(`${key}: ${message}`);
+    }
+  }
+
+  if (failures.length > 0) {
+    await job.updateData({ ...job.data, completedHandlers: [...completed] });
+    throw new Error(
+      `${failures.length} handler gagal untuk ${eventName}: ${failures.join(" | ")}`,
+    );
   }
 }
 

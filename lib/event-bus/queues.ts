@@ -186,6 +186,8 @@ export interface EventJobData {
   payload: Record<string, any>;
   category: string;
   timestamp: string;
+  /** Handler yang sudah berhasil pada percobaan sebelumnya; dilewati saat retry. */
+  completedHandlers?: string[];
 }
 
 export interface NotificationJobData {
