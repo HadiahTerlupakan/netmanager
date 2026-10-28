@@ -1,3 +1,4 @@
+import type { ReceiptCoa } from "./invoice-paid-lines";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { CoaNotFoundError } from "../../errors";
@@ -56,15 +57,31 @@ export async function resolveInvoiceCreatedCoa(
   return { debitCoaId, creditCoaId };
 }
 
-export async function resolveInvoicePaidCoa(
+/**
+ * COA untuk jurnal pelunasan invoice: Piutang, Bank default, Saldo Payment
+ * Gateway, Beban Biaya Payment Gateway, dan COA tiap rekening Kas & Bank
+ * yang dipakai pembayaran manual.
+ */
+export async function resolveInvoiceReceiptCoa(
   tenantId: string,
-  accountId: string,
-): Promise<ResolvedCoa> {
-  const [debitCoaId, creditCoaId] = await Promise.all([
-    findBankCoaByAccountId(tenantId, accountId),
-    resolveCoaId(tenantId, "PIUTANG_USAHA").then((ids) => ids[0]),
-  ]);
-  return { debitCoaId, creditCoaId };
+  accountIds: string[],
+): Promise<ReceiptCoa> {
+  const [piutang, defaultBank, gatewayBalance, gatewayFee] = await resolveCoaId(
+    tenantId,
+    "PIUTANG_USAHA",
+    "BANK_UTAMA",
+    "SALDO_PAYMENT_GATEWAY",
+    "BEBAN_PAYMENT_GATEWAY",
+  );
+  const unique = [...new Set(accountIds)];
+  const accountCoa = new Map(
+    await Promise.all(
+      unique.map(
+        async (id) => [id, await findBankCoaByAccountId(tenantId, id)] as const,
+      ),
+    ),
+  );
+  return { piutang, defaultBank, gatewayBalance, gatewayFee, accountCoa };
 }
 
 export async function resolveExpenseApprovedCoa(

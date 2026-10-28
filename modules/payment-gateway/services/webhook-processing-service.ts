@@ -312,9 +312,11 @@ export class WebhookProcessingService {
       // dibayar, setelah commit. Invoice dan kupon ada di database lain dari
       // transaksi ini, jadi tidak bisa ikut di dalamnya.
       if (outcome === "PAID") {
+        // Biaya dicatat sebelum pelunasan: jurnal penerimaan (worker
+        // INVOICE_PAID) membukukannya sebagai beban.
+        await recordGatewayFee(provider, payment);
         await restoreReleasedCoupons(checkout);
         await settleCheckoutInvoices(checkout);
-        await recordGatewayFee(provider, payment);
       } else if (outcome && isUnpaidTerminalStatus(outcome)) {
         await releaseCheckoutCoupons(checkout);
       }

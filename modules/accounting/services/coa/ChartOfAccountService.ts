@@ -62,6 +62,17 @@ const DEFAULT_COA: Omit<CoaCreateInput, "tenantId">[] = [
     parentCode: "1-100",
   },
   {
+    // Dana pembayaran pelanggan yang masih mengendap di payment gateway
+    // (mis. Duitku) sampai dicairkan ke rekening bank.
+    code: "1-140",
+    name: "Saldo Payment Gateway",
+    type: "ASSET",
+    subtype: "CURRENT_ASSET",
+    normalSide: "DEBIT",
+    isSystem: true,
+    parentCode: "1-100",
+  },
+  {
     code: "1-150",
     name: "Piutang Karyawan",
     type: "ASSET",
@@ -475,6 +486,16 @@ const DEFAULT_COA: Omit<CoaCreateInput, "tenantId">[] = [
   {
     code: "5-600",
     name: "Beban Administrasi & Umum",
+    type: "EXPENSE",
+    subtype: "OPEX",
+    normalSide: "DEBIT",
+    cashFlowCategory: "OPERATING",
+    isSystem: true,
+    parentCode: "5-000",
+  },
+  {
+    code: "5-610",
+    name: "Beban Biaya Payment Gateway",
     type: "EXPENSE",
     subtype: "OPEX",
     normalSide: "DEBIT",

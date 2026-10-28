@@ -9,7 +9,8 @@ import { JournalRepository } from "../../repositories/JournalRepository";
 import { ChartOfAccountRepository } from "../../repositories/ChartOfAccountRepository";
 import { PeriodRepository } from "../../repositories/PeriodRepository";
 import { PeriodService } from "../period/PeriodService";
-import { resolveInvoicePaidCoa } from "./coa-resolver";
+import { resolveInvoiceReceiptCoa } from "./coa-resolver";
+import { buildInvoicePaidLines } from "./invoice-paid-lines";
 import { CoaNotFoundError } from "../../errors";
 
 const SOURCE = "InvoicePaidAccountingHandler";
@@ -26,7 +27,7 @@ export async function handleInvoicePaidAccounting(
 
   const invoice = await prismaBilling.invoice.findUnique({
     where: { id: invoiceId },
-    select: { tenantId: true, totalAmount: true },
+    select: { tenantId: true, invoiceNumber: true },
   });
   if (!invoice || !invoice.tenantId) {
     logger.warn(
@@ -35,16 +36,35 @@ export async function handleInvoicePaidAccounting(
     return;
   }
 
-  const lastPayment = await prismaBilling.payment.findFirst({
-    where: { invoiceId },
+  // Uang yang benar-benar diterima: lunas lewat gateway/verifikasi, atau
+  // dicatat langsung tanpa status gateway.
+  const received = await prismaBilling.payment.findMany({
+    where: {
+      invoiceId,
+      OR: [{ gatewayStatus: "PAID" }, { gatewayStatus: null }],
+    },
     orderBy: { paymentDate: "desc" },
-    select: { accountId: true },
+    select: {
+      amount: true,
+      gatewayFee: true,
+      accountId: true,
+      expiresAt: true,
+      gatewayProvider: true,
+      paymentDate: true,
+    },
   });
+  const payments = received.map((payment) => ({
+    amount: payment.amount,
+    gatewayFee: payment.gatewayFee,
+    accountId: payment.accountId,
+    isGateway: Boolean(payment.expiresAt || payment.gatewayProvider),
+  }));
 
   const tenantId = invoice.tenantId;
-  const amount = (payload.amount ?? invoice.totalAmount).toString();
-  const accountId = payload.accountId ?? lastPayment?.accountId ?? "";
-  const paidAt = payload.paidAt ?? new Date().toISOString();
+  const paidAt =
+    received[0]?.paymentDate.toISOString() ??
+    payload.paidAt ??
+    new Date().toISOString();
 
   try {
     const journalRepo = new JournalRepository();
@@ -62,21 +82,27 @@ export async function handleInvoicePaidAccounting(
     const entryDate = new Date(paidAt);
     await periodService.ensureCurrentPeriod(tenantId, entryDate);
 
-    const { debitCoaId, creditCoaId } = await resolveInvoicePaidCoa(
+    const coa = await resolveInvoiceReceiptCoa(
       tenantId,
-      accountId,
+      payments.flatMap((payment) =>
+        payment.accountId && !payment.isGateway ? [payment.accountId] : [],
+      ),
     );
+    const lines = buildInvoicePaidLines(payments, coa);
+    // Invoice yang lunas seluruhnya oleh kupon tidak menerima uang; Piutangnya
+    // sudah ditutup jurnal kupon.
+    if (lines.length === 0) {
+      logger.info(`[${SOURCE}] Invoice ${invoiceId} lunas tanpa uang masuk`);
+      return;
+    }
 
     await postingService.postAuto(tenantId, {
       source: "AUTO_INVOICE_PAID",
       sourceRefType: "Invoice",
       sourceRefId: invoiceId,
       entryDate,
-      description: `Jurnal otomatis: Invoice ${invoiceId} dibayar`,
-      lines: [
-        { coaId: debitCoaId, side: "DEBIT", amount },
-        { coaId: creditCoaId, side: "CREDIT", amount },
-      ],
+      description: `Penerimaan pembayaran invoice ${invoice.invoiceNumber}`,
+      lines,
     });
 
     logger.info(`[${SOURCE}] Journal posted for invoice paid ${invoiceId}`);
