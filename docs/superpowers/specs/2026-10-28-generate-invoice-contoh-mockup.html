@@ -1,0 +1,68 @@
+<h2>Generate Invoice Contoh — form dan hasil PDF</h2>
+<p class="subtitle">Kiri: form di menu admin. Kanan: satu halaman PDF (tanpa koordinat). Ini mockup kasar; angka dan nama hanya contoh.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Form generate</div>
+    <div class="mockup-body" style="font-size:13px">
+      <div class="label">Untuk mitra</div>
+      <input class="mock-input" value="Mitra Selawangi (hanya untuk nama file ZIP)">
+
+      <div class="label" style="margin-top:12px">Paket (pelanggan dibagi acak)</div>
+      <table style="width:100%;border-collapse:collapse">
+        <tr><th align="left">Nama paket</th><th align="left">Kecepatan</th><th align="right">Harga</th></tr>
+        <tr><td>Home 10</td><td>10 Mbps</td><td align="right">Rp150.000</td></tr>
+        <tr><td>Home 20</td><td>20 Mbps</td><td align="right">Rp250.000</td></tr>
+        <tr><td colspan="3"><button class="mock-button">+ Tambah paket</button></td></tr>
+      </table>
+
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <div style="flex:1"><div class="label">Jumlah pelanggan</div><input class="mock-input" value="50"></div>
+        <div style="flex:1"><div class="label">Dari bulan</div><input class="mock-input" value="Mei 2026"></div>
+        <div style="flex:1"><div class="label">Sampai bulan</div><input class="mock-input" value="Okt 2026"></div>
+      </div>
+
+      <div class="label" style="margin-top:12px">Area alamat — klik peta untuk titik pusat</div>
+      <div class="placeholder" style="height:140px;position:relative">
+        Peta (Leaflet)
+        <div style="position:absolute;left:45%;top:35%;width:70px;height:70px;border:2px solid #3b82f6;border-radius:50%;background:rgba(59,130,246,.12)"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><div class="label">Radius</div><input class="mock-input" value="2 km"></div>
+        <div style="flex:1"><div class="label">Jatuh tempo</div><input class="mock-input" value="Tanggal 10 tiap bulan"></div>
+      </div>
+
+      <div class="label" style="margin-top:12px">Tanggal bayar</div>
+      <div><input type="radio" checked> Acak dalam bulan tagihan &nbsp; <input type="radio"> Seragam: tanggal <input class="mock-input" style="width:50px" value="5"></div>
+
+      <div class="label" style="margin-top:12px">PPN 11%</div>
+      <div><input type="radio" checked> Harga paket sudah termasuk PPN &nbsp; <input type="radio"> Ditambahkan ke harga</div>
+
+      <button class="mock-button" style="margin-top:14px">Generate &amp; unduh ZIP (300 PDF)</button>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Satu PDF di dalam ZIP</div>
+    <div class="mockup-body" style="font-size:12px;position:relative;overflow:hidden;background:#fff;color:#111">
+      <div style="position:absolute;top:40%;left:-10%;width:120%;text-align:center;transform:rotate(-30deg);font-size:64px;font-weight:800;color:rgba(220,38,38,.18);pointer-events:none">CONTOH</div>
+      <div style="background:#dc2626;color:#fff;text-align:center;font-weight:700;padding:4px">CONTOH — BUKAN TAGIHAN ASLI</div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px">
+        <div><b>[Logo] PT Perusahaan Anda</b><br>Alamat dan kontak dari pengaturan tenant</div>
+        <div style="text-align:right"><b>INVOICE</b><br>No: CTH/2026/06/0007<br><span style="color:#16a34a;font-weight:700">LUNAS</span></div>
+      </div>
+      <hr>
+      <div style="display:flex;justify-content:space-between">
+        <div><b>Kepada</b><br>Budi Santoso (ID CTH-0007)<br>Jl. Raya Cariu No. 12, Cariu, Bogor<br>HP 0812-****-4821</div>
+        <div style="text-align:right">Periode: Juni 2026<br>Jatuh tempo: 10 Jun 2026<br>Dibayar: 4 Jun 2026<br>Metode: Transfer bank</div>
+      </div>
+      <table style="width:100%;margin-top:10px;border-collapse:collapse">
+        <tr style="border-bottom:1px solid #ccc"><th align="left">Paket</th><th align="right">Jumlah</th></tr>
+        <tr><td>Home 20 — 20 Mbps, Juni 2026</td><td align="right">Rp225.225</td></tr>
+        <tr><td>PPN 11%</td><td align="right">Rp24.775</td></tr>
+        <tr style="border-top:1px solid #ccc"><td><b>Total dibayar</b></td><td align="right"><b>Rp250.000</b></td></tr>
+      </table>
+      <p style="font-size:10px;color:#666;margin-top:10px">Dokumen ini dibuat otomatis sebagai contoh format. Nama, alamat, dan transaksi bersifat fiktif.</p>
+    </div>
+  </div>
+</div>
