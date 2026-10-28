@@ -5,6 +5,7 @@ export type GatewayDisplayStatus =
   | "GAGAL"
   | "DIGANTI_METODE"
   | "DITUTUP_LUNAS"
+  | "DIBATALKAN_ADMIN"
   | "DIBATALKAN";
 
 export interface GatewayTransaction {
@@ -74,6 +75,12 @@ export const STATUS_STYLE: Record<
     label: "Ditutup (lunas cara lain)",
     className:
       "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
+  },
+  // Dana sudah masuk gateway tetapi tercatat batal: perlu dicek dan
+  // dikembalikan bila pelanggan membayar ulang.
+  DIBATALKAN_ADMIN: {
+    label: "Dibatalkan admin – dana sudah diterima gateway",
+    className: "bg-red-600 text-white dark:bg-red-700",
   },
   DIBATALKAN: {
     label: "Dibatalkan",

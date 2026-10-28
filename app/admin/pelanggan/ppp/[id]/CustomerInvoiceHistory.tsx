@@ -32,6 +32,8 @@ interface InvoicePayment {
   paymentMethod?: string | null;
   gatewayStatus: InvoicePaymentStatus;
   notes?: string | null;
+  expiresAt?: string | null;
+  gatewayProvider?: string | null;
 }
 
 interface CustomerInvoiceHistoryItem {
@@ -295,15 +297,19 @@ export default function CustomerInvoiceHistory({
                             + {formatCurrency(payment.amount)}
                           </div>
 
-                          {payment.gatewayStatus === "PAID" && (
-                            <button
-                              onClick={() => handleCancelClick(payment.id)}
-                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                              title="Batalkan Pembayaran"
-                            >
-                              <HiOutlineArrowUturnLeft className="w-5 h-5" />
-                            </button>
-                          )}
+                          {/* Pembayaran gateway sudah diterima gateway; server
+                              menolak pembatalannya. */}
+                          {payment.gatewayStatus === "PAID" &&
+                            !payment.expiresAt &&
+                            !payment.gatewayProvider && (
+                              <button
+                                onClick={() => handleCancelClick(payment.id)}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                title="Batalkan Pembayaran"
+                              >
+                                <HiOutlineArrowUturnLeft className="w-5 h-5" />
+                              </button>
+                            )}
                         </div>
                       </div>
                     ))}

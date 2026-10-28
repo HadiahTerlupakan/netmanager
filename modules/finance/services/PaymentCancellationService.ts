@@ -52,8 +52,16 @@ async function findPaymentWithInvoice(paymentId: string) {
   return payment;
 }
 
+const GATEWAY_PAID_MESSAGE =
+  "Pembayaran ini sudah diterima payment gateway dan tidak bisa dibatalkan dari sini. Kembalikan dana lewat dashboard gateway bila perlu.";
+
 function assertCancellablePayment(
-  payment: { gatewayStatus: string; invoice: unknown } | null,
+  payment: {
+    gatewayStatus: string;
+    invoice: unknown;
+    expiresAt?: Date | null;
+    gatewayProvider?: string | null;
+  } | null,
 ) {
   if (!payment) {
     throw new PaymentCancellationError("Payment not found", 404);
@@ -66,6 +74,13 @@ function assertCancellablePayment(
   }
   if (!payment.invoice) {
     throw new PaymentCancellationError("Associated invoice not found", 404);
+  }
+  // Uang pembayaran gateway sudah masuk ke merchant. Membatalkannya di sini
+  // hanya membuka tagihan lagi, sehingga pelanggan membayar dua kali
+  // (terjadi di sandbox 2026-10-28) tanpa ada catatan bahwa dana perlu
+  // dikembalikan.
+  if (payment.expiresAt || payment.gatewayProvider) {
+    throw new PaymentCancellationError(GATEWAY_PAID_MESSAGE, 409);
   }
 }
 

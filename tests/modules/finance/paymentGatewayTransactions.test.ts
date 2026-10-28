@@ -21,6 +21,8 @@ import {
 
 const BASE = {
   pelangganId: "cust-1",
+  notes: null as string | null,
+  gatewayFee: null as bigint | null,
   invoiceId: "inv-1",
   discountAmount: 0n,
   transactionId: null as string | null,
@@ -131,6 +133,7 @@ describe("resolveDisplayStatus", () => {
   const row = (gatewayStatus: string, over: object = {}) => ({
     id: "p1",
     gatewayStatus: gatewayStatus as never,
+    notes: null as string | null,
     expiresAt: new Date("2026-10-29T00:00:00Z"),
     invoice: { status: "OVERDUE" },
     ...over,
@@ -143,6 +146,15 @@ describe("resolveDisplayStatus", () => {
     ["FAILED", {}, "GAGAL"],
     ["CANCELLED", { invoice: { status: "PAID" } }, "DITUTUP_LUNAS"],
     ["CANCELLED", {}, "DIBATALKAN"],
+    // PAY-9aec6090 di sandbox: lunas di Duitku lalu dibatalkan admin.
+    [
+      "CANCELLED",
+      {
+        notes: "Cancelled by admin Admin on 2026-10-27T22:24:02.175Z",
+        invoice: { status: "PAID" },
+      },
+      "DIBATALKAN_ADMIN",
+    ],
   ])("%s %j → %s", (status, over, expected) => {
     expect(resolveDisplayStatus(row(status, over), new Set(), now)).toBe(
       expected,

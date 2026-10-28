@@ -22,7 +22,12 @@ export type GatewayDisplayStatus =
   | "GAGAL"
   | "DIGANTI_METODE"
   | "DITUTUP_LUNAS"
+  | "DIBATALKAN_ADMIN"
   | "DIBATALKAN";
+
+// Ditulis PaymentCancellationService. Pembatalan admin hanya berlaku untuk
+// payment PAID, jadi pada payment gateway artinya dana sudah diterima.
+const ADMIN_CANCEL_NOTE = "Cancelled by admin";
 
 export type GatewayTransactionFilter = Omit<
   GatewayTransactionQuery,
@@ -113,7 +118,10 @@ async function findSwitchedPaymentIds(rows: GatewayTransactionRow[]) {
 }
 
 export function resolveDisplayStatus(
-  row: Pick<GatewayTransactionRow, "id" | "gatewayStatus" | "expiresAt"> & {
+  row: Pick<
+    GatewayTransactionRow,
+    "id" | "gatewayStatus" | "expiresAt" | "notes"
+  > & {
     invoice: { status: string } | null;
   },
   switched: Set<string>,
@@ -127,6 +135,7 @@ export function resolveDisplayStatus(
     case "FAILED":
       return "GAGAL";
     case "CANCELLED":
+      if (row.notes?.startsWith(ADMIN_CANCEL_NOTE)) return "DIBATALKAN_ADMIN";
       if (switched.has(row.id)) return "DIGANTI_METODE";
       return row.invoice?.status === "PAID" ? "DITUTUP_LUNAS" : "DIBATALKAN";
     default:

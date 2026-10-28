@@ -102,4 +102,22 @@ describe("cancelPaidPayment", () => {
     expect(mockFns.paymentUpdate).not.toHaveBeenCalled();
     expect(mockFns.recompute).not.toHaveBeenCalled();
   });
+
+  // Admin membatalkan pembayaran yang sudah dibayar lewat Duitku, tagihan
+  // terbuka lagi, dan pelanggan membayar ulang: dana masuk dua kali.
+  it("menolak membatalkan pembayaran yang sudah diterima payment gateway", async () => {
+    mockFns.paymentFindUnique.mockResolvedValue({
+      id: "pay-gw",
+      gatewayStatus: "PAID",
+      gatewayProvider: "SP",
+      expiresAt: new Date("2026-10-29T00:00:00Z"),
+      invoice: { id: "inv-1", pelangganId: "cust-1" },
+    });
+
+    await expect(
+      cancelPaidPayment({ paymentId: "pay-gw", adminLabel: "admin" }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(mockFns.paymentUpdate).not.toHaveBeenCalled();
+    expect(mockFns.recompute).not.toHaveBeenCalled();
+  });
 });

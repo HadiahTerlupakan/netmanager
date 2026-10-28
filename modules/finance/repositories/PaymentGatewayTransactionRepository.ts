@@ -24,6 +24,7 @@ export const GATEWAY_TRANSACTION_SELECT = {
   vaNumber: true,
   paymentUrl: true,
   gatewayFee: true,
+  notes: true,
   expiresAt: true,
   paymentDate: true,
   createdAt: true,
