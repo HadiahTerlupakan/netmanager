@@ -147,4 +147,22 @@ export class FinancialAccountRepository implements IFinancialAccountRepository {
       return { success: true };
     });
   }
+
+  /**
+   * Riwayat pindah dana untuk rekening bersaldo jurnal: saldonya dihitung
+   * dari jurnal, jadi angka tersimpan tidak diubah.
+   */
+  async recordTransferMutation(data: TransferInput): Promise<{ id: string }> {
+    return this.client.treasuryMutation.create({
+      data: {
+        date: new Date(data.date),
+        amount: data.amount,
+        description: data.description ?? null,
+        sourceAccountId: data.sourceAccountId,
+        destinationAccountId: data.destinationAccountId,
+        createdById: data.createdById ?? null,
+      },
+      select: { id: true },
+    });
+  }
 }

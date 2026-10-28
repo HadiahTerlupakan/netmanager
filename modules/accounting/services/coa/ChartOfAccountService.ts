@@ -738,6 +738,20 @@ export class ChartOfAccountService {
     }));
   }
 
+  /** Saldo (debit - kredit) jurnal POSTED untuk COA-COA ini. */
+  async getBalances(
+    tenantId: string,
+    coaIds: string[],
+  ): Promise<Map<string, number>> {
+    const rows = await this.coaRepo.getAccountBalances(tenantId, coaIds);
+    const balances = new Map<string, number>();
+    for (const row of rows) {
+      const signed = row.side === "DEBIT" ? row.total : -row.total;
+      balances.set(row.coaId, (balances.get(row.coaId) ?? 0) + signed);
+    }
+    return balances;
+  }
+
   private async ensureDefaultCoa(tenantId: string): Promise<void> {
     const existing = await this.coaRepo.list(tenantId, {});
     const hasSystemAccounts = existing.some((a) => a.isSystem);

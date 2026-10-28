@@ -30,6 +30,8 @@ function createService() {
     findActive: vi.fn(),
     create: vi.fn(),
     transferBetweenAccounts: vi.fn().mockResolvedValue({ success: true }),
+    // Rekening tanpa COA: dipindah lewat saldo tersimpan.
+    findById: vi.fn(async (id: string) => ({ id, coaId: null })),
   };
   return {
     repo,

@@ -1,7 +1,15 @@
 import { logActivitySafe } from "@/lib/logger";
-import { getChartOfAccountService } from "@/modules/accounting";
+import { getTenantIdFromContext } from "@/lib/tenant-context";
+import {
+  getChartOfAccountService,
+  postAccountOpeningJournal,
+  postTreasuryTransferJournal,
+} from "@/modules/accounting";
 
-import { InvalidChartOfAccountError } from "../domain/errors";
+import {
+  InsufficientBalanceError,
+  InvalidChartOfAccountError,
+} from "../domain/errors";
 import { FinancialAccountRepository } from "../repositories";
 import type { AccountUpdateInput } from "../repositories/FinancialAccountRepository";
 
@@ -10,11 +18,34 @@ type AccountType = "BANK" | "CASH" | "EWALLET" | "OTHER";
 type FinancialAccountRepo = Pick<
   FinancialAccountRepository,
   | "findActive"
+  | "findById"
   | "create"
   | "update"
   | "transferBetweenAccounts"
+  | "recordTransferMutation"
   | "findRecentMutations"
 >;
+
+/** Buku besar yang menjadi sumber saldo rekening bertaut COA. */
+export type AccountLedger = {
+  getBalances: (
+    tenantId: string,
+    coaIds: string[],
+  ) => Promise<Map<string, number>>;
+  postTransfer: typeof postTreasuryTransferJournal;
+  postOpening: typeof postAccountOpeningJournal;
+};
+
+const DEFAULT_LEDGER: AccountLedger = {
+  getBalances: (tenantId, coaIds) =>
+    getChartOfAccountService().getBalances(tenantId, coaIds),
+  postTransfer: postTreasuryTransferJournal,
+  postOpening: postAccountOpeningJournal,
+};
+
+async function contextTenantId() {
+  return (await getTenantIdFromContext()).tenantId ?? null;
+}
 
 /** Banyaknya riwayat mutasi yang ditampilkan di halaman Kas & Bank. */
 const RECENT_MUTATION_LIMIT = 20;
@@ -22,11 +53,36 @@ const RECENT_MUTATION_LIMIT = 20;
 export class FinanceAccountFacadeService {
   constructor(
     private readonly financialAccountRepo: FinancialAccountRepo = new FinancialAccountRepository(),
+    private readonly ledger: AccountLedger = DEFAULT_LEDGER,
+    private readonly resolveTenantId: () => Promise<
+      string | null
+    > = contextTenantId,
   ) {}
 
-  /** Get all active financial accounts. */
+  /**
+   * Rekening aktif beserta saldonya. Rekening yang ditautkan ke COA bersaldo
+   * jurnal, sehingga Kas & Bank, buku besar, dan arus kas selalu sama;
+   * angka tersimpannya dulu tidak bergerak saat pelanggan membayar, gaji
+   * dibayar, atau pengeluaran dicatat. Rekening tanpa COA tetap memakai
+   * angka tersimpan.
+   */
   async getAccounts() {
-    return this.financialAccountRepo.findActive();
+    const accounts = await this.financialAccountRepo.findActive();
+    const tenantId = await this.resolveTenantId();
+    const coaIds = accounts.flatMap((a) => (a.coaId ? [a.coaId] : []));
+    const balances =
+      tenantId && coaIds.length > 0
+        ? await this.ledger.getBalances(tenantId, coaIds)
+        : new Map<string, number>();
+    return accounts.map((account) =>
+      account.coaId && tenantId
+        ? {
+            ...account,
+            balance: balances.get(account.coaId) ?? 0,
+            balanceSource: "JOURNAL" as const,
+          }
+        : { ...account, balanceSource: "STORED" as const },
+    );
   }
 
   /** Riwayat mutasi saldo terbaru untuk ditampilkan di halaman Kas & Bank. */
@@ -85,7 +141,7 @@ export class FinanceAccountFacadeService {
       await this.assertPostableCoa(data.tenantId ?? null, data.coaId);
     }
 
-    return this.financialAccountRepo.create({
+    const account = await this.financialAccountRepo.create({
       name: data.name,
       type: data.type,
       accountNumber: data.accountNumber ?? null,
@@ -94,6 +150,21 @@ export class FinanceAccountFacadeService {
       isActive: true,
       ...(data.coaId ? { coaId: data.coaId } : {}),
     });
+
+    // Saldo rekening bertaut COA berasal dari jurnal; tanpa jurnal saldo awal,
+    // saldo yang diisi di form tidak pernah terlihat.
+    const tenantId = data.tenantId ?? (await this.resolveTenantId());
+    if (data.coaId && tenantId && (data.initialBalance ?? 0) > 0) {
+      await this.ledger.postOpening({
+        tenantId,
+        accountId: account.id,
+        accountName: data.name,
+        coaId: data.coaId,
+        amount: data.initialBalance as number,
+        date: new Date(),
+      });
+    }
+    return account;
   }
 
   /**
@@ -113,14 +184,7 @@ export class FinanceAccountFacadeService {
     description?: string;
     createdById: string;
   }) {
-    const result = await this.financialAccountRepo.transferBetweenAccounts({
-      sourceAccountId: data.sourceAccountId,
-      destinationAccountId: data.destinationAccountId,
-      amount: data.amount,
-      date: data.date,
-      ...(data.description ? { description: data.description } : {}),
-      createdById: data.createdById,
-    });
+    const result = await this.moveFunds(data);
 
     logActivitySafe({
       action: "TRANSFER",
@@ -136,5 +200,59 @@ export class FinanceAccountFacadeService {
     });
 
     return result;
+  }
+
+  /**
+   * Rekening yang keduanya bertaut COA dipindah lewat jurnal (saldonya dari
+   * jurnal); selebihnya lewat angka tersimpan seperti sebelumnya.
+   */
+  private async moveFunds(data: {
+    sourceAccountId: string;
+    destinationAccountId: string;
+    amount: number;
+    date: Date | string;
+    description?: string;
+    createdById: string;
+  }) {
+    const transfer = {
+      sourceAccountId: data.sourceAccountId,
+      destinationAccountId: data.destinationAccountId,
+      amount: data.amount,
+      date: data.date,
+      ...(data.description ? { description: data.description } : {}),
+      createdById: data.createdById,
+    };
+    const [source, destination, tenantId] = await Promise.all([
+      this.financialAccountRepo.findById(data.sourceAccountId),
+      this.financialAccountRepo.findById(data.destinationAccountId),
+      this.resolveTenantId(),
+    ]);
+    if (!source?.coaId || !destination?.coaId || !tenantId) {
+      return this.financialAccountRepo.transferBetweenAccounts(transfer);
+    }
+
+    const balances = await this.ledger.getBalances(tenantId, [source.coaId]);
+    const available = balances.get(source.coaId) ?? 0;
+    if (available < data.amount) {
+      throw new InsufficientBalanceError(
+        data.sourceAccountId,
+        data.amount,
+        available,
+      );
+    }
+
+    const mutation =
+      await this.financialAccountRepo.recordTransferMutation(transfer);
+    await this.ledger.postTransfer({
+      tenantId,
+      mutationId: mutation.id,
+      date: new Date(data.date),
+      amount: data.amount,
+      sourceCoaId: source.coaId,
+      destinationCoaId: destination.coaId,
+      ...(data.description ? { description: data.description } : {}),
+      postedBy: data.createdById,
+    });
+    return { success: true as const };
   }
 }

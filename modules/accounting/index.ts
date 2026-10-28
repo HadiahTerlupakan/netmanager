@@ -149,6 +149,10 @@ export { TrialBalanceService } from "./services/reports/TrialBalanceService";
 export { ProfitLossService } from "./services/reports/ProfitLossService";
 export { BalanceSheetService } from "./services/reports/BalanceSheetService";
 export { CashFlowService } from "./services/reports/CashFlowService";
+export {
+  postAccountOpeningJournal,
+  postTreasuryTransferJournal,
+} from "./services/journal/treasury-journals";
 export { CashBookService } from "./services/reports/CashBookService";
 export { GeneralLedgerService } from "./services/reports/GeneralLedgerService";
 

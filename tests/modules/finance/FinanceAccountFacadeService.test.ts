@@ -9,6 +9,8 @@ describe("FinanceAccountFacadeService", () => {
       transferBetweenAccounts: vi.fn(),
       findRecentMutations: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
+      findById: vi.fn(),
+      recordTransferMutation: vi.fn(),
     };
     const service = new FinanceAccountFacadeService(financialAccountRepo);
 

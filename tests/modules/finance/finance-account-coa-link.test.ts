@@ -4,6 +4,8 @@ const findById = vi.fn();
 
 vi.mock("@/modules/accounting", () => ({
   getChartOfAccountService: () => ({ findById }),
+  postAccountOpeningJournal: vi.fn(),
+  postTreasuryTransferJournal: vi.fn(),
 }));
 
 vi.mock("@/lib/logger", () => ({
