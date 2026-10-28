@@ -80,9 +80,12 @@ async function createCustomerInvoice(
   },
   customer: ImmediateInvoiceCustomer,
 ) {
+  // Jatuh tempo adalah tanggal, bukan jam: tagihan ini jatuh tempo hari ini.
+  // Dengan `new Date()` jam pembuatannya ikut, lalu terbawa ke jatuh tempo
+  // pelanggan saat tagihan dilunasi (2026-11-28T01:02:01Z di tes-lab-02).
   return options.invoiceCreationService.createInvoiceForCustomer(
     mapRealtimeCustomerToBillingPayload(customer),
-    new Date(),
+    toStartOfDay(new Date()),
   );
 }
 
@@ -198,9 +201,11 @@ export function calculateNextDueDate(
       customer.status === "ISOLIR" || currentDueDate < today
         ? today
         : currentDueDate;
-    return addSafeMonth(baseDate);
+    return toStartOfDay(addSafeMonth(baseDate));
   }
 
-  const nextDueDate = addSafeMonth(invoiceDueDate);
+  // Dibulatkan ke awal hari agar invoice lama yang jatuh temponya terlanjur
+  // membawa jam tidak menurunkannya ke jatuh tempo pelanggan.
+  const nextDueDate = toStartOfDay(addSafeMonth(invoiceDueDate));
   return nextDueDate < currentDueDate ? currentDueDate : nextDueDate;
 }
