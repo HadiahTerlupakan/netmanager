@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { CustomerNotificationBell } from "@/components/customer/CustomerNotificationBell";
 import { GatewayPendingCard } from "./GatewayPayInstructions";
 import { PaymentSuccessSheet } from "./PaymentSuccessSheet";
 import {
@@ -18,7 +19,6 @@ import { useInfiniteApi } from "@/lib/hooks/useInfiniteApi";
 import { InfiniteScrollSentinel } from "@/components/ui/InfiniteScrollSentinel";
 import {
   MdArrowBackIos,
-  MdHelpOutline,
   MdCalendarToday,
   MdRouter,
   MdVerifiedUser,
@@ -484,9 +484,7 @@ export default function CustomerInvoicesPage() {
             Tagihan & Pembayaran
           </h2>
           <div className="flex w-12 items-center justify-end">
-            <Button variant="ghost" size="icon">
-              <MdHelpOutline className="text-2xl" />
-            </Button>
+            <CustomerNotificationBell />
           </div>
         </div>
 

@@ -12,6 +12,10 @@ vi.mock("@/components/customer/CustomerAuthProvider", () => ({
   useCustomerAuth: () => ({ isLoading: false, isAuthenticated: true }),
 }));
 
+vi.mock("@/components/customer/CustomerNotificationBell", () => ({
+  CustomerNotificationBell: (): null => null,
+}));
+
 vi.mock("@/components/ui/InfiniteScrollSentinel", () => ({
   InfiniteScrollSentinel: (): null => null,
 }));
