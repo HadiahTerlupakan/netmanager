@@ -6,7 +6,13 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import { GatewayPendingCard } from "./GatewayPayInstructions";
+import { PaymentSuccessSheet } from "./PaymentSuccessSheet";
+import {
+  useTagihanLiveUpdates,
+  type PaidSummary,
+} from "./usePaymentLiveStatus";
 import { useApi } from "@/lib/hooks/useApi";
 import { useInfiniteApi } from "@/lib/hooks/useInfiniteApi";
 import { InfiniteScrollSentinel } from "@/components/ui/InfiniteScrollSentinel";
@@ -41,6 +47,7 @@ interface PaymentMethod {
 }
 
 interface LastPayment {
+  id?: string;
   amount: number;
   date: string;
   method: string;
@@ -223,6 +230,8 @@ export default function CustomerInvoicesPage() {
   } | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const [paidSummary, setPaidSummary] = useState<PaidSummary | null>(null);
+  const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -261,40 +270,12 @@ export default function CustomerInvoicesPage() {
     [activePayment, paymentMethods],
   );
 
-  // Connect to SSE if there's a pending payment
-  useEffect(() => {
-    if (activePayment && pendingPaymentInvoice) {
-      const sseUrl = `/api/customer/payments/sse?invoiceId=${pendingPaymentInvoice.id}`;
-      const eventSource = new EventSource(sseUrl);
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.status === "PAID") {
-            // Switch immediately, the SSE reported PAID
-            alert("Pembayaran Berhasil Diterima!");
-            mutateInvoices();
-            eventSource.close();
-          }
-        } catch (_e) {
-          // Ignore parsing errors
-        }
-      };
-
-      eventSource.onerror = () => {
-        eventSource.close(); // Close on error to prevent infinite reconnection spam
-      };
-
-      return () => eventSource.close();
-    }
-  }, [activePayment, pendingPaymentInvoice, mutateInvoices]);
-
   const copyToClipboard = async (text: string, type: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      alert(`${type} berhasil disalin!`);
+      showToast("success", `${type} berhasil disalin`);
     } catch (_e) {
-      alert(`Gagal menyalin ${type}.`);
+      showToast("error", `Gagal menyalin ${type}`);
     }
   };
 
@@ -314,6 +295,14 @@ export default function CustomerInvoicesPage() {
   const pendingInvoices = useMemo(() => {
     return invoices.filter((inv) => isOutstandingInvoiceStatus(inv.status));
   }, [invoices]);
+
+  useTagihanLiveUpdates({
+    watchedInvoice: pendingPaymentInvoice ?? pendingInvoices[0],
+    hasActivePayment: Boolean(activePayment),
+    methodName: activeGatewayMethod?.name,
+    refetch: mutateInvoices,
+    onPaid: setPaidSummary,
+  });
 
   const totalPending = useMemo(() => {
     return pendingInvoices.reduce((sum, inv) => sum + inv.remainingAmount, 0);
@@ -425,10 +414,10 @@ export default function CustomerInvoicesPage() {
           window.location.href = result.data.paymentUrl;
         }
       } else {
-        alert(result.error || "Gagal membuat pembayaran");
+        showToast("error", result.error || "Gagal membuat pembayaran");
       }
     } catch (_error) {
-      alert("Terjadi kesalahan saat memproses pembayaran");
+      showToast("error", "Terjadi kesalahan saat memproses pembayaran");
     } finally {
       setPaymentLoading(false);
     }
@@ -454,13 +443,16 @@ export default function CustomerInvoicesPage() {
 
       const result = await res.json();
       if (res.ok && result.success) {
-        alert("Bukti pembayaran berhasil diunggah. Menunggu verifikasi admin.");
+        showToast(
+          "success",
+          "Bukti pembayaran terkirim. Menunggu verifikasi admin.",
+        );
         await mutateInvoices();
       } else {
-        alert(result.error || "Gagal mengunggah bukti pembayaran");
+        showToast("error", result.error || "Gagal mengunggah bukti pembayaran");
       }
     } catch {
-      alert("Terjadi kesalahan saat mengunggah bukti pembayaran");
+      showToast("error", "Terjadi kesalahan saat mengunggah bukti pembayaran");
     } finally {
       setUploadingReceipt(false);
       if (fileInputRef.current) {
@@ -964,6 +956,16 @@ export default function CustomerInvoicesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {paidSummary && (
+        <PaymentSuccessSheet
+          amount={formatCurrency(paidSummary.amount)}
+          invoiceNumber={paidSummary.invoiceNumber}
+          methodName={paidSummary.methodName}
+          onClose={() => setPaidSummary(null)}
+          onHome={() => router.push("/dashboard")}
+        />
       )}
     </div>
   );

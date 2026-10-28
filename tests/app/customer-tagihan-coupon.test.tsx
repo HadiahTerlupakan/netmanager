@@ -59,6 +59,14 @@ vi.mock("@/lib/hooks/useApi", () => ({
 }));
 
 import CustomerInvoicesPage from "@/app/(customer)/tagihan/page";
+import { ToastProvider } from "@/components/ui/Toast";
+
+// Halaman memantau status bayar lewat SSE; jsdom tidak punya EventSource.
+class EventSourcePalsu {
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onerror: (() => void) | null = null;
+  close() {}
+}
 
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -102,6 +110,7 @@ describe("halaman tagihan pelanggan: kupon dan pembayaran", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    vi.stubGlobal("EventSource", EventSourcePalsu);
     fetchMock = vi.fn(async (url: string) => ({
       ok: true,
       status: 200,
@@ -124,7 +133,13 @@ describe("halaman tagihan pelanggan: kupon dan pembayaran", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-    await act(async () => root.render(<CustomerInvoicesPage />));
+    await act(async () =>
+      root.render(
+        <ToastProvider>
+          <CustomerInvoicesPage />
+        </ToastProvider>,
+      ),
+    );
     await klik(tombol(container, "Bayar Sekarang"));
   });
 

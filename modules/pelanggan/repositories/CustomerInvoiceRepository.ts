@@ -73,6 +73,7 @@ function formatLastPayment(invoice: InvoiceWithRelations) {
   const payment = invoice.payment[0];
   if (!payment) return null;
   return {
+    id: payment.id,
     amount: Number(payment.amount),
     date: payment.paymentDate,
     method: payment.paymentMethod,

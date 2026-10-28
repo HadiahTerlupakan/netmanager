@@ -66,8 +66,10 @@ export async function GET(request: NextRequest) {
 
           controller.enqueue(`data: ${JSON.stringify(snapshot)}\n\n`);
 
-          const { status } = snapshot;
-          if (status === "PAID" || status === "FAILED") {
+          // Hanya PAID yang mengakhiri aliran: setelah gagal atau kedaluwarsa,
+          // pelanggan bisa membuat checkout baru dari perangkat lain dan
+          // halaman ini perlu tahu.
+          if (snapshot.status === "PAID") {
             keepChecking = false;
             clearTimeout(timeout);
             try {

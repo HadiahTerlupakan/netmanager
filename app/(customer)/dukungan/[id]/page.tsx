@@ -8,6 +8,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import { useApi } from "@/lib/hooks/useApi";
 import {
   MdArrowBack,
@@ -57,6 +58,7 @@ export default function TicketDetailPage() {
   const params = useParams();
   const ticketId = params.id as string;
 
+  const { showToast } = useToast();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -166,12 +168,12 @@ export default function TicketDetailPage() {
 
     // Basic validation
     if (file.size > 5 * 1024 * 1024) {
-      alert("Ukuran file maksimal 5MB");
+      showToast("error", "Ukuran file maksimal 5MB");
       return;
     }
 
     if (!file.type.startsWith("image/")) {
-      alert("Hanya file gambar yang diperbolehkan");
+      showToast("error", "Hanya file gambar yang diperbolehkan");
       return;
     }
 
@@ -189,11 +191,11 @@ export default function TicketDetailPage() {
         const json = await res.json();
         setAttachments((prev) => [...prev, json.data.url]);
       } else {
-        alert("Gagal mengupload gambar");
+        showToast("error", "Gagal mengunggah gambar");
       }
     } catch (error) {
       clientLogger.error("Upload error:", error);
-      alert("Terjadi kesalahan saat upload");
+      showToast("error", "Terjadi kesalahan saat mengunggah");
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
