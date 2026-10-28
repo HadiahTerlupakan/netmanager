@@ -30,7 +30,7 @@ vi.stubGlobal("EventSource", EventSourcePalsu);
 function Pemantau(props: {
   shown: { paymentId?: string; gatewayStatus?: string };
   handlers: PaymentLiveHandlers;
-}) {
+}): null {
   usePaymentLiveStatus("inv-1", props.shown, props.handlers);
   return null;
 }
