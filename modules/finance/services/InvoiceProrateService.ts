@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { toStartOfDay } from "@/lib/utils/server-datetime";
 import type { IProrateRepository } from "../domain/ports/IProrateRepository";
 import { ProrateRepository } from "../repositories/ProrateRepository";
 
@@ -236,7 +237,9 @@ export class InvoiceProrateService {
       amount: charge,
       tenantId: params.pelanggan.tenantId,
       description: `Prorate upgrade paket (${params.sisaHari} dari ${params.totalHari} hari)`,
-      dueAt: new Date(Date.now() + PRORATE_INVOICE_DUE_DAYS * MS_PER_DAY),
+      dueAt: toStartOfDay(
+        new Date(Date.now() + PRORATE_INVOICE_DUE_DAYS * MS_PER_DAY),
+      ),
     });
 
     return { charge, invoiceId };

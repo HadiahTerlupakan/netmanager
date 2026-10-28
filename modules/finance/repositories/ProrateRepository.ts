@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import { prismaBilling } from "@/lib/prisma-billing";
 import { prisma } from "@/modules/database";
+import { PRORATE_INVOICE_PREFIX } from "../services/prorate-invoice";
 import type {
   CreateProrateInvoiceInput,
   CreateRefundPaymentInput,
@@ -78,7 +79,7 @@ export class ProrateRepository implements IProrateRepository {
     input: CreateProrateInvoiceInput,
   ): Promise<string> {
     const now = new Date();
-    const invoiceNumber = `PRORATE/${now.getTime()}/${input.pelangganId.slice(-6)}`;
+    const invoiceNumber = `${PRORATE_INVOICE_PREFIX}${now.getTime()}/${input.pelangganId.slice(-6)}`;
     const invoice = await prismaBilling.invoice.create({
       data: {
         id: crypto.randomUUID(),

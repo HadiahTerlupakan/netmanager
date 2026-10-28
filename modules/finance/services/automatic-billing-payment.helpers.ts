@@ -9,6 +9,7 @@ import {
 } from "./automatic-billing.helpers";
 import type { BillingInvoiceCreationService } from "./BillingInvoiceCreationService";
 import { settleImmediateInvoice } from "./automatic-billing-payment.settlement";
+import { isProrateInvoiceNumber } from "./prorate-invoice";
 
 type ImmediateInvoiceCustomer = NonNullable<
   Awaited<ReturnType<IPelangganBillingBridge["findByIdWithHargaPaket"]>>
@@ -133,14 +134,20 @@ async function syncPaidInvoiceCustomerState(
     return;
   }
 
-  const nextDueDate = calculateNextDueDate(customer, invoice.dueDate);
-  await syncPaidCustomerDueDate(
-    {
-      customer,
-      pelangganBridge: options.pelangganBridge,
-    },
-    nextDueDate,
-  );
+  // Invoice prorate menagih selisih paket di dalam periode berjalan; ia tidak
+  // membeli periode baru. Dulu melunasinya memindahkan jatuh tempo ke jatuh
+  // tempo invoice prorate (+7 hari) + 1 bulan, sehingga upgrade di tengah
+  // periode memberi hari gratis, dan sebulan penuh untuk NON_REGULER.
+  if (!isProrateInvoiceNumber(invoice.invoiceNumber)) {
+    const nextDueDate = calculateNextDueDate(customer, invoice.dueDate);
+    await syncPaidCustomerDueDate(
+      {
+        customer,
+        pelangganBridge: options.pelangganBridge,
+      },
+      nextDueDate,
+    );
+  }
   const { cancelInvoiceBillingSchedules } =
     await import("./billingScheduleLifecycle");
   await cancelInvoiceBillingSchedules(invoice.id);
