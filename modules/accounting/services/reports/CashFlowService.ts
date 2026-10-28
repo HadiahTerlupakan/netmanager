@@ -1,15 +1,46 @@
 import type { PrismaClient } from "@prisma/client";
 import { Money } from "../../Money";
 import type { CashFlowReport, ReportSectionAccount } from "../../dto/ReportDto";
+import { cashCoaIdsSql } from "./cash-accounts";
 
 interface RawRow {
   coa_code: string;
   coa_name: string;
-  cash_flow_category: string;
-  total_debit: string;
-  total_credit: string;
+  coa_type: string;
+  cash_flow_category: string | null;
+  cash_in: string;
 }
 
+// Setoran dan pengembalian dana investor dicatat di Hutang Investor.
+const FINANCING_LIABILITY_CODES = new Set(["2-600"]);
+
+/**
+ * Kategori aktivitas akun lawan. Akun tanpa kategori (Piutang, Pendapatan,
+ * Utang usaha) termasuk operasi; modal dan dana investor termasuk pendanaan.
+ */
+function sectionOf(row: RawRow) {
+  if (row.cash_flow_category) return row.cash_flow_category;
+  if (
+    row.coa_type === "EQUITY" ||
+    FINANCING_LIABILITY_CODES.has(row.coa_code)
+  ) {
+    return "FINANCING";
+  }
+  return "OPERATING";
+}
+
+/**
+ * Arus kas metode langsung: mutasi akun kas dalam periode, dikelompokkan
+ * menurut akun lawannya sebagai asal-usul (Piutang Usaha = penerimaan
+ * pelanggan, Beban Gaji = pembayaran gaji, ...). Dalam jurnal yang seimbang,
+ * jumlah (kredit - debit) akun lawan sama dengan perubahan kas, jadi tiap
+ * akun lawan mendapat bagian yang tepat. Pindah dana antar akun kas
+ * (pencairan gateway ke bank) tidak punya akun lawan dan tidak terhitung.
+ *
+ * Dulu laporan ini menjumlah debit - kredit pada akun bertanda kategori
+ * (hanya beban dan aset tetap), sehingga penerimaan pelanggan tidak pernah
+ * muncul dan beban tampil sebagai arus positif.
+ */
 export class CashFlowService {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -20,25 +51,30 @@ export class CashFlowService {
   ): Promise<CashFlowReport> {
     const fromDate = new Date(`${from}T00:00:00.000Z`);
     const toDate = new Date(`${to}T23:59:59.999Z`);
-    const beforeFrom = new Date(`${from}T00:00:00.000Z`);
-    beforeFrom.setDate(beforeFrom.getDate() - 1);
 
     const rows = await this.prisma.$queryRaw<RawRow[]>`
+      WITH cash_coa AS (${cashCoaIdsSql(tenantId)}),
+      cash_entries AS (
+        SELECT DISTINCT je.id
+        FROM journal_entries je
+        JOIN journal_lines jl ON jl."entryId" = je.id
+        WHERE je."tenantId" = ${tenantId}
+          AND je.status = 'POSTED'
+          AND je."entryDate" >= ${fromDate}
+          AND je."entryDate" <= ${toDate}
+          AND jl."coaId" IN (SELECT id FROM cash_coa)
+      )
       SELECT
         coa.code AS coa_code,
         coa.name AS coa_name,
+        coa.type::text AS coa_type,
         coa."cashFlowCategory"::text AS cash_flow_category,
-        COALESCE(SUM(CASE WHEN jl.side = 'DEBIT' THEN jl.amount ELSE 0 END), 0)::text AS total_debit,
-        COALESCE(SUM(CASE WHEN jl.side = 'CREDIT' THEN jl.amount ELSE 0 END), 0)::text AS total_credit
+        SUM(CASE WHEN jl.side = 'CREDIT' THEN jl.amount ELSE -jl.amount END)::text AS cash_in
       FROM journal_lines jl
-      JOIN journal_entries je ON je.id = jl."entryId"
       JOIN chart_of_accounts coa ON coa.id = jl."coaId"
-      WHERE je."tenantId" = ${tenantId}
-        AND je.status = 'POSTED'
-        AND je."entryDate" >= ${fromDate}
-        AND je."entryDate" <= ${toDate}
-        AND coa."cashFlowCategory" IS NOT NULL
-      GROUP BY coa.code, coa.name, coa."cashFlowCategory"
+      WHERE jl."entryId" IN (SELECT id FROM cash_entries)
+        AND jl."coaId" NOT IN (SELECT id FROM cash_coa)
+      GROUP BY coa.code, coa.name, coa.type, coa."cashFlowCategory"
       ORDER BY coa.code ASC
     `;
 
@@ -47,22 +83,16 @@ export class CashFlowService {
     const financingAccounts: ReportSectionAccount[] = [];
 
     for (const row of rows) {
-      const debit = Money.fromString(row.total_debit);
-      const credit = Money.fromString(row.total_credit);
-      const netFlow = debit.subtract(credit);
-
       const account: ReportSectionAccount = {
         coaCode: row.coa_code,
         coaName: row.coa_name,
-        amount: netFlow.toString(),
+        amount: Money.fromString(row.cash_in).toString(),
       };
 
-      if (row.cash_flow_category === "OPERATING")
-        operatingAccounts.push(account);
-      else if (row.cash_flow_category === "INVESTING")
-        investingAccounts.push(account);
-      else if (row.cash_flow_category === "FINANCING")
-        financingAccounts.push(account);
+      const section = sectionOf(row);
+      if (section === "INVESTING") investingAccounts.push(account);
+      else if (section === "FINANCING") financingAccounts.push(account);
+      else operatingAccounts.push(account);
     }
 
     const sumSection = (accounts: ReportSectionAccount[]) =>
@@ -76,7 +106,7 @@ export class CashFlowService {
     const financingTotal = sumSection(financingAccounts);
     const netChange = operatingTotal.add(investingTotal).add(financingTotal);
 
-    const openingCash = await this.getOpeningCash(tenantId, beforeFrom);
+    const openingCash = await this.getOpeningCash(tenantId, fromDate);
     const closingCash = openingCash.add(netChange);
 
     return {
@@ -103,9 +133,10 @@ export class CashFlowService {
     };
   }
 
+  /** Saldo seluruh akun kas sebelum awal periode. */
   private async getOpeningCash(
     tenantId: string,
-    beforeDate: Date,
+    fromDate: Date,
   ): Promise<Money> {
     const result = await this.prisma.$queryRaw<{ total: string }[]>`
       SELECT COALESCE(
@@ -113,13 +144,10 @@ export class CashFlowService {
       )::text AS total
       FROM journal_lines jl
       JOIN journal_entries je ON je.id = jl."entryId"
-      JOIN chart_of_accounts coa ON coa.id = jl."coaId"
       WHERE je."tenantId" = ${tenantId}
         AND je.status = 'POSTED'
-        AND je."entryDate" <= ${beforeDate}
-        AND coa.type = 'ASSET'
-        AND coa.subtype IN ('CURRENT_ASSET')
-        AND coa."cashFlowCategory" = 'OPERATING'
+        AND je."entryDate" < ${fromDate}
+        AND jl."coaId" IN (${cashCoaIdsSql(tenantId)})
     `;
     return Money.fromString(result[0]?.total ?? "0");
   }
