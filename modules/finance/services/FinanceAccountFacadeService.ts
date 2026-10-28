@@ -23,6 +23,7 @@ type FinancialAccountRepo = Pick<
   | "update"
   | "transferBetweenAccounts"
   | "recordTransferMutation"
+  | "deleteTransferMutation"
   | "findRecentMutations"
 >;
 
@@ -227,8 +228,15 @@ export class FinanceAccountFacadeService {
       this.financialAccountRepo.findById(data.destinationAccountId),
       this.resolveTenantId(),
     ]);
-    if (!source?.coaId || !destination?.coaId || !tenantId) {
+    if (!source?.coaId && !destination?.coaId) {
       return this.financialAccountRepo.transferBetweenAccounts(transfer);
+    }
+    // Rekening bertaut COA bersaldo jurnal; memindahkannya lewat angka
+    // tersimpan berarti tanpa jurnal dan dengan cek saldo yang salah.
+    if (!source?.coaId || !destination?.coaId || !tenantId) {
+      throw new InvalidChartOfAccountError(
+        "Pindah dana antara rekening yang bertaut COA dan yang belum tidak bisa dicatat; tautkan kedua rekening ke COA lebih dulu",
+      );
     }
 
     const balances = await this.ledger.getBalances(tenantId, [source.coaId]);
@@ -243,16 +251,23 @@ export class FinanceAccountFacadeService {
 
     const mutation =
       await this.financialAccountRepo.recordTransferMutation(transfer);
-    await this.ledger.postTransfer({
-      tenantId,
-      mutationId: mutation.id,
-      date: new Date(data.date),
-      amount: data.amount,
-      sourceCoaId: source.coaId,
-      destinationCoaId: destination.coaId,
-      ...(data.description ? { description: data.description } : {}),
-      postedBy: data.createdById,
-    });
+    try {
+      await this.ledger.postTransfer({
+        tenantId,
+        mutationId: mutation.id,
+        date: new Date(data.date),
+        amount: data.amount,
+        sourceCoaId: source.coaId,
+        destinationCoaId: destination.coaId,
+        ...(data.description ? { description: data.description } : {}),
+        postedBy: data.createdById,
+      });
+    } catch (error) {
+      // Mis. periode akuntansi tertutup: riwayat tanpa jurnal tidak boleh
+      // tertinggal, karena saldo rekening ini dihitung dari jurnal.
+      await this.financialAccountRepo.deleteTransferMutation(mutation.id);
+      throw error;
+    }
     return { success: true as const };
   }
 }

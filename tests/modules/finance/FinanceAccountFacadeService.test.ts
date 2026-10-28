@@ -11,6 +11,7 @@ describe("FinanceAccountFacadeService", () => {
       update: vi.fn(),
       findById: vi.fn(),
       recordTransferMutation: vi.fn(),
+      deleteTransferMutation: vi.fn(),
     };
     const service = new FinanceAccountFacadeService(financialAccountRepo);
 

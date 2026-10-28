@@ -42,6 +42,7 @@ function setup(balances: Record<string, number>) {
     update: vi.fn(),
     transferBetweenAccounts: vi.fn().mockResolvedValue({ success: true }),
     recordTransferMutation: vi.fn().mockResolvedValue({ id: "mut-1" }),
+    deleteTransferMutation: vi.fn(),
     findRecentMutations: vi.fn(),
   };
   const ledger = {
@@ -124,13 +125,24 @@ describe("Kas & Bank bersaldo jurnal", () => {
     expect(ledger.postTransfer).not.toHaveBeenCalled();
   });
 
-  it("rekening tanpa COA tetap dipindah lewat saldo tersimpan", async () => {
+  it("rekening bertaut COA tidak bisa dipindah ke/dari rekening tanpa COA", async () => {
     const { service, repo, ledger } = setup({});
 
-    await service.transferFunds({ ...TRANSFER, sourceAccountId: "laci" });
-
-    expect(repo.transferBetweenAccounts).toHaveBeenCalled();
+    await expect(
+      service.transferFunds({ ...TRANSFER, sourceAccountId: "laci" }),
+    ).rejects.toThrow("tautkan kedua rekening");
+    expect(repo.transferBetweenAccounts).not.toHaveBeenCalled();
     expect(ledger.postTransfer).not.toHaveBeenCalled();
+  });
+
+  it("jurnal yang gagal diposting tidak meninggalkan riwayat mutasi", async () => {
+    const { service, repo, ledger } = setup({ "coa-gw": 11_022 });
+    ledger.postTransfer.mockRejectedValue(new Error("periode tertutup"));
+
+    await expect(service.transferFunds(TRANSFER)).rejects.toThrow(
+      "periode tertutup",
+    );
+    expect(repo.deleteTransferMutation).toHaveBeenCalledWith("mut-1");
   });
 
   it("saldo awal rekening bertaut COA dicatat sebagai jurnal", async () => {

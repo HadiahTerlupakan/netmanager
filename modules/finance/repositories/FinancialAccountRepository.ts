@@ -152,6 +152,11 @@ export class FinancialAccountRepository implements IFinancialAccountRepository {
    * Riwayat pindah dana untuk rekening bersaldo jurnal: saldonya dihitung
    * dari jurnal, jadi angka tersimpan tidak diubah.
    */
+  /** Hapus riwayat pindah dana yang jurnalnya gagal diposting. */
+  async deleteTransferMutation(id: string): Promise<void> {
+    await this.client.treasuryMutation.delete({ where: { id } });
+  }
+
   async recordTransferMutation(data: TransferInput): Promise<{ id: string }> {
     return this.client.treasuryMutation.create({
       data: {
