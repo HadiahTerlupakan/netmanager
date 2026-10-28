@@ -8,7 +8,7 @@ import {
   type BillingTemplateKey,
   type BillingTemplateParams,
 } from "../templates/billing-templates";
-import { createNotification } from "./NotificationService";
+import { createCustomerNotification } from "./CustomerInAppNotificationService";
 import { sendCustomerPushNotification } from "./ExpoPushService";
 import { WhatsAppSenderService } from "./whatsapp-sender.service";
 import { isWhatsAppNotConfigured } from "./whatsapp/whatsapp-send-result";
@@ -205,17 +205,15 @@ export class NotificationDispatcher {
     params: BillingTemplateParams,
     input: NotificationDispatchInput,
   ): Promise<void> {
-    if (!contact.userId) return;
-    await createNotification({
-      type: "SYSTEM",
+    await createCustomerNotification({
+      pelangganId: contact.customerId,
       userId: contact.userId,
+      tenantId: contact.tenantId,
       title: template.title,
       message: template.inApp(params),
       link: "/tagihan",
       sourceType: input.sourceType,
       sourceId: input.sourceId,
-      priority: "HIGH",
-      tenantId: contact.tenantId ?? undefined,
     });
   }
 

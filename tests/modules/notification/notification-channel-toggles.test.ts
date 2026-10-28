@@ -13,9 +13,13 @@ vi.mock("@/modules/notification/services/channel-router", () => ({
 }));
 
 const mockCreateNotification = vi.fn();
-vi.mock("@/modules/notification/services/NotificationService", () => ({
-  createNotification: (...args: unknown[]) => mockCreateNotification(...args),
-}));
+vi.mock(
+  "@/modules/notification/services/CustomerInAppNotificationService",
+  () => ({
+    createCustomerNotification: (...args: unknown[]) =>
+      mockCreateNotification(...args),
+  }),
+);
 
 const mockSendPush = vi.fn();
 vi.mock("@/modules/notification/services/ExpoPushService", () => ({

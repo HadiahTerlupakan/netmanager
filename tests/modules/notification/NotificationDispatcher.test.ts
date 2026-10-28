@@ -6,9 +6,13 @@ vi.mock("@/modules/notification/services/channel-router", () => ({
 }));
 
 const mockCreateNotification = vi.fn();
-vi.mock("@/modules/notification/services/NotificationService", () => ({
-  createNotification: (...args: unknown[]) => mockCreateNotification(...args),
-}));
+vi.mock(
+  "@/modules/notification/services/CustomerInAppNotificationService",
+  () => ({
+    createCustomerNotification: (...args: unknown[]) =>
+      mockCreateNotification(...args),
+  }),
+);
 
 const mockSendPush = vi.fn();
 vi.mock("@/modules/notification/services/ExpoPushService", () => ({
@@ -109,6 +113,27 @@ describe("NotificationDispatcher", () => {
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
   });
 
+  // Pelanggan portal umumnya tidak punya akun User; dulu in-app dilewati
+  // diam-diam untuk mereka sehingga notifikasi tagihan tidak pernah ada.
+  it("in-app tetap ditulis untuk pelanggan tanpa userId, per pelanggan", async () => {
+    mockContact.mockResolvedValueOnce({ ...fullContact, userId: null });
+    await new NotificationDispatcher().dispatch({
+      pelangganId: "cust-1",
+      templateKey: "invoicePaid",
+      params: { customerName: "Budi", invoiceNumber: "INV/1", amountDue: 1 },
+      sourceType: "BILLING",
+      sourceId: "inv-1",
+    });
+    expect(mockCreateNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pelangganId: fullContact.customerId,
+        userId: null,
+        link: "/tagihan",
+        sourceId: "inv-1",
+      }),
+    );
+  });
+
   it("skip email kalau kontak tidak punya email", async () => {
     mockContact.mockResolvedValueOnce({ ...fullContact, email: null });
     await new NotificationDispatcher().dispatch({
@@ -141,22 +166,6 @@ describe("NotificationDispatcher", () => {
     });
     expect(mockSendWA).not.toHaveBeenCalled();
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
-  });
-
-  it("skip in-app kalau kontak tidak punya userId", async () => {
-    mockContact.mockResolvedValueOnce({ ...fullContact, userId: null });
-    await new NotificationDispatcher().dispatch({
-      pelangganId: "cust-1",
-      templateKey: "invoicePaid",
-      params: {
-        customerName: "Budi",
-        invoiceNumber: "INV/1",
-        amountDue: 100000,
-      },
-      sourceType: "BILLING",
-      sourceId: "inv-1",
-    });
-    expect(mockCreateNotification).not.toHaveBeenCalled();
   });
 
   it("best-effort — channel gagal tidak mencegah channel lain jalan", async () => {

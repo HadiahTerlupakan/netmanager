@@ -6,10 +6,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * pengumuman — sehingga baris itu tidak pernah terlihat siapa pun.
  */
 
-const getNotificationsForUser = vi.hoisted(() => vi.fn());
+const getCustomerStoredNotifications = vi.hoisted(() => vi.fn());
 const findContactById = vi.hoisted(() => vi.fn());
 
-vi.mock("@/modules/notification/api", () => ({ getNotificationsForUser }));
+vi.mock("@/modules/notification/api", () => ({
+  getCustomerStoredNotifications,
+}));
 
 vi.mock("@/modules/pelanggan/services/PelangganContactService", () => ({
   pelangganContactService: { findContactById },
@@ -53,7 +55,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   repository.getCustomerNotificationSummary.mockResolvedValue(summary);
   findContactById.mockResolvedValue({ userId: "user-1" });
-  getNotificationsForUser.mockResolvedValue({ notifications: [storedRow()] });
+  getCustomerStoredNotifications.mockResolvedValue([storedRow()]);
 });
 
 describe("notifikasi in-app pelanggan", () => {
@@ -77,33 +79,35 @@ describe("notifikasi in-app pelanggan", () => {
   });
 
   it("tidak menghitung notifikasi yang sudah dibaca", async () => {
-    getNotificationsForUser.mockResolvedValue({
-      notifications: [storedRow({ isRead: true })],
-    });
+    getCustomerStoredNotifications.mockResolvedValue([
+      storedRow({ isRead: true }),
+    ]);
 
     const result = await buildService().getNotifications("cust-1");
 
     expect(result.unreadCount).toBe(3);
   });
 
-  // Pelanggan tanpa akun pengguna tidak punya baris notifikasi sama sekali;
-  // portal tetap harus menampilkan tiket dan pengumuman.
-  it("tetap bekerja saat pelanggan tidak punya userId", async () => {
+  // Pelanggan tanpa akun User dulu tidak pernah melihat notifikasi tagihan:
+  // baris dicari lewat userId saja. Kini dicari per pelanggan.
+  it("pelanggan tanpa userId tetap mendapat notifikasi tersimpannya", async () => {
     findContactById.mockResolvedValue({ userId: null });
 
     const result = await buildService().getNotifications("cust-1");
 
-    expect(getNotificationsForUser).not.toHaveBeenCalled();
-    expect(result.unreadCount).toBe(3);
+    expect(getCustomerStoredNotifications).toHaveBeenCalledWith({
+      pelangganId: "cust-1",
+      userId: null,
+      limit: expect.any(Number),
+    });
+    expect(result.unreadCount).toBe(4);
   });
 
   it("mengurutkan gabungan dari yang terbaru", async () => {
-    getNotificationsForUser.mockResolvedValue({
-      notifications: [
-        storedRow({ id: "lama", createdAt: new Date("2026-09-01T00:00:00Z") }),
-        storedRow({ id: "baru", createdAt: new Date("2026-09-07T00:00:00Z") }),
-      ],
-    });
+    getCustomerStoredNotifications.mockResolvedValue([
+      storedRow({ id: "lama", createdAt: new Date("2026-09-01T00:00:00Z") }),
+      storedRow({ id: "baru", createdAt: new Date("2026-09-07T00:00:00Z") }),
+    ]);
 
     const result = await buildService().getNotifications("cust-1");
 

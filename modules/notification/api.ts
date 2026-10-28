@@ -5,6 +5,7 @@ export {
   markAllAsRead,
   markAsRead,
 } from "./services/NotificationService";
+export { getCustomerStoredNotifications } from "./services/CustomerInAppNotificationService";
 export type { NotificationType } from "./services/NotificationService.types";
 
 export type {

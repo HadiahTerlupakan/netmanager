@@ -1986,6 +1986,8 @@ model Notifications {
   link         String?
   isRead       Boolean      @default(false)
   userId       String?
+  // Penerima pelanggan portal; tanpa relasi karena pelanggan bukan User.
+  pelangganId  String?
   departmentId String?
   sourceType   String?
   sourceId     String?
@@ -2008,6 +2010,7 @@ model Notifications {
   /// baca (lonceng dan hitungan belum dibaca). Index tunggal `userId` dan
   /// `isRead` memaksa Postgres menyaring sisanya baris per baris.
   @@index([userId, isRead])
+  @@index([pelangganId, isRead])
   @@index([tenantId, isRead])
   @@map("notifications")
 }

@@ -70,13 +70,14 @@ export class CustomerNotificationService {
     limit: number,
   ): Promise<StoredNotification[]> {
     const contact = await pelangganContactService.findContactById(customerId);
-    if (!contact?.userId) return [];
-
-    const { getNotificationsForUser } =
+    const { getCustomerStoredNotifications } =
       await import("@/modules/notification/api");
-    const result = await getNotificationsForUser(contact.userId, { limit });
 
-    return (result.notifications ?? []) as StoredNotification[];
+    return getCustomerStoredNotifications({
+      pelangganId: customerId,
+      userId: contact?.userId,
+      limit,
+    });
   }
 
   /** Map repository summary into customer notification response. */
