@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
-import { RouterOSAPI } from "node-routeros-v2";
-import { toRouterOsTimeoutSeconds } from "./routeros-timeout";
+import type { RouterOSAPI } from "node-routeros-v2";
+import { createRouterOsApi } from "./routeros-timeout";
 
 const DEFAULT_API_TIMEOUT_MS = 10000;
 const TIMEOUT_GRACE_MS = 1000;
@@ -63,12 +63,12 @@ export async function testMikroTikAPI(
 }
 
 function createConnection(config: MikroTikAPIConfig, timeout: number) {
-  return new RouterOSAPI({
+  return createRouterOsApi({
     host: config.ipAddress,
     user: config.username,
     password: config.password,
     port: config.port,
-    timeout: toRouterOsTimeoutSeconds(timeout),
+    timeoutMs: timeout,
   });
 }
 

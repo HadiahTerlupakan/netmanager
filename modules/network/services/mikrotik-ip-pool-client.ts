@@ -2,8 +2,8 @@ import { logger } from "@/lib/logger";
 import { RadiusConnectionError } from "../utils/errors";
 import { NetworkRepository } from "../repositories/NetworkRepository";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
-import { RouterOSAPI } from "node-routeros-v2";
-import { toRouterOsTimeoutSeconds } from "./mikrotik/routeros-timeout";
+import type { RouterOSAPI } from "node-routeros-v2";
+import { createRouterOsApi } from "./mikrotik/routeros-timeout";
 
 export type MikroTikRouterConfig = {
   ipAddress: string;
@@ -21,12 +21,12 @@ export async function connectToMikroTik(
   config: MikroTikRouterConfig,
   timeout: number = 5000,
 ): Promise<RouterOSAPI> {
-  const conn = new RouterOSAPI({
+  const conn = createRouterOsApi({
     host: config.ipAddress,
     user: config.apiUsername,
     password: config.apiPassword,
     port: config.apiPort,
-    timeout: toRouterOsTimeoutSeconds(timeout),
+    timeoutMs: timeout,
   });
 
   await conn.connect();

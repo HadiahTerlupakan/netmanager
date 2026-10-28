@@ -3,8 +3,7 @@ import {
   runAsSystemContext,
   runWithRequestTenantContext,
 } from "@/lib/tenant-context";
-import { RouterOSAPI } from "node-routeros-v2";
-import { toRouterOsTimeoutSeconds } from "./mikrotik/routeros-timeout";
+import { createRouterOsApi } from "./mikrotik/routeros-timeout";
 import { MikroTikRouterRepository } from "../repositories/MikroTikRouterRepository";
 import { MikroTikRouterVpnRepository } from "../repositories/MikroTikRouterVpnRepository";
 import { NetworkRepository } from "../repositories/NetworkRepository";
@@ -43,12 +42,12 @@ async function testMikroTikAPI(
   timeout: number = DEFAULT_MIKROTIK_TIMEOUT_MS,
 ): Promise<MikroTikPingResult> {
   return new Promise((resolve) => {
-    const conn = new RouterOSAPI({
+    const conn = createRouterOsApi({
       host: ipAddress,
       user: username,
       password: password,
       port: port,
-      timeout: toRouterOsTimeoutSeconds(timeout),
+      timeoutMs: timeout,
     });
 
     let resolved = false;

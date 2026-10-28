@@ -1,5 +1,5 @@
-import { RouterOSAPI } from "node-routeros-v2";
-import { toRouterOsTimeoutSeconds } from "./routeros-timeout";
+import type { RouterOSAPI } from "node-routeros-v2";
+import { createRouterOsApi } from "./routeros-timeout";
 
 const DEFAULT_TIMEOUT_MS = 10000;
 const DEFAULT_DELAY_MS = 200;
@@ -15,12 +15,12 @@ export interface RouterCredentials {
 export class MikroTikConnectionHelper {
   /** Create RouterOS API connection. */
   createConnection(credentials: RouterCredentials): RouterOSAPI {
-    return new RouterOSAPI({
+    return createRouterOsApi({
       host: credentials.ip,
       port: credentials.port,
       user: credentials.username,
       password: credentials.password,
-      timeout: toRouterOsTimeoutSeconds(DEFAULT_TIMEOUT_MS),
+      timeoutMs: DEFAULT_TIMEOUT_MS,
     });
   }
 

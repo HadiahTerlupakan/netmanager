@@ -14,6 +14,10 @@ const replies: Record<string, unknown[]> = {
 
 vi.mock("node-routeros-v2", () => ({
   RouterOSAPI: class {
+    // createRouterOsApi memasang listener error pada setiap koneksi.
+    on() {
+      return this;
+    }
     private inFlight = 0;
     connect() {
       return Promise.resolve();

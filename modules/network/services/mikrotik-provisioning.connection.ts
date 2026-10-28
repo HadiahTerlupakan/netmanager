@@ -1,5 +1,5 @@
-import { RouterOSAPI } from "node-routeros-v2";
-import { toRouterOsTimeoutSeconds } from "./mikrotik/routeros-timeout";
+import type { RouterOSAPI } from "node-routeros-v2";
+import { createRouterOsApi } from "./mikrotik/routeros-timeout";
 
 export type MikroTikProvisioningRouterDetails = {
   ip: string;
@@ -23,12 +23,12 @@ const DEFAULT_DELAY_MS = 200;
 export function createProvisioningConnection(
   routerDetails: MikroTikProvisioningRouterDetails,
 ) {
-  return new RouterOSAPI({
+  return createRouterOsApi({
     host: routerDetails.ip,
     port: routerDetails.port,
     user: routerDetails.username,
     password: routerDetails.password,
-    timeout: toRouterOsTimeoutSeconds(CONNECTION_TIMEOUT_MS),
+    timeoutMs: CONNECTION_TIMEOUT_MS,
   });
 }
 

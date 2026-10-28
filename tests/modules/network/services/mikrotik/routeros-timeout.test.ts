@@ -5,7 +5,10 @@ import { connectToMikroTik } from "@/modules/network/services/mikrotik-ip-pool-c
 import { createProvisioningConnection } from "@/modules/network/services/mikrotik-provisioning.connection";
 import { MikroTikConnectionFactory } from "@/modules/network/services/mikrotik/MikroTikConnectionFactory";
 import { MikroTikConnectionHelper } from "@/modules/network/services/mikrotik/MikroTikConnectionHelper";
-import { toRouterOsTimeoutSeconds } from "@/modules/network/services/mikrotik/routeros-timeout";
+import {
+  createRouterOsApi,
+  toRouterOsTimeoutSeconds,
+} from "@/modules/network/services/mikrotik/routeros-timeout";
 
 // A router that accepts the TCP connection and never answers the login, the
 // way a firewalled or overloaded RouterOS API port behaves.
@@ -76,5 +79,23 @@ describe("RouterOS connection timeouts", () => {
     expect(
       new MikroTikConnectionHelper().createConnection(details).timeout,
     ).toBe(10);
+  });
+});
+
+describe("createRouterOsApi", () => {
+  // Dengan timeout sungguhan 10 detik, koneksi yang dibiarkan terbuka sedikit
+  // terlalu lama memancarkan "error" dari socket setelah login. Tanpa
+  // listener, EventEmitter melemparnya dan proses aplikasi mati.
+  it("error koneksi setelah login tidak dilempar ke proses", () => {
+    const client = createRouterOsApi({
+      host: "127.0.0.1",
+      port: silentPort,
+      user: "admin",
+      password: "x",
+      timeoutMs: 10_000,
+    });
+
+    expect(client.timeout).toBe(10);
+    expect(() => client.emit("error", new Error("SOCKTMOUT"))).not.toThrow();
   });
 });

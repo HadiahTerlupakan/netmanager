@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("node-routeros-v2", () => ({
   RouterOSAPI: class {
+    // createRouterOsApi memasang listener error pada setiap koneksi.
+    on() {
+      return this;
+    }
     constructor(private readonly options: { host: string }) {}
     connect() {
       return mocks.reachableHosts.has(this.options.host)
