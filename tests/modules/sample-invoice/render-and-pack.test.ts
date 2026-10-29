@@ -109,6 +109,20 @@ describe("renderSamplePdf", () => {
     expect(text).toContain("PPN 11%");
   });
 
+  it("names the package once when its name is its speed", () => {
+    const text = pdfText(
+      renderSamplePdf({
+        issuer: input.issuer,
+        customer: set.customers[0],
+        pkg: { name: "150MB", speed: "150MB", price: 400000 },
+        invoice: set.invoices[0],
+        ppn: "inclusive",
+      }),
+    );
+    expect(text).toContain("150MB");
+    expect(text).not.toContain("150MB - 150MB");
+  });
+
   it("prints no PPN line without PPN", () => {
     expect(render("none")).not.toContain("PPN");
   });

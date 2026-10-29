@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { HiOutlineChevronDown } from "react-icons/hi2";
+import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import type { SampleInvoiceLimits } from "@/modules/sample-invoice";
+import { cardClass, Field, inputClass } from "./ui";
 
 const FIELDS: Array<[keyof SampleInvoiceLimits, string]> = [
   ["maxCustomers", "Maksimal pelanggan per generate"],
@@ -40,40 +43,42 @@ export function LimitsPanel({
   }
 
   return (
-    <details className="rounded-lg border p-4 dark:border-gray-700">
-      <summary className="cursor-pointer text-sm font-semibold">
+    <details className={`${cardClass} group`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4 font-semibold text-gray-900 dark:text-white">
         Pengaturan batas
+        <HiOutlineChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="mt-3 grid gap-3 md:grid-cols-4">
-        {FIELDS.map(([key, label]) => (
-          <label key={key} className="text-sm">
-            {label}
-            <input
-              className="w-full rounded border px-2 py-1 text-sm dark:bg-gray-900"
-              inputMode="numeric"
-              value={values[key]}
-              onChange={(e) =>
-                setValues({
-                  ...values,
-                  [key]: Number(e.target.value.replace(/\D/g, "")),
-                })
-              }
-            />
-          </label>
-        ))}
-        <button
-          type="button"
-          className="self-end rounded bg-gray-800 px-3 py-1.5 text-sm text-white disabled:opacity-50"
-          disabled={saving}
-          onClick={save}
-        >
-          Simpan
-        </button>
+      <div className="border-t border-gray-200 px-5 py-4 dark:border-gray-700">
+        <div className="grid items-end gap-4 md:grid-cols-[1fr_1fr_1fr_auto]">
+          {FIELDS.map(([key, label]) => (
+            <Field key={key} label={label}>
+              <input
+                className={`${inputClass} tabular-nums`}
+                inputMode="numeric"
+                value={values[key]}
+                onChange={(e) =>
+                  setValues({
+                    ...values,
+                    [key]: Number(e.target.value.replace(/\D/g, "")),
+                  })
+                }
+              />
+            </Field>
+          ))}
+          <Button
+            type="button"
+            variant="primary"
+            loading={saving}
+            onClick={save}
+          >
+            Simpan
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+          Generate yang lebih dari 2.000 PDF tetap boleh; unduhannya dipecah per
+          bulan.
+        </p>
       </div>
-      <p className="mt-2 text-xs text-gray-500">
-        Generate yang lebih dari 2.000 PDF tetap boleh; unduhannya dipecah per
-        bulan.
-      </p>
     </details>
   );
 }

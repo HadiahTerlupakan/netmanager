@@ -115,16 +115,20 @@ describe("GenerateForm", () => {
     await render();
     expect(submitButton().disabled).toBe(true);
 
+    expect(text()).toContain("Pilih mitra");
     await fillValidForm();
 
     expect(text()).toContain("6 jalan bernama ditemukan");
+    expect(text()).not.toContain("Lengkapi dulu");
     expect(submitButton().disabled).toBe(false);
   });
 
   it("shows the PDF count live", async () => {
     await render();
     await fillValidForm();
-    expect(text()).toContain("Jumlah PDF: 150");
+    expect(container.querySelector('[data-summary="pdf"]')?.textContent).toBe(
+      "150",
+    );
   });
 
   it("blocks a generate above the PDF limit and says why", async () => {

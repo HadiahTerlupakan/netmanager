@@ -1,8 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { PenandaUniversal } from "@/components/map/PenandaUniversal";
-import { PetaUniversal } from "@/components/map/PetaUniversal";
 import type {
   PpnMode,
   SampleGenerateInput,
@@ -11,11 +9,13 @@ import type {
   SampleStreet,
 } from "@/modules/sample-invoice";
 import type { fetchStreets as FetchStreets } from "./overpass";
+import { AreaPicker, type StreetTone } from "./AreaPicker";
+import { GenerateSummary } from "./GenerateSummary";
 import { emptyPackageRow, PackagesTable, toPackages } from "./PackagesTable";
+import { PayDateField } from "./PayDateField";
+import { Field, formatMonthRange, inputClass as field, Section } from "./ui";
 
-const DEFAULT_CENTER = { lat: -6.5091, lng: 107.1352 };
 const MIN_STREETS = 5;
-const field = "w-full rounded border px-2 py-1 text-sm dark:bg-gray-900";
 
 type Props = {
   mitras: Array<{ id: string; name: string }>;
@@ -73,6 +73,7 @@ export function GenerateForm(props: Props) {
   const [ppn, setPpn] = useState<PpnMode>("inclusive");
   const [streets, setStreets] = useState<SampleStreet[]>([]);
   const [streetStatus, setStreetStatus] = useState("");
+  const [streetTone, setStreetTone] = useState<StreetTone>("idle");
   const [submitting, setSubmitting] = useState(false);
 
   const radiusM = Math.round(Number(radiusKm) * 1000);
@@ -87,18 +88,22 @@ export function GenerateForm(props: Props) {
     if (radius < 200 || radius > 10000) {
       setStreets([]);
       setStreetStatus("Radius harus 0,2 sampai 10 km");
+      setStreetTone("warn");
       return;
     }
     const id = ++lookupId.current;
     setStreets([]);
     setStreetStatus("Mencari jalan bernama di OpenStreetMap…");
+    setStreetTone("busy");
     const result = await props.fetchStreets(point, radius);
     if (id !== lookupId.current) return;
     if ("message" in result) {
       setStreetStatus(result.message);
+      setStreetTone("warn");
       return;
     }
     setStreets(result.streets);
+    setStreetTone(result.streets.length >= MIN_STREETS ? "ok" : "warn");
     setStreetStatus(
       result.streets.length >= MIN_STREETS
         ? `${result.streets.length} jalan bernama ditemukan`
@@ -118,13 +123,16 @@ export function GenerateForm(props: Props) {
     limits: props.limits,
   });
   const mitra = props.mitras.find((item) => item.id === mitraId);
-  const ready =
-    Boolean(mitra && issuer.name.trim() && center) &&
-    packages.length > 0 &&
-    customerCount >= 1 &&
-    streets.length >= MIN_STREETS &&
-    !problem &&
-    !submitting;
+  const missing = [
+    !mitra && "Pilih mitra",
+    !issuer.name.trim() && "Isi nama perusahaan penerbit",
+    packages.length === 0 && "Isi minimal satu paket dengan harga",
+    customerCount < 1 && "Isi jumlah pelanggan",
+    !center && "Klik peta untuk titik pusat area",
+    center && streets.length < MIN_STREETS && "Tunggu atau perluas area jalan",
+  ].filter((item): item is string => Boolean(item));
+  const ready = missing.length === 0 && !problem && !submitting;
+  const pdfCount = customerCount * Math.max(months, 0);
 
   async function submit() {
     if (!ready || !mitra || !center) return;
@@ -154,210 +162,178 @@ export function GenerateForm(props: Props) {
   }
 
   return (
-    <div className="space-y-5 rounded-lg border p-4 dark:border-gray-700">
-      <section className="grid gap-3 md:grid-cols-2">
-        <label className="text-sm">
-          Mitra
-          <select
-            name="mitraId"
-            className={field}
-            value={mitraId}
-            onChange={(e) => setMitraId(e.target.value)}
-          >
-            <option value="">Pilih mitra</option>
-            {props.mitras.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          Nama perusahaan penerbit
-          <input
-            name="issuerName"
-            className={field}
-            value={issuer.name}
-            onChange={(e) => setIssuer({ ...issuer, name: e.target.value })}
-          />
-        </label>
-        <label className="text-sm">
-          Alamat penerbit
-          <input
-            name="issuerAddress"
-            className={field}
-            value={issuer.address}
-            onChange={(e) => setIssuer({ ...issuer, address: e.target.value })}
-          />
-        </label>
-        <label className="text-sm">
-          Telepon penerbit
-          <input
-            name="issuerPhone"
-            className={field}
-            value={issuer.phone}
-            onChange={(e) => setIssuer({ ...issuer, phone: e.target.value })}
-          />
-        </label>
-      </section>
-
-      <section>
-        <h3 className="mb-2 text-sm font-semibold">Paket</h3>
-        <PackagesTable rows={rows} onChange={setRows} />
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-3">
-        <label className="text-sm">
-          Jumlah pelanggan
-          <input
-            name="customerCount"
-            className={field}
-            inputMode="numeric"
-            value={customers}
-            onChange={(e) => setCustomers(e.target.value.replace(/\D/g, ""))}
-          />
-        </label>
-        <label className="text-sm">
-          Dari bulan
-          <input
-            name="fromMonth"
-            type="month"
-            className={field}
-            max={props.currentMonth}
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
-        </label>
-        <label className="text-sm">
-          Sampai bulan
-          <input
-            name="toMonth"
-            type="month"
-            className={field}
-            max={props.currentMonth}
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        </label>
-      </section>
-
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold">
-          Area alamat — klik peta untuk titik pusat
-        </h3>
-        <div className="h-72 overflow-hidden rounded border">
-          <PetaUniversal
-            pusat={center ?? DEFAULT_CENTER}
-            zoom={13}
-            onKlik={(lat, lng) => {
-              setCenter({ lat, lng });
-              void lookupStreets({ lat, lng }, radiusM);
-            }}
-          >
-            {center && (
-              <PenandaUniversal
-                posisi={center}
-                type="lokasi"
-                title={`Pusat, radius ${radiusKm} km`}
-              />
-            )}
-          </PetaUniversal>
-        </div>
-        <label className="block text-sm">
-          Radius (km, 0,2–10)
-          <input
-            name="radiusKm"
-            className={field}
-            inputMode="decimal"
-            value={radiusKm}
-            onChange={(e) => setRadiusKm(e.target.value.replace(",", "."))}
-            onBlur={() => center && void lookupStreets(center, radiusM)}
-          />
-        </label>
-        {streetStatus && (
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            {streetStatus}
-          </p>
-        )}
-      </section>
-
-      <section className="grid gap-3 md:grid-cols-3">
-        <label className="text-sm">
-          Jatuh tempo (tanggal 1–28)
-          <input
-            name="dueDay"
-            type="number"
-            min={1}
-            max={28}
-            className={field}
-            value={dueDay}
-            onChange={(e) => setDueDay(e.target.value)}
-          />
-        </label>
-        <fieldset className="text-sm">
-          <legend>Tanggal bayar</legend>
-          <label className="mr-3">
-            <input
-              type="radio"
-              checked={payMode === "random"}
-              onChange={() => setPayMode("random")}
-            />{" "}
-            Acak dalam bulan
-          </label>
-          <label>
-            <input
-              type="radio"
-              checked={payMode === "fixed"}
-              onChange={() => setPayMode("fixed")}
-            />{" "}
-            Seragam, tanggal
-          </label>
-          {payMode === "fixed" && (
-            <input
-              name="payDay"
-              type="number"
-              min={1}
-              max={28}
-              className={`${field} mt-1`}
-              value={payDay}
-              onChange={(e) => setPayDay(e.target.value)}
-            />
-          )}
-        </fieldset>
-        <label className="text-sm">
-          PPN 11%
-          <select
-            name="ppn"
-            className={field}
-            value={ppn}
-            onChange={(e) => setPpn(e.target.value as PpnMode)}
-          >
-            <option value="none">Tanpa PPN</option>
-            <option value="inclusive">Sudah termasuk harga paket</option>
-            <option value="exclusive">Ditambahkan ke harga</option>
-          </select>
-        </label>
-      </section>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm">
-          Jumlah PDF:{" "}
-          {(customerCount * Math.max(months, 0)).toLocaleString("id-ID")}
-        </span>
-        {problem && (
-          <span role="alert" className="text-sm text-red-600">
-            {problem}
-          </span>
-        )}
-        <button
-          type="button"
-          className="ml-auto rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          disabled={!ready}
-          onClick={submit}
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="space-y-6">
+        <Section
+          step={1}
+          title="Mitra & penerbit"
+          hint="Nama penerbit tercetak di kepala setiap invoice."
         >
-          {submitting ? "Memproses…" : "Generate & unduh ZIP"}
-        </button>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Mitra">
+              <select
+                name="mitraId"
+                className={field}
+                value={mitraId}
+                onChange={(e) => setMitraId(e.target.value)}
+              >
+                <option value="">Pilih mitra</option>
+                {props.mitras.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Nama perusahaan penerbit">
+              <input
+                name="issuerName"
+                className={field}
+                value={issuer.name}
+                onChange={(e) => setIssuer({ ...issuer, name: e.target.value })}
+              />
+            </Field>
+            <Field label="Alamat penerbit">
+              <input
+                name="issuerAddress"
+                className={field}
+                value={issuer.address}
+                onChange={(e) =>
+                  setIssuer({ ...issuer, address: e.target.value })
+                }
+              />
+            </Field>
+            <Field label="Telepon penerbit">
+              <input
+                name="issuerPhone"
+                className={field}
+                inputMode="tel"
+                value={issuer.phone}
+                onChange={(e) =>
+                  setIssuer({ ...issuer, phone: e.target.value })
+                }
+              />
+            </Field>
+          </div>
+        </Section>
+
+        <Section
+          step={2}
+          title="Paket & pelanggan"
+          hint="Harga diisi per bulan; pelanggan dibagi acak ke paket-paket ini."
+        >
+          <PackagesTable rows={rows} onChange={setRows} />
+          <Field
+            label="Jumlah pelanggan"
+            hint={`Maksimal ${props.limits.maxCustomers.toLocaleString("id-ID")}`}
+            className="mt-5 max-w-xs"
+          >
+            <input
+              name="customerCount"
+              className={field}
+              inputMode="numeric"
+              value={customers}
+              onChange={(e) => setCustomers(e.target.value.replace(/\D/g, ""))}
+            />
+          </Field>
+        </Section>
+
+        <Section
+          step={3}
+          title="Periode & pembayaran"
+          hint="Satu invoice per pelanggan per bulan, semuanya berstatus lunas."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Dari bulan">
+              <input
+                name="fromMonth"
+                type="month"
+                className={field}
+                max={props.currentMonth}
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
+            </Field>
+            <Field label="Sampai bulan">
+              <input
+                name="toMonth"
+                type="month"
+                className={field}
+                max={props.currentMonth}
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+              />
+            </Field>
+            <Field label="Jatuh tempo" hint="Tanggal 1–28 setiap bulan">
+              <input
+                name="dueDay"
+                type="number"
+                min={1}
+                max={28}
+                className={field}
+                value={dueDay}
+                onChange={(e) => setDueDay(e.target.value)}
+              />
+            </Field>
+            <Field label="PPN 11%">
+              <select
+                name="ppn"
+                className={field}
+                value={ppn}
+                onChange={(e) => setPpn(e.target.value as PpnMode)}
+              >
+                <option value="none">Tanpa PPN</option>
+                <option value="inclusive">Sudah termasuk harga paket</option>
+                <option value="exclusive">Ditambahkan ke harga</option>
+              </select>
+            </Field>
+          </div>
+          <PayDateField
+            mode={payMode}
+            day={payDay}
+            onModeChange={setPayMode}
+            onDayChange={setPayDay}
+          />
+        </Section>
+
+        <Section
+          step={4}
+          title="Area alamat pelanggan"
+          hint="Klik peta untuk titik pusat. Alamat diambil dari nama jalan asli OpenStreetMap di dalam radius."
+        >
+          <AreaPicker
+            center={center}
+            radiusKm={radiusKm}
+            onRadiusChange={setRadiusKm}
+            onRadiusCommit={() => center && void lookupStreets(center, radiusM)}
+            onPick={(point) => {
+              setCenter(point);
+              void lookupStreets(point, radiusM);
+            }}
+            status={streetStatus}
+            tone={streetTone}
+          />
+        </Section>
       </div>
+
+      <GenerateSummary
+        rows={[
+          ["Mitra", mitra?.name ?? "—"],
+          ["Paket", `${packages.length} paket`],
+          ["Pelanggan", customerCount.toLocaleString("id-ID")],
+          [
+            "Periode",
+            months > 0 ? `${formatMonthRange(from, to)} (${months} bln)` : "—",
+          ],
+          ["Jalan ditemukan", streets.length.toLocaleString("id-ID")],
+        ]}
+        pdfCount={pdfCount}
+        missing={missing}
+        problem={problem}
+        ready={ready}
+        submitting={submitting}
+        onSubmit={submit}
+      />
     </div>
   );
 }

@@ -47,6 +47,20 @@ const MONTHS_LONG = [
 const PAGE_WIDTH = 210;
 const MARGIN = 15;
 const RIGHT = PAGE_WIDTH - MARGIN;
+const GAP = 6;
+const BOX_WIDTH = (RIGHT - MARGIN - GAP) / 2;
+const BOX_PAD = 5;
+const LINE = 4.6;
+
+type Rgb = [number, number, number];
+const INK: Rgb = [17, 24, 39];
+const MUTED: Rgb = [107, 114, 128];
+const RULE: Rgb = [229, 231, 235];
+const PANEL: Rgb = [249, 250, 251];
+const HEAD: Rgb = [31, 41, 55];
+const PAID: Rgb = [22, 163, 74];
+const PAID_SOFT: Rgb = [240, 253, 244];
+const SAMPLE_RED: Rgb = [220, 38, 38];
 
 const rupiah = (value: number) =>
   `Rp${value.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`;
@@ -61,103 +75,192 @@ function formatPeriod(month: string) {
   return `${MONTHS_LONG[mon - 1]} ${year}`;
 }
 
-function drawSampleMarks(doc: jsPDF) {
-  doc.setFillColor(220, 38, 38);
-  doc.rect(0, 0, PAGE_WIDTH, 12, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text(SAMPLE_BAND_TEXT, PAGE_WIDTH / 2, 8, { align: "center" });
+function packageLabel(pkg: SamplePackage) {
+  return pkg.name.trim() === pkg.speed.trim()
+    ? pkg.name
+    : `${pkg.name} - ${pkg.speed}`;
+}
 
+function font(doc: jsPDF, style: string, size: number, color: Rgb = INK) {
+  doc.setFont("helvetica", style);
+  doc.setFontSize(size);
+  doc.setTextColor(...color);
+}
+
+function drawSampleBand(doc: jsPDF) {
+  doc.setFillColor(...SAMPLE_RED);
+  doc.rect(0, 0, PAGE_WIDTH, 12, "F");
+  font(doc, "bold", 12, [255, 255, 255]);
+  doc.text(SAMPLE_BAND_TEXT, PAGE_WIDTH / 2, 8, { align: "center" });
+}
+
+/** Dicetak paling akhir agar tidak tertutup kotak berlatar. */
+function drawSampleWatermark(doc: jsPDF) {
   doc.saveGraphicsState();
   doc.setGState(new GState({ opacity: 0.12 }));
-  doc.setTextColor(220, 38, 38);
-  doc.setFontSize(110);
+  font(doc, "bold", 110, SAMPLE_RED);
   doc.text("CONTOH", PAGE_WIDTH / 2, 190, { align: "center", angle: 30 });
   doc.restoreGraphicsState();
 }
 
+/** Mengembalikan y di bawah kepala dokumen. */
 function drawHeader(doc: jsPDF, issuer: SampleIssuer, invoice: SampleInvoice) {
-  doc.setTextColor(17, 17, 17);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  font(doc, "bold", 15);
   doc.text(issuer.name, MARGIN, 26);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text([issuer.address, issuer.phone].filter(Boolean), MARGIN, 32);
+  font(doc, "normal", 9, MUTED);
+  const lines = [
+    ...doc.splitTextToSize(issuer.address, 105),
+    issuer.phone && `Telp. ${issuer.phone}`,
+  ].filter(Boolean);
+  lines.forEach((line, i) => doc.text(line, MARGIN, 32 + i * 4.2));
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text("INVOICE", RIGHT, 26, { align: "right" });
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`No: ${invoice.number}`, RIGHT, 32, { align: "right" });
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(22, 163, 74);
-  doc.text("LUNAS", RIGHT, 38, { align: "right" });
-  doc.setTextColor(17, 17, 17);
-  doc.setDrawColor(200, 200, 200);
-  doc.line(MARGIN, 44, RIGHT, 44);
+  font(doc, "bold", 22);
+  doc.text("INVOICE", RIGHT, 27, { align: "right" });
+  font(doc, "normal", 9.5, MUTED);
+  doc.text(`No. ${invoice.number}`, RIGHT, 33, { align: "right" });
+  doc.setFillColor(...PAID);
+  doc.roundedRect(RIGHT - 24, 36.5, 24, 7, 1.5, 1.5, "F");
+  font(doc, "bold", 9.5, [255, 255, 255]);
+  doc.text("LUNAS", RIGHT - 12, 41.2, { align: "center" });
+
+  const bottom = Math.max(32 + lines.length * 4.2, 46) + 2;
+  doc.setDrawColor(...INK);
+  doc.setLineWidth(0.5);
+  doc.line(MARGIN, bottom, RIGHT, bottom);
+  doc.setLineWidth(0.2);
+  return bottom;
 }
 
+function drawPanel(doc: jsPDF, x: number, y: number, h: number, title: string) {
+  doc.setFillColor(...PANEL);
+  doc.setDrawColor(...RULE);
+  doc.roundedRect(x, y, BOX_WIDTH, h, 2, 2, "FD");
+  font(doc, "bold", 8, MUTED);
+  doc.text(title, x + BOX_PAD, y + 7);
+}
+
+/** Mengembalikan y di bawah kedua kotak. */
 function drawParties(
   doc: jsPDF,
   customer: SampleCustomer,
   invoice: SampleInvoice,
+  top: number,
 ) {
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.text("Kepada", MARGIN, 52);
-  doc.setFont("helvetica", "normal");
-  doc.text(
-    [
-      `${customer.name} (ID ${customer.code})`,
-      ...doc.splitTextToSize(customer.address, 100),
-      `HP ${customer.phoneMasked}`,
-    ],
-    MARGIN,
-    58,
+  font(doc, "normal", 9.5);
+  const address = doc.splitTextToSize(
+    customer.address,
+    BOX_WIDTH - 2 * BOX_PAD,
   );
-  doc.text(
-    [
-      `Periode: ${formatPeriod(invoice.month)}`,
-      `Jatuh tempo: ${formatDate(invoice.dueDate)}`,
-      `Dibayar: ${formatDate(invoice.paidDate)}`,
-      `Metode: ${invoice.method}`,
-    ],
-    RIGHT,
-    58,
-    { align: "right" },
-  );
+  const details: Array<[string, string]> = [
+    ["Periode", formatPeriod(invoice.month)],
+    ["Jatuh tempo", formatDate(invoice.dueDate)],
+    ["Tanggal bayar", formatDate(invoice.paidDate)],
+    ["Metode", invoice.method],
+  ];
+  const leftBody = 6 + LINE * (2 + address.length);
+  const height = 12 + Math.max(leftBody, LINE * details.length) + 3;
+  const rightX = MARGIN + BOX_WIDTH + GAP;
+
+  drawPanel(doc, MARGIN, top, height, "DITAGIHKAN KEPADA");
+  let y = top + 14;
+  font(doc, "bold", 11);
+  doc.text(customer.name, MARGIN + BOX_PAD, y);
+  font(doc, "normal", 9.5, MUTED);
+  y += 6;
+  for (const line of [`ID Pelanggan ${customer.code}`, ...address]) {
+    doc.text(line, MARGIN + BOX_PAD, y);
+    y += LINE;
+  }
+  doc.text(`HP ${customer.phoneMasked}`, MARGIN + BOX_PAD, y);
+
+  drawPanel(doc, rightX, top, height, "DETAIL PEMBAYARAN");
+  details.forEach(([label, value], i) => {
+    const rowY = top + 14 + i * LINE * 1.3;
+    font(doc, "normal", 9.5, MUTED);
+    doc.text(label, rightX + BOX_PAD, rowY);
+    font(doc, "bold", 9.5);
+    doc.text(value, rightX + BOX_WIDTH - BOX_PAD, rowY, { align: "right" });
+  });
+  return top + height;
 }
 
-function drawAmounts(
+const PERIOD_X = 118;
+
+/** Mengembalikan y di bawah tabel. */
+function drawItems(
   doc: jsPDF,
   pkg: SamplePackage,
   invoice: SampleInvoice,
-  ppn: PpnMode,
+  top: number,
 ) {
-  let y = 92;
-  doc.setFont("helvetica", "bold");
-  doc.text("Rincian", MARGIN, y);
-  doc.text("Jumlah", RIGHT, y, { align: "right" });
-  doc.line(MARGIN, y + 2, RIGHT, y + 2);
-  doc.setFont("helvetica", "normal");
-  const rows: Array<[string, number]> = [
-    [`${pkg.name} - ${pkg.speed}, ${formatPeriod(invoice.month)}`, invoice.dpp],
-  ];
-  if (ppn !== "none") rows.push(["PPN 11%", invoice.ppn]);
-  for (const [label, value] of rows) {
-    y += 8;
-    doc.text(label, MARGIN, y);
-    doc.text(rupiah(value), RIGHT, y, { align: "right" });
+  doc.setFillColor(...HEAD);
+  doc.rect(MARGIN, top, RIGHT - MARGIN, 9, "F");
+  font(doc, "bold", 9, [255, 255, 255]);
+  doc.text("Deskripsi", MARGIN + 4, top + 6);
+  doc.text("Periode", PERIOD_X, top + 6);
+  doc.text("Jumlah", RIGHT - 4, top + 6, { align: "right" });
+
+  const rowY = top + 9 + 7.5;
+  font(doc, "bold", 10);
+  doc.text(packageLabel(pkg), MARGIN + 4, rowY);
+  font(doc, "normal", 9.5, MUTED);
+  doc.text("Layanan internet bulanan", MARGIN + 4, rowY + 4.6);
+  font(doc, "normal", 10);
+  doc.text(formatPeriod(invoice.month), PERIOD_X, rowY);
+  doc.text(rupiah(invoice.dpp), RIGHT - 4, rowY, { align: "right" });
+
+  const bottom = top + 9 + 14;
+  doc.setDrawColor(...RULE);
+  doc.line(MARGIN, bottom, RIGHT, bottom);
+  return bottom;
+}
+
+const SUMMARY_X = 112;
+
+/** Mengembalikan y di bawah ringkasan. */
+function drawSummary(
+  doc: jsPDF,
+  invoice: SampleInvoice,
+  ppn: PpnMode,
+  top: number,
+) {
+  let y = top + 8;
+  if (ppn !== "none") {
+    for (const [label, value] of [
+      ["Subtotal", invoice.dpp],
+      ["PPN 11%", invoice.ppn],
+    ] as const) {
+      font(doc, "normal", 10, MUTED);
+      doc.text(label, SUMMARY_X + 4, y);
+      font(doc, "normal", 10);
+      doc.text(rupiah(value), RIGHT - 4, y, { align: "right" });
+      y += 6.5;
+    }
   }
-  y += 4;
-  doc.line(MARGIN, y, RIGHT, y);
-  y += 7;
-  doc.setFont("helvetica", "bold");
-  doc.text("Total dibayar", MARGIN, y);
-  doc.text(rupiah(invoice.total), RIGHT, y, { align: "right" });
+  doc.setFillColor(...PAID_SOFT);
+  doc.roundedRect(SUMMARY_X, y - 4, RIGHT - SUMMARY_X, 11, 1.5, 1.5, "F");
+  font(doc, "bold", 10.5, INK);
+  doc.text("Total dibayar", SUMMARY_X + 4, y + 2.8);
+  font(doc, "bold", 12, PAID);
+  doc.text(rupiah(invoice.total), RIGHT - 4, y + 2.8, { align: "right" });
+  return y + 7;
+}
+
+function drawClosing(doc: jsPDF, invoice: SampleInvoice, top: number) {
+  font(doc, "normal", 9.5, MUTED);
+  doc.text(
+    `Pembayaran diterima pada ${formatDate(invoice.paidDate)} melalui ${invoice.method}. Terima kasih.`,
+    MARGIN,
+    top + 12,
+  );
+  doc.setDrawColor(...RULE);
+  doc.line(MARGIN, 274, RIGHT, 274);
+  font(doc, "italic", 8, MUTED);
+  doc.text(
+    doc.splitTextToSize(SAMPLE_FOOTER_TEXT, RIGHT - MARGIN),
+    MARGIN,
+    280,
+  );
 }
 
 export function renderSamplePdf(args: {
@@ -168,17 +271,22 @@ export function renderSamplePdf(args: {
   ppn: PpnMode;
 }): Buffer {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  drawSampleMarks(doc);
-  drawHeader(doc, args.issuer, args.invoice);
-  drawParties(doc, args.customer, args.invoice);
-  drawAmounts(doc, args.pkg, args.invoice, args.ppn);
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(8);
-  doc.setTextColor(102, 102, 102);
-  doc.text(
-    doc.splitTextToSize(SAMPLE_FOOTER_TEXT, RIGHT - MARGIN),
-    MARGIN,
-    280,
+  drawSampleBand(doc);
+  const headerBottom = drawHeader(doc, args.issuer, args.invoice);
+  const partiesBottom = drawParties(
+    doc,
+    args.customer,
+    args.invoice,
+    headerBottom + 8,
   );
+  const itemsBottom = drawItems(
+    doc,
+    args.pkg,
+    args.invoice,
+    partiesBottom + 10,
+  );
+  const summaryBottom = drawSummary(doc, args.invoice, args.ppn, itemsBottom);
+  drawClosing(doc, args.invoice, summaryBottom);
+  drawSampleWatermark(doc);
   return Buffer.from(doc.output("arraybuffer"));
 }
