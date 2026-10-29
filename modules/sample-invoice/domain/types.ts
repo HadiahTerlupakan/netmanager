@@ -1,12 +1,20 @@
 /** Biaya tambahan bulanan yang ikut di setiap invoice paketnya. */
 export type SampleAddon = { name: string; price: number };
 
-/** `addons` boleh tidak ada: batch yang dibuat sebelum add-on tidak punya field ini. */
+/** Potongan bulanan: nominal Rupiah, atau persen dari harga paket + add-on. */
+export type SampleDiscount = {
+  name: string;
+  kind: "amount" | "percent";
+  value: number;
+};
+
+/** `addons` dan `discount` boleh tidak ada: batch lama tidak punya field ini. */
 export type SamplePackage = {
   name: string;
   speed: string;
   price: number;
   addons?: SampleAddon[];
+  discount?: SampleDiscount;
 };
 
 /** Jalan bernama dari OpenStreetMap beserta wilayah tempatnya berada. */

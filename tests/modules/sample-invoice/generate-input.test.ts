@@ -111,6 +111,48 @@ describe("parseGenerateInput", () => {
     expect(message(withAddon({ name: "Modem", price: 2.5 }))).not.toBe("");
   });
 
+  it("accepts a package discount and keeps it", () => {
+    const discount = { name: "Promo loyal", kind: "percent", value: 10 };
+    const result = parse(
+      raw({
+        packages: [
+          { name: "Home 10", speed: "10 Mbps", price: 150000, discount },
+        ],
+      }),
+    );
+    expect(result.ok && result.input.packages[0].discount).toEqual(discount);
+  });
+
+  it("rejects a discount that is unnamed, not whole, or leaves nothing to pay", () => {
+    const withDiscount = (discount: unknown) =>
+      raw({
+        packages: [
+          {
+            name: "Home 10",
+            speed: "10 Mbps",
+            price: 150000,
+            addons: [{ name: "Modem", price: 50000 }],
+            discount,
+          },
+        ],
+      });
+    expect(
+      message(withDiscount({ name: "", kind: "amount", value: 1000 })),
+    ).not.toBe("");
+    expect(
+      message(withDiscount({ name: "P", kind: "percent", value: 100 })),
+    ).not.toBe("");
+    expect(
+      message(withDiscount({ name: "P", kind: "percent", value: 0 })),
+    ).not.toBe("");
+    expect(
+      message(withDiscount({ name: "P", kind: "amount", value: 200000 })),
+    ).not.toBe("");
+    expect(
+      parse(withDiscount({ name: "P", kind: "amount", value: 199999 })).ok,
+    ).toBe(true);
+  });
+
   it("cleans the street list from the browser", () => {
     const result = parse(
       raw({

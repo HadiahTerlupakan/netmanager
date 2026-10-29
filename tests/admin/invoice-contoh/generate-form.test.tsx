@@ -190,6 +190,37 @@ describe("GenerateForm", () => {
     );
   });
 
+  it("submits a package discount in rupiah or percent", async () => {
+    const { onSubmit } = await render();
+    await fillValidForm();
+    await act(async () =>
+      (
+        [...container.querySelectorAll("button")].find(
+          (b) => b.textContent === "Tambah diskon",
+        ) as HTMLButtonElement
+      ).click(),
+    );
+    await act(async () => {
+      setValue('input[name="package-0-discount-name"]', "Promo loyal");
+      setValue('select[name="package-0-discount-kind"]', "percent");
+      setValue('input[name="package-0-discount-value"]', "10");
+    });
+    await act(async () => submitButton().click());
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        packages: [
+          {
+            name: "Home 10",
+            speed: "",
+            price: 150000,
+            discount: { name: "Promo loyal", kind: "percent", value: 10 },
+          },
+        ],
+      }),
+    );
+  });
+
   it("submits the form with the streets found", async () => {
     const { onSubmit } = await render();
     await fillValidForm();

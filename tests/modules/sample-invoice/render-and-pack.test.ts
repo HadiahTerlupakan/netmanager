@@ -143,6 +143,26 @@ describe("renderSamplePdf", () => {
     expect(text).toContain("Rp275.000");
   });
 
+  it("prints the discount as a minus line", () => {
+    const text = pdfText(
+      renderSamplePdf({
+        issuer: input.issuer,
+        customer: set.customers[0],
+        pkg: {
+          name: "Home 20",
+          speed: "20 Mbps",
+          price: 250000,
+          discount: { name: "Promo loyal", kind: "amount", value: 50000 },
+        },
+        invoice: { ...set.invoices[0], dpp: 200000, ppn: 0, total: 200000 },
+        ppn: "none",
+      }),
+    );
+    expect(text).toContain("Diskon Promo loyal");
+    expect(text).toContain("-Rp50.000");
+    expect(text).toContain("Rp200.000");
+  });
+
   it("prints no PPN line without PPN", () => {
     expect(render("none")).not.toContain("PPN");
   });

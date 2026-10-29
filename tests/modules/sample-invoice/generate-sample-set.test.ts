@@ -90,6 +90,24 @@ describe("generateSampleSet", () => {
     }
   });
 
+  it("takes each package's discount off its customers' totals", () => {
+    const set = run(
+      input({
+        ppn: "none",
+        packages: [
+          {
+            name: "Home 10",
+            speed: "10 Mbps",
+            price: 150000,
+            addons: [{ name: "Sewa modem", price: 50000 }],
+            discount: { name: "Promo", kind: "percent", value: 25 },
+          },
+        ],
+      }),
+    );
+    for (const inv of set.invoices) expect(inv.total).toBe(150000);
+  });
+
   it("numbers and codes use the CTH prefix and customer position", () => {
     const set = run();
     expect(set.customers[6].code).toBe("CTH-0007");

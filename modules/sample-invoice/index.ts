@@ -19,6 +19,7 @@ export type {
   PayDateRule,
   PpnMode,
   SampleAddon,
+  SampleDiscount,
   SampleGenerateInput,
   SampleIssuer,
   SamplePackage,

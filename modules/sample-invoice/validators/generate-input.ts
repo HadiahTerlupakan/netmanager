@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { monthsInRange } from "../domain/money";
+import { monthsInRange, packageGross } from "../domain/money";
 import type { SampleGenerateInput, SampleStreet } from "../domain/types";
 import type { SampleInvoiceLimits } from "../services/sample-invoice-limits";
 
@@ -21,26 +21,45 @@ const schema = z.object({
   }),
   packages: z
     .array(
-      z.object({
-        name: text(100).min(1, "Nama paket wajib diisi"),
-        speed: text(50),
-        price: z
-          .number()
-          .int("Harga paket harus bilangan bulat")
-          .positive("Harga paket harus lebih dari 0"),
-        addons: z
-          .array(
-            z.object({
-              name: text(100).min(1, "Nama add-on wajib diisi"),
-              price: z
+      z
+        .object({
+          name: text(100).min(1, "Nama paket wajib diisi"),
+          speed: text(50),
+          price: z
+            .number()
+            .int("Harga paket harus bilangan bulat")
+            .positive("Harga paket harus lebih dari 0"),
+          addons: z
+            .array(
+              z.object({
+                name: text(100).min(1, "Nama add-on wajib diisi"),
+                price: z
+                  .number()
+                  .int("Harga add-on harus bilangan bulat")
+                  .positive("Harga add-on harus lebih dari 0"),
+              }),
+            )
+            .max(MAX_ADDONS, `Maksimal ${MAX_ADDONS} add-on per paket`)
+            .optional(),
+          discount: z
+            .object({
+              name: text(100).min(1, "Nama diskon wajib diisi"),
+              kind: z.enum(["amount", "percent"]),
+              value: z
                 .number()
-                .int("Harga add-on harus bilangan bulat")
-                .positive("Harga add-on harus lebih dari 0"),
-            }),
-          )
-          .max(MAX_ADDONS, `Maksimal ${MAX_ADDONS} add-on per paket`)
-          .optional(),
-      }),
+                .int("Nilai diskon harus bilangan bulat")
+                .positive("Nilai diskon harus lebih dari 0"),
+            })
+            .optional(),
+        })
+        .refine(
+          (pkg) =>
+            !pkg.discount ||
+            (pkg.discount.kind === "percent"
+              ? pkg.discount.value < 100
+              : pkg.discount.value < packageGross(pkg)),
+          "Diskon harus lebih kecil dari harga paket + add-on",
+        ),
     )
     .min(1, "Tambahkan minimal satu paket"),
   customerCount: z.number().int().min(1, "Jumlah pelanggan minimal 1"),

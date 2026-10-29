@@ -3,23 +3,37 @@
 import { HiOutlinePlus, HiOutlineTrash } from "react-icons/hi2";
 import { Button } from "@/components/ui/Button";
 import type { SampleAddon, SamplePackage } from "@/modules/sample-invoice";
+import {
+  type DiscountDraft,
+  DiscountRow,
+  emptyDiscount,
+  toDiscount,
+} from "./DiscountRow";
 import { inputClass } from "./ui";
 
 type AddonRow = { name: string; price: string };
-type Row = { name: string; speed: string; price: string; addons: AddonRow[] };
+type Row = {
+  name: string;
+  speed: string;
+  price: string;
+  addons: AddonRow[];
+  discount: DiscountDraft | null;
+};
 
 export const emptyPackageRow = (): Row => ({
   name: "",
   speed: "",
   price: "",
   addons: [],
+  discount: null,
 });
 
 const validPrice = (price: number) => Number.isInteger(price) && price > 0;
 
 /**
  * Paket yang valid: nama terisi dan harga bilangan bulat lebih dari 0.
- * Add-on yang belum lengkap dilewati; `addons` hanya ada bila terisi.
+ * Add-on dan diskon yang belum lengkap dilewati; field-nya hanya ada bila
+ * terisi.
  */
 export function toPackages(rows: Row[]): SamplePackage[] {
   return rows
@@ -30,11 +44,13 @@ export function toPackages(rows: Row[]): SamplePackage[] {
           price: Number(addon.price),
         }))
         .filter((addon) => addon.name && validPrice(addon.price));
+      const discount = toDiscount(row.discount);
       return {
         name: row.name.trim(),
         speed: row.speed.trim(),
         price: Number(row.price),
         ...(addons.length > 0 ? { addons } : {}),
+        ...(discount ? { discount } : {}),
       };
     })
     .filter((pkg) => pkg.name && validPrice(pkg.price));
@@ -154,21 +170,51 @@ function PackageBlock(props: {
         </div>
       ))}
 
-      <Button
-        type="button"
-        size="sm"
-        variant="link"
-        className="h-7 px-0"
-        onClick={() =>
-          props.onChange({
-            ...row,
-            addons: [...row.addons, { name: "", price: "" }],
-          })
-        }
-      >
-        <HiOutlinePlus />
-        Tambah add-on
-      </Button>
+      {row.discount && (
+        <DiscountRow
+          packageIndex={index}
+          draft={row.discount}
+          gross={row.addons.reduce(
+            (sum, addon) => sum + (Number(addon.price) || 0),
+            Number(row.price) || 0,
+          )}
+          deleteButtonClass={deleteButtonClass}
+          onChange={(discount) => props.onChange({ ...row, discount })}
+          onRemove={() => props.onChange({ ...row, discount: null })}
+        />
+      )}
+
+      <div className="flex gap-4">
+        <Button
+          type="button"
+          size="sm"
+          variant="link"
+          className="h-7 px-0"
+          onClick={() =>
+            props.onChange({
+              ...row,
+              addons: [...row.addons, { name: "", price: "" }],
+            })
+          }
+        >
+          <HiOutlinePlus />
+          Tambah add-on
+        </Button>
+        {!row.discount && (
+          <Button
+            type="button"
+            size="sm"
+            variant="link"
+            className="h-7 px-0 text-green-700 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+            onClick={() =>
+              props.onChange({ ...row, discount: emptyDiscount() })
+            }
+          >
+            <HiOutlinePlus />
+            Tambah diskon
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -210,8 +256,8 @@ export function PackagesTable({
           <HiOutlinePlus /> Tambah paket
         </Button>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Setiap pelanggan mendapat satu paket acak beserta add-on-nya, tetap di
-          semua bulan.
+          Setiap pelanggan mendapat satu paket acak beserta add-on dan
+          diskonnya, tetap di semua bulan.
         </p>
       </div>
     </div>

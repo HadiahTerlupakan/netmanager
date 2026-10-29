@@ -52,6 +52,44 @@ describe("PPN dan rentang bulan invoice contoh", () => {
     ]);
   });
 
+  it("diskon persen dihitung dari paket + add-on dan menjadi baris minus", () => {
+    const lines = invoiceLines(
+      {
+        name: "Home",
+        speed: "20 Mbps",
+        price: 250000,
+        addons: [{ name: "Sewa modem", price: 50000 }],
+        discount: { name: "Promo loyal", kind: "percent", value: 10 },
+      },
+      "none",
+    );
+    expect(lines.at(-1)).toEqual({
+      name: "Diskon Promo loyal (10%)",
+      dpp: -30000,
+      ppn: 0,
+      total: -30000,
+    });
+    expect(lines.reduce((sum, line) => sum + line.total, 0)).toBe(270000);
+  });
+
+  it("diskon nominal mengurangi dasar PPN", () => {
+    const lines = invoiceLines(
+      {
+        name: "Home",
+        speed: "20 Mbps",
+        price: 250000,
+        discount: { name: "Promo", kind: "amount", value: 50000 },
+      },
+      "exclusive",
+    );
+    const sum = (key: "dpp" | "ppn" | "total") =>
+      lines.reduce((total, line) => total + line[key], 0);
+    expect(lines.at(-1)?.name).toBe("Diskon Promo");
+    expect(sum("dpp")).toBe(200000);
+    expect(sum("ppn")).toBe(22000);
+    expect(sum("total")).toBe(222000);
+  });
+
   it("rentang bulan melewati pergantian tahun", () => {
     expect(monthsInRange("2026-11", "2027-02")).toEqual([
       "2026-11",

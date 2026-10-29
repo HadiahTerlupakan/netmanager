@@ -64,7 +64,7 @@ const PAID_SOFT: Rgb = [240, 253, 244];
 const SAMPLE_RED: Rgb = [220, 38, 38];
 
 const rupiah = (value: number) =>
-  `Rp${value.toLocaleString("id-ID", { maximumFractionDigits: 0 })}`;
+  `${value < 0 ? "-" : ""}Rp${Math.abs(value).toLocaleString("id-ID", { maximumFractionDigits: 0 })}`;
 
 function formatDate(date: string) {
   const [year, month, day] = date.split("-").map(Number);
@@ -203,7 +203,7 @@ function drawItems(
   doc.text("Jumlah", RIGHT - 4, top + 6, { align: "right" });
 
   const period = formatPeriod(invoice.month);
-  const [packageLine, ...addonLines] = invoiceLines(pkg, ppn);
+  const [packageLine, ...extraLines] = invoiceLines(pkg, ppn);
   let y = top + 9;
   font(doc, "bold", 10);
   doc.text(packageLabel(pkg), MARGIN + 4, y + 7.5);
@@ -215,9 +215,9 @@ function drawItems(
   y += 14;
 
   doc.setDrawColor(...RULE);
-  for (const line of addonLines) {
+  for (const line of extraLines) {
     doc.line(MARGIN, y, RIGHT, y);
-    font(doc, "normal", 10);
+    font(doc, "normal", 10, line.dpp < 0 ? PAID : INK);
     doc.text(line.name, MARGIN + 4, y + 6.5);
     doc.text(period, PERIOD_X, y + 6.5);
     doc.text(rupiah(line.dpp), RIGHT - 4, y + 6.5, { align: "right" });
