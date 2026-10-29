@@ -44,7 +44,7 @@ export function DiscountRow(props: {
   const { draft, packageIndex } = props;
   const prefix = `package-${packageIndex}-discount`;
   return (
-    <div className="space-y-1 border-l-2 border-green-300 pl-3 sm:ml-4 dark:border-green-500/40">
+    <div className="space-y-1 border-l-2 border-green-200 pl-3 sm:ml-4 dark:border-green-800">
       <div className="grid grid-cols-[1fr_5.5rem_2.5rem] gap-2 sm:grid-cols-[1fr_6rem_11rem_2.5rem]">
         <input
           name={`${prefix}-name`}

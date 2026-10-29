@@ -57,7 +57,7 @@ export function toPackages(rows: Row[]): SamplePackage[] {
 }
 
 const deleteButtonClass =
-  "flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-30 dark:hover:bg-red-500/10";
+  "flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:pointer-events-none disabled:opacity-30 dark:hover:bg-red-900/20";
 
 function PriceInput(props: {
   name: string;
@@ -137,7 +137,7 @@ function PackageBlock(props: {
       {row.addons.map((addon, at) => (
         <div
           key={at}
-          className="grid grid-cols-[1fr_9rem_2.5rem] gap-2 border-l-2 border-indigo-200 pl-3 sm:ml-4 sm:grid-cols-[1fr_11rem_2.5rem] dark:border-indigo-500/30"
+          className="grid grid-cols-[1fr_9rem_2.5rem] gap-2 border-l-2 border-indigo-200 pl-3 sm:ml-4 sm:grid-cols-[1fr_11rem_2.5rem] dark:border-indigo-800"
         >
           <input
             name={`package-${index}-addon-${at}-name`}

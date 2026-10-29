@@ -18,7 +18,7 @@ export default async function InvoiceContohPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Invoice Contoh
           </h1>
-          <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-500/15 dark:text-red-300">
+          <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
             Bertanda CONTOH
           </span>
         </div>

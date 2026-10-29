@@ -16,7 +16,7 @@ export function PayDateField(props: {
         Tanggal bayar
       </legend>
       <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex rounded-lg border border-gray-300 p-0.5 dark:border-gray-600">
+        <div className="inline-flex rounded-lg border border-gray-300 p-0.5 dark:border-gray-700">
           {(
             [
               ["random", "Acak dalam bulan"],

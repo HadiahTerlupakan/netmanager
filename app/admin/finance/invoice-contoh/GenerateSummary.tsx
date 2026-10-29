@@ -26,7 +26,7 @@ export function GenerateSummary(props: {
           </div>
         ))}
       </dl>
-      <div className="rounded-lg bg-indigo-50 px-4 py-3 dark:bg-indigo-500/10">
+      <div className="rounded-lg bg-indigo-50 px-4 py-3 dark:bg-indigo-900/30">
         <p className="text-xs text-indigo-700 dark:text-indigo-300">
           Jumlah PDF
         </p>
@@ -40,7 +40,7 @@ export function GenerateSummary(props: {
       {props.problem && (
         <p
           role="alert"
-          className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300"
+          className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300"
         >
           {props.problem}
         </p>

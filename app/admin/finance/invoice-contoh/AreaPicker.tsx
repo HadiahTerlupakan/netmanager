@@ -9,10 +9,10 @@ const DEFAULT_CENTER = { lat: -6.5091, lng: 107.1352 };
 export type StreetTone = "idle" | "busy" | "ok" | "warn";
 
 const TONE_CLASS: Record<StreetTone, string> = {
-  idle: "bg-gray-100 text-gray-600 dark:bg-gray-700/60 dark:text-gray-300",
-  busy: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
-  ok: "bg-green-50 text-green-700 dark:bg-green-500/15 dark:text-green-300",
-  warn: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  idle: "bg-gray-100 text-gray-600 dark:bg-gray-700/50 dark:text-gray-300",
+  busy: "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  ok: "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  warn: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
 };
 
 export function AreaPicker(props: {

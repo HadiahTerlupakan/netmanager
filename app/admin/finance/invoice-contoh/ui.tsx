@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 
 export const inputClass =
-  "h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100";
+  "h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-900";
 
 export const cardClass =
-  "rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800";
+  "rounded-lg border border-gray-200 bg-white shadow-md dark:border-gray-700 dark:bg-gray-800";
 
 const SHORT_MONTHS = [
   "Jan",
@@ -48,7 +48,7 @@ export function Section({
   return (
     <section className={`${cardClass} p-5`}>
       <header className="mb-4 flex gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
           {step}
         </span>
         <div>
