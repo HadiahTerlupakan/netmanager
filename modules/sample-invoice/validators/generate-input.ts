@@ -5,6 +5,7 @@ import type { SampleInvoiceLimits } from "../services/sample-invoice-limits";
 
 const MIN_STREETS = 5;
 const MAX_STREETS = 2000;
+const MAX_ADDONS = 10;
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const text = (max: number) => z.string().trim().max(max);
@@ -27,6 +28,18 @@ const schema = z.object({
           .number()
           .int("Harga paket harus bilangan bulat")
           .positive("Harga paket harus lebih dari 0"),
+        addons: z
+          .array(
+            z.object({
+              name: text(100).min(1, "Nama add-on wajib diisi"),
+              price: z
+                .number()
+                .int("Harga add-on harus bilangan bulat")
+                .positive("Harga add-on harus lebih dari 0"),
+            }),
+          )
+          .max(MAX_ADDONS, `Maksimal ${MAX_ADDONS} add-on per paket`)
+          .optional(),
       }),
     )
     .min(1, "Tambahkan minimal satu paket"),

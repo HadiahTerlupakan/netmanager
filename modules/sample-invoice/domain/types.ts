@@ -1,4 +1,13 @@
-export type SamplePackage = { name: string; speed: string; price: number };
+/** Biaya tambahan bulanan yang ikut di setiap invoice paketnya. */
+export type SampleAddon = { name: string; price: number };
+
+/** `addons` boleh tidak ada: batch yang dibuat sebelum add-on tidak punya field ini. */
+export type SamplePackage = {
+  name: string;
+  speed: string;
+  price: number;
+  addons?: SampleAddon[];
+};
 
 /** Jalan bernama dari OpenStreetMap beserta wilayah tempatnya berada. */
 export type SampleStreet = {

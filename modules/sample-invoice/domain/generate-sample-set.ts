@@ -1,5 +1,5 @@
 import { FAMILY_NAMES, FIRST_NAMES } from "./indonesian-names";
-import { daysInMonth, monthsInRange, splitPpn } from "./money";
+import { daysInMonth, invoiceLines, monthsInRange } from "./money";
 import { between, pick } from "./random";
 import type {
   PaymentMethod,
@@ -96,10 +96,15 @@ export function generateSampleSet(
   const invoices: SampleInvoice[] = [];
   for (const month of monthsInRange(input.fromMonth, input.toMonth)) {
     customers.forEach((customer, customerIndex) => {
-      const amounts = splitPpn(
-        input.packages[customer.packageIndex].price,
+      const amounts = { dpp: 0, ppn: 0, total: 0 };
+      for (const line of invoiceLines(
+        input.packages[customer.packageIndex],
         input.ppn,
-      );
+      )) {
+        amounts.dpp += line.dpp;
+        amounts.ppn += line.ppn;
+        amounts.total += line.total;
+      }
       invoices.push({
         number: `CTH/${month.replace("-", "/")}/${customer.code.slice(4)}`,
         customerIndex,

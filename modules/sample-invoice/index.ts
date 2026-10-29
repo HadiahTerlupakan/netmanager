@@ -18,6 +18,7 @@ export type { ZipPart } from "./services/pack-sample-zip";
 export type {
   PayDateRule,
   PpnMode,
+  SampleAddon,
   SampleGenerateInput,
   SampleIssuer,
   SamplePackage,

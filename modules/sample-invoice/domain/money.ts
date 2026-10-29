@@ -1,4 +1,4 @@
-import type { PpnMode } from "./types";
+import type { PpnMode, SamplePackage } from "./types";
 
 const PPN_RATE = 0.11;
 
@@ -10,6 +10,16 @@ export function splitPpn(price: number, mode: PpnMode) {
   }
   const ppn = Math.round(price * PPN_RATE);
   return { dpp: price, ppn, total: price + ppn };
+}
+
+/**
+ * Baris rincian invoice: paket lalu add-on-nya. PPN dihitung per baris
+ * agar jumlah baris di PDF selalu sama dengan total invoice.
+ */
+export function invoiceLines(pkg: SamplePackage, mode: PpnMode) {
+  return [{ name: pkg.name, price: pkg.price }, ...(pkg.addons ?? [])].map(
+    (item) => ({ name: item.name, ...splitPpn(item.price, mode) }),
+  );
 }
 
 /** Bulan "YYYY-MM" dari awal sampai akhir, termasuk keduanya. */

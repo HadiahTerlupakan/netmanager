@@ -123,6 +123,26 @@ describe("renderSamplePdf", () => {
     expect(text).not.toContain("150MB - 150MB");
   });
 
+  it("prints each add-on as its own line", () => {
+    const text = pdfText(
+      renderSamplePdf({
+        issuer: input.issuer,
+        customer: set.customers[0],
+        pkg: {
+          name: "Home 20",
+          speed: "20 Mbps",
+          price: 250000,
+          addons: [{ name: "Sewa modem", price: 25000 }],
+        },
+        invoice: { ...set.invoices[0], dpp: 275000, ppn: 0, total: 275000 },
+        ppn: "none",
+      }),
+    );
+    expect(text).toContain("Sewa modem");
+    expect(text).toContain("Rp25.000");
+    expect(text).toContain("Rp275.000");
+  });
+
   it("prints no PPN line without PPN", () => {
     expect(render("none")).not.toContain("PPN");
   });

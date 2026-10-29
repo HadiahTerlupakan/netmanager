@@ -87,6 +87,30 @@ describe("parseGenerateInput", () => {
     ).not.toBe("");
   });
 
+  it("accepts add-ons on a package and keeps them", () => {
+    const addons = [{ name: "Sewa modem", price: 25000 }];
+    const result = parse(
+      raw({
+        packages: [
+          { name: "Home 10", speed: "10 Mbps", price: 150000, addons },
+        ],
+      }),
+    );
+    expect(result.ok && result.input.packages[0].addons).toEqual(addons);
+  });
+
+  it("rejects an add-on without a name or a positive whole price", () => {
+    const withAddon = (addon: unknown) =>
+      raw({
+        packages: [
+          { name: "Home 10", speed: "10 Mbps", price: 150000, addons: [addon] },
+        ],
+      });
+    expect(message(withAddon({ name: "", price: 25000 }))).not.toBe("");
+    expect(message(withAddon({ name: "Modem", price: 0 }))).not.toBe("");
+    expect(message(withAddon({ name: "Modem", price: 2.5 }))).not.toBe("");
+  });
+
   it("cleans the street list from the browser", () => {
     const result = parse(
       raw({

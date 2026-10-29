@@ -66,6 +66,30 @@ describe("generateSampleSet", () => {
     });
   });
 
+  it("adds each package's add-ons to its customers' totals", () => {
+    const set = run(
+      input({
+        ppn: "exclusive",
+        packages: [
+          {
+            name: "Home 10",
+            speed: "10 Mbps",
+            price: 150000,
+            addons: [
+              { name: "Sewa modem", price: 25000 },
+              { name: "IP publik", price: 50000 },
+            ],
+          },
+        ],
+      }),
+    );
+    for (const inv of set.invoices) {
+      expect(inv.dpp).toBe(225000);
+      expect(inv.ppn).toBe(24750);
+      expect(inv.total).toBe(249750);
+    }
+  });
+
   it("numbers and codes use the CTH prefix and customer position", () => {
     const set = run();
     expect(set.customers[6].code).toBe("CTH-0007");

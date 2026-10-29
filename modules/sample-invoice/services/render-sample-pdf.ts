@@ -6,6 +6,7 @@ import type {
   SampleIssuer,
   SamplePackage,
 } from "../domain/types";
+import { invoiceLines } from "../domain/money";
 
 /**
  * Satu halaman invoice contoh. Pita, watermark, dan catatan kaki CONTOH
@@ -191,6 +192,7 @@ function drawItems(
   doc: jsPDF,
   pkg: SamplePackage,
   invoice: SampleInvoice,
+  ppn: PpnMode,
   top: number,
 ) {
   doc.setFillColor(...HEAD);
@@ -200,19 +202,29 @@ function drawItems(
   doc.text("Periode", PERIOD_X, top + 6);
   doc.text("Jumlah", RIGHT - 4, top + 6, { align: "right" });
 
-  const rowY = top + 9 + 7.5;
+  const period = formatPeriod(invoice.month);
+  const [packageLine, ...addonLines] = invoiceLines(pkg, ppn);
+  let y = top + 9;
   font(doc, "bold", 10);
-  doc.text(packageLabel(pkg), MARGIN + 4, rowY);
+  doc.text(packageLabel(pkg), MARGIN + 4, y + 7.5);
   font(doc, "normal", 9.5, MUTED);
-  doc.text("Layanan internet bulanan", MARGIN + 4, rowY + 4.6);
+  doc.text("Layanan internet bulanan", MARGIN + 4, y + 12.1);
   font(doc, "normal", 10);
-  doc.text(formatPeriod(invoice.month), PERIOD_X, rowY);
-  doc.text(rupiah(invoice.dpp), RIGHT - 4, rowY, { align: "right" });
+  doc.text(period, PERIOD_X, y + 7.5);
+  doc.text(rupiah(packageLine.dpp), RIGHT - 4, y + 7.5, { align: "right" });
+  y += 14;
 
-  const bottom = top + 9 + 14;
   doc.setDrawColor(...RULE);
-  doc.line(MARGIN, bottom, RIGHT, bottom);
-  return bottom;
+  for (const line of addonLines) {
+    doc.line(MARGIN, y, RIGHT, y);
+    font(doc, "normal", 10);
+    doc.text(line.name, MARGIN + 4, y + 6.5);
+    doc.text(period, PERIOD_X, y + 6.5);
+    doc.text(rupiah(line.dpp), RIGHT - 4, y + 6.5, { align: "right" });
+    y += 10;
+  }
+  doc.line(MARGIN, y, RIGHT, y);
+  return y;
 }
 
 const SUMMARY_X = 112;
@@ -283,6 +295,7 @@ export function renderSamplePdf(args: {
     doc,
     args.pkg,
     args.invoice,
+    args.ppn,
     partiesBottom + 10,
   );
   const summaryBottom = drawSummary(doc, args.invoice, args.ppn, itemsBottom);

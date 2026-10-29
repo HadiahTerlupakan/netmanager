@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { monthsInRange, splitPpn } from "@/modules/sample-invoice/domain/money";
+import {
+  invoiceLines,
+  monthsInRange,
+  splitPpn,
+} from "@/modules/sample-invoice/domain/money";
 
 describe("PPN dan rentang bulan invoice contoh", () => {
   it("memisahkan PPN yang sudah termasuk harga", () => {
@@ -24,6 +28,28 @@ describe("PPN dan rentang bulan invoice contoh", () => {
       ppn: 0,
       total: 150000,
     });
+  });
+
+  it("satu baris untuk paket tanpa add-on, juga untuk paket lama tanpa field addons", () => {
+    expect(
+      invoiceLines({ name: "Home", speed: "20 Mbps", price: 250000 }, "none"),
+    ).toEqual([{ name: "Home", dpp: 250000, ppn: 0, total: 250000 }]);
+  });
+
+  it("add-on menjadi baris sendiri dengan PPN-nya sendiri", () => {
+    const lines = invoiceLines(
+      {
+        name: "Home",
+        speed: "20 Mbps",
+        price: 250000,
+        addons: [{ name: "Sewa modem", price: 25000 }],
+      },
+      "inclusive",
+    );
+    expect(lines).toEqual([
+      { name: "Home", dpp: 225225, ppn: 24775, total: 250000 },
+      { name: "Sewa modem", dpp: 22523, ppn: 2477, total: 25000 },
+    ]);
   });
 
   it("rentang bulan melewati pergantian tahun", () => {

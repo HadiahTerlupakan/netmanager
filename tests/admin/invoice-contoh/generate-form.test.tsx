@@ -159,6 +159,37 @@ describe("GenerateForm", () => {
     expect(submitButton().disabled).toBe(true);
   });
 
+  it("submits a package's add-ons and skips an unfilled one", async () => {
+    const { onSubmit } = await render();
+    await fillValidForm();
+    const addAddon = () =>
+      (
+        [...container.querySelectorAll("button")].find(
+          (b) => b.textContent === "Tambah add-on",
+        ) as HTMLButtonElement
+      ).click();
+    await act(async () => addAddon());
+    await act(async () => addAddon());
+    await act(async () => {
+      setValue('input[name="package-0-addon-0-name"]', "Sewa modem");
+      setValue('input[name="package-0-addon-0-price"]', "25000");
+    });
+    await act(async () => submitButton().click());
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        packages: [
+          {
+            name: "Home 10",
+            speed: "",
+            price: 150000,
+            addons: [{ name: "Sewa modem", price: 25000 }],
+          },
+        ],
+      }),
+    );
+  });
+
   it("submits the form with the streets found", async () => {
     const { onSubmit } = await render();
     await fillValidForm();
