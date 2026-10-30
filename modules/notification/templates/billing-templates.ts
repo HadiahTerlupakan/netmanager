@@ -28,6 +28,25 @@ export interface BillingTemplate {
 const formatRupiah = (n: number | undefined): string =>
   `Rp ${Number(n ?? 0).toLocaleString("id-ID")}`;
 
+const FORMAT_TANGGAL = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "Asia/Jakarta",
+});
+
+/**
+ * Jatuh tempo dikirim sebagai timestamp ISO; pelanggan dulu membaca
+ * "2026-10-28T01:02:01.521Z". Teks yang bukan tanggal dibiarkan apa adanya.
+ */
+const formatJatuhTempo = (dueDate: string | undefined): string => {
+  if (!dueDate) return "";
+  const tanggal = new Date(dueDate);
+  return Number.isNaN(tanggal.getTime())
+    ? dueDate
+    : FORMAT_TANGGAL.format(tanggal);
+};
+
 /**
  * Registry template notifikasi billing.
  * Setiap key mewakili satu event lifecycle billing/pelanggan.
@@ -51,12 +70,12 @@ export const BILLING_TEMPLATES = {
   invoiceCreated: {
     title: "Tagihan baru dibuat",
     inApp: (p) =>
-      `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} sebesar ${formatRupiah(p.amountDue)} telah dibuat${p.dueDate ? `. Jatuh tempo ${p.dueDate}` : ""}.`,
+      `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} sebesar ${formatRupiah(p.amountDue)} telah dibuat${p.dueDate ? `. Jatuh tempo ${formatJatuhTempo(p.dueDate)}` : ""}.`,
     whatsapp: (p) =>
-      `Halo ${p.customerName},\n\nTagihan baru:${p.invoiceNumber ? `\nNomor: ${p.invoiceNumber}` : ""}\nJumlah: ${formatRupiah(p.amountDue)}${p.dueDate ? `\nJatuh tempo: ${p.dueDate}` : ""}\n\nSilakan bayar sebelum jatuh tempo.`,
+      `Halo ${p.customerName},\n\nTagihan baru:${p.invoiceNumber ? `\nNomor: ${p.invoiceNumber}` : ""}\nJumlah: ${formatRupiah(p.amountDue)}${p.dueDate ? `\nJatuh tempo: ${formatJatuhTempo(p.dueDate)}` : ""}\n\nSilakan bayar sebelum jatuh tempo.`,
     email: (p) => ({
       subject: `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} - ${formatRupiah(p.amountDue)}`,
-      body: `Halo ${p.customerName},\n\nTagihan baru telah dibuat.\nJumlah: ${formatRupiah(p.amountDue)}${p.dueDate ? `\nJatuh tempo: ${p.dueDate}` : ""}`,
+      body: `Halo ${p.customerName},\n\nTagihan baru telah dibuat.\nJumlah: ${formatRupiah(p.amountDue)}${p.dueDate ? `\nJatuh tempo: ${formatJatuhTempo(p.dueDate)}` : ""}`,
     }),
     push: (p) =>
       `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""}: ${formatRupiah(p.amountDue)}`,
@@ -64,7 +83,7 @@ export const BILLING_TEMPLATES = {
   invoiceReminder: {
     title: "Pengingat tagihan",
     inApp: (p) =>
-      `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} (${formatRupiah(p.amountDue)}) ${p.reminderType === "OVERDUE" ? "sudah lewat jatuh tempo" : `akan jatuh tempo ${p.dueDate}`}.`,
+      `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} (${formatRupiah(p.amountDue)}) ${p.reminderType === "OVERDUE" ? "sudah lewat jatuh tempo" : `akan jatuh tempo ${formatJatuhTempo(p.dueDate)}`}.`,
     whatsapp: (p) => {
       const head =
         p.reminderType === "OVERDUE"
@@ -72,14 +91,14 @@ export const BILLING_TEMPLATES = {
           : p.reminderType === "DUE_TODAY"
             ? "Tagihan Anda jatuh tempo hari ini."
             : "Pengingat tagihan Anda.";
-      return `Halo ${p.customerName},\n\n${head}\n${p.invoiceNumber ?? "Tagihan"} - ${formatRupiah(p.amountDue)}${p.dueDate ? `\nJatuh tempo: ${p.dueDate}` : ""}\n\nAbaikan jika sudah membayar.`;
+      return `Halo ${p.customerName},\n\n${head}\n${p.invoiceNumber ?? "Tagihan"} - ${formatRupiah(p.amountDue)}${p.dueDate ? `\nJatuh tempo: ${formatJatuhTempo(p.dueDate)}` : ""}\n\nAbaikan jika sudah membayar.`;
     },
     email: (p) => ({
       subject: `Reminder: ${p.invoiceNumber ?? "tagihan"}`,
-      body: `Tagihan ${p.invoiceNumber ?? ""} sebesar ${formatRupiah(p.amountDue)} ${p.reminderType === "OVERDUE" ? "sudah lewat jatuh tempo" : `akan jatuh tempo ${p.dueDate}`}.`,
+      body: `Tagihan ${p.invoiceNumber ?? ""} sebesar ${formatRupiah(p.amountDue)} ${p.reminderType === "OVERDUE" ? "sudah lewat jatuh tempo" : `akan jatuh tempo ${formatJatuhTempo(p.dueDate)}`}.`,
     }),
     push: (p) =>
-      `Reminder: ${p.invoiceNumber ?? "tagihan"} ${p.reminderType === "OVERDUE" ? "lewat" : (p.dueDate ?? "")}`,
+      `Reminder: ${p.invoiceNumber ?? "tagihan"} ${p.reminderType === "OVERDUE" ? "lewat" : formatJatuhTempo(p.dueDate)}`,
   },
   invoicePaid: {
     title: "Pembayaran berhasil",
