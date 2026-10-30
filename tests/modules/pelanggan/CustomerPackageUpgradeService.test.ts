@@ -47,13 +47,10 @@ function buildDependencies(options: {
     prorateAmount: 0n,
     scheduledFor: NEXT_DUE_DATE,
   });
-  const cancelPendingPackage = vi.fn().mockResolvedValue({
-    id: CUSTOMER_ID,
-    found: true,
-    hasPendingPackage: true,
-  });
+  // Clears the request in one write, only while it is still the customer's.
+  const cancelCustomerRequestedPackage = vi.fn().mockResolvedValue(true);
   const repository = {
-    cancelPendingPackage,
+    cancelCustomerRequestedPackage,
     findByIdWithPackage: vi
       .fn()
       .mockResolvedValue(options.customer ?? buildCustomer()),
@@ -70,7 +67,12 @@ function buildDependencies(options: {
     applyPackageChange,
   } as never);
 
-  return { service, repository, applyPackageChange, cancelPendingPackage };
+  return {
+    service,
+    repository,
+    applyPackageChange,
+    cancelCustomerRequestedPackage,
+  };
 }
 
 async function expectUpgradeError(
@@ -188,7 +190,7 @@ describe("CustomerPackageUpgradeService.cancelUpgrade", () => {
   });
 
   it("clears the pending upgrade and notifies staff", async () => {
-    const { service, cancelPendingPackage } = buildDependencies({
+    const { service, cancelCustomerRequestedPackage } = buildDependencies({
       customer: buildCustomer({
         pendingPackageId: TARGET_PACKAGE_ID,
         pendingPackageApplyAt: NEXT_DUE_DATE,
@@ -199,7 +201,7 @@ describe("CustomerPackageUpgradeService.cancelUpgrade", () => {
 
     const result = await service.cancelUpgrade(CUSTOMER_ID);
 
-    expect(cancelPendingPackage).toHaveBeenCalledWith(CUSTOMER_ID);
+    expect(cancelCustomerRequestedPackage).toHaveBeenCalledWith(CUSTOMER_ID);
     expect(result).toEqual({ cancelled: true });
     expect(mockNotifyPackageUpgradeCancelled).toHaveBeenCalledWith({
       customerId: CUSTOMER_ID,
@@ -213,7 +215,7 @@ describe("CustomerPackageUpgradeService.cancelUpgrade", () => {
   // Staff can schedule any change, a downgrade included; the customer's
   // cancel button must not undo it.
   it("refuses to cancel a change staff scheduled", async () => {
-    const { service, cancelPendingPackage } = buildDependencies({
+    const { service, cancelCustomerRequestedPackage } = buildDependencies({
       customer: buildCustomer({
         pendingPackageId: "pkg-lebih-murah",
         pendingPackageApplyAt: NEXT_DUE_DATE,
@@ -226,17 +228,37 @@ describe("CustomerPackageUpgradeService.cancelUpgrade", () => {
       service.cancelUpgrade(CUSTOMER_ID),
       "PACKAGE_CHANGE_BY_STAFF",
     );
-    expect(cancelPendingPackage).not.toHaveBeenCalled();
+    expect(cancelCustomerRequestedPackage).not.toHaveBeenCalled();
+    expect(mockNotifyPackageUpgradeCancelled).not.toHaveBeenCalled();
+  });
+
+  // Staff may replace the request between the read and the write; the clear
+  // itself must refuse then, not the earlier read.
+  it("refuses when staff replaced the request before it was cleared", async () => {
+    const { service, cancelCustomerRequestedPackage } = buildDependencies({
+      customer: buildCustomer({
+        pendingPackageId: TARGET_PACKAGE_ID,
+        pendingPackageApplyAt: NEXT_DUE_DATE,
+        pendingPackageByCustomer: true,
+        pendingPackage: { id: TARGET_PACKAGE_ID, name: "Standard" },
+      }),
+    });
+    cancelCustomerRequestedPackage.mockResolvedValue(false);
+
+    await expectUpgradeError(
+      service.cancelUpgrade(CUSTOMER_ID),
+      "PACKAGE_CHANGE_BY_STAFF",
+    );
     expect(mockNotifyPackageUpgradeCancelled).not.toHaveBeenCalled();
   });
 
   it("rejects when there is nothing to cancel", async () => {
-    const { service, cancelPendingPackage } = buildDependencies({});
+    const { service, cancelCustomerRequestedPackage } = buildDependencies({});
 
     await expectUpgradeError(
       service.cancelUpgrade(CUSTOMER_ID),
       "NO_PENDING_UPGRADE",
     );
-    expect(cancelPendingPackage).not.toHaveBeenCalled();
+    expect(cancelCustomerRequestedPackage).not.toHaveBeenCalled();
   });
 });

@@ -261,4 +261,10 @@ export interface IPelangganRepository {
     id: string,
     tenantId?: string | null,
   ): Promise<{ id: string; found: boolean; hasPendingPackage: boolean }>;
+
+  /**
+   * Batalkan pengajuan paket milik pelanggan dalam satu penulisan, hanya bila
+   * yang tertunda masih pengajuannya sendiri; false bila tidak ada yang dihapus.
+   */
+  cancelCustomerRequestedPackage(id: string): Promise<boolean>;
 }

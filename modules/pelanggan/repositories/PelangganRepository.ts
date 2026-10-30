@@ -315,6 +315,27 @@ export class PelangganRepository implements IPelangganRepository {
     });
   }
 
+  /**
+   * Pengecekan dan penghapusan dalam satu penulisan: petugas bisa menimpa
+   * pengajuan pelanggan di antara pembacaan dan penghapusan, dan jadwalnya
+   * tidak boleh ikut terhapus.
+   */
+  async cancelCustomerRequestedPackage(id: string) {
+    const { count } = await prisma.pelanggan.updateMany({
+      where: {
+        id,
+        pendingPackageByCustomer: true,
+        pendingPackageId: { not: null },
+      },
+      data: {
+        pendingPackageId: null,
+        pendingPackageApplyAt: null,
+        pendingPackageByCustomer: false,
+      },
+    });
+    return count > 0;
+  }
+
   /** Batalkan perubahan paket yang dijadwalkan. */
   async cancelPendingPackage(id: string, tenantId?: string | null) {
     const existing = await prisma.pelanggan.findFirst({

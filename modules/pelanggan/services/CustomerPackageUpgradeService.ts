@@ -160,15 +160,20 @@ export class CustomerPackageUpgradeService {
     }
 
     // Petugas bisa menjadwalkan perubahan apa pun, termasuk turun paket;
-    // pelanggan hanya boleh membatalkan pengajuannya sendiri.
-    if (!customer.pendingPackageByCustomer) {
+    // pelanggan hanya boleh membatalkan pengajuannya sendiri. Penghapusannya
+    // memeriksa ulang dalam satu penulisan, karena jadwal petugas bisa masuk
+    // setelah pembacaan di atas.
+    const cleared =
+      customer.pendingPackageByCustomer &&
+      (await this.pelangganRepository.cancelCustomerRequestedPackage(
+        customer.id,
+      ));
+    if (!cleared) {
       throw new CustomerPackageUpgradeError(
         "Perubahan paket ini dijadwalkan petugas. Hubungi customer service untuk membatalkannya.",
         "PACKAGE_CHANGE_BY_STAFF",
       );
     }
-
-    await this.pelangganRepository.cancelPendingPackage(customer.id);
 
     notifyUpgradeCancelled({
       customerId: customer.id,
