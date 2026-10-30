@@ -279,6 +279,29 @@ describe("CustomerPaymentRouteService", () => {
     },
   );
 
+  // Duitku menolak VA di bawah Rp 10.000 sementara QRIS menerimanya; pelanggan
+  // dulu membaca "Gagal menghubungi payment gateway" dan tidak tahu harus apa.
+  it("nominal di bawah minimum metode menjadi 400 yang menyarankan metode lain", async () => {
+    mockFns.findPelangganById.mockResolvedValue({ id: "cust-1", nama: "Budi" });
+    mockFns.createGatewayPayment.mockResolvedValue({
+      success: false,
+      error: "Duitku HTTP 400: Minimum Payment 10000 IDR",
+    });
+
+    await expect(
+      createCustomerPaymentForRoute({
+        customerId: "cust-1",
+        tenantId: "tenant-1",
+        invoiceIds: ["inv-1"],
+        paymentMethod: "BC",
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/minimum.*metode lain/i),
+    });
+    expect(mockFns.markPaymentsAsFailed).toHaveBeenCalledWith(["pay-1"]);
+  });
+
   describe("kupon", () => {
     const gatewayPelanggan = () => {
       mockFns.findPelangganById.mockResolvedValue({

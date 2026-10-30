@@ -1,5 +1,8 @@
 import { logger } from "@/lib/logger";
-import { createRouteServiceError } from "@/lib/api/route-service-error";
+import {
+  createRouteServiceError,
+  isRouteServiceError,
+} from "@/lib/api/route-service-error";
 import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 import { couponService } from "@/modules/coupons";
 import {
@@ -43,6 +46,11 @@ const HTTP_BAD_GATEWAY = 502;
 const EXHAUSTED_COUPON_MESSAGE = "Kuota kupon habis";
 const GATEWAY_FAILED_MESSAGE =
   "Gagal menghubungi payment gateway. Silakan coba lagi atau gunakan metode pembayaran lain.";
+const BELOW_METHOD_MINIMUM_MESSAGE =
+  "Nominal tagihan di bawah batas minimum metode pembayaran ini. Silakan pilih metode lain, misalnya QRIS.";
+// Duitku: "Minimum Payment 10000 IDR". Batasnya per channel (VA menolak,
+// QRIS menerima nominal yang sama), jadi tidak bisa diperiksa sebelum memanggil.
+const BELOW_MINIMUM_REJECTION = /minimum payment/i;
 
 const customerPortalService = new CustomerPortalService();
 const pelangganRepository = new PelangganRepository();
@@ -243,6 +251,9 @@ async function createGatewayPaymentIfNeeded(
     // mencoba lagi atau memilih transfer manual.
     logger.error("[Gateway Integration Error]:", error);
     await markCustomerPaymentsAsFailed(paymentIds);
+    if (isRouteServiceError(error)) {
+      throw error;
+    }
     throw createRouteServiceError(GATEWAY_FAILED_MESSAGE, HTTP_BAD_GATEWAY);
   }
 }
@@ -278,7 +289,15 @@ async function requestGatewayPayment(
     : gatewayManager.createPayment(params))) as GatewayPaymentResult;
 
   if (!result.success) {
-    throw new Error(`Payment gateway menolak: ${String(result.error)}`);
+    const rejection = String(result.error);
+    if (BELOW_MINIMUM_REJECTION.test(rejection)) {
+      logger.warn("[Gateway] Nominal di bawah minimum metode:", rejection);
+      throw createRouteServiceError(
+        BELOW_METHOD_MINIMUM_MESSAGE,
+        HTTP_BAD_REQUEST,
+      );
+    }
+    throw new Error(`Payment gateway menolak: ${rejection}`);
   }
 
   const paymentUrl = result.paymentUrl || result.qrCodeUrl || null;
