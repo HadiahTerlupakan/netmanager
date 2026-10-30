@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import {
   MdArrowBack,
   MdEdit,
@@ -14,7 +15,6 @@ import {
   MdCall,
   MdLocationOn,
   MdLock,
-  MdVerifiedUser,
   MdReceiptLong,
   MdCampaign,
   MdLanguage,
@@ -42,11 +42,14 @@ interface ProfileData {
   };
 }
 
-type PrefKey = "is2FAEnabled" | "isBillNotifEnabled" | "isPromoEnabled";
+// No 2FA toggle: customer login does not check is2FAEnabled, so offering it
+// would promise protection that does not exist.
+type PrefKey = "isBillNotifEnabled" | "isPromoEnabled";
 
 export default function CustomerProfilPage() {
   const { isLoading: authLoading, isAuthenticated, logout } = useCustomerAuth();
   const router = useRouter();
+  const [changingPassword, setChangingPassword] = useState(false);
 
   // Optimistic overrides applied on top of server-provided preferences
   const [prefOverrides, setPrefOverrides] = useState<
@@ -64,8 +67,6 @@ export default function CustomerProfilPage() {
   );
   const profile = profileData?.profile ?? null;
 
-  const is2FAEnabled =
-    prefOverrides.is2FAEnabled ?? profile?.preferences.is2FAEnabled ?? false;
   const isBillNotifEnabled =
     prefOverrides.isBillNotifEnabled ??
     profile?.preferences.isBillNotifEnabled ??
@@ -242,7 +243,11 @@ export default function CustomerProfilPage() {
           </h3>
           <div className="bg-white dark:bg-[#1e293b] rounded-xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800">
             {/* Change Password */}
-            <div className="flex items-center gap-3 p-4 justify-between active:bg-gray-50 dark:active:bg-gray-700 transition-colors cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-0">
+            <button
+              type="button"
+              onClick={() => setChangingPassword(true)}
+              className="flex w-full items-center gap-3 p-4 justify-between text-left active:bg-gray-50 dark:active:bg-gray-700 transition-colors cursor-pointer"
+            >
               <div className="flex items-center gap-3">
                 <div className="text-[#0d9488] flex items-center justify-center rounded-lg bg-[#0d9488]/10 shrink-0 size-9">
                   <MdLock className="text-[20px]" />
@@ -254,32 +259,7 @@ export default function CustomerProfilPage() {
               <div className="shrink-0 text-gray-400 dark:text-gray-500">
                 <MdChevronRight className="text-[20px]" />
               </div>
-            </div>
-            {/* 2FA Toggle */}
-            <div
-              className="flex items-center gap-3 p-4 justify-between cursor-pointer"
-              onClick={() => handleToggle("is2FAEnabled", is2FAEnabled)}
-            >
-              <div className="flex items-center gap-3">
-                <div className="text-[#0d9488] flex items-center justify-center rounded-lg bg-[#0d9488]/10 shrink-0 size-9">
-                  <MdVerifiedUser className="text-[20px]" />
-                </div>
-                <div className="flex flex-col">
-                  <p className="text-[#111418] dark:text-white text-sm font-medium leading-normal">
-                    Verifikasi 2 Langkah
-                  </p>
-                </div>
-              </div>
-              <div className="shrink-0 relative inline-flex items-center cursor-pointer">
-                <div
-                  className={`w-11 h-6 rounded-full peer transition-colors ${is2FAEnabled ? "bg-[#0d9488]" : "bg-gray-200 dark:bg-gray-600"}`}
-                >
-                  <div
-                    className={`absolute top-[2px] left-[2px] bg-white rounded-full h-5 w-5 shadow-sm transition-transform ${is2FAEnabled ? "translate-x-full border-white" : "translate-x-0"}`}
-                  ></div>
-                </div>
-              </div>
-            </div>
+            </button>
           </div>
         </div>
 
@@ -375,6 +355,10 @@ export default function CustomerProfilPage() {
         </div>
         <div className="h-10"></div>
       </div>
+      <ChangePasswordDialog
+        isOpen={changingPassword}
+        onClose={() => setChangingPassword(false)}
+      />
     </div>
   );
 }

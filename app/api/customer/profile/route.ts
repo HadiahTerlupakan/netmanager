@@ -97,8 +97,10 @@ export async function PATCH(request: NextRequest) {
     logger.error("[Customer Profile PATCH Error]:", error);
 
     const errorMessage = error instanceof Error ? error.message : "";
+    // A wrong current password is a form error, not an expired session: the
+    // mobile app logs the customer out on any 401.
     const errorMap: Record<string, number> = {
-      "Password saat ini salah": 401,
+      "Password saat ini salah": 400,
       "Password baru minimal 6 karakter": 400,
       "Akun tidak memiliki password": 400,
       "Tidak ada data yang diupdate": 400,
