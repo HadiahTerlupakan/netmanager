@@ -99,6 +99,7 @@ export class PendingPackageApplierService {
         hargaPaketId: pelanggan.pendingPackageId,
         pendingPackageId: null,
         pendingPackageApplyAt: null,
+        pendingPackageByCustomer: false,
       },
     });
 

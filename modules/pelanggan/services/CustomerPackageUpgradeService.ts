@@ -14,6 +14,7 @@ export type CustomerPackageUpgradeErrorCode =
   | "CUSTOMER_NOT_ACTIVE"
   | "UPGRADE_ALREADY_PENDING"
   | "NO_PENDING_UPGRADE"
+  | "PACKAGE_CHANGE_BY_STAFF"
   | "PACKAGE_NOT_AVAILABLE";
 
 /** Kegagalan yang bisa ditampilkan ke pelanggan, dengan kode untuk mapping HTTP. */
@@ -90,7 +91,9 @@ export class CustomerPackageUpgradeService {
 
     if (customer.pendingPackageId) {
       throw new CustomerPackageUpgradeError(
-        "Sudah ada pengajuan upgrade yang menunggu diterapkan",
+        customer.pendingPackageByCustomer
+          ? "Sudah ada pengajuan upgrade yang menunggu diterapkan"
+          : "Ada perubahan paket yang sudah dijadwalkan petugas. Hubungi customer service untuk mengubahnya.",
         "UPGRADE_ALREADY_PENDING",
       );
     }
@@ -113,6 +116,7 @@ export class CustomerPackageUpgradeService {
       prorateOption: "NONE",
       downgradeAdjustment: "NONE",
       upgradeApplyTime: "NEXT_CYCLE",
+      requestedByCustomer: true,
     });
 
     const scheduledFor = result.scheduledFor ?? customer.jatuhTempo;
@@ -152,6 +156,15 @@ export class CustomerPackageUpgradeService {
       throw new CustomerPackageUpgradeError(
         "Tidak ada pengajuan upgrade yang bisa dibatalkan",
         "NO_PENDING_UPGRADE",
+      );
+    }
+
+    // Petugas bisa menjadwalkan perubahan apa pun, termasuk turun paket;
+    // pelanggan hanya boleh membatalkan pengajuannya sendiri.
+    if (!customer.pendingPackageByCustomer) {
+      throw new CustomerPackageUpgradeError(
+        "Perubahan paket ini dijadwalkan petugas. Hubungi customer service untuk membatalkannya.",
+        "PACKAGE_CHANGE_BY_STAFF",
       );
     }
 

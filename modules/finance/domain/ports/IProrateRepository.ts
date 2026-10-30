@@ -23,6 +23,8 @@ export interface SchedulePackageChangeInput {
   oldHargaPaketId: string;
   newHargaPaketId: string;
   applyAt: Date;
+  /** Pengajuan pelanggan lewat portal, bukan jadwal petugas. */
+  requestedByCustomer?: boolean;
 }
 
 export interface CreateProrateInvoiceInput {

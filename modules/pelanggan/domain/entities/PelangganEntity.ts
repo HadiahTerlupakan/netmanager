@@ -118,6 +118,8 @@ export interface PelangganWithPackageEntity extends PelangganEntity {
   odp?: PelangganOdpEntity | null;
   pendingPackageId?: string | null;
   pendingPackageApplyAt?: Date | null;
+  /** true bila pelanggan sendiri yang mengajukan perubahan yang tertunda. */
+  pendingPackageByCustomer?: boolean;
   pendingPackage?: PelangganPendingPackageEntity | null;
 }
 

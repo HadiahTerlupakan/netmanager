@@ -28,6 +28,7 @@ const ERROR_STATUS: Record<string, number> = {
   CUSTOMER_NOT_ACTIVE: 403,
   UPGRADE_ALREADY_PENDING: 409,
   NO_PENDING_UPGRADE: 409,
+  PACKAGE_CHANGE_BY_STAFF: 409,
   PACKAGE_NOT_AVAILABLE: 400,
 };
 
@@ -54,7 +55,9 @@ export async function POST(request: NextRequest) {
       return authResult.response;
     }
 
-    const parsed = upgradeRequestSchema.safeParse(await request.json());
+    // Body yang bukan JSON adalah input salah (400), bukan kegagalan server.
+    const body: unknown = await request.json().catch((): unknown => undefined);
+    const parsed = upgradeRequestSchema.safeParse(body);
     if (!parsed.success) {
       const firstError = parsed.error.issues[0]?.message || "Input tidak valid";
       return apiError(firstError, ErrorCodes.VALIDATION_ERROR, { status: 400 });

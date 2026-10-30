@@ -188,13 +188,16 @@ export class CustomerPackageService {
         daysUntilDue: calculateDaysUntilDue(customer.jatuhTempo),
       },
       billing,
-      pendingUpgrade: customer.pendingPackage
-        ? {
-            id: customer.pendingPackage.id,
-            nama: customer.pendingPackage.name,
-            applyAt: customer.pendingPackageApplyAt?.toISOString() ?? null,
-          }
-        : null,
+      // Jadwal petugas bukan pengajuan pelanggan: tidak ditampilkan sebagai
+      // "Pengajuan upgrade" yang bisa ia batalkan.
+      pendingUpgrade:
+        customer.pendingPackage && customer.pendingPackageByCustomer
+          ? {
+              id: customer.pendingPackage.id,
+              nama: customer.pendingPackage.name,
+              applyAt: customer.pendingPackageApplyAt?.toISOString() ?? null,
+            }
+          : null,
       upgradeOptions: upgradeOptions.map((upgradePackage) => ({
         id: upgradePackage.id,
         nama: upgradePackage.name,

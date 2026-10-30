@@ -985,6 +985,8 @@ model Pelanggan {
   resellerOutletId              String?
   pendingPackageId              String?
   pendingPackageApplyAt         DateTime?
+  /// true bila pelanggan sendiri yang mengajukan; hanya itu yang boleh ia batalkan.
+  pendingPackageByCustomer      Boolean             @default(false)
   saldoKreditRupiah             BigInt              @default(0)
   couponUsage                   CouponUsage[]
   hargaPaket                    HargaPaket          @relation(fields: [hargaPaketId], references: [id])

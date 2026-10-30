@@ -33,6 +33,8 @@ export interface ApplyPackageChangeInput {
   downgradeAdjustment: DowngradeAdjustment;
   upgradeApplyTime: UpgradeApplyTime;
   userId?: string;
+  /** Pengajuan pelanggan lewat portal; hanya itu yang boleh ia batalkan. */
+  requestedByCustomer?: boolean;
 }
 
 export interface ApplyPackageChangeResult {
@@ -133,6 +135,7 @@ export class InvoiceProrateService {
       oldHargaPaketId: input.oldHargaPaketId,
       newHargaPaketId: input.newHargaPaketId,
       applyAt: pelanggan.jatuhTempo,
+      requestedByCustomer: input.requestedByCustomer,
     });
 
     await this.logProrateActivity({

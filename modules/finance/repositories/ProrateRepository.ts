@@ -61,6 +61,7 @@ export class ProrateRepository implements IProrateRepository {
         hargaPaketId: input.oldHargaPaketId, // revert — scheduled change
         pendingPackageId: input.newHargaPaketId,
         pendingPackageApplyAt: input.applyAt,
+        pendingPackageByCustomer: input.requestedByCustomer ?? false,
       },
     });
   }

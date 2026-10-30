@@ -106,6 +106,7 @@ describe("CustomerPackageUpgradeService.requestUpgrade", () => {
       prorateOption: "NONE",
       downgradeAdjustment: "NONE",
       upgradeApplyTime: "NEXT_CYCLE",
+      requestedByCustomer: true,
     });
     expect(result).toEqual({
       scheduledFor: NEXT_DUE_DATE,
@@ -191,6 +192,7 @@ describe("CustomerPackageUpgradeService.cancelUpgrade", () => {
       customer: buildCustomer({
         pendingPackageId: TARGET_PACKAGE_ID,
         pendingPackageApplyAt: NEXT_DUE_DATE,
+        pendingPackageByCustomer: true,
         pendingPackage: { id: TARGET_PACKAGE_ID, name: "Standard" },
       }),
     });
@@ -206,6 +208,26 @@ describe("CustomerPackageUpgradeService.cancelUpgrade", () => {
       siteId: CUSTOMER_SITE_ID,
       tenantId: "tenant-1",
     });
+  });
+
+  // Staff can schedule any change, a downgrade included; the customer's
+  // cancel button must not undo it.
+  it("refuses to cancel a change staff scheduled", async () => {
+    const { service, cancelPendingPackage } = buildDependencies({
+      customer: buildCustomer({
+        pendingPackageId: "pkg-lebih-murah",
+        pendingPackageApplyAt: NEXT_DUE_DATE,
+        pendingPackageByCustomer: false,
+        pendingPackage: { id: "pkg-lebih-murah", name: "Hemat" },
+      }),
+    });
+
+    await expectUpgradeError(
+      service.cancelUpgrade(CUSTOMER_ID),
+      "PACKAGE_CHANGE_BY_STAFF",
+    );
+    expect(cancelPendingPackage).not.toHaveBeenCalled();
+    expect(mockNotifyPackageUpgradeCancelled).not.toHaveBeenCalled();
   });
 
   it("rejects when there is nothing to cancel", async () => {

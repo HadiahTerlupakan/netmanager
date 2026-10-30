@@ -331,7 +331,11 @@ export class PelangganRepository implements IPelangganRepository {
     if (hasPendingPackage) {
       await prisma.pelanggan.update({
         where: { id },
-        data: { pendingPackageId: null, pendingPackageApplyAt: null },
+        data: {
+          pendingPackageId: null,
+          pendingPackageApplyAt: null,
+          pendingPackageByCustomer: false,
+        },
       });
     }
 

@@ -31,9 +31,10 @@ function buildCustomerWithPackage() {
 
 function buildRepositoryStub(
   findUpgradePackageOptions: ReturnType<typeof vi.fn>,
+  customer: Record<string, unknown> = buildCustomerWithPackage(),
 ) {
   return {
-    findByIdWithPackage: vi.fn().mockResolvedValue(buildCustomerWithPackage()),
+    findByIdWithPackage: vi.fn().mockResolvedValue(customer),
     findUpgradePackageOptions,
   } as unknown as IPelangganRepository;
 }
@@ -88,5 +89,40 @@ describe("CustomerPackageService.getCustomerPackage", () => {
         bandwidth: { nama: "20 Mbps", download: "20M", upload: "5M" },
       },
     ]);
+  });
+
+  describe("pending package change", () => {
+    const pending = (byCustomer: boolean) => ({
+      ...buildCustomerWithPackage(),
+      pendingPackageId: "pkg-2",
+      pendingPackageApplyAt: new Date("2026-10-01T00:00:00.000Z"),
+      pendingPackageByCustomer: byCustomer,
+      pendingPackage: { id: "pkg-2", name: "Paket Standard 20 Mbps" },
+    });
+
+    it("shows the customer's own request as a pending upgrade", async () => {
+      const service = new CustomerPackageService(
+        buildRepositoryStub(vi.fn().mockResolvedValue([]), pending(true)),
+      );
+
+      const result = await service.getCustomerPackage("cust-1");
+
+      expect(result.pendingUpgrade).toEqual({
+        id: "pkg-2",
+        nama: "Paket Standard 20 Mbps",
+        applyAt: "2026-10-01T00:00:00.000Z",
+      });
+    });
+
+    // A change staff scheduled is not the customer's request to cancel.
+    it("does not present a staff-scheduled change as the customer's request", async () => {
+      const service = new CustomerPackageService(
+        buildRepositoryStub(vi.fn().mockResolvedValue([]), pending(false)),
+      );
+
+      const result = await service.getCustomerPackage("cust-1");
+
+      expect(result.pendingUpgrade).toBeNull();
+    });
   });
 });
