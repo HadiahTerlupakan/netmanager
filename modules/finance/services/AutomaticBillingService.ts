@@ -287,6 +287,7 @@ export class AutomaticBillingService {
           invoiceRepo: this.invoiceRepo,
           paymentRepo: this.paymentRepo,
           shouldMarkPaid: false,
+          jatuhTempoDariPelanggan: true,
         }),
     });
   }

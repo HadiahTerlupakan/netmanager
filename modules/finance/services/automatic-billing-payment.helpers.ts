@@ -28,6 +28,8 @@ export async function createImmediateInvoice(options: {
   invoiceRepo: InvoiceRepository;
   paymentRepo: PaymentRepository;
   shouldMarkPaid?: boolean;
+  /** Jatuh tempo tagihan = jatuh tempo pelanggan, bukan hari ini. */
+  jatuhTempoDariPelanggan?: boolean;
 }) {
   const customer = await loadImmediateInvoiceCustomer(
     options.pelangganBridge,
@@ -47,6 +49,7 @@ async function finalizeImmediateInvoiceCreation(
     invoiceRepo: InvoiceRepository;
     paymentRepo: PaymentRepository;
     shouldMarkPaid?: boolean;
+    jatuhTempoDariPelanggan?: boolean;
   },
   customer: ImmediateInvoiceCustomer,
 ) {
@@ -77,15 +80,23 @@ async function loadImmediateInvoiceCustomer(
 async function createCustomerInvoice(
   options: {
     invoiceCreationService: BillingInvoiceCreationService;
+    jatuhTempoDariPelanggan?: boolean;
   },
   customer: ImmediateInvoiceCustomer,
 ) {
-  // Jatuh tempo adalah tanggal, bukan jam: tagihan ini jatuh tempo hari ini.
-  // Dengan `new Date()` jam pembuatannya ikut, lalu terbawa ke jatuh tempo
-  // pelanggan saat tagihan dilunasi (2026-11-28T01:02:01Z di tes-lab-02).
+  // Jatuh tempo adalah tanggal, bukan jam: dengan `new Date()` jam
+  // pembuatannya ikut, lalu terbawa ke jatuh tempo pelanggan saat tagihan
+  // dilunasi (2026-11-28T01:02:01Z di tes-lab-02).
+  // Tagihan pengganti dari edit jatuh tempo memakai jatuh tempo baru itu;
+  // dengan hari ini, melunasinya menghitung ulang jatuh tempo dari hari ini
+  // dan membatalkan pilihan admin (28 Nov menjadi 30 Nov).
+  const jatuhTempo =
+    options.jatuhTempoDariPelanggan && customer.jatuhTempo
+      ? customer.jatuhTempo
+      : new Date();
   return options.invoiceCreationService.createInvoiceForCustomer(
     mapRealtimeCustomerToBillingPayload(customer),
-    toStartOfDay(new Date()),
+    toStartOfDay(jatuhTempo),
   );
 }
 
