@@ -8,6 +8,11 @@ import { PelangganBillingBridgeService } from "../PelangganBillingBridgeService"
 
 const SOURCE = "InvoicePaidActivationHandler";
 
+// Status yang diputus karena tagihan: pelunasan memulihkannya. MAINTENANCE
+// (ditangani teknisi) dan DISMANTLE (berhenti berlangganan) tidak dipulihkan
+// oleh pembayaran tagihan lama.
+const STATUS_PULIH_SAAT_LUNAS = new Set(["ISOLIR", "NONAKTIF"]);
+
 /**
  * Handler INVOICE_PAID dari sisi pelanggan — activation guard supaya
  * pelanggan tidak otomatis di-aktifkan saat masih punya invoice unpaid lain
@@ -35,7 +40,7 @@ export async function handleInvoicePaidActivation(
   }
 
   const shouldActivate =
-    customer.status !== "AKTIF" &&
+    STATUS_PULIH_SAAT_LUNAS.has(customer.status) &&
     (customer.tipe !== "REGULER" ||
       (await FinanceRepositoryFacade.countUnpaidInvoicesForPelanggan(
         customer.id,
@@ -43,7 +48,7 @@ export async function handleInvoicePaidActivation(
 
   if (!shouldActivate) {
     logger.info(
-      `[${SOURCE}] Skip activation for ${pelangganId}; already AKTIF or has unpaid invoice`,
+      `[${SOURCE}] Skip activation for ${pelangganId}; status ${customer.status} or has unpaid invoice`,
     );
     return;
   }

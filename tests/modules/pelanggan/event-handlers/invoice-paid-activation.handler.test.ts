@@ -55,6 +55,38 @@ describe("handleInvoicePaidActivation", () => {
     expect(mockUpdateStatusPelanggan).toHaveBeenCalledWith("pel-1", "AKTIF");
   });
 
+  // Pelanggan yang berhenti berlangganan (DISMANTLE) atau sedang ditangani
+  // teknisi (MAINTENANCE) dulu ikut diaktifkan, dan jaringannya dipasang ulang,
+  // hanya karena tagihan lamanya dilunasi.
+  it.each(["DISMANTLE", "MAINTENANCE"])(
+    "pelanggan %s tidak diaktifkan oleh pelunasan",
+    async (status) => {
+      mockFindById.mockResolvedValue({ id: "pel-1", status, tipe: "REGULER" });
+      mockCountUnpaid.mockResolvedValue(0);
+
+      await handleInvoicePaidActivation(
+        buildJob({ invoiceId: "inv-1", pelangganId: "pel-1" }),
+      );
+
+      expect(mockUpdateStatusPelanggan).not.toHaveBeenCalled();
+    },
+  );
+
+  it("pelanggan NONAKTIF karena telat bayar diaktifkan oleh pelunasan", async () => {
+    mockFindById.mockResolvedValue({
+      id: "pel-1",
+      status: "NONAKTIF",
+      tipe: "REGULER",
+    });
+    mockCountUnpaid.mockResolvedValue(0);
+
+    await handleInvoicePaidActivation(
+      buildJob({ invoiceId: "inv-1", pelangganId: "pel-1" }),
+    );
+
+    expect(mockUpdateStatusPelanggan).toHaveBeenCalledWith("pel-1", "AKTIF");
+  });
+
   it("skip kalau pelanggan sudah AKTIF", async () => {
     mockFindById.mockResolvedValue({
       id: "pel-1",
