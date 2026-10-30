@@ -22,7 +22,20 @@ export async function GET(request: NextRequest) {
       activeOnly: true,
     });
 
-    return NextResponse.json(announcements);
+    // Baris mentah membawa pembuat, tenant, dan jumlah pembaca; pelanggan
+    // hanya perlu isi pengumumannya.
+    return NextResponse.json(
+      announcements.map((announcement) => ({
+        id: announcement.id,
+        title: announcement.title,
+        content: announcement.content,
+        isPinned: announcement.isPinned,
+        target: announcement.target,
+        startDate: announcement.startDate,
+        endDate: announcement.endDate,
+        createdAt: announcement.createdAt,
+      })),
+    );
   } catch (error) {
     logger.error("Customer announcements error:", error);
     return NextResponse.json(

@@ -11,6 +11,12 @@ import {
 
 const customerPortalService = new CustomerPortalService();
 
+/** 9–15 digit, boleh diawali `+` dan dipisah spasi atau tanda hubung. */
+function isValidPhone(noTelp: unknown): boolean {
+  if (typeof noTelp !== "string") return false;
+  return /^\+?\d{9,15}$/.test(noTelp.replace(/[\s-]/g, ""));
+}
+
 /**
  * GET - Get customer profile
  */
@@ -57,6 +63,16 @@ export async function PATCH(request: NextRequest) {
       isBillNotifEnabled,
       isPromoEnabled,
     } = body;
+
+    if (noTelp !== undefined && !isValidPhone(noTelp)) {
+      return apiError(
+        "Nomor telepon tidak valid",
+        ErrorCodes.VALIDATION_ERROR,
+        {
+          status: 400,
+        },
+      );
+    }
 
     if (newPassword) {
       if (!currentPassword) {
@@ -107,8 +123,9 @@ export async function PATCH(request: NextRequest) {
     };
 
     const statusCode = errorMap[errorMessage] || 500;
+    // Pesan error lain bisa memuat detail internal (host, query).
     return apiError(
-      errorMessage || "Terjadi kesalahan server",
+      statusCode === 500 ? "Terjadi kesalahan server" : errorMessage,
       statusCode === 401
         ? ErrorCodes.UNAUTHORIZED
         : statusCode === 400
