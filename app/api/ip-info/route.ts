@@ -1,5 +1,6 @@
+import { isIP } from "node:net";
 import { logger } from "@/lib/logger";
-import { NextRequest } from "next/server";
+import { createHandler } from "@/lib/api";
 import { apiSuccess, ErrorCodes, apiError } from "@/lib/api-response";
 
 interface IpApiResponse {
@@ -35,86 +36,92 @@ const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 /**
  * GET /api/ip-info?ip=xxx.xxx.xxx.xxx
+ *
+ * Hanya untuk admin yang membaca registrasi: tanpa itu endpoint ini menjadi
+ * proxy terbuka ke ip-api.com dan menghabiskan kuota 45/menit milik kita.
+ * `ip` disisipkan ke path ip-api, jadi harus benar-benar alamat IP.
  */
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const ip = searchParams.get("ip");
+export const GET = createHandler(
+  { auth: true, permissions: ["registration:read"] },
+  async (request) => {
+    const ip = request.nextUrl.searchParams.get("ip");
 
-  if (!ip) {
-    return apiError("IP address wajib diisi", ErrorCodes.VALIDATION_ERROR, {
-      status: 400,
-    });
-  }
+    if (!ip || isIP(ip) === 0) {
+      return apiError("IP address tidak valid", ErrorCodes.VALIDATION_ERROR, {
+        status: 400,
+      });
+    }
 
-  // Check Cache
-  const cached = ipCache.get(ip);
-  if (cached && cached.expiresAt > Date.now()) {
-    return apiSuccess(cached.data);
-  }
+    // Check Cache
+    const cached = ipCache.get(ip);
+    if (cached && cached.expiresAt > Date.now()) {
+      return apiSuccess(cached.data);
+    }
 
-  if (
-    ip === "127.0.0.1" ||
-    ip.startsWith("192.168.") ||
-    ip.startsWith("10.") ||
-    ip.startsWith("172.")
-  ) {
-    return apiSuccess({
-      ip,
-      country: "Local",
-      countryCode: "-",
-      isp: "Private Network",
-      city: "-",
-    });
-  }
-
-  try {
-    const res = await fetch(
-      `http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,regionName,city,isp,org,query`,
-    );
-    const data: IpApiResponse = await res.json();
-
-    if (data.status === "fail") {
+    if (
+      ip === "127.0.0.1" ||
+      ip.startsWith("192.168.") ||
+      ip.startsWith("10.") ||
+      ip.startsWith("172.")
+    ) {
       return apiSuccess({
         ip,
-        country: "-",
+        country: "Local",
         countryCode: "-",
-        isp: data.message || "Unknown",
+        isp: "Private Network",
         city: "-",
       });
     }
 
-    const resultData = {
-      ip: data.query,
-      country: data.country || "-",
-      countryCode: data.countryCode || "-",
-      region: data.regionName || "-",
-      city: data.city || "-",
-      isp: data.isp || data.org || "-",
-    };
+    try {
+      const res = await fetch(
+        `http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,regionName,city,isp,org,query`,
+      );
+      const data: IpApiResponse = await res.json();
 
-    // Cache the successful result
-    ipCache.set(ip, {
-      data: resultData,
-      expiresAt: Date.now() + CACHE_TTL,
-    });
-
-    // Simple cache cleanup (prevent memory leak)
-    if (ipCache.size > 1000) {
-      const now = Date.now();
-      for (const [key, val] of ipCache.entries()) {
-        if (val.expiresAt < now) ipCache.delete(key);
+      if (data.status === "fail") {
+        return apiSuccess({
+          ip,
+          country: "-",
+          countryCode: "-",
+          isp: data.message || "Unknown",
+          city: "-",
+        });
       }
-    }
 
-    return apiSuccess(resultData);
-  } catch (error) {
-    logger.error("Error fetching IP info:", error);
-    return apiSuccess({
-      ip,
-      country: "-",
-      countryCode: "-",
-      isp: "Error",
-      city: "-",
-    });
-  }
-}
+      const resultData = {
+        ip: data.query,
+        country: data.country || "-",
+        countryCode: data.countryCode || "-",
+        region: data.regionName || "-",
+        city: data.city || "-",
+        isp: data.isp || data.org || "-",
+      };
+
+      // Cache the successful result
+      ipCache.set(ip, {
+        data: resultData,
+        expiresAt: Date.now() + CACHE_TTL,
+      });
+
+      // Simple cache cleanup (prevent memory leak)
+      if (ipCache.size > 1000) {
+        const now = Date.now();
+        for (const [key, val] of ipCache.entries()) {
+          if (val.expiresAt < now) ipCache.delete(key);
+        }
+      }
+
+      return apiSuccess(resultData);
+    } catch (error) {
+      logger.error("Error fetching IP info:", error);
+      return apiSuccess({
+        ip,
+        country: "-",
+        countryCode: "-",
+        isp: "Error",
+        city: "-",
+      });
+    }
+  },
+);

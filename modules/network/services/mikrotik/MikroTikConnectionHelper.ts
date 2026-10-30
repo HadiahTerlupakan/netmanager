@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import type { RouterOSAPI } from "node-routeros-v2";
 import { createRouterOsApi } from "./routeros-timeout";
 
@@ -35,7 +36,7 @@ export class MikroTikConnectionHelper {
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
     let password = "";
     for (let i = 0; i < length; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
+      password += chars.charAt(randomInt(chars.length));
     }
     return password;
   }

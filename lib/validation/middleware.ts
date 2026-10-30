@@ -186,11 +186,18 @@ export function sanitizeString(input: unknown): string {
     return String(input || "");
   }
 
-  return input
-    .replace(/[<>]/g, "") // Remove basic HTML tags
-    .replace(/javascript:/gi, "") // Remove javascript: protocol
-    .replace(/on\w+=/gi, "") // Remove event handlers
-    .trim();
+  // Repeat until nothing changes: one pass can rebuild a removed pattern
+  // from its halves ("javajavascript:script:" leaves "javascript:").
+  let output = input;
+  let previous: string;
+  do {
+    previous = output;
+    output = output
+      .replace(/[<>]/g, "") // Remove basic HTML tags
+      .replace(/javascript:/gi, "") // Remove javascript: protocol
+      .replace(/on\w+=/gi, ""); // Remove event handlers
+  } while (output !== previous);
+  return output.trim();
 }
 
 /**

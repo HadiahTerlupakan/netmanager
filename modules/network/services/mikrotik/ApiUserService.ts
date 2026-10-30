@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { RouterOSAPI } from "node-routeros-v2";
 import { MikroTikConnectionHelper } from "./MikroTikConnectionHelper";
 
@@ -38,7 +39,9 @@ export class ApiUserService {
   }
 
   private generateUsername(): string {
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
+    const randomSuffix = randomInt(36 ** 6)
+      .toString(36)
+      .padStart(6, "0");
     return `netmanager_${randomSuffix}`;
   }
 

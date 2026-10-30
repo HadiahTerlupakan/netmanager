@@ -22,7 +22,11 @@ export type BarangKategoriAset = (typeof BARANG_KATEGORI_ASET)[number];
  * Untuk defense-in-depth saja — server tetap harus validasi & escape ulang.
  */
 export function sanitizeBarangInput(input: string): string {
-  return input.trim().replace(/<[^>]*>/g, "");
+  // Brackets left over from an unclosed or nested tag go too.
+  return input
+    .replace(/<[^>]*>/g, "")
+    .replace(/[<>]/g, "")
+    .trim();
 }
 
 const namaSchema = z

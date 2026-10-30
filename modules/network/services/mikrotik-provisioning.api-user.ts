@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { logger } from "@/lib/logger";
 import { runProvisioningConnection } from "./mikrotik-provisioning.connection";
 import type {
@@ -22,7 +23,9 @@ export async function createProvisioningApiUser(
   routerDetails: MikroTikProvisioningRouterDetails,
 ): Promise<MikroTikApiUserResult> {
   const logs: string[] = [];
-  const username = `netmanager_${Math.random().toString(36).substring(2, 8)}`;
+  const username = `netmanager_${randomInt(36 ** 6)
+    .toString(36)
+    .padStart(6, "0")}`;
   const password = generateSecurePassword(16);
 
   try {
@@ -132,7 +135,7 @@ function generateSecurePassword(length: number): string {
   let password = "";
 
   for (let index = 0; index < length; index += 1) {
-    const randomIndex = Math.floor(Math.random() * PASSWORD_CHARACTERS.length);
+    const randomIndex = randomInt(PASSWORD_CHARACTERS.length);
     password += PASSWORD_CHARACTERS.charAt(randomIndex);
   }
 

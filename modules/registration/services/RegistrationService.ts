@@ -32,6 +32,8 @@ const MISSING_EMAIL_MESSAGE = "Email wajib diisi.";
 const MISSING_PHONE_MESSAGE = "Nomor HP wajib diisi.";
 const MISSING_ADDRESS_MESSAGE = "Alamat wajib diisi.";
 const INVALID_EMAIL_MESSAGE = "Format email tidak valid.";
+/** RFC 5321 limit; also keeps the regex below from going quadratic on long input. */
+const MAX_EMAIL_LENGTH = 254;
 const REJECTION_REASON_REQUIRED_MESSAGE = "Alasan penolakan wajib diisi";
 
 const VALID_STATUS_TRANSITIONS: Record<
@@ -341,6 +343,9 @@ export class RegistrationService {
 
   /** Validate basic email format. */
   private isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return (
+      email.length <= MAX_EMAIL_LENGTH &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    );
   }
 }
