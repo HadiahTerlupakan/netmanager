@@ -24,11 +24,22 @@ export class CustomerNotificationService {
   ) {}
 
   /**
-   * Get unread notification count for a customer.
+   * Angka lonceng: tiket, pengumuman, dan notifikasi tersimpan yang belum
+   * dibaca — hitungan yang sama dengan `unreadCount` di getNotifications.
    */
   async getUnreadCount(customerId: string) {
-    return this.customerTicketRepository.countUnreadCustomerNotifications(
-      customerId,
+    const [summary, stored] = await Promise.all([
+      this.customerTicketRepository.getCustomerNotificationSummary({
+        pelangganId: customerId,
+        limit: 1,
+        now: new Date(),
+      }),
+      this.loadStoredNotifications(customerId, 0),
+    ]);
+    return (
+      summary.unreadTicketCount +
+      summary.unreadAnnouncementCount +
+      stored.unreadCount
     );
   }
 
@@ -39,7 +50,7 @@ export class CustomerNotificationService {
     customerId: string,
     limit: number = DEFAULT_NOTIFICATION_LIMIT,
   ) {
-    const [notificationSummary, storedNotifications] = await Promise.all([
+    const [notificationSummary, stored] = await Promise.all([
       this.customerTicketRepository.getCustomerNotificationSummary({
         pelangganId: customerId,
         limit,
@@ -50,7 +61,8 @@ export class CustomerNotificationService {
 
     return this.buildNotificationResponse(
       notificationSummary,
-      storedNotifications,
+      stored.rows,
+      stored.unreadCount,
     );
   }
 
@@ -64,20 +76,28 @@ export class CustomerNotificationService {
    * Import dilakukan saat pemanggilan, bukan di puncak berkas: modul
    * notification mengimpor modul pelanggan, jadi import statis akan membentuk
    * siklus yang membuat salah satu barrel dievaluasi setengah jalan.
+   *
+   * `unreadCount` dihitung atas semua baris, bukan hanya `limit` yang dimuat;
+   * `limit` 0 cukup untuk angka lonceng.
    */
   private async loadStoredNotifications(
     customerId: string,
     limit: number,
-  ): Promise<StoredNotification[]> {
+  ): Promise<{ rows: StoredNotification[]; unreadCount: number }> {
     const contact = await pelangganContactService.findContactById(customerId);
-    const { getCustomerStoredNotifications } =
-      await import("@/modules/notification/api");
+    const {
+      countCustomerUnreadStoredNotifications,
+      getCustomerStoredNotifications,
+    } = await import("@/modules/notification/api");
+    const owner = { pelangganId: customerId, userId: contact?.userId };
 
-    return getCustomerStoredNotifications({
-      pelangganId: customerId,
-      userId: contact?.userId,
-      limit,
-    });
+    const [rows, unreadCount] = await Promise.all([
+      limit > 0
+        ? getCustomerStoredNotifications({ ...owner, limit })
+        : Promise.resolve([]),
+      countCustomerUnreadStoredNotifications(owner),
+    ]);
+    return { rows, unreadCount };
   }
 
   /** Map repository summary into customer notification response. */
@@ -86,13 +106,11 @@ export class CustomerNotificationService {
       ReturnType<ICustomerTicketRepository["getCustomerNotificationSummary"]>
     >,
     storedNotifications: StoredNotification[],
+    unreadStoredCount: number,
   ) {
     const ticketNotifications = buildTicketReplyNotifications(
       notificationSummary.ticketsWithNewReplies,
     );
-    const unreadStoredCount = storedNotifications.filter(
-      (notification) => !notification.isRead,
-    ).length;
 
     return {
       notifications: [

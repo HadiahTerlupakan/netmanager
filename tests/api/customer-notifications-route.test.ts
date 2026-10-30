@@ -23,6 +23,7 @@ describe("customer notifications route", () => {
   it("returns unread ticket notifications and unread announcement counts from one payload", async () => {
     // Notifikasi tersimpan kini selalu dicari per pelanggan.
     prismaMock.notifications.findMany.mockResolvedValueOnce([]);
+    prismaMock.notifications.count.mockResolvedValueOnce(0);
     prismaMock.supportTickets.count.mockResolvedValueOnce(2);
     prismaMock.supportTickets.findMany.mockResolvedValueOnce([
       {

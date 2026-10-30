@@ -17,10 +17,7 @@ import {
   customerTicketInclude,
   ticketReplyInclude,
 } from "./customer-ticket.repository.data-helpers";
-import {
-  ACTIVE_UNREAD_TICKET_STATUSES,
-  buildCustomerTicketWhere,
-} from "./customer-ticket.repository.helpers";
+import { buildCustomerTicketWhere } from "./customer-ticket.repository.helpers";
 
 export async function findAllTicketsForCustomer(
   pelangganId: string,
@@ -61,26 +58,6 @@ export function getTodayTicketCount(): Promise<number> {
       },
     },
   });
-}
-
-export async function countUnreadCustomerTicketNotifications(
-  pelangganId: string,
-): Promise<number> {
-  const tickets = await prisma.supportTickets.findMany({
-    where: {
-      pelangganId,
-      status: { in: ACTIVE_UNREAD_TICKET_STATUSES },
-    },
-    select: {
-      replies: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: { isFromAdmin: true },
-      },
-    },
-  });
-
-  return tickets.filter((ticket) => ticket.replies[0]?.isFromAdmin).length;
 }
 
 export async function createCustomerTicket(data: {

@@ -1,11 +1,6 @@
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { Prisma, TicketStatus } from "@prisma/client";
 
-export const ACTIVE_UNREAD_TICKET_STATUSES: TicketStatus[] = [
-  TicketStatus.WAITING_CUSTOMER,
-  TicketStatus.IN_PROGRESS,
-];
-
 /** Build customer ticket list filter for repository queries. */
 export const buildCustomerTicketWhere = (
   pelangganId: string,

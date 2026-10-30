@@ -3,7 +3,6 @@ import { buildCustomerTicketPagination as buildCustomerTicketPaginationMeta } fr
 import {
   countAdminTickets,
   countAdminTicketsNeedingReply,
-  countUnreadCustomerTicketNotifications,
   createCustomerTicket,
   createTicketReply,
   deleteTicket,
@@ -45,11 +44,6 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
   /** Get count of tickets created today for number generation. */
   async getCountForToday(): Promise<number> {
     return getTodayTicketCount();
-  }
-
-  /** Count unread ticket notifications that require customer attention. */
-  async countUnreadCustomerNotifications(pelangganId: string): Promise<number> {
-    return countUnreadCustomerTicketNotifications(pelangganId);
   }
 
   /** Get unread ticket and announcement summary for customer portal. */

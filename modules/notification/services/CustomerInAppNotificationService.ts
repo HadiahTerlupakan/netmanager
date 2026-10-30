@@ -41,19 +41,36 @@ export function createCustomerNotification(input: {
  * Notifikasi tersimpan milik pelanggan. Baris lama hanya punya userId (akun
  * User yang tertaut), jadi keduanya dicari.
  */
+function milikPelanggan(input: {
+  pelangganId: string;
+  userId?: string | null;
+}) {
+  return {
+    OR: [
+      { pelangganId: input.pelangganId },
+      ...(input.userId ? [{ userId: input.userId }] : []),
+    ],
+  };
+}
+
 export function getCustomerStoredNotifications(input: {
   pelangganId: string;
   userId?: string | null;
   limit?: number;
 }) {
   return prisma.notifications.findMany({
-    where: {
-      OR: [
-        { pelangganId: input.pelangganId },
-        ...(input.userId ? [{ userId: input.userId }] : []),
-      ],
-    },
+    where: milikPelanggan(input),
     orderBy: { createdAt: "desc" },
     take: input.limit ?? DEFAULT_LIMIT,
+  });
+}
+
+/** Jumlah notifikasi tersimpan yang belum dibaca, bukan hanya yang dimuat. */
+export function countCustomerUnreadStoredNotifications(input: {
+  pelangganId: string;
+  userId?: string | null;
+}) {
+  return prisma.notifications.count({
+    where: { ...milikPelanggan(input), isRead: false },
   });
 }

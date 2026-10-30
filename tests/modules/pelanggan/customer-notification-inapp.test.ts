@@ -7,10 +7,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const getCustomerStoredNotifications = vi.hoisted(() => vi.fn());
+const countCustomerUnreadStoredNotifications = vi.hoisted(() => vi.fn());
 const findContactById = vi.hoisted(() => vi.fn());
 
 vi.mock("@/modules/notification/api", () => ({
   getCustomerStoredNotifications,
+  countCustomerUnreadStoredNotifications,
 }));
 
 vi.mock("@/modules/pelanggan/services/PelangganContactService", () => ({
@@ -30,7 +32,6 @@ const summary = {
 
 const repository = {
   getCustomerNotificationSummary: vi.fn(),
-  countUnreadCustomerNotifications: vi.fn(),
 };
 
 const buildService = () =>
@@ -56,6 +57,7 @@ beforeEach(() => {
   repository.getCustomerNotificationSummary.mockResolvedValue(summary);
   findContactById.mockResolvedValue({ userId: "user-1" });
   getCustomerStoredNotifications.mockResolvedValue([storedRow()]);
+  countCustomerUnreadStoredNotifications.mockResolvedValue(1);
 });
 
 describe("notifikasi in-app pelanggan", () => {
@@ -82,6 +84,7 @@ describe("notifikasi in-app pelanggan", () => {
     getCustomerStoredNotifications.mockResolvedValue([
       storedRow({ isRead: true }),
     ]);
+    countCustomerUnreadStoredNotifications.mockResolvedValue(0);
 
     const result = await buildService().getNotifications("cust-1");
 
@@ -112,5 +115,32 @@ describe("notifikasi in-app pelanggan", () => {
     const result = await buildService().getNotifications("cust-1");
 
     expect(result.notifications.map((n) => n.id)).toEqual(["baru", "lama"]);
+  });
+
+  // Daftar hanya memuat `limit` baris; yang belum dibaca di luar itu dulu
+  // tidak ikut terhitung.
+  it("menghitung semua notifikasi tersimpan yang belum dibaca", async () => {
+    countCustomerUnreadStoredNotifications.mockResolvedValue(12);
+
+    const result = await buildService().getNotifications("cust-1");
+
+    // 1 tiket + 2 pengumuman + 12 notifikasi tersimpan
+    expect(result.unreadCount).toBe(15);
+    expect(countCustomerUnreadStoredNotifications).toHaveBeenCalledWith({
+      pelangganId: "cust-1",
+      userId: "user-1",
+    });
+  });
+
+  // Lonceng aplikasi membaca /unread-count, yang dulu hanya menghitung tiket.
+  it("angka lonceng sama dengan hitungan di daftar notifikasi", async () => {
+    countCustomerUnreadStoredNotifications.mockResolvedValue(12);
+    const service = buildService();
+
+    const daftar = await service.getNotifications("cust-1");
+    const lonceng = await service.getUnreadCount("cust-1");
+
+    expect(lonceng).toBe(15);
+    expect(lonceng).toBe(daftar.unreadCount);
   });
 });

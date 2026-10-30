@@ -78,9 +78,6 @@ export interface ICustomerTicketRepository {
   /** Get ticket count created today. */
   getCountForToday(): Promise<number>;
 
-  /** Count unread customer notifications. */
-  countUnreadCustomerNotifications(pelangganId: string): Promise<number>;
-
   /** Get unread ticket and announcement summary for customer portal. */
   getCustomerNotificationSummary(
     query: CustomerNotificationQuery,
