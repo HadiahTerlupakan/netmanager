@@ -191,6 +191,7 @@ export const ACTIONS = [
   "manage",
   "view_all",
   "cashout",
+  "downgrade_paket",
 ] as const;
 
 /**

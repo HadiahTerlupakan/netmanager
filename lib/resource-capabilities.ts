@@ -33,7 +33,8 @@ export type ResourceAction =
   | "manage"
   | "view_all"
   | "correct-missed-checkin"
-  | "cashout";
+  | "cashout"
+  | "downgrade_paket";
 
 export interface ResourceCapability {
   actions: ResourceAction[];
@@ -347,8 +348,17 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
 
   // ====== PELANGGAN ======
   pelanggan: {
-    actions: ["read", "create", "update", "delete", "site_only"],
-    description: "Data pelanggan",
+    // `downgrade_paket`: boleh menurunkan pelanggan ke paket yang lebih
+    // murah. `update` saja tidak cukup; pelanggan sendiri hanya bisa upgrade.
+    actions: [
+      "read",
+      "create",
+      "update",
+      "delete",
+      "site_only",
+      "downgrade_paket",
+    ],
+    description: "Data pelanggan; downgrade paket = boleh turunkan paket",
   },
 
   // ====== SETTINGS ======

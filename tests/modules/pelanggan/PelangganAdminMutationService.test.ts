@@ -222,9 +222,12 @@ describe("PelangganAdminMutationService — emit PACKAGE_CHANGED", () => {
     prismaMock.pelanggan.update.mockResolvedValue({});
     prismaMock.proratePaymentLog.create.mockResolvedValue({});
 
+    // Pemegang izin downgrade tidak melewati pengecekan harga paket; tanpa
+    // izin itu, harga yang gagal dibaca menolak perubahan paket (fail closed).
     const result = await service.updatePppById({
       id: "pel-1",
       session: SESSION as never,
+      actorPermissions: ["pelanggan:downgrade_paket"],
       data: BASE_INPUT_DATA,
     });
 

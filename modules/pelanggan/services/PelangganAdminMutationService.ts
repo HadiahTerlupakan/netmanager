@@ -4,6 +4,10 @@ import { Status, TipePelanggan } from "../types/pelanggan.enums";
 import { CustomerEventDispatcher } from "@/modules/events";
 import { getResellerCustomerRelationService } from "@/modules/reseller";
 import { logger } from "@/lib/logger";
+import {
+  isDowngradeTanpaIzin,
+  PESAN_DOWNGRADE_TANPA_IZIN,
+} from "./package-downgrade-guard";
 import { prisma } from "@/modules/database";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
@@ -43,6 +47,8 @@ export type UpdatePppByIdInput = {
   id: string;
   existingStatus?: Status;
   session: AdminMutationSession;
+  /** Izin RBAC pengguna; menentukan bolehkah paket diturunkan. */
+  actorPermissions?: readonly string[];
   /** Kapan perubahan paket diterapkan. Default IMMEDIATE (backward compatible). */
   upgradeApplyTime?: "IMMEDIATE" | "NEXT_CYCLE";
   /** Opsi prorate saat paket berubah. Default NONE (tidak ada prorate). */
@@ -109,6 +115,19 @@ export class PelangganAdminMutationService {
         resellerId: normalizedData.resellerId,
         resellerOutletId: normalizedData.resellerOutletId,
       });
+      if (
+        await isDowngradeTanpaIzin({
+          paketLamaId: existingPelanggan.hargaPaketId,
+          paketBaruId: normalizedData.hargaPaketId,
+          session: input.session,
+          permissions: input.actorPermissions ?? [],
+        })
+      ) {
+        throw new PelangganAdminMutationError(
+          PESAN_DOWNGRADE_TANPA_IZIN,
+          "FORBIDDEN",
+        );
+      }
       const updatePayload = await this.buildUpdatePayload(
         existingPelanggan,
         normalizedData,

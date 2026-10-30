@@ -161,6 +161,33 @@ describe("pelanggan PPP [id] route", () => {
     expect(prismaMock.pelanggan.findFirst).not.toHaveBeenCalled();
   });
 
+  // Izin downgrade paket diperiksa di service dari izin RBAC pengguna.
+  it("PUT meneruskan izin pengguna ke service", async () => {
+    mockFns.updatePppById.mockResolvedValue({ id: "pel-1" });
+    const formData = new FormData();
+    formData.set("hargaPaketId", "paket-kecil");
+
+    await PUT(
+      new NextRequest("http://localhost/api/pelanggan-ppp/pel-1", {
+        method: "PUT",
+        body: formData,
+      }),
+      {
+        params: { id: "pel-1" },
+        session: {
+          user: { id: "admin-1", role: "ADMIN", tenantId: "tenant-1" },
+        },
+        permissions: ["pelanggan:update", "pelanggan:downgrade_paket"],
+      } as never,
+    );
+
+    expect(mockFns.updatePppById).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorPermissions: ["pelanggan:update", "pelanggan:downgrade_paket"],
+      }),
+    );
+  });
+
   it("DELETE delegates delete preflight to the mutation service instead of querying prisma in the route", async () => {
     mockFns.deletePppById.mockResolvedValue({
       nama: "Pelanggan 1",

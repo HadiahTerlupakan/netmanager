@@ -157,6 +157,7 @@ export const PUT = createHandler(
       const pelanggan = await pelangganAdminMutationService.updatePppById({
         id,
         session: session as never,
+        actorPermissions: ctx.permissions,
         upgradeApplyTime,
         prorateOption,
         downgradeAdjustment,
