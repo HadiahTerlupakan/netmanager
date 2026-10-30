@@ -93,6 +93,25 @@ describe("kelebihan bayar dari checkout yang terlanjur dibayar", () => {
     });
   });
 
+  // Dua webhook telat untuk invoice yang sama bisa membaca jumlah terbayar
+  // yang sama; dengan nominal berbeda keduanya mengkreditkan lebih dari
+  // kelebihannya. Baris invoice dikunci sebelum pembayarannya dibaca.
+  it("menghitung kelebihan di bawah kunci baris invoice", async () => {
+    tagihanDenganPembayaran([payment("p-bca"), payment("p-bri")]);
+
+    await creditCheckoutOverpayment(CHECKOUT_TERLAMBAT);
+
+    const [sql, ...nilai] = prismaMock.$queryRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    expect(sql.join("?")).toMatch(/FROM "Invoice" WHERE "id" = \? FOR UPDATE/);
+    expect(nilai).toEqual(["inv-1"]);
+    expect(prismaMock.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      prismaMock.invoice.findUnique.mock.invocationCallOrder[0],
+    );
+  });
+
   it("pembayaran yang pas tidak mengubah saldo", async () => {
     tagihanDenganPembayaran([
       payment("p-bri"),

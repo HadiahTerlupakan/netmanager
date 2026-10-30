@@ -44,42 +44,61 @@ export async function creditCheckoutOverpayment(checkout: CheckoutPayment[]) {
   }
 }
 
-async function kreditkanKelebihan(payment: CheckoutPayment, invoiceId: string) {
-  const invoice = await prismaBillingAuth.invoice.findUnique({
-    where: { id: invoiceId },
-    select: {
-      totalAmount: true,
-      payment: {
-        select: {
-          id: true,
-          amount: true,
-          discountAmount: true,
-          gatewayStatus: true,
-          kelebihanBayar: true,
-          notes: true,
+type Penanda = { kredit: bigint; notesAsli: string | null };
+
+/**
+ * Hitung kelebihan dan tandai payment-nya di bawah kunci baris invoice: dua
+ * webhook telat untuk invoice yang sama, tanpa kunci, sama-sama membaca
+ * jumlah terbayar yang sama dan mengkreditkan melebihi kelebihannya.
+ */
+async function tandaiKelebihan(
+  payment: CheckoutPayment,
+  invoiceId: string,
+): Promise<Penanda | null> {
+  return prismaBillingAuth.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Invoice" WHERE "id" = ${invoiceId} FOR UPDATE`;
+    const invoice = await tx.invoice.findUnique({
+      where: { id: invoiceId },
+      select: {
+        totalAmount: true,
+        payment: {
+          select: {
+            id: true,
+            amount: true,
+            discountAmount: true,
+            gatewayStatus: true,
+            kelebihanBayar: true,
+            notes: true,
+          },
         },
       },
-    },
-  });
-  if (!invoice) return;
+    });
+    if (!invoice) return null;
 
-  const kelebihan =
-    totalTerbayar(invoice.payment) -
-    invoice.totalAmount -
-    sudahDikreditkan(invoice.payment);
-  if (kelebihan <= 0n) return;
+    const kelebihan =
+      totalTerbayar(invoice.payment) -
+      invoice.totalAmount -
+      sudahDikreditkan(invoice.payment);
+    if (kelebihan <= 0n) return null;
 
-  const kredit = kelebihan < payment.amount ? kelebihan : payment.amount;
-  const notesAsli =
-    invoice.payment.find((p) => p.id === payment.id)?.notes ?? null;
-  const ditandai = await prismaBillingAuth.payment.updateMany({
-    where: { id: payment.id, kelebihanBayar: null },
-    data: {
-      kelebihanBayar: kredit,
-      notes: `${notesAsli ? `${notesAsli}\n` : ""}Kelebihan bayar Rp ${Number(kredit).toLocaleString("id-ID")} dikreditkan ke saldo kredit pelanggan.`,
-    },
+    const kredit = kelebihan < payment.amount ? kelebihan : payment.amount;
+    const notesAsli =
+      invoice.payment.find((p) => p.id === payment.id)?.notes ?? null;
+    const ditandai = await tx.payment.updateMany({
+      where: { id: payment.id, kelebihanBayar: null },
+      data: {
+        kelebihanBayar: kredit,
+        notes: `${notesAsli ? `${notesAsli}\n` : ""}Kelebihan bayar Rp ${Number(kredit).toLocaleString("id-ID")} dikreditkan ke saldo kredit pelanggan.`,
+      },
+    });
+    return ditandai.count === 0 ? null : { kredit, notesAsli };
   });
-  if (ditandai.count === 0) return;
+}
+
+async function kreditkanKelebihan(payment: CheckoutPayment, invoiceId: string) {
+  const penanda = await tandaiKelebihan(payment, invoiceId);
+  if (!penanda) return;
+  const { kredit, notesAsli } = penanda;
 
   try {
     await prismaAuth.pelanggan.update({
