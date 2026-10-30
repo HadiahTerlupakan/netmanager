@@ -27,6 +27,7 @@ import { WebhookIdempotencyService } from "./WebhookIdempotencyService";
 import { getPaymentGatewayMetrics } from "./PaymentGatewayMetrics";
 import type { WebhookResult } from "./provider-interface";
 import { recordGatewayFee } from "./gateway-fee";
+import { creditCheckoutOverpayment } from "./overpayment-credit";
 import {
   hasAmountMismatch,
   normalizePaymentMethod,
@@ -238,6 +239,7 @@ export class WebhookProcessingService {
       // proses yang mati setelah commit dipulihkan oleh retry gateway.
       if (payment.gatewayStatus === "PAID") {
         await settleCheckoutInvoices(checkout);
+        await creditCheckoutOverpayment(checkout);
         await this.idempotencyService.markAsProcessed(webhookEventId);
         this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);
         return {
@@ -317,6 +319,7 @@ export class WebhookProcessingService {
         await recordGatewayFee(provider, payment);
         await restoreReleasedCoupons(checkout);
         await settleCheckoutInvoices(checkout);
+        await creditCheckoutOverpayment(checkout);
       } else if (outcome && isUnpaidTerminalStatus(outcome)) {
         await releaseCheckoutCoupons(checkout);
       }

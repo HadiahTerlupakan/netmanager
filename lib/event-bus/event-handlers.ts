@@ -201,6 +201,7 @@ export function registerDefaultHandlers(): void {
   );
   registerEventHandler(EVENT_NAMES.INVOICE_OVERDUE, handleInvoiceNotification);
   registerEventHandler(EVENT_NAMES.PAYMENT_FAILED, handleInvoiceNotification);
+  registerEventHandler(EVENT_NAMES.PAYMENT_OVERPAID, handleInvoiceNotification);
 
   // --- NOTIFICATION EVENTS (best-effort — tidak re-throw karena WebSocket/realtime
   // bersifat non-critical; kegagalan tidak boleh block BullMQ retry untuk event lain) ---

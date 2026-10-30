@@ -128,6 +128,10 @@ model Payment {
   qrString        String?
   // Biaya gateway untuk payment lunas, dari API cek status gateway.
   gatewayFee      BigInt?
+  // Bagian payment ini yang melebihi tagihan dan dikreditkan ke saldo
+  // pelanggan (VA lama yang tetap dibayar setelah ganti metode). Terisi
+  // berarti sudah dikreditkan; retry webhook tidak mengkreditkan lagi.
+  kelebihanBayar  BigInt?
   expiresAt       DateTime?
 
   unmatchedMutationId String?            @unique

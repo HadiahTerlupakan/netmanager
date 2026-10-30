@@ -5550,12 +5550,14 @@ export namespace Prisma {
     amount: number | null
     discountAmount: number | null
     gatewayFee: number | null
+    kelebihanBayar: number | null
   }
 
   export type PaymentSumAggregateOutputType = {
     amount: bigint | null
     discountAmount: bigint | null
     gatewayFee: bigint | null
+    kelebihanBayar: bigint | null
   }
 
   export type PaymentMinAggregateOutputType = {
@@ -5583,6 +5585,7 @@ export namespace Prisma {
     vaNumber: string | null
     qrString: string | null
     gatewayFee: bigint | null
+    kelebihanBayar: bigint | null
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
@@ -5614,6 +5617,7 @@ export namespace Prisma {
     vaNumber: string | null
     qrString: string | null
     gatewayFee: bigint | null
+    kelebihanBayar: bigint | null
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
@@ -5645,6 +5649,7 @@ export namespace Prisma {
     vaNumber: number
     qrString: number
     gatewayFee: number
+    kelebihanBayar: number
     expiresAt: number
     unmatchedMutationId: number
     receiptUrl: number
@@ -5657,12 +5662,14 @@ export namespace Prisma {
     amount?: true
     discountAmount?: true
     gatewayFee?: true
+    kelebihanBayar?: true
   }
 
   export type PaymentSumAggregateInputType = {
     amount?: true
     discountAmount?: true
     gatewayFee?: true
+    kelebihanBayar?: true
   }
 
   export type PaymentMinAggregateInputType = {
@@ -5690,6 +5697,7 @@ export namespace Prisma {
     vaNumber?: true
     qrString?: true
     gatewayFee?: true
+    kelebihanBayar?: true
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
@@ -5721,6 +5729,7 @@ export namespace Prisma {
     vaNumber?: true
     qrString?: true
     gatewayFee?: true
+    kelebihanBayar?: true
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
@@ -5752,6 +5761,7 @@ export namespace Prisma {
     vaNumber?: true
     qrString?: true
     gatewayFee?: true
+    kelebihanBayar?: true
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
@@ -5870,6 +5880,7 @@ export namespace Prisma {
     vaNumber: string | null
     qrString: string | null
     gatewayFee: bigint | null
+    kelebihanBayar: bigint | null
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
@@ -5920,6 +5931,7 @@ export namespace Prisma {
     vaNumber?: boolean
     qrString?: boolean
     gatewayFee?: boolean
+    kelebihanBayar?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
@@ -5953,6 +5965,7 @@ export namespace Prisma {
     vaNumber?: boolean
     qrString?: boolean
     gatewayFee?: boolean
+    kelebihanBayar?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
@@ -5986,6 +5999,7 @@ export namespace Prisma {
     vaNumber?: boolean
     qrString?: boolean
     gatewayFee?: boolean
+    kelebihanBayar?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
@@ -6019,13 +6033,14 @@ export namespace Prisma {
     vaNumber?: boolean
     qrString?: boolean
     gatewayFee?: boolean
+    kelebihanBayar?: boolean
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
     tenantId?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "discountAmount" | "checkoutId" | "couponUsageId" | "couponId" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "vaNumber" | "qrString" | "gatewayFee" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "tenantId", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "discountAmount" | "checkoutId" | "couponUsageId" | "couponId" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "vaNumber" | "qrString" | "gatewayFee" | "kelebihanBayar" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "tenantId", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -6070,6 +6085,7 @@ export namespace Prisma {
       vaNumber: string | null
       qrString: string | null
       gatewayFee: bigint | null
+      kelebihanBayar: bigint | null
       expiresAt: Date | null
       unmatchedMutationId: string | null
       receiptUrl: string | null
@@ -6523,6 +6539,7 @@ export namespace Prisma {
     readonly vaNumber: FieldRef<"Payment", 'String'>
     readonly qrString: FieldRef<"Payment", 'String'>
     readonly gatewayFee: FieldRef<"Payment", 'BigInt'>
+    readonly kelebihanBayar: FieldRef<"Payment", 'BigInt'>
     readonly expiresAt: FieldRef<"Payment", 'DateTime'>
     readonly unmatchedMutationId: FieldRef<"Payment", 'String'>
     readonly receiptUrl: FieldRef<"Payment", 'String'>
@@ -10657,6 +10674,7 @@ export namespace Prisma {
     vaNumber: 'vaNumber',
     qrString: 'qrString',
     gatewayFee: 'gatewayFee',
+    kelebihanBayar: 'kelebihanBayar',
     expiresAt: 'expiresAt',
     unmatchedMutationId: 'unmatchedMutationId',
     receiptUrl: 'receiptUrl',
@@ -11401,6 +11419,7 @@ export namespace Prisma {
     vaNumber?: StringNullableFilter<"Payment"> | string | null
     qrString?: StringNullableFilter<"Payment"> | string | null
     gatewayFee?: BigIntNullableFilter<"Payment"> | bigint | number | null
+    kelebihanBayar?: BigIntNullableFilter<"Payment"> | bigint | number | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
@@ -11434,6 +11453,7 @@ export namespace Prisma {
     vaNumber?: SortOrderInput | SortOrder
     qrString?: SortOrderInput | SortOrder
     gatewayFee?: SortOrderInput | SortOrder
+    kelebihanBayar?: SortOrderInput | SortOrder
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
     receiptUrl?: SortOrderInput | SortOrder
@@ -11471,6 +11491,7 @@ export namespace Prisma {
     vaNumber?: StringNullableFilter<"Payment"> | string | null
     qrString?: StringNullableFilter<"Payment"> | string | null
     gatewayFee?: BigIntNullableFilter<"Payment"> | bigint | number | null
+    kelebihanBayar?: BigIntNullableFilter<"Payment"> | bigint | number | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
     tenantId?: StringNullableFilter<"Payment"> | string | null
@@ -11503,6 +11524,7 @@ export namespace Prisma {
     vaNumber?: SortOrderInput | SortOrder
     qrString?: SortOrderInput | SortOrder
     gatewayFee?: SortOrderInput | SortOrder
+    kelebihanBayar?: SortOrderInput | SortOrder
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
     receiptUrl?: SortOrderInput | SortOrder
@@ -11542,6 +11564,7 @@ export namespace Prisma {
     vaNumber?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     qrString?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     gatewayFee?: BigIntNullableWithAggregatesFilter<"Payment"> | bigint | number | null
+    kelebihanBayar?: BigIntNullableWithAggregatesFilter<"Payment"> | bigint | number | null
     expiresAt?: DateTimeNullableWithAggregatesFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     receiptUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
@@ -12329,6 +12352,7 @@ export namespace Prisma {
     vaNumber?: string | null
     qrString?: string | null
     gatewayFee?: bigint | number | null
+    kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
     tenantId?: string | null
@@ -12361,6 +12385,7 @@ export namespace Prisma {
     vaNumber?: string | null
     qrString?: string | null
     gatewayFee?: bigint | number | null
+    kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
@@ -12391,6 +12416,7 @@ export namespace Prisma {
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
     gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12423,6 +12449,7 @@ export namespace Prisma {
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
     gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12454,6 +12481,7 @@ export namespace Prisma {
     vaNumber?: string | null
     qrString?: string | null
     gatewayFee?: bigint | number | null
+    kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
@@ -12484,6 +12512,7 @@ export namespace Prisma {
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
     gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12514,6 +12543,7 @@ export namespace Prisma {
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
     gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -13552,6 +13582,7 @@ export namespace Prisma {
     vaNumber?: SortOrder
     qrString?: SortOrder
     gatewayFee?: SortOrder
+    kelebihanBayar?: SortOrder
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
@@ -13562,6 +13593,7 @@ export namespace Prisma {
     amount?: SortOrder
     discountAmount?: SortOrder
     gatewayFee?: SortOrder
+    kelebihanBayar?: SortOrder
   }
 
   export type PaymentMaxOrderByAggregateInput = {
@@ -13589,6 +13621,7 @@ export namespace Prisma {
     vaNumber?: SortOrder
     qrString?: SortOrder
     gatewayFee?: SortOrder
+    kelebihanBayar?: SortOrder
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
@@ -13620,6 +13653,7 @@ export namespace Prisma {
     vaNumber?: SortOrder
     qrString?: SortOrder
     gatewayFee?: SortOrder
+    kelebihanBayar?: SortOrder
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
@@ -13630,6 +13664,7 @@ export namespace Prisma {
     amount?: SortOrder
     discountAmount?: SortOrder
     gatewayFee?: SortOrder
+    kelebihanBayar?: SortOrder
   }
 
   export type EnumPaymentMethodWithAggregatesFilter<$PrismaModel = never> = {
@@ -14812,6 +14847,7 @@ export namespace Prisma {
     vaNumber?: string | null
     qrString?: string | null
     gatewayFee?: bigint | number | null
+    kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
     tenantId?: string | null
@@ -14842,6 +14878,7 @@ export namespace Prisma {
     vaNumber?: string | null
     qrString?: string | null
     gatewayFee?: bigint | number | null
+    kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
@@ -14988,6 +15025,7 @@ export namespace Prisma {
     vaNumber?: StringNullableFilter<"Payment"> | string | null
     qrString?: StringNullableFilter<"Payment"> | string | null
     gatewayFee?: BigIntNullableFilter<"Payment"> | bigint | number | null
+    kelebihanBayar?: BigIntNullableFilter<"Payment"> | bigint | number | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
@@ -15513,6 +15551,7 @@ export namespace Prisma {
     vaNumber?: string | null
     qrString?: string | null
     gatewayFee?: bigint | number | null
+    kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
     tenantId?: string | null
@@ -15544,6 +15583,7 @@ export namespace Prisma {
     vaNumber?: string | null
     qrString?: string | null
     gatewayFee?: bigint | number | null
+    kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
     tenantId?: string | null
@@ -15589,6 +15629,7 @@ export namespace Prisma {
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
     gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15620,6 +15661,7 @@ export namespace Prisma {
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
     gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15659,6 +15701,7 @@ export namespace Prisma {
     vaNumber?: string | null
     qrString?: string | null
     gatewayFee?: bigint | number | null
+    kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
@@ -15742,6 +15785,7 @@ export namespace Prisma {
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
     gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15772,6 +15816,7 @@ export namespace Prisma {
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
     gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
@@ -15802,6 +15847,7 @@ export namespace Prisma {
     vaNumber?: NullableStringFieldUpdateOperationsInput | string | null
     qrString?: NullableStringFieldUpdateOperationsInput | string | null
     gatewayFee?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null

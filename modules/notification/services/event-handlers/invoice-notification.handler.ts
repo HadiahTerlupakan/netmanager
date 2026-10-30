@@ -36,6 +36,7 @@ const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.INVOICE_REMINDER_DUE]: "invoiceReminder",
   [EVENT_NAMES.INVOICE_OVERDUE]: "invoiceReminder",
   [EVENT_NAMES.PAYMENT_FAILED]: "paymentExpired",
+  [EVENT_NAMES.PAYMENT_OVERPAID]: "overpaymentCredited",
 };
 
 // Checkout yang ditinggal cukup diingatkan di portal dan aplikasi; WhatsApp

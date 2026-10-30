@@ -819,6 +819,15 @@ export default function CustomerInvoicesPage() {
             </div>
 
             <div className="space-y-4 max-h-[70vh] overflow-y-auto hide-scrollbar pb-2">
+              {/* Duitku tidak bisa menutup VA lebih awal; kelebihan bayar
+                  dikreditkan ke saldo oleh webhook. */}
+              {activePayment && (
+                <p className="text-xs rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                  Nomor VA/QRIS sebelumnya akan diganti. Bayar hanya yang baru;
+                  bila terlanjur membayar keduanya, kelebihannya menjadi saldo
+                  yang memotong tagihan berikutnya.
+                </p>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">
                   Total Tagihan ({pendingInvoices.length} item)

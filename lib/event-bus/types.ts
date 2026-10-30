@@ -42,6 +42,7 @@ export const EVENT_NAMES = {
   INVOICE_REMINDER_DUE: "billing:invoice.reminder_due",
   INVOICE_AUTO_ISOLATE_REQUESTED: "billing:invoice.auto_isolate_requested",
   PAYMENT_FAILED: "billing:payment.failed",
+  PAYMENT_OVERPAID: "billing:payment.overpaid",
   COUPON_USED: "billing:coupon.used",
   PACKAGE_CHANGED: "billing:package.changed",
 
@@ -143,6 +144,13 @@ export interface InvoiceCreatedPayload extends BaseEventPayload {
   pelangganId: string;
   amount: number;
   dueDate: string;
+}
+
+/** Kelebihan bayar sebuah invoice yang dikreditkan ke saldo pelanggan. */
+export interface PaymentOverpaidPayload extends BaseEventPayload {
+  invoiceId: string;
+  pelangganId: string;
+  amount: number;
 }
 
 export interface InvoicePaidPayload extends BaseEventPayload {
@@ -671,6 +679,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVOICE_REMINDER_DUE]: InvoiceReminderDuePayload;
   [EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED]: InvoiceAutoIsolatePayload;
   [EVENT_NAMES.PAYMENT_FAILED]: InvoiceCreatedPayload;
+  [EVENT_NAMES.PAYMENT_OVERPAID]: PaymentOverpaidPayload;
   [EVENT_NAMES.COUPON_USED]: CouponUsedPayload;
   [EVENT_NAMES.CUSTOMER_CREATED]: CustomerCreatedPayload;
   [EVENT_NAMES.CUSTOMER_UPDATED]: CustomerCreatedPayload;
@@ -818,6 +827,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.PAYMENT_FAILED]: {
     name: EVENT_NAMES.PAYMENT_FAILED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PAYMENT_OVERPAID]: {
+    name: EVENT_NAMES.PAYMENT_OVERPAID,
     category: "billing",
     priority: JOB_PRIORITIES.HIGH,
     persistent: true,

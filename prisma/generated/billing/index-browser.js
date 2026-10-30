@@ -204,6 +204,7 @@ exports.Prisma.PaymentScalarFieldEnum = {
   vaNumber: 'vaNumber',
   qrString: 'qrString',
   gatewayFee: 'gatewayFee',
+  kelebihanBayar: 'kelebihanBayar',
   expiresAt: 'expiresAt',
   unmatchedMutationId: 'unmatchedMutationId',
   receiptUrl: 'receiptUrl',

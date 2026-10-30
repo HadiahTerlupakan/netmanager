@@ -126,6 +126,18 @@ export const BILLING_TEMPLATES = {
     push: (p) =>
       `Waktu bayar${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} habis, silakan bayar lagi`,
   },
+  overpaymentCredited: {
+    title: "Kelebihan bayar menjadi saldo",
+    inApp: (p) =>
+      `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} terbayar lebih dari sekali. Kelebihan ${formatRupiah(p.amountDue)} kami simpan sebagai saldo dan otomatis memotong tagihan berikutnya.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nTagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} terbayar lebih dari sekali. Kelebihan ${formatRupiah(p.amountDue)} kami simpan sebagai saldo dan otomatis memotong tagihan berikutnya.\n\nHubungi kami bila Anda ingin dana tersebut dikembalikan.`,
+    email: (p) => ({
+      subject: "Kelebihan bayar disimpan sebagai saldo",
+      body: `Halo ${p.customerName},\n\nTagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} terbayar lebih dari sekali. Kelebihan ${formatRupiah(p.amountDue)} kami simpan sebagai saldo dan otomatis memotong tagihan berikutnya.\n\nHubungi kami bila Anda ingin dana tersebut dikembalikan.`,
+    }),
+    push: (p) => `Kelebihan bayar ${formatRupiah(p.amountDue)} menjadi saldo`,
+  },
   customerIsolated: {
     title: "Layanan diisolir",
     inApp: () =>

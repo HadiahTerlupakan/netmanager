@@ -95,6 +95,28 @@ describe("InvoiceNotificationHandler", () => {
     );
   });
 
+  // Pembayaran kedua dari VA lama dikreditkan ke saldo; pelanggan perlu tahu
+  // uangnya tidak hilang, di semua kanal karena ini soal uang.
+  it("PAYMENT_OVERPAID → overpaymentCredited di semua kanal", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.PAYMENT_OVERPAID, {
+        invoiceId: "inv-1",
+        pelangganId: "cust-1",
+        amount: 11100,
+      }),
+    );
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "overpaymentCredited",
+        channels: undefined,
+        params: expect.objectContaining({
+          amountDue: 11100,
+          invoiceNumber: "INV/2026/001",
+        }),
+      }),
+    );
+  });
+
   it("INVOICE_REMINDER_DUE → dispatch invoiceReminder dengan reminderType", async () => {
     await handleInvoiceNotification(
       buildJob(EVENT_NAMES.INVOICE_REMINDER_DUE, {

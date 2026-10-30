@@ -74,6 +74,19 @@ export class BillingEventDispatcher {
   }
 
   /**
+   * Pembayaran yang melebihi tagihan (VA lama yang tetap dibayar setelah
+   * ganti metode) sudah dikreditkan ke saldo; pelanggan diberi tahu.
+   */
+  static async onPaymentOverpaid(data: {
+    invoiceId: string;
+    pelangganId: string;
+    amount: number;
+    tenantId?: string;
+  }) {
+    await eventBus.publish(EVENT_NAMES.PAYMENT_OVERPAID, data);
+  }
+
+  /**
    * Diemit oleh scheduler ketika invoice overdue + grace period habis dan pelanggan perlu di-isolir.
    */
   static async onAutoIsolateRequested(data: {

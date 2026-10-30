@@ -20,6 +20,11 @@ const mockFns = vi.hoisted(() => ({
   settleCheckoutInvoices: vi.fn(),
   releaseCheckoutCoupons: vi.fn(),
   restoreReleasedCoupons: vi.fn(),
+  creditCheckoutOverpayment: vi.fn(),
+}));
+
+vi.mock("@/modules/payment-gateway/services/overpayment-credit", () => ({
+  creditCheckoutOverpayment: mockFns.creditCheckoutOverpayment,
 }));
 
 vi.mock(
@@ -167,6 +172,9 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
       }),
     );
     expect(mockFns.settleCheckoutInvoices).toHaveBeenCalledWith(CHECKOUT);
+    // Invoice-nya bisa sudah lunas oleh metode pengganti: kelebihannya
+    // menjadi saldo, bukan diterima diam-diam.
+    expect(mockFns.creditCheckoutOverpayment).toHaveBeenCalledWith(CHECKOUT);
   });
 
   it("nominal dicocokkan dengan total checkout, bukan payment pertama", async () => {
@@ -186,6 +194,7 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
     await webhook("PAID");
 
     expect(mockFns.settleCheckoutInvoices).toHaveBeenCalledWith(CHECKOUT);
+    expect(mockFns.creditCheckoutOverpayment).toHaveBeenCalledWith(CHECKOUT);
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
   });
 
