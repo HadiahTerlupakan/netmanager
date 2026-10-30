@@ -379,15 +379,33 @@ export async function getTenantIdFromContext(): Promise<TenantContextResult> {
         }
 
         // 1c. Token investor aplikasi mobile (audience terpisah dari token karyawan).
-        const { verifyInvestorMobileToken } = await import(
-          "./mobile-investor-auth"
+        const { verifyInvestorMobileToken } =
+          await import("./mobile-investor-auth");
+        const investorSession = await verifyInvestorMobileToken(
+          token,
+          "access",
         );
-        const investorSession = await verifyInvestorMobileToken(token, "access");
         if (investorSession?.tenantId) {
           return cacheTenantContextForRequest(
             requestHeaders,
             await enforceSessionHostMatch(
               { tenantId: investorSession.tenantId, isSuperAdmin: false },
+              requestHeaders,
+            ),
+          );
+        }
+
+        // 1d. Token pelanggan aplikasi mobile. Tanpa ini konteks jatuh ke
+        // host, dan radpro.id tidak dipetakan ke tenant di production —
+        // setiap /api/customer/* dari aplikasi gagal TenantContextError, dan
+        // pelanggan mitra memang tidak pernah bisa sampai ke tenant-nya.
+        const { verifyPelangganAccessToken } = await import("./jwt");
+        const customerSession = verifyPelangganAccessToken(token);
+        if (customerSession?.tenantId) {
+          return cacheTenantContextForRequest(
+            requestHeaders,
+            await enforceSessionHostMatch(
+              { tenantId: customerSession.tenantId, isSuperAdmin: false },
               requestHeaders,
             ),
           );
