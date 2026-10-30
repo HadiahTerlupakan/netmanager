@@ -7,13 +7,17 @@ const mockFns = vi.hoisted(() => ({
 
 vi.mock("next/headers", () => ({
   headers: mockFns.headers,
-  cookies: async () => ({ get: () => undefined }),
+  cookies: async (): Promise<{ get: () => undefined }> => ({
+    get: () => undefined,
+  }),
 }));
 // Staff and investor verification reject a customer token; only the customer
 // path may claim it.
-vi.mock("@/lib/mobile-auth", () => ({ verifyMobileToken: async () => null }));
+vi.mock("@/lib/mobile-auth", () => ({
+  verifyMobileToken: async (): Promise<null> => null,
+}));
 vi.mock("@/lib/mobile-investor-auth", () => ({
-  verifyInvestorMobileToken: async () => null,
+  verifyInvestorMobileToken: async (): Promise<null> => null,
 }));
 
 /**
