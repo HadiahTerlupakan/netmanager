@@ -57,7 +57,7 @@ export function mapMessages(
           type: reply.isFromAdmin ? "admin" : "customer",
         }
       : null,
-    attachments: [] as TicketAttachmentDTO[],
+    attachments: reply.attachments ?? [],
   }));
 }
 

@@ -135,7 +135,9 @@ export class SupportTicketMapper {
             email: entity.assignedTo.email,
           }
         : null,
-      dilaporkanOleh: entity.dilaporkanOleh ? { id: entity.dilaporkanOleh.id, name: entity.dilaporkanOleh.name } : null,
+      dilaporkanOleh: entity.dilaporkanOleh
+        ? { id: entity.dilaporkanOleh.id, name: entity.dilaporkanOleh.name }
+        : null,
       replies: mapReplyEntities(entity.replies),
       attachments: mapAttachments(entity.attachments ?? []),
       replyCount: entity._count?.replies ?? 0,
@@ -203,7 +205,7 @@ export class SupportTicketMapper {
             email: entity.assignedTo.email ?? "",
           }
         : null,
-      messages: mapMessages(entity.replies ?? []),
+      replies: mapMessages(entity.replies ?? []),
       attachments: mapAttachments(entity.attachments ?? []),
     };
   }
@@ -258,7 +260,9 @@ export class SupportTicketMapper {
   }
 
   /** Map daftar tiket admin; relasi "user" pada tiket = petugas yang ditugaskan. */
-  static toAdminList(entities: SupportTicketEntity[]): AdminTicketListItemDTO[] {
+  static toAdminList(
+    entities: SupportTicketEntity[],
+  ): AdminTicketListItemDTO[] {
     const ringkas = this.toCustomerList(entities);
     return entities.map((entity, indeks) => ({
       ...ringkas[indeks],
@@ -273,7 +277,9 @@ export class SupportTicketMapper {
             email: entity.pelanggan.email ?? null,
           }
         : null,
-      assignedTo: entity.user ? { id: entity.user.id ?? "", name: entity.user.name ?? null } : null,
+      assignedTo: entity.user
+        ? { id: entity.user.id ?? "", name: entity.user.name ?? null }
+        : null,
       dilaporkanOleh: entity.dilaporkanOleh ?? null,
     }));
   }

@@ -60,8 +60,8 @@ export interface TicketDetailDTO {
     name: string | null;
     email: string;
   } | null;
-  // Messages
-  messages: TicketMessageDTO[];
+  // Named `replies`: the portal page and the mobile app read ticket.replies.
+  replies: TicketMessageDTO[];
   // Attachments
   attachments: TicketAttachmentDTO[];
 }
@@ -79,7 +79,8 @@ export interface TicketMessageDTO {
     name: string | null;
     type: "admin" | "customer";
   } | null;
-  attachments: TicketAttachmentDTO[];
+  /** URLs of the files attached to this reply. */
+  attachments: string[];
 }
 
 /**
