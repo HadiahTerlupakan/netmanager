@@ -31,7 +31,7 @@ import {
   kanonikJalurUpload,
 } from "./lib/upload/upload-policy";
 import {
-  bolehBacaJalurUpload,
+  bolehBacaUpload,
   pembacaUploadDariSesi,
 } from "./lib/upload/upload-access";
 import { logger } from "./lib/logger";
@@ -149,7 +149,7 @@ app.prepare().then(() => {
 
         // Sesi yang sah milik tenant lain bukan masalah sesi, jadi jawabannya
         // 403 — bukan 401 yang akan menyuruh orang login ulang tanpa guna.
-        if (!bolehBacaJalurUpload(pembaca, jalurUpload)) {
+        if (!(await bolehBacaUpload(pembaca, jalurUpload))) {
           logger.warn(
             `[Server] Cross-tenant upload access blocked for ${jalurUpload} (tenant ${pembaca.tenantId ?? "-"})`,
           );

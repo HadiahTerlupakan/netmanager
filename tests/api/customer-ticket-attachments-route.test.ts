@@ -66,8 +66,10 @@ describe("POST /api/customer/tickets/attachments", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.url).toBe("/uploads/tickets/upload-1.webp");
+    // Each customer uploads into their own folder; /uploads/ and the reply
+    // route both key ownership on it.
     expect(mockFns.convertAndSaveImage.mock.calls[0]![1]).toBe(
-      "public/uploads/tickets",
+      "public/uploads/tickets/p-pelanggan-1",
     );
   });
 

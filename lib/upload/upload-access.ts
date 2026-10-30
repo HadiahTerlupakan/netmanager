@@ -1,7 +1,12 @@
 import { getToken } from "next-auth/jwt";
 
+import { canUseCustomerPortal } from "@/lib/customer-portal-access";
+import { verifyPelangganAccessToken } from "@/lib/jwt";
 import { verifyMobileToken } from "@/lib/mobile-auth";
 import { logger } from "@/lib/logger";
+import { prismaAuth } from "@/lib/prisma";
+import { lampiranMilikPelanggan } from "@/lib/upload/lampiran-pelanggan";
+import { bacaLampiranTiket } from "@/lib/upload/lampiran-tiket";
 import { tenantJalurUpload } from "@/lib/upload/upload-policy";
 
 /**
@@ -18,6 +23,10 @@ import { tenantJalurUpload } from "@/lib/upload/upload-policy";
  * file tenant lain asal tahu URL-nya. File yang jalurnya sudah ber-namespace
  * tenant (`/uploads/tenants/<id>/…`) kini hanya bisa dibaca oleh tenant itu
  * sendiri atau super admin.
+ *
+ * Pelanggan punya token sendiri (cookie `customer-token` di portal, Bearer di
+ * aplikasi) dan hanya boleh membuka unggahannya sendiri (lihat
+ * lampiran-pelanggan.ts) serta berkas yang dilampirkan staf di tiketnya.
  */
 
 interface PermintaanUpload {
@@ -27,6 +36,60 @@ interface PermintaanUpload {
 interface PembacaUpload {
   tenantId: string | null;
   isSuperAdmin: boolean;
+  /** Terisi untuk sesi pelanggan; aksesnya dicek per tiket, bukan per tenant. */
+  pelangganId?: string;
+}
+
+/** Cookie sesi portal pelanggan; sama dengan CUSTOMER_ACCESS_TOKEN_COOKIE. */
+const COOKIE_PELANGGAN = "customer-token";
+
+/**
+ * Sesi pelanggan dari token portal (cookie) atau token aplikasi (Bearer).
+ * Akun yang sudah tidak boleh memakai portal ditolak, sama seperti
+ * `requireCustomerAuth`.
+ */
+function pembacaPelanggan(
+  token: string | null | undefined,
+): PembacaUpload | null {
+  if (!token) return null;
+  const payload = verifyPelangganAccessToken(token);
+  if (!payload || !canUseCustomerPortal(payload.status)) return null;
+  return {
+    tenantId: payload.tenantId ?? null,
+    isSuperAdmin: false,
+    pelangganId: payload.id,
+  };
+}
+
+/**
+ * Apakah staf melampirkan berkas ini di tiket milik pelanggan tersebut.
+ * Hanya balasan staf: jalur di balasan pelanggan ia tulis sendiri dan tidak
+ * membuktikan kepemilikan. Memakai `prismaAuth` karena server.ts melayani
+ * `/uploads/` di luar konteks tenant request; saringan `pelangganId` sudah
+ * membatasi ke pemilik tiket.
+ */
+async function dilampirkanStafDiTiketPelanggan(
+  pelangganId: string,
+  pathname: string,
+): Promise<boolean> {
+  // Postgres hanya menyaring kandidat: sinkron WO menyimpan daftarnya sebagai
+  // string JSON, yang cuma bisa dicari per potongan teks. Kecocokan utuh per
+  // elemen diputuskan di bawah, jadi awalan jalur tidak ikut lolos.
+  const kandidat = await prismaAuth.ticketReplies.findMany({
+    where: {
+      isFromAdmin: true,
+      supportTickets: { pelangganId },
+      OR: [
+        { attachments: { array_contains: [pathname] } },
+        { attachments: { string_contains: pathname } },
+      ],
+    },
+    select: { attachments: true },
+    take: 20,
+  });
+  return kandidat.some((balasan) =>
+    bacaLampiranTiket(balasan.attachments).includes(pathname),
+  );
 }
 
 /** Ambil nilai Bearer dari header Authorization; null bila bukan Bearer. */
@@ -92,17 +155,22 @@ export async function pembacaUploadDariSesi(
     } catch (error) {
       logger.warn("[Upload] Verifikasi token mobile gagal:", error);
     }
+
+    const pelanggan = pembacaPelanggan(bearer);
+    if (pelanggan) return pelanggan;
   }
+
+  const cookies = uraiCookie(req.headers.cookie);
 
   const token = await getToken({
     req: {
       headers: req.headers,
-      cookies: uraiCookie(req.headers.cookie),
+      cookies,
     } as unknown as import("next-auth/jwt").GetTokenParams["req"],
     secret: process.env.NEXTAUTH_SECRET,
   });
 
-  if (!token) return null;
+  if (!token) return pembacaPelanggan(cookies[COOKIE_PELANGGAN]);
 
   return {
     tenantId: (token.tenantId as string | null) ?? null,
@@ -122,11 +190,28 @@ export function bolehBacaJalurUpload(
   pembaca: PembacaUpload,
   pathname: string,
 ): boolean {
+  // Pelanggan tidak memakai aturan tenant staf; lihat bolehBacaUpload.
+  if (pembaca.pelangganId) return false;
+
   const tenantJalur = tenantJalurUpload(pathname);
   if (!tenantJalur) return true;
   if (pembaca.isSuperAdmin) return true;
 
   return pembaca.tenantId === tenantJalur;
+}
+
+/** Aturan baca untuk staf (per tenant) maupun pelanggan (per kepemilikan). */
+export async function bolehBacaUpload(
+  pembaca: PembacaUpload,
+  pathname: string,
+): Promise<boolean> {
+  if (pembaca.pelangganId) {
+    return (
+      lampiranMilikPelanggan(pathname, pembaca.pelangganId) ||
+      dilampirkanStafDiTiketPelanggan(pembaca.pelangganId, pathname)
+    );
+  }
+  return bolehBacaJalurUpload(pembaca, pathname);
 }
 
 /** Sesi sah sekaligus berhak atas jalur yang diminta. */
@@ -137,5 +222,5 @@ export async function punyaAksesBacaUpload(
   const pembaca = await pembacaUploadDariSesi(req);
   if (!pembaca) return false;
 
-  return bolehBacaJalurUpload(pembaca, pathname);
+  return bolehBacaUpload(pembaca, pathname);
 }

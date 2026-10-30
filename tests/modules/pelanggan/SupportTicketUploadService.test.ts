@@ -94,6 +94,7 @@ describe("SupportTicketUploadService", () => {
       "public/uploads/tickets",
       "upload-id",
       "tickets",
+      undefined,
     );
     expect(result).toEqual({
       ok: true,
@@ -103,5 +104,29 @@ describe("SupportTicketUploadService", () => {
         originalName: "bukti.png",
       },
     });
+  });
+
+  it("menyimpan unggahan pelanggan di folder pemiliknya", async () => {
+    const saveImage = vi
+      .fn()
+      .mockResolvedValue("/uploads/tickets/p-pelanggan-1/upload-id.webp");
+    const service = new SupportTicketUploadService({
+      createId: () => "upload-id",
+      saveImage,
+    });
+    const file = fileWithBytes(PNG_BYTES, { name: "bukti.png" });
+
+    const result = await service.upload(file, "p-pelanggan-1");
+
+    expect(saveImage).toHaveBeenCalledWith(
+      file,
+      "public/uploads/tickets/p-pelanggan-1",
+      "upload-id",
+      "tickets",
+      "p-pelanggan-1",
+    );
+    expect(result.ok && result.data.url).toBe(
+      "/uploads/tickets/p-pelanggan-1/upload-id.webp",
+    );
   });
 });

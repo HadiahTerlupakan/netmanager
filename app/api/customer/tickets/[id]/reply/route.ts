@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { ApiErrors } from "@/lib/api-response";
 import { requireCustomerAuth } from "@/lib/customer-auth";
+import { lampiranMilikPelanggan } from "@/lib/upload/lampiran-pelanggan";
 import { SupportTicketService } from "@/modules/pelanggan";
 import {
   customerTicketErrorResponse,
@@ -44,6 +46,15 @@ export async function POST(
 
   const body = await parseCustomerTicketBody(request, replyTicketSchema);
   if (body.response) return body.response;
+
+  // /uploads/ opens a customer's own folder to them, so a reply may carry
+  // only files from that folder, never a path cited from someone else's.
+  const lampiran = body.data.attachments ?? [];
+  if (
+    !lampiran.every((jalur) => lampiranMilikPelanggan(jalur, auth.session.id))
+  ) {
+    return ApiErrors.badRequest("Lampiran tidak valid");
+  }
 
   const { id } = await params;
 

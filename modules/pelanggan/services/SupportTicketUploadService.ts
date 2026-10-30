@@ -50,16 +50,23 @@ export class SupportTicketUploadService {
     this.saveImage = dependencies.saveImage ?? convertAndSaveImage;
   }
 
-  async upload(file: File | null): Promise<SupportTicketUploadResult> {
+  /** `ownerFolder`: subfolder pemilik, dipakai untuk unggahan pelanggan. */
+  async upload(
+    file: File | null,
+    ownerFolder?: string,
+  ): Promise<SupportTicketUploadResult> {
     const invalidResult = await this.validateFile(file);
     if (invalidResult) return invalidResult;
 
     const uniqueId = this.createId();
     const publicUrl = await this.saveImage(
       file,
-      TICKET_UPLOAD_DIRECTORY,
+      ownerFolder
+        ? `${TICKET_UPLOAD_DIRECTORY}/${ownerFolder}`
+        : TICKET_UPLOAD_DIRECTORY,
       uniqueId,
       TICKET_STORAGE_CATEGORY,
+      ownerFolder,
     );
 
     return {

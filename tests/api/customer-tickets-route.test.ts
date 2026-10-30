@@ -252,7 +252,7 @@ describe("customer ticket routes", () => {
         method: "POST",
         body: {
           message: "Masih mati",
-          attachments: ["/uploads/tickets/foto.webp"],
+          attachments: ["/uploads/tickets/p-pelanggan-pemilik/foto.webp"],
         },
       }),
       routeParams(TICKET_ID),
@@ -264,7 +264,7 @@ describe("customer ticket routes", () => {
       id: "balasan-1",
       message: "Masih mati",
       isFromAdmin: false,
-      attachments: ["/uploads/tickets/foto.webp"],
+      attachments: ["/uploads/tickets/p-pelanggan-pemilik/foto.webp"],
     });
     const replyArgs = prismaMock.ticketReplies.create.mock.calls[0]![0] as {
       data: { pelangganId: string; ticketId: string };
@@ -280,6 +280,14 @@ describe("customer ticket routes", () => {
     ["domain luar", "https://evil.example/uploads/tickets/foto.webp"],
     ["keluar folder tiket", "/uploads/tickets/../logos/x.webp"],
     ["folder lain", "/uploads/logos/x.webp"],
+    // A customer may attach only what they uploaded: /uploads/ lets them read
+    // whatever sits in their own folder, so a foreign path must not get in.
+    ["folder tiket tanpa pemilik", "/uploads/tickets/foto.webp"],
+    ["folder pelanggan lain", "/uploads/tickets/p-orang-lain/foto.webp"],
+    [
+      "folder pelanggan lain di tenant",
+      "/uploads/tenants/tenant-1/tickets/p-orang-lain/foto.webp",
+    ],
   ])("menolak lampiran %s", async (_label, attachment) => {
     const response = await replyTicket(
       buildRequest(`/${TICKET_ID}/reply`, {
@@ -302,7 +310,7 @@ describe("customer ticket routes", () => {
         body: {
           message: "Masih mati",
           attachments: [
-            "/uploads/tenants/tenant-1/tickets/1700000000-foto.webp",
+            "/uploads/tenants/tenant-1/tickets/p-pelanggan-pemilik/1700000000-foto.webp",
           ],
         },
       }),

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { logger } from "@/lib/logger";
 import { requireCustomerAuth } from "@/lib/customer-auth";
+import { folderLampiranPelanggan } from "@/lib/upload/lampiran-pelanggan";
 import {
   apiError,
   apiSuccess,
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file");
     const result = await supportTicketUploadService.upload(
       file instanceof File ? file : null,
+      folderLampiranPelanggan(auth.session.id),
     );
 
     if (isUploadFailure(result)) {

@@ -40,11 +40,11 @@ describe("local upload access safety", () => {
   it("enforces tenant ownership after the session check", () => {
     const serverFile = readServerFile();
 
-    expect(serverFile).toContain("bolehBacaJalurUpload(pembaca, jalurUpload)");
+    expect(serverFile).toContain("bolehBacaUpload(pembaca, jalurUpload)");
 
     const sessionGateIndex = serverFile.indexOf("if (!pembaca) {");
     const tenantGateIndex = serverFile.indexOf(
-      "if (!bolehBacaJalurUpload(pembaca, jalurUpload)) {",
+      "if (!(await bolehBacaUpload(pembaca, jalurUpload))) {",
     );
 
     expect(tenantGateIndex).toBeGreaterThan(-1);
@@ -59,7 +59,7 @@ describe("local upload access safety", () => {
 
     expect(serverFile).toContain("kanonikJalurUpload(pathname)");
     expect(serverFile).toContain("isPublicUploadPath(jalurUpload)");
-    expect(serverFile).toContain("bolehBacaJalurUpload(pembaca, jalurUpload)");
+    expect(serverFile).toContain("bolehBacaUpload(pembaca, jalurUpload)");
     expect(serverFile).toContain(
       'const relativePath = jalurUpload.replace(/^\\/uploads\\//, "");',
     );
@@ -87,7 +87,7 @@ describe("local upload access safety", () => {
     expect(serverFile).toContain("downloadFromR2(kunciR2)");
 
     const tenantGateIndex = serverFile.indexOf(
-      "if (!bolehBacaJalurUpload(pembaca, jalurUpload)) {",
+      "if (!(await bolehBacaUpload(pembaca, jalurUpload))) {",
     );
     const r2Index = serverFile.indexOf("downloadFromR2(kunciR2)");
 
