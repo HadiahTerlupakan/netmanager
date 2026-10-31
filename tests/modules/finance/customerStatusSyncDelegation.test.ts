@@ -78,6 +78,14 @@ vi.mock("@/modules/finance/services/abandoned-manual-transfer", () => ({
   closeAbandonedManualTransfers: mockFns.closeAbandonedManualTransfers,
 }));
 
+vi.mock("@/modules/finance/services/customer-checkout-lock", () => ({
+  runAdminActionUnderCustomerCheckoutLock: (
+    _pelangganId: string,
+    _reason: string,
+    task: () => Promise<unknown>,
+  ) => task(),
+}));
+
 vi.mock("@/modules/events", () => ({
   BillingEventDispatcher: {
     onInvoicePaid: mockFns.onInvoicePaid,
@@ -114,6 +122,7 @@ describe("finance customer status sync delegation", () => {
     mockFns.onInvoicePaid.mockResolvedValue(undefined);
     mockFns.onIsolated.mockResolvedValue(undefined);
     mockFns.closeAbandonedManualTransfers.mockResolvedValue(0);
+    mockFns.voidInvoiceTransaction.mockResolvedValue(true);
     mockFns.findSetting.mockResolvedValue({ value: "true" });
     mockFns.findOverdueInvoices.mockResolvedValue([{ pelangganId: "cust-1" }]);
     mockFns.reconcile.mockResolvedValue({
@@ -242,5 +251,27 @@ describe("finance customer status sync delegation", () => {
       expect.stringContaining("inv-1 gagal ditutup"),
       expect.any(Error),
     );
+  });
+
+  // Klik ganda: void kedua menemukan invoice yang sudah dibatalkan dan tidak
+  // boleh memundurkan jatuh tempo pelanggan sebulan lagi.
+  it("void yang kalah dari void lain ditolak tanpa memundurkan jatuh tempo", async () => {
+    mockFns.findInvoice.mockResolvedValue({
+      id: "inv-1",
+      invoiceNumber: "INV-001",
+      status: "PAID",
+      notes: null,
+      discountAmount: 0n,
+      totalAmount: 100000,
+      pelangganId: "cust-1",
+    });
+    mockFns.voidInvoiceTransaction.mockResolvedValue(false);
+
+    await expect(
+      VoidInvoiceService.voidInvoice("inv-1", "salah tagih", "admin-1"),
+    ).rejects.toThrow(/^CONFLICT: Tagihan INV-001 baru saja diubah/);
+
+    expect(mockFns.bridgeUpdate).not.toHaveBeenCalled();
+    expect(mockFns.closeAbandonedManualTransfers).not.toHaveBeenCalled();
   });
 });

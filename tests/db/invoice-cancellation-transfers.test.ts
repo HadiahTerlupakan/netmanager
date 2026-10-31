@@ -11,7 +11,9 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
  *
  * Pembatalan lewat ubah tagihan juga mengembalikan saldo kredit dan membalik
  * jurnal seperti "Batalkan & Buat Tagihan Baru", dan seperti penghapusan
- * menolak tagihan yang sedang dibayar.
+ * menolak tagihan yang sedang dibayar. Void mengembalikan saldo kredit tepat
+ * sekali. Kunci checkout yang dipegang pelanggan dijawab dengan pesan untuk
+ * admin di jalur admin dan pesan untuk pelanggan di portal.
  *
  * "Batalkan & Buat Tagihan Baru" diuji di payment-settlement.test.ts. Yang
  * di-mock hanya event bus, antrean schedule BullMQ, kunci Redis, dan
@@ -63,9 +65,11 @@ vi.mock("@/modules/accounting", async (importOriginal) => ({
   reverseCancelledInvoiceJournals: akuntansi.reverseCancelledInvoiceJournals,
 }));
 
+import { acquireLock } from "@/lib/distributed-lock";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import { runWithRequestTenantContext } from "@/lib/tenant-context";
+import { AutomaticBillingService } from "@/modules/finance/services/AutomaticBillingService";
 import { CycleInvoiceRepriceService } from "@/modules/finance/services/CycleInvoiceRepriceService";
 import {
   deleteInvoiceForRoute,
@@ -188,7 +192,7 @@ async function seed() {
 function createInvoice(
   invoiceNumber: string,
   options: {
-    status?: "SENT" | "PARTIAL_PAID";
+    status?: "SENT" | "PARTIAL_PAID" | "PAID";
     paidAmount?: bigint;
     /** Saldo kredit yang dipakai tagihan saat terbit. */
     saldoUsed?: bigint;
@@ -248,6 +252,26 @@ function createCashierPayment(invoiceId: string, amount: bigint) {
       amount,
       paymentDate: new Date(),
       paymentMethod: "CASH",
+      tenantId: TENANT,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/** VA yang sudah dibayar pelanggan untuk tagihan itu. */
+function createPaidVa(invoiceId: string, amount: bigint) {
+  return prismaBillingAuth.payment.create({
+    data: {
+      id: randomUUID(),
+      invoiceId,
+      pelangganId: PELANGGAN,
+      amount,
+      checkoutId: randomUUID(),
+      paymentDate: new Date(),
+      paymentMethod: "BANK_TRANSFER",
+      reference: `PAY-${randomUUID()}`,
+      gatewayStatus: "PAID",
+      gatewayProvider: "BC",
       tenantId: TENANT,
       updatedAt: new Date(),
     },
@@ -315,6 +339,24 @@ async function saldoKredit() {
   });
   return customer.saldoKreditRupiah;
 }
+
+async function jatuhTempo() {
+  const customer = await prismaAuth.pelanggan.findUniqueOrThrow({
+    where: { id: PELANGGAN },
+    select: { jatuhTempo: true },
+  });
+  return customer.jatuhTempo;
+}
+
+const voidByAdmin = (invoiceId: string) =>
+  asTenant(() =>
+    VoidInvoiceService.voidInvoice(invoiceId, "Salah tagih", ADMIN.id),
+  );
+
+const ADMIN_CHECKOUT_BUSY =
+  "Pelanggan sedang memproses pembayaran untuk tagihan ini. Coba lagi beberapa saat lagi.";
+const CUSTOMER_CHECKOUT_BUSY =
+  "Pembayaran Anda sedang diproses di perangkat lain. Coba lagi sebentar lagi.";
 
 const cancelByEdit = (invoiceId: string) =>
   asTenant(() =>
@@ -602,4 +644,90 @@ describeDb("membatalkan dan menghapus tagihan dari admin", () => {
       });
     },
   );
+
+  // Dulu void mengembalikan payment dan jatuh tempo, tetapi saldo kredit yang
+  // memotong tagihan itu hilang; dua klik bersamaan memundurkan jatuh tempo
+  // dua kali.
+  it("void mengembalikan saldo kredit yang dipakai tagihan tepat sekali, juga bila diklik dua kali", async () => {
+    const inv = await createInvoice("BTF-7", {
+      status: "PAID",
+      paidAmount: PRICE - 30000n,
+      saldoUsed: 30000n,
+    });
+    const va = await createPaidVa(inv.id, PRICE - 30000n);
+
+    const outcomes = await Promise.allSettled([
+      voidByAdmin(inv.id),
+      voidByAdmin(inv.id),
+    ]);
+    const retry = await voidByAdmin(inv.id).then(
+      () => "dibatalkan lagi",
+      (error: Error) => error.message,
+    );
+
+    const rolledBack = new Date(DUE);
+    rolledBack.setMonth(rolledBack.getMonth() - 1);
+    expect({
+      voided: outcomes.filter((o) => o.status === "fulfilled").length,
+      retry,
+      invoice: await invoiceStatus(inv.id),
+      payment: await paymentStatus(va.id),
+      saldo: await saldoKredit(),
+      jatuhTempo: await jatuhTempo(),
+    }).toEqual({
+      voided: 1,
+      retry: expect.stringContaining("Hanya invoice PAID atau PARTIAL_PAID"),
+      invoice: "CANCELLED",
+      payment: "REFUNDED",
+      saldo: 30000n,
+      jatuhTempo: rolledBack,
+    });
+  });
+
+  // Pesan bawaan kunci checkout ditujukan ke pelanggan ("Pembayaran Anda ...").
+  it.each([
+    ["ubah tagihan menjadi CANCELLED", "SENT", cancelByEdit],
+    ["hapus tagihan", "SENT", deleteByAdmin],
+    ["void", "PAID", voidByAdmin],
+    [
+      "Batalkan & Buat Tagihan Baru",
+      "SENT",
+      () =>
+        asTenant(() =>
+          AutomaticBillingService.replaceOutstandingInvoice(PELANGGAN),
+        ),
+    ],
+  ] as const)(
+    "%s saat pelanggan memegang kunci checkout dijawab dengan pesan untuk admin",
+    async (_label, status, run) => {
+      const inv = await createInvoice("BTF-KUNCI", {
+        status,
+        paidAmount: status === "PAID" ? PRICE : 0n,
+      });
+      vi.mocked(acquireLock).mockResolvedValueOnce(null);
+
+      await expect(run(inv.id)).rejects.toMatchObject({
+        status: 409,
+        message: ADMIN_CHECKOUT_BUSY,
+      });
+
+      expect(await invoiceStatus(inv.id)).toBe(status);
+    },
+  );
+
+  it("[kontrol] checkout portal saat kuncinya dipegang tetap mendapat pesan untuk pelanggan", async () => {
+    const inv = await createInvoice("BTF-KUNCI-P");
+    vi.mocked(acquireLock).mockResolvedValueOnce(null);
+
+    await expect(
+      asTenant(() =>
+        createCustomerPaymentForRoute({
+          customerId: PELANGGAN,
+          tenantId: TENANT,
+          invoiceIds: [inv.id],
+          paymentMethod: MANUAL_METHOD,
+        }),
+      ),
+    ).rejects.toMatchObject({ status: 409, message: CUSTOMER_CHECKOUT_BUSY });
+  });
 });

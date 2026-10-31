@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as z from "zod";
 import { createHandler, ApiErrors } from "@/lib/api";
-import { isRouteServiceError } from "@/lib/api/route-service-error";
+import { responsPenolakanTagihan } from "@/lib/api/invoice-route";
 import {
   INVOICE_READ_PERMISSIONS,
   INVOICE_WRITE_PERMISSIONS,
@@ -12,8 +12,6 @@ import {
   getInvoiceForRoute,
   updateInvoiceForRoute,
 } from "@/modules/finance";
-
-const HTTP_CONFLICT = 409;
 
 const INVOICE_STATUSES = [
   "DRAFT",
@@ -56,18 +54,6 @@ const updateSchema = z.object({
     .optional(),
 });
 
-/**
- * Penolakan layanan (tagihan sedang dibayar atau sudah menerima uang, checkout
- * pelanggan sedang diproses) dijawab 409 dengan pesannya untuk admin; galat
- * lain diteruskan ke createHandler.
- */
-function refusalResponse(error: unknown) {
-  if (isRouteServiceError(error) && error.status === HTTP_CONFLICT) {
-    return ApiErrors.conflict(error.message);
-  }
-  throw error;
-}
-
 export const GET = createHandler(
   { auth: true, permissions: INVOICE_READ_PERMISSIONS },
   async (_req: NextRequest, ctx) => {
@@ -101,7 +87,7 @@ export const PUT = createHandler(
         user: ctx.session!.user,
       }),
       input: validatedData,
-    }).catch(refusalResponse);
+    }).catch(responsPenolakanTagihan);
 
     if (result instanceof NextResponse) {
       return result;
@@ -129,7 +115,7 @@ export const DELETE = createHandler(
         permissions: ctx.permissions,
         user: ctx.session!.user,
       }),
-    }).catch(refusalResponse);
+    }).catch(responsPenolakanTagihan);
 
     if (deleted instanceof NextResponse) {
       return deleted;

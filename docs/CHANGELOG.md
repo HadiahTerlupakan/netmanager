@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Void mengembalikan saldo kredit sekali; kunci checkout berpesan admin
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `app/api/admin/invoices/[id]/void` | `app/api/invoices/[id]` | `lib/api`
+- **Author**: agent
+- **Deskripsi**: Void tagihan PAID/PARTIAL_PAID oleh admin (`VoidInvoiceService`) mengembalikan payment (REFUNDED) dan memundurkan jatuh tempo, tetapi saldo kredit yang memotong tagihan itu hilang. Kini saldo itu dikembalikan dengan aturan yang sama dengan pembatalan lain (`refundSaldoKreditUsedBy`, dipakai juga rutin pembatalan bersama: hanya bagian saldo kredit, bukan diskon lain). `voidInvoiceTransaction` kini bersyarat (hanya memindahkan invoice yang masih PAID/PARTIAL_PAID dan melaporkan apakah ia yang memindahkannya), sehingga klik ganda atau ulangan hanya berhasil sekali: saldo tidak dikembalikan dua kali dan jatuh tempo tidak dimundurkan dua bulan; void kedua yang bersamaan ditolak 409. Perilaku payment dan pengembalian jatuh tempo untuk satu void tidak berubah. Void kini juga berjalan di bawah kunci checkout pelanggan seperti aksi pembatalan lain. Bila kunci itu sedang dipegang pelanggan, aksi admin (ubah tagihan menjadi CANCELLED, hapus tagihan, void, "Batalkan & Buat Tagihan Baru") kini gagal dengan 409 "Pelanggan sedang memproses pembayaran untuk tagihan ini. Coba lagi beberapa saat lagi." (`runAdminActionUnderCustomerCheckoutLock`) alih-alih pesan portal "Pembayaran Anda sedang diproses di perangkat lain"; form edit pelanggan tetap membungkusnya dengan pesannya sendiri untuk "Batalkan & Buat Tagihan Baru", dan jalur pelanggan tetap memakai pesan portal. Route void dan ubah/hapus tagihan memetakan penolakan itu ke 409 lewat `responsPenolakanTagihan` (void dulu menjawab 500).
+- **Files**: `modules/finance/services/VoidInvoiceService.ts`, `modules/finance/services/customer-checkout-lock.ts`, `modules/finance/services/outstanding-invoice.helpers.ts`, `modules/finance/services/InvoiceRouteService.ts`, `modules/finance/services/AutomaticBillingService.ts`, `modules/finance/repositories/invoiceRepository.write.ts`, `modules/finance/repositories/InvoiceRepository.ts`, `modules/finance/domain/ports/IInvoiceRepository.ts`, `lib/api/invoice-route.ts`, `app/api/admin/invoices/[id]/void/route.ts`, `app/api/invoices/[id]/route.ts`, `docs/project-memory/12-critical-flows.md`, `tests/db/invoice-cancellation-transfers.test.ts`, `tests/modules/finance/customerCheckoutLock.test.ts`, `tests/modules/finance/customerStatusSyncDelegation.test.ts`, `tests/modules/finance/InvoiceRouteService.test.ts`, `tests/api/admin-invoice-void-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Batalkan lewat ubah tagihan dan hapus tagihan dijaga seperti pembatalan lain
 
 - **Tipe**: [FIXED]

@@ -233,13 +233,7 @@ async function cancelUnpaidInvoice(options: {
   if (!cancelled) return false;
 
   await cancelSchedulesForInvoice(cancelled.id);
-  const saldoUsed = readSaldoKreditUsed(cancelled);
-  if (saldoUsed > 0n && cancelled.pelangganId) {
-    await FinanceRepositoryFacade.refundSaldoKredit(
-      cancelled.pelangganId,
-      saldoUsed,
-    );
-  }
+  await refundSaldoKreditUsedBy(cancelled);
   await reverseJournalsOfCancelledInvoice({
     invoiceId: options.invoice.id,
     tenantId: options.invoice.tenantId,
@@ -248,6 +242,24 @@ async function cancelUnpaidInvoice(options: {
   });
   await closeAbandonedManualTransfers(cancelled.id);
   return true;
+}
+
+/**
+ * Kembalikan saldo kredit yang dipakai tagihan saat terbit (bukan diskon
+ * lain) ke pelanggannya. Dipanggil sekali per tagihan, oleh pemanggil yang
+ * benar-benar membatalkannya (pembatalan dan void bersyarat).
+ */
+export async function refundSaldoKreditUsedBy(invoice: {
+  pelangganId: string | null;
+  notes?: string | null;
+  discountAmount: bigint;
+}) {
+  const saldoUsed = readSaldoKreditUsed(invoice);
+  if (saldoUsed <= 0n || !invoice.pelangganId) return;
+  await FinanceRepositoryFacade.refundSaldoKredit(
+    invoice.pelangganId,
+    saldoUsed,
+  );
 }
 
 /** Tagihan beserta jejak pembayaran yang menentukan boleh tidaknya diubah. */

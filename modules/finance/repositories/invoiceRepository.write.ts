@@ -40,25 +40,33 @@ export async function updateInvoiceWithItemsTransaction(
   return mapInvoiceWithItemsAndPayments(invoice) as InvoiceEntity;
 }
 
-/** Menjalankan void invoice dan sinkronisasi status payment. */
+/**
+ * Void invoice PAID/PARTIAL_PAID dan kembalikan payment PAID-nya (REFUNDED).
+ * Bersyarat pada statusnya, sehingga dua void bersamaan hanya berhasil sekali
+ * dan saldo kredit serta jatuh tempo tidak dikembalikan dua kali.
+ *
+ * @returns false bila invoice tidak lagi PAID/PARTIAL_PAID.
+ */
 export async function voidInvoiceTransaction(
   invoiceId: string,
   reason: string,
   invoiceNotes: string | null,
-) {
+): Promise<boolean> {
   return prismaBilling.$transaction(async (tx) => {
-    await tx.payment.updateMany({
-      where: { invoiceId, gatewayStatus: "PAID" },
-      data: { gatewayStatus: "REFUNDED" },
-    });
-    await tx.invoice.update({
-      where: { id: invoiceId },
+    const { count } = await tx.invoice.updateMany({
+      where: { id: invoiceId, status: { in: ["PAID", "PARTIAL_PAID"] } },
       data: {
         status: "CANCELLED",
         paidAmount: 0,
         notes: buildVoidInvoiceNotes(invoiceNotes, reason),
       },
     });
+    if (count === 0) return false;
+    await tx.payment.updateMany({
+      where: { invoiceId, gatewayStatus: "PAID" },
+      data: { gatewayStatus: "REFUNDED" },
+    });
+    return true;
   });
 }
 

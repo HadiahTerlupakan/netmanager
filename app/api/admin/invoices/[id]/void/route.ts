@@ -1,8 +1,10 @@
+import { NextResponse } from "next/server";
 import {
   createHandler,
   apiSuccess,
   buildSessionWithPermissions,
 } from "@/lib/api";
+import { responsPenolakanTagihan } from "@/lib/api/invoice-route";
 import { VoidInvoiceService } from "@/modules/finance";
 import { checkSiteRestriction } from "@/modules/roles";
 import * as z from "zod";
@@ -41,7 +43,8 @@ export const POST = createHandler(
       reason,
       ctx.session!.user.id,
       allowedSiteIds,
-    );
+    ).catch(responsPenolakanTagihan);
+    if (result instanceof NextResponse) return result;
 
     return apiSuccess(result.data, {
       message:

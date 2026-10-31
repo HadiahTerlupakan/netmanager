@@ -306,12 +306,12 @@ export class InvoiceRepository implements IInvoiceRepository {
     return findOverdueInvoiceEntities(beforeDate);
   }
 
-  /** Menjalankan void invoice dan sinkronisasi status payment. */
+  /** Void invoice PAID/PARTIAL_PAID; false bila statusnya sudah berubah. */
   async voidInvoiceTransaction(
     invoiceId: string,
     reason: string,
     invoiceNotes: string | null,
-  ) {
+  ): Promise<boolean> {
     return voidInvoiceTransaction(invoiceId, reason, invoiceNotes);
   }
 

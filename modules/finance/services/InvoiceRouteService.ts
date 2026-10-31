@@ -5,7 +5,7 @@ import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
 import { UserLookupService } from "@/modules/users";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { closeAbandonedManualTransfers } from "./abandoned-manual-transfer";
-import { runUnderCustomerCheckoutLockAsSystem } from "./customer-checkout-lock";
+import { runAdminActionUnderCustomerCheckoutLock } from "./customer-checkout-lock";
 import {
   cancelOutstandingInvoice,
   findInvoiceDeleteBlocker,
@@ -147,7 +147,7 @@ async function cancelForAdmin(
   cancelledBy: string,
 ) {
   const describeMethod = await loadPaymentMethodNames();
-  const kept = await runUnderCustomerCheckoutLockAsSystem(
+  const kept = await runAdminActionUnderCustomerCheckoutLock(
     invoice.pelangganId,
     "cancel-invoice",
     () =>
@@ -290,7 +290,7 @@ export async function deleteInvoiceForRoute(options: {
   const describeMethod = await loadPaymentMethodNames();
   // Di bawah kunci checkout: pelanggan tidak bisa membuat VA untuk tagihan ini
   // di antara pemeriksaan dan penghapusannya.
-  await runUnderCustomerCheckoutLockAsSystem(
+  await runAdminActionUnderCustomerCheckoutLock(
     existingInvoice.pelangganId,
     "delete-invoice",
     () => deleteUnlessBeingPaid(options.invoiceId, describeMethod),

@@ -55,7 +55,7 @@ vi.mock("@/modules/finance/services/outstanding-invoice.helpers", () => ({
 }));
 
 vi.mock("@/modules/finance/services/customer-checkout-lock", () => ({
-  runUnderCustomerCheckoutLockAsSystem: mockFns.underCheckoutLock,
+  runAdminActionUnderCustomerCheckoutLock: mockFns.underCheckoutLock,
 }));
 
 vi.mock("@/modules/payment-gateway", () => ({
