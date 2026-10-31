@@ -65,6 +65,7 @@ import { encryptApiKey } from "@/lib/utils/encryption";
 import { BillingEventDispatcher } from "@/modules/events";
 import { expireStaleGatewayPayments } from "@/modules/payment-gateway/services/abandoned-checkout";
 import { getCustomerInvoicePaymentSnapshot } from "@/modules/finance/services/CustomerPaymentFinanceService";
+import { ManualPaymentAdminRouteService } from "@/modules/finance/services/ManualPaymentAdminRouteService";
 import { WebhookProcessingService } from "@/modules/payment-gateway/services/webhook-processing-service";
 import { CustomerInvoiceRepository } from "@/modules/pelanggan/repositories/CustomerInvoiceRepository";
 import {
@@ -1327,5 +1328,150 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
         secondCancel: 409,
       });
     });
+
+    // Admin menyetujui satu invoice checkout saat pelanggan membatalkannya:
+    // dulu sisa payment tetap dibatalkan dan kupon seluruh checkout dilepas,
+    // padahal potongannya sudah dipakai invoice yang disetujui.
+    it("pembatalan yang berbarengan dengan persetujuan admin tidak membatalkan apa pun", async () => {
+      await createCoupon(1);
+      const a = await createInvoice("GWF-T5A", PRICE);
+      const b = await createInvoice("GWF-T5B", PRICE);
+      await payFromPortal([a.id, b.id], MANUAL_METHOD, COUPON_CODE);
+      const [rowA] = await paymentsOf(a.id);
+
+      let lockHeld!: () => void;
+      let releaseAdmin!: () => void;
+      const locked = new Promise<void>((resolve) => (lockHeld = resolve));
+      const adminMayCommit = new Promise<void>(
+        (resolve) => (releaseAdmin = resolve),
+      );
+      const approval = prismaBillingAuth.$transaction(
+        async (tx) => {
+          await tx.payment.update({
+            where: { id: rowA.id },
+            data: { gatewayStatus: "PAID", paymentDate: new Date() },
+          });
+          lockHeld();
+          await adminMayCommit;
+        },
+        { timeout: 30_000 },
+      );
+      await locked;
+
+      const cancel = asTenant(() =>
+        cancelCustomerManualCheckout({
+          customerId: PELANGGAN,
+          invoiceId: b.id,
+        }),
+      ).then(
+        () => ({ status: 200, message: "" }),
+        (error: { status?: number; message: string }) => ({
+          status: error.status,
+          message: error.message,
+        }),
+      );
+      await waitForBlockedPaymentUpdate();
+      releaseAdmin();
+      await approval;
+
+      const statuses = Object.fromEntries(
+        (
+          await prismaBillingAuth.payment.findMany({
+            where: { pelangganId: PELANGGAN },
+            select: { invoiceId: true, gatewayStatus: true },
+          })
+        ).map((p) => [p.invoiceId === a.id ? "a" : "b", p.gatewayStatus]),
+      );
+      expect({
+        cancel: await cancel,
+        statuses,
+        couponUsedCount: await couponUsedCount(),
+      }).toEqual({
+        cancel: {
+          status: 409,
+          message: expect.stringMatching(/baru saja diproses admin/),
+        },
+        statuses: { a: "PAID", b: "PENDING" },
+        couponUsedCount: 1,
+      });
+    });
+
+    // Admin menyetujui transfer per payment dari daftar verifikasi; uang
+    // transfernya untuk seluruh checkout. Sisa checkout yang dibatalkan setelah
+    // satu invoice disetujui tidak bisa lagi disetujui admin.
+    it("transfer manual yang sebagian invoicenya sudah disetujui admin tidak bisa dibatalkan", async () => {
+      await createCoupon(1);
+      const a = await createInvoice("GWF-T7A", PRICE);
+      const b = await createInvoice("GWF-T7B", PRICE);
+      await payFromPortal([a.id, b.id], MANUAL_METHOD, COUPON_CODE);
+      const [rowA] = await paymentsOf(a.id);
+      await asTenant(() =>
+        new ManualPaymentAdminRouteService().verifyManualPayment({
+          paymentId: rowA.id,
+          action: "APPROVE",
+        }),
+      );
+
+      const cancel = await asTenant(() =>
+        cancelCustomerManualCheckout({
+          customerId: PELANGGAN,
+          invoiceId: b.id,
+        }),
+      ).then(
+        () => 200,
+        (error: { status?: number }) => error.status,
+      );
+
+      expect({
+        cancel,
+        rowA: (await paymentsOf(a.id))[0].gatewayStatus,
+        rowB: (await paymentsOf(b.id))[0].gatewayStatus,
+        couponUsedCount: await couponUsedCount(),
+      }).toEqual({
+        cancel: 409,
+        rowA: "PAID",
+        rowB: "PENDING",
+        couponUsedCount: 1,
+      });
+    });
+
+    it("kupon yang sudah melunasi invoice Rp 0 di checkout itu tidak dilepas saat sisanya dibatalkan", async () => {
+      await createCoupon(1);
+      const small = await createInvoice(
+        "GWF-T6A",
+        DISCOUNT,
+        new Date("2026-10-01T03:00:00.000Z"),
+      );
+      const big = await createInvoice("GWF-T6B", PRICE);
+      await payFromPortal([small.id, big.id], MANUAL_METHOD, COUPON_CODE);
+
+      await asTenant(() =>
+        cancelCustomerManualCheckout({
+          customerId: PELANGGAN,
+          invoiceId: big.id,
+        }),
+      );
+
+      expect({
+        smallRow: (await paymentsOf(small.id))[0].gatewayStatus,
+        bigRow: (await paymentsOf(big.id))[0].gatewayStatus,
+        couponUsedCount: await couponUsedCount(),
+      }).toEqual({ smallRow: "PAID", bigRow: "CANCELLED", couponUsedCount: 1 });
+    });
   });
 });
+
+/** Tunggu sampai UPDATE payment pelanggan tertahan kunci baris transaksi lain. */
+async function waitForBlockedPaymentUpdate() {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const [{ waiting }] = await prismaBillingAuth.$queryRaw<
+      Array<{ waiting: bigint }>
+    >`SELECT count(*) AS waiting FROM pg_stat_activity
+      WHERE datname = current_database() AND wait_event_type = 'Lock'
+        AND query ILIKE '%UPDATE%"Payment"%'`;
+    if (waiting > 0n) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("UPDATE pembatalan tidak pernah menunggu kunci admin");
+}

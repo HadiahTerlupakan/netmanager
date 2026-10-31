@@ -1,6 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { prismaMock } from "../../setup";
+
+// Tidak terdaftar di tipe MockPrismaClient; dipasang per tes.
+const payments = prismaMock.payment as unknown as {
+  updateManyAndReturn: Mock;
+};
 
 const palsu = vi.hoisted(() => ({
   releaseUsage: vi.fn(),
@@ -34,34 +39,43 @@ import {
  * Checkout gateway yang ditinggalkan pelanggan tidak pernah mengirim
  * notifikasi; dulu payment-nya PENDING selamanya dan kuponnya tetap terpakai.
  */
+const STALE = [
+  {
+    id: "p1",
+    couponUsageId: "u1",
+    tenantId: "t1",
+    checkoutId: "c1",
+    pelangganId: "cust-1",
+    invoiceId: "inv-1",
+    amount: 6000n,
+    invoice: { dueDate: new Date("2026-10-27T17:00:00Z") },
+  },
+  {
+    id: "p2",
+    couponUsageId: "u1",
+    tenantId: "t1",
+    checkoutId: "c1",
+    pelangganId: "cust-1",
+    invoiceId: "inv-2",
+    amount: 5100n,
+    invoice: { dueDate: new Date("2026-10-27T17:00:00Z") },
+  },
+];
+
 describe("checkout gateway yang ditinggalkan", () => {
   const NOW = new Date("2026-10-27T12:00:00Z");
 
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.payment.findMany.mockResolvedValue([
-      {
-        id: "p1",
-        couponUsageId: "u1",
-        tenantId: "t1",
-        checkoutId: "c1",
-        pelangganId: "cust-1",
-        invoiceId: "inv-1",
-        amount: 6000n,
-        invoice: { dueDate: new Date("2026-10-27T17:00:00Z") },
-      },
-      {
-        id: "p2",
-        couponUsageId: "u1",
-        tenantId: "t1",
-        checkoutId: "c1",
-        pelangganId: "cust-1",
-        invoiceId: "inv-2",
-        amount: 5100n,
-        invoice: { dueDate: new Date("2026-10-27T17:00:00Z") },
-      },
-    ]);
-    prismaMock.payment.updateMany.mockResolvedValue({ count: 2 });
+    // Pertanyaan pertama: payment yang lewat batas waktu; sesudahnya:
+    // payment hidup yang masih memegang kupon (tidak ada).
+    prismaMock.payment.findMany
+      .mockResolvedValueOnce(STALE)
+      .mockResolvedValue([]);
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
+    payments.updateManyAndReturn = vi
+      .fn()
+      .mockResolvedValue([{ id: "p1" }, { id: "p2" }]);
     palsu.reconcile.mockResolvedValue({
       outcome: "UNPAID",
       gatewayStatus: "EXPIRED",
@@ -80,10 +94,32 @@ describe("checkout gateway yang ditinggalkan", () => {
         },
       }),
     );
-    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+    expect(payments.updateManyAndReturn).toHaveBeenCalledWith({
       where: { id: { in: ["p1", "p2"] }, gatewayStatus: "PENDING" },
       data: { gatewayStatus: "EXPIRED" },
+      select: { id: true },
     });
+  });
+
+  // Callback bisa melunasi checkout di antara pertanyaan ke gateway dan
+  // penutupan; kuponnya dipakai pembayaran itu.
+  it("payment yang lunas di tengah jalan tidak dilepas kuponnya maupun diberi tahu gagal", async () => {
+    payments.updateManyAndReturn.mockResolvedValue([]);
+
+    await expect(expireStaleGatewayPayments(NOW)).resolves.toBe(0);
+    expect(palsu.releaseUsage).not.toHaveBeenCalled();
+    expect(palsu.onPaymentFailed).not.toHaveBeenCalled();
+  });
+
+  it("kupon yang masih dipegang payment hidup lain tidak dilepas", async () => {
+    prismaMock.payment.findMany
+      .mockReset()
+      .mockResolvedValueOnce(STALE)
+      .mockResolvedValue([{ couponUsageId: "u1" }]);
+
+    await expireStaleGatewayPayments(NOW);
+
+    expect(palsu.releaseUsage).not.toHaveBeenCalled();
   });
 
   // Callback yang hilang dulu berakhir sebagai "pembayaran gagal" walau uang
@@ -101,9 +137,7 @@ describe("checkout gateway yang ditinggalkan", () => {
     palsu.reconcile.mockResolvedValue({ outcome: "PAID" });
 
     await expect(expireStaleGatewayPayments(NOW)).resolves.toBe(0);
-    expect(prismaMock.payment.updateMany).not.toHaveBeenCalledWith(
-      expect.objectContaining({ data: { gatewayStatus: "EXPIRED" } }),
-    );
+    expect(payments.updateManyAndReturn).not.toHaveBeenCalled();
     expect(palsu.onPaymentFailed).not.toHaveBeenCalled();
     expect(palsu.releaseUsage).not.toHaveBeenCalled();
   });
@@ -112,7 +146,7 @@ describe("checkout gateway yang ditinggalkan", () => {
     palsu.reconcile.mockResolvedValue({ outcome: "UNKNOWN" });
 
     await expect(expireStaleGatewayPayments(NOW)).resolves.toBe(0);
-    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+    expect(payments.updateManyAndReturn).not.toHaveBeenCalled();
     expect(palsu.onPaymentFailed).not.toHaveBeenCalled();
   });
 

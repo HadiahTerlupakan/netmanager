@@ -6,7 +6,7 @@ import {
 } from "@/modules/finance";
 import {
   reconcileInvoiceCheckout,
-  releaseCheckoutCoupons,
+  releaseUnusedCheckoutCoupons,
   withCustomerCheckoutLock,
   type CheckoutReconciliation,
 } from "@/modules/payment-gateway";
@@ -14,6 +14,8 @@ import {
 const HTTP_CONFLICT = 409;
 const NOTHING_TO_CANCEL_MESSAGE =
   "Tidak ada transfer manual menunggu yang bisa dibatalkan untuk tagihan ini.";
+const CHANGED_BY_ADMIN_MESSAGE =
+  "Transfer manual ini baru saja diproses admin. Muat ulang halaman untuk melihat statusnya.";
 
 /** Jawaban cek status pembayaran untuk portal dan aplikasi. */
 export type CustomerCheckoutStatus =
@@ -61,8 +63,9 @@ function toCustomerStatus(
 
 /**
  * Batalkan transfer manual menunggu yang memuat tagihan ini, seluruh
- * checkout-nya, selama admin belum memverifikasinya; kuponnya dikembalikan.
- * Checkout gateway tidak dibatalkan di sini: memilih metode lain
+ * checkout-nya sekaligus, selama admin belum memverifikasinya; kuponnya
+ * dikembalikan bila tidak ada invoice checkout itu yang sudah lunas dengan
+ * potongannya. Checkout gateway tidak dibatalkan di sini: memilih metode lain
  * menggantikannya.
  */
 export function cancelCustomerManualCheckout(input: {
@@ -71,13 +74,17 @@ export function cancelCustomerManualCheckout(input: {
 }): Promise<void> {
   return withCustomerCheckoutLock(input.customerId, async () => {
     const checkout = await findPendingManualCustomerCheckout(input);
-    const cancelled =
-      checkout.length > 0
-        ? await cancelPendingManualCustomerPayments(checkout.map((p) => p.id))
-        : 0;
-    if (cancelled === 0) {
+    if (checkout.length === 0) {
       throw createRouteServiceError(NOTHING_TO_CANCEL_MESSAGE, HTTP_CONFLICT);
     }
-    await releaseCheckoutCoupons(checkout);
+    const isCancelled = await cancelPendingManualCustomerPayments({
+      customerId: input.customerId,
+      checkoutId: checkout[0].checkoutId,
+      paymentIds: checkout.map((p) => p.id),
+    });
+    if (!isCancelled) {
+      throw createRouteServiceError(CHANGED_BY_ADMIN_MESSAGE, HTTP_CONFLICT);
+    }
+    await releaseUnusedCheckoutCoupons(checkout);
   });
 }

@@ -1,6 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { prismaMock } from "../../setup";
+
+// Tidak terdaftar di tipe MockPrismaClient; dipasang per tes.
+const payments = prismaMock.payment as unknown as {
+  updateManyAndReturn: Mock;
+};
+
+/**
+ * Baris menunggu yang ditemukan pencarian checkout lama; pertanyaan
+ * "siapa yang masih memegang kupon" (where.couponUsageId) menjawab kosong.
+ */
+function pendingRows<T extends { id: string }>(rows: T[]) {
+  prismaMock.payment.findMany.mockImplementation(
+    async (args: { where?: { couponUsageId?: unknown } }) =>
+      args?.where?.couponUsageId ? [] : rows,
+  );
+  payments.updateManyAndReturn = vi
+    .fn()
+    .mockResolvedValue(rows.map(({ id }) => ({ id })));
+}
 
 const palsu = vi.hoisted(() => ({
   releaseUsage: vi.fn(),
@@ -80,7 +99,7 @@ const INPUT = { customerId: "cust-1", invoiceIds: ["inv-1"] };
 describe("ganti metode pembayaran", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.payment.findMany.mockResolvedValue([VA_LAMA]);
+    pendingRows([VA_LAMA]);
     prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
     palsu.reconcile.mockResolvedValue({
       outcome: "UNPAID",
@@ -115,7 +134,7 @@ describe("ganti metode pembayaran", () => {
   });
 
   it("bukti transfer yang sedang diverifikasi menolak checkout baru", async () => {
-    prismaMock.payment.findMany.mockResolvedValue([
+    pendingRows([
       { ...TRANSFER_MANUAL, receiptUrl: "/uploads/tenants/t1/bukti.webp" },
     ]);
 
@@ -126,7 +145,7 @@ describe("ganti metode pembayaran", () => {
   });
 
   it("status checkout gateway lama ditanyakan dengan batas waktu pendek", async () => {
-    prismaMock.payment.findMany.mockResolvedValue([VA_LAMA, TRANSFER_MANUAL]);
+    pendingRows([VA_LAMA, TRANSFER_MANUAL]);
 
     await findReplaceableCheckouts(INPUT);
 
@@ -155,14 +174,15 @@ describe("ganti metode pembayaran", () => {
   });
 
   it("setelah pengganti berhasil: checkout lama ditutup, kupon dikembalikan, dibatalkan di gateway", async () => {
-    prismaMock.payment.findMany.mockResolvedValue([VA_LAMA, TRANSFER_MANUAL]);
+    pendingRows([VA_LAMA, TRANSFER_MANUAL]);
     const previous = await findReplaceableCheckouts(INPUT);
 
     await closeReplacedCheckouts(previous, { keptCouponUsageId: null });
 
-    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+    expect(payments.updateManyAndReturn).toHaveBeenCalledWith({
       where: { id: { in: ["p1", "p9"] }, gatewayStatus: "PENDING" },
       data: { gatewayStatus: "CANCELLED" },
+      select: { id: true },
     });
     expect(palsu.releaseUsage).toHaveBeenCalledWith("u1");
     expect(palsu.cancelPayment.mock.calls).toEqual([["PAY-1"]]);
@@ -182,8 +202,20 @@ describe("ganti metode pembayaran", () => {
     expect(palsu.releaseUsage).not.toHaveBeenCalled();
   });
 
+  // Callback bisa melunasi VA lama di antara pencarian dan penutupan.
+  it("checkout lama yang lunas di tengah jalan tidak dilepas kuponnya", async () => {
+    const previous = await findReplaceableCheckouts(INPUT);
+    payments.updateManyAndReturn.mockResolvedValue([]);
+
+    await expect(
+      closeReplacedCheckouts(previous, { keptCouponUsageId: null }),
+    ).resolves.toBe(0);
+    expect(palsu.releaseUsage).not.toHaveBeenCalled();
+    expect(palsu.cancelPayment).not.toHaveBeenCalled();
+  });
+
   it("tanpa checkout menunggu tidak ada yang diubah", async () => {
-    prismaMock.payment.findMany.mockResolvedValue([]);
+    pendingRows([]);
 
     const previous = await findReplaceableCheckouts(INPUT);
     await expect(
@@ -245,9 +277,10 @@ describe("ganti metode pembayaran", () => {
         where: expect.objectContaining({ expiresAt: { not: null } }),
       }),
     );
-    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+    expect(payments.updateManyAndReturn).toHaveBeenCalledWith({
       where: { id: { in: ["p1"] }, gatewayStatus: "PENDING" },
       data: { gatewayStatus: "CANCELLED" },
+      select: { id: true },
     });
     expect(palsu.cancelPayment).toHaveBeenCalledWith("PAY-1");
   });

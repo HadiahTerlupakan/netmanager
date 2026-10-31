@@ -6,7 +6,9 @@ const tx = vi.hoisted(() => ({
     create: vi.fn(),
     findFirst: vi.fn(),
     findMany: vi.fn(),
+    count: vi.fn(),
     updateMany: vi.fn(),
+    updateManyAndReturn: vi.fn(),
   },
 }));
 
@@ -168,36 +170,76 @@ describe("checkout transfer manual", () => {
     expect(tx.payment.findMany).not.toHaveBeenCalled();
   });
 
-  it("yang sudah diverifikasi admin tidak bisa dibatalkan atau ditimpa buktinya", async () => {
+  it("bukti hanya dilampirkan ke payment yang masih menunggu verifikasi", async () => {
     tx.payment.updateMany.mockResolvedValue({ count: 1 });
 
-    await cancelPendingManualPayments(["p1"]);
     await attachReceiptToPayments({
       receiptUrl: "/uploads/tenants/t1/payment-proofs/bukti.webp",
       payments: [{ id: "p1", notes: "catatan" }],
     });
 
-    const guard: Record<string, unknown> = {
-      gatewayStatus: "PENDING",
-      verifiedAt: null,
-    };
-    expect(tx.payment.updateMany.mock.calls).toEqual([
-      [
-        {
-          where: { id: { in: ["p1"] }, ...guard },
-          data: { gatewayStatus: "CANCELLED" },
+    expect(tx.payment.updateMany).toHaveBeenCalledWith({
+      where: { id: "p1", gatewayStatus: "PENDING", verifiedAt: null },
+      data: {
+        receiptUrl: "/uploads/tenants/t1/payment-proofs/bukti.webp",
+        notes: "catatan",
+      },
+    });
+  });
+
+  describe("pembatalan seluruh checkout atau tidak sama sekali", () => {
+    const cancel = () =>
+      cancelPendingManualPayments({
+        pelangganId: "cust-1",
+        checkoutId: "c1",
+        paymentIds: ["p1", "p2"],
+      });
+
+    beforeEach(() => {
+      tx.payment.count.mockResolvedValue(0);
+      tx.payment.updateManyAndReturn.mockResolvedValue([
+        { id: "p1" },
+        { id: "p2" },
+      ]);
+    });
+
+    it("hanya payment milik pelanggan yang masih menunggu verifikasi", async () => {
+      await expect(cancel()).resolves.toBe(true);
+      expect(tx.payment.updateManyAndReturn).toHaveBeenCalledWith({
+        where: {
+          id: { in: ["p1", "p2"] },
+          pelangganId: "cust-1",
+          gatewayStatus: "PENDING",
+          verifiedAt: null,
         },
-      ],
-      [
-        {
-          where: { id: "p1", ...guard },
-          data: {
-            receiptUrl: "/uploads/tenants/t1/payment-proofs/bukti.webp",
-            notes: "catatan",
-          },
+        data: { gatewayStatus: "CANCELLED" },
+        select: { id: true },
+      });
+    });
+
+    // Admin memproses salah satu payment di antara pembacaan dan pembatalan.
+    it("tidak semua payment berpindah: dibatalkan seluruhnya", async () => {
+      tx.payment.updateManyAndReturn.mockResolvedValue([{ id: "p2" }]);
+
+      await expect(cancel()).resolves.toBe(false);
+    });
+
+    // Persetujuan admin per payment hanya mengubah status, tanpa verifiedAt.
+    it("payment checkout yang sudah diproses admin menolak pembatalan", async () => {
+      tx.payment.count.mockResolvedValue(1);
+
+      await expect(cancel()).resolves.toBe(false);
+      expect(tx.payment.count).toHaveBeenCalledWith({
+        where: {
+          pelangganId: "cust-1",
+          checkoutId: "c1",
+          OR: [
+            { verifiedAt: { not: null } },
+            { amount: { gt: 0 }, gatewayStatus: { not: "PENDING" } },
+          ],
         },
-      ],
-    ]);
+      });
+    });
   });
 });
 

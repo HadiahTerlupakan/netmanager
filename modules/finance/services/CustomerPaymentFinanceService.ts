@@ -67,9 +67,20 @@ export function attachCustomerCheckoutReceipt(options: {
   return getPaymentRepository().attachReceipt(options);
 }
 
-/** Menutup payment transfer manual pelanggan yang belum diverifikasi. */
-export function cancelPendingManualCustomerPayments(paymentIds: string[]) {
-  return getPaymentRepository().cancelPendingManual(paymentIds);
+/**
+ * Menutup seluruh payment transfer manual menunggu sebuah checkout pelanggan,
+ * atau tidak sama sekali bila admin sudah atau sedang memprosesnya.
+ */
+export function cancelPendingManualCustomerPayments(options: {
+  customerId: string;
+  checkoutId: string | null;
+  paymentIds: string[];
+}) {
+  return getPaymentRepository().cancelPendingManual({
+    pelangganId: options.customerId,
+    checkoutId: options.checkoutId,
+    paymentIds: options.paymentIds,
+  });
 }
 
 /** Returns customer invoice status used by customer payment polling. */

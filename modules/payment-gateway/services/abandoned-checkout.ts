@@ -60,6 +60,33 @@ export async function releaseCheckoutCoupons(payments: CouponHolder[]) {
   }
 }
 
+/**
+ * Kembalikan kupon payment yang baru saja ditutup, kecuali pemesanan yang
+ * masih dipegang payment lain yang hidup (menunggu atau lunas): checkout yang
+ * sebagian invoicenya sudah lunas dengan potongan itu, atau pemesanan yang
+ * dipindah ke checkout baru, tetap memakai kuponnya.
+ */
+export async function releaseUnusedCheckoutCoupons(closed: CouponHolder[]) {
+  const usageIds = [
+    ...new Set(
+      closed.flatMap((p) => (p.couponUsageId ? [p.couponUsageId] : [])),
+    ),
+  ];
+  if (usageIds.length === 0) return;
+
+  const held = await prismaBillingAuth.payment.findMany({
+    where: {
+      couponUsageId: { in: usageIds },
+      gatewayStatus: { in: ["PENDING", "PAID"] },
+    },
+    select: { couponUsageId: true },
+  });
+  const heldUsageIds = new Set(held.map((p) => p.couponUsageId));
+  await releaseCheckoutCoupons(
+    closed.filter((p) => p.couponUsageId && !heldUsageIds.has(p.couponUsageId)),
+  );
+}
+
 function inCouponTenant<T>(tenantId: string | null, task: () => Promise<T>) {
   return tenantId
     ? runWithRequestTenantContext({ tenantId, isSuperAdmin: false }, task)
@@ -136,13 +163,18 @@ export async function expireStaleGatewayPayments(now = new Date()) {
   const unpaid = await keepUnpaidCheckouts(stale);
   if (unpaid.length === 0) return 0;
 
-  const { count } = await prismaBillingAuth.payment.updateMany({
+  // Hanya yang benar-benar berpindah ke EXPIRED yang kuponnya dilepas dan
+  // diberi tahu: callback bisa melunasinya di antara pertanyaan dan penutupan.
+  const expired = await prismaBillingAuth.payment.updateManyAndReturn({
     where: { id: { in: unpaid.map((p) => p.id) }, gatewayStatus: "PENDING" },
     data: { gatewayStatus: "EXPIRED" },
+    select: { id: true },
   });
-  await releaseCheckoutCoupons(unpaid);
-  await notifyExpiredCheckouts(unpaid);
-  return count;
+  const expiredIds = new Set(expired.map((p) => p.id));
+  const closed = unpaid.filter((p) => expiredIds.has(p.id));
+  await releaseUnusedCheckoutCoupons(closed);
+  await notifyExpiredCheckouts(closed);
+  return expired.length;
 }
 
 async function keepUnpaidCheckouts<

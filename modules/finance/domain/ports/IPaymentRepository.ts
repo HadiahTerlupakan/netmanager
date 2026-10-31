@@ -31,7 +31,11 @@ export interface IPaymentRepository {
     receiptUrl: string;
     payments: Array<{ id: string; notes: string }>;
   }): Promise<number>;
-  cancelPendingManual(paymentIds: string[]): Promise<number>;
+  cancelPendingManual(options: {
+    pelangganId: string;
+    checkoutId: string | null;
+    paymentIds: string[];
+  }): Promise<boolean>;
   findByIdWithInvoice(id: string): Promise<PaymentEntity | null>;
   findPaginatedWithInvoice(options: {
     where: PaymentWhereInput;

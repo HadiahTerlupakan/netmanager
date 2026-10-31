@@ -72,9 +72,13 @@ export class PaymentRepository implements IPaymentRepository {
     return findLatestPendingCustomerPayment(options);
   }
 
-  /** Menutup payment transfer manual yang belum diverifikasi. */
-  async cancelPendingManual(paymentIds: string[]): Promise<number> {
-    return cancelPendingManualPayments(paymentIds);
+  /** Menutup seluruh payment transfer manual menunggu sebuah checkout, atau tidak sama sekali. */
+  async cancelPendingManual(options: {
+    pelangganId: string;
+    checkoutId: string | null;
+    paymentIds: string[];
+  }): Promise<boolean> {
+    return cancelPendingManualPayments(options);
   }
 
   /** Mengambil pembayaran berdasarkan id beserta invoice. */

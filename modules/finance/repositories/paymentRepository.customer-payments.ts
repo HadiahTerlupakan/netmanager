@@ -139,20 +139,61 @@ export async function findPendingManualCheckout(options: {
   });
 }
 
+/** Checkout transfer manual berubah di tengah pembatalan (admin memprosesnya). */
+class ManualCheckoutChangedError extends Error {}
+
 /**
- * Tutup payment transfer manual yang belum diverifikasi; mengembalikan
- * jumlah yang benar-benar tertutup (admin bisa menyetujuinya lebih dulu).
+ * Tutup seluruh payment transfer manual menunggu sebuah checkout, atau tidak
+ * sama sekali. Bila admin sudah memproses salah satu payment checkout itu
+ * (persetujuan per payment tidak mengisi verifiedAt, jadi yang dilihat adalah
+ * payment bernominal yang tidak lagi menunggu), atau memprosesnya di tengah
+ * jalan sehingga tidak semua payment berpindah ke CANCELLED, transaksinya
+ * dibatalkan dan hasilnya false. Payment Rp 0 yang lunas oleh kupon tidak
+ * dihitung: ia lunas sejak checkout dibuat.
  */
-export async function cancelPendingManualPayments(paymentIds: string[]) {
-  const { count } = await prismaBilling.payment.updateMany({
-    where: {
-      id: { in: paymentIds },
-      gatewayStatus: GatewayPaymentStatus.PENDING,
-      verifiedAt: null,
-    },
-    data: { gatewayStatus: GatewayPaymentStatus.CANCELLED },
-  });
-  return count;
+export async function cancelPendingManualPayments(options: {
+  pelangganId: string;
+  checkoutId: string | null;
+  paymentIds: string[];
+}): Promise<boolean> {
+  try {
+    await prismaBilling.$transaction(async (tx: BillingTransactionClient) => {
+      const processed = await tx.payment.count({
+        where: {
+          pelangganId: options.pelangganId,
+          ...(options.checkoutId
+            ? { checkoutId: options.checkoutId }
+            : { id: { in: options.paymentIds } }),
+          OR: [
+            { verifiedAt: { not: null } },
+            {
+              amount: { gt: 0 },
+              gatewayStatus: { not: GatewayPaymentStatus.PENDING },
+            },
+          ],
+        },
+      });
+      // updateManyAndReturn tidak disaring tenant oleh ekstensi Prisma; id dan
+      // pelangganId di bawah ini sudah membatasinya ke milik pelanggan ini.
+      const cancelled = await tx.payment.updateManyAndReturn({
+        where: {
+          id: { in: options.paymentIds },
+          pelangganId: options.pelangganId,
+          gatewayStatus: GatewayPaymentStatus.PENDING,
+          verifiedAt: null,
+        },
+        data: { gatewayStatus: GatewayPaymentStatus.CANCELLED },
+        select: { id: true },
+      });
+      if (processed > 0 || cancelled.length !== options.paymentIds.length) {
+        throw new ManualCheckoutChangedError();
+      }
+    });
+    return true;
+  } catch (error) {
+    if (error instanceof ManualCheckoutChangedError) return false;
+    throw error;
+  }
 }
 
 /**

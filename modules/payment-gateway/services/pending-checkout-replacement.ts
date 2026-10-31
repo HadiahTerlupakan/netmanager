@@ -6,7 +6,7 @@ import type { EventJobData } from "@/lib/event-bus/queues";
 import { logger } from "@/lib/logger";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import type { Prisma } from "@/modules/finance";
-import { releaseCheckoutCoupons } from "./abandoned-checkout";
+import { releaseUnusedCheckoutCoupons } from "./abandoned-checkout";
 import {
   gatewayProviderOf,
   reconcileCheckout,
@@ -202,14 +202,20 @@ export async function handleInvoicePaidCheckoutCleanup(
   );
 }
 
+// Hanya payment yang benar-benar berpindah ke CANCELLED yang kuponnya
+// dilepas dan dibatalkan di gateway: callback bisa melunasinya di antara
+// pencarian dan penutupan.
 async function closeCheckouts(pending: PendingCheckoutPayment[]) {
-  const { count } = await prismaBillingAuth.payment.updateMany({
+  const cancelled = await prismaBillingAuth.payment.updateManyAndReturn({
     where: { id: { in: pending.map((p) => p.id) }, gatewayStatus: "PENDING" },
     data: { gatewayStatus: "CANCELLED" },
+    select: { id: true },
   });
-  await releaseCheckoutCoupons(pending);
-  await cancelAtGateway(pending);
-  return count;
+  const cancelledIds = new Set(cancelled.map((p) => p.id));
+  const closed = pending.filter((p) => cancelledIds.has(p.id));
+  await releaseUnusedCheckoutCoupons(closed);
+  await cancelAtGateway(closed);
+  return cancelled.length;
 }
 
 // Satu checkout bisa mencakup invoice lain milik pelanggan yang sama; seluruh

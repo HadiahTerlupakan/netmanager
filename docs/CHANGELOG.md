@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Pembatalan transfer manual atomik; kupon dilepas hanya bila tak terpakai
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/finance` | `modules/pelanggan` | `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: `POST /api/customer/payments/cancel` dulu membatalkan payment checkout yang masih menunggu lalu melepas kupon seluruh checkout, walau admin menyetujui salah satu invoice-nya di saat yang sama: potongan yang sudah dipakai invoice yang disetujui kembali ke kuota. Kini pembatalan berjalan dalam satu transaksi, seluruh payment checkout atau tidak sama sekali (`updateManyAndReturn`): bila admin sudah menyetujui atau menolak salah satu payment checkout itu, sebelum atau di tengah pembatalan (persetujuan per payment tidak mengisi `verifiedAt`, jadi yang diperiksa payment bernominal yang tidak lagi menunggu), transaksinya dibatalkan dan pelanggan menerima 409 "Transfer manual ini baru saja diproses admin. Muat ulang halaman untuk melihat statusnya." Dulu sisa checkout yang sebagian sudah disetujui tetap bisa dibatalkan, dan payment itu tak bisa lagi disetujui admin walau uangnya sudah masuk. Aturan yang sama dipakai penutupan checkout lama saat ganti metode, penutupan saat invoice lunas, dan penyapu checkout kedaluwarsa: hanya payment yang benar-benar berpindah status yang kuponnya dilepas, diberi tahu, atau dibatalkan di gateway, dan kupon tidak dilepas selama payment lain yang menunggu atau lunas masih memegangnya (mis. invoice Rp 0 yang tertutup kupon).
+- **Files**: `modules/finance/repositories/paymentRepository.customer-payments.ts`, `modules/pelanggan/services/CustomerPaymentCheckoutService.ts`, `modules/payment-gateway/services/abandoned-checkout.ts`, `modules/payment-gateway/services/pending-checkout-replacement.ts`, `tests/db/customer-payment-gateway.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Pelunasan dari cek status hanya memindahkan payment yang masih bisa menerima uang
 
 - **Tipe**: [FIXED]
