@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Portal: halaman bayar dipisah dari riwayat tagihan
+
+- **Tipe**: [CHANGED] | [FIXED]
+- **Scope**: `app/(customer)/tagihan` | `app/(customer)/riwayat` | `lib/constants/invoice-status.ts`
+- **Author**: agent
+- **Deskripsi**: `/tagihan` memuat seluruh riwayat tagihan di bawah tombol bayar sehingga halamannya terus memanjang. Kini `/tagihan` hanya berisi ringkasan, alur bayar, kartu menunggu pembayaran, dan daftar tagihan terbuka (SENT/OVERDUE/PARTIAL_PAID, diminta ke server lewat `?status=` agar tagihan lama yang belum dibayar tidak tertinggal di halaman berikutnya), ditambah tautan "Riwayat Tagihan & Pembayaran" ke `/riwayat`; aplikasi mobile sudah memisahkannya. Tombol "Unduh Semua" yang tidak berfungsi dan filter riwayat di `/tagihan` dihapus. Label status kini dari satu helper `getInvoiceStatusLabel` yang dikunci ke enum `InvoiceStatus`, sehingga CANCELLED tampil "Dibatalkan", bukan kode mentah (dan bukan "Gagal" di `/riwayat`). Filter `/riwayat` "Gagal" (kini "Dibatalkan") mencari VOID yang tidak ada di enum; kini CANCELLED. Filter "Menunggu" ikut menyertakan PARTIAL_PAID.
+- **Files**: `app/(customer)/tagihan/page.tsx`, `app/(customer)/tagihan/UnpaidInvoiceList.tsx`, `app/(customer)/riwayat/page.tsx`, `lib/constants/invoice-status.ts`, `tests/app/customer-tagihan-unpaid-only.test.tsx`, `tests/app/customer-riwayat-status.test.tsx`, `tests/lib/invoice-status-label.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Refresh token pelanggan hanya bisa ditukar sekali
 
 - **Tipe**: [SECURITY]

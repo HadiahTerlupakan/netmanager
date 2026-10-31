@@ -7,6 +7,10 @@ import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import {
+  getInvoiceStatusLabel,
+  isOutstandingInvoiceStatus,
+} from "@/lib/constants/invoice-status";
+import {
   MdArrowBack,
   MdSearch,
   MdReceiptLong,
@@ -22,7 +26,7 @@ interface Invoice {
   id: string;
   invoiceNumber: string;
   totalAmount: number;
-  status: string; // 'PAID' | 'SENT' | 'OVERDUE' | 'VOID'
+  status: string;
   items: Array<{ description: string }>;
   issueDate: string;
   dueDate: string;
@@ -50,8 +54,9 @@ export default function CustomerHistoryPage() {
   const filteredInvoices = invoices.filter((inv) => {
     if (filter === "ALL") return true;
     if (filter === "SUCCESS") return inv.status === "PAID";
-    if (filter === "PENDING") return ["SENT", "OVERDUE"].includes(inv.status);
-    if (filter === "FAILED") return inv.status === "VOID";
+    if (filter === "PENDING") return isOutstandingInvoiceStatus(inv.status);
+    // Enum InvoiceStatus tidak punya VOID; tagihan yang batal berstatus CANCELLED.
+    if (filter === "FAILED") return inv.status === "CANCELLED";
     return true;
   });
 
@@ -91,7 +96,7 @@ export default function CustomerHistoryPage() {
     switch (status) {
       case "PAID":
         return {
-          label: "Lunas",
+          label: getInvoiceStatusLabel(status),
           icon: MdReceiptLong,
           iconBg: "bg-[#0d9488]/10",
           iconColor: "text-[#0d9488]",
@@ -100,8 +105,9 @@ export default function CustomerHistoryPage() {
         };
       case "SENT":
       case "OVERDUE":
+      case "PARTIAL_PAID":
         return {
-          label: "Menunggu",
+          label: getInvoiceStatusLabel(status),
           icon: MdRouter, // Example icon for pending
           iconBg: "bg-orange-50 dark:bg-orange-500/10",
           iconColor: "text-orange-500",
@@ -110,7 +116,7 @@ export default function CustomerHistoryPage() {
         };
       default:
         return {
-          label: "Gagal",
+          label: getInvoiceStatusLabel(status),
           icon: MdErrorOutline,
           iconBg: "bg-red-50 dark:bg-red-500/10",
           iconColor: "text-red-500",
@@ -210,7 +216,7 @@ export default function CustomerHistoryPage() {
                   : "bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300"
               }`}
             >
-              Gagal
+              Dibatalkan
             </Button>
           </div>
         </header>

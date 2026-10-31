@@ -1,6 +1,9 @@
 "use client";
 
-import { isOutstandingInvoiceStatus } from "@/lib/constants/invoice-status";
+import {
+  OUTSTANDING_INVOICE_STATUSES,
+  isOutstandingInvoiceStatus,
+} from "@/lib/constants/invoice-status";
 import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -10,6 +13,7 @@ import { useToast } from "@/components/ui/Toast";
 import { CustomerNotificationBell } from "@/components/customer/CustomerNotificationBell";
 import { GatewayPendingCard } from "./GatewayPayInstructions";
 import { PaymentSuccessSheet } from "./PaymentSuccessSheet";
+import { UnpaidInvoiceList } from "./UnpaidInvoiceList";
 import {
   useTagihanLiveUpdates,
   type PaidSummary,
@@ -22,8 +26,6 @@ import {
   MdCalendarToday,
   MdRouter,
   MdVerifiedUser,
-  MdPendingActions,
-  MdReceiptLong,
   MdCreditCard,
   MdCheckCircle,
   MdCancel,
@@ -105,11 +107,6 @@ function SkeletonPage() {
       </div>
       <div className="w-full px-4 mt-2">
         <div className="w-40 h-6 bg-gray-200 dark:bg-gray-800 rounded animate-pulse mb-4" />
-        <div className="flex gap-3 mb-4">
-          <div className="w-20 h-8 bg-gray-200 dark:bg-gray-800 rounded-full animate-pulse" />
-          <div className="w-24 h-8 bg-gray-200 dark:bg-gray-800 rounded-full animate-pulse" />
-          <div className="w-24 h-8 bg-gray-200 dark:bg-gray-800 rounded-full animate-pulse" />
-        </div>
         <div className="w-full h-24 bg-gray-200 dark:bg-gray-800 rounded-lg animate-pulse mb-3" />
         <div className="w-full h-24 bg-gray-200 dark:bg-gray-800 rounded-lg animate-pulse" />
       </div>
@@ -158,9 +155,6 @@ function CountdownTimer({
 export default function CustomerInvoicesPage() {
   const { isLoading: authLoading, isAuthenticated } = useCustomerAuth();
   const [selectedMethodCode, setSelectedMethodCode] = useState<string>("");
-  const [filter, setFilter] = useState<"ALL" | "PAID" | "UNPAID" | "FAILED">(
-    "ALL",
-  );
   const router = useRouter();
 
   const {
@@ -172,7 +166,12 @@ export default function CustomerInvoicesPage() {
     hasNextPage: hasNextInvoices,
     isFetchingNextPage: isFetchingNextInvoices,
   } = useInfiniteApi<Invoice>(
-    isAuthenticated ? "/api/customer/invoices" : null,
+    // Hanya tagihan terbuka: halaman ini tidak memuat riwayat, dan tanpa
+    // filter server tagihan lama yang belum dibayar bisa tertinggal di
+    // halaman berikutnya sehingga tidak ikut terhitung di total.
+    isAuthenticated
+      ? `/api/customer/invoices?status=${OUTSTANDING_INVOICE_STATUSES.join(",")}`
+      : null,
     {
       limit: 20,
       mapResponse: (raw) => {
@@ -279,16 +278,6 @@ export default function CustomerInvoicesPage() {
     }
   };
 
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
-      if (filter === "ALL") return true;
-      if (filter === "PAID") return inv.status === "PAID";
-      if (filter === "UNPAID") return isOutstandingInvoiceStatus(inv.status);
-      if (filter === "FAILED") return inv.status === "VOID";
-      return true;
-    });
-  }, [invoices, filter]);
-
   // Termasuk PARTIAL_PAID: sisa tagihannya masih harus dibayar, dan ringkasan
   // dashboard sudah menghitungnya — kalau di sini dikecualikan, dua halaman
   // menampilkan angka tunggakan yang berbeda.
@@ -316,40 +305,6 @@ export default function CustomerInvoicesPage() {
         )[0]?.dueDate
       : null;
   }, [pendingInvoices]);
-
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case "PAID":
-        return {
-          label: "Lunas",
-          colorClass:
-            "text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 ring-green-600/20 dark:ring-green-400/20",
-          icon: MdReceiptLong,
-        };
-      case "SENT":
-      case "OVERDUE":
-        return {
-          label: "Belum Bayar",
-          colorClass:
-            "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 ring-orange-600/10 dark:ring-orange-400/20",
-          icon: MdPendingActions,
-        };
-      case "PARTIAL_PAID":
-        return {
-          label: "Dibayar Sebagian",
-          colorClass:
-            "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 ring-amber-600/20 dark:ring-amber-400/20",
-          icon: MdPendingActions,
-        };
-      default:
-        return {
-          label: status,
-          colorClass:
-            "text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 ring-gray-600/20",
-          icon: MdReceiptLong,
-        };
-    }
-  };
 
   const handleCheckCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -682,124 +637,12 @@ export default function CustomerInvoicesPage() {
             </div>
           )}
 
-          {/* Headline: Transaction History */}
-          <div className="px-4 pt-4 pb-2 flex justify-between items-end">
-            <h3 className="text-[#111418] dark:text-white tracking-tight text-xl font-bold leading-tight">
-              Riwayat Transaksi
-            </h3>
-            <Button variant="link" className="text-[#0d9488]">
-              Unduh Semua
-            </Button>
-          </div>
-
-          {/* Filter Chips */}
-          <div className="w-full overflow-x-auto hide-scrollbar pb-2">
-            <div className="flex gap-3 px-4 min-w-max">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilter("ALL")}
-                className={`rounded-full ${
-                  filter === "ALL"
-                    ? "bg-[#111418] dark:bg-white text-white dark:text-[#111418] hover:bg-[#111418] dark:hover:bg-white"
-                    : "bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700"
-                }`}
-              >
-                Semua
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilter("PAID")}
-                className={`rounded-full ${
-                  filter === "PAID"
-                    ? "bg-[#111418] dark:bg-white text-white dark:text-[#111418] hover:bg-[#111418] dark:hover:bg-white"
-                    : "bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700"
-                }`}
-              >
-                Lunas
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFilter("UNPAID")}
-                className={`rounded-full ${
-                  filter === "UNPAID"
-                    ? "bg-[#111418] dark:bg-white text-white dark:text-[#111418] hover:bg-[#111418] dark:hover:bg-white"
-                    : "bg-white dark:bg-[#1a2632] border border-gray-200 dark:border-gray-700"
-                }`}
-              >
-                Belum Bayar
-              </Button>
-            </div>
-          </div>
-
-          {/* List of Transactions */}
-          <div className="flex flex-col mt-2">
-            {filteredInvoices.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <p>Tidak ada riwayat transaksi</p>
-              </div>
-            ) : (
-              filteredInvoices.map((invoice) => {
-                const statusInfo = getStatusInfo(invoice.status);
-                const Icon = statusInfo.icon;
-                const dateObj = new Date(
-                  invoice.issueDate || invoice.createdAt || new Date(),
-                );
-                const monthYear = dateObj.toLocaleDateString("id-ID", {
-                  month: "long",
-                  year: "numeric",
-                });
-
-                return (
-                  <div
-                    key={invoice.id}
-                    className="group cursor-pointer active:bg-gray-50 dark:active:bg-gray-800 transition-colors"
-                  >
-                    <div className="flex items-center gap-4 bg-white dark:bg-[#1a2632] px-4 py-4 justify-between border-b border-gray-100 dark:border-gray-800">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`flex items-center justify-center rounded-full shrink-0 size-12 ${
-                            invoice.status === "PAID"
-                              ? "bg-[#f6f7f8] dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                              : "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
-                          }`}
-                        >
-                          <Icon className="text-2xl" />
-                        </div>
-                        <div className="flex flex-col">
-                          <p className="text-[#111418] dark:text-white text-base font-semibold leading-tight capitalize">
-                            {monthYear}
-                          </p>
-                          <p className="text-gray-500 dark:text-gray-400 text-xs font-medium line-clamp-1">
-                            {invoice.invoiceNumber} •{" "}
-                            {invoice.items[0]?.description ||
-                              "Layanan Internet"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <p className="text-[#111418] dark:text-white font-bold text-base">
-                          {formatCurrency(invoice.totalAmount)}
-                        </p>
-                        <span
-                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${statusInfo.colorClass}`}
-                        >
-                          {statusInfo.label}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-            <InfiniteScrollSentinel
-              onLoadMore={fetchNextInvoices}
-              hasNextPage={hasNextInvoices}
-              isFetchingNextPage={isFetchingNextInvoices}
-            />
-          </div>
+          <UnpaidInvoiceList invoices={pendingInvoices} />
+          <InfiniteScrollSentinel
+            onLoadMore={fetchNextInvoices}
+            hasNextPage={hasNextInvoices}
+            isFetchingNextPage={isFetchingNextInvoices}
+          />
         </div>
       </div>
 
