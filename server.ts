@@ -27,6 +27,7 @@ import {
 } from "./modules/notification/services/PushRetryQueue";
 import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
 import {
+  headerCacheUpload,
   isPublicUploadPath,
   jalurStatisTerjaga,
   kanonikJalurUpload,
@@ -139,6 +140,10 @@ app.prepare().then(() => {
         return;
       }
 
+      // Jawaban untuk berkas privat tidak boleh tersimpan di cache bersama
+      // (CDN, proxy): salinannya disajikan kepada siapa saja.
+      const headerCache = headerCacheUpload(jalurUpload);
+
       if (isPublicUploadPath(jalurUpload)) {
         // Public attendance uploads stay readable even when R2 falls back to local storage.
       } else {
@@ -148,7 +153,10 @@ app.prepare().then(() => {
           logger.warn(
             `[Server] Unauthorized access attempt to ${jalurUpload} from ${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`,
           );
-          res.writeHead(401, { "Content-Type": "application/json" });
+          res.writeHead(401, {
+            "Content-Type": "application/json",
+            ...headerCache,
+          });
           res.end(
             JSON.stringify({
               error:
@@ -164,7 +172,10 @@ app.prepare().then(() => {
           logger.warn(
             `[Server] Cross-tenant upload access blocked for ${jalurUpload} (tenant ${pembaca.tenantId ?? "-"})`,
           );
-          res.writeHead(403, { "Content-Type": "application/json" });
+          res.writeHead(403, {
+            "Content-Type": "application/json",
+            ...headerCache,
+          });
           res.end(JSON.stringify({ error: "Akses ditolak" }));
           return;
         }
@@ -181,7 +192,10 @@ app.prepare().then(() => {
         requestedPath !== uploadsRootDir
       ) {
         logger.warn(`[Server] Blocked potential path traversal: ${pathname}`);
-        res.writeHead(403, { "Content-Type": "application/json" });
+        res.writeHead(403, {
+          "Content-Type": "application/json",
+          ...headerCache,
+        });
         res.end(JSON.stringify({ error: "Akses ditolak" }));
         return;
       }
@@ -192,6 +206,7 @@ app.prepare().then(() => {
           res.writeHead(200, {
             "Content-Type": getMimeType(requestedPath),
             "Content-Length": stat.size,
+            ...headerCache,
           });
           const readStream = fs.createReadStream(requestedPath);
           readStream.pipe(res);
@@ -217,6 +232,7 @@ app.prepare().then(() => {
             res.writeHead(200, {
               "Content-Type": getMimeType(requestedPath),
               "Content-Length": objek.length,
+              ...headerCache,
             });
             res.end(objek);
             return;
@@ -234,7 +250,10 @@ app.prepare().then(() => {
       // handler itu menerapkan decoding-nya sendiri — jalur yang sudah lolos
       // penjaga di atas bisa berakhir menunjuk berkas lain. Satu-satunya yang
       // boleh menyajikan `/uploads/` adalah blok ini.
-      res.writeHead(404, { "Content-Type": "application/json" });
+      res.writeHead(404, {
+        "Content-Type": "application/json",
+        ...headerCache,
+      });
       res.end(JSON.stringify({ error: "File tidak ditemukan" }));
       return;
     }

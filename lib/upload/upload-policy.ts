@@ -271,6 +271,19 @@ export function kanonikJalurUpload(
 }
 
 /**
+ * Cache-Control untuk jawaban atas berkas privat: salinannya di cache bersama
+ * (CDN, proxy) disajikan kepada siapa saja tanpa melewati penjaga.
+ */
+export const CACHE_CONTROL_UPLOAD_PRIVAT = "private, no-store";
+
+/** Header cache untuk jawaban penjaga upload; kosong untuk berkas publik. */
+export function headerCacheUpload(jalurUpload: string): Record<string, string> {
+  return isPublicUploadPath(jalurUpload)
+    ? {}
+    : { "Cache-Control": CACHE_CONTROL_UPLOAD_PRIVAT };
+}
+
+/**
  * Direktori di bawah `public/` yang hanya boleh disajikan penjaga server.ts.
  * `receipts` berisi bukti transfer dari penyimpanan lokal lama, sebelum bukti
  * disimpan di `uploads/tenants/<id>/payment-proofs`.

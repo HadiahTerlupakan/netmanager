@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  headerCacheUpload,
   isPublicUploadPath,
   isR2KeyPublic,
   jalurStatisTerjaga,
@@ -183,6 +184,28 @@ describe("jalur statis terjaga", () => {
       expect(jalurStatisTerjaga(pathname)).toBeNull();
     },
   );
+});
+
+// Salinan berkas privat di cache bersama (CDN, proxy) disajikan kepada siapa
+// saja tanpa melewati penjaga.
+describe("header cache respons upload", () => {
+  it.each([
+    "/uploads/tenants/a/payment-proofs/receipt_c1_1.webp",
+    "/uploads/payment-proofs/1-receipt.webp",
+    "/uploads/tenants/a/tickets/p-pel-1/lampiran.webp",
+  ])("%s tidak boleh disimpan cache bersama", (jalur) => {
+    expect(headerCacheUpload(jalur)).toEqual({
+      "Cache-Control": "private, no-store",
+    });
+  });
+
+  it.each([
+    "/uploads/employee/attendance/foto.webp",
+    "/uploads/tenants/a/employee/attendance/foto.webp",
+    "/uploads/logos/logo.webp",
+  ])("%s publik dibiarkan apa adanya", (jalur) => {
+    expect(headerCacheUpload(jalur)).toEqual({});
+  });
 });
 
 describe("sub folder upload aman", () => {

@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Berkas upload privat tidak disimpan cache bersama
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/upload` | `server.ts`
+- **Author**: agent
+- **Deskripsi**: Jawaban penjaga `/uploads/` tidak membawa header Cache-Control, jadi CDN atau proxy yang menyimpan gambar menurut ekstensinya bisa menyajikan salinan berkas privat (bukti transfer, KTP, foto WO) kepada siapa saja tanpa melewati penjaga. Kini setiap jawaban penjaga untuk jalur privat (berkas dari disk maupun R2, 401, 403, dan 404) membawa `Cache-Control: private, no-store` lewat `headerCacheUpload`; foto absensi dan logo yang memang publik tidak berubah. Jawaban bukti transfer lama di `/receipts/*`, termasuk 401, 404, dan 500, memakai header yang sama (`CACHE_CONTROL_UPLOAD_PRIVAT`).
+- **Files**: `lib/upload/upload-policy.ts`, `lib/upload/bukti-transfer-lama.ts`, `server.ts`, `tests/lib/upload-policy.test.ts`, `tests/lib/bukti-transfer-lama.test.ts`, `tests/ci/local-upload-access-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Notifikasi gagal gateway dan pembersihan INVOICE_PAID memegang kunci checkout
 
 - **Tipe**: [FIXED]

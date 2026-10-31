@@ -100,6 +100,25 @@ describe("local upload access safety", () => {
     expect(receiptsIndex).toBeLessThan(serverFile.indexOf("handle(req, res);"));
   });
 
+  // Salinan berkas privat di cache bersama (CDN, proxy) disajikan kepada siapa
+  // saja tanpa melewati penjaga, jadi setiap jawaban penjaga upload untuk
+  // jalur privat membawa header cache dari headerCacheUpload.
+  it("sends the private cache header on every protected upload response", () => {
+    const serverFile = readServerFile();
+    const start = serverFile.indexOf(
+      "const headerCache = headerCacheUpload(jalurUpload);",
+    );
+    const end = serverFile.indexOf("handle(req, res);");
+    const guardedBlock = serverFile.slice(start, end);
+    const responses = guardedBlock.match(/res\.writeHead\(/g) ?? [];
+
+    expect(start).toBeGreaterThan(-1);
+    expect(responses.length).toBeGreaterThanOrEqual(5);
+    expect(guardedBlock.match(/\.\.\.headerCache\b/g)?.length).toBe(
+      responses.length,
+    );
+  });
+
   // Berkas pribadi di R2 kini dirujuk lewat jalur ini, bukan URL publik bucket.
   // Isinya hanya boleh dialirkan setelah penjaga sesi dan tenant terlewati.
   it("streams private R2 objects only after both guards", () => {

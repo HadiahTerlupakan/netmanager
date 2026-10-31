@@ -10,6 +10,7 @@ import {
   pembacaUploadDariSesi,
   type PembacaUpload,
 } from "@/lib/upload/upload-access";
+import { CACHE_CONTROL_UPLOAD_PRIVAT } from "@/lib/upload/upload-policy";
 
 /**
  * Bukti transfer dari penyimpanan lokal lama, `public/receipts`, sebelum
@@ -27,8 +28,6 @@ import {
 const JALUR_BUKTI_LAMA = /^\/receipts\/[^/]+\.webp$/;
 const DIREKTORI_PUBLIK = path.resolve(process.cwd(), "public");
 const METODE_BACA = new Set(["GET", "HEAD"]);
-// Bukti transfer tidak boleh tersimpan di cache bersama (CDN, proxy).
-const CACHE_PRIBADI = "private, no-store";
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_NOT_FOUND = 404;
 const HTTP_INTERNAL_ERROR = 500;
@@ -152,7 +151,7 @@ async function kirimBerkas(
   res.writeHead(200, {
     "Content-Type": "image/webp",
     "Content-Length": info.size,
-    "Cache-Control": CACHE_PRIBADI,
+    "Cache-Control": CACHE_CONTROL_UPLOAD_PRIVAT,
   });
   if (req.method === "HEAD") {
     res.end();
@@ -167,7 +166,12 @@ async function kirimBerkas(
     .pipe(res);
 }
 
+// Penolakan pun tidak boleh tersimpan di cache bersama: 404 yang tersimpan
+// menyembunyikan bukti dari staf yang berhak.
 function kirimGalat(res: ServerResponse, status: number, pesan: string) {
-  res.writeHead(status, { "Content-Type": "application/json" });
+  res.writeHead(status, {
+    "Content-Type": "application/json",
+    "Cache-Control": CACHE_CONTROL_UPLOAD_PRIVAT,
+  });
   res.end(JSON.stringify({ error: pesan }));
 }

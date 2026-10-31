@@ -170,6 +170,25 @@ describe("penyajian bukti transfer lama", () => {
     expect(prismaMock.payment.findMany).not.toHaveBeenCalled();
   });
 
+  // Jawaban penolakan juga tidak boleh tersimpan di cache bersama: 404 yang
+  // tersimpan menyembunyikan bukti dari staf yang berhak.
+  it.each([
+    ["tanpa sesi", null, 401],
+    ["staf tenant lain", STAF_B, 404],
+  ])(
+    "%s: jawabannya tidak disimpan cache bersama",
+    async (_siapa, pembaca, status) => {
+      palsu.pembaca.mockResolvedValue(pembaca);
+
+      const jawaban = await minta(JALUR);
+
+      expect([jawaban.status, jawaban.headers.get("cache-control")]).toEqual([
+        status,
+        "private, no-store",
+      ]);
+    },
+  );
+
   it("staf tenant pembayarannya menerima berkasnya, tanpa cache bersama", async () => {
     palsu.pembaca.mockResolvedValue(STAF_A);
 
