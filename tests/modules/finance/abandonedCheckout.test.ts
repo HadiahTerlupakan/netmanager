@@ -6,6 +6,11 @@ const palsu = vi.hoisted(() => ({
   releaseUsage: vi.fn(),
   restoreUsage: vi.fn(),
   onPaymentFailed: vi.fn(),
+  reconcile: vi.fn(),
+}));
+
+vi.mock("@/modules/payment-gateway/services/checkout-reconciliation", () => ({
+  reconcileCheckout: palsu.reconcile,
 }));
 
 vi.mock("@/modules/events", () => ({
@@ -57,6 +62,10 @@ describe("checkout gateway yang ditinggalkan", () => {
       },
     ]);
     prismaMock.payment.updateMany.mockResolvedValue({ count: 2 });
+    palsu.reconcile.mockResolvedValue({
+      outcome: "UNPAID",
+      gatewayStatus: "EXPIRED",
+    });
   });
 
   it("hanya payment PENDING yang lewat batas waktu + jeda yang ditutup", async () => {
@@ -75,6 +84,36 @@ describe("checkout gateway yang ditinggalkan", () => {
       where: { id: { in: ["p1", "p2"] }, gatewayStatus: "PENDING" },
       data: { gatewayStatus: "EXPIRED" },
     });
+  });
+
+  // Callback yang hilang dulu berakhir sebagai "pembayaran gagal" walau uang
+  // pelanggan sudah masuk.
+  it("satu checkout ditanyakan sekali ke gateway sebelum ditutup", async () => {
+    await expireStaleGatewayPayments(NOW);
+
+    expect(palsu.reconcile).toHaveBeenCalledTimes(1);
+    expect(
+      palsu.reconcile.mock.calls[0][0].map((p: { id: string }) => p.id),
+    ).toEqual(["p1", "p2"]);
+  });
+
+  it("checkout yang ternyata dibayar tidak ditutup dan pelanggan tidak diberi tahu gagal", async () => {
+    palsu.reconcile.mockResolvedValue({ outcome: "PAID" });
+
+    await expect(expireStaleGatewayPayments(NOW)).resolves.toBe(0);
+    expect(prismaMock.payment.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: { gatewayStatus: "EXPIRED" } }),
+    );
+    expect(palsu.onPaymentFailed).not.toHaveBeenCalled();
+    expect(palsu.releaseUsage).not.toHaveBeenCalled();
+  });
+
+  it("status yang tidak terbaca dibiarkan untuk putaran berikutnya", async () => {
+    palsu.reconcile.mockResolvedValue({ outcome: "UNKNOWN" });
+
+    await expect(expireStaleGatewayPayments(NOW)).resolves.toBe(0);
+    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+    expect(palsu.onPaymentFailed).not.toHaveBeenCalled();
   });
 
   it("pelanggan diberi tahu sekali per checkout, dengan total nominalnya", async () => {

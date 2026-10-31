@@ -6,12 +6,16 @@ import {
 } from "@/lib/tenant-context";
 import { couponService } from "@/modules/coupons";
 import { BillingEventDispatcher } from "@/modules/events";
+import { reconcileCheckout } from "./checkout-reconciliation";
 
 const UNPAID_TERMINAL_STATUSES = new Set(["EXPIRED", "FAILED", "CANCELLED"]);
 // Gateway kadang mengirim notifikasi PAID sedikit setelah batas waktunya;
 // payment baru ditutup setelah jeda ini.
 const EXPIRY_GRACE_MS = 60 * 60 * 1000;
 const SWEEP_BATCH_SIZE = 500;
+// Duitku memblokir merchant sekitar satu jam bila cek status terlalu sering;
+// sisanya ditanyakan pada putaran berikutnya (tiap 15 menit).
+const MAX_CHECKOUTS_RECONCILED_PER_SWEEP = 50;
 
 type CouponHolder = {
   id?: string;
@@ -100,6 +104,10 @@ export async function restoreReleasedCoupons(payments: CouponHolder[]) {
  * Tutup payment gateway yang lewat batas waktu tanpa notifikasi apa pun
  * (pelanggan meninggalkan halaman bayar) dan kembalikan kuponnya. Transfer
  * manual tidak punya expiresAt, jadi tidak tersentuh.
+ *
+ * Gateway ditanya dulu per checkout: yang ternyata dibayar (callback-nya
+ * hilang) dilunasi, dan yang statusnya tidak terbaca dibiarkan untuk putaran
+ * berikutnya. Hanya checkout yang menurut gateway belum dibayar yang ditutup.
  */
 export async function expireStaleGatewayPayments(now = new Date()) {
   const stale = await prismaBillingAuth.payment.findMany({
@@ -115,19 +123,44 @@ export async function expireStaleGatewayPayments(now = new Date()) {
       pelangganId: true,
       invoiceId: true,
       amount: true,
+      reference: true,
+      gatewayProvider: true,
       invoice: { select: { dueDate: true } },
     },
+    // Yang baru lewat batas waktu lebih dulu: callback yang hilang paling
+    // mungkin di sana, dan checkout lama yang statusnya tak kunjung terbaca
+    // tidak menahan yang baru.
+    orderBy: { expiresAt: "desc" },
     take: SWEEP_BATCH_SIZE,
   });
-  if (stale.length === 0) return 0;
+  const unpaid = await keepUnpaidCheckouts(stale);
+  if (unpaid.length === 0) return 0;
 
   const { count } = await prismaBillingAuth.payment.updateMany({
-    where: { id: { in: stale.map((p) => p.id) }, gatewayStatus: "PENDING" },
+    where: { id: { in: unpaid.map((p) => p.id) }, gatewayStatus: "PENDING" },
     data: { gatewayStatus: "EXPIRED" },
   });
-  await releaseCheckoutCoupons(stale);
-  await notifyExpiredCheckouts(stale);
+  await releaseCheckoutCoupons(unpaid);
+  await notifyExpiredCheckouts(unpaid);
   return count;
+}
+
+async function keepUnpaidCheckouts<
+  T extends ExpiredPayment & {
+    reference: string | null;
+    gatewayProvider: string | null;
+  },
+>(payments: T[]) {
+  const checkouts = [...groupByCheckout(payments).values()].slice(
+    0,
+    MAX_CHECKOUTS_RECONCILED_PER_SWEEP,
+  );
+  const unpaid: T[] = [];
+  for (const checkout of checkouts) {
+    const { outcome } = await reconcileCheckout(checkout);
+    if (outcome === "UNPAID") unpaid.push(...checkout);
+  }
+  return unpaid;
 }
 
 type ExpiredPayment = {
@@ -140,15 +173,20 @@ type ExpiredPayment = {
   invoice: { dueDate: Date } | null;
 };
 
-// Satu pemberitahuan per checkout, bukan per invoice di dalamnya.
-async function notifyExpiredCheckouts(payments: ExpiredPayment[]) {
-  const checkouts = new Map<string, ExpiredPayment[]>();
+function groupByCheckout<T extends { id: string; checkoutId: string | null }>(
+  payments: T[],
+) {
+  const checkouts = new Map<string, T[]>();
   for (const payment of payments) {
     const key = payment.checkoutId ?? payment.id;
     checkouts.set(key, [...(checkouts.get(key) ?? []), payment]);
   }
+  return checkouts;
+}
 
-  for (const group of checkouts.values()) {
+// Satu pemberitahuan per checkout, bukan per invoice di dalamnya.
+async function notifyExpiredCheckouts(payments: ExpiredPayment[]) {
+  for (const group of groupByCheckout(payments).values()) {
     const first = group[0];
     if (!first.invoiceId) continue;
     try {
