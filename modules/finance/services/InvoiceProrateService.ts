@@ -169,6 +169,10 @@ export class InvoiceProrateService {
     sisaHari: number,
     totalHari: number,
   ): Promise<ApplyPackageChangeResult> {
+    // Paket diganti sekarang menggantikan perubahan terjadwal (mis. pengajuan
+    // upgrade pelanggan); tanpa ini pengajuannya tetap tampil sebagai menunggu.
+    await this.repo.clearPendingPackage(input.pelangganId);
+
     const priceDiff = BigInt(newPackage.harga) - BigInt(oldPackage.harga);
     const isUpgrade = priceDiff > 0n;
     const isDowngrade = priceDiff < 0n;

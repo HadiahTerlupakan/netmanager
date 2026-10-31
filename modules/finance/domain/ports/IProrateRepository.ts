@@ -73,6 +73,9 @@ export interface IProrateRepository {
    */
   schedulePackageChange(input: SchedulePackageChangeInput): Promise<void>;
 
+  /** Hapus perubahan paket terjadwal; dipakai saat paket diganti seketika. */
+  clearPendingPackage(pelangganId: string): Promise<void>;
+
   /** Increment saldo kredit pelanggan dengan amount tertentu. */
   incrementSaldoKredit(pelangganId: string, credit: bigint): Promise<void>;
 

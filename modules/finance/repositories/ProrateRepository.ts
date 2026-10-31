@@ -66,6 +66,17 @@ export class ProrateRepository implements IProrateRepository {
     });
   }
 
+  async clearPendingPackage(pelangganId: string): Promise<void> {
+    await prisma.pelanggan.update({
+      where: { id: pelangganId },
+      data: {
+        pendingPackageId: null,
+        pendingPackageApplyAt: null,
+        pendingPackageByCustomer: false,
+      },
+    });
+  }
+
   async incrementSaldoKredit(
     pelangganId: string,
     credit: bigint,

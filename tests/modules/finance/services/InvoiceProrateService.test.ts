@@ -49,6 +49,7 @@ type MockedProrateRepo = {
   findPelangganProrateContext: ReturnType<typeof vi.fn>;
   findPackagePair: ReturnType<typeof vi.fn>;
   schedulePackageChange: ReturnType<typeof vi.fn>;
+  clearPendingPackage: ReturnType<typeof vi.fn>;
   incrementSaldoKredit: ReturnType<typeof vi.fn>;
   createProrateInvoice: ReturnType<typeof vi.fn>;
   createRefundPaymentRecord: ReturnType<typeof vi.fn>;
@@ -61,6 +62,7 @@ const buildMockRepo = (): MockedProrateRepo => ({
   findPelangganProrateContext: vi.fn(),
   findPackagePair: vi.fn(),
   schedulePackageChange: vi.fn().mockResolvedValue(undefined),
+  clearPendingPackage: vi.fn().mockResolvedValue(undefined),
   incrementSaldoKredit: vi.fn().mockResolvedValue(undefined),
   createProrateInvoice: vi.fn(),
   createRefundPaymentRecord: vi.fn(),
@@ -102,6 +104,26 @@ describe("InvoiceProrateService", () => {
       expect(repo.createProrateInvoice).not.toHaveBeenCalled();
       expect(repo.createRefundPaymentRecord).not.toHaveBeenCalled();
       expect(repo.recordProrateLog).toHaveBeenCalledOnce();
+    });
+  });
+
+  // Pengajuan upgrade pelanggan yang lalu diterapkan admin seketika tetap
+  // tercatat: admin melihat "Paket akan berubah ... pada 5 Januari 2027" dan
+  // aplikasi "Pengajuan upgrade sedang diproses" untuk paket yang sudah aktif.
+  describe("IMMEDIATE menghapus perubahan paket yang terjadwal", () => {
+    it("pengajuan yang menunggu tidak tersisa", async () => {
+      await service.applyPackageChange({ ...baseInput });
+
+      expect(repo.clearPendingPackage).toHaveBeenCalledWith("pelanggan-1");
+    });
+
+    it("NEXT_CYCLE tidak menghapusnya", async () => {
+      await service.applyPackageChange({
+        ...baseInput,
+        upgradeApplyTime: "NEXT_CYCLE",
+      });
+
+      expect(repo.clearPendingPackage).not.toHaveBeenCalled();
     });
   });
 
