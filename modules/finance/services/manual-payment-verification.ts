@@ -1,6 +1,9 @@
 import { createRouteServiceError } from "@/lib/api/route-service-error";
 import { BillingEventDispatcher } from "@/modules/events";
-import { sendCustomerPushNotification } from "@/modules/notification";
+import {
+  CUSTOMER_APP_BILLING_ROUTE,
+  sendCustomerPushNotification,
+} from "@/modules/notification";
 import {
   claimPendingPayments,
   findPendingCheckoutPayments,
@@ -182,6 +185,7 @@ async function notifyRemainingBalance(
         paymentId: payment.id,
         invoiceId: payment.invoiceId,
         action: "APPROVE",
+        url: CUSTOMER_APP_BILLING_ROUTE,
       },
     );
   }

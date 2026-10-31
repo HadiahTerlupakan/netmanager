@@ -168,6 +168,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `app/api/coupons/verify/route.ts`, `app/api/customer/rate-limit.ts`, `app/api/customer/payments/route.ts`, `app/api/customer/payments/sse/route.ts`, `app/api/customer/coupons/verify/route.ts`, `tests/api/coupons-verify-route.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-10-31] — Push tagihan membawa rute Tagihan aplikasi mobile
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/notification` | `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Push notifikasi tagihan dari `NotificationDispatcher` (tagihan baru, pengingat, lunas, kedaluwarsa, saldo, dialihkan, ditolak, dan pemberitahuan pelanggan lainnya) kini membawa `data.url = "/(customer)/tagihan"`, rute Tagihan di aplikasi mobile, sesuai kontrak C5; push langsung "Pembayaran Diterima" (transfer sebagian) dan "Pembayaran Dibatalkan" ikut membawanya. Notifikasi in-app tetap bertaut ke `/tagihan` untuk lonceng portal. Kedua rute menjadi konstanta `CUSTOMER_APP_BILLING_ROUTE` dan `CUSTOMER_PORTAL_BILLING_PATH` yang diekspor `modules/notification`.
+- **Files**: `modules/notification/services/NotificationDispatcher.ts`, `modules/notification/index.ts`, `modules/finance/services/manual-payment-verification.ts`, `modules/finance/services/PaymentCancellationService.ts`, `tests/modules/notification/NotificationDispatcher.test.ts`, `tests/modules/finance/manualPaymentVerification.test.ts`, `tests/modules/finance/PaymentCancellationService.test.ts`, `tests/db/payment-settlement.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Alasan penolakan bukti transfer disimpan dan dikirim ke pelanggan
 
 - **Tipe**: [FIXED]

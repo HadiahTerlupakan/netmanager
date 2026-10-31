@@ -1,7 +1,10 @@
 import { logger } from "@/lib/logger";
 import { reverseInvoiceReceiptJournals } from "@/modules/accounting";
 import { prismaBilling } from "@/modules/database";
-import { sendCustomerPushNotification } from "@/modules/notification";
+import {
+  CUSTOMER_APP_BILLING_ROUTE,
+  sendCustomerPushNotification,
+} from "@/modules/notification";
 import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
 import { InvoicePaymentStateService } from "./InvoicePaymentStateService";
 
@@ -135,6 +138,6 @@ function notifyCustomer(
     customerId,
     "Pembayaran Dibatalkan",
     "Pembayaran Anda telah dibatalkan oleh Admin.",
-    { paymentId, invoiceId, action: "CANCEL" },
+    { paymentId, invoiceId, action: "CANCEL", url: CUSTOMER_APP_BILLING_ROUTE },
   );
 }

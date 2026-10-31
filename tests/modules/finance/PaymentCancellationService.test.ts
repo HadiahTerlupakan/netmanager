@@ -37,6 +37,7 @@ vi.mock("@/modules/pelanggan", () => ({
 }));
 
 vi.mock("@/modules/notification", () => ({
+  CUSTOMER_APP_BILLING_ROUTE: "/(customer)/tagihan",
   sendCustomerPushNotification: mockFns.sendCustomerPushNotification,
 }));
 
@@ -88,7 +89,12 @@ describe("cancelPaidPayment", () => {
       "cust-1",
       "Pembayaran Dibatalkan",
       "Pembayaran Anda telah dibatalkan oleh Admin.",
-      { paymentId: "pay-1", invoiceId: "inv-1", action: "CANCEL" },
+      {
+        paymentId: "pay-1",
+        invoiceId: "inv-1",
+        action: "CANCEL",
+        url: "/(customer)/tagihan",
+      },
     );
   });
 

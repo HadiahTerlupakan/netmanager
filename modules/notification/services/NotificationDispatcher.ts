@@ -40,6 +40,11 @@ const DEFAULT_CHANNELS: NotificationChannel[] = [
   "email",
 ];
 
+/** Halaman Tagihan portal pelanggan; tujuan notifikasi in-app. */
+export const CUSTOMER_PORTAL_BILLING_PATH = "/tagihan";
+/** Rute Tagihan aplikasi mobile (expo-router); dibaca dari `data.url` push. */
+export const CUSTOMER_APP_BILLING_ROUTE = "/(customer)/tagihan";
+
 const DEDUPE_KEY_PREFIX = "notif-dedupe:";
 /** TTL idempotency token — cukup untuk window retry BullMQ standar. */
 const DEDUPE_TTL_SECONDS = 600;
@@ -211,7 +216,7 @@ export class NotificationDispatcher {
       tenantId: contact.tenantId,
       title: template.title,
       message: template.inApp(params),
-      link: "/tagihan",
+      link: CUSTOMER_PORTAL_BILLING_PATH,
       sourceType: input.sourceType,
       sourceId: input.sourceId,
     });
@@ -227,7 +232,11 @@ export class NotificationDispatcher {
       contact.customerId,
       template.title,
       template.push(params),
-      { sourceType: input.sourceType, sourceId: input.sourceId },
+      {
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+        url: CUSTOMER_APP_BILLING_ROUTE,
+      },
     );
   }
 

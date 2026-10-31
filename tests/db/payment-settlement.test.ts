@@ -51,6 +51,7 @@ vi.mock("@/lib/distributed-lock", () => ({
   ),
 }));
 vi.mock("@/modules/notification", () => ({
+  CUSTOMER_APP_BILLING_ROUTE: "/(customer)/tagihan",
   sendCustomerPushNotification: vi.fn(async () => undefined),
   notifyPackageUpgradeRequested: vi.fn(async () => undefined),
   notifyPackageUpgradeCancelled: vi.fn(async () => undefined),

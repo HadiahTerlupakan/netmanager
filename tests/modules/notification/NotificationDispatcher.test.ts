@@ -134,6 +134,24 @@ describe("NotificationDispatcher", () => {
     );
   });
 
+  // Aplikasi mobile membuka `data.url` saat push diketuk; portal tetap
+  // memakai tautan in-app /tagihan.
+  it("push tagihan membawa rute Tagihan aplikasi mobile", async () => {
+    await new NotificationDispatcher().dispatch({
+      pelangganId: "cust-1",
+      templateKey: "invoicePaid",
+      params: { customerName: "Budi", invoiceNumber: "INV/1", amountDue: 1 },
+      sourceType: "BILLING",
+      sourceId: "inv-1",
+    });
+    expect(mockSendPush).toHaveBeenCalledWith(
+      fullContact.customerId,
+      expect.any(String),
+      expect.any(String),
+      { sourceType: "BILLING", sourceId: "inv-1", url: "/(customer)/tagihan" },
+    );
+  });
+
   it("skip email kalau kontak tidak punya email", async () => {
     mockContact.mockResolvedValueOnce({ ...fullContact, email: null });
     await new NotificationDispatcher().dispatch({

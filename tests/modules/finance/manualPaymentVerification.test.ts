@@ -11,6 +11,7 @@ const palsu = vi.hoisted(() => ({
 }));
 
 vi.mock("@/modules/notification", () => ({
+  CUSTOMER_APP_BILLING_ROUTE: "/(customer)/tagihan",
   sendCustomerPushNotification: palsu.push,
 }));
 vi.mock("@/modules/payment-gateway", () => ({
@@ -154,7 +155,11 @@ describe("approveManualCheckout", () => {
       "cust-1",
       "Pembayaran Diterima",
       expect.stringContaining("Sisa tagihan"),
-      expect.objectContaining({ invoiceId: "inv-2", action: "APPROVE" }),
+      expect.objectContaining({
+        invoiceId: "inv-2",
+        action: "APPROVE",
+        url: "/(customer)/tagihan",
+      }),
     );
   });
 
