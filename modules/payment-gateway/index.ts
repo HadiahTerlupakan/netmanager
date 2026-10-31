@@ -62,6 +62,8 @@ export {
   handleInvoicePaidCheckoutCleanup,
 } from "./services/pending-checkout-replacement";
 export { withCustomerCheckoutLock } from "./services/customer-checkout-lock";
+export { setGatewayConfigRevoked } from "./services/gateway-config-revocation";
+export type { GatewayConfigRevocation } from "./domain/ports/IPaymentGatewayConfigRepository";
 export type { ReplaceableCheckouts } from "./services/pending-checkout-replacement";
 export {
   reconcileInvoiceCheckout,

@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Tombol sakelar darurat konfigurasi payment gateway di admin
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/payment-gateway` | `app/api/admin/payment-gateway` | `app/admin/pengaturan/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: `PaymentGatewayConfig.isRevoked` dulu hanya bisa diubah langsung di database billing. Kartu provider di Pengaturan → Payment Gateway kini punya tombol "Cabut konfigurasi (kill switch)" dan "Pulihkan" bagi pemegang `payment_gateway:update`, dengan dialog konfirmasi yang menjelaskan akibatnya (callback dan cek status untuk konfigurasi itu ditolak, checkout baru tidak bisa dibuat, metodenya hilang dari pilihan pelanggan, dan pembayaran lewat VA/QR yang sudah terbit tidak tercatat otomatis sampai dipulihkan). Kartu yang dicabut ditandai "Dicabut". Endpoint baru `PUT /api/admin/payment-gateway/configs/[provider]/revocation` (`{ isRevoked: boolean }`, Zod) mengubah hanya konfigurasi tenant admin itu lewat `setGatewayConfigRevoked`, tidak menyentuh `isEnabled`, menjawab 403 tanpa izin, 400 untuk badan tidak sah atau tanpa tenant, 404 bila tenant tidak punya konfigurasi provider itu, dan mencatat log aktivitas `REVOKE`/`RESTORE` (subject `Payment Gateway Config`).
+- **Files**: `app/api/admin/payment-gateway/configs/[provider]/revocation/route.ts`, `modules/payment-gateway/services/gateway-config-revocation.ts`, `modules/payment-gateway/repositories/PaymentGatewayConfigRepository.ts`, `modules/payment-gateway/domain/ports/IPaymentGatewayConfigRepository.ts`, `modules/payment-gateway/index.ts`, `app/admin/pengaturan/payment-gateway/components/GatewayRevocation.tsx`, `app/admin/pengaturan/payment-gateway/components/PaymentGatewayTab.tsx`, `app/admin/pengaturan/payment-gateway/hooks/usePaymentGatewayConfigs.ts`, `tests/api/admin-payment-gateway-revocation-route.test.ts`, `tests/app/payment-gateway-revocation.test.tsx`, `tests/payment-gateway/unit/gateway-config-revocation.test.ts`, `tests/payment-gateway/unit/PaymentGatewayConfigRepository.test.ts`, `tests/db/customer-payment-gateway.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Bukti transfer lama dijaga; jalur upload ter-encode tak lolos lagi
 
 - **Tipe**: [SECURITY]

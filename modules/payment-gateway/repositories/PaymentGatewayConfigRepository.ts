@@ -1,5 +1,8 @@
 import { prismaBillingAuth } from "@/lib/prisma-billing";
-import type { IPaymentGatewayConfigRepository } from "../domain/ports/IPaymentGatewayConfigRepository";
+import type {
+  GatewayConfigRevocation,
+  IPaymentGatewayConfigRepository,
+} from "../domain/ports/IPaymentGatewayConfigRepository";
 import type { PaymentGatewayConfig } from "../domain/entities/PaymentGatewayConfig";
 import type { ProviderType } from "../domain/value-objects/ProviderType";
 
@@ -66,6 +69,24 @@ export class PaymentGatewayConfigRepository implements IPaymentGatewayConfigRepo
         ...(tenantId ? { tenantId } : {}),
       },
     });
+  }
+
+  /**
+   * Pasang atau lepas sakelar darurat konfigurasi provider milik tenant ini;
+   * null bila tenant itu tidak punya konfigurasi provider tersebut.
+   */
+  async setRevoked(
+    provider: ProviderType,
+    tenantId: string,
+    isRevoked: boolean,
+  ): Promise<GatewayConfigRevocation | null> {
+    const [updated] =
+      await prismaBillingAuth.paymentGatewayConfig.updateManyAndReturn({
+        where: { provider, tenantId },
+        data: { isRevoked, updatedAt: new Date() },
+        select: { id: true, provider: true, isRevoked: true },
+      });
+    return updated ?? null;
   }
 
   async save(config: PaymentGatewayConfig): Promise<void> {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, type Mock } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { prismaMock } from "../../setup";
 import { PaymentGatewayConfigRepository } from "@/modules/payment-gateway/repositories/PaymentGatewayConfigRepository";
@@ -6,7 +6,11 @@ import { PaymentGatewayConfigRepository } from "@/modules/payment-gateway/reposi
 // Model ini tidak terdaftar di tipe MockPrismaClient, tetapi proxy-nya ada.
 const configs = (
   prismaMock as unknown as {
-    paymentGatewayConfig: { findFirst: Mock; findMany: Mock };
+    paymentGatewayConfig: {
+      findFirst: Mock;
+      findMany: Mock;
+      updateManyAndReturn: Mock;
+    };
   }
 ).paymentGatewayConfig;
 
@@ -79,5 +83,38 @@ describe("PaymentGatewayConfigRepository.findByProvider", () => {
         where: { isEnabled: true, isRevoked: false, tenantId: "tenant-a" },
       }),
     );
+  });
+});
+
+// Sakelar darurat dari halaman pengaturan admin: hanya konfigurasi tenant
+// admin itu yang berubah, dan isEnabled-nya tidak disentuh.
+describe("PaymentGatewayConfigRepository.setRevoked", () => {
+  it("mencabut konfigurasi provider milik tenant itu saja", async () => {
+    configs.updateManyAndReturn = vi
+      .fn()
+      .mockResolvedValue([
+        { id: "cfg-tenant-a", provider: "DUITKU", isRevoked: true },
+      ]);
+
+    await expect(
+      repository.setRevoked("DUITKU", "tenant-a", true),
+    ).resolves.toEqual({
+      id: "cfg-tenant-a",
+      provider: "DUITKU",
+      isRevoked: true,
+    });
+    expect(configs.updateManyAndReturn).toHaveBeenCalledWith({
+      where: { provider: "DUITKU", tenantId: "tenant-a" },
+      data: { isRevoked: true, updatedAt: expect.any(Date) },
+      select: { id: true, provider: true, isRevoked: true },
+    });
+  });
+
+  it("tenant tanpa konfigurasi provider itu: null", async () => {
+    configs.updateManyAndReturn = vi.fn().mockResolvedValue([]);
+
+    await expect(
+      repository.setRevoked("TRIPAY", "tenant-a", false),
+    ).resolves.toBeNull();
   });
 });

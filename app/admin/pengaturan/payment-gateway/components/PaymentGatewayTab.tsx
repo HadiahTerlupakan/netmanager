@@ -8,8 +8,14 @@ import {
   HiCube,
 } from "react-icons/hi2";
 import PageLoader from "@/components/ui/PageLoader";
+import { usePermission } from "@/hooks/use-permission";
 import { usePaymentGatewayConfigs } from "../hooks/usePaymentGatewayConfigs";
 import { PaymentGatewayConfigModal } from "./PaymentGatewayConfigModal";
+import {
+  GatewayRevocationButton,
+  GatewayRevocationDialog,
+  type PendingRevocation,
+} from "./GatewayRevocation";
 import type { GatewayConfig } from "../hooks/usePaymentGatewayConfigs";
 
 const PROVIDERS = [
@@ -37,17 +43,27 @@ function ProviderCard({
   config,
   onConfigure,
   onToggle,
+  onRevocation,
 }: {
   readonly provider: Provider;
   readonly config?: GatewayConfig;
   readonly onConfigure: (providerId: string) => void;
   readonly onToggle: (providerId: string, isEnabled: boolean) => void;
+  /** Tidak diisi bila pengguna tidak boleh mengubah payment gateway. */
+  readonly onRevocation?: (request: PendingRevocation) => void;
 }) {
   const isEnabled = config?.isEnabled ?? false;
+  const isRevoked = config?.isRevoked ?? false;
   const ProviderIcon = provider.icon;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border-2 border-transparent hover:border-blue-500 transition-all">
+    <div
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border-2 transition-all ${
+        isRevoked
+          ? "border-red-600"
+          : "border-transparent hover:border-blue-500"
+      }`}
+    >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className={`text-4xl ${provider.color}`}>
@@ -57,8 +73,14 @@ function ProviderCard({
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               {provider.name}
             </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {isEnabled ? "Active" : "Inactive"}
+            <p
+              className={`text-xs ${
+                isRevoked
+                  ? "font-semibold text-red-600 dark:text-red-400"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              {isRevoked ? "Dicabut" : isEnabled ? "Active" : "Inactive"}
             </p>
           </div>
         </div>
@@ -109,14 +131,35 @@ function ProviderCard({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => onConfigure(provider.id)}
-        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-      >
-        <HiOutlineCog6Tooth className="w-5 h-5" />
-        Configure
-      </button>
+      {isRevoked && (
+        <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          Callback, cek status, dan checkout baru untuk konfigurasi ini ditolak
+          sampai dipulihkan.
+        </p>
+      )}
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => onConfigure(provider.id)}
+          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+        >
+          <HiOutlineCog6Tooth className="w-5 h-5" />
+          Configure
+        </button>
+        {config && onRevocation && (
+          <GatewayRevocationButton
+            isRevoked={isRevoked}
+            onClick={() =>
+              onRevocation({
+                providerId: provider.id,
+                providerName: provider.name,
+                isRevoked: !isRevoked,
+              })
+            }
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -128,10 +171,15 @@ export default function PaymentGatewayTab() {
     saving,
     testing,
     toggleProvider,
+    setRevoked,
     saveConfig,
     testConnection,
   } = usePaymentGatewayConfigs();
+  const { hasPermission } = usePermission();
+  const canUpdateGateway = hasPermission("payment_gateway:update");
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [pendingRevocation, setPendingRevocation] =
+    useState<PendingRevocation | null>(null);
 
   const selectedProviderConfig = selectedProvider
     ? getProviderConfig(configs, selectedProvider)
@@ -147,6 +195,16 @@ export default function PaymentGatewayTab() {
     const result = await toggleProvider(providerId, isEnabled);
     if (!result.success) {
       alert(result.message ?? "Gagal mengupdate status provider");
+    }
+  };
+
+  const handleConfirmRevocation = async () => {
+    if (!pendingRevocation) return;
+    const { providerId, isRevoked } = pendingRevocation;
+    setPendingRevocation(null);
+    const result = await setRevoked(providerId, isRevoked);
+    if (!result.success) {
+      alert(result.message ?? "Gagal mengubah status pencabutan");
     }
   };
 
@@ -168,9 +226,16 @@ export default function PaymentGatewayTab() {
             config={getProviderConfig(configs, provider.id)}
             onConfigure={setSelectedProvider}
             onToggle={handleToggleEnabled}
+            onRevocation={canUpdateGateway ? setPendingRevocation : undefined}
           />
         ))}
       </div>
+
+      <GatewayRevocationDialog
+        pending={pendingRevocation}
+        onConfirm={() => void handleConfirmRevocation()}
+        onCancel={() => setPendingRevocation(null)}
+      />
 
       <PaymentGatewayConfigModal
         key={selectedProvider ?? "payment-gateway-config"}

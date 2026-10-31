@@ -67,7 +67,10 @@ import {
 } from "@/lib/tenant-context";
 import { encryptApiKey } from "@/lib/utils/encryption";
 import { BillingEventDispatcher } from "@/modules/events";
-import { withCustomerCheckoutLock } from "@/modules/payment-gateway";
+import {
+  setGatewayConfigRevoked,
+  withCustomerCheckoutLock,
+} from "@/modules/payment-gateway";
 import { expireStaleGatewayPayments } from "@/modules/payment-gateway/services/abandoned-checkout";
 import { getCustomerInvoicePaymentSnapshot } from "@/modules/finance/services/CustomerPaymentFinanceService";
 import { ManualPaymentAdminRouteService } from "@/modules/finance/services/ManualPaymentAdminRouteService";
@@ -749,6 +752,43 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
   });
 
   describe("konfigurasi gateway per tenant", () => {
+    it("sakelar darurat dari pengaturan admin hanya mengubah konfigurasi tenant itu", async () => {
+      await seedTenantB("PAY-GWFIX-KS1");
+      const revocationOf = async () =>
+        Object.fromEntries(
+          (
+            await prismaBillingAuth.paymentGatewayConfig.findMany({
+              where: { id: { in: [CONFIG_ID, CONFIG_B] } },
+              select: { id: true, isRevoked: true, isEnabled: true },
+            })
+          ).map(({ id, ...state }) => [id, state]),
+        );
+
+      const revoked = await setGatewayConfigRevoked({
+        provider: "DUITKU",
+        tenantId: TENANT,
+        isRevoked: true,
+      });
+      const whileRevoked = await revocationOf();
+      await setGatewayConfigRevoked({
+        provider: "DUITKU",
+        tenantId: TENANT,
+        isRevoked: false,
+      });
+
+      expect({ revoked, whileRevoked, after: await revocationOf() }).toEqual({
+        revoked: { id: CONFIG_ID, provider: "DUITKU", isRevoked: true },
+        whileRevoked: {
+          [CONFIG_ID]: { isRevoked: true, isEnabled: true },
+          [CONFIG_B]: { isRevoked: false, isEnabled: true },
+        },
+        after: {
+          [CONFIG_ID]: { isRevoked: false, isEnabled: true },
+          [CONFIG_B]: { isRevoked: false, isEnabled: true },
+        },
+      });
+    });
+
     // Dulu tanpa payment yang dikenali, kunci tenant pertama mana pun dipakai.
     it("callback untuk payment yang tidak ada ditolak tanpa mencoba konfigurasi tenant lain", async () => {
       await seedTenantB("PAY-GWFIX-B0");

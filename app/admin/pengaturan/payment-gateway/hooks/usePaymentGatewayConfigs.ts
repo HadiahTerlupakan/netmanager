@@ -8,6 +8,8 @@ export interface GatewayConfig {
   id: string;
   provider: string;
   isEnabled: boolean;
+  /** Sakelar darurat: callback, cek status, dan checkout baru ditolak. */
+  isRevoked?: boolean;
   isProduction: boolean;
   priority: number;
   apiKey?: string;
@@ -113,6 +115,43 @@ export function usePaymentGatewayConfigs() {
     [mutate],
   );
 
+  const setRevoked = useCallback(
+    async (
+      providerId: string,
+      isRevoked: boolean,
+    ): Promise<PaymentActionResult> => {
+      try {
+        const response = await fetch(
+          `${CONFIGS_URL}/${providerId}/revocation`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isRevoked }),
+          },
+        );
+
+        if (response.ok) {
+          await mutate();
+          return { success: true };
+        }
+
+        const body = await safeParseJson(response);
+        return {
+          success: false,
+          message:
+            getPayloadMessage(body) ?? "Gagal mengubah status pencabutan",
+        };
+      } catch (error) {
+        clientLogger.error("Error revoking payment gateway config:", error);
+        return {
+          success: false,
+          message: "Kesalahan saat mengubah status pencabutan",
+        };
+      }
+    },
+    [mutate],
+  );
+
   const saveConfig = useCallback(
     async (
       providerId: string,
@@ -190,6 +229,7 @@ export function usePaymentGatewayConfigs() {
     testing,
     fetchConfigs: mutate,
     toggleProvider,
+    setRevoked,
     saveConfig,
     testConnection,
   };
