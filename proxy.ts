@@ -4,9 +4,9 @@ import { handleCors, addCorsHeaders } from "./lib/middleware/cors";
 import { getToken, type JWT } from "next-auth/jwt";
 import { isSuperAdmin } from "./lib/auth";
 import {
-  persistCustomerAccessToken,
+  persistRefreshedCustomerTokens,
   refreshCustomerAccessToken,
-  withCustomerAccessToken,
+  withRefreshedCustomerTokens,
 } from "./lib/customer-session-refresh";
 
 const FIREBASE_RTDB_HOST_PATTERN =
@@ -30,15 +30,15 @@ export async function proxy(request: NextRequest) {
   const isCustomerPortal =
     hostname.startsWith("pelanggan.") ||
     hostname.startsWith("pelanggan-staging.");
-  const refreshedToken = isCustomerPortal
+  const refreshedTokens = isCustomerPortal
     ? await refreshCustomerAccessToken(request)
     : null;
-  if (!refreshedToken) return handleRequest(request);
+  if (!refreshedTokens) return handleRequest(request);
 
   const response = await handleRequest(
-    withCustomerAccessToken(request, refreshedToken),
+    withRefreshedCustomerTokens(request, refreshedTokens),
   );
-  await persistCustomerAccessToken(response, refreshedToken);
+  await persistRefreshedCustomerTokens(response, refreshedTokens);
   return response;
 }
 

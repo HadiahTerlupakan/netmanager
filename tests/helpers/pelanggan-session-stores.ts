@@ -9,11 +9,11 @@ export const PELANGGAN_SESI = {
   status: "AKTIF",
 };
 
-/** Keadaan baris pelanggan dan daftar sesi dicabut di tiruan basis data. */
+/** Keadaan baris pelanggan di tiruan basis data dan isi Redis tiruan. */
 export interface PelangganSessionStores {
   tokenVersion: number;
   status: string;
-  revokedKeys: Set<string>;
+  redisValues: Map<string, string>;
 }
 
 /**
@@ -28,7 +28,7 @@ export function useStatefulPelangganStores(
   const stores: PelangganSessionStores = {
     tokenVersion: initialTokenVersion,
     status: "AKTIF",
-    revokedKeys: new Set(),
+    redisValues: new Map(),
   };
 
   prismaMock.pelanggan.update.mockImplementation(
@@ -45,13 +45,19 @@ export function useStatefulPelangganStores(
     lastVersionName: null,
   }));
   redisMock.setex.mockReset();
-  redisMock.setex.mockImplementation(async (key: string) => {
-    stores.revokedKeys.add(key);
-    return "OK";
-  });
+  redisMock.setex.mockImplementation(
+    async (key: string, _ttl: number, value: string) => {
+      stores.redisValues.set(key, value);
+      return "OK";
+    },
+  );
   redisMock.exists.mockReset();
   redisMock.exists.mockImplementation(async (key: string) =>
-    stores.revokedKeys.has(key) ? 1 : 0,
+    stores.redisValues.has(key) ? 1 : 0,
+  );
+  redisMock.get.mockReset();
+  redisMock.get.mockImplementation(
+    async (key: string) => stores.redisValues.get(key) ?? null,
   );
 
   return stores;

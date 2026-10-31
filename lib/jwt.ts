@@ -21,6 +21,13 @@ import {
   isPelangganSessionRevoked,
   markPelangganSessionRevoked,
 } from "./pelanggan-session-revocation";
+import {
+  deriveLegacyPelangganSessionId,
+  resolvePelangganRefreshRotation,
+  startPelangganRefreshChain,
+  storePelangganRefreshRotation,
+  type PelangganRefreshRotation,
+} from "./pelanggan-refresh-rotation";
 
 interface PelangganJWTPayload {
   id: string;
@@ -38,14 +45,16 @@ interface PelangganJWTPayload {
 
 /**
  * `sid` menandai satu sesi login (satu perangkat) dan tetap sama saat refresh
- * token diputar, supaya logout bisa mengakhiri perangkat itu saja. Token yang
- * terbit sebelum ada `sid` tidak membawanya.
+ * token diputar, supaya logout bisa mengakhiri perangkat itu saja. `jti`
+ * berganti setiap putaran dan hanya yang terbaru per `sid` yang bisa ditukar.
+ * Token yang terbit sebelum ada `sid` atau `jti` tidak membawanya.
  */
 interface RefreshTokenPayload {
   id: string;
   tokenVersion: number;
   type: "refresh";
   sid?: string;
+  jti?: string;
   appVersionCode?: number;
   appVersionName?: string | null;
   iat?: number;
@@ -120,7 +129,9 @@ export function createPelangganSessionId(): string {
 }
 
 /**
- * Generate refresh token untuk pelanggan.
+ * Generate refresh token untuk pelanggan dan catat `jti`-nya sebagai yang
+ * terbaru untuk sesinya. Tanpa `rotation` token ini memulai rantai baru
+ * (login); saat refresh, teruskan `rotation` dari `verifyPelangganRefreshToken`.
  *
  * Sengaja TIDAK menaikkan `tokenVersion`: dulu setiap login dan refresh
  * menaikkannya, sehingga login di portal web mengeluarkan aplikasi mobile
@@ -131,6 +142,7 @@ export async function generatePelangganRefreshToken(
   pelangganId: string,
   versionMetadata: PelangganVersionMetadata | undefined,
   sessionId: string,
+  rotation: PelangganRefreshRotation = startPelangganRefreshChain(),
 ): Promise<string> {
   const pelanggan = await prisma.pelanggan.findUnique({
     where: { id: pelangganId },
@@ -152,13 +164,20 @@ export async function generatePelangganRefreshToken(
     appVersionName:
       versionMetadata?.appVersionName ?? pelanggan?.lastVersionName ?? null,
     sid: sessionId,
+    jti: rotation.jti,
   };
 
-  return jwt.sign(payload, getJwtSecret(), {
+  const token = jwt.sign(payload, getJwtSecret(), {
     expiresIn: REFRESH_TOKEN_TTL_SECONDS,
     issuer: JWT_ISSUER,
     audience: JWT_AUDIENCE,
   });
+  await storePelangganRefreshRotation(
+    sessionId,
+    rotation,
+    REFRESH_TOKEN_TTL_SECONDS,
+  );
+  return token;
 }
 
 /**
@@ -180,16 +199,35 @@ export function verifyPelangganAccessToken(
   }
 }
 
+/** Hasil `verifyPelangganRefreshToken`. */
+export type PelangganRefreshVerification =
+  | { id: ""; valid: false }
+  | {
+      id: string;
+      valid: true;
+      appVersionCode?: number;
+      appVersionName?: string | null;
+      sessionId: string;
+      rotation: PelangganRefreshRotation;
+    };
+
+const INVALID_REFRESH: PelangganRefreshVerification = { id: "", valid: false };
+
 /**
- * Verify refresh token pelanggan
+ * Verify refresh token pelanggan dan tentukan putaran berikutnya.
+ *
+ * Tidak menulis apa pun saat token diterima: rantainya baru maju ketika
+ * pemanggil benar-benar menerbitkan token baru lewat
+ * `generatePelangganRefreshToken`, supaya refresh yang ditolak karena versi
+ * aplikasi tidak membuat token yang masih dipegang klien tertinggal.
+ *
+ * Token yang `jti`-nya sudah pernah ditukar di luar masa tenggang mengakhiri
+ * sesinya: pemiliknya atau pencurinya sudah memegang token yang lebih baru,
+ * dan server tidak bisa membedakan keduanya.
  */
-export async function verifyPelangganRefreshToken(token: string): Promise<{
-  id: string;
-  valid: boolean;
-  appVersionCode?: number;
-  appVersionName?: string | null;
-  sessionId?: string;
-}> {
+export async function verifyPelangganRefreshToken(
+  token: string,
+): Promise<PelangganRefreshVerification> {
   try {
     const decoded = jwt.verify(token, getJwtSecret(), {
       issuer: JWT_ISSUER,
@@ -197,7 +235,7 @@ export async function verifyPelangganRefreshToken(token: string): Promise<{
     }) as RefreshTokenPayload;
 
     if (decoded.type !== "refresh") {
-      return { id: "", valid: false };
+      return INVALID_REFRESH;
     }
 
     // Cek token version di database
@@ -207,16 +245,26 @@ export async function verifyPelangganRefreshToken(token: string): Promise<{
     });
 
     if (!pelanggan || !canUseCustomerPortal(pelanggan.status)) {
-      return { id: "", valid: false };
+      return INVALID_REFRESH;
     }
 
     // Bandingkan token version
     if (pelanggan.tokenVersion !== decoded.tokenVersion) {
-      return { id: "", valid: false };
+      return INVALID_REFRESH;
     }
 
-    if (decoded.sid && (await isPelangganSessionRevoked(decoded.sid))) {
-      return { id: "", valid: false };
+    const sessionId = decoded.sid ?? deriveLegacyPelangganSessionId(token);
+    if (await isPelangganSessionRevoked(sessionId)) {
+      return INVALID_REFRESH;
+    }
+
+    const rotation = await resolvePelangganRefreshRotation(
+      sessionId,
+      decoded.jti,
+    );
+    if (!rotation) {
+      await endReplayedSession(decoded.id, sessionId);
+      return INVALID_REFRESH;
     }
 
     return {
@@ -224,11 +272,32 @@ export async function verifyPelangganRefreshToken(token: string): Promise<{
       valid: true,
       appVersionCode: decoded.appVersionCode,
       appVersionName: decoded.appVersionName ?? null,
-      sessionId: decoded.sid,
+      sessionId,
+      rotation,
     };
   } catch (error) {
     logger.debug("Refresh token verification (customer path):", error);
-    return { id: "", valid: false };
+    return INVALID_REFRESH;
+  }
+}
+
+/**
+ * Akhiri sesi yang refresh token lamanya dipakai ulang. Bila sesinya tidak
+ * bisa dicatat, cabut semua sesi seperti logout: membiarkan sesi yang
+ * tokennya jelas bocor tetap hidup lebih buruk daripada login ulang.
+ */
+async function endReplayedSession(pelangganId: string, sessionId: string) {
+  logger.warn(
+    `[PelangganSession] Refresh token lama pelanggan ${pelangganId} dipakai ulang; sesinya diakhiri`,
+  );
+  try {
+    await markPelangganSessionRevoked(sessionId, REFRESH_TOKEN_TTL_SECONDS);
+  } catch (error) {
+    logger.warn(
+      "[PelangganSession] Gagal mencatat sesi yang dipakai ulang; semua sesi dicabut",
+      error,
+    );
+    await invalidatePelangganRefreshTokens(pelangganId);
   }
 }
 

@@ -40,11 +40,13 @@ describe("sesi pelanggan di beberapa perangkat", () => {
     const mobileSession = await verifyPelangganRefreshToken(
       mobile.refreshToken,
     );
+    if (!mobileSession.valid) throw new Error("sesi mobile harus sah");
 
     const rotated = await generatePelangganRefreshToken(
       PELANGGAN_SESI.id,
       undefined,
       mobileSession.sessionId,
+      mobileSession.rotation,
     );
 
     expect(await isRefreshValid(web.refreshToken)).toBe(true);
@@ -100,11 +102,12 @@ describe("logout pelanggan per perangkat", () => {
 
   it("ends the session even when its access token has expired", async () => {
     const mobile = await generatePelangganTokenPair(PELANGGAN_SESI);
-    const { sessionId } = await verifyPelangganRefreshToken(
+    const mobileSession = await verifyPelangganRefreshToken(
       mobile.refreshToken,
     );
+    if (!mobileSession.valid) throw new Error("sesi mobile harus sah");
     const expiredAccess = jwt.sign(
-      { id: PELANGGAN_SESI.id, sid: sessionId },
+      { id: PELANGGAN_SESI.id, sid: mobileSession.sessionId },
       process.env.NEXTAUTH_SECRET!,
       { expiresIn: -60, issuer: "netmanager", audience: "pelanggan-portal" },
     );

@@ -23,6 +23,8 @@ vi.mock("@/lib/mobile-auth", () => ({
     mockSignMobileRefreshToken(...args),
 }));
 
+const ROTASI = { jti: "jti-2", previousJti: "jti-1", rotatedAt: 0 };
+
 vi.mock("@/lib/jwt", () => ({
   createPelangganSessionId: () => "sesi-1",
   verifyPelangganRefreshToken: (...args: unknown[]) =>
@@ -133,6 +135,8 @@ describe("POST /api/mobile/auth/refresh", () => {
     mockVerifyPelangganRefreshToken.mockResolvedValue({
       id: "cust-1",
       valid: true,
+      sessionId: "sesi-1",
+      rotation: ROTASI,
       appVersionCode: 55,
       appVersionName: "1.2.3",
     });
@@ -184,6 +188,8 @@ describe("POST /api/mobile/auth/refresh", () => {
     mockVerifyPelangganRefreshToken.mockResolvedValue({
       id: "cust-1",
       valid: true,
+      sessionId: "sesi-1",
+      rotation: ROTASI,
       appVersionName: null,
     });
     mockFindCustomer.mockResolvedValue({
@@ -228,6 +234,8 @@ describe("POST /api/mobile/auth/refresh", () => {
     mockVerifyPelangganRefreshToken.mockResolvedValue({
       id: "cust-1",
       valid: true,
+      sessionId: "sesi-1",
+      rotation: ROTASI,
       appVersionCode: 40,
       appVersionName: "1.0.0",
     });
@@ -280,6 +288,7 @@ describe("POST /api/mobile/auth/refresh", () => {
         appVersionName: "1.2.3",
       },
       "sesi-1",
+      ROTASI,
     );
   });
 

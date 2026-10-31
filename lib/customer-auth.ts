@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   verifyPelangganAccessToken,
   generatePelangganAccessToken,
+  generatePelangganRefreshToken,
 } from "./jwt";
 import { prisma } from "./prisma";
 import { canUseCustomerPortal } from "./customer-portal-access";
@@ -217,10 +218,13 @@ export function clearCustomerAuthCookies(response: NextResponse) {
 }
 
 /**
- * Refresh customer access token using refresh token
+ * Tukar refresh token dari cookie dengan access token dan refresh token baru.
+ * Refresh token lama hanya diterima sekali (lihat
+ * `verifyPelangganRefreshToken`), jadi yang baru wajib disimpan ke cookie.
  */
 export async function refreshCustomerToken(request: NextRequest): Promise<{
   accessToken: string;
+  refreshToken: string;
   session: CustomerSession;
 } | null> {
   try {
@@ -265,9 +269,19 @@ export async function refreshCustomerToken(request: NextRequest): Promise<{
       status: pelanggan.status,
       sessionId: result.sessionId,
     });
+    const rotatedRefreshToken = await generatePelangganRefreshToken(
+      pelanggan.id,
+      {
+        appVersionCode: result.appVersionCode,
+        appVersionName: result.appVersionName,
+      },
+      result.sessionId,
+      result.rotation,
+    );
 
     return {
       accessToken,
+      refreshToken: rotatedRefreshToken,
       session: {
         id: pelanggan.id,
         idPelanggan: pelanggan.idPelanggan,

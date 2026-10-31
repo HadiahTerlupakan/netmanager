@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Refresh token pelanggan hanya bisa ditukar sekali
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/jwt.ts` | `lib/pelanggan-refresh-rotation.ts` | `lib/customer-auth.ts` | `proxy.ts` | `modules/users`
+- **Author**: agent
+- **Deskripsi**: Sejak `tokenVersion` tidak lagi naik setiap refresh, refresh token yang sudah diputar tetap sah sampai 7 hari, sehingga token curian bisa dipakai ulang. Kini setiap refresh token membawa `jti`, dan `jti` terbaru per sesi dicatat di Redis (`pelanggan:sesi-refresh:<sid>`, TTL 7 hari). Refresh hanya menerima `jti` terbaru lalu memutarnya (sid tetap). Token yang baru diputar masih diterima selama 30 detik (dua tab portal atau request yang diulang) dan mendapat token dengan `jti` terbaru tanpa memutar ulang; setelah itu pemakaian ulangnya mengakhiri sesi tersebut (dicatat seperti logout; bila gagal dicatat, semua sesi dicabut), perangkat lain tidak terpengaruh. `jti` berikutnya diturunkan dari `jti` yang ditukar supaya refresh serentak menghasilkan token yang sama, dan penerus sah dari `jti` terbaru tetap diterima bila catatannya gagal ditulis. Token lama tanpa `jti` (dan tanpa `sid`, yang kini diberi id sesi turunan dari tokennya) diterima sekali lalu dipindah ke rantai baru. Redis yang tidak terbaca tetap tidak menolak refresh. Portal web kini juga memutar dan menyimpan cookie refresh token saat memperbarui access token (sebelumnya refresh token portal tidak pernah diganti).
+- **Files**: `lib/pelanggan-refresh-rotation.ts`, `lib/jwt.ts`, `lib/customer-auth.ts`, `lib/customer-session-refresh.ts`, `proxy.ts`, `modules/users/services/MobileCustomerAuthService.ts`, `tests/lib/jwt-pelanggan-refresh-rotation.test.ts`, `tests/helpers/pelanggan-session-stores.ts`, `tests/lib/jwt-pelanggan-multi-session.test.ts`, `tests/lib/proxy-customer-session-refresh.test.ts`, `tests/api/mobile-auth-refresh-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Pelanggan bisa masuk di aplikasi dan portal web sekaligus
 
 - **Tipe**: [FIXED] | [SECURITY]

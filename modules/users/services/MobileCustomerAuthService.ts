@@ -4,6 +4,7 @@ import {
   generatePelangganAccessToken,
   generatePelangganRefreshToken,
   verifyPelangganRefreshToken,
+  type PelangganRefreshVerification,
 } from "@/lib/jwt";
 import { prismaAuth } from "@/modules/database";
 import { compare, hash } from "bcryptjs";
@@ -36,8 +37,9 @@ type CustomerRecord = {
   hargaPaket?: CustomerPackageRecord;
 };
 
-type CustomerRefreshPayload = Awaited<
-  ReturnType<typeof verifyPelangganRefreshToken>
+type CustomerRefreshPayload = Extract<
+  PelangganRefreshVerification,
+  { valid: true }
 >;
 
 /** Mengelola login dan refresh token mobile customer. */
@@ -103,9 +105,7 @@ export class MobileCustomerAuthService {
       return { kind: "unsupported" as const, response: unsupportedResponse };
     }
 
-    // Refresh token yang terbit sebelum ada id sesi diberi sesi baru, supaya
-    // logout berikutnya cukup mengakhiri perangkat ini.
-    const sessionId = verified.sessionId ?? createPelangganSessionId();
+    const { sessionId } = verified;
     return {
       kind: "success" as const,
       token: generatePelangganAccessToken(
@@ -129,6 +129,7 @@ export class MobileCustomerAuthService {
           appVersionName: trustedVersion.trustedVersionName,
         },
         sessionId,
+        verified.rotation,
       ),
     };
   }

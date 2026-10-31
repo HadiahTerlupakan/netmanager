@@ -43,7 +43,10 @@ describe("proxy — perpanjangan sesi pelanggan", () => {
 
   it("access token habis + refresh token sah: halaman terbuka dan cookie baru dipasang", async () => {
     const baru = accessToken();
-    palsu.refreshCustomerToken.mockResolvedValue({ accessToken: baru });
+    palsu.refreshCustomerToken.mockResolvedValue({
+      accessToken: baru,
+      refreshToken: "r2",
+    });
     const { proxy } = await import("@/proxy");
 
     const response = await proxy(
@@ -52,11 +55,17 @@ describe("proxy — perpanjangan sesi pelanggan", () => {
 
     expect(response.headers.get("location")).toBeNull();
     expect(response.cookies.get("customer-token")?.value).toBe(baru);
+    // Refresh token lama hanya bisa ditukar sekali; tanpa cookie baru
+    // pelanggan dianggap memakai ulang token pada refresh berikutnya.
+    expect(response.cookies.get("customer-refresh-token")?.value).toBe("r2");
   });
 
   it("panggilan API ikut membawa access token baru ke handler", async () => {
     const baru = accessToken();
-    palsu.refreshCustomerToken.mockResolvedValue({ accessToken: baru });
+    palsu.refreshCustomerToken.mockResolvedValue({
+      accessToken: baru,
+      refreshToken: "r2",
+    });
     const { proxy } = await import("@/proxy");
 
     const response = await proxy(
@@ -68,6 +77,9 @@ describe("proxy — perpanjangan sesi pelanggan", () => {
 
     expect(response.headers.get("x-middleware-request-cookie")).toContain(
       `customer-token=${baru}`,
+    );
+    expect(response.headers.get("x-middleware-request-cookie")).toContain(
+      "customer-refresh-token=r2",
     );
     expect(response.cookies.get("customer-token")?.value).toBe(baru);
   });
