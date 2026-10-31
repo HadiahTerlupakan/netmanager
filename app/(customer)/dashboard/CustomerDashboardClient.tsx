@@ -21,7 +21,10 @@ import {
 } from "@/lib/dashboard/fetchDashboardResource";
 import { z } from "zod";
 import { CustomerNotificationBell } from "@/components/customer/CustomerNotificationBell";
-import { getServiceStatusLabel } from "./service-status";
+import {
+  getServiceStatusLabel,
+  type ServiceStatusTone,
+} from "./service-status";
 
 const dashboardSummarySchema = z.object({
   profile: z.object({
@@ -97,6 +100,26 @@ const DEFAULT_DASHBOARD_ERROR_MESSAGE =
 const AUTHENTICATION_ERROR_MESSAGE =
   "Sesi Anda sudah berakhir. Silakan login kembali untuk membuka dashboard pelanggan.";
 const RETRY_DASHBOARD_LABEL = "Muat ulang dashboard";
+const SERVICE_STATUS_TONE_CLASSES: Record<
+  ServiceStatusTone,
+  { ping: string; dot: string; text: string }
+> = {
+  ok: {
+    ping: "bg-green-400",
+    dot: "bg-green-500",
+    text: "text-green-600 dark:text-green-400",
+  },
+  warning: {
+    ping: "bg-amber-400",
+    dot: "bg-amber-500",
+    text: "text-amber-600 dark:text-amber-400",
+  },
+  error: {
+    ping: "bg-red-400",
+    dot: "bg-red-500",
+    text: "text-red-600 dark:text-red-400",
+  },
+};
 const LOGIN_ACTION_LABEL = "Kembali ke login";
 
 function formatCurrency(value: number) {
@@ -201,6 +224,7 @@ export function CustomerDashboardContent({
     connectionErrorLabel: CONNECTION_ERROR_LABEL,
     hasOutstandingInvoice,
   });
+  const serviceStatusClasses = SERVICE_STATUS_TONE_CLASSES[serviceStatus.tone];
 
   if (isLoading) {
     return (
@@ -280,14 +304,14 @@ export function CustomerDashboardContent({
                     <div className="mt-2 flex items-center gap-2">
                       <span className="relative flex h-2.5 w-2.5">
                         <span
-                          className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${serviceStatus.healthy ? "bg-green-400" : "bg-red-400"}`}
+                          className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${serviceStatusClasses.ping}`}
                         />
                         <span
-                          className={`relative inline-flex h-2.5 w-2.5 rounded-full ${serviceStatus.healthy ? "bg-green-500" : "bg-red-500"}`}
+                          className={`relative inline-flex h-2.5 w-2.5 rounded-full ${serviceStatusClasses.dot}`}
                         />
                       </span>
                       <span
-                        className={`text-xs font-semibold ${serviceStatus.healthy ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                        className={`text-xs font-semibold ${serviceStatusClasses.text}`}
                       >
                         {serviceStatus.label}
                       </span>

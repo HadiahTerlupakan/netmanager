@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Label status portal untuk pelanggan maintenance dan dismantle
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/(customer)/dashboard`
+- **Author**: agent
+- **Deskripsi**: `getServiceStatusLabel` hanya menangani ISOLIR dan NONAKTIF; status lain jatuh ke label koneksi. Sesi PPPoE pelanggan MAINTENANCE bisa tetap online, sehingga ia melihat "Aktif & Stabil" berwarna hijau saat teknisi sedang menangani layanannya; pelanggan DISMANTLE melihat hal yang sama selama sesinya belum diputus. Kini MAINTENANCE → "Dalam perbaikan teknisi" (kuning) dan DISMANTLE → "Berhenti berlangganan" (merah), teks sama persis dengan aplikasi mobile. Label membawa `tone` (`ok`/`warning`/`error`) menggantikan `healthy: boolean`, dan `CustomerDashboardClient` memetakan tone ke warna titik dan teks status. AKTIF, ISOLIR, dan NONAKTIF tidak berubah.
+- **Files**: `app/(customer)/dashboard/service-status.ts`, `app/(customer)/dashboard/CustomerDashboardClient.tsx`, `tests/app/customer-dashboard-service-status.test.ts`, `tests/app/customer-dashboard-client.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Nada notifikasi gelembung di admin dan portal pelanggan
 
 - **Tipe**: [CHANGED]

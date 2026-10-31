@@ -16,7 +16,7 @@ describe("getServiceStatusLabel", () => {
         customerStatus: "ISOLIR",
         hasOutstandingInvoice: true,
       }),
-    ).toEqual({ label: "Diisolir – bayar tagihan", healthy: false });
+    ).toEqual({ label: "Diisolir – bayar tagihan", tone: "error" });
   });
 
   // Admin bisa mengisolir manual tanpa tunggakan; layar yang sama berkata
@@ -24,7 +24,7 @@ describe("getServiceStatusLabel", () => {
   it("pelanggan isolir tanpa tunggakan diarahkan ke CS, bukan disuruh bayar", () => {
     expect(
       getServiceStatusLabel({ ...base, customerStatus: "ISOLIR" }),
-    ).toEqual({ label: "Diisolir – hubungi admin/CS", healthy: false });
+    ).toEqual({ label: "Diisolir – hubungi admin/CS", tone: "error" });
   });
 
   it("pelanggan nonaktif ditandai nonaktif", () => {
@@ -33,11 +33,28 @@ describe("getServiceStatusLabel", () => {
     ).toBe("Layanan nonaktif");
   });
 
+  // Sesi PPPoE pelanggan maintenance bisa tetap online; dulu ia tampil hijau
+  // "Aktif & Stabil" padahal teknisi sedang menangani layanannya. Teks sama
+  // persis dengan aplikasi mobile.
+  it("pelanggan maintenance yang online tampil dalam perbaikan, bukan aktif", () => {
+    expect(
+      getServiceStatusLabel({ ...base, customerStatus: "MAINTENANCE" }),
+    ).toEqual({ label: "Dalam perbaikan teknisi", tone: "warning" });
+  });
+
+  // Sesi pelanggan dismantle baru putus beberapa saat setelah statusnya
+  // berubah; selama itu ia dulu tampil "Aktif & Stabil".
+  it("pelanggan dismantle yang sesinya belum putus tampil berhenti berlangganan", () => {
+    expect(
+      getServiceStatusLabel({ ...base, customerStatus: "DISMANTLE" }),
+    ).toEqual({ label: "Berhenti berlangganan", tone: "error" });
+  });
+
   it("pelanggan aktif mengikuti status koneksi", () => {
     expect(getServiceStatusLabel({ ...base, customerStatus: "AKTIF" })).toEqual(
       {
         label: "Aktif & Stabil",
-        healthy: true,
+        tone: "ok",
       },
     );
     expect(

@@ -72,11 +72,11 @@ describe("CustomerDashboardClient failure state", () => {
   });
 });
 
-function buildIsolatedSummary(outstandingCount: number) {
+function buildSummary(status: string, outstandingCount: number) {
   return {
     profile: {
       state: "ready" as const,
-      data: { nama: "Pelanggan Satu", status: "ISOLIR", paket: null as null },
+      data: { nama: "Pelanggan Satu", status, paket: null as null },
     },
     connection: {
       state: "ready" as const,
@@ -94,17 +94,21 @@ function buildIsolatedSummary(outstandingCount: number) {
   };
 }
 
+function renderDashboard(status: string, outstandingCount = 0) {
+  return renderToStaticMarkup(
+    <CustomerDashboardContent
+      customerId="customer-1"
+      customerName="Pelanggan Satu"
+      summary={buildSummary(status, outstandingCount)}
+      isLoading={false}
+      dashboardError={null}
+    />,
+  );
+}
+
 describe("CustomerDashboardClient status isolir", () => {
   function renderWith(outstandingCount: number) {
-    return renderToStaticMarkup(
-      <CustomerDashboardContent
-        customerId="customer-1"
-        customerName="Pelanggan Satu"
-        summary={buildIsolatedSummary(outstandingCount)}
-        isLoading={false}
-        dashboardError={null}
-      />,
-    );
+    return renderDashboard("ISOLIR", outstandingCount);
   }
 
   it("tidak menyuruh bayar saat tagihan sudah lunas", () => {
@@ -117,5 +121,32 @@ describe("CustomerDashboardClient status isolir", () => {
 
   it("tetap meminta bayar saat masih ada tunggakan", () => {
     expect(renderWith(1)).toContain("Diisolir – bayar tagihan");
+  });
+});
+
+// Sesi kedua pelanggan ini masih online, jadi titik status dulu ikut hijau.
+describe("CustomerDashboardClient warna status layanan", () => {
+  it("maintenance tampil kuning, bukan hijau", () => {
+    const markup = renderDashboard("MAINTENANCE");
+
+    expect(markup).toContain("Dalam perbaikan teknisi");
+    expect(markup).toContain("bg-amber-500");
+    expect(markup).toContain("text-amber-600");
+    expect(markup).not.toContain("bg-green-500");
+  });
+
+  it("dismantle tampil merah, bukan hijau", () => {
+    const markup = renderDashboard("DISMANTLE");
+
+    expect(markup).toContain("Berhenti berlangganan");
+    expect(markup).toContain("bg-red-500");
+    expect(markup).not.toContain("bg-green-500");
+  });
+
+  it("aktif dan online tetap hijau", () => {
+    const markup = renderDashboard("AKTIF");
+
+    expect(markup).toContain("Aktif &amp; Stabil");
+    expect(markup).toContain("bg-green-500");
   });
 });
