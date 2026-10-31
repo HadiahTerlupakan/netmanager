@@ -45,6 +45,7 @@ export {
   creditOverpaidPayments,
   type CreditablePayment,
 } from "./services/overpayment-credit";
+export { replayMissingInvoicePaidEvents } from "./services/invoice-paid-reconciliation";
 export * from "./services/InvoiceRouteService";
 export * from "./services/InvoiceCollectionRouteService";
 export * from "./services/PaymentRouteService";

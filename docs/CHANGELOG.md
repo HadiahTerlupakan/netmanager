@@ -168,6 +168,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `app/api/coupons/verify/route.ts`, `app/api/customer/rate-limit.ts`, `app/api/customer/payments/route.ts`, `app/api/customer/payments/sse/route.ts`, `app/api/customer/coupons/verify/route.ts`, `tests/api/coupons-verify-route.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-10-31] — INVOICE_PAID yang hilang di antara dua database dikirim ulang
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `lib/event-bus` | `lib/cron-registry.ts`
+- **Author**: agent
+- **Deskripsi**: Peralihan invoice ke PAID di-commit di database billing sebelum INVOICE_PAID ditulis ke outbox di database utama, jadi proses yang mati di antaranya meninggalkan invoice lunas tanpa perpanjangan jatuh tempo, aktivasi pelanggan isolir, jurnal penerimaan, dan notifikasi, tanpa jejak untuk diulang. Pass baru `replayMissingInvoicePaidEvents` (cron tiap 15 menit, menit 7/22/37/52, kunci `invoicePaidReconciliation`) mencari invoice yang lunas dalam tiga hari terakhir (lebih pendek dari retensi outbox 7 hari, dikurangi jeda 15 menit untuk jalur normal) yang tidak punya baris outbox INVOICE_PAID (`findRecordedOutboxKeys`, mencocokkan `payload->>'invoiceId'`) dan mengirim ulang event-nya lewat `InvoicePaymentStateService.replayInvoicePaid` dengan rincian pelunasan yang sama, paling banyak 500 per putaran, dicatat `logger.error`. Handler INVOICE_PAID idempoten; bila outbox gagal ditulis tetapi job antrean tetap jalan, notifikasi pelanggan bisa terkirim dua kali, yang lebih murah daripada pelanggan lunas yang tetap diisolir.
+- **Files**: `modules/finance/services/invoice-paid-reconciliation.ts`, `modules/finance/services/InvoicePaymentStateService.ts`, `modules/finance/repositories/InvoiceRepository.ts`, `modules/finance/index.ts`, `lib/event-bus/outbox.ts`, `lib/event-bus/index.ts`, `lib/cron-registry.ts`, `tests/db/invoice-paid-reconciliation.test.ts`, `tests/modules/finance/services/InvoicePaymentStateService.paid-amounts.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Callback gateway yang tidak cocok diteruskan ke staf keuangan
 
 - **Tipe**: [FIXED]

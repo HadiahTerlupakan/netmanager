@@ -118,4 +118,30 @@ describe("InvoicePaymentStateService.recompute — rincian INVOICE_PAID", () => 
 
     expect(hasil?.becamePaid).toBe(true);
   });
+
+  // Rekonsiliasi outbox: event yang hilang dikirim ulang dengan rincian sama.
+  it("replayInvoicePaid mengirim ulang INVOICE_PAID hanya untuk invoice PAID", async () => {
+    const repo = repoDengan({
+      totalAmount: 100000n,
+      discountAmount: 0n,
+      notes: null,
+      payment: [{ amount: 100000n, discountAmount: 0n, gatewayStatus: "PAID" }],
+    });
+    const service = new InvoicePaymentStateService(repo as never);
+
+    await expect(service.replayInvoicePaid("inv-1")).resolves.toBe(false);
+    expect(palsu.onInvoicePaid).not.toHaveBeenCalled();
+
+    repo.findWithPayment.mockResolvedValue({
+      ...(await repo.findWithPayment()),
+      status: "PAID",
+    });
+    await expect(service.replayInvoicePaid("inv-1")).resolves.toBe(true);
+    expect(palsu.onInvoicePaid).toHaveBeenCalledWith("inv-1", "pel-1", 100000, {
+      amountPaid: 100000,
+      couponDiscount: 0,
+      saldoUsed: 0,
+    });
+    expect(repo.claimPaidTransition).not.toHaveBeenCalled();
+  });
 });

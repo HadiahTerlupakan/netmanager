@@ -347,6 +347,36 @@ export class CronRegistry {
         logger.error("[CronRegistry] Failed to start Customer Cohort:", err),
       );
 
+    // Kirim ulang INVOICE_PAID yang tidak pernah tercatat di outbox (15 menit)
+    import("../modules/finance")
+      .then(({ replayMissingInvoicePaidEvents }) => {
+        const task = cron.schedule("7,22,37,52 * * * *", async () => {
+          if (!(await canRunCronJob("invoicePaidReconciliation", 840))) return;
+          await runCronTask("invoicePaidReconciliation", async () => {
+            try {
+              const replayed = await replayMissingInvoicePaidEvents();
+              if (replayed > 0) {
+                logger.warn(
+                  `[Cron] ${replayed} INVOICE_PAID yang hilang dikirim ulang`,
+                );
+              }
+            } catch (err) {
+              logger.error("[Cron] Rekonsiliasi INVOICE_PAID gagal:", err);
+            }
+          });
+        });
+        this.tasks.set("invoicePaidReconciliation", task);
+        logger.info(
+          "[CronRegistry] INVOICE_PAID reconciliation cron scheduled (Every 15m)",
+        );
+      })
+      .catch((err) =>
+        logger.error(
+          "[CronRegistry] Failed to start INVOICE_PAID reconciliation:",
+          err,
+        ),
+      );
+
     // Tutup checkout gateway yang ditinggalkan dan kembalikan kuponnya (15 menit)
     import("../modules/payment-gateway")
       .then(({ expireStaleGatewayPayments }) => {

@@ -180,6 +180,29 @@ export async function markEventFailed(
 }
 
 /**
+ * Nilai `payloadKey` (mis. invoiceId) yang sudah punya baris outbox untuk
+ * event ini sejak `since`, apa pun statusnya. Dipakai rekonsiliasi untuk
+ * menemukan event yang tidak pernah tercatat: penulisnya mati di antara
+ * commit database lain dan penulisan outbox di database utama.
+ */
+export async function findRecordedOutboxKeys(input: {
+  eventName: EventName;
+  payloadKey: string;
+  values: string[];
+  since: Date;
+}): Promise<Set<string>> {
+  if (input.values.length === 0) return new Set();
+  const rows = await prisma.$queryRaw<Array<{ key: string }>>`
+    SELECT DISTINCT payload->>${input.payloadKey} AS key
+    FROM "OutboxEvent"
+    WHERE "eventName" = ${input.eventName}
+      AND "createdAt" >= ${input.since}
+      AND payload->>${input.payloadKey} = ANY(${input.values})
+  `;
+  return new Set(rows.map((row) => row.key));
+}
+
+/**
  * Get outbox statistics for monitoring.
  */
 export async function getOutboxStats(): Promise<{

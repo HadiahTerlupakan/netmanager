@@ -100,6 +100,21 @@ export class InvoicePaymentStateService {
     };
   }
 
+  /**
+   * Kirim ulang INVOICE_PAID untuk invoice yang sudah PAID tetapi event-nya
+   * tidak pernah tercatat: peralihan ke PAID tersimpan di database billing,
+   * outbox di database utama, dan proses bisa mati di antaranya. Handler
+   * INVOICE_PAID idempoten (perpanjangan, aktivasi, jurnal).
+   *
+   * @returns false bila invoice tidak ada atau tidak lagi PAID.
+   */
+  async replayInvoicePaid(invoiceId: string): Promise<boolean> {
+    const invoice = await this.invoiceRepo.findWithPayment(invoiceId);
+    if (invoice?.status !== InvoiceStatus.PAID) return false;
+    await this.publishInvoicePaid(invoice);
+    return true;
+  }
+
   private async syncSchedules(invoice: InvoiceEntity, becamePaid: boolean) {
     if (becamePaid || invoice.status === InvoiceStatus.PAID) {
       await cancelInvoiceBillingSchedules(invoice.id);

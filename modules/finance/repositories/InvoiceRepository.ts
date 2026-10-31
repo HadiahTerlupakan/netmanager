@@ -341,6 +341,19 @@ export class InvoiceRepository implements IInvoiceRepository {
     });
   }
 
+  /**
+   * Invoice yang beralih ke PAID di antara `from` dan `to`, terlama dulu.
+   * Untuk rekonsiliasi INVOICE_PAID (konteks sistem, lintas tenant).
+   */
+  async findPaidBetween(from: Date, to: Date, limit: number) {
+    return prismaBilling.invoice.findMany({
+      where: { status: "PAID", paidAt: { gte: from, lte: to } },
+      orderBy: { paidAt: "asc" },
+      take: limit,
+      select: { id: true, tenantId: true },
+    });
+  }
+
   /** Mengambil invoice auth beserta pembayaran terkait untuk rekonsiliasi webhook. */
   async findUniqueAuthWithPayment(
     id: string,

@@ -97,6 +97,7 @@ export {
   saveToOutboxTx,
   getOutboxStats,
   cleanupOldEvents,
+  findRecordedOutboxKeys,
 } from "./outbox";
 
 // Queues (for direct queue access)
