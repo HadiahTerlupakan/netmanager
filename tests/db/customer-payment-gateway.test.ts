@@ -954,6 +954,75 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
       });
     });
 
+    // Pelunasan dari cek status dulu memindahkan setiap payment checkout yang
+    // belum PAID, termasuk yang REFUNDED atau FAILED (tidak pernah punya VA).
+    it("payment REFUNDED dan FAILED di checkout yang dilunasi tidak ikut berubah", async () => {
+      const paid = await createInvoice("GWF-S5A", PRICE);
+      const failed = await createInvoice("GWF-S5B", 50_000n);
+      const refunded = await createInvoice("GWF-S5C", 25_000n);
+      const checkoutId = randomUUID();
+      const row = (
+        invoiceId: string,
+        reference: string,
+        amount: bigint,
+        gatewayStatus: "PENDING" | "FAILED" | "REFUNDED",
+      ) =>
+        prismaBillingAuth.payment.create({
+          data: {
+            id: randomUUID(),
+            invoiceId,
+            pelangganId: PELANGGAN,
+            amount,
+            checkoutId,
+            paymentDate: new Date(),
+            paymentMethod: "BANK_TRANSFER",
+            reference,
+            gatewayStatus,
+            gatewayProvider: "BC",
+            expiresAt: new Date(Date.now() + 23 * HOUR_MS),
+            tenantId: TENANT,
+            updatedAt: new Date(),
+          },
+        });
+      await row(paid.id, "PAY-GWFIX-S5A", PRICE, "PENDING");
+      const failedRow = await row(
+        failed.id,
+        "PAY-GWFIX-S5B",
+        50_000n,
+        "FAILED",
+      );
+      const refundedRow = await row(
+        refunded.id,
+        "PAY-GWFIX-S5C",
+        25_000n,
+        "REFUNDED",
+      );
+      http.paidOrders.add("PAY-GWFIX-S5A");
+      inquiryAmounts.set("PAY-GWFIX-S5A", Number(PRICE));
+
+      const status = await asTenant(() =>
+        checkCustomerPaymentStatus({
+          customerId: PELANGGAN,
+          invoiceId: paid.id,
+        }),
+      );
+      const statusOf = async (id: string) =>
+        (await prismaBillingAuth.payment.findUniqueOrThrow({ where: { id } }))
+          .gatewayStatus;
+
+      expect({
+        status,
+        paidInvoice: (await invoice(paid.id)).status,
+        failedRow: await statusOf(failedRow.id),
+        refundedRow: await statusOf(refundedRow.id),
+      }).toEqual({
+        status: "PAID",
+        paidInvoice: "PAID",
+        failedRow: "FAILED",
+        refundedRow: "REFUNDED",
+      });
+    });
+
     // Checkout lama yang terlanjur memakai payment Rp 0 sebagai orderId.
     describe("checkout lama dengan orderId pada payment Rp 0 yang sudah PAID", () => {
       async function legacyCheckout(expiresAt: Date) {

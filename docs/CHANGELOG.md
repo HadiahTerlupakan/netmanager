@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Pelunasan dari cek status hanya memindahkan payment yang masih bisa menerima uang
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: Perbaikan payment Rp 0 sebelumnya menghapus pemeriksaan "payment orderId sudah PAID" dan memindahkan setiap payment checkout yang belum PAID, termasuk yang REFUNDED atau FAILED (yang tidak pernah punya VA), serta ikut menjumlah nominalnya. Kini `settleCheckoutPaidAtGateway` memutuskan dari satu potret di dalam transaksi: bila semua payment yang ditagih (bukan Rp 0) sudah PAID, hasilnya "sudah diproses" (callback atau cek status ganda); selain itu hanya payment PENDING, EXPIRED, dan CANCELLED (VA lama yang tetap dibayar; kelebihannya tetap dikreditkan ke saldo) yang dijumlah dan dipindah ke PAID. Jalur webhook masih memakai kodenya sendiri.
+- **Files**: `modules/payment-gateway/services/gateway-status-settlement.ts`, `tests/db/customer-payment-gateway.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Payment Rp 0 tidak lagi menjadi orderId checkout gateway
 
 - **Tipe**: [FIXED]

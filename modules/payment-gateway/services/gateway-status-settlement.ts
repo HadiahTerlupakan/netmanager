@@ -6,7 +6,6 @@ import type { TransactionStatus } from "./provider-interface";
 import {
   findCheckoutPayments,
   settleCheckoutInvoices,
-  sumCheckoutAmount,
   type CheckoutPayment,
 } from "./webhook-checkout-settlement";
 import {
@@ -16,6 +15,12 @@ import {
 } from "./webhook-utils";
 
 type MarkOutcome = "MOVED" | "ALREADY_PAID" | "MISMATCH";
+
+// Status payment checkout yang masih bisa menerima uang untuk transaksi yang
+// sudah terbit: menunggu, kedaluwarsa, dan diganti metode (VA lama tetap bisa
+// dibayar; kelebihannya dikreditkan ke saldo).
+const SETTLEABLE_STATUSES = ["PENDING", "EXPIRED", "CANCELLED"] as const;
+type SettleableStatus = (typeof SETTLEABLE_STATUSES)[number];
 
 /**
  * Lunasi checkout yang dinyatakan PAID oleh cek status gateway karena
@@ -35,16 +40,7 @@ export async function settleCheckoutPaidAtGateway(input: {
   status: TransactionStatus;
 }): Promise<boolean> {
   const checkout = await findCheckoutPayments(input.paymentId);
-  const charged = sumCheckoutAmount(checkout);
-  if (
-    checkout.length === 0 ||
-    hasAmountMismatch(charged, input.status.amount)
-  ) {
-    logger.error(
-      `[Checkout] Gateway menyatakan lunas, tetapi nominalnya berbeda untuk payment ${input.paymentId}: tertagih ${charged}, gateway ${input.status.amount}`,
-    );
-    return false;
-  }
+  if (checkout.length === 0) return false;
 
   const outcome = await markCheckoutPaid(
     checkout,
@@ -64,22 +60,39 @@ export async function settleCheckoutPaidAtGateway(input: {
   return true;
 }
 
+/**
+ * Pindahkan payment checkout yang masih bisa menerima uang ke PAID, dari
+ * satu potret di dalam transaksi. REFUNDED dan FAILED (tidak pernah punya
+ * VA) tidak pernah dipindah maupun ikut dijumlah.
+ */
 function markCheckoutPaid(
   checkout: CheckoutPayment[],
   paymentId: string,
   status: TransactionStatus,
 ): Promise<MarkOutcome> {
   return prismaBillingAuth.$transaction(async (tx) => {
-    // Payment orderId yang sudah PAID tidak berarti seluruh checkout lunas:
-    // checkout lama bisa memakai payment Rp 0 (tertutup kupon, PAID sejak
-    // dibuat) sebagai orderId. Payment lain yang belum PAID tetap dipindah.
-    const current = await tx.payment.findUnique({
-      where: { id: paymentId },
-      select: { transactionId: true },
+    const rows = await tx.payment.findMany({
+      where: { id: { in: checkout.map((payment) => payment.id) } },
+      select: {
+        id: true,
+        amount: true,
+        gatewayStatus: true,
+        transactionId: true,
+      },
     });
+    // Callback atau cek status ganda: semua payment yang ditagih sudah PAID.
+    // Payment Rp 0 (tertutup kupon) PAID sejak dibuat, dan checkout lama bisa
+    // memakainya sebagai orderId; itu tidak berarti checkout-nya lunas.
+    if (
+      rows.every((row) => row.amount === 0n || row.gatewayStatus === "PAID")
+    ) {
+      return "ALREADY_PAID";
+    }
+
+    const reference = rows.find((row) => row.id === paymentId);
     if (
       hasTransactionMismatch(
-        current?.transactionId ?? null,
+        reference?.transactionId ?? null,
         status.transactionId,
       )
     ) {
@@ -89,13 +102,24 @@ function markCheckoutPaid(
       return "MISMATCH";
     }
 
+    const settleable = rows.filter((row) =>
+      SETTLEABLE_STATUSES.includes(row.gatewayStatus as SettleableStatus),
+    );
+    const charged = settleable.reduce((sum, row) => sum + row.amount, 0n);
+    if (hasAmountMismatch(charged, status.amount)) {
+      logger.error(
+        `[Checkout] Gateway menyatakan lunas, tetapi nominalnya berbeda untuk payment ${paymentId}: tertagih ${charged}, gateway ${status.amount}`,
+      );
+      return "MISMATCH";
+    }
+
     const paymentMethod = normalizePaymentMethod(status.paymentMethod);
     // Webhook ganda atau cek status bersamaan menunggu kunci baris di sini;
-    // yang kedua tidak lagi menemukan baris non-PAID.
+    // yang kedua tidak lagi menemukan payment yang bisa dipindah.
     const moved = await tx.payment.updateMany({
       where: {
-        id: { in: checkout.map((payment) => payment.id) },
-        gatewayStatus: { not: "PAID" },
+        id: { in: settleable.map((row) => row.id) },
+        gatewayStatus: { in: [...SETTLEABLE_STATUSES] },
       },
       data: {
         gatewayStatus: "PAID",
