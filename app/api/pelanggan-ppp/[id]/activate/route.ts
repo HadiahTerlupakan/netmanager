@@ -1,15 +1,10 @@
 import { logger } from "@/lib/logger";
-import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-helpers";
+import { NextResponse } from "next/server";
+import { buildSessionWithPermissions, createHandler } from "@/lib/api";
 import {
   PelangganPppRouteService,
   RouteServiceError,
 } from "@/modules/pelanggan";
-
-interface ExtendedUser {
-  id: string;
-  role: string;
-}
 
 /**
  * @swagger
@@ -109,6 +104,8 @@ interface ExtendedUser {
  *               $ref: '#/components/schemas/Error'
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: Missing pelanggan:update, or customer in a site the caller cannot access
  *       404:
  *         description: Customer not found
  *         content:
@@ -120,42 +117,39 @@ interface ExtendedUser {
  */
 const pelangganPppRouteService = new PelangganPppRouteService();
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const auth = await requireAuth(req);
-    if (auth instanceof NextResponse) {
-      return auth;
-    }
+export const POST = createHandler(
+  { auth: true, permissions: ["pelanggan:update"] },
+  async (req, ctx) => {
+    try {
+      const session = buildSessionWithPermissions(
+        ctx.session!,
+        ctx.permissions,
+      );
+      const body = await req.json().catch(() => ({}));
+      const result = await pelangganPppRouteService.activateCustomer({
+        id: ctx.params.id,
+        userId: session.user.id,
+        body,
+        session,
+      });
 
-    const sessionUser = auth.user as ExtendedUser;
-    const { id } = await params;
-    const body = await req.json().catch(() => ({}));
-    const result = await pelangganPppRouteService.activateCustomer({
-      id,
-      userId: sessionUser.id,
-      body,
-      session: auth,
-    });
+      return NextResponse.json(result);
+    } catch (error: unknown) {
+      logger.error("Error activating customer service:", error);
+      if (error instanceof RouteServiceError) {
+        return NextResponse.json(
+          { error: error.message, details: error.details },
+          { status: error.status },
+        );
+      }
 
-    return NextResponse.json(result);
-  } catch (error: unknown) {
-    logger.error("Error activating customer service:", error);
-    if (error instanceof RouteServiceError) {
       return NextResponse.json(
-        { error: error.message, details: error.details },
-        { status: error.status },
+        {
+          error:
+            error instanceof Error ? error.message : "Terjadi kesalahan server",
+        },
+        { status: 500 },
       );
     }
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Terjadi kesalahan server",
-      },
-      { status: 500 },
-    );
-  }
-}
+  },
+);

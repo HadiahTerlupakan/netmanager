@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Aksi status pelanggan PPP menuntut pelanggan:update dan akses site
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/pelanggan-ppp/[id]` | `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: (1) `PATCH .../status` hanya menuntut akses panel admin, sedangkan `POST .../suspend` dan `POST .../activate` cukup dengan sesi login apa pun. Ketiganya kini memakai `createHandler` dengan `pelanggan:update` (alias `ppp:update`), izin yang sama dengan edit pelanggan; token aplikasi pelanggan (`customer:read`/`customer:write`) dan staf yang hanya `pelanggan:read` dijawab 403. Dari template peran, Admin, Helpdesk, Manager / Supervisor, dan NOC / Network (lewat `ppp:update`) tetap bisa memakai tombol Isolir / Aktifkan Kembali / Dismantle; Staff Keuangan dan Head of Sales & Marketing (hanya `pelanggan:read`) kini ditolak, sama seperti untuk Edit dan Hapus. (2) Ketiga aksi kini memeriksa `pelanggan:site_only` seperti edit/hapus: pelanggan di site lain dijawab 403 tanpa ada yang ditulis. Izin diteruskan ke service lewat `buildSessionWithPermissions`, karena `ctx.session` dari `createHandler` tidak membawa `permissions`. (3) Suspend dan activate selalu membalas 500 setelah data tersimpan: formatter respons menerima stub `{ id }` dan memanggil `toISOString()` pada tanggal yang tidak ada. Kini formatter menerima record suspensi yang benar-benar dibuat/ditutup. Kedua route ini tidak dipanggil dari web admin maupun aplikasi mobile.
+- **Files**: `app/api/pelanggan-ppp/[id]/status/route.ts`, `app/api/pelanggan-ppp/[id]/suspend/route.ts`, `app/api/pelanggan-ppp/[id]/activate/route.ts`, `modules/pelanggan/services/PelangganPppRouteService.ts`, `modules/pelanggan/services/pelanggan-ppp-route-validation.ts`, `modules/pelanggan/services/pelanggan-ppp-route-queries.ts`, `modules/pelanggan/services/pelanggan-ppp-lifecycle.helpers.ts`, `tests/api/pelanggan-ppp-lifecycle-permission-route.test.ts`, `tests/app/api/pelanggan-ppp-status.route.test.ts`, `tests/modules/pelanggan/pelanggan-ppp-route-tenant-scope.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Aksi status pelanggan PPP dibatasi tenant sesi
 
 - **Tipe**: [SECURITY]

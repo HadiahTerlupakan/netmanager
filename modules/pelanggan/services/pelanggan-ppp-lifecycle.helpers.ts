@@ -192,12 +192,17 @@ export const syncActivationRadius = async (
   }
 };
 
+type SuspensionRecord = Awaited<ReturnType<typeof persistCustomerSuspension>>;
+type ResumedSuspensionRecord = Awaited<
+  ReturnType<typeof persistCustomerActivation>
+>;
+
 /** Build suspend response and publish lifecycle side effects. */
 export const finalizeSuspension = async (input: {
   pelangganId: string;
   userId: string;
   payload: SuspendPayload;
-  suspensionId: string;
+  suspension: SuspensionRecord;
 }) => {
   const updatedPelanggan = await getLifecycleCustomerResponse(
     input.pelangganId,
@@ -205,14 +210,11 @@ export const finalizeSuspension = async (input: {
   publishSuspensionLog(
     input.userId,
     input.pelangganId,
-    input.suspensionId,
+    input.suspension.id,
     input.payload,
   );
   publishSuspensionEvent(input.pelangganId, updatedPelanggan?.nama || "");
-  return formatSuspendResponse(
-    { id: input.suspensionId } as never,
-    updatedPelanggan,
-  );
+  return formatSuspendResponse(input.suspension, updatedPelanggan);
 };
 
 /** Build activation response and publish lifecycle side effects. */
@@ -220,7 +222,7 @@ export const finalizeActivation = async (input: {
   pelangganId: string;
   userId: string;
   payload: ActivatePayload;
-  suspensionId: string;
+  suspension: ResumedSuspensionRecord;
 }) => {
   const updatedPelanggan = await getLifecycleCustomerResponse(
     input.pelangganId,
@@ -228,12 +230,9 @@ export const finalizeActivation = async (input: {
   publishActivationLog(
     input.userId,
     input.pelangganId,
-    input.suspensionId,
+    input.suspension.id,
     input.payload.activationMethod,
   );
   publishActivationEvent(input.pelangganId, updatedPelanggan?.nama || "");
-  return formatActivateResponse(
-    { id: input.suspensionId } as never,
-    updatedPelanggan,
-  );
+  return formatActivateResponse(input.suspension, updatedPelanggan);
 };

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth-helpers";
+import { NextResponse } from "next/server";
+import { buildSessionWithPermissions, createHandler } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import {
   PelangganPppRouteService,
@@ -15,73 +15,78 @@ const CUSTOMER_STATUSES = [
   "DISMANTLE",
 ] as const;
 
-export async function PATCH(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> },
-) {
-  try {
-    const session = await requireAdmin(req);
-    if (session instanceof NextResponse) return session;
+/**
+ * Aksi baris Isolir / Aktifkan Kembali / Dismantle. Mengubah akses PPPoE
+ * pelanggan, jadi menuntut izin yang sama dengan edit pelanggan.
+ */
+export const PATCH = createHandler(
+  { auth: true, permissions: ["pelanggan:update"] },
+  async (req, ctx) => {
+    try {
+      const session = buildSessionWithPermissions(
+        ctx.session!,
+        ctx.permissions,
+      );
+      const { id } = ctx.params;
+      const body = await req.json();
+      const { status } = body;
 
-    const { id } = await context.params;
-    const body = await req.json();
-    const { status } = body;
+      if (!id) {
+        return NextResponse.json({ error: "ID is required" }, { status: 400 });
+      }
 
-    if (!id) {
-      return NextResponse.json({ error: "ID is required" }, { status: 400 });
-    }
+      if (!status || !CUSTOMER_STATUSES.includes(status)) {
+        return NextResponse.json(
+          { error: "Valid status is required" },
+          { status: 400 },
+        );
+      }
 
-    if (!status || !CUSTOMER_STATUSES.includes(status)) {
+      const result = await pelangganPppRouteService.updateCustomerStatus({
+        id,
+        status,
+        session,
+      });
+
+      await logger.logActivity({
+        action: "UPDATE",
+        subject: "Pelanggan Status",
+        details: {
+          id: result.pelanggan.id,
+          name: result.pelanggan.nama,
+          oldStatus: result.pelanggan.status,
+          newStatus: status,
+          actor: session.user.name || "Admin",
+        },
+        userId: session.user.id,
+      });
+
+      return NextResponse.json({
+        success: true,
+        // Not the whole row: it holds the PPPoE password, and its BigInt
+        // saldoKreditRupiah cannot be encoded as JSON.
+        data: {
+          id: result.updatedPelanggan.id,
+          status: result.updatedPelanggan.status,
+        },
+        message: result.message,
+      });
+    } catch (error: unknown) {
+      logger.error("[API] Error updating status:", error);
+      if (error instanceof RouteServiceError) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: error.status },
+        );
+      }
+
       return NextResponse.json(
-        { error: "Valid status is required" },
-        { status: 400 },
+        {
+          error:
+            error instanceof Error ? error.message : "Terjadi kesalahan server",
+        },
+        { status: 500 },
       );
     }
-
-    const result = await pelangganPppRouteService.updateCustomerStatus({
-      id,
-      status,
-      session,
-    });
-
-    await logger.logActivity({
-      action: "UPDATE",
-      subject: "Pelanggan Status",
-      details: {
-        id: result.pelanggan.id,
-        name: result.pelanggan.nama,
-        oldStatus: result.pelanggan.status,
-        newStatus: status,
-        actor: session.user.name || "Admin",
-      },
-      userId: session.user.id,
-    });
-
-    return NextResponse.json({
-      success: true,
-      // Not the whole row: it holds the PPPoE password, and its BigInt
-      // saldoKreditRupiah cannot be encoded as JSON.
-      data: {
-        id: result.updatedPelanggan.id,
-        status: result.updatedPelanggan.status,
-      },
-      message: result.message,
-    });
-  } catch (error: unknown) {
-    logger.error("[API] Error updating status:", error);
-    if (error instanceof RouteServiceError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status },
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Terjadi kesalahan server",
-      },
-      { status: 500 },
-    );
-  }
-}
+  },
+);

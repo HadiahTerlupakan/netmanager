@@ -38,6 +38,7 @@ import {
 import {
   RouteServiceError,
   activateRequestSchema,
+  assertRouteSiteAccess,
   ensureRouteTenantId,
   normalizeRoutePagination,
   parseRouteDateRange,
@@ -180,7 +181,8 @@ export class PelangganPppRouteService {
       "suspend",
       resolveRouteTenantScope(input.session, input.id),
     );
-    const result = await persistCustomerSuspension(pelanggan, {
+    assertRouteSiteAccess(input.session, pelanggan.siteId);
+    const suspension = await persistCustomerSuspension(pelanggan, {
       pelangganId: input.id,
       userId: input.userId,
       payload,
@@ -196,7 +198,7 @@ export class PelangganPppRouteService {
       pelangganId: input.id,
       userId: input.userId,
       payload,
-      suspensionId: result.id,
+      suspension,
     });
   }
 
@@ -209,6 +211,7 @@ export class PelangganPppRouteService {
     const tenantId = resolveRouteTenantScope(input.session, input.id);
     const pelanggan = await findUsageCustomer({ id: input.id, tenantId });
     if (!pelanggan) throw new RouteServiceError("Pelanggan not found", 404);
+    assertRouteSiteAccess(input.session, pelanggan.siteId);
 
     const updatedPelanggan = await getPelangganService().updateStatusPelanggan(
       input.id,
@@ -231,9 +234,10 @@ export class PelangganPppRouteService {
       "activate",
       resolveRouteTenantScope(input.session, input.id),
     );
+    assertRouteSiteAccess(input.session, pelanggan.siteId);
 
     try {
-      const result = await persistCustomerActivation(pelanggan, {
+      const suspension = await persistCustomerActivation(pelanggan, {
         pelangganId: input.id,
         userId: input.userId,
         payload,
@@ -248,7 +252,7 @@ export class PelangganPppRouteService {
         pelangganId: input.id,
         userId: input.userId,
         payload,
-        suspensionId: result.id,
+        suspension,
       });
     } catch (error) {
       if (

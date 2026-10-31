@@ -5,15 +5,26 @@ const mockFns = vi.hoisted(() => ({
   updateCustomerStatus: vi.fn(),
 }));
 
-const SESSION = {
-  user: { id: "admin-1", name: "Admin", tenantId: "tenant-a" },
-};
-
-vi.mock("@/lib/auth-helpers", () => ({
-  requireAdmin: async () => SESSION,
+vi.mock("next-auth", () => ({
+  getServerSession: async () => ({
+    user: {
+      id: "admin-1",
+      name: "Admin",
+      role: "ADMIN",
+      tenantId: "tenant-a",
+      permissions: ["pelanggan:update"],
+    },
+  }),
 }));
+vi.mock("@/lib/auth", () => ({ authOptions: {}, getUserPermissions: vi.fn() }));
 vi.mock("@/lib/logger", () => ({
-  logger: { logActivity: vi.fn(), error: vi.fn() },
+  logger: {
+    logActivity: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
 }));
 vi.mock("@/modules/pelanggan", () => ({
   PelangganPppRouteService: class {
@@ -71,22 +82,6 @@ describe("PATCH /api/pelanggan-ppp/[id]/status", () => {
       { params: Promise.resolve({ id }) },
     );
 
-  it("meneruskan sesi supaya service membatasi pelanggan ke tenant sesi", async () => {
-    mockFns.updateCustomerStatus.mockResolvedValue({
-      pelanggan: { id: "p1", nama: "TES", status: "AKTIF" },
-      updatedPelanggan: { id: "p1", status: "DISMANTLE" },
-      message: "Status updated to DISMANTLE",
-    });
-
-    await patchStatus("p1");
-
-    expect(mockFns.updateCustomerStatus).toHaveBeenCalledWith({
-      id: "p1",
-      status: "DISMANTLE",
-      session: SESSION,
-    });
-  });
-
   it("404 bila pelanggan tidak ada di tenant sesi", async () => {
     const { RouteServiceError } = await import("@/modules/pelanggan");
     mockFns.updateCustomerStatus.mockRejectedValue(
@@ -96,5 +91,16 @@ describe("PATCH /api/pelanggan-ppp/[id]/status", () => {
     const response = await patchStatus("pelanggan-tenant-lain");
 
     expect(response.status).toBe(404);
+  });
+
+  it("403 bila pelanggan di site yang tidak boleh diakses", async () => {
+    const { RouteServiceError } = await import("@/modules/pelanggan");
+    mockFns.updateCustomerStatus.mockRejectedValue(
+      new RouteServiceError("Akses ditolak", 403),
+    );
+
+    const response = await patchStatus("pelanggan-site-lain");
+
+    expect(response.status).toBe(403);
   });
 });

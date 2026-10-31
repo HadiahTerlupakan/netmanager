@@ -37,21 +37,53 @@ const SESI_SUPER_ADMIN = {
     role: "SUPER_ADMIN",
   },
 };
+/** Admin site: `pelanggan:site_only` dengan izin di sesi, seperti dari route. */
+const SESI_ADMIN_SITE_1 = {
+  user: {
+    tenantId: "tenant-a",
+    isSuperAdmin: false,
+    role: "ADMIN_SITE",
+    siteIds: ["site-1"],
+    permissions: ["pelanggan:update", "pelanggan:site_only"],
+  },
+};
 const SESI_TANPA_TENANT = {
   user: { tenantId: null as string | null, isSuperAdmin: false, role: "ADMIN" },
 };
 
 let rows: Row[];
 
+const SUSPENDED_AT = new Date("2026-10-01T01:00:00.000Z");
+
+const suspensiAktif = () => ({
+  id: "susp-1",
+  pelangganId: "pel-a",
+  suspension_type: "PAYMENT",
+  reason: "Tunggakan",
+  notes: null as string | null,
+  suspended_at: SUSPENDED_AT,
+  expected_resume_at: null as Date | null,
+  actual_resume_at: null as Date | null,
+  suspended_by: "admin-a",
+  resumed_by: null as string | null,
+  is_active: true,
+});
+
 /** `serviceSuspension` tidak ada di tipe MockPrismaClient, tapi proxy-nya ada. */
 const serviceSuspensionMock = () =>
   (prismaMock as unknown as Record<string, typeof prismaMock.pelanggan>)
     .serviceSuspension;
 
-const pelangganRow = (id: string, tenantId: string, status: string): Row => ({
+const pelangganRow = (
+  id: string,
+  tenantId: string,
+  status: string,
+  siteId = "site-1",
+): Row => ({
   id,
   tenantId,
   status,
+  siteId,
   idPelanggan: `KODE-${id}`,
   nama: `Pelanggan ${id}`,
   username: `pppoe-${id}`,
@@ -90,7 +122,19 @@ function pasangPrismaPalsu() {
       return { ...row };
     },
   );
-  serviceSuspensionMock().create.mockResolvedValue({ id: "susp-1" });
+  serviceSuspensionMock().create.mockImplementation(
+    async ({ data }: { data: Record<string, unknown> }) => ({
+      ...data,
+      suspended_at: SUSPENDED_AT,
+    }),
+  );
+  serviceSuspensionMock().findFirst.mockResolvedValue(suspensiAktif());
+  serviceSuspensionMock().update.mockImplementation(
+    async ({ data }: { data: Record<string, unknown> }) => ({
+      ...suspensiAktif(),
+      ...data,
+    }),
+  );
   serviceSuspensionMock().count.mockResolvedValue(0);
   serviceSuspensionMock().findMany.mockResolvedValue([]);
 }
@@ -102,6 +146,7 @@ describe("PelangganPppRouteService — isolasi tenant aksi baris pelanggan", () 
     rows = [
       pelangganRow("pel-a", "tenant-a", "AKTIF"),
       pelangganRow("pel-b", "tenant-b", "AKTIF"),
+      pelangganRow("pel-c", "tenant-a", "AKTIF", "site-2"),
     ];
     pasangPrismaPalsu();
   });
@@ -200,20 +245,51 @@ describe("PelangganPppRouteService — isolasi tenant aksi baris pelanggan", () 
       expect(serviceSuspensionMock().create).not.toHaveBeenCalled();
     });
 
-    it("suspend pelanggan di tenant sesi", async () => {
-      // Hanya penulisan yang diuji di sini. Format respons sesudah commit
-      // membaca `suspended_at` dari stub `{ id }` di finalizeSuspension dan
-      // melempar TypeError — bug terpisah, bukan bagian isolasi tenant.
-      await service
-        .suspendCustomer({
-          id: "pel-a",
-          userId: "admin-a",
-          body: suspendBody,
-          session: SESI_TENANT_A,
-        })
-        .catch((): undefined => undefined);
+    it("suspend pelanggan di tenant sesi dan menjawab dengan suspensi yang tersimpan", async () => {
+      const result = await service.suspendCustomer({
+        id: "pel-a",
+        userId: "admin-a",
+        body: suspendBody,
+        session: SESI_TENANT_A,
+      });
 
       expect(statusOf("pel-a")).toBe("NONAKTIF");
+      expect(result).toMatchObject({
+        success: true,
+        suspension: {
+          suspensionType: "PAYMENT",
+          reason: "Tunggakan",
+          suspendedAt: SUSPENDED_AT.toISOString(),
+          expectedResumeAt: null,
+          suspendedBy: "admin-a",
+          isActive: true,
+        },
+        customer: { id: "pel-a", status: "NONAKTIF" },
+      });
+    });
+
+    it("activate pelanggan di tenant sesi dan menjawab dengan suspensi yang ditutup", async () => {
+      rows[0].status = "NONAKTIF";
+
+      const result = await service.activateCustomer({
+        id: "pel-a",
+        userId: "admin-a",
+        body: { syncToRadius: false },
+        session: SESI_TENANT_A,
+      });
+
+      expect(statusOf("pel-a")).toBe("AKTIF");
+      expect(result).toMatchObject({
+        success: true,
+        suspension: {
+          id: "susp-1",
+          suspendedAt: SUSPENDED_AT.toISOString(),
+          resumedBy: "admin-a",
+          isActive: false,
+        },
+        customer: { id: "pel-a", status: "AKTIF" },
+      });
+      expect(result.suspension.actualResumeAt).toEqual(expect.any(String));
     });
 
     it("activate 404 untuk pelanggan tenant lain tanpa menulis apa pun", async () => {
@@ -229,6 +305,61 @@ describe("PelangganPppRouteService — isolasi tenant aksi baris pelanggan", () 
       ).rejects.toMatchObject({ status: 404 });
 
       expect(statusOf("pel-b")).toBe("NONAKTIF");
+      expect(prismaMock.pelanggan.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("akses site (pelanggan:site_only)", () => {
+    it("status: 403 untuk pelanggan di site lain, tanpa menulis", async () => {
+      await expect(
+        service.updateCustomerStatus({
+          id: "pel-c",
+          status: "ISOLIR",
+          session: SESI_ADMIN_SITE_1,
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+
+      expect(statusOf("pel-c")).toBe("AKTIF");
+      expect(prismaMock.pelanggan.update).not.toHaveBeenCalled();
+    });
+
+    it("status: lolos untuk pelanggan di site sendiri", async () => {
+      await service.updateCustomerStatus({
+        id: "pel-a",
+        status: "ISOLIR",
+        session: SESI_ADMIN_SITE_1,
+      });
+
+      expect(statusOf("pel-a")).toBe("ISOLIR");
+    });
+
+    it("suspend: 403 untuk pelanggan di site lain, tanpa menulis", async () => {
+      await expect(
+        service.suspendCustomer({
+          id: "pel-c",
+          userId: "admin-a",
+          body: { suspensionType: "PAYMENT", reason: "Tunggakan" },
+          session: SESI_ADMIN_SITE_1,
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+
+      expect(statusOf("pel-c")).toBe("AKTIF");
+      expect(serviceSuspensionMock().create).not.toHaveBeenCalled();
+    });
+
+    it("activate: 403 untuk pelanggan di site lain, tanpa menulis", async () => {
+      rows[2].status = "NONAKTIF";
+
+      await expect(
+        service.activateCustomer({
+          id: "pel-c",
+          userId: "admin-a",
+          body: {},
+          session: SESI_ADMIN_SITE_1,
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+
+      expect(statusOf("pel-c")).toBe("NONAKTIF");
       expect(prismaMock.pelanggan.update).not.toHaveBeenCalled();
     });
   });

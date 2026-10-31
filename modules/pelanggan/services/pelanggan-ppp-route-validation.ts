@@ -6,7 +6,10 @@ import {
   parseUsagePeriod,
   type UsageSummaryInput,
 } from "./pelanggan-ppp-route-helpers";
-import { getTenantScopedWhereById } from "./pelanggan-admin-mutation.helpers";
+import {
+  canAccessPelangganBySite,
+  getTenantScopedWhereById,
+} from "./pelanggan-admin-mutation.helpers";
 import type { AdminMutationSession } from "./PelangganAdminMutationService";
 
 export const suspendRequestSchema = z.object({
@@ -81,6 +84,21 @@ export function resolveRouteTenantScope(
       error instanceof Error ? error.message : "Akses ditolak",
       403,
     );
+  }
+}
+
+/**
+ * Tolak 403 bila sesi dibatasi `pelanggan:site_only` dan pelanggan ada di site
+ * lain — pemeriksaan yang sama dengan edit/hapus pelanggan. Sesi wajib
+ * membawa `user.permissions` (lihat `buildSessionWithPermissions`); tanpa itu
+ * pembatasan site tidak terbaca dan semua site lolos.
+ */
+export function assertRouteSiteAccess(
+  session: AdminMutationSession,
+  siteId: string | null | undefined,
+) {
+  if (!canAccessPelangganBySite(session, siteId)) {
+    throw new RouteServiceError("Akses ditolak", 403);
   }
 }
 

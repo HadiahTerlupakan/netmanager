@@ -21,6 +21,7 @@ export const BASIC_CUSTOMER_SELECT = {
   username: true,
   status: true,
   tenantId: true,
+  siteId: true,
   catatan: true,
 } as const;
 

@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
-import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth-helpers";
+import { NextResponse } from "next/server";
+import { buildSessionWithPermissions, createHandler } from "@/lib/api";
 import {
   PelangganPppRouteService,
   RouteServiceError,
@@ -115,6 +115,8 @@ import {
  *               $ref: '#/components/schemas/Error'
  *       401:
  *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         description: Missing pelanggan:update, or customer in a site the caller cannot access
  *       404:
  *         description: Customer not found
  *         content:
@@ -126,36 +128,34 @@ import {
  */
 const pelangganPppRouteService = new PelangganPppRouteService();
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  try {
-    const auth = await requireAuth(req);
-    if (auth instanceof NextResponse) {
-      return auth;
-    }
-
-    const { id } = await params;
-    const result = await pelangganPppRouteService.suspendCustomer({
-      id,
-      userId: (auth as { user: { id: string } }).user.id,
-      body: await req.json(),
-      session: auth,
-    });
-
-    return NextResponse.json(result);
-  } catch (error: unknown) {
-    logger.error("Error suspending customer service:", error);
-    if (error instanceof RouteServiceError) {
-      return NextResponse.json(
-        { error: error.message, details: error.details },
-        { status: error.status },
+export const POST = createHandler(
+  { auth: true, permissions: ["pelanggan:update"] },
+  async (req, ctx) => {
+    try {
+      const session = buildSessionWithPermissions(
+        ctx.session!,
+        ctx.permissions,
       );
-    }
+      const result = await pelangganPppRouteService.suspendCustomer({
+        id: ctx.params.id,
+        userId: session.user.id,
+        body: await req.json(),
+        session,
+      });
 
-    const errorMessage =
-      error instanceof Error ? error.message : "Terjadi kesalahan server";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
-  }
-}
+      return NextResponse.json(result);
+    } catch (error: unknown) {
+      logger.error("Error suspending customer service:", error);
+      if (error instanceof RouteServiceError) {
+        return NextResponse.json(
+          { error: error.message, details: error.details },
+          { status: error.status },
+        );
+      }
+
+      const errorMessage =
+        error instanceof Error ? error.message : "Terjadi kesalahan server";
+      return NextResponse.json({ error: errorMessage }, { status: 500 });
+    }
+  },
+);
