@@ -7,6 +7,7 @@ import { EVENT_NAMES } from "@/lib/event-bus";
 const mockSyncSingleCustomer = vi.fn();
 const mockHandleStatusChange = vi.fn();
 const mockUpdateSyncStatus = vi.fn();
+const mockGetPelanggan = vi.fn();
 
 vi.mock("@/modules/network/services/radius-sync-service", () => {
   const MockRadiusSyncService = vi.fn(function (this: unknown) {
@@ -21,6 +22,7 @@ vi.mock("@/modules/network/services/radius-sync-service", () => {
 vi.mock("@/modules/pelanggan", () => ({
   getPelangganService: () => ({
     updateSyncStatus: mockUpdateSyncStatus,
+    getPelanggan: mockGetPelanggan,
   }),
 }));
 
@@ -56,6 +58,7 @@ describe("PackageChangeHandler", () => {
     mockSyncSingleCustomer.mockResolvedValue(undefined);
     mockHandleStatusChange.mockResolvedValue(undefined);
     mockUpdateSyncStatus.mockResolvedValue(undefined);
+    mockGetPelanggan.mockResolvedValue({ id: "cust-1", status: "AKTIF" });
   });
 
   it("IMMEDIATE → syncSingleCustomer + handleStatusChange + mark SYNCED", async () => {
@@ -66,6 +69,39 @@ describe("PackageChangeHandler", () => {
     expect(mockSyncSingleCustomer).toHaveBeenCalledWith("cust-1");
     expect(mockHandleStatusChange).toHaveBeenCalledWith("cust-1", "AKTIF");
     expect(mockUpdateSyncStatus).toHaveBeenCalledWith("cust-1", "SYNCED", null);
+  });
+
+  // Paket terjadwal diterapkan cron 00:05 tanpa melihat status. Dulu handler
+  // selalu memakai siklus AKTIF, sehingga pelanggan ISOLIR/DISMANTLE yang
+  // paketnya berganti malam itu dibuka kembali aksesnya di router.
+  it.each(["ISOLIR", "NONAKTIF", "MAINTENANCE", "DISMANTLE"])(
+    "pelanggan %s tetap diperlakukan sesuai statusnya, tidak diaktifkan",
+    async (status) => {
+      mockGetPelanggan.mockResolvedValue({ id: "cust-1", status });
+
+      await handlePackageChange(
+        buildJob({ ...BASE_PAYLOAD, applyTime: "IMMEDIATE" }),
+      );
+
+      expect(mockSyncSingleCustomer).toHaveBeenCalledWith("cust-1");
+      expect(mockHandleStatusChange).toHaveBeenCalledWith("cust-1", status);
+      expect(mockHandleStatusChange).not.toHaveBeenCalledWith(
+        "cust-1",
+        "AKTIF",
+      );
+    },
+  );
+
+  it("pelanggan sudah dihapus → tidak menyentuh router", async () => {
+    mockGetPelanggan.mockResolvedValue(null);
+
+    await handlePackageChange(
+      buildJob({ ...BASE_PAYLOAD, applyTime: "IMMEDIATE" }),
+    );
+
+    expect(mockSyncSingleCustomer).not.toHaveBeenCalled();
+    expect(mockHandleStatusChange).not.toHaveBeenCalled();
+    expect(mockUpdateSyncStatus).not.toHaveBeenCalled();
   });
 
   it("NEXT_CYCLE → skip semua operasi MikroTik dan tidak update syncStatus", async () => {

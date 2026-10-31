@@ -1,4 +1,5 @@
 import type { Job } from "bullmq";
+import type { Status } from "@prisma/client";
 import { logger } from "@/lib/logger";
 import { EVENT_NAMES, requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
@@ -11,8 +12,8 @@ const SOURCE = "PackageChangeHandler";
  * Handler yang subscribe ke PACKAGE_CHANGED event.
  *
  * - IMMEDIATE apply: panggil syncSingleCustomer untuk update PPP secret profile,
- *   lalu handleStatusChange(AKTIF) untuk force disconnect session sehingga
- *   pelanggan re-auth dengan rate limit paket baru.
+ *   lalu handleStatusChange(<status pelanggan saat ini>) untuk force disconnect
+ *   session sehingga pelanggan re-auth dengan rate limit paket baru.
  * - NEXT_CYCLE apply: skip — cron job PendingPackageApplier yang akan apply
  *   saat due date tercapai.
  *
@@ -42,6 +43,13 @@ export async function handlePackageChange(
   }
 
   const pelangganService = getPelangganService();
+  const pelanggan = await pelangganService.getPelanggan(customerId);
+  if (!pelanggan) {
+    logger.info(
+      `[PackageChangeHandler] Skip ${customerId} — pelanggan sudah tidak ada`,
+    );
+    return;
+  }
   const radius = new RadiusSyncService();
 
   try {
@@ -49,9 +57,11 @@ export async function handlePackageChange(
     // sesuai hargaPaket terbaru pelanggan
     await radius.syncSingleCustomer(customerId);
 
-    // handleStatusChange(AKTIF): force disconnect active sessions supaya
-    // pelanggan re-auth dan mendapat rate limit dari profile baru
-    await radius.handleStatusChange(customerId, "AKTIF");
+    // Terapkan ulang status pelanggan sendiri lalu putuskan sesinya supaya
+    // re-auth memakai profil baru. Bukan selalu AKTIF: paket terjadwal
+    // diterapkan cron tanpa melihat status, dan AKTIF membuka kembali akses
+    // pelanggan yang sedang diisolir atau sudah dismantle.
+    await radius.handleStatusChange(customerId, pelanggan.status as Status);
 
     await pelangganService.updateSyncStatus(customerId, "SYNCED", null);
     logger.info(
