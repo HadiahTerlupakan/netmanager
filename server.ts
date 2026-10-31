@@ -28,12 +28,14 @@ import {
 import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
 import {
   isPublicUploadPath,
+  jalurStatisTerjaga,
   kanonikJalurUpload,
 } from "./lib/upload/upload-policy";
 import {
   bolehBacaUpload,
   pembacaUploadDariSesi,
 } from "./lib/upload/upload-access";
+import { sajikanBuktiTransferLama } from "./lib/upload/bukti-transfer-lama";
 import { logger } from "./lib/logger";
 import { redis } from "./lib/redis";
 import { validateCriticalEnvVars } from "./lib/utils/env";
@@ -115,7 +117,16 @@ app.prepare().then(() => {
       }
     };
 
-    if (pathname?.startsWith("/uploads/") && req.method === "GET") {
+    // Handler statis Next juga menyajikan bentuk terdekode sebuah jalur, jadi
+    // `/%75ploads/...` dan `/%72eceipts/...` harus masuk penjaga yang sama.
+    const jalurTerjaga = jalurStatisTerjaga(pathname);
+
+    if (jalurTerjaga === "receipts") {
+      await sajikanBuktiTransferLama(req, res, pathname);
+      return;
+    }
+
+    if (jalurTerjaga === "uploads" && req.method === "GET") {
       // Izin dan pemilihan berkas harus memakai bentuk jalur yang sama persis.
       // Saat keduanya berbeda, `/uploads/tenants/<sendiri>/..%2f<lain>/x.webp`
       // lolos sebagai milik sendiri lalu menyajikan berkas tenant lain.

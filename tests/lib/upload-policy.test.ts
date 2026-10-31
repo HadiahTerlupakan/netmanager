@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   isPublicUploadPath,
   isR2KeyPublic,
+  jalurStatisTerjaga,
   kanonikJalurUpload,
   sanitizeUploadFolder,
   subFolderUploadAman,
@@ -150,6 +151,38 @@ describe("kanonik jalur upload", () => {
       "/uploads/tenants/a/spasi file.webp",
     );
   });
+});
+
+describe("jalur statis terjaga", () => {
+  it.each([
+    ["/uploads/tenants/a/payment-proofs/x.webp", "uploads"],
+    ["/receipts/receipt_p1_1771991104052.webp", "receipts"],
+  ])("%s dijaga sebagai %s", (pathname, expected) => {
+    expect(jalurStatisTerjaga(pathname)).toBe(expected);
+  });
+
+  // Handler statis Next juga mencocokkan bentuk terdekode sebuah jalur:
+  // `/%75ploads/...` dulu melewati penjaga `/uploads/` lalu disajikan Next
+  // kepada siapa saja.
+  it.each([
+    ["/%75ploads/tenants/a/payment-proofs/x.webp", "uploads"],
+    ["/uploads%2Ftenants%2Fa%2Fx.webp", "uploads"],
+    ["/%72eceipts/receipt_p1_1771991104052.webp", "receipts"],
+    ["/receipts%2Freceipt_p1_1771991104052.webp", "receipts"],
+  ])("%s yang ter-encode tetap dijaga sebagai %s", (pathname, expected) => {
+    expect(jalurStatisTerjaga(pathname)).toBe(expected);
+  });
+
+  it("jalur upload dengan encoding rusak tetap masuk penjaga upload", () => {
+    expect(jalurStatisTerjaga("/uploads/%E0%A4%A")).toBe("uploads");
+  });
+
+  it.each(["/api/customer/receipts", "/receipts", "/_next/static/a.js", ""])(
+    "%j tidak dijaga",
+    (pathname) => {
+      expect(jalurStatisTerjaga(pathname)).toBeNull();
+    },
+  );
 });
 
 describe("sub folder upload aman", () => {

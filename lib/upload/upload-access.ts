@@ -33,7 +33,7 @@ interface PermintaanUpload {
   headers: Record<string, string | string[] | undefined>;
 }
 
-interface PembacaUpload {
+export interface PembacaUpload {
   tenantId: string | null;
   isSuperAdmin: boolean;
   /** Terisi untuk sesi pelanggan; aksesnya dicek per tiket, bukan per tenant. */

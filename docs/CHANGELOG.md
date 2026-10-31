@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Bukti transfer lama dijaga; jalur upload ter-encode tak lolos lagi
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/upload` | `server.ts`
+- **Author**: agent
+- **Deskripsi**: (1) Bukti transfer dari penyimpanan lokal lama di `public/receipts` masih disajikan handler statis Next kepada siapa saja yang tahu URL-nya. Berkasnya tidak dipindah; `server.ts` kini menyajikan `/receipts/*` lewat `sajikanBuktiTransferLama`: tanpa sesi 401; hanya staf tenant payment yang merujuk berkas itu (`Payment.receiptUrl`; payment tanpa tenantId memakai tenant pelanggannya) dan super admin yang menerima berkasnya, dengan `Cache-Control: private, no-store`; selain itu 404, termasuk pelanggan pemiliknya karena portal maupun aplikasi tidak pernah menampilkan bukti kepada pelanggan (hanya apakah sudah diunggah), dan berkas yang tidak dirujuk payment mana pun. Hanya satu berkas `.webp` langsung di bawah `receipts/` yang dilayani, dan jalur ini tidak pernah diteruskan ke Next. (2) Handler statis Next juga mencocokkan bentuk terdekode sebuah jalur, sedangkan penjaga `/uploads/` hanya membaca jalur mentah: `/%75ploads/tenants/<id>/payment-proofs/...` melewati penjaga dan disajikan Next tanpa sesi untuk setiap berkas yang sudah ada saat server dinyalakan. `jalurStatisTerjaga` kini memutuskan penjaga dari bentuk mentah maupun terdekode, untuk `/uploads/` dan `/receipts/`.
+- **Files**: `lib/upload/bukti-transfer-lama.ts`, `lib/upload/upload-policy.ts`, `lib/upload/upload-access.ts`, `server.ts`, `tests/lib/bukti-transfer-lama.test.ts`, `tests/lib/upload-policy.test.ts`, `tests/ci/local-upload-access-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Penyapu checkout memegang kunci checkout pelanggan
 
 - **Tipe**: [FIXED]

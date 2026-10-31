@@ -79,6 +79,27 @@ describe("local upload access safety", () => {
     );
   });
 
+  // Handler statis Next juga mencocokkan bentuk terdekode sebuah jalur, jadi
+  // penjaga yang hanya membaca jalur mentah dilewati `/%75ploads/...`.
+  it("picks the guard from the decoded path as well as the raw one", () => {
+    const serverFile = readServerFile();
+
+    expect(serverFile).toContain("jalurStatisTerjaga(pathname)");
+    expect(serverFile).not.toContain('pathname?.startsWith("/uploads/")');
+  });
+
+  // Bukti transfer lama di `public/receipts` dulu disajikan Next kepada siapa
+  // saja yang tahu URL-nya.
+  it("serves legacy receipts only through their own guard", () => {
+    const serverFile = readServerFile();
+    const receiptsIndex = serverFile.indexOf(
+      "await sajikanBuktiTransferLama(req, res, pathname);",
+    );
+
+    expect(receiptsIndex).toBeGreaterThan(-1);
+    expect(receiptsIndex).toBeLessThan(serverFile.indexOf("handle(req, res);"));
+  });
+
   // Berkas pribadi di R2 kini dirujuk lewat jalur ini, bukan URL publik bucket.
   // Isinya hanya boleh dialirkan setelah penjaga sesi dan tenant terlewati.
   it("streams private R2 objects only after both guards", () => {

@@ -271,6 +271,44 @@ export function kanonikJalurUpload(
 }
 
 /**
+ * Direktori di bawah `public/` yang hanya boleh disajikan penjaga server.ts.
+ * `receipts` berisi bukti transfer dari penyimpanan lokal lama, sebelum bukti
+ * disimpan di `uploads/tenants/<id>/payment-proofs`.
+ */
+const AWALAN_STATIS_TERJAGA = [
+  ["uploads", "/uploads/"],
+  ["receipts", "/receipts/"],
+] as const;
+
+export type JalurStatisTerjaga = (typeof AWALAN_STATIS_TERJAGA)[number][0];
+
+/**
+ * Penjaga mana yang berlaku untuk jalur ini, atau null bila tidak ada.
+ *
+ * Bentuk terdekodenya ikut diperiksa karena handler statis Next juga
+ * mencocokkan jalur yang sudah didekode: `/%75ploads/...` dulu melewati
+ * penjaga `/uploads/` lalu disajikan Next tanpa sesi. Jalur yang encoding-nya
+ * rusak tetap masuk penjaga bila bentuk mentahnya cocok, agar ditolak di sana.
+ */
+export function jalurStatisTerjaga(
+  pathname: string | null | undefined,
+): JalurStatisTerjaga | null {
+  const mentah = (pathname ?? "").trim();
+  const bentuk = [mentah];
+  try {
+    const terdekode = decodeURIComponent(mentah);
+    bentuk.push(terdekode, posix.normalize(terdekode));
+  } catch {
+    // Encoding rusak: hanya bentuk mentahnya yang bisa dicocokkan.
+  }
+
+  const cocok = AWALAN_STATIS_TERJAGA.find(([, awalan]) =>
+    bentuk.some((jalur) => jalur.startsWith(awalan)),
+  );
+  return cocok ? cocok[0] : null;
+}
+
+/**
  * Sub-folder upload yang aman dipakai sebagai satu segmen direktori, atau null
  * bila nilainya tidak layak.
  *
