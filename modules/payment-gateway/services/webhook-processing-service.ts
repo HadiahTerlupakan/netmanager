@@ -8,6 +8,7 @@ import {
   isUnpaidTerminalStatus,
   releaseUnusedCheckoutCoupons,
 } from "./abandoned-checkout";
+import { withCustomerCheckoutLock } from "./customer-checkout-lock";
 import {
   findCheckoutPayments,
   settleCheckoutPaidAtGateway,
@@ -317,22 +318,7 @@ export class WebhookProcessingService {
     }
 
     if (isUnpaidTerminalStatus(gatewayStatus)) {
-      const checkout = await findCheckoutPayments(payment.id);
-      const closed = await prismaBillingAuth.payment.updateManyAndReturn({
-        where: {
-          id: { in: checkout.map((p) => p.id) },
-          gatewayStatus: "PENDING",
-        },
-        data: { gatewayStatus },
-        select: {
-          id: true,
-          couponUsageId: true,
-          couponId: true,
-          pelangganId: true,
-          tenantId: true,
-        },
-      });
-      await releaseUnusedCheckoutCoupons(closed);
+      await closeUnpaidCheckout(payment.id, gatewayStatus);
     }
 
     await this.idempotencyService.markAsProcessed(context.webhookEventId);
@@ -384,4 +370,36 @@ export class WebhookProcessingService {
       body: { status: "error", message: "Internal server error" },
     };
   }
+}
+
+/**
+ * Tutup checkout yang tidak dibayar di bawah kunci checkout pelanggannya,
+ * seperti penyapu: ganti metode memindah pemesanan kupon checkout lama
+ * sebelum baris checkout barunya ada. Kunci yang sedang dipegang melempar,
+ * jadi notifikasinya dijawab 500 dan diulang gateway, alih-alih dilewati.
+ */
+async function closeUnpaidCheckout(
+  paymentId: string,
+  gatewayStatus: GatewayPaymentStatus,
+) {
+  const checkout = await findCheckoutPayments(paymentId);
+  if (checkout.length === 0) return;
+
+  await withCustomerCheckoutLock(checkout[0].pelangganId, async () => {
+    const closed = await prismaBillingAuth.payment.updateManyAndReturn({
+      where: {
+        id: { in: checkout.map((p) => p.id) },
+        gatewayStatus: "PENDING",
+      },
+      data: { gatewayStatus },
+      select: {
+        id: true,
+        couponUsageId: true,
+        couponId: true,
+        pelangganId: true,
+        tenantId: true,
+      },
+    });
+    await releaseUnusedCheckoutCoupons(closed);
+  });
 }

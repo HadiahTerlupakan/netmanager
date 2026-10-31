@@ -26,7 +26,10 @@ const mockFns = vi.hoisted(() => ({
   findCheckoutPayments: vi.fn(),
   settleCheckoutPaidAtGateway: vi.fn(),
   releaseUnusedCheckoutCoupons: vi.fn(),
+  acquireLock: vi.fn(),
 }));
+
+vi.mock("@/lib/distributed-lock", () => ({ acquireLock: mockFns.acquireLock }));
 
 vi.mock(
   "@/modules/payment-gateway/services/abandoned-checkout",
@@ -90,8 +93,18 @@ const PAYMENT = {
 };
 
 const CHECKOUT = [
-  { id: "pay-1", amount: BigInt(60000), invoiceId: "inv-1" },
-  { id: "pay-2", amount: BigInt(40000), invoiceId: "inv-2" },
+  {
+    id: "pay-1",
+    amount: BigInt(60000),
+    invoiceId: "inv-1",
+    pelangganId: "cust-1",
+  },
+  {
+    id: "pay-2",
+    amount: BigInt(40000),
+    invoiceId: "inv-2",
+    pelangganId: "cust-1",
+  },
 ];
 
 function webhook(status: string) {
@@ -124,6 +137,7 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
       outcome: "SETTLED",
     });
     payments.updateManyAndReturn = vi.fn().mockResolvedValue([]);
+    mockFns.acquireLock.mockResolvedValue(async (): Promise<void> => undefined);
   });
 
   it("PAID dilunasi lewat jalur yang sama dengan cek status dan penyapu checkout", async () => {
@@ -225,6 +239,30 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
     expect(mockFns.releaseUnusedCheckoutCoupons).toHaveBeenCalledWith(closed);
     expect(mockFns.settleCheckoutPaidAtGateway).not.toHaveBeenCalled();
     expect(mockFns.markAsProcessed).toHaveBeenCalledWith("event-1");
+  });
+
+  // Ganti metode memindah pemesanan kupon checkout lama sebelum baris
+  // checkout barunya ada; notifikasi yang menutup checkout lama di antaranya
+  // melepas kupon yang akan dipakai checkout baru.
+  it("checkout yang tidak dibayar ditutup di bawah kunci checkout pelanggannya", async () => {
+    await webhook("EXPIRED").response;
+
+    expect(mockFns.acquireLock.mock.calls).toEqual([
+      ["checkout:cust-1", expect.objectContaining({ ttlSeconds: 120 })],
+    ]);
+  });
+
+  it("kunci yang sedang dipegang: 500 agar gateway mengulang, tanpa menutup apa pun", async () => {
+    mockFns.acquireLock.mockResolvedValue(null);
+
+    expect((await webhook("EXPIRED").response).status).toBe(500);
+    expect(payments.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(mockFns.releaseUnusedCheckoutCoupons).not.toHaveBeenCalled();
+    expect(mockFns.markAsProcessed).not.toHaveBeenCalled();
+    expect(mockFns.markAsFailed).toHaveBeenCalledWith(
+      "event-1",
+      expect.any(String),
+    );
   });
 
   // Dulu notifikasi pending memindahkan payment EXPIRED atau CANCELLED

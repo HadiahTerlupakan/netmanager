@@ -26,7 +26,10 @@ const palsu = vi.hoisted(() => ({
   restoreUsage: vi.fn(),
   reconcile: vi.fn(),
   cancelPayment: vi.fn(),
+  acquireLock: vi.fn(),
 }));
+
+vi.mock("@/lib/distributed-lock", () => ({ acquireLock: palsu.acquireLock }));
 
 vi.mock("@/modules/coupons", () => ({
   couponService: {
@@ -100,6 +103,7 @@ describe("ganti metode pembayaran", () => {
       outcome: "UNPAID",
       gatewayStatus: "PENDING",
     });
+    palsu.acquireLock.mockResolvedValue(async (): Promise<void> => undefined);
   });
 
   it("mencari checkout lama tanpa menutupnya", async () => {
@@ -242,5 +246,33 @@ describe("ganti metode pembayaran", () => {
       select: { id: true },
     });
     expect(palsu.cancelPayment).toHaveBeenCalledWith("PAY-1");
+  });
+
+  const invoicePaid = () =>
+    handleInvoicePaidCheckoutCleanup({
+      data: {
+        eventName: "billing:invoice.paid",
+        payload: { invoiceId: "inv-1", pelangganId: "cust-1" },
+      },
+    } as never);
+
+  // Ganti metode memindah pemesanan kupon checkout lama sebelum baris
+  // checkout barunya ada; menutup checkout lama di antaranya melepas kupon
+  // yang akan dipakai checkout baru.
+  it("checkout lain untuk invoice yang lunas ditutup di bawah kunci checkout pelanggannya", async () => {
+    await invoicePaid();
+
+    expect(palsu.acquireLock.mock.calls).toEqual([
+      ["checkout:cust-1", expect.objectContaining({ ttlSeconds: 120 })],
+    ]);
+  });
+
+  it("kunci yang sedang dipegang: job gagal untuk diulang, tanpa menutup apa pun", async () => {
+    palsu.acquireLock.mockResolvedValue(null);
+
+    await expect(invoicePaid()).rejects.toMatchObject({ status: 409 });
+    expect(prismaMock.payment.findMany).not.toHaveBeenCalled();
+    expect(payments.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(palsu.releaseUsage).not.toHaveBeenCalled();
   });
 });

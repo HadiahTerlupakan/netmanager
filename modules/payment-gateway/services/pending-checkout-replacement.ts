@@ -10,6 +10,7 @@ import {
   gatewayProviderOf,
   reconcileCheckout,
 } from "./checkout-reconciliation";
+import { withCustomerCheckoutLock } from "./customer-checkout-lock";
 import { PaymentGatewayManager } from "./PaymentGatewayService";
 
 const HTTP_CONFLICT = 409;
@@ -137,6 +138,10 @@ export async function closeReplacedCheckouts(
  * QRIS yang dibuat sebelum VA lama ternyata dibayar) ditutup, agar tidak
  * ada pembayaran kedua. Berlaku untuk semua jalur pelunasan: webhook,
  * transfer manual, dan admin.
+ *
+ * Di bawah kunci checkout pelanggan, seperti penyapu: ganti metode memindah
+ * pemesanan kupon checkout lama sebelum baris checkout barunya ada. Kunci
+ * yang sedang dipegang membuat job ini gagal (409) dan diulang antrean.
  */
 export async function handleInvoicePaidCheckoutCleanup(
   job: Job<EventJobData>,
@@ -153,13 +158,15 @@ export async function handleInvoicePaidCheckoutCleanup(
     "pelangganId",
     source,
   );
-  const pending = await findPendingCheckoutPayments(
-    { customerId, invoiceIds: [invoiceId] },
-    GATEWAY_CHECKOUT,
-  );
-  if (pending.length === 0) return;
+  const closed = await withCustomerCheckoutLock(customerId, async () => {
+    const pending = await findPendingCheckoutPayments(
+      { customerId, invoiceIds: [invoiceId] },
+      GATEWAY_CHECKOUT,
+    );
+    return pending.length === 0 ? null : closeCheckouts(pending);
+  });
+  if (closed === null) return;
 
-  const closed = await closeCheckouts(pending);
   logger.info(
     `[Checkout] ${closed} payment menunggu ditutup karena invoice ${invoiceId} lunas`,
   );

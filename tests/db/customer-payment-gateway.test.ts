@@ -68,6 +68,7 @@ import {
 import { encryptApiKey } from "@/lib/utils/encryption";
 import { BillingEventDispatcher } from "@/modules/events";
 import {
+  handleInvoicePaidCheckoutCleanup,
   setGatewayConfigRevoked,
   withCustomerCheckoutLock,
 } from "@/modules/payment-gateway";
@@ -1377,6 +1378,87 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
         qrisUsageExists: true,
         couponUsedCount: 1,
       });
+    });
+
+    // Kupon yang dipindah ke QRIS, dan apakah pemesanannya masih ada.
+    async function couponAfterChange(invoiceId: string) {
+      const payments = await paymentsOf(invoiceId);
+      const va = payments.find((p) => p.gatewayProvider === "BC")!;
+      const qris = payments.find((p) => p.gatewayProvider === "SP")!;
+      const qrisUsage = await prismaAuth.couponUsage.findFirst({
+        where: { id: qris.couponUsageId ?? "" },
+      });
+      return {
+        vaStatus: va.gatewayStatus,
+        qrisStatus: qris.gatewayStatus,
+        qrisUsageExists: qrisUsage !== null,
+        couponUsedCount: await couponUsedCount(),
+      };
+    }
+
+    const COUPON_MOVED_TO_QRIS = {
+      vaStatus: "CANCELLED",
+      qrisStatus: "PENDING",
+      qrisUsageExists: true,
+      couponUsedCount: 1,
+    };
+
+    // Notifikasi gagal Duitku untuk VA lama yang tiba di tengah ganti metode
+    // dulu menutup VA itu dan melepas kupon yang sedang dipindah ke QRIS.
+    it("notifikasi gagal di tengah ganti metode dijawab 500 untuk diulang gateway, tanpa melepas kupon", async () => {
+      await createCoupon(1);
+      const inv = await createInvoice("GWF-G5", PRICE);
+      await payFromPortal([inv.id], "BC", COUPON_CODE);
+      const [va] = await paymentsOf(inv.id);
+      const failedNotice = () =>
+        duitkuCallback({
+          merchantOrderId: va.reference!,
+          amount: va.amount,
+          reference: va.transactionId!,
+          resultCode: "01",
+        });
+      holdLocksExclusively();
+      let duringChange: number | undefined;
+      http.duringStatusQuery = async () => {
+        duringChange = (await failedNotice()).status;
+      };
+
+      await payFromPortal([inv.id], "SP", COUPON_CODE);
+      const retried = await failedNotice();
+
+      expect({
+        duringChange,
+        retried: retried.status,
+        ...(await couponAfterChange(inv.id)),
+      }).toEqual({ duringChange: 500, retried: 200, ...COUPON_MOVED_TO_QRIS });
+    });
+
+    // INVOICE_PAID menutup checkout gateway lain untuk invoice itu; di tengah
+    // ganti metode ia dulu melepas kupon yang sedang dipindah ke QRIS.
+    it("pembersihan INVOICE_PAID di tengah ganti metode gagal untuk diulang, tanpa melepas kupon", async () => {
+      await createCoupon(1);
+      const inv = await createInvoice("GWF-G6", PRICE);
+      await payFromPortal([inv.id], "BC", COUPON_CODE);
+      holdLocksExclusively();
+      let duringChange: number | string | undefined;
+      http.duringStatusQuery = async () => {
+        duringChange = await handleInvoicePaidCheckoutCleanup({
+          data: {
+            eventName: "billing:invoice.paid",
+            payload: { invoiceId: inv.id, pelangganId: PELANGGAN },
+          },
+        } as never).then(
+          () => "selesai",
+          (error: { status?: number }) => error.status,
+        );
+      };
+
+      await payFromPortal([inv.id], "SP", COUPON_CODE);
+
+      expect({
+        duringChange,
+        ...(await couponAfterChange(inv.id)),
+      }).toEqual({ duringChange: 409, ...COUPON_MOVED_TO_QRIS });
     });
 
     it("checkout yang dilewati penyapu karena pelanggan sibuk ditutup pada putaran berikutnya", async () => {

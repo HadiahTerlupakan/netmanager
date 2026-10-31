@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Notifikasi gagal gateway dan pembersihan INVOICE_PAID memegang kunci checkout
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: Dua jalur lain yang menutup checkout dan melepas kuponnya masih berjalan di luar kunci checkout pelanggan, dengan celah yang sama seperti penyapu: notifikasi gateway tanpa uang (kedaluwarsa, gagal, batal; `closeUnpaid` di webhook) dan pembersihan checkout gateway lain saat INVOICE_PAID (`handleInvoicePaidCheckoutCleanup`). Bila salah satunya menutup checkout lama di tengah ganti metode, pemesanan kupon yang sedang dipindah ke checkout baru dilepas. Kini keduanya menutup checkout dan melepas kuponnya di bawah kunci `checkout:<pelangganId>`; webhook membaca daftar payment checkout sebelum mengambil kunci, tetapi penutupannya hanya memindah payment yang masih PENDING dan melepas kupon dari baris yang benar-benar ditutup, jadi bacaan itu tidak bisa basi. Kunci yang sedang dipegang tidak pernah dilewati diam-diam: notifikasi dijawab 500 (event ditandai FAILED) sehingga gateway mengulangnya, dan job INVOICE_PAID gagal dengan 409 sehingga antrean mengulang handler itu.
+- **Files**: `modules/payment-gateway/services/webhook-processing-service.ts`, `modules/payment-gateway/services/pending-checkout-replacement.ts`, `tests/db/customer-payment-gateway.test.ts`, `tests/modules/finance/webhookCheckoutSettlement.test.ts`, `tests/modules/finance/pendingCheckoutReplacement.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Cek status Tripay mencari orderId sebagai merchant_ref
 
 - **Tipe**: [FIXED]
