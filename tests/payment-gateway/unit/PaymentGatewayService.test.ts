@@ -1,4 +1,21 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+
+const palsuProvider = vi.hoisted(() => ({
+  initialize: vi.fn(),
+  createPayment: vi.fn(),
+  checkStatus: vi.fn(),
+  cancelPayment: vi.fn(),
+  verifyWebhook: vi.fn(),
+  processWebhook: vi.fn(),
+  testConnection: vi.fn(),
+}));
+
+vi.mock("@/modules/payment-gateway/services/provider-factory", () => ({
+  ProviderFactory: {
+    createProvider: () => ({ name: "Palsu", ...palsuProvider }),
+  },
+}));
+
 import { PaymentGatewayManager } from "@/modules/payment-gateway/services/PaymentGatewayService";
 import type { PaymentGatewayConfigRepository } from "@/modules/payment-gateway/repositories/PaymentGatewayConfigRepository";
 
@@ -159,6 +176,85 @@ describe("PaymentGatewayManager", () => {
       await expect(
         manager.getProviderInstance("XENDIT", "tenant-1"),
       ).rejects.toThrow("Provider XENDIT not configured");
+    });
+  });
+
+  // Mematikan konfigurasi dulu juga menolak callback dan cek status VA/QR
+  // yang sudah diberikan ke pelanggan: uang yang tetap masuk tidak pernah
+  // dibukukan.
+  describe("transaksi yang sudah terbit setelah konfigurasi dimatikan", () => {
+    const disabledDuitku = () =>
+      vi.mocked(mockConfigRepository.findByProvider).mockResolvedValue({
+        id: "config-1",
+        provider: "DUITKU",
+        apiKey: "encrypted_key",
+        apiSecret: null,
+        clientKey: null,
+        merchantId: "D123",
+        isEnabled: false,
+        isProduction: false,
+        settings: null,
+        priority: 1,
+        tenantId: "tenant-1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+    beforeEach(() => {
+      disabledDuitku();
+      palsuProvider.checkStatus.mockResolvedValue({
+        orderId: "PAY-1",
+        status: "PAID",
+      });
+      palsuProvider.verifyWebhook.mockReturnValue(true);
+      palsuProvider.processWebhook.mockResolvedValue({
+        orderId: "PAY-1",
+        status: "PAID",
+      });
+    });
+
+    it("cek status tetap ditanyakan ke gateway", async () => {
+      await expect(
+        manager.checkPaymentStatus("DUITKU", "PAY-1", "tenant-1"),
+      ).resolves.toMatchObject({ status: "PAID" });
+      expect(palsuProvider.initialize).toHaveBeenCalledWith(
+        expect.objectContaining({ apiKey: "decrypted_encrypted_key" }),
+      );
+    });
+
+    it("callback tetap diverifikasi dan diproses", async () => {
+      await expect(
+        manager.processWebhook(
+          "DUITKU",
+          { merchantOrderId: "PAY-1" },
+          undefined,
+          "raw",
+          "tenant-1",
+        ),
+      ).resolves.toMatchObject({ status: "PAID" });
+      expect(palsuProvider.verifyWebhook).toHaveBeenCalled();
+    });
+
+    it("callback bertanda tangan salah tetap ditolak", async () => {
+      palsuProvider.verifyWebhook.mockReturnValue(false);
+
+      await expect(
+        manager.processWebhook("DUITKU", {}, undefined, "raw", "tenant-1"),
+      ).rejects.toThrow("Invalid webhook signature");
+    });
+
+    it("checkout baru tetap ditolak", async () => {
+      await expect(
+        manager.createPaymentWithProvider("DUITKU", {
+          orderId: "PAY-2",
+          amount: 10000,
+          customerName: "Budi",
+          customerEmail: "b@example.com",
+          customerPhone: "08",
+          description: "Tagihan",
+        }),
+      ).rejects.toThrow("Provider DUITKU is disabled");
+      expect(palsuProvider.createPayment).not.toHaveBeenCalled();
     });
   });
 });

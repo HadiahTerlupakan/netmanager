@@ -7,7 +7,9 @@ import type {
   PaymentProvider,
   CreatePaymentParams,
   PaymentResult,
+  StatusCheckOptions,
 } from "./provider-interface";
+import type { PaymentGatewayConfig } from "../domain/entities/PaymentGatewayConfig";
 import { decryptApiKey } from "@/lib/utils/encryption";
 
 export class PaymentGatewayManager {
@@ -42,12 +44,37 @@ export class PaymentGatewayManager {
   }
 
   /**
-   * Get provider instance with decrypted config
+   * Provider untuk checkout baru: konfigurasinya harus aktif.
    */
   async getProviderInstance(
     providerType: string,
     tenantId?: string,
   ): Promise<PaymentProvider> {
+    const config = await this.findConfig(providerType, tenantId);
+    if (!config.isEnabled) {
+      throw new Error(`Provider ${providerType} is disabled`);
+    }
+
+    return this.initializeProvider(providerType, config);
+  }
+
+  /**
+   * Provider untuk transaksi yang sudah terbit: callback, cek status, dan
+   * pembatalan. Mematikan konfigurasi hanya menghentikan checkout baru; VA/QR
+   * yang sudah diberikan ke pelanggan tetap bisa dibayar sampai kedaluwarsa,
+   * dan uangnya tetap harus dibukukan.
+   */
+  async getIssuedTransactionProvider(
+    providerType: string,
+    tenantId?: string,
+  ): Promise<PaymentProvider> {
+    return this.initializeProvider(
+      providerType,
+      await this.findConfig(providerType, tenantId),
+    );
+  }
+
+  private async findConfig(providerType: string, tenantId?: string) {
     const config = await this.configRepository.findByProvider(
       providerType as import("../domain/value-objects/ProviderType").ProviderType,
       tenantId,
@@ -59,11 +86,13 @@ export class PaymentGatewayManager {
       );
     }
 
-    if (!config.isEnabled) {
-      throw new Error(`Provider ${providerType} is disabled`);
-    }
+    return config;
+  }
 
-    // Create provider instance
+  private initializeProvider(
+    providerType: string,
+    config: PaymentGatewayConfig,
+  ): PaymentProvider {
     const provider = ProviderFactory.createProvider(providerType);
 
     // Decrypt API keys and initialize
@@ -164,15 +193,35 @@ export class PaymentGatewayManager {
   }
 
   /**
-   * Check payment status
+   * Cek status transaksi yang sudah terbit. `timeoutMs` membatasi waktu
+   * tunggu bagi pemanggil yang sedang memegang kunci checkout.
    */
   async checkPaymentStatus(
     providerType: string,
     orderId: string,
     tenantId?: string,
+    options?: StatusCheckOptions,
   ) {
+    const provider = await this.getIssuedTransactionProvider(
+      providerType,
+      tenantId,
+    );
+    return provider.checkStatus(orderId, options);
+  }
+
+  /**
+   * Kode kanal yang dilaporkan aktif oleh gateway untuk nominal ini; null
+   * bila gateway tidak punya daftar kanal sehingga katalog statis dipakai.
+   */
+  async getActivePaymentMethods(
+    providerType: string,
+    amount: number,
+    tenantId?: string,
+  ): Promise<string[] | null> {
     const provider = await this.getProviderInstance(providerType, tenantId);
-    return provider.checkStatus(orderId);
+    return provider.getActivePaymentMethods
+      ? provider.getActivePaymentMethods(amount)
+      : null;
   }
 
   /**
@@ -185,7 +234,10 @@ export class PaymentGatewayManager {
     rawBody?: string,
     tenantId?: string,
   ) {
-    const provider = await this.getProviderInstance(providerType, tenantId);
+    const provider = await this.getIssuedTransactionProvider(
+      providerType,
+      tenantId,
+    );
 
     // Verify webhook signature
     const isValid = provider.verifyWebhook(payload, signature, rawBody);

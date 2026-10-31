@@ -10,7 +10,10 @@ export interface PaymentProvider {
   createPayment(params: CreatePaymentParams): Promise<PaymentResult>;
 
   // Check transaction status
-  checkStatus(orderId: string): Promise<TransactionStatus>;
+  checkStatus(
+    orderId: string,
+    options?: StatusCheckOptions,
+  ): Promise<TransactionStatus>;
 
   // Cancel payment
   cancelPayment(orderId: string): Promise<void>;
@@ -27,6 +30,26 @@ export interface PaymentProvider {
 
   // Test API connection (for settings page)
   testConnection(): Promise<TestResult>;
+
+  // Kode kanal yang aktif untuk merchant pada nominal ini, bila gateway
+  // menyediakan daftarnya.
+  getActivePaymentMethods?(amount: number): Promise<string[]>;
+}
+
+export interface StatusCheckOptions {
+  /** Batas waktu menunggu jawaban gateway, termasuk percobaan ulang. */
+  timeoutMs?: number;
+}
+
+/**
+ * Gateway menjawab bahwa orderId ini tidak dikenalnya. Checkout beberapa
+ * invoice hanya mendaftarkan satu orderId; reference lain dijawab begini.
+ */
+export class GatewayTransactionNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GatewayTransactionNotFoundError";
+  }
 }
 
 // Provider Configuration
@@ -50,6 +73,9 @@ export interface CreatePaymentParams {
   expiryHours?: number;
   paymentMethods?: string[]; // ["bank_transfer", "ewallet", "credit_card"]
   tenantId?: string;
+  // Tujuan kembali setelah halaman bayar gateway; tanpa ini halaman tagihan
+  // portal.
+  returnUrl?: string;
 }
 
 // Payment Creation Result
