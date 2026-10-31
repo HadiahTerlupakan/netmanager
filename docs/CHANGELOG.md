@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Cek kanal aktif Duitku tidak bisa lagi dipicu per nominal
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/payment-gateway` | `app/api/customer/payment-methods`
+- **Author**: agent
+- **Deskripsi**: `?amount=` di `GET /api/customer/payment-methods` dulu dipakai apa adanya sebagai kunci cache kanal aktif, sehingga siapa pun bisa memaksa satu panggilan `getpaymentmethod` ke Duitku untuk setiap nominal berbeda dan menghabiskan batas laju merchant. Kini nominal dibulatkan ke bawah ke tujuh batas tetap (Rp 1.000; 10.000; 50.000; 100.000; 500.000; 1.000.000; 5.000.000, yang terkecil dan terbesar sekaligus batas jepit), sehingga satu tenant dan gateway paling banyak memicu tujuh panggilan per 10 menit. Rute itu juga dibatasi 20 permintaan per pelanggan per menit.
+- **Files**: `modules/payment-gateway/services/active-payment-channels.ts`, `app/api/customer/payment-methods/route.ts`, `app/api/customer/rate-limit.ts`, `tests/payment-gateway/unit/active-payment-channels.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Peringatan gateway SANDBOX di portal admin dan health check
 
 - **Tipe**: [ADDED]

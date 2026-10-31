@@ -8,6 +8,15 @@ const ACTIVE_CHANNELS_TTL_MS = 10 * 60 * 1000;
 // halaman pilihan metode.
 const UNREACHABLE_RETRY_MS = 60 * 1000;
 const MAX_CACHED_LOOKUPS = 500;
+// Nominal datang dari ?amount= pelanggan, jadi tidak boleh menjadi kunci
+// cache apa adanya: tiap nominal berbeda memaksa panggilan baru ke Duitku.
+// Nominal dibulatkan ke bawah ke salah satu batas ini (yang terkecil dan
+// terbesar sekaligus menjadi batas jepit), sehingga satu tenant dan gateway
+// paling banyak memicu tujuh panggilan per masa simpan. Batasnya angka bulat
+// tempat minimum kanal biasa berada (Duitku: "Minimum Payment 10000 IDR").
+const CHANNEL_CHECK_AMOUNT_FLOORS = [
+  1_000, 10_000, 50_000, 100_000, 500_000, 1_000_000, 5_000_000,
+];
 
 type GatewayChannelSource = Pick<
   PaymentGatewayManager,
@@ -29,14 +38,15 @@ export async function getActivePaymentChannels(
   input: { provider: string; tenantId?: string; amount: number },
   gateway: GatewayChannelSource = new PaymentGatewayManager(),
 ): Promise<Set<string> | null> {
-  const key = `${input.tenantId ?? "-"}:${input.provider}:${input.amount}`;
+  const amount = toChannelCheckAmount(input.amount);
+  const key = `${input.tenantId ?? "-"}:${input.provider}:${amount}`;
   const cached = activeChannels.get(key);
   if (cached) return cached.codes;
 
   try {
     const codes = await gateway.getActivePaymentMethods(
       input.provider,
-      input.amount,
+      amount,
       input.tenantId,
     );
     const channels = codes ? new Set(codes) : null;
@@ -50,4 +60,12 @@ export async function getActivePaymentChannels(
     activeChannels.set(key, { codes: null }, { ttl: UNREACHABLE_RETRY_MS });
     return null;
   }
+}
+
+function toChannelCheckAmount(amount: number): number {
+  let floor = CHANNEL_CHECK_AMOUNT_FLOORS[0];
+  for (const candidate of CHANNEL_CHECK_AMOUNT_FLOORS) {
+    if (amount >= candidate) floor = candidate;
+  }
+  return floor;
 }

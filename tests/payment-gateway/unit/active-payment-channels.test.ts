@@ -44,6 +44,44 @@ describe("kanal pembayaran aktif", () => {
     expect(gateway.getActivePaymentMethods).toHaveBeenCalledTimes(2);
   });
 
+  // Nominal datang dari ?amount= pelanggan. Dulu tiap nominal berbeda menjadi
+  // kunci cache baru dan memaksa panggilan baru ke Duitku.
+  it.each([
+    [11100, 10_000],
+    [9_000, 1_000],
+    [0, 1_000],
+    [-50, 1_000],
+    [150_000, 100_000],
+    [99_999_999, 5_000_000],
+  ])(
+    "nominal %i ditanyakan sebagai batas rentangnya, %i",
+    async (amount, checkAmount) => {
+      gateway.getActivePaymentMethods.mockResolvedValue(["SP"]);
+
+      await lookup(amount);
+
+      expect(gateway.getActivePaymentMethods).toHaveBeenCalledWith(
+        "DUITKU",
+        checkAmount,
+        `tenant-${tenantNumber}`,
+      );
+    },
+  );
+
+  it("ratusan nominal berbeda paling banyak memicu satu panggilan per rentang", async () => {
+    gateway.getActivePaymentMethods.mockResolvedValue(["SP"]);
+
+    for (let i = 0; i < 300; i += 1) {
+      await lookup(i * 33_337 + 7);
+    }
+
+    const sentAmounts = gateway.getActivePaymentMethods.mock.calls.map(
+      ([, amount]) => amount as number,
+    );
+    expect(sentAmounts.length).toBeLessThanOrEqual(7);
+    expect(new Set(sentAmounts).size).toBe(sentAmounts.length);
+  });
+
   it("gateway yang tidak terjangkau menghasilkan null, bukan daftar kosong", async () => {
     gateway.getActivePaymentMethods.mockRejectedValue(new Error("ETIMEDOUT"));
 

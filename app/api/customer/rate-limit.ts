@@ -11,6 +11,7 @@ import { rateLimit } from "@/lib/rate-limit";
  * memblokir merchant sekitar satu jam bila cek status terlalu sering).
  */
 const CUSTOMER_PAYMENT_LIMITS = {
+  listPaymentMethods: 20,
   createPayment: 10,
   checkStatus: 12,
   cancelPayment: 5,

@@ -46,6 +46,21 @@ describe("GET /api/customer/payment-methods", () => {
     );
   });
 
+  // Tiap permintaan bisa memicu panggilan getpaymentmethod ke Duitku.
+  it("membatasi permintaan berulang dari pelanggan yang sama", async () => {
+    mockFns.requireCustomerAuth.mockResolvedValue({
+      session: { id: "customer-pembatas" },
+    });
+
+    const statuses: number[] = [];
+    for (let i = 0; i < 21; i += 1) {
+      statuses.push((await get(`?amount=${10000 + i}`)).status);
+    }
+
+    expect(statuses.filter((status) => status === 200)).toHaveLength(20);
+    expect(statuses.at(-1)).toBe(429);
+  });
+
   it.each(["", "?amount=abc", "?amount=-5", "?amount=1.5"])(
     "nominal yang tidak ada atau tidak sah (%s) diabaikan",
     async (query) => {

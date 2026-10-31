@@ -4,6 +4,7 @@ import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { CustomerPaymentMethodService } from "@/modules/finance";
 import { logger } from "@/lib/logger";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+import { limitCustomerPaymentRequest } from "../rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,12 @@ export async function GET(request: NextRequest) {
   try {
     const authResult = await requireCustomerAuth(request);
     if (authResult.response) return authResult.response;
+
+    const limited = limitCustomerPaymentRequest(
+      "listPaymentMethods",
+      authResult.session.id,
+    );
+    if (limited) return limited;
 
     const { tenantId } = await getTenantIdFromContext();
     if (!tenantId) {
