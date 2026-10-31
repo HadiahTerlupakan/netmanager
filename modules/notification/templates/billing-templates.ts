@@ -8,6 +8,12 @@ export interface BillingTemplateParams {
   reminderType?: "UPCOMING" | "DUE_TODAY" | "OVERDUE";
   /** Nomor tagihan yang dibatalkan dan digantikan tagihan ini. */
   replacesInvoiceNumber?: string;
+  /** Tagihan pengganti yang menerima uang dari tagihan yang dibatalkan. */
+  replacementInvoiceNumber?: string;
+  /** Bagian uang yang dipakai untuk tagihan pengganti. */
+  appliedAmount?: number;
+  /** Bagian uang yang disimpan sebagai saldo kredit. */
+  creditedAmount?: number;
 }
 
 export interface EmailContent {
@@ -85,6 +91,21 @@ function buildInvoiceReplacedTemplate(
     push: summarize,
   };
 }
+
+/** Ke mana uang untuk tagihan yang sudah dibatalkan pergi. */
+function describeRedirectedPayment(p: BillingTemplateParams): string {
+  const head = `Pembayaran ${formatRupiah(p.amountDue)} untuk tagihan ${p.invoiceNumber ?? "Anda"} yang sudah dibatalkan`;
+  if (!p.replacementInvoiceNumber) {
+    return `${head} kami simpan sebagai saldo kredit dan otomatis memotong tagihan berikutnya.`;
+  }
+  const applied = `${head} kami pakai untuk tagihan pengganti ${p.replacementInvoiceNumber} (${formatRupiah(p.appliedAmount)})`;
+  return (p.creditedAmount ?? 0) > 0
+    ? `${applied}. Sisa ${formatRupiah(p.creditedAmount)} disimpan sebagai saldo kredit dan otomatis memotong tagihan berikutnya.`
+    : `${applied}.`;
+}
+
+const describeRedirectedPaymentInDetail = (p: BillingTemplateParams) =>
+  `Halo ${p.customerName},\n\n${describeRedirectedPayment(p)}${(p.creditedAmount ?? 0) > 0 ? "\n\nHubungi kami bila Anda ingin saldo tersebut dikembalikan." : ""}`;
 
 /**
  * Registry template notifikasi billing.
@@ -182,6 +203,19 @@ export const BILLING_TEMPLATES = {
       body: `Halo ${p.customerName},\n\nTagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} terbayar lebih dari sekali. Kelebihan ${formatRupiah(p.amountDue)} kami simpan sebagai saldo dan otomatis memotong tagihan berikutnya.\n\nHubungi kami bila Anda ingin dana tersebut dikembalikan.`,
     }),
     push: (p) => `Kelebihan bayar ${formatRupiah(p.amountDue)} menjadi saldo`,
+  },
+  paymentRedirected: {
+    title: "Pembayaran dialihkan",
+    inApp: describeRedirectedPayment,
+    whatsapp: describeRedirectedPaymentInDetail,
+    email: (p) => ({
+      subject: "Pembayaran untuk tagihan yang dibatalkan",
+      body: describeRedirectedPaymentInDetail(p),
+    }),
+    push: (p) =>
+      p.replacementInvoiceNumber
+        ? `Pembayaran ${formatRupiah(p.amountDue)} dipakai untuk tagihan ${p.replacementInvoiceNumber}`
+        : `Pembayaran ${formatRupiah(p.amountDue)} disimpan sebagai saldo kredit`,
   },
   // Hanya untuk isolir yang memang karena tagihan lewat jatuh tempo; isolir
   // tanpa tunggakan memakai `customerIsolatedByAdmin`.

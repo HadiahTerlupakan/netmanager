@@ -49,7 +49,7 @@ export interface IInvoiceRepository {
   updatePaymentStatus(
     id: string,
     data: InvoiceUpdateInput,
-  ): Promise<InvoiceEntity>;
+  ): Promise<InvoiceEntity | null>;
   markAsSent(id: string): Promise<InvoiceEntity>;
   updateWithItemsTransaction(options: {
     invoiceId: string;

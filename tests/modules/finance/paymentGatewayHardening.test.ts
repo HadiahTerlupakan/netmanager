@@ -60,6 +60,11 @@ vi.mock(
   }),
 );
 
+// Pengkreditan kelebihan bayar diuji di overpaymentCredit.test.ts.
+vi.mock("@/modules/payment-gateway/services/overpayment-credit", () => ({
+  creditCheckoutOverpayment: vi.fn(),
+}));
+
 vi.mock("@/modules/payment-gateway/services/PaymentGatewayMetrics", () => ({
   getPaymentGatewayMetrics: () => ({
     recordWebhookReceived: vi.fn(),

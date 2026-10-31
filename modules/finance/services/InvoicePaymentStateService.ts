@@ -28,6 +28,9 @@ type RecomputeResult = {
  * 4. Emit event `INVOICE_PAID` sekali ketika invoice transisi menjadi PAID,
  *    atau `INVOICE_PARTIALLY_PAID` saat pembayaran sebagian bertambah.
  *
+ * Invoice CANCELLED tidak pernah diubah, juga bila dibatalkan di tengah
+ * hitung ulang: uang yang datang untuknya diurus `settleReceivedPayments`.
+ *
  * Catatan: HANYA service ini yang boleh memanggil
  * `BillingEventDispatcher.onInvoicePaid` untuk transisi pembayaran.
  * Caller cukup memastikan record payment sudah ter-persist sebelum memanggil.
@@ -44,6 +47,12 @@ export class InvoicePaymentStateService {
         `[InvoicePaymentState] Invoice ${invoiceId} tidak ditemukan saat recompute`,
       );
       return null;
+    }
+
+    // Tagihan batal tidak pernah menjadi PAID/PARTIAL_PAID lagi; uang yang
+    // datang untuknya dialihkan oleh pelunasan (lihat received-payment-settlement).
+    if (invoice.status === InvoiceStatus.CANCELLED) {
+      return keepCancelled(invoice);
     }
 
     const totalPaid = sumActivePayments(invoice);
@@ -70,6 +79,8 @@ export class InvoicePaymentStateService {
         ...(nextStatus === InvoiceStatus.PAID ? {} : { paidAt: null }),
       },
     );
+    // Dibatalkan di antara pembacaan dan penulisan di atas.
+    if (!updatedInvoice) return keepCancelled(invoice);
 
     await this.syncSchedules(updatedInvoice, becamePaid);
     if (becamePaid) {
@@ -133,6 +144,17 @@ export class InvoicePaymentStateService {
   }
 }
 
+function keepCancelled(invoice: InvoiceWithPayment): RecomputeResult {
+  logger.warn(
+    `[InvoicePaymentState] Invoice ${invoice.id} sudah dibatalkan; status dan nominal terbayarnya tidak diubah`,
+  );
+  return {
+    invoice: { ...invoice, status: InvoiceStatus.CANCELLED },
+    previousStatus: InvoiceStatus.CANCELLED,
+    becamePaid: false,
+  };
+}
+
 function sumActivePayments(invoice: InvoiceWithPayment): bigint {
   return invoice.payment.reduce<bigint>((sum, payment) => {
     const status = payment.gatewayStatus ?? null;
@@ -153,9 +175,7 @@ function resolveNextStatus(
   // menerima payment karena amount minimal 1. Tanpa cabang ini invoice itu
   // tertahan SENT selamanya dan jadwal overdue/isolir tetap berjalan.
   if (totalAmount === 0n) {
-    return currentStatus === InvoiceStatus.CANCELLED
-      ? currentStatus
-      : InvoiceStatus.PAID;
+    return InvoiceStatus.PAID;
   }
 
   if (paidAmount >= totalAmount) {

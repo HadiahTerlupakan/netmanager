@@ -43,6 +43,7 @@ export const EVENT_NAMES = {
   INVOICE_AUTO_ISOLATE_REQUESTED: "billing:invoice.auto_isolate_requested",
   PAYMENT_FAILED: "billing:payment.failed",
   PAYMENT_OVERPAID: "billing:payment.overpaid",
+  PAYMENT_REDIRECTED: "billing:payment.redirected",
   COUPON_USED: "billing:coupon.used",
   PACKAGE_CHANGED: "billing:package.changed",
 
@@ -167,6 +168,23 @@ export interface PaymentOverpaidPayload extends BaseEventPayload {
   invoiceId: string;
   pelangganId: string;
   amount: number;
+}
+
+/**
+ * Uang yang datang untuk tagihan yang sudah dibatalkan: dipakai melunasi
+ * tagihan penggantinya (`appliedAmount`) dan/atau disimpan sebagai saldo
+ * kredit (`creditedAmount`).
+ */
+export interface PaymentRedirectedPayload extends BaseEventPayload {
+  /** Tagihan yang dibatalkan, tempat uang itu semula dibayarkan. */
+  invoiceId: string;
+  pelangganId: string;
+  cancelledInvoiceNumber: string;
+  replacementInvoiceId?: string;
+  replacementInvoiceNumber?: string;
+  amount: number;
+  appliedAmount: number;
+  creditedAmount: number;
 }
 
 export interface InvoicePaidPayload extends BaseEventPayload {
@@ -704,6 +722,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED]: InvoiceAutoIsolatePayload;
   [EVENT_NAMES.PAYMENT_FAILED]: InvoiceCreatedPayload;
   [EVENT_NAMES.PAYMENT_OVERPAID]: PaymentOverpaidPayload;
+  [EVENT_NAMES.PAYMENT_REDIRECTED]: PaymentRedirectedPayload;
   [EVENT_NAMES.COUPON_USED]: CouponUsedPayload;
   [EVENT_NAMES.CUSTOMER_CREATED]: CustomerCreatedPayload;
   [EVENT_NAMES.CUSTOMER_UPDATED]: CustomerCreatedPayload;
@@ -858,6 +877,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.PAYMENT_OVERPAID]: {
     name: EVENT_NAMES.PAYMENT_OVERPAID,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PAYMENT_REDIRECTED]: {
+    name: EVENT_NAMES.PAYMENT_REDIRECTED,
     category: "billing",
     priority: JOB_PRIORITIES.HIGH,
     persistent: true,

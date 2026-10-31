@@ -30,6 +30,12 @@ const MONTH_NAMES_ID = [
   "Des",
 ];
 
+const optionalString = (value: unknown) =>
+  typeof value === "string" ? value : undefined;
+
+const optionalNumber = (value: unknown) =>
+  typeof value === "number" ? value : undefined;
+
 function formatDateId(date: Date): string {
   return `${date.getDate()} ${MONTH_NAMES_ID[date.getMonth()]} ${date.getFullYear()}`;
 }
@@ -41,6 +47,7 @@ const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.INVOICE_OVERDUE]: "invoiceReminder",
   [EVENT_NAMES.PAYMENT_FAILED]: "paymentExpired",
   [EVENT_NAMES.PAYMENT_OVERPAID]: "overpaymentCredited",
+  [EVENT_NAMES.PAYMENT_REDIRECTED]: "paymentRedirected",
 };
 
 // Tagihan pengganti tetap terbit lewat INVOICE_CREATED (jurnal dan PPN-nya
@@ -110,9 +117,8 @@ export async function handleInvoiceNotification(
   );
   const amountDue = Number(payload.amountDue ?? payload.amount ?? 0);
   const providedInvoiceNumber =
-    typeof payload.invoiceNumber === "string"
-      ? payload.invoiceNumber
-      : undefined;
+    optionalString(payload.invoiceNumber) ??
+    optionalString(payload.cancelledInvoiceNumber);
   const providedDueDate =
     typeof payload.dueDate === "string" ? payload.dueDate : undefined;
   const replacesInvoiceNumber =
@@ -150,6 +156,11 @@ export async function handleInvoiceNotification(
       dueDate,
       reminderType: effectiveReminderType,
       replacesInvoiceNumber,
+      replacementInvoiceNumber: optionalString(
+        payload.replacementInvoiceNumber,
+      ),
+      appliedAmount: optionalNumber(payload.appliedAmount),
+      creditedAmount: optionalNumber(payload.creditedAmount),
     },
     sourceType: "BILLING",
     sourceId: invoiceId,

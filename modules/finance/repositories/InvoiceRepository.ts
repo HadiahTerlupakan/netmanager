@@ -146,25 +146,33 @@ export class InvoiceRepository implements IInvoiceRepository {
   }
 
   /**
-   * Pindahkan invoice ke PAID hanya bila belum PAID; true hanya untuk
-   * pemanggil yang benar-benar memindahkannya.
+   * Pindahkan invoice ke PAID hanya bila belum PAID dan tidak dibatalkan; true
+   * hanya untuk pemanggil yang benar-benar memindahkannya. Tagihan batal yang
+   * ternyata dibayar diurus pelunasan (dialihkan), bukan dihidupkan lagi.
    */
   async claimPaidTransition(id: string, paidAt: Date): Promise<boolean> {
     const result = await prismaBilling.invoice.updateMany({
-      where: { id, status: { not: "PAID" } },
+      where: { id, status: { notIn: ["PAID", "CANCELLED"] } },
       data: { status: "PAID", paidAt },
     });
 
     return result.count > 0;
   }
 
-  /** Memperbarui status pembayaran invoice. */
+  /**
+   * Memperbarui status pembayaran invoice yang tidak dibatalkan; null bila
+   * invoice-nya sudah CANCELLED (mis. dibatalkan bersamaan) atau tidak ada.
+   */
   async updatePaymentStatus(
     id: string,
-    data: Prisma.InvoiceUpdateInput,
-  ): Promise<InvoiceEntity> {
-    const invoice = await prismaBilling.invoice.update({ where: { id }, data });
-    return mapInvoiceEntity(invoice) as InvoiceEntity;
+    data: Prisma.InvoiceUpdateManyMutationInput,
+  ): Promise<InvoiceEntity | null> {
+    const result = await prismaBilling.invoice.updateMany({
+      where: { id, status: { not: "CANCELLED" } },
+      data,
+    });
+    if (result.count === 0) return null;
+    return findInvoiceEntityById(id);
   }
 
   /** Menandai invoice sebagai terkirim. */

@@ -1,5 +1,10 @@
 import type { Pelanggan } from "@prisma/client";
-import { eventBus, EVENT_NAMES, JOB_PRIORITIES } from "@/lib/event-bus";
+import {
+  eventBus,
+  EVENT_NAMES,
+  JOB_PRIORITIES,
+  type PaymentRedirectedPayload,
+} from "@/lib/event-bus";
 
 export class BillingEventDispatcher {
   /**
@@ -84,6 +89,14 @@ export class BillingEventDispatcher {
     tenantId?: string;
   }) {
     await eventBus.publish(EVENT_NAMES.PAYMENT_OVERPAID, data);
+  }
+
+  /**
+   * Uang untuk tagihan yang sudah dibatalkan sudah dialihkan ke tagihan
+   * penggantinya dan/atau saldo kredit; pelanggan diberi tahu ke mana.
+   */
+  static async onPaymentRedirected(data: PaymentRedirectedPayload) {
+    await eventBus.publish(EVENT_NAMES.PAYMENT_REDIRECTED, data);
   }
 
   /**

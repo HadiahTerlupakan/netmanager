@@ -181,6 +181,38 @@ describe("InvoiceNotificationHandler", () => {
     );
   });
 
+  // Uang untuk tagihan yang sudah dibatalkan: pelanggan perlu tahu tagihan
+  // mana yang menerimanya dan berapa yang menjadi saldo.
+  it("PAYMENT_REDIRECTED → paymentRedirected dengan tagihan batal, pengganti, dan saldo", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.PAYMENT_REDIRECTED, {
+        invoiceId: "inv-batal",
+        pelangganId: "cust-1",
+        cancelledInvoiceNumber: "INV/2026/10/28-LAMA",
+        replacementInvoiceId: "inv-baru",
+        replacementInvoiceNumber: "INV/2026/10/31-BARU",
+        amount: 100000,
+        appliedAmount: 60000,
+        creditedAmount: 40000,
+      }),
+    );
+    expect(mockInvoiceFindUnique).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "paymentRedirected",
+        channels: undefined,
+        sourceId: "inv-batal",
+        params: expect.objectContaining({
+          invoiceNumber: "INV/2026/10/28-LAMA",
+          replacementInvoiceNumber: "INV/2026/10/31-BARU",
+          amountDue: 100000,
+          appliedAmount: 60000,
+          creditedAmount: 40000,
+        }),
+      }),
+    );
+  });
+
   it("INVOICE_REMINDER_DUE → dispatch invoiceReminder dengan reminderType", async () => {
     await handleInvoiceNotification(
       buildJob(EVENT_NAMES.INVOICE_REMINDER_DUE, {

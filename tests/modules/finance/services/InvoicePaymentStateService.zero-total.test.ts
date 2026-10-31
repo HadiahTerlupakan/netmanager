@@ -68,12 +68,13 @@ describe("InvoicePaymentStateService.recompute — invoice Rp0", () => {
   it("membiarkan invoice Rp0 yang dibatalkan tetap CANCELLED", async () => {
     const repo = repoDengan("CANCELLED", 0n);
 
-    await new InvoicePaymentStateService(repo as never).recompute("inv-0");
-
-    expect(repo.updatePaymentStatus).toHaveBeenCalledWith(
+    const hasil = await new InvoicePaymentStateService(repo as never).recompute(
       "inv-0",
-      expect.objectContaining({ status: "CANCELLED" }),
     );
+
+    expect(hasil?.invoice.status).toBe("CANCELLED");
+    expect(repo.claimPaidTransition).not.toHaveBeenCalled();
+    expect(repo.updatePaymentStatus).not.toHaveBeenCalled();
     expect(palsu.onInvoicePaid).not.toHaveBeenCalled();
   });
 

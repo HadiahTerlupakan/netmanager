@@ -1,9 +1,5 @@
 import { prismaBillingAuth } from "@/lib/prisma-billing";
-import {
-  runAsSystemContext,
-  runWithRequestTenantContext,
-} from "@/lib/tenant-context";
-import { recomputeInvoicePaymentState } from "@/modules/finance";
+import { settleInvoicesOfReceivedPayments } from "@/modules/finance";
 
 const CHECKOUT_PAYMENT_SELECT = {
   id: true,
@@ -57,25 +53,14 @@ export function sumCheckoutAmount(payments: CheckoutPayment[]): bigint {
 }
 
 /**
- * Hitung ulang status invoice lewat jalur yang sama dengan persetujuan
- * transfer manual: potongan kupon ikut terhitung, jadwal tagihan dibereskan,
- * dan INVOICE_PAID (aktivasi pelanggan isolir) dikirim lewat event bus
- * database utama. Webhook datang tanpa konteks tenant, jadi konteksnya
- * diambil dari payment.
+ * Lunasi invoice checkout yang sudah dibayar lewat jalur yang sama dengan
+ * persetujuan transfer manual: potongan kupon ikut terhitung, INVOICE_PAID
+ * terkirim sekali, dan tagihan yang sudah dibatalkan tidak dihidupkan lagi
+ * (uangnya ke tagihan pengganti atau saldo kredit). Kelebihan bayar
+ * dikreditkan oleh `creditCheckoutOverpayment` sesudahnya. Keduanya idempoten:
+ * webhook, cek status gateway, dan penyapu checkout memanggil pasangan yang
+ * sama setelah checkout ditandai PAID.
  */
 export async function settleCheckoutInvoices(payments: CheckoutPayment[]) {
-  const settled = new Set<string>();
-  for (const payment of payments) {
-    const invoiceId = payment.invoiceId;
-    if (!invoiceId || settled.has(invoiceId)) continue;
-    settled.add(invoiceId);
-
-    const recompute = () => recomputeInvoicePaymentState(invoiceId);
-    await (payment.tenantId
-      ? runWithRequestTenantContext(
-          { tenantId: payment.tenantId, isSuperAdmin: false },
-          recompute,
-        )
-      : runAsSystemContext("webhook: payment tanpa tenant", recompute));
-  }
+  await settleInvoicesOfReceivedPayments(payments);
 }

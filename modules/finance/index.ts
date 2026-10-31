@@ -36,6 +36,15 @@ export * from "./services/UnmatchedMutationService";
 export * from "./services/FinancePageQueriesService";
 export * from "./services/PaymentCancellationService";
 export * from "./services/InvoicePaymentStateService";
+export {
+  settleInvoicesOfReceivedPayments,
+  settleReceivedPayments,
+  type ReceivedPayment,
+} from "./services/received-payment-settlement";
+export {
+  creditOverpaidPayments,
+  type CreditablePayment,
+} from "./services/overpayment-credit";
 export * from "./services/InvoiceRouteService";
 export * from "./services/InvoiceCollectionRouteService";
 export * from "./services/PaymentRouteService";
