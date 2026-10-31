@@ -35,6 +35,7 @@ describe("peringatan gateway sandbox di produksi", () => {
       where: {
         provider: "DUITKU",
         isEnabled: true,
+        isRevoked: false,
         isProduction: false,
         tenantId: "tenant-1",
       },
@@ -51,7 +52,12 @@ describe("peringatan gateway sandbox di produksi", () => {
     await isSandboxGatewayLive(null);
 
     expect(configs.count).toHaveBeenCalledWith({
-      where: { provider: "DUITKU", isEnabled: true, isProduction: false },
+      where: {
+        provider: "DUITKU",
+        isEnabled: true,
+        isRevoked: false,
+        isProduction: false,
+      },
     });
   });
 

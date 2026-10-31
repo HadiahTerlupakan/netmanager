@@ -87,6 +87,12 @@ const COUPON_CODE = "GWFIXHEMAT";
 const CONFIG_ID = "cfg-gwfix-duitku";
 const MERCHANT = "DGWFIX1";
 const API_KEY = "gwfix-api-key-for-tests-only";
+// Tenant kedua dengan Duitku-nya sendiri; hanya baris billing yang perlu.
+const TENANT_B = "tenant-gwfix-b";
+const CONFIG_B = "cfg-gwfix-duitku-b";
+const MERCHANT_B = "DGWFIX2";
+const API_KEY_B = "gwfix-api-key-b-for-tests-only";
+const PELANGGAN_B = "pel-gwfix-b";
 const BANK_ACCOUNT = "rekening-gwfix";
 const MANUAL_METHOD = `MANUAL_${BANK_ACCOUNT}`;
 const PRICE = 100000n;
@@ -156,7 +162,7 @@ function asTenant<T>(task: () => Promise<T>) {
 
 async function cleanup() {
   const payments = await prismaBillingAuth.payment.findMany({
-    where: { pelangganId: PELANGGAN },
+    where: { pelangganId: { in: [PELANGGAN, PELANGGAN_B] } },
     select: { reference: true },
   });
   const references = payments.flatMap((p) =>
@@ -165,14 +171,17 @@ async function cleanup() {
   await prismaBillingAuth.webhookEvent.deleteMany({
     where: { orderId: { in: references } },
   });
+  await prismaBillingAuth.webhookEvent.deleteMany({
+    where: { orderId: { startsWith: "PAY-GWFIX-" } },
+  });
   await prismaBillingAuth.payment.deleteMany({
-    where: { pelangganId: PELANGGAN },
+    where: { pelangganId: { in: [PELANGGAN, PELANGGAN_B] } },
   });
   await prismaBillingAuth.invoice.deleteMany({
-    where: { pelangganId: PELANGGAN },
+    where: { pelangganId: { in: [PELANGGAN, PELANGGAN_B] } },
   });
   await prismaBillingAuth.paymentGatewayConfig.deleteMany({
-    where: { id: CONFIG_ID },
+    where: { id: { in: [CONFIG_ID, CONFIG_B] } },
   });
   await prismaAuth.companyBankAccount.deleteMany({
     where: { id: BANK_ACCOUNT },
@@ -286,12 +295,13 @@ function createOpenVa(
   invoiceId: string,
   reference: string,
   expiresAt = new Date(Date.now() + 23 * HOUR_MS),
+  owner = { pelangganId: PELANGGAN, tenantId: TENANT },
 ) {
   return prismaBillingAuth.payment.create({
     data: {
       id: randomUUID(),
       invoiceId,
-      pelangganId: PELANGGAN,
+      pelangganId: owner.pelangganId,
       amount: PRICE,
       checkoutId: randomUUID(),
       paymentDate: new Date(),
@@ -302,10 +312,47 @@ function createOpenVa(
       transactionId: `DREF-${reference}`,
       vaNumber: "7007014000000001",
       expiresAt,
-      tenantId: TENANT,
+      tenantId: owner.tenantId,
       updatedAt: new Date(),
     },
   });
+}
+
+/** Tenant kedua: konfigurasi Duitku dan satu tagihan dengan VA terbuka. */
+async function seedTenantB(reference: string) {
+  await prismaBillingAuth.paymentGatewayConfig.create({
+    data: {
+      id: CONFIG_B,
+      provider: "DUITKU",
+      providerName: "DUITKU",
+      isEnabled: true,
+      isProduction: false,
+      priority: 0,
+      apiKey: encryptApiKey(API_KEY_B),
+      merchantId: MERCHANT_B,
+      tenantId: TENANT_B,
+      updatedAt: new Date(),
+    },
+  });
+  const inv = await prismaBillingAuth.invoice.create({
+    data: {
+      id: randomUUID(),
+      invoiceNumber: `GWF-B-${reference}`,
+      pelangganId: PELANGGAN_B,
+      issueDate: new Date("2026-10-28T03:00:00.000Z"),
+      dueDate: DUE,
+      status: "SENT",
+      subtotal: PRICE,
+      totalAmount: PRICE,
+      tenantId: TENANT_B,
+      updatedAt: new Date(),
+    },
+  });
+  const va = await createOpenVa(inv.id, reference, undefined, {
+    pelangganId: PELANGGAN_B,
+    tenantId: TENANT_B,
+  });
+  return { inv, va };
 }
 
 /** Callback Duitku bertanda tangan HMAC-SHA256(merchantCode+amount+merchantOrderId, apiKey). */
@@ -315,13 +362,15 @@ function duitkuCallback(input: {
   reference: string;
   paymentCode?: string;
   apiKey?: string;
+  merchantCode?: string;
 }) {
   const amount = input.amount.toString();
+  const merchantCode = input.merchantCode ?? MERCHANT;
   const signature = createHmac("sha256", input.apiKey ?? API_KEY)
-    .update(`${MERCHANT}${amount}${input.merchantOrderId}`)
+    .update(`${merchantCode}${amount}${input.merchantOrderId}`)
     .digest("hex");
   const rawBody = new URLSearchParams({
-    merchantCode: MERCHANT,
+    merchantCode,
     amount,
     merchantOrderId: input.merchantOrderId,
     productDetail: "Pembayaran Tagihan NetManager",
@@ -614,6 +663,107 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
       callbackHttp: callback.status,
       invoiceStatus: (await invoice(inv.id)).status,
     }).toEqual({ callbackHttp: 200, invoiceStatus: "PAID" });
+  });
+
+  describe("konfigurasi gateway per tenant", () => {
+    // Dulu tanpa payment yang dikenali, kunci tenant pertama mana pun dipakai.
+    it("callback untuk payment yang tidak ada ditolak tanpa mencoba konfigurasi tenant lain", async () => {
+      await seedTenantB("PAY-GWFIX-B0");
+
+      const callback = await duitkuCallback({
+        merchantOrderId: "PAY-GWFIX-TIDAK-ADA",
+        amount: PRICE,
+        reference: "DREF-TIDAK-ADA",
+      });
+      const events = await prismaBillingAuth.webhookEvent.count({
+        where: { orderId: "PAY-GWFIX-TIDAK-ADA" },
+      });
+
+      expect({ accepted: callback.status === 200, events }).toEqual({
+        accepted: false,
+        events: 0,
+      });
+    });
+
+    it("dua tenant: tiap callback diverifikasi dengan kunci tenantnya sendiri", async () => {
+      const { inv: invB, va: vaB } = await seedTenantB("PAY-GWFIX-B1");
+      const invA = await createInvoice("GWF-A1", PRICE);
+      const vaA = await createOpenVa(invA.id, "PAY-GWFIX-A1");
+
+      const forgedForB = await duitkuCallback({
+        merchantOrderId: vaB.reference!,
+        amount: PRICE,
+        reference: vaB.transactionId!,
+        merchantCode: MERCHANT_B,
+        apiKey: API_KEY,
+      });
+      const paidB = await duitkuCallback({
+        merchantOrderId: vaB.reference!,
+        amount: PRICE,
+        reference: vaB.transactionId!,
+        merchantCode: MERCHANT_B,
+        apiKey: API_KEY_B,
+      });
+      const paidA = await duitkuCallback({
+        merchantOrderId: vaA.reference!,
+        amount: PRICE,
+        reference: vaA.transactionId!,
+      });
+
+      expect({
+        forgedForB: forgedForB.status,
+        paidB: paidB.status,
+        paidA: paidA.status,
+        invoiceB: (await invoice(invB.id)).status,
+        invoiceA: (await invoice(invA.id)).status,
+      }).toEqual({
+        forgedForB: 401,
+        paidB: 200,
+        paidA: 200,
+        invoiceB: "PAID",
+        invoiceA: "PAID",
+      });
+    });
+
+    // Sakelar darurat untuk kredensial yang bocor.
+    it("konfigurasi yang dicabut menolak callback dan cek status", async () => {
+      const inv = await createInvoice("GWF-R1", PRICE);
+      const va = await createOpenVa(
+        inv.id,
+        "PAY-GWFIX-R1",
+        new Date(Date.now() - 2 * HOUR_MS),
+      );
+      http.paidOrders.add(va.reference!);
+      await prismaBillingAuth.paymentGatewayConfig.update({
+        where: { id: CONFIG_ID },
+        data: { isRevoked: true },
+      });
+
+      const callback = await duitkuCallback({
+        merchantOrderId: va.reference!,
+        amount: PRICE,
+        reference: va.transactionId!,
+      });
+      await runAsSystemContext("tes: penyapu checkout", () =>
+        expireStaleGatewayPayments(new Date()),
+      );
+
+      expect({
+        callbackAccepted: callback.status === 200,
+        statusQueries: statusQueries(),
+        paymentStatus: (
+          await prismaBillingAuth.payment.findUniqueOrThrow({
+            where: { id: va.id },
+          })
+        ).gatewayStatus,
+        invoiceStatus: (await invoice(inv.id)).status,
+      }).toEqual({
+        callbackAccepted: false,
+        statusQueries: 0,
+        paymentStatus: "PENDING",
+        invoiceStatus: "SENT",
+      });
+    });
   });
 
   describe("cek status dari portal (C3 check-status)", () => {

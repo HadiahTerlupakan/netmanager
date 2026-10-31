@@ -44,14 +44,15 @@ export class PaymentGatewayManager {
   }
 
   /**
-   * Provider untuk checkout baru: konfigurasinya harus aktif.
+   * Provider untuk checkout baru: konfigurasinya harus aktif dan tidak
+   * dicabut.
    */
   async getProviderInstance(
     providerType: string,
     tenantId?: string,
   ): Promise<PaymentProvider> {
     const config = await this.findConfig(providerType, tenantId);
-    if (!config.isEnabled) {
+    if (!config.isEnabled || config.isRevoked) {
       throw new Error(`Provider ${providerType} is disabled`);
     }
 
@@ -60,18 +61,22 @@ export class PaymentGatewayManager {
 
   /**
    * Provider untuk transaksi yang sudah terbit: callback, cek status, dan
-   * pembatalan. Mematikan konfigurasi hanya menghentikan checkout baru; VA/QR
-   * yang sudah diberikan ke pelanggan tetap bisa dibayar sampai kedaluwarsa,
-   * dan uangnya tetap harus dibukukan.
+   * pembatalan. `tenantId` adalah tenant pemilik payment-nya; konfigurasi
+   * tenant itu dipakai walau dimatikan, karena mematikan hanya menghentikan
+   * checkout baru: VA/QR yang sudah diberikan tetap bisa dibayar dan uangnya
+   * harus dibukukan. Tanpa tenant hanya konfigurasi aktif yang tunggal yang
+   * dipakai (findByProvider). Konfigurasi yang dicabut selalu ditolak.
    */
   async getIssuedTransactionProvider(
     providerType: string,
     tenantId?: string,
   ): Promise<PaymentProvider> {
-    return this.initializeProvider(
-      providerType,
-      await this.findConfig(providerType, tenantId),
-    );
+    const config = await this.findConfig(providerType, tenantId);
+    if (config.isRevoked) {
+      throw new Error(`Provider ${providerType} is revoked`);
+    }
+
+    return this.initializeProvider(providerType, config);
   }
 
   private async findConfig(providerType: string, tenantId?: string) {

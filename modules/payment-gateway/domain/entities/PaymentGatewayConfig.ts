@@ -10,6 +10,8 @@ export interface PaymentGatewayConfig {
   merchantId?: string | null;
   isProduction: boolean;
   isEnabled: boolean;
+  /** Sakelar darurat: menolak checkout, callback, dan cek status. */
+  isRevoked: boolean;
   priority: number;
   settings?: Record<string, unknown> | null;
   tenantId?: string | null;

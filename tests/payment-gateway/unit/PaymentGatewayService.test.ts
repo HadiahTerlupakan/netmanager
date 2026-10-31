@@ -135,6 +135,7 @@ describe("PaymentGatewayManager", () => {
         clientKey: null,
         merchantId: null,
         isEnabled: true,
+        isRevoked: false,
         isProduction: false,
         settings: null,
         priority: 1,
@@ -157,6 +158,7 @@ describe("PaymentGatewayManager", () => {
         clientKey: null,
         merchantId: null,
         isEnabled: false,
+        isRevoked: false,
         isProduction: false,
         settings: null,
         priority: 1,
@@ -192,6 +194,7 @@ describe("PaymentGatewayManager", () => {
         clientKey: null,
         merchantId: "D123",
         isEnabled: false,
+        isRevoked: false,
         isProduction: false,
         settings: null,
         priority: 1,
@@ -201,6 +204,7 @@ describe("PaymentGatewayManager", () => {
       });
 
     beforeEach(() => {
+      vi.clearAllMocks();
       disabledDuitku();
       palsuProvider.checkStatus.mockResolvedValue({
         orderId: "PAY-1",
@@ -219,6 +223,11 @@ describe("PaymentGatewayManager", () => {
       ).resolves.toMatchObject({ status: "PAID" });
       expect(palsuProvider.initialize).toHaveBeenCalledWith(
         expect.objectContaining({ apiKey: "decrypted_encrypted_key" }),
+      );
+      // Konfigurasi tenant pemilik payment, bukan konfigurasi pertama.
+      expect(mockConfigRepository.findByProvider).toHaveBeenCalledWith(
+        "DUITKU",
+        "tenant-1",
       );
     });
 
@@ -241,6 +250,47 @@ describe("PaymentGatewayManager", () => {
       await expect(
         manager.processWebhook("DUITKU", {}, undefined, "raw", "tenant-1"),
       ).rejects.toThrow("Invalid webhook signature");
+    });
+
+    // Sakelar darurat untuk kredensial yang bocor: tidak ada lagi callback
+    // maupun cek status yang dipercaya dari konfigurasi ini.
+    it("konfigurasi yang dicabut menolak callback, cek status, dan checkout", async () => {
+      vi.mocked(mockConfigRepository.findByProvider).mockResolvedValue({
+        id: "config-1",
+        provider: "DUITKU",
+        apiKey: "encrypted_key",
+        apiSecret: null,
+        clientKey: null,
+        merchantId: "D123",
+        isEnabled: true,
+        isRevoked: true,
+        isProduction: false,
+        settings: null,
+        priority: 1,
+        tenantId: "tenant-1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await expect(
+        manager.processWebhook("DUITKU", {}, undefined, "raw", "tenant-1"),
+      ).rejects.toThrow(/revoked/);
+      await expect(
+        manager.checkPaymentStatus("DUITKU", "PAY-1", "tenant-1"),
+      ).rejects.toThrow(/revoked/);
+      await expect(
+        manager.createPaymentWithProvider("DUITKU", {
+          orderId: "PAY-2",
+          amount: 10000,
+          customerName: "Budi",
+          customerEmail: "b@example.com",
+          customerPhone: "08",
+          description: "Tagihan",
+          tenantId: "tenant-1",
+        }),
+      ).rejects.toThrow(/disabled/);
+      expect(palsuProvider.verifyWebhook).not.toHaveBeenCalled();
+      expect(palsuProvider.checkStatus).not.toHaveBeenCalled();
     });
 
     it("checkout baru tetap ditolak", async () => {

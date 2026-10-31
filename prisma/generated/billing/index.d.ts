@@ -7052,6 +7052,7 @@ export namespace Prisma {
     provider: string | null
     providerName: string | null
     isEnabled: boolean | null
+    isRevoked: boolean | null
     isProduction: boolean | null
     priority: number | null
     apiKey: string | null
@@ -7073,6 +7074,7 @@ export namespace Prisma {
     provider: string | null
     providerName: string | null
     isEnabled: boolean | null
+    isRevoked: boolean | null
     isProduction: boolean | null
     priority: number | null
     apiKey: string | null
@@ -7094,6 +7096,7 @@ export namespace Prisma {
     provider: number
     providerName: number
     isEnabled: number
+    isRevoked: number
     isProduction: number
     priority: number
     apiKey: number
@@ -7126,6 +7129,7 @@ export namespace Prisma {
     provider?: true
     providerName?: true
     isEnabled?: true
+    isRevoked?: true
     isProduction?: true
     priority?: true
     apiKey?: true
@@ -7147,6 +7151,7 @@ export namespace Prisma {
     provider?: true
     providerName?: true
     isEnabled?: true
+    isRevoked?: true
     isProduction?: true
     priority?: true
     apiKey?: true
@@ -7168,6 +7173,7 @@ export namespace Prisma {
     provider?: true
     providerName?: true
     isEnabled?: true
+    isRevoked?: true
     isProduction?: true
     priority?: true
     apiKey?: true
@@ -7277,6 +7283,7 @@ export namespace Prisma {
     provider: string
     providerName: string
     isEnabled: boolean
+    isRevoked: boolean
     isProduction: boolean
     priority: number
     apiKey: string | null
@@ -7318,6 +7325,7 @@ export namespace Prisma {
     provider?: boolean
     providerName?: boolean
     isEnabled?: boolean
+    isRevoked?: boolean
     isProduction?: boolean
     priority?: boolean
     apiKey?: boolean
@@ -7340,6 +7348,7 @@ export namespace Prisma {
     provider?: boolean
     providerName?: boolean
     isEnabled?: boolean
+    isRevoked?: boolean
     isProduction?: boolean
     priority?: boolean
     apiKey?: boolean
@@ -7362,6 +7371,7 @@ export namespace Prisma {
     provider?: boolean
     providerName?: boolean
     isEnabled?: boolean
+    isRevoked?: boolean
     isProduction?: boolean
     priority?: boolean
     apiKey?: boolean
@@ -7384,6 +7394,7 @@ export namespace Prisma {
     provider?: boolean
     providerName?: boolean
     isEnabled?: boolean
+    isRevoked?: boolean
     isProduction?: boolean
     priority?: boolean
     apiKey?: boolean
@@ -7401,7 +7412,7 @@ export namespace Prisma {
     tenantId?: boolean
   }
 
-  export type PaymentGatewayConfigOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "provider" | "providerName" | "isEnabled" | "isProduction" | "priority" | "apiKey" | "apiSecret" | "clientKey" | "merchantId" | "webhookUrl" | "callbackUrl" | "settings" | "lastTestedAt" | "testStatus" | "createdAt" | "updatedAt" | "createdBy" | "tenantId", ExtArgs["result"]["paymentGatewayConfig"]>
+  export type PaymentGatewayConfigOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "provider" | "providerName" | "isEnabled" | "isRevoked" | "isProduction" | "priority" | "apiKey" | "apiSecret" | "clientKey" | "merchantId" | "webhookUrl" | "callbackUrl" | "settings" | "lastTestedAt" | "testStatus" | "createdAt" | "updatedAt" | "createdBy" | "tenantId", ExtArgs["result"]["paymentGatewayConfig"]>
 
   export type $PaymentGatewayConfigPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "PaymentGatewayConfig"
@@ -7411,6 +7422,7 @@ export namespace Prisma {
       provider: string
       providerName: string
       isEnabled: boolean
+      isRevoked: boolean
       isProduction: boolean
       priority: number
       apiKey: string | null
@@ -7853,6 +7865,7 @@ export namespace Prisma {
     readonly provider: FieldRef<"PaymentGatewayConfig", 'String'>
     readonly providerName: FieldRef<"PaymentGatewayConfig", 'String'>
     readonly isEnabled: FieldRef<"PaymentGatewayConfig", 'Boolean'>
+    readonly isRevoked: FieldRef<"PaymentGatewayConfig", 'Boolean'>
     readonly isProduction: FieldRef<"PaymentGatewayConfig", 'Boolean'>
     readonly priority: FieldRef<"PaymentGatewayConfig", 'Int'>
     readonly apiKey: FieldRef<"PaymentGatewayConfig", 'String'>
@@ -10717,6 +10730,7 @@ export namespace Prisma {
     provider: 'provider',
     providerName: 'providerName',
     isEnabled: 'isEnabled',
+    isRevoked: 'isRevoked',
     isProduction: 'isProduction',
     priority: 'priority',
     apiKey: 'apiKey',
@@ -11617,6 +11631,7 @@ export namespace Prisma {
     provider?: StringFilter<"PaymentGatewayConfig"> | string
     providerName?: StringFilter<"PaymentGatewayConfig"> | string
     isEnabled?: BoolFilter<"PaymentGatewayConfig"> | boolean
+    isRevoked?: BoolFilter<"PaymentGatewayConfig"> | boolean
     isProduction?: BoolFilter<"PaymentGatewayConfig"> | boolean
     priority?: IntFilter<"PaymentGatewayConfig"> | number
     apiKey?: StringNullableFilter<"PaymentGatewayConfig"> | string | null
@@ -11639,6 +11654,7 @@ export namespace Prisma {
     provider?: SortOrder
     providerName?: SortOrder
     isEnabled?: SortOrder
+    isRevoked?: SortOrder
     isProduction?: SortOrder
     priority?: SortOrder
     apiKey?: SortOrderInput | SortOrder
@@ -11665,6 +11681,7 @@ export namespace Prisma {
     provider?: StringFilter<"PaymentGatewayConfig"> | string
     providerName?: StringFilter<"PaymentGatewayConfig"> | string
     isEnabled?: BoolFilter<"PaymentGatewayConfig"> | boolean
+    isRevoked?: BoolFilter<"PaymentGatewayConfig"> | boolean
     isProduction?: BoolFilter<"PaymentGatewayConfig"> | boolean
     priority?: IntFilter<"PaymentGatewayConfig"> | number
     apiKey?: StringNullableFilter<"PaymentGatewayConfig"> | string | null
@@ -11687,6 +11704,7 @@ export namespace Prisma {
     provider?: SortOrder
     providerName?: SortOrder
     isEnabled?: SortOrder
+    isRevoked?: SortOrder
     isProduction?: SortOrder
     priority?: SortOrder
     apiKey?: SortOrderInput | SortOrder
@@ -11717,6 +11735,7 @@ export namespace Prisma {
     provider?: StringWithAggregatesFilter<"PaymentGatewayConfig"> | string
     providerName?: StringWithAggregatesFilter<"PaymentGatewayConfig"> | string
     isEnabled?: BoolWithAggregatesFilter<"PaymentGatewayConfig"> | boolean
+    isRevoked?: BoolWithAggregatesFilter<"PaymentGatewayConfig"> | boolean
     isProduction?: BoolWithAggregatesFilter<"PaymentGatewayConfig"> | boolean
     priority?: IntWithAggregatesFilter<"PaymentGatewayConfig"> | number
     apiKey?: StringNullableWithAggregatesFilter<"PaymentGatewayConfig"> | string | null
@@ -12607,6 +12626,7 @@ export namespace Prisma {
     provider: string
     providerName: string
     isEnabled?: boolean
+    isRevoked?: boolean
     isProduction?: boolean
     priority?: number
     apiKey?: string | null
@@ -12629,6 +12649,7 @@ export namespace Prisma {
     provider: string
     providerName: string
     isEnabled?: boolean
+    isRevoked?: boolean
     isProduction?: boolean
     priority?: number
     apiKey?: string | null
@@ -12651,6 +12672,7 @@ export namespace Prisma {
     provider?: StringFieldUpdateOperationsInput | string
     providerName?: StringFieldUpdateOperationsInput | string
     isEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isRevoked?: BoolFieldUpdateOperationsInput | boolean
     isProduction?: BoolFieldUpdateOperationsInput | boolean
     priority?: IntFieldUpdateOperationsInput | number
     apiKey?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12673,6 +12695,7 @@ export namespace Prisma {
     provider?: StringFieldUpdateOperationsInput | string
     providerName?: StringFieldUpdateOperationsInput | string
     isEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isRevoked?: BoolFieldUpdateOperationsInput | boolean
     isProduction?: BoolFieldUpdateOperationsInput | boolean
     priority?: IntFieldUpdateOperationsInput | number
     apiKey?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12695,6 +12718,7 @@ export namespace Prisma {
     provider: string
     providerName: string
     isEnabled?: boolean
+    isRevoked?: boolean
     isProduction?: boolean
     priority?: number
     apiKey?: string | null
@@ -12717,6 +12741,7 @@ export namespace Prisma {
     provider?: StringFieldUpdateOperationsInput | string
     providerName?: StringFieldUpdateOperationsInput | string
     isEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isRevoked?: BoolFieldUpdateOperationsInput | boolean
     isProduction?: BoolFieldUpdateOperationsInput | boolean
     priority?: IntFieldUpdateOperationsInput | number
     apiKey?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12739,6 +12764,7 @@ export namespace Prisma {
     provider?: StringFieldUpdateOperationsInput | string
     providerName?: StringFieldUpdateOperationsInput | string
     isEnabled?: BoolFieldUpdateOperationsInput | boolean
+    isRevoked?: BoolFieldUpdateOperationsInput | boolean
     isProduction?: BoolFieldUpdateOperationsInput | boolean
     priority?: IntFieldUpdateOperationsInput | number
     apiKey?: NullableStringFieldUpdateOperationsInput | string | null
@@ -13776,6 +13802,7 @@ export namespace Prisma {
     provider?: SortOrder
     providerName?: SortOrder
     isEnabled?: SortOrder
+    isRevoked?: SortOrder
     isProduction?: SortOrder
     priority?: SortOrder
     apiKey?: SortOrder
@@ -13802,6 +13829,7 @@ export namespace Prisma {
     provider?: SortOrder
     providerName?: SortOrder
     isEnabled?: SortOrder
+    isRevoked?: SortOrder
     isProduction?: SortOrder
     priority?: SortOrder
     apiKey?: SortOrder
@@ -13823,6 +13851,7 @@ export namespace Prisma {
     provider?: SortOrder
     providerName?: SortOrder
     isEnabled?: SortOrder
+    isRevoked?: SortOrder
     isProduction?: SortOrder
     priority?: SortOrder
     apiKey?: SortOrder

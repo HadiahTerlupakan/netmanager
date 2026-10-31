@@ -3,11 +3,15 @@ import type { IPaymentGatewayConfigRepository } from "../domain/ports/IPaymentGa
 import type { PaymentGatewayConfig } from "../domain/entities/PaymentGatewayConfig";
 import type { ProviderType } from "../domain/value-objects/ProviderType";
 
+// Dua baris cukup untuk tahu apakah konfigurasi tanpa tenant itu tunggal.
+const AMBIGUITY_PROBE_SIZE = 2;
+
 export class PaymentGatewayConfigRepository implements IPaymentGatewayConfigRepository {
   async findEnabled(tenantId?: string | null): Promise<PaymentGatewayConfig[]> {
     const configs = await prismaBillingAuth.paymentGatewayConfig.findMany({
       where: {
         isEnabled: true,
+        isRevoked: false,
         ...(tenantId ? { tenantId } : {}),
       },
       orderBy: { priority: "asc" },
@@ -16,18 +20,36 @@ export class PaymentGatewayConfigRepository implements IPaymentGatewayConfigRepo
     return configs.map(this.toDomain);
   }
 
+  /**
+   * Konfigurasi provider untuk tenant ini, apa pun statusnya; pemanggil yang
+   * memutuskan apakah status aktif atau dicabut berlaku.
+   *
+   * Tanpa tenant tidak ada lagi "konfigurasi pertama" lintas tenant: hanya
+   * satu-satunya konfigurasi aktif yang tidak dicabut yang dipakai, dan lebih
+   * dari satu ditolak, supaya callback tidak diverifikasi dengan kunci tenant
+   * lain.
+   */
   async findByProvider(
     provider: ProviderType,
     tenantId?: string | null,
   ): Promise<PaymentGatewayConfig | null> {
-    const config = await prismaBillingAuth.paymentGatewayConfig.findFirst({
-      where: {
-        provider,
-        ...(tenantId ? { tenantId } : {}),
-      },
-    });
+    if (tenantId) {
+      const config = await prismaBillingAuth.paymentGatewayConfig.findFirst({
+        where: { provider, tenantId },
+      });
+      return config ? this.toDomain(config) : null;
+    }
 
-    return config ? this.toDomain(config) : null;
+    const enabled = await prismaBillingAuth.paymentGatewayConfig.findMany({
+      where: { provider, isEnabled: true, isRevoked: false },
+      take: AMBIGUITY_PROBE_SIZE,
+    });
+    if (enabled.length > 1) {
+      throw new Error(
+        `Konfigurasi ${provider} aktif di lebih dari satu tenant; tenant wajib diketahui`,
+      );
+    }
+    return enabled[0] ? this.toDomain(enabled[0]) : null;
   }
 
   /** Jumlah konfigurasi aktif provider ini yang masih memakai sandbox. */
@@ -39,6 +61,7 @@ export class PaymentGatewayConfigRepository implements IPaymentGatewayConfigRepo
       where: {
         provider,
         isEnabled: true,
+        isRevoked: false,
         isProduction: false,
         ...(tenantId ? { tenantId } : {}),
       },
@@ -96,6 +119,7 @@ export class PaymentGatewayConfigRepository implements IPaymentGatewayConfigRepo
     merchantId: string | null;
     isProduction: boolean;
     isEnabled: boolean;
+    isRevoked: boolean;
     priority: number;
     settings: unknown;
     tenantId: string | null;
@@ -111,6 +135,7 @@ export class PaymentGatewayConfigRepository implements IPaymentGatewayConfigRepo
       merchantId: prismaConfig.merchantId,
       isProduction: prismaConfig.isProduction,
       isEnabled: prismaConfig.isEnabled,
+      isRevoked: prismaConfig.isRevoked,
       priority: prismaConfig.priority,
       settings: prismaConfig.settings as Record<string, unknown> | null,
       tenantId: prismaConfig.tenantId,

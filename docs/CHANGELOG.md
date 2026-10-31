@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Callback hanya diverifikasi dengan kunci tenant pemilik payment; sakelar darurat gateway
+
+- **Tipe**: [SECURITY] [MIGRATION]
+- **Scope**: `modules/payment-gateway` | `prisma/billing.prisma`
+- **Author**: agent
+- **Deskripsi**: Sejak callback dan cek status boleh memakai konfigurasi yang dimatikan, `findByProvider` tanpa tenant masih mengambil konfigurasi pertama provider itu dari tenant mana pun: callback untuk payment yang tidak dikenal bisa diverifikasi dengan kunci tenant lain, termasuk konfigurasi yang sudah dimatikan. Kini konfigurasi tenant pemilik payment dipakai (walau dimatikan, karena VA/QR yang sudah terbit tetap bisa dibayar), dan tanpa tenant hanya satu-satunya konfigurasi yang aktif dan tidak dicabut; lebih dari satu ditolak, tanpa mencoba konfigurasi tenant lain. Kolom baru `PaymentGatewayConfig.isRevoked` (database billing, bawaan `false`) adalah sakelar darurat untuk kredensial yang bocor: konfigurasi yang dicabut menolak checkout baru, callback, dan cek status, dan tidak ikut daftar metode maupun peringatan sandbox. Belum ada tombolnya di admin; diubah lewat database. Penyelesaian pembayaran sandbox di produksi tidak diubah (banner admin tetap).
+- **Files**: `modules/payment-gateway/repositories/PaymentGatewayConfigRepository.ts`, `modules/payment-gateway/services/PaymentGatewayService.ts`, `modules/payment-gateway/domain/entities/PaymentGatewayConfig.ts`, `prisma/billing.prisma`, `prisma/generated/billing/*`, `tests/db/customer-payment-gateway.test.ts`
+- **Migration**: `20261101090000_add_payment_gateway_config_revoked` (database billing)
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Cek kanal aktif Duitku tidak bisa lagi dipicu per nominal
 
 - **Tipe**: [SECURITY]

@@ -160,6 +160,9 @@ model PaymentGatewayConfig {
   provider     String
   providerName String
   isEnabled    Boolean   @default(false)
+  // Sakelar darurat (mis. kredensial bocor): menolak checkout baru, callback,
+  // dan cek status. isEnabled=false hanya menghentikan checkout baru.
+  isRevoked    Boolean   @default(false)
   isProduction Boolean   @default(false)
   priority     Int       @default(0)
   apiKey       String?

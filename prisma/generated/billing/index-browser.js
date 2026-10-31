@@ -218,6 +218,7 @@ exports.Prisma.PaymentGatewayConfigScalarFieldEnum = {
   provider: 'provider',
   providerName: 'providerName',
   isEnabled: 'isEnabled',
+  isRevoked: 'isRevoked',
   isProduction: 'isProduction',
   priority: 'priority',
   apiKey: 'apiKey',
