@@ -20,7 +20,11 @@ export type RepriceBlocker =
   | "PAYMENT_RECORDED"
   | "ACTIVE_CHECKOUT";
 
-type PaymentState = { gatewayStatus: string | null; expiresAt: Date | null };
+type PaymentState = {
+  gatewayStatus: string | null;
+  expiresAt: Date | null;
+  receiptUrl: string | null;
+};
 
 type InvoicePaymentState = {
   status: string;
@@ -42,18 +46,42 @@ export function findRepriceBlocker(
   if (!UNPAID_STATUSES.has(invoice.status)) return "NOT_UNPAID";
   if (BigInt(invoice.paidAmount) > 0n) return "PAYMENT_RECORDED";
   if (invoice.payment.some(isMoneyRecorded)) return "PAYMENT_RECORDED";
-  if (invoice.payment.some((p) => isCheckoutStillPayable(p, now))) {
-    return "ACTIVE_CHECKOUT";
-  }
+  if (findPayableCheckout(invoice.payment, now)) return "ACTIVE_CHECKOUT";
   return null;
 }
 
-// PAID dan null dihitung lunas (lihat InvoicePaymentStateService); PENDING
-// tanpa expiresAt adalah transfer manual yang buktinya sedang diverifikasi.
+/** Checkout VA/QRIS yang masih bisa dibayar dan paling akhir kedaluwarsanya. */
+export function findPayableCheckout<P extends PaymentState>(
+  payments: P[],
+  now: Date,
+): P | null {
+  let latest: P | null = null;
+  for (const payment of payments) {
+    if (!isCheckoutStillPayable(payment, now)) continue;
+    if (!latest || expiryTime(payment) > expiryTime(latest)) latest = payment;
+  }
+  return latest;
+}
+
+const expiryTime = (payment: PaymentState) => payment.expiresAt?.getTime() ?? 0;
+
+/** Transfer manual yang buktinya sudah diunggah dan menunggu verifikasi admin. */
+export function isTransferAwaitingVerification(payment: PaymentState) {
+  return (
+    payment.gatewayStatus === "PENDING" &&
+    payment.expiresAt === null &&
+    payment.receiptUrl !== null
+  );
+}
+
+// PAID dan null dihitung lunas (lihat InvoicePaymentStateService). PENDING
+// tanpa expiresAt adalah transfer manual: uangnya baru tercatat setelah bukti
+// diunggah; pilihan "Transfer Manual" yang ditinggal tanpa bukti tidak
+// menahan apa pun.
 function isMoneyRecorded(payment: PaymentState) {
   if (payment.gatewayStatus === null) return true;
   if (payment.gatewayStatus === "PAID") return true;
-  return payment.gatewayStatus === "PENDING" && payment.expiresAt === null;
+  return isTransferAwaitingVerification(payment);
 }
 
 // Checkout yang dibatalkan karena ganti metode tetap bisa dibayar sampai

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -6,136 +6,103 @@ vi.mock("@/lib/logger", () => ({
 
 // Pembatalan schedule dimuat dinamis dan menarik graf modul finance lengkap
 // (±1.300 berkas). Di sini cukup dipastikan ia dipanggil per invoice.
-const cancelInvoiceBillingSchedules = vi.hoisted(() =>
-  vi.fn().mockResolvedValue(undefined),
-);
+const palsu = vi.hoisted(() => ({
+  cancelInvoiceBillingSchedules: vi.fn().mockResolvedValue(undefined),
+  reverseCancelledInvoiceJournals: vi.fn().mockResolvedValue(1),
+  refundSaldoKredit: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
-  cancelInvoiceBillingSchedules,
+  cancelInvoiceBillingSchedules: palsu.cancelInvoiceBillingSchedules,
+}));
+vi.mock("@/modules/accounting", () => ({
+  reverseCancelledInvoiceJournals: palsu.reverseCancelledInvoiceJournals,
+}));
+vi.mock("@/modules/finance/services/FinanceRepositoryFacade", () => ({
+  FinanceRepositoryFacade: { refundSaldoKredit: palsu.refundSaldoKredit },
 }));
 
-const reverseCancelledInvoiceJournals = vi.hoisted(() =>
-  vi.fn().mockResolvedValue(1),
-);
-vi.mock("@/modules/accounting", () => ({ reverseCancelledInvoiceJournals }));
+import { cancelReplacedInvoice } from "@/modules/finance/services/outstanding-invoice.helpers";
 
-import { cancelOutstandingInvoices } from "@/modules/finance/services/outstanding-invoice.helpers";
-
-function createInvoiceRepo(
-  invoices: Array<{
-    id: string;
-    status: string;
-    paidAmount: bigint;
-    tenantId?: string;
-  }>,
+function repoYangMembatalkan(
+  cancelled: {
+    notes?: string | null;
+    discountAmount?: bigint;
+  } | null,
 ) {
   return {
-    findUnpaidInvoices: vi.fn().mockResolvedValue(invoices),
-    update: vi.fn().mockImplementation(async (id: string) => ({ id })),
+    cancelIfUnpaid: vi.fn().mockResolvedValue(
+      cancelled && {
+        id: "inv-1",
+        pelangganId: "cust-1",
+        status: "CANCELLED",
+        notes: null,
+        discountAmount: 0n,
+        ...cancelled,
+      },
+    ),
   };
 }
 
-describe("cancelOutstandingInvoices", () => {
-  // Regresi: opsi UI "Batalkan & Buat Tagihan Baru" (VOID_AND_CREATE_NEW)
-  // hanya membuat invoice baru — invoice lama tidak pernah dibatalkan,
-  // sehingga pelanggan berakhir dengan dua tagihan hidup.
-  it("membatalkan invoice yang belum dibayar", async () => {
-    const invoiceRepo = createInvoiceRepo([
-      { id: "inv-1", status: "SENT", paidAmount: 0n },
-    ]);
-
-    const cancelled = await cancelOutstandingInvoices({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
-    });
-
-    expect(cancelled).toEqual(["inv-1"]);
-    expect(invoiceRepo.update).toHaveBeenCalledWith(
-      "inv-1",
-      expect.objectContaining({ status: "CANCELLED" }),
-    );
-    expect(cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-1");
+const batalkan = (repo: ReturnType<typeof repoYangMembatalkan>) =>
+  cancelReplacedInvoice({
+    invoiceRepo: repo as never,
+    invoice: { id: "inv-1", tenantId: "t1" },
   });
 
-  // Dulu tagihan yang diganti tetap tercatat sebagai piutang dan pendapatan.
-  it("membalik jurnal tagihan yang dibatalkan", async () => {
-    const invoiceRepo = createInvoiceRepo([
-      { id: "inv-1", status: "SENT", paidAmount: 0n, tenantId: "t1" },
-    ]);
+describe("cancelReplacedInvoice", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-    await cancelOutstandingInvoices({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
-    });
+  it("membatalkan hanya bila tagihan masih belum dibayar, lalu jadwal dan jurnalnya", async () => {
+    const repo = repoYangMembatalkan({});
 
-    expect(reverseCancelledInvoiceJournals).toHaveBeenCalledWith(
+    await expect(batalkan(repo)).resolves.toBe(true);
+
+    expect(repo.cancelIfUnpaid).toHaveBeenCalledWith(
+      "inv-1",
+      ["DRAFT", "SENT", "OVERDUE"],
+      expect.any(Date),
+    );
+    expect(palsu.cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-1");
+    // Dulu tagihan yang diganti tetap tercatat sebagai piutang dan pendapatan.
+    expect(palsu.reverseCancelledInvoiceJournals).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: "t1", invoiceId: "inv-1" }),
     );
   });
 
-  it("membatalkan invoice yang sudah lewat jatuh tempo", async () => {
-    const invoiceRepo = createInvoiceRepo([
-      { id: "inv-1", status: "OVERDUE", paidAmount: 0n },
-    ]);
-
-    const cancelled = await cancelOutstandingInvoices({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
+  // Saldo yang sudah memotong tagihan lama hilang bila tidak dikembalikan:
+  // tagihan pengganti menagih penuh dan saldonya sudah nol.
+  it("mengembalikan saldo kredit yang dipakai tagihan itu, bukan diskon lain", async () => {
+    const repo = repoYangMembatalkan({
+      notes: "Saldo kredit terpakai: Rp 30000",
+      discountAmount: 50000n,
     });
 
-    expect(cancelled).toEqual(["inv-1"]);
+    await batalkan(repo);
+
+    expect(palsu.refundSaldoKredit).toHaveBeenCalledWith("cust-1", 30000n);
   });
 
-  // Uang yang sudah masuk tidak boleh digantung: membatalkan invoice yang
-  // sudah dibayar sebagian akan membuat payment-nya yatim.
-  it("tidak menyentuh invoice yang sudah dibayar sebagian", async () => {
-    const invoiceRepo = createInvoiceRepo([
-      { id: "inv-1", status: "PARTIAL_PAID", paidAmount: 50000n },
-    ]);
-
-    const cancelled = await cancelOutstandingInvoices({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
+  it("tagihan dengan diskon admin tanpa saldo tidak mengembalikan apa pun", async () => {
+    const repo = repoYangMembatalkan({
+      notes: "Diskon pemasangan",
+      discountAmount: 50000n,
     });
 
-    expect(cancelled).toEqual([]);
-    expect(invoiceRepo.update).not.toHaveBeenCalled();
+    await batalkan(repo);
+
+    expect(palsu.refundSaldoKredit).not.toHaveBeenCalled();
   });
 
-  it("tidak menyentuh invoice yang punya pembayaran walau status masih SENT", async () => {
-    const invoiceRepo = createInvoiceRepo([
-      { id: "inv-1", status: "SENT", paidAmount: 25000n },
-    ]);
+  // Webhook bisa melunasinya tepat di antara pemeriksaan dan pembatalan.
+  it("tagihan yang sudah tidak bisa dibatalkan dibiarkan apa adanya", async () => {
+    const repo = repoYangMembatalkan(null);
 
-    const cancelled = await cancelOutstandingInvoices({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
-    });
+    await expect(batalkan(repo)).resolves.toBe(false);
 
-    expect(cancelled).toEqual([]);
-  });
-
-  it("hanya mencari invoice milik pelanggan tersebut", async () => {
-    const invoiceRepo = createInvoiceRepo([]);
-
-    await cancelOutstandingInvoices({
-      pelangganId: "cust-9",
-      invoiceRepo: invoiceRepo as never,
-    });
-
-    expect(invoiceRepo.findUnpaidInvoices).toHaveBeenCalledWith(
-      expect.objectContaining({ pelangganId: "cust-9" }),
-      expect.anything(),
-    );
-  });
-
-  it("mengembalikan daftar kosong saat tidak ada tagihan hidup", async () => {
-    const invoiceRepo = createInvoiceRepo([]);
-
-    const cancelled = await cancelOutstandingInvoices({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
-    });
-
-    expect(cancelled).toEqual([]);
+    expect(palsu.cancelInvoiceBillingSchedules).not.toHaveBeenCalled();
+    expect(palsu.refundSaldoKredit).not.toHaveBeenCalled();
+    expect(palsu.reverseCancelledInvoiceJournals).not.toHaveBeenCalled();
   });
 });

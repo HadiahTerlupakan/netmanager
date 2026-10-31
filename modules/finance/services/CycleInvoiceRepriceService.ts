@@ -15,7 +15,7 @@ import {
   findRepriceBlocker,
   type RepriceBlocker,
 } from "./cycle-invoice-reprice";
-import { FinanceRepositoryFacade } from "./FinanceRepositoryFacade";
+import { runUnderCustomerCheckoutLockAsSystem } from "./customer-checkout-lock";
 import { cancelReplacedInvoice } from "./outstanding-invoice.helpers";
 
 /** Alasan tagihan siklus dibiarkan dengan nominal yang sudah terbit. */
@@ -67,11 +67,11 @@ export interface CycleInvoiceRepriceDeps {
     BillingInvoiceCreationService,
     "withCyclePackage" | "createInvoiceForCustomer"
   >;
+  /** Membatalkan tagihan bila masih belum dibayar; false bila tidak lagi. */
   cancelInvoice: (invoice: {
     id: string;
     tenantId: string | null;
-  }) => Promise<void>;
-  refundSaldoKredit: (pelangganId: string, amount: bigint) => Promise<void>;
+  }) => Promise<boolean>;
   /** Menjalankan `task` di bawah kunci checkout pelanggan, dalam konteks sistem. */
   runExclusively: <T>(
     pelangganId: string,
@@ -147,7 +147,7 @@ export class CycleInvoiceRepriceService {
       (await this.findPriceEdit(invoice, input.previousPackageId));
     if (keptReason) return this.keep(input, invoice, keptReason);
 
-    return this.replace(invoice, customer, input.reason);
+    return this.replace(input, invoice, customer);
   }
 
   private async loadCustomer(pelangganId: string, invoice: CycleInvoice) {
@@ -190,22 +190,25 @@ export class CycleInvoiceRepriceService {
   }
 
   private async replace(
+    input: SyncCycleInvoiceInput,
     invoice: CycleInvoice,
     customer: BillingCustomerPayload,
-    reason: InvoiceReplacementReason,
   ): Promise<CycleInvoiceSyncResult> {
-    await this.deps.cancelInvoice({
+    // Saldo kredit yang dipakai tagihan lama dikembalikan oleh pembatalannya,
+    // sehingga tagihan pengganti memakainya lagi sesuai nominal barunya.
+    const cancelled = await this.deps.cancelInvoice({
       id: invoice.id,
       tenantId: invoice.tenantId,
     });
-    // Potongan tagihan sistem hanya berasal dari saldo kredit. Dikembalikan
-    // dulu supaya tagihan pengganti memakainya lagi sesuai nominal barunya.
-    const creditUsed = BigInt(invoice.discountAmount);
-    if (creditUsed > 0n) {
-      await this.deps.refundSaldoKredit(customer.id, creditUsed);
-    }
+    // Dilunasi tepat di antara pemeriksaan dan pembatalan (webhook tidak
+    // memegang kunci checkout): tagihannya tetap, tanpa pengganti.
+    if (!cancelled) return this.keep(input, invoice, "NOT_UNPAID");
 
-    const replacement = await this.createReplacement(invoice, customer, reason);
+    const replacement = await this.createReplacement(
+      invoice,
+      customer,
+      input.reason,
+    );
     logger.info(
       `[CycleInvoiceReprice] Tagihan ${invoice.id} (${invoice.totalAmount}) pelanggan ${customer.id} diganti ${replacement.id} (${replacement.totalAmount}) mengikuti paket siklusnya`,
     );
@@ -252,33 +255,14 @@ function createDefaultDeps(): CycleInvoiceRepriceDeps {
     loadCustomer: loadBillingCustomer,
     invoiceCreation: new BillingInvoiceCreationService(invoiceRepo),
     cancelInvoice: (invoice) => cancelReplacedInvoice({ invoiceRepo, invoice }),
-    refundSaldoKredit: (pelangganId, amount) =>
-      FinanceRepositoryFacade.refundSaldoKredit(pelangganId, amount),
-    runExclusively: runUnderCheckoutLockAsSystem,
+    runExclusively: (pelangganId, task) =>
+      runUnderCustomerCheckoutLockAsSystem(
+        pelangganId,
+        "cycle-invoice-reprice",
+        task,
+      ),
     now: () => new Date(),
   };
-}
-
-/**
- * Kunci yang sama dengan pembuatan checkout portal: tanpa itu pelanggan bisa
- * membuat VA untuk tagihan lama tepat saat tagihan itu dibatalkan.
- *
- * Konteks sistem karena tagihan dari billing harian (cron, konteks sistem)
- * tersimpan tanpa tenantId dan tidak terlihat oleh query ber-tenant. Pemanggil
- * sudah memastikan pelanggannya milik tenant yang meminta.
- */
-async function runUnderCheckoutLockAsSystem<T>(
-  pelangganId: string,
-  task: () => Promise<T>,
-): Promise<T> {
-  const [{ withCustomerCheckoutLock }, { runAsSystemContext }] =
-    await Promise.all([
-      import("@/modules/payment-gateway"),
-      import("@/lib/tenant-context"),
-    ]);
-  return withCustomerCheckoutLock(pelangganId, () =>
-    runAsSystemContext("cycle-invoice-reprice", task),
-  );
 }
 
 async function loadBillingCustomer(

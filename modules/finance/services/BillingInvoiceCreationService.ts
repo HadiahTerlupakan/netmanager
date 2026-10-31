@@ -9,6 +9,7 @@ import {
 } from "../repositories/CycleBillingRepository";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { FinanceRepositoryFacade } from "./FinanceRepositoryFacade";
+import { formatSaldoKreditNote } from "./saldo-kredit-note";
 
 type BillingCustomerPayload = {
   id: string;
@@ -120,7 +121,7 @@ export class BillingInvoiceCreationService {
   }) {
     const note =
       params.creditApplied > 0n
-        ? `Saldo kredit terpakai: Rp ${params.creditApplied.toString()}`
+        ? formatSaldoKreditNote(params.creditApplied)
         : null;
 
     return {

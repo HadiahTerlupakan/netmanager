@@ -29,6 +29,13 @@ import { usePppDocumentUploads } from "@/app/admin/pelanggan/ppp/hooks/usePppDoc
 import { usePppFormOrchestration } from "@/app/admin/pelanggan/ppp/hooks/usePppFormOrchestration";
 import { usePppIdValidation } from "@/app/admin/pelanggan/ppp/hooks/usePppIdValidation";
 import { toDateInputValue } from "@/app/admin/pelanggan/ppp/shared/date-input";
+import {
+  InvoiceActionNotice,
+  readInvoiceActionNotice,
+} from "./InvoiceActionNotice";
+
+/** Pesan tagihan yang tidak diganti cukup panjang; beri waktu membacanya. */
+const INVOICE_NOTICE_TOAST_MS = 15000;
 
 type HargaPaket = {
   id: string;
@@ -75,6 +82,7 @@ export function PppClientEditForm() {
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invoiceNotice, setInvoiceNotice] = useState<string | null>(null);
   const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([]);
   const [odps, setOdps] = useState<Odp[]>([]);
   const [_existingFileKTP, setExistingFileKTP] = useState<string | null>(null);
@@ -383,6 +391,7 @@ export function PppClientEditForm() {
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError(null);
+    setInvoiceNotice(null);
 
     const validationError = validatePppClientForm(formData, {
       mode: "edit",
@@ -458,6 +467,15 @@ export function PppClientEditForm() {
         }
 
         throw new Error(errorData.error || "Gagal menyimpan pelanggan PPP");
+      }
+
+      // Data tersimpan tetapi tagihannya tidak diganti: admin harus membaca
+      // alasannya, jadi halaman tidak langsung ditinggalkan.
+      const notice = await readInvoiceActionNotice(res);
+      if (notice) {
+        setInvoiceNotice(notice);
+        showToast("warning", notice, INVOICE_NOTICE_TOAST_MS);
+        return;
       }
 
       // Berhasil, redirect ke halaman list dengan refresh
@@ -732,6 +750,8 @@ export function PppClientEditForm() {
                   roundedClassName="rounded-lg"
                 />
               )}
+
+              {invoiceNotice && <InvoiceActionNotice message={invoiceNotice} />}
 
               <PppClientFormActions
                 error={error}

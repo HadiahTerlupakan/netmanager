@@ -62,6 +62,7 @@ import { runWithRequestTenantContext } from "@/lib/tenant-context";
 import { encryptApiKey } from "@/lib/utils/encryption";
 import { BillingEventDispatcher } from "@/modules/events";
 import { AutomaticBillingService } from "@/modules/finance/services/AutomaticBillingService";
+import { findRepriceBlocker } from "@/modules/finance/services/cycle-invoice-reprice";
 import { WebhookProcessingService } from "@/modules/payment-gateway/services/webhook-processing-service";
 import { createCustomerPaymentForRoute } from "@/modules/pelanggan/services/CustomerPaymentRouteService";
 
@@ -78,6 +79,7 @@ const COUPON = "kupon-settle-fix";
 const CONFIG_ID = "cfg-settle-duitku";
 const MERCHANT = "DSETTLE1";
 const API_KEY = "settle-api-key-for-tests-only";
+const MANUAL_METHOD = "MANUAL_rekening-settle";
 const PRICE = 100000n;
 // 11 Nov 2026 00:00 WIB.
 const DUE = new Date("2026-11-10T17:00:00.000Z");
@@ -346,6 +348,36 @@ async function saldoKredit() {
   return customer.saldoKreditRupiah;
 }
 
+async function invoiceWithPayments(id: string) {
+  return prismaBillingAuth.invoice.findUniqueOrThrow({
+    where: { id },
+    include: {
+      payment: {
+        select: { gatewayStatus: true, expiresAt: true, receiptUrl: true },
+      },
+    },
+  });
+}
+
+/** Unggah bukti: seperti server, bukti menempel di semua payment checkout. */
+async function attachProof(invoiceId: string) {
+  const manual = await prismaBillingAuth.payment.findFirstOrThrow({
+    where: {
+      invoiceId,
+      paymentMethod: "BANK_TRANSFER",
+      gatewayStatus: "PENDING",
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  await prismaBillingAuth.payment.updateMany({
+    where: manual.checkoutId
+      ? { checkoutId: manual.checkoutId }
+      : { id: manual.id },
+    data: { receiptUrl: "/receipts/settle-proof.webp" },
+  });
+  return manual;
+}
+
 function invoicePaidEventsFor(labels: Record<string, string>) {
   return dispatcher.onInvoicePaid.mock.calls.map(
     ([invoiceId]) => labels[invoiceId] ?? invoiceId,
@@ -416,6 +448,85 @@ describeDb("pelunasan pembayaran pelanggan", () => {
       invoiceStatus: "PAID",
       saldoKredit: PRICE,
       overpaidNotices: 1,
+    });
+  });
+
+  describe("Batalkan & Buat Tagihan Baru", () => {
+    it("tidak membatalkan tagihan yang VA-nya masih bisa dibayar, dan memberi tahu admin", async () => {
+      await seed();
+      const inv1 = await createInvoice("STL-1", PRICE);
+      await createVa(inv1.id, "PAY-SETTLE-T1");
+
+      const repriceGuard = findRepriceBlocker(
+        await invoiceWithPayments(inv1.id),
+        new Date(),
+      );
+      const result = await voidAndCreateNew();
+
+      expect({
+        repriceGuard,
+        oldInvoice: (await invoice(inv1.id)).status,
+        liveInvoices: (await invoices()).filter((i) => i.status !== "CANCELLED")
+          .length,
+        replacementCreated: result.invoice !== null,
+        kept: result.keptInvoices.map((k) => [k.invoiceNumber, k.reason]),
+      }).toEqual({
+        repriceGuard: "ACTIVE_CHECKOUT",
+        oldInvoice: "SENT",
+        liveInvoices: 1,
+        replacementCreated: false,
+        kept: [["STL-1", "ACTIVE_CHECKOUT"]],
+      });
+      expect(result.keptInvoices[0].message).toMatch(
+        /STL-1 tidak dibatalkan karena pelanggan sedang membayar \(.+ aktif sampai .+ WIB\)/,
+      );
+    });
+
+    it("tidak membatalkan tagihan yang bukti transfernya menunggu verifikasi", async () => {
+      await seed();
+      const inv1 = await createInvoice("STL-1B", PRICE);
+      await payFromPortal([inv1.id], MANUAL_METHOD);
+      await attachProof(inv1.id);
+
+      const result = await voidAndCreateNew();
+
+      expect({
+        oldInvoice: (await invoice(inv1.id)).status,
+        invoiceCount: (await invoices()).length,
+        kept: result.keptInvoices.map((k) => k.reason),
+      }).toEqual({
+        oldInvoice: "SENT",
+        invoiceCount: 1,
+        kept: ["PAYMENT_RECORDED"],
+      });
+      expect(result.keptInvoices[0].message).toContain(
+        "bukti transfer yang menunggu verifikasi",
+      );
+    });
+
+    it("mengembalikan saldo kredit yang dipakai tagihan yang dibatalkan", async () => {
+      await seed({ saldo: 50000n });
+      await asTenant(() =>
+        AutomaticBillingService.generateImmediateInvoice(PELANGGAN),
+      );
+      const [first] = await invoices();
+      const saldoAfterFirstInvoice = await saldoKredit();
+
+      await voidAndCreateNew();
+      const replacement = (await invoices()).find((i) => i.id !== first.id)!;
+
+      expect({
+        creditUsedByFirstInvoice: first.discountAmount,
+        saldoAfterFirstInvoice,
+        firstInvoiceStatus: (await invoice(first.id)).status,
+        creditStillWorkingForCustomer:
+          (await saldoKredit()) + replacement.discountAmount,
+      }).toEqual({
+        creditUsedByFirstInvoice: 50000n,
+        saldoAfterFirstInvoice: 0n,
+        firstInvoiceStatus: "CANCELLED",
+        creditStillWorkingForCustomer: 50000n,
+      });
     });
   });
 
@@ -544,6 +655,27 @@ describeDb("pelunasan pembayaran pelanggan", () => {
         }),
       );
       expect(dispatcher.onPaymentOverpaid).not.toHaveBeenCalled();
+    });
+  });
+
+  it("transfer manual tanpa bukti tidak menahan hitung ulang tagihan; yang berbukti menahan", async () => {
+    await seed();
+    const inv = await createInvoice("STL-13", PRICE);
+
+    await payFromPortal([inv.id], MANUAL_METHOD);
+    const withoutProof = findRepriceBlocker(
+      await invoiceWithPayments(inv.id),
+      new Date(),
+    );
+    await attachProof(inv.id);
+    const withProof = findRepriceBlocker(
+      await invoiceWithPayments(inv.id),
+      new Date(),
+    );
+
+    expect({ withoutProof, withProof }).toEqual({
+      withoutProof: null,
+      withProof: "PAYMENT_RECORDED",
     });
   });
 });

@@ -8,16 +8,64 @@ vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
   cancelInvoiceBillingSchedules: vi.fn(),
   syncInvoiceBillingSchedules: vi.fn(),
 }));
+vi.mock("@/modules/accounting", () => ({
+  reverseCancelledInvoiceJournals: vi.fn().mockResolvedValue(0),
+}));
 
 import { replaceOutstandingInvoiceForCustomer } from "@/modules/finance/services/outstanding-invoice.helpers";
 
-function createInvoiceRepo(
-  invoices: Array<{ id: string; status: string; paidAmount: bigint }> = [],
-) {
+const NOW = new Date("2026-10-31T03:00:00.000Z");
+const JAM = 60 * 60 * 1000;
+
+type Payment = {
+  gatewayStatus: string | null;
+  expiresAt: Date | null;
+  receiptUrl: string | null;
+  gatewayProvider: string | null;
+};
+
+function tagihan(id: string, payment: Payment[] = []) {
+  return {
+    id,
+    invoiceNumber: `INV/${id}`,
+    status: "SENT",
+    paidAmount: 0n,
+    tenantId: "t1",
+    payment,
+  };
+}
+
+const VA_AKTIF: Payment = {
+  gatewayStatus: "PENDING",
+  expiresAt: new Date(NOW.getTime() + 20 * JAM),
+  receiptUrl: null,
+  gatewayProvider: "BC",
+};
+
+function createInvoiceRepo(invoices: ReturnType<typeof tagihan>[] = []) {
   return {
     findUnpaidInvoices: vi.fn().mockResolvedValue(invoices),
-    update: vi.fn().mockImplementation(async (id: string) => ({ id })),
+    cancelIfUnpaid: vi.fn().mockImplementation(async (id: string) => ({
+      id,
+      pelangganId: "cust-1",
+      notes: null,
+      discountAmount: 0n,
+    })),
   };
+}
+
+function ganti(
+  invoiceRepo: ReturnType<typeof createInvoiceRepo>,
+  createInvoice = vi.fn().mockResolvedValue({ id: "inv-baru" }),
+) {
+  return replaceOutstandingInvoiceForCustomer({
+    pelangganId: "cust-1",
+    invoiceRepo: invoiceRepo as never,
+    createInvoice,
+    describeMethod: (code) =>
+      code === "BC" ? "BCA Virtual Account" : undefined,
+    now: NOW,
+  });
 }
 
 describe("replaceOutstandingInvoiceForCustomer", () => {
@@ -29,85 +77,162 @@ describe("replaceOutstandingInvoiceForCustomer", () => {
   // tagihan lama tetap hidup sehingga pelanggan punya dua tagihan.
   it("membatalkan tagihan lama sebelum membuat yang baru", async () => {
     const callOrder: string[] = [];
-    const invoiceRepo = createInvoiceRepo([
-      { id: "inv-lama", status: "SENT", paidAmount: 0n },
-    ]);
-    invoiceRepo.update.mockImplementation(async (id: string) => {
+    const invoiceRepo = createInvoiceRepo([tagihan("lama")]);
+    invoiceRepo.cancelIfUnpaid.mockImplementation(async (id: string) => {
       callOrder.push(`cancel:${id}`);
-      return { id };
+      return { id, pelangganId: "cust-1", notes: null, discountAmount: 0n };
     });
 
-    await replaceOutstandingInvoiceForCustomer({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
-      createInvoice: async () => {
+    const result = await ganti(
+      invoiceRepo,
+      vi.fn(async () => {
         callOrder.push("create");
         return { id: "inv-baru" };
-      },
-    });
+      }),
+    );
 
-    expect(callOrder).toEqual(["cancel:inv-lama", "create"]);
+    expect(callOrder).toEqual(["cancel:lama", "create"]);
+    expect(result).toEqual({
+      cancelledInvoiceIds: ["lama"],
+      invoice: { id: "inv-baru" },
+      keptInvoices: [],
+    });
   });
 
-  it("melaporkan tagihan yang dibatalkan dan tagihan penggantinya", async () => {
-    const invoiceRepo = createInvoiceRepo([
-      { id: "inv-lama", status: "OVERDUE", paidAmount: 0n },
-    ]);
+  it("hanya mencari tagihan hidup milik pelanggan itu beserta pembayarannya", async () => {
+    const invoiceRepo = createInvoiceRepo([]);
 
-    const result = await replaceOutstandingInvoiceForCustomer({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
-      createInvoice: async () => ({ id: "inv-baru" }),
-    });
+    await ganti(invoiceRepo);
 
-    expect(result.cancelledInvoiceIds).toEqual(["inv-lama"]);
-    expect(result.invoice).toEqual({ id: "inv-baru" });
+    expect(invoiceRepo.findUnpaidInvoices).toHaveBeenCalledWith(
+      {
+        pelangganId: "cust-1",
+        status: { in: ["DRAFT", "SENT", "OVERDUE"] },
+      },
+      expect.objectContaining({
+        payment: {
+          select: expect.objectContaining({
+            receiptUrl: true,
+            expiresAt: true,
+          }),
+        },
+      }),
+    );
   });
 
   it("tidak membuat tagihan baru bila pembatalan gagal", async () => {
-    const invoiceRepo = createInvoiceRepo([
-      { id: "inv-lama", status: "SENT", paidAmount: 0n },
-    ]);
-    invoiceRepo.update.mockRejectedValue(new Error("db down"));
+    const invoiceRepo = createInvoiceRepo([tagihan("lama")]);
+    invoiceRepo.cancelIfUnpaid.mockRejectedValue(new Error("db down"));
     const createInvoice = vi.fn();
 
-    await expect(
-      replaceOutstandingInvoiceForCustomer({
-        pelangganId: "cust-1",
-        invoiceRepo: invoiceRepo as never,
-        createInvoice,
-      }),
-    ).rejects.toThrow("db down");
+    await expect(ganti(invoiceRepo, createInvoice)).rejects.toThrow("db down");
     expect(createInvoice).not.toHaveBeenCalled();
   });
 
   it("tetap membuat tagihan baru saat tidak ada tagihan lama", async () => {
-    const invoiceRepo = createInvoiceRepo([]);
     const createInvoice = vi.fn().mockResolvedValue({ id: "inv-baru" });
 
-    const result = await replaceOutstandingInvoiceForCustomer({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
-      createInvoice,
-    });
+    const result = await ganti(createInvoiceRepo([]), createInvoice);
 
     expect(result.cancelledInvoiceIds).toEqual([]);
     expect(createInvoice).toHaveBeenCalledOnce();
   });
 
-  // Uang yang sudah masuk tidak boleh digantung.
-  it("tidak membatalkan tagihan yang sudah menyerap pembayaran", async () => {
-    const invoiceRepo = createInvoiceRepo([
-      { id: "inv-lama", status: "PARTIAL_PAID", paidAmount: 50000n },
-    ]);
+  // Duitku tidak bisa menutup VA lebih awal: pelanggan yang sedang membayar
+  // VA tagihan lama akan membayar tagihan yang sudah dibatalkan.
+  it("membiarkan tagihan yang VA-nya masih bisa dibayar, dengan alasan untuk admin", async () => {
+    const invoiceRepo = createInvoiceRepo([tagihan("lama", [VA_AKTIF])]);
+    const createInvoice = vi.fn();
 
-    const result = await replaceOutstandingInvoiceForCustomer({
-      pelangganId: "cust-1",
-      invoiceRepo: invoiceRepo as never,
-      createInvoice: async () => ({ id: "inv-baru" }),
-    });
+    const result = await ganti(invoiceRepo, createInvoice);
 
     expect(result.cancelledInvoiceIds).toEqual([]);
-    expect(invoiceRepo.update).not.toHaveBeenCalled();
+    expect(result.invoice).toBeNull();
+    expect(result.keptInvoices).toEqual([
+      {
+        invoiceId: "lama",
+        invoiceNumber: "INV/lama",
+        reason: "ACTIVE_CHECKOUT",
+        message:
+          "Tagihan INV/lama tidak dibatalkan karena pelanggan sedang membayar (BCA Virtual Account aktif sampai 1 Nov 2026, 06.00 WIB).",
+      },
+    ]);
+    expect(invoiceRepo.cancelIfUnpaid).not.toHaveBeenCalled();
+    expect(createInvoice).not.toHaveBeenCalled();
+  });
+
+  it("membiarkan tagihan yang bukti transfernya menunggu verifikasi", async () => {
+    const invoiceRepo = createInvoiceRepo([
+      tagihan("lama", [
+        {
+          gatewayStatus: "PENDING",
+          expiresAt: null,
+          receiptUrl: "/bukti.webp",
+          gatewayProvider: null,
+        },
+      ]),
+    ]);
+
+    const result = await ganti(invoiceRepo);
+
+    expect(result.keptInvoices).toMatchObject([
+      {
+        reason: "PAYMENT_RECORDED",
+        message:
+          "Tagihan INV/lama tidak dibatalkan karena ada bukti transfer yang menunggu verifikasi; setujui atau tolak dulu di Verifikasi Pembayaran Manual.",
+      },
+    ]);
+  });
+
+  it("pilihan transfer manual tanpa bukti tidak menahan penggantian", async () => {
+    const invoiceRepo = createInvoiceRepo([
+      tagihan("lama", [
+        {
+          gatewayStatus: "PENDING",
+          expiresAt: null,
+          receiptUrl: null,
+          gatewayProvider: null,
+        },
+      ]),
+    ]);
+
+    const result = await ganti(invoiceRepo);
+
+    expect(result.cancelledInvoiceIds).toEqual(["lama"]);
+    expect(result.invoice).toEqual({ id: "inv-baru" });
+  });
+
+  // Satu periode tidak boleh berakhir dengan dua tagihan.
+  it("satu tagihan yang tertahan membatalkan seluruh penggantian", async () => {
+    const invoiceRepo = createInvoiceRepo([
+      tagihan("tunggakan"),
+      tagihan("berjalan", [VA_AKTIF]),
+    ]);
+
+    const result = await ganti(invoiceRepo);
+
+    expect(result.keptInvoices.map((kept) => kept.invoiceId)).toEqual([
+      "berjalan",
+    ]);
+    expect(invoiceRepo.cancelIfUnpaid).not.toHaveBeenCalled();
+    expect(result.invoice).toBeNull();
+  });
+
+  it("tagihan yang lunas tepat sebelum dibatalkan dilaporkan, tanpa tagihan baru", async () => {
+    const invoiceRepo = createInvoiceRepo([tagihan("lama")]);
+    invoiceRepo.cancelIfUnpaid.mockResolvedValue(null);
+    const createInvoice = vi.fn();
+
+    const result = await ganti(invoiceRepo, createInvoice);
+
+    expect(result.keptInvoices).toMatchObject([
+      {
+        invoiceId: "lama",
+        reason: "NOT_UNPAID",
+        message:
+          "Tagihan INV/lama tidak dibatalkan karena baru saja menerima pembayaran.",
+      },
+    ]);
+    expect(createInvoice).not.toHaveBeenCalled();
   });
 });

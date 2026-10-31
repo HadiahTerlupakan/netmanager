@@ -25,6 +25,11 @@ import {
   isOdpAssignable,
 } from "./pelanggan-odp.validator";
 import { publishCustomerStatusChange } from "./customer-status-events";
+import {
+  describeInvoiceActionFailure,
+  describeKeptInvoices,
+  type InvoiceActionOutcome,
+} from "./invoice-action-outcome";
 
 export class PelangganAdminMutationError extends Error {
   constructor(
@@ -171,13 +176,13 @@ export class PelangganAdminMutationService {
       }
 
       await this.syncUpdatedCustomer(input, existingPelanggan, pelanggan);
-      const invoiceActionFailed = await this.handleInvoiceAction(
+      const invoiceActionOutcome = await this.handleInvoiceAction(
         normalizedData.invoiceAction,
         pelanggan.id,
       );
       return {
         ...sanitizePelangganResponse(pelanggan),
-        ...(invoiceActionFailed ? { invoiceActionFailed: true } : {}),
+        ...invoiceActionOutcome,
       };
     } catch (error) {
       throw this.mapMutationError(error);
@@ -420,32 +425,33 @@ export class PelangganAdminMutationService {
    * ini, jadi kegagalan pembuatan invoice tidak boleh menggagalkan seluruh
    * mutasi: retry oleh admin akan mengulang update dan mem-publish ulang event
    * sync, berpotensi menghasilkan invoice ganda. Kegagalan di-log dan
-   * dilaporkan lewat flag `invoiceActionFailed` di response supaya tetap
-   * terlihat, bukan ditelan diam-diam.
+   * dilaporkan lewat `invoiceActionFailed` dan `invoiceActionMessage` di
+   * response supaya tetap terlihat, bukan ditelan diam-diam.
    *
    * Aksi VOID_AND_CREATE_NEW membatalkan tagihan hidup pelanggan lebih dulu,
-   * sesuai label UI "Batalkan & Buat Tagihan Baru".
-   *
-   * @returns true bila aksi invoice diminta tapi gagal dijalankan.
+   * sesuai label UI "Batalkan & Buat Tagihan Baru". Tagihan yang sedang
+   * dibayar pelanggan tidak dibatalkan; alasannya dikirim ke admin lewat
+   * `invoiceActionMessage`.
    */
   private async handleInvoiceAction(
     invoiceAction: string | null,
     pelangganId: string,
-  ): Promise<boolean> {
+  ): Promise<InvoiceActionOutcome> {
     if (invoiceAction !== "VOID_AND_CREATE_NEW") {
-      return false;
+      return {};
     }
 
     try {
       const { AutomaticBillingService } = await import("@/modules/finance");
-      await AutomaticBillingService.replaceOutstandingInvoice(pelangganId);
-      return false;
+      const result =
+        await AutomaticBillingService.replaceOutstandingInvoice(pelangganId);
+      return describeKeptInvoices(result.keptInvoices);
     } catch (invoiceError) {
       logger.error(
         `[PelangganAdminMutationService] Gagal membuat invoice untuk pelanggan ${pelangganId} setelah update ter-commit:`,
         invoiceError instanceof Error ? invoiceError : undefined,
       );
-      return true;
+      return describeInvoiceActionFailure(invoiceError);
     }
   }
 

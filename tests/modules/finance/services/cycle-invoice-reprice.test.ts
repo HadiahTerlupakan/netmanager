@@ -4,11 +4,28 @@ import { findRepriceBlocker } from "@/modules/finance/services/cycle-invoice-rep
 const NOW = new Date("2026-11-03T10:00:00.000Z");
 const MENIT = 60 * 1000;
 
-type Payment = { gatewayStatus: string | null; expiresAt: Date | null };
+type Payment = {
+  gatewayStatus: string | null;
+  expiresAt: Date | null;
+  receiptUrl?: string | null;
+};
 type Invoice = { status: string; paidAmount: bigint; payment: Payment[] };
 
-function invoice(overrides: Partial<Invoice>): Invoice {
-  return { status: "SENT", paidAmount: 0n, payment: [], ...overrides };
+/** Payment tanpa `receiptUrl` adalah payment yang tidak membawa bukti. */
+function invoice(overrides: Partial<Invoice>) {
+  const merged: Invoice = {
+    status: "SENT",
+    paidAmount: 0n,
+    payment: [],
+    ...overrides,
+  };
+  return {
+    ...merged,
+    payment: merged.payment.map((p) => ({
+      ...p,
+      receiptUrl: p.receiptUrl ?? null,
+    })),
+  };
 }
 
 describe("findRepriceBlocker", () => {
@@ -38,7 +55,7 @@ describe("findRepriceBlocker", () => {
     // Transfer manual tanpa expiresAt: buktinya sedang diverifikasi admin.
     [
       "transfer menunggu verifikasi",
-      { gatewayStatus: "PENDING", expiresAt: null },
+      { gatewayStatus: "PENDING", expiresAt: null, receiptUrl: "/bukti.webp" },
     ],
   ])("%s menahan invoice", (_label, payment) => {
     expect(findRepriceBlocker(invoice({ payment: [payment] }), NOW)).toBe(
@@ -92,6 +109,11 @@ describe("findRepriceBlocker", () => {
     ],
     // Pembayaran manual yang dibatalkan admin tidak lagi bisa dibayar.
     ["manual yang dibatalkan", { gatewayStatus: "CANCELLED", expiresAt: null }],
+    // Memilih "Transfer Manual" lalu meninggalkannya tanpa bukti bukan uang.
+    [
+      "transfer manual tanpa bukti",
+      { gatewayStatus: "PENDING", expiresAt: null, receiptUrl: null },
+    ],
   ])("payment %s tidak menahan", (_label, payment) => {
     expect(findRepriceBlocker(invoice({ payment: [payment] }), NOW)).toBeNull();
   });

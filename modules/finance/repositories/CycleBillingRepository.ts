@@ -58,7 +58,11 @@ export type CycleInvoice = {
   totalAmount: bigint;
   paidAmount: bigint;
   tenantId: string | null;
-  payment: Array<{ gatewayStatus: string | null; expiresAt: Date | null }>;
+  payment: Array<{
+    gatewayStatus: string | null;
+    expiresAt: Date | null;
+    receiptUrl: string | null;
+  }>;
 };
 
 /**
@@ -88,7 +92,9 @@ export async function findCycleInvoicesWithPayments(
       totalAmount: true,
       paidAmount: true,
       tenantId: true,
-      payment: { select: { gatewayStatus: true, expiresAt: true } },
+      payment: {
+        select: { gatewayStatus: true, expiresAt: true, receiptUrl: true },
+      },
     },
   });
 }

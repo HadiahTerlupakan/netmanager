@@ -70,8 +70,7 @@ function buildDeps() {
         totalAmount: 250000n,
       }),
     },
-    cancelInvoice: vi.fn().mockResolvedValue(undefined),
-    refundSaldoKredit: vi.fn().mockResolvedValue(undefined),
+    cancelInvoice: vi.fn().mockResolvedValue(true),
     runExclusively: vi.fn(async (_id: string, task: () => Promise<unknown>) =>
       task(),
     ),
@@ -167,13 +166,16 @@ describe("CycleInvoiceRepriceService.syncCycleInvoice", () => {
     expect(deps.cancelInvoice).not.toHaveBeenCalled();
   });
 
-  it("saldo kredit yang terpakai tagihan lama dikembalikan sebelum tagihan baru memakainya lagi", async () => {
+  // Pembatalan (cancelReplacedInvoice) mengembalikan saldo kredit tagihan
+  // lama, jadi harus selesai sebelum tagihan baru memakainya lagi.
+  it("tagihan lama dibatalkan sebelum tagihan baru dibuat", async () => {
     deps.findCycleInvoices.mockResolvedValue([
       cycleInvoice({ discountAmount: 40000n, totalAmount: 110000n }),
     ]);
     const urutan: string[] = [];
-    deps.refundSaldoKredit.mockImplementation(async () => {
-      urutan.push("refund");
+    deps.cancelInvoice.mockImplementation(async () => {
+      urutan.push("cancel");
+      return true;
     });
     deps.invoiceCreation.createInvoiceForCustomer.mockImplementation(
       async () => {
@@ -184,8 +186,24 @@ describe("CycleInvoiceRepriceService.syncCycleInvoice", () => {
 
     await newService(deps).syncCycleInvoice(input);
 
-    expect(deps.refundSaldoKredit).toHaveBeenCalledWith(PELANGGAN, 40000n);
-    expect(urutan).toEqual(["refund", "create"]);
+    expect(urutan).toEqual(["cancel", "create"]);
+  });
+
+  // Webhook tidak memegang kunci checkout: tagihan bisa lunas tepat di
+  // antara pemeriksaan dan pembatalannya.
+  it("tagihan yang lunas tepat sebelum dibatalkan dibiarkan tanpa pengganti", async () => {
+    deps.cancelInvoice.mockResolvedValue(false);
+
+    const result = await newService(deps).syncCycleInvoice(input);
+
+    expect(result).toMatchObject({
+      status: "KEPT",
+      reason: "NOT_UNPAID",
+      invoiceId: "inv-lama",
+    });
+    expect(
+      deps.invoiceCreation.createInvoiceForCustomer,
+    ).not.toHaveBeenCalled();
   });
 
   it("checkout aktif: tagihan dibiarkan utuh", async () => {
@@ -210,7 +228,6 @@ describe("CycleInvoiceRepriceService.syncCycleInvoice", () => {
       totalAmount: 150000n,
     });
     expect(deps.cancelInvoice).not.toHaveBeenCalled();
-    expect(deps.refundSaldoKredit).not.toHaveBeenCalled();
     expect(
       deps.invoiceCreation.createInvoiceForCustomer,
     ).not.toHaveBeenCalled();

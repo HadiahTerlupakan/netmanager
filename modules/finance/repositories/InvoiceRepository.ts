@@ -1,5 +1,5 @@
 import { prismaBilling } from "@/lib/prisma-billing";
-import type { Prisma } from "@prisma/client-billing";
+import type { InvoiceStatus, Prisma } from "@prisma/client-billing";
 import { OUTSTANDING_INVOICE_STATUSES } from "@/lib/constants/invoice-status";
 import type {
   IInvoiceRepository,
@@ -157,6 +157,24 @@ export class InvoiceRepository implements IInvoiceRepository {
     });
 
     return result.count > 0;
+  }
+
+  /**
+   * Batalkan invoice yang statusnya masih salah satu `statuses` dan belum
+   * menerima pembayaran; null bila tidak lagi begitu (mis. baru dilunasi
+   * webhook), supaya tagihan yang sudah menerima uang tidak pernah dibatalkan.
+   */
+  async cancelIfUnpaid(
+    id: string,
+    statuses: readonly InvoiceStatus[],
+    now: Date,
+  ): Promise<InvoiceEntity | null> {
+    const result = await prismaBilling.invoice.updateMany({
+      where: { id, status: { in: [...statuses] }, paidAmount: 0 },
+      data: { status: "CANCELLED", updatedAt: now },
+    });
+    if (result.count === 0) return null;
+    return findInvoiceEntityById(id);
   }
 
   /**

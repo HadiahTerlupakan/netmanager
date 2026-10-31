@@ -6,6 +6,7 @@ import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 import { BillingInvoiceCreationService } from "./BillingInvoiceCreationService";
 import { BillingReminderService } from "./BillingReminderService";
+import { runUnderCustomerCheckoutLockAsSystem } from "./customer-checkout-lock";
 import {
   canGenerateRealtimeInvoice,
   createBillingCatchUpRange,
@@ -268,28 +269,40 @@ export class AutomaticBillingService {
    *
    * Mendukung aksi admin "Batalkan & Buat Tagihan Baru": sebelumnya alur itu
    * hanya membuat tagihan baru sehingga tagihan lama tetap hidup dan pelanggan
-   * berakhir dengan dua tagihan. Pembatalan dijalankan lebih dulu dan tidak
-   * ditelan — kalau gagal, tagihan pengganti tidak dibuat supaya tidak
-   * menambah tagihan ganda.
+   * berakhir dengan dua tagihan. Tagihan yang sedang dibayar (VA/QRIS aktif,
+   * bukti transfer menunggu verifikasi) tidak dibatalkan; hasilnya menyebut
+   * tagihan itu beserta alasannya. Berjalan di bawah kunci checkout pelanggan
+   * supaya pelanggan tidak membuat VA untuk tagihan yang sedang dibatalkan.
    */
   static async replaceOutstandingInvoice(pelangganId: string) {
-    const { replaceOutstandingInvoiceForCustomer } =
-      await import("./outstanding-invoice.helpers");
+    const [
+      { replaceOutstandingInvoiceForCustomer },
+      { findPaymentMethodByCode },
+    ] = await Promise.all([
+      import("./outstanding-invoice.helpers"),
+      import("@/modules/payment-gateway"),
+    ]);
 
-    return replaceOutstandingInvoiceForCustomer({
+    return runUnderCustomerCheckoutLockAsSystem(
       pelangganId,
-      invoiceRepo: this.invoiceRepo,
-      createInvoice: () =>
-        createImmediateInvoice({
+      "replace-outstanding-invoice",
+      () =>
+        replaceOutstandingInvoiceForCustomer({
           pelangganId,
-          pelangganBridge: this.getPelangganBridge(),
-          invoiceCreationService: this.getInvoiceCreationService(),
           invoiceRepo: this.invoiceRepo,
-          paymentRepo: this.paymentRepo,
-          shouldMarkPaid: false,
-          jatuhTempoDariPelanggan: true,
+          describeMethod: (code) => findPaymentMethodByCode(code)?.name,
+          createInvoice: () =>
+            createImmediateInvoice({
+              pelangganId,
+              pelangganBridge: this.getPelangganBridge(),
+              invoiceCreationService: this.getInvoiceCreationService(),
+              invoiceRepo: this.invoiceRepo,
+              paymentRepo: this.paymentRepo,
+              shouldMarkPaid: false,
+              jatuhTempoDariPelanggan: true,
+            }),
         }),
-    });
+    );
   }
 
   private static async createInvoiceForCustomer(
