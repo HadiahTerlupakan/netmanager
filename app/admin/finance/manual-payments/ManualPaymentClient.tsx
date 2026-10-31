@@ -19,13 +19,25 @@ interface PendingPayment {
   createdAt: string;
   customerName?: string;
   notes?: string;
+  /** Total satu checkout transfer: bukti menutup semua tagihannya. */
+  checkoutTotal: string;
+  checkoutInvoiceNumbers: string[];
+  /** Tagihan sudah lunas/dibatalkan lewat jalur lain. */
+  settlementWarning: string | null;
   invoice: {
     id: string;
     invoiceNumber: string;
     pelangganId: string;
     totalAmount: string;
+    status: string;
   };
 }
+
+/** Peringatan dari server tetap tampil cukup lama untuk dibaca. */
+const WARNING_TOAST_MS = 12000;
+
+const formatRupiah = (amount: string | number) =>
+  `Rp ${Number(amount).toLocaleString("id-ID")}`;
 
 export default function ManualPaymentClient() {
   const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(
@@ -105,7 +117,7 @@ export default function ManualPaymentClient() {
    * error.
    */
   const verifyPaymentMutation = useMutation<
-    void,
+    string[],
     Error,
     { paymentId: string; action: "APPROVE" | "REJECT"; notes: string },
     { previous: PendingPayment[] | undefined }
@@ -120,6 +132,7 @@ export default function ManualPaymentClient() {
       if (!json.success) {
         throw new Error(json.error || "Terjadi kesalahan sistem.");
       }
+      return (json.data?.warnings as string[] | undefined) ?? [];
     },
     onMutate: async ({ paymentId, action }) => {
       // Cancel inflight queries supaya tidak overwrite optimistic state
@@ -145,10 +158,14 @@ export default function ManualPaymentClient() {
       }
       toast.error(error.message || "Gagal memproses pembayaran.");
     },
-    onSuccess: (_data, { action }) => {
+    onSuccess: (warnings, { action }) => {
       toast.success(
         `Pembayaran berhasil di-${action === "APPROVE" ? "setujui" : "tolak"}`,
       );
+      // Uang yang tidak melunasi tagihannya sendiri (sudah lunas/dibatalkan).
+      for (const warning of warnings) {
+        toast(warning, { icon: "⚠️", duration: WARNING_TOAST_MS });
+      }
       setSelectedPayment(null);
       setNotes("");
     },
@@ -408,6 +425,16 @@ export default function ManualPaymentClient() {
                             </div>
                             <div className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
                               <span>{payment.invoice?.invoiceNumber}</span>
+                              {payment.settlementWarning && (
+                                <span
+                                  title={payment.settlementWarning}
+                                  className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                                >
+                                  {payment.invoice?.status === "CANCELLED"
+                                    ? "Tagihan dibatalkan"
+                                    : "Tagihan sudah lunas"}
+                                </span>
+                              )}
                               {payment.notes?.includes("⚠️ [AI Peringatan]") &&
                                 isPending && (
                                   <span
@@ -420,7 +447,12 @@ export default function ManualPaymentClient() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                            Rp {Number(payment.amount).toLocaleString("id-ID")}
+                            {formatRupiah(payment.checkoutTotal)}
+                            {payment.checkoutInvoiceNumbers.length > 1 && (
+                              <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
+                                {payment.checkoutInvoiceNumbers.length} tagihan
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
                             <span
@@ -512,14 +544,30 @@ export default function ManualPaymentClient() {
               </div>
             </div>
 
+            {selectedPayment.settlementWarning && (
+              <div
+                role="alert"
+                className="p-3 rounded-md text-sm border font-medium bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-900/30 dark:text-amber-100 dark:border-amber-700"
+              >
+                {selectedPayment.settlementWarning}.
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
                 <span className="block text-gray-500 text-xs">
-                  Total Dibayar
+                  {selectedPayment.checkoutInvoiceNumbers.length > 1
+                    ? `Total Transfer (${selectedPayment.checkoutInvoiceNumbers.length} tagihan)`
+                    : "Total Dibayar"}
                 </span>
                 <span className="font-bold text-lg text-gray-900 dark:text-white">
-                  Rp {Number(selectedPayment.amount).toLocaleString("id-ID")}
+                  {formatRupiah(selectedPayment.checkoutTotal)}
                 </span>
+                {selectedPayment.checkoutInvoiceNumbers.length > 1 && (
+                  <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {selectedPayment.checkoutInvoiceNumbers.join(", ")}
+                  </span>
+                )}
               </div>
               <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
                 <span className="block text-gray-500 text-xs">
@@ -583,7 +631,9 @@ export default function ManualPaymentClient() {
                   onClick={() => handleAction("APPROVE")}
                   loading={verifyPaymentMutation.isPending}
                 >
-                  Setujui & Lunasi Tagihan
+                  {selectedPayment.settlementWarning
+                    ? "Setujui Pembayaran"
+                    : "Setujui & Lunasi Tagihan"}
                 </Button>
               </div>
             )}

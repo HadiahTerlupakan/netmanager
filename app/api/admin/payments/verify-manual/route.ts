@@ -43,11 +43,13 @@ export const POST = createHandler(
       );
       const allowedSiteIds = isRestricted ? siteIds : undefined;
 
+      const admin = ctx.session!.user;
       const result = await manualPaymentAdminRouteService.verifyManualPayment({
         paymentId: ctx.validated.paymentId,
         action: ctx.validated.action,
         notes: ctx.validated.notes,
         allowedSiteIds,
+        verifiedBy: admin.name || admin.email || admin.id,
       });
 
       return apiSuccess(result);

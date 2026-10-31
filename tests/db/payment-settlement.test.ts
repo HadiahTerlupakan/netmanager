@@ -56,13 +56,17 @@ vi.mock("@/modules/notification", () => ({
   notifyPackageUpgradeCancelled: vi.fn(async () => undefined),
 }));
 
+import type { Job } from "bullmq";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import { runWithRequestTenantContext } from "@/lib/tenant-context";
 import { encryptApiKey } from "@/lib/utils/encryption";
+import type { EventJobData } from "@/lib/event-bus/queues";
 import { BillingEventDispatcher } from "@/modules/events";
 import { AutomaticBillingService } from "@/modules/finance/services/AutomaticBillingService";
 import { findRepriceBlocker } from "@/modules/finance/services/cycle-invoice-reprice";
+import { handleInvoicePaidManualPaymentCleanup } from "@/modules/finance/services/event-handlers/invoice-paid-manual-cleanup.handler";
+import { ManualPaymentAdminRouteService } from "@/modules/finance/services/ManualPaymentAdminRouteService";
 import { WebhookProcessingService } from "@/modules/payment-gateway/services/webhook-processing-service";
 import { createCustomerPaymentForRoute } from "@/modules/pelanggan/services/CustomerPaymentRouteService";
 
@@ -328,6 +332,19 @@ const payFromPortal = (
 const voidAndCreateNew = () =>
   asTenant(() => AutomaticBillingService.replaceOutstandingInvoice(PELANGGAN));
 
+const adminVerify = (
+  paymentId: string,
+  action: "APPROVE" | "REJECT",
+  extra: { reason?: string; notes?: string } = {},
+) =>
+  asTenant(() =>
+    new ManualPaymentAdminRouteService().verifyManualPayment({
+      paymentId,
+      action,
+      ...extra,
+    }),
+  );
+
 const invoice = (id: string) =>
   prismaBillingAuth.invoice.findUniqueOrThrow({ where: { id } });
 
@@ -382,6 +399,16 @@ function invoicePaidEventsFor(labels: Record<string, string>) {
   return dispatcher.onInvoicePaid.mock.calls.map(
     ([invoiceId]) => labels[invoiceId] ?? invoiceId,
   );
+}
+
+function invoicePaidJob(invoiceId: string): Job<EventJobData> {
+  return {
+    id: `job-${invoiceId}`,
+    data: {
+      eventName: "INVOICE_PAID",
+      payload: { invoiceId, pelangganId: PELANGGAN },
+    },
+  } as unknown as Job<EventJobData>;
 }
 
 describeDb("pelunasan pembayaran pelanggan", () => {
@@ -655,6 +682,196 @@ describeDb("pelunasan pembayaran pelanggan", () => {
         }),
       );
       expect(dispatcher.onPaymentOverpaid).not.toHaveBeenCalled();
+    });
+    it("bukti transfer yang disetujui setelah tagihannya diganti melunasi tagihan pengganti", async () => {
+      await seed();
+      const inv1 = await createInvoice("STL-5", PRICE);
+      await payFromPortal([inv1.id], MANUAL_METHOD);
+      // Belum ada bukti saat admin mengganti tagihan; bukti menyusul.
+      await voidAndCreateNew();
+      const statusAfterVoid = (await invoice(inv1.id)).status;
+      const replacement = (await invoices()).find((i) => i.id !== inv1.id)!;
+      const manual = await attachProof(inv1.id);
+
+      const result = await adminVerify(manual.id, "APPROVE");
+
+      const after = await invoice(replacement.id);
+      expect({
+        statusAfterVoid,
+        cancelledInvoiceAfterApproval: (await invoice(inv1.id)).status,
+        replacementStatus: after.status,
+        moneyCreditedOrApplied: (await saldoKredit()) + after.paidAmount,
+        invoicePaidFor: invoicePaidEventsFor({
+          [inv1.id]: "dibatalkan",
+          [replacement.id]: "pengganti",
+        }),
+      }).toEqual({
+        statusAfterVoid: "CANCELLED",
+        cancelledInvoiceAfterApproval: "CANCELLED",
+        replacementStatus: "PAID",
+        moneyCreditedOrApplied: PRICE,
+        invoicePaidFor: ["pengganti"],
+      });
+      expect(result.warnings.join(" ")).toContain("STL-5");
+    });
+  });
+  describe("verifikasi transfer manual", () => {
+    it("bukti transfer untuk tagihan yang sudah lunas lewat Duitku dikreditkan ke saldo", async () => {
+      await seed();
+      const inv = await createInvoice("STL-6", PRICE);
+      await payFromPortal([inv.id], MANUAL_METHOD);
+      const manual = await attachProof(inv.id);
+      // Bosan menunggu, pelanggan membayar lewat QRIS.
+      await payFromPortal([inv.id], "SP");
+      const qris = await prismaBillingAuth.payment.findFirstOrThrow({
+        where: { invoiceId: inv.id, gatewayProvider: "SP" },
+      });
+      await duitkuCallback({
+        merchantOrderId: qris.reference!,
+        amount: PRICE,
+        reference: qris.transactionId!,
+        paymentCode: "SP",
+      });
+
+      const queue = await asTenant(() =>
+        new ManualPaymentAdminRouteService().getPendingManualPayments({
+          status: "PENDING",
+        }),
+      );
+      const result = await adminVerify(manual.id, "APPROVE");
+
+      expect({
+        flaggedBeforeApproval: queue.find((p) => p.id === manual.id)
+          ?.settlementWarning,
+        invoiceStatus: (await invoice(inv.id)).status,
+        saldoKredit: await saldoKredit(),
+        manualKelebihanBayar: (await payment(manual.id)).kelebihanBayar,
+        overpaidNotifications: dispatcher.onPaymentOverpaid.mock.calls.length,
+        invoicePaidEvents: dispatcher.onInvoicePaid.mock.calls.length,
+      }).toEqual({
+        flaggedBeforeApproval:
+          "Tagihan sudah lunas — menyetujui akan dikreditkan ke saldo",
+        invoiceStatus: "PAID",
+        saldoKredit: PRICE,
+        manualKelebihanBayar: PRICE,
+        overpaidNotifications: 1,
+        invoicePaidEvents: 1,
+      });
+      expect(result.warnings.join(" ")).toContain("dikreditkan ke saldo");
+    });
+
+    it("menyetujui satu payment melunasi seluruh checkout transfer itu", async () => {
+      await seed();
+      const older = await createInvoice("STL-7A", PRICE, {
+        issueDate: new Date("2026-10-01T03:00:00.000Z"),
+      });
+      const newer = await createInvoice("STL-7B", 50000n, {
+        issueDate: new Date("2026-10-20T03:00:00.000Z"),
+      });
+      await payFromPortal([older.id, newer.id], MANUAL_METHOD);
+      const manual = await attachProof(older.id);
+
+      await adminVerify(manual.id, "APPROVE");
+
+      const payments = await prismaBillingAuth.payment.findMany({
+        where: { checkoutId: manual.checkoutId },
+      });
+      expect({
+        olderStatus: (await invoice(older.id)).status,
+        newerStatus: (await invoice(newer.id)).status,
+        paymentStatuses: payments.map((p) => p.gatewayStatus),
+      }).toEqual({
+        olderStatus: "PAID",
+        newerStatus: "PAID",
+        paymentStatuses: ["PAID", "PAID"],
+      });
+    });
+
+    it("checkout gateway tidak bisa disetujui sebagai transfer manual", async () => {
+      await seed();
+      const inv = await createInvoice("STL-8", PRICE);
+      const va = await createVa(inv.id, "PAY-SETTLE-T8");
+
+      const outcome = await adminVerify(va.id, "APPROVE").then(
+        () => "approved",
+        (error: Error) => error.message,
+      );
+
+      expect({
+        outcome,
+        vaStatus: (await payment(va.id)).gatewayStatus,
+        invoiceStatus: (await invoice(inv.id)).status,
+      }).toEqual({
+        outcome: "Hanya transfer manual yang bisa diverifikasi di sini",
+        vaStatus: "PENDING",
+        invoiceStatus: "SENT",
+      });
+    });
+
+    it("setuju dan tolak yang bersamaan hanya dimenangkan satu", async () => {
+      await seed();
+      const inv = await createInvoice("STL-9", PRICE);
+      await payFromPortal([inv.id], MANUAL_METHOD);
+      const manual = await attachProof(inv.id);
+
+      const outcomes = await Promise.allSettled([
+        adminVerify(manual.id, "APPROVE"),
+        adminVerify(manual.id, "REJECT"),
+      ]);
+
+      const after = await payment(manual.id);
+      expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+      expect({
+        payment: after.gatewayStatus,
+        invoice: (await invoice(inv.id)).status,
+      }).toEqual(
+        after.gatewayStatus === "PAID"
+          ? { payment: "PAID", invoice: "PAID" }
+          : { payment: "FAILED", invoice: "SENT" },
+      );
+    });
+
+    it("saat tagihan lunas, transfer manual tanpa bukti dibatalkan dan yang berbukti tetap ditandai", async () => {
+      await seed();
+      const inv = await createInvoice("STL-12", PRICE);
+      await payFromPortal([inv.id], MANUAL_METHOD);
+      const abandoned = await prismaBillingAuth.payment.findFirstOrThrow({
+        where: { invoiceId: inv.id, paymentMethod: "BANK_TRANSFER" },
+      });
+      await payFromPortal([inv.id], MANUAL_METHOD);
+      const withProof = await attachProof(inv.id);
+      await payFromPortal([inv.id], "SP");
+      const qris = await prismaBillingAuth.payment.findFirstOrThrow({
+        where: { invoiceId: inv.id, gatewayProvider: "SP" },
+      });
+      await duitkuCallback({
+        merchantOrderId: qris.reference!,
+        amount: PRICE,
+        reference: qris.transactionId!,
+        paymentCode: "SP",
+      });
+
+      await handleInvoicePaidManualPaymentCleanup(invoicePaidJob(inv.id));
+
+      const queue = await asTenant(() =>
+        new ManualPaymentAdminRouteService().getPendingManualPayments({
+          status: "PENDING",
+        }),
+      );
+      expect({
+        abandoned: (await payment(abandoned.id)).gatewayStatus,
+        withProof: (await payment(withProof.id)).gatewayStatus,
+        queued: queue.map((p) => [p.id, p.settlementWarning]),
+      }).toEqual({
+        abandoned: "CANCELLED",
+        withProof: "PENDING",
+        queued: [
+          [
+            withProof.id,
+            "Tagihan sudah lunas — menyetujui akan dikreditkan ke saldo",
+          ],
+        ],
+      });
     });
   });
 

@@ -12,9 +12,9 @@ import { NextRequest } from "next/server";
 const mockFns = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   getUserPermissions: vi.fn(),
-  approveManualPayment: vi.fn(),
-  rejectManualPayment: vi.fn(),
-  findByIdWithInvoice: vi.fn(),
+  approveManualCheckout: vi.fn(),
+  rejectManualCheckout: vi.fn(),
+  findVerifiablePayment: vi.fn(),
   checkSiteRestriction: vi.fn(),
   findPelangganById: vi.fn(),
 }));
@@ -25,20 +25,19 @@ vi.mock("@/lib/auth", async (importOriginal) => ({
   getUserPermissions: mockFns.getUserPermissions,
 }));
 vi.mock(
-  "@/modules/finance/services/manual-payment-admin.helpers",
+  "@/modules/finance/services/manual-payment-verification",
   async (importOriginal) => ({
     ...(await importOriginal<Record<string, unknown>>()),
-    approveManualPayment: mockFns.approveManualPayment,
-    rejectManualPayment: mockFns.rejectManualPayment,
+    approveManualCheckout: mockFns.approveManualCheckout,
+    rejectManualCheckout: mockFns.rejectManualCheckout,
   }),
 );
+vi.mock(
+  "@/modules/finance/repositories/manualPaymentVerification.repository",
+  () => ({ findVerifiablePayment: mockFns.findVerifiablePayment }),
+);
 vi.mock("@/modules/finance/repositories/PaymentRepository", () => ({
-  PaymentRepository: class {
-    findByIdWithInvoice = mockFns.findByIdWithInvoice;
-  },
-}));
-vi.mock("@/modules/finance/repositories/InvoiceRepository", () => ({
-  InvoiceRepository: class {},
+  PaymentRepository: class {},
 }));
 vi.mock("@/modules/finance/pelanggan-registry", () => ({
   getPelangganBillingBridge: () => ({ findById: mockFns.findPelangganById }),
@@ -49,6 +48,16 @@ vi.mock("@/modules/roles", async (importOriginal) => ({
 }));
 
 const { POST } = await import("@/app/api/admin/payments/verify-manual/route");
+
+const TRANSFER_MANUAL = {
+  id: "pay-1",
+  pelangganId: "pel-1",
+  gatewayStatus: "PENDING",
+  paymentMethod: "BANK_TRANSFER",
+  expiresAt: null as Date | null,
+  transactionId: null as string | null,
+  gatewayProvider: null as string | null,
+};
 
 function verify(action: string) {
   return POST(
@@ -68,12 +77,8 @@ describe("verify-manual — route dan layanan asli", () => {
       user: { id: "admin-1", role: "ADMIN", tenantId: "t1" },
     });
     mockFns.getUserPermissions.mockResolvedValue(["manual_payments:verify"]);
-    mockFns.findByIdWithInvoice.mockResolvedValue({
-      id: "pay-1",
-      pelangganId: "pel-1",
-      gatewayStatus: "PENDING",
-    });
-    mockFns.approveManualPayment.mockResolvedValue({ ok: true });
+    mockFns.findVerifiablePayment.mockResolvedValue(TRANSFER_MANUAL);
+    mockFns.approveManualCheckout.mockResolvedValue({ ok: true });
     mockFns.checkSiteRestriction.mockReturnValue({
       isRestricted: false,
       siteIds: [] as string[],
@@ -82,21 +87,39 @@ describe("verify-manual — route dan layanan asli", () => {
       id: "pel-1",
       siteId: "site-a",
     });
-    mockFns.rejectManualPayment.mockResolvedValue({ ok: true });
+    mockFns.rejectManualCheckout.mockResolvedValue({ ok: true });
   });
 
   it("tombol Setujui (APPROVE) sampai ke jalur approve", async () => {
     const response = await verify("APPROVE");
 
     expect(response.status).toBe(200);
-    expect(mockFns.approveManualPayment).toHaveBeenCalledTimes(1);
+    expect(mockFns.approveManualCheckout).toHaveBeenCalledTimes(1);
   });
 
   it("tombol Tolak (REJECT) sampai ke jalur reject", async () => {
     const response = await verify("REJECT");
 
     expect(response.status).toBe(200);
-    expect(mockFns.rejectManualPayment).toHaveBeenCalledTimes(1);
+    expect(mockFns.rejectManualCheckout).toHaveBeenCalledTimes(1);
+  });
+
+  // VA yang belum dibayar tidak boleh "disetujui" lewat id payment-nya.
+  it("checkout gateway ditolak sebelum menyentuh jalur approve", async () => {
+    mockFns.findVerifiablePayment.mockResolvedValue({
+      ...TRANSFER_MANUAL,
+      paymentMethod: "OTHER",
+      expiresAt: new Date(),
+      transactionId: "DREF-1",
+      gatewayProvider: "BC",
+    });
+
+    const response = await verify("APPROVE");
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toContain("Hanya transfer manual");
+    expect(mockFns.approveManualCheckout).not.toHaveBeenCalled();
   });
 
   it("admin terbatas tanpa site ditolak, bukan dibebaskan", async () => {
@@ -108,7 +131,7 @@ describe("verify-manual — route dan layanan asli", () => {
     const response = await verify("APPROVE");
 
     expect(response.status).toBe(400);
-    expect(mockFns.approveManualPayment).not.toHaveBeenCalled();
+    expect(mockFns.approveManualCheckout).not.toHaveBeenCalled();
   });
 
   it("admin terbatas hanya bisa memverifikasi pelanggan di site-nya", async () => {
@@ -120,6 +143,6 @@ describe("verify-manual — route dan layanan asli", () => {
     const response = await verify("APPROVE");
 
     expect(response.status).toBe(400);
-    expect(mockFns.approveManualPayment).not.toHaveBeenCalled();
+    expect(mockFns.approveManualCheckout).not.toHaveBeenCalled();
   });
 });

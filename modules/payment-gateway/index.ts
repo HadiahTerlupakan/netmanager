@@ -54,6 +54,7 @@ export type {
 
 export {
   expireStaleGatewayPayments,
+  releaseCheckoutCoupons,
   releaseUnusedCheckoutCoupons,
 } from "./services/abandoned-checkout";
 export {

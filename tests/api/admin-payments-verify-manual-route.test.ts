@@ -90,6 +90,7 @@ describe("admin verify-manual payment route", () => {
       action: "APPROVE",
       notes: undefined,
       allowedSiteIds: undefined,
+      verifiedBy: "admin@test.com",
     });
   });
 

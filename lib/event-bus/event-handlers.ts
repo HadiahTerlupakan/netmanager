@@ -50,6 +50,7 @@ import {
 } from "@/modules/notification";
 import {
   handleInvoicePaidBilling,
+  handleInvoicePaidManualPaymentCleanup,
   handleCustomerActivatedMrr,
   handleCustomerChurnedMrr,
   handlePackageChangedMrr,
@@ -140,6 +141,11 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.INVOICE_PAID,
     handleInvoicePaidCheckoutCleanup,
+  );
+  // Tutup pilihan transfer manual tanpa bukti untuk invoice ini.
+  registerEventHandler(
+    EVENT_NAMES.INVOICE_PAID,
+    handleInvoicePaidManualPaymentCleanup,
   );
 
   // --- CUSTOMER LIFECYCLE EVENTS (sync MikroTik/RADIUS) ---

@@ -1,4 +1,3 @@
-import { sendCustomerPushNotification } from "@/modules/notification";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import type { PelangganBillingBridgeService } from "@/modules/pelanggan";
 import type { PaymentEntity } from "../domain/entities/PaymentEntity";
@@ -6,9 +5,6 @@ import type {
   PaymentWhereInput,
   GatewayPaymentStatus,
 } from "../types/payment.types";
-import { InvoiceRepository } from "../repositories/InvoiceRepository";
-import { InvoiceStatus } from "../types/invoice.enums";
-import { InvoicePaymentStateService } from "./InvoicePaymentStateService";
 
 export type PendingManualPaymentsInput = {
   startDate?: string | null;
@@ -19,7 +15,23 @@ export type PendingManualPaymentsInput = {
 };
 
 type PaymentRecord = PaymentEntity & {
+  checkoutId?: string | null;
   invoice?: (PaymentEntity["invoice"] & { totalAmount: bigint }) | null;
+};
+
+/** Jumlah transfer dan tagihan yang dicakup satu checkout transfer. */
+export type CheckoutSummary = { total: bigint; invoiceNumbers: string[] };
+
+type CheckoutPaymentRow = {
+  checkoutId: string | null;
+  amount: bigint;
+  invoice: { invoiceNumber: string; dueDate: Date } | null;
+};
+
+const SETTLED_INVOICE_WARNINGS: Record<string, string> = {
+  PAID: "Tagihan sudah lunas — menyetujui akan dikreditkan ke saldo",
+  CANCELLED:
+    "Tagihan sudah dibatalkan — menyetujui akan dialihkan ke tagihan pengganti atau saldo",
 };
 
 const MAX_PENDING_MANUAL_PAYMENTS = 500;
@@ -61,6 +73,7 @@ export function limitPendingManualPayments<T extends { createdAt: Date }>(
 export function serializeManualPayment(
   payment: PaymentRecord,
   customerName: string,
+  checkout?: CheckoutSummary,
 ) {
   return {
     ...payment,
@@ -72,7 +85,51 @@ export function serializeManualPayment(
         }
       : null,
     customerName,
+    // Bukti satu checkout menutup semua tagihannya; admin mencocokkan nominal
+    // struk dengan total ini, bukan dengan bagian satu tagihan.
+    checkoutTotal: (checkout?.total ?? payment.amount).toString(),
+    checkoutInvoiceNumbers:
+      checkout?.invoiceNumbers ??
+      (payment.invoice?.invoiceNumber ? [payment.invoice.invoiceNumber] : []),
+    settlementWarning: describeSettlementWarning(payment),
   };
+}
+
+/**
+ * Bukti yang masih menunggu untuk tagihan yang sudah lunas atau dibatalkan
+ * lewat jalur lain: menyetujuinya tidak melunasi tagihan itu lagi.
+ */
+function describeSettlementWarning(payment: PaymentRecord): string | null {
+  if (payment.gatewayStatus !== "PENDING") return null;
+  return SETTLED_INVOICE_WARNINGS[payment.invoice?.status ?? ""] ?? null;
+}
+
+/** Total dan nomor tagihan (urut jatuh tempo) per checkout. */
+export function summarizeCheckouts(
+  rows: CheckoutPaymentRow[],
+): Map<string, CheckoutSummary> {
+  const byCheckout = new Map<string, CheckoutPaymentRow[]>();
+  for (const row of rows) {
+    if (!row.checkoutId) continue;
+    byCheckout.set(row.checkoutId, [
+      ...(byCheckout.get(row.checkoutId) ?? []),
+      row,
+    ]);
+  }
+  return new Map(
+    [...byCheckout].map(([checkoutId, group]) => [
+      checkoutId,
+      {
+        total: group.reduce((sum, row) => sum + row.amount, 0n),
+        invoiceNumbers: group
+          .flatMap((row) => (row.invoice ? [row.invoice] : []))
+          .sort(
+            (left, right) => left.dueDate.getTime() - right.dueDate.getTime(),
+          )
+          .map((invoice) => invoice.invoiceNumber),
+      },
+    ]),
+  );
 }
 
 export async function getScopedPelangganIds(
@@ -114,81 +171,6 @@ export async function getCustomerNameMap(
     nameMap[customer.id] = customer.nama;
     return nameMap;
   }, {});
-}
-
-export async function rejectManualPayment(
-  paymentRepository: {
-    updatePaymentById: (
-      id: string,
-      data: Record<string, unknown>,
-    ) => Promise<unknown>;
-  },
-  payment: PaymentRecord,
-  notes?: string | null,
-) {
-  await paymentRepository.updatePaymentById(payment.id, {
-    gatewayStatus: "FAILED",
-    notes: notes || payment.notes || null,
-  });
-
-  if (payment.invoice?.pelangganId) {
-    await sendCustomerPushNotification(
-      payment.invoice.pelangganId,
-      "Pembayaran Ditolak",
-      "Pembayaran Anda ditolak. Mohon periksa kembali bukti transfer Anda.",
-      {
-        paymentId: payment.id,
-        invoiceId: payment.invoiceId,
-        action: "REJECT",
-      },
-    );
-  }
-
-  return { success: true, message: "Payment rejected" };
-}
-
-export async function approveManualPayment(
-  paymentRepository: {
-    updatePaymentById: (
-      id: string,
-      data: Record<string, unknown>,
-    ) => Promise<unknown>;
-  },
-  invoiceRepository: InvoiceRepository,
-  payment: PaymentRecord,
-  notes?: string | null,
-) {
-  await paymentRepository.updatePaymentById(payment.id, {
-    gatewayStatus: "PAID",
-    paymentDate: new Date(),
-    notes: notes || payment.notes || null,
-  });
-
-  if (payment.invoiceId) {
-    const result = await new InvoicePaymentStateService(
-      invoiceRepository,
-    ).recompute(payment.invoiceId);
-
-    // Invoice yang jadi lunas sudah diberitahukan lewat INVOICE_PAID (in-app,
-    // push, WhatsApp, email); push langsung di sini dulu membuat pelanggan
-    // menerima dua push. Yang tersisa hanya pembayaran sebagian.
-    const stillOutstanding =
-      result && result.invoice.status !== InvoiceStatus.PAID;
-    if (payment.invoice?.pelangganId && stillOutstanding) {
-      await sendCustomerPushNotification(
-        payment.invoice.pelangganId,
-        "Pembayaran Diterima",
-        "Pembayaran Anda sudah kami terima. Sisa tagihan masih perlu dilunasi.",
-        {
-          paymentId: payment.id,
-          invoiceId: payment.invoiceId,
-          action: "APPROVE",
-        },
-      );
-    }
-  }
-
-  return { success: true, message: "Payment approved" };
 }
 
 function mapGatewayStatusFilter(

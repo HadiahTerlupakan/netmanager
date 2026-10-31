@@ -71,6 +71,7 @@ export { FinanceRepositoryFacade } from "./services/FinanceRepositoryFacade";
 // Event handlers — exposed via public API supaya lib/event-bus tidak
 // import path internal services/.
 export { handleInvoicePaidBilling } from "./services/event-handlers/invoice-paid-billing.handler";
+export { handleInvoicePaidManualPaymentCleanup } from "./services/event-handlers/invoice-paid-manual-cleanup.handler";
 
 // Types from domain ports
 export type { UnpaidPurchaseOrderWithTransactions } from "./domain/ports/IUnpaidBillsReadRepository";
