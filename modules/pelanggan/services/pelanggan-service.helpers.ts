@@ -19,6 +19,7 @@ import {
   isOdpAssignable,
 } from "./pelanggan-odp.validator";
 import { parseLocalDate } from "./local-date";
+import { publishCustomerStatusChange } from "./customer-status-events";
 
 export async function validateCreatePelangganInput(
   repository: IPelangganRepository,
@@ -195,23 +196,13 @@ export async function syncUpdatedCustomerStatus(
       return;
     }
 
-    const newStatus = input.pelanggan.status;
-    const basePayload = {
+    await publishCustomerStatusChange({
       customerId: input.pelanggan.id,
       customerName: input.pelanggan.nama,
       oldStatus: input.existing.status,
+      newStatus: input.pelanggan.status,
       tenantId: input.pelanggan.tenantId ?? undefined,
-    };
-
-    // Pilih dispatcher sesuai transisi status
-    if (newStatus === "ISOLIR") {
-      await CustomerEventDispatcher.onIsolated({ ...basePayload, newStatus });
-    } else if (newStatus === "AKTIF") {
-      await CustomerEventDispatcher.onActivated({ ...basePayload, newStatus });
-    } else {
-      // NONAKTIF, DISMANTLE, MAINTENANCE → suspended
-      await CustomerEventDispatcher.onSuspended({ ...basePayload, newStatus });
-    }
+    });
 
     // Status PENDING karena sync dikerjakan async oleh worker
     await repository.updateSyncStatus(input.id, "PENDING", null);

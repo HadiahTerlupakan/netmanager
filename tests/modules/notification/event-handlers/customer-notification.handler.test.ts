@@ -40,7 +40,32 @@ describe("CustomerNotificationHandler", () => {
     );
   });
 
-  it("CUSTOMER_ISOLATED → dispatch customerIsolated", async () => {
+  it("CUSTOMER_ISOLATED dengan tunggakan → customerIsolated berikut tagihannya", async () => {
+    await handleCustomerNotification(
+      buildJob(EVENT_NAMES.CUSTOMER_ISOLATED, {
+        customerId: "cust-1",
+        customerName: "Budi",
+        oldStatus: "AKTIF",
+        newStatus: "ISOLIR",
+        arrearsInvoiceNumber: "INV/2026/10/0001",
+        arrearsAmount: 150000,
+      }),
+    );
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "customerIsolated",
+        params: expect.objectContaining({
+          invoiceNumber: "INV/2026/10/0001",
+          amountDue: 150000,
+        }),
+      }),
+    );
+  });
+
+  // Admin mengisolir pelanggan yang tidak punya tagihan lewat jatuh tempo:
+  // pesan "karena tunggakan" dulu tetap terkirim dan menuduh pelanggan
+  // menunggak.
+  it("CUSTOMER_ISOLATED tanpa tunggakan → customerIsolatedByAdmin", async () => {
     await handleCustomerNotification(
       buildJob(EVENT_NAMES.CUSTOMER_ISOLATED, {
         customerId: "cust-1",
@@ -50,8 +75,41 @@ describe("CustomerNotificationHandler", () => {
       }),
     );
     expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ templateKey: "customerIsolated" }),
+      expect.objectContaining({ templateKey: "customerIsolatedByAdmin" }),
     );
+  });
+
+  it.each([
+    ["NONAKTIF", "customerDeactivated"],
+    ["MAINTENANCE", "customerMaintenance"],
+    ["DISMANTLE", "customerDismantled"],
+  ])(
+    "CUSTOMER_SUSPENDED ke %s → dispatch %s",
+    async (newStatus, templateKey) => {
+      await handleCustomerNotification(
+        buildJob(EVENT_NAMES.CUSTOMER_SUSPENDED, {
+          customerId: "cust-1",
+          customerName: "Budi",
+          oldStatus: "AKTIF",
+          newStatus,
+        }),
+      );
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ templateKey, pelangganId: "cust-1" }),
+      );
+    },
+  );
+
+  it("CUSTOMER_SUSPENDED dengan status tak dikenal → tidak dispatch", async () => {
+    await handleCustomerNotification(
+      buildJob(EVENT_NAMES.CUSTOMER_SUSPENDED, {
+        customerId: "cust-1",
+        customerName: "Budi",
+        oldStatus: "AKTIF",
+        newStatus: "LAINNYA",
+      }),
+    );
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 
   it("CUSTOMER_ACTIVATED → dispatch customerActivated", async () => {

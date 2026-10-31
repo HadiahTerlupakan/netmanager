@@ -87,6 +87,7 @@ export class CustomerEventDispatcher {
 
   /**
    * Dipanggil setelah Pelanggan diisolir karena invoice overdue atau manual isolir.
+   * `arrears*` diisi hanya bila ada tagihan lewat jatuh tempo.
    */
   static async onIsolated(data: {
     customerId: string;
@@ -94,6 +95,8 @@ export class CustomerEventDispatcher {
     oldStatus: string;
     newStatus: string;
     tenantId?: string;
+    arrearsInvoiceNumber?: string;
+    arrearsAmount?: number;
   }) {
     await eventBus.publish(
       EVENT_NAMES.CUSTOMER_ISOLATED,
@@ -103,6 +106,12 @@ export class CustomerEventDispatcher {
         oldStatus: data.oldStatus,
         newStatus: data.newStatus,
         tenantId: data.tenantId,
+        ...(data.arrearsInvoiceNumber
+          ? {
+              arrearsInvoiceNumber: data.arrearsInvoiceNumber,
+              arrearsAmount: data.arrearsAmount,
+            }
+          : {}),
       },
       {
         priority: JOB_PRIORITIES.HIGH,

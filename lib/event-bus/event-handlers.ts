@@ -192,6 +192,13 @@ export function registerDefaultHandlers(): void {
     EVENT_NAMES.CUSTOMER_ACTIVATED,
     handleCustomerNotification,
   );
+  // NONAKTIF, MAINTENANCE, dan DISMANTLE. Dikirim lewat antrean, terpisah dari
+  // pencabutan sesi: status DISMANTLE langsung menolak token pelanggan, tetapi
+  // dispatcher tidak bergantung pada sesi, jadi pemberitahuannya tetap sampai.
+  registerEventHandler(
+    EVENT_NAMES.CUSTOMER_SUSPENDED,
+    handleCustomerNotification,
+  );
 
   registerEventHandler(EVENT_NAMES.INVOICE_CREATED, handleInvoiceNotification);
   registerEventHandler(EVENT_NAMES.INVOICE_PAID, handleInvoiceNotification);

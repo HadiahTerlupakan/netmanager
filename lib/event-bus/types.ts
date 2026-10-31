@@ -180,6 +180,14 @@ export interface CustomerStatusPayload extends BaseEventPayload {
   customerName: string;
   oldStatus: string;
   newStatus: string;
+  /**
+   * Hanya pada CUSTOMER_ISOLATED: tagihan lewat jatuh tempo yang belum lunas.
+   * Tanpa field ini isolirnya bukan karena tunggakan (mis. oleh admin), dan
+   * notifikasi pelanggan tidak boleh menyebut tunggakan.
+   */
+  arrearsInvoiceNumber?: string;
+  /** Sisa tagihan `arrearsInvoiceNumber` dalam rupiah. */
+  arrearsAmount?: number;
 }
 
 export interface CustomerDeletedPayload extends BaseEventPayload {

@@ -24,6 +24,7 @@ import {
   ODP_TIDAK_VALID_MESSAGE,
   isOdpAssignable,
 } from "./pelanggan-odp.validator";
+import { publishCustomerStatusChange } from "./customer-status-events";
 
 export class PelangganAdminMutationError extends Error {
   constructor(
@@ -322,28 +323,13 @@ export class PelangganAdminMutationService {
         return;
       }
 
-      const basePayload = {
+      await publishCustomerStatusChange({
         customerId: pelanggan.id,
         customerName: pelanggan.nama,
         oldStatus,
+        newStatus,
         tenantId: pelanggan.tenantId ?? undefined,
-      };
-
-      // Pilih dispatcher sesuai transisi status
-      if (newStatus === "ISOLIR") {
-        await CustomerEventDispatcher.onIsolated({ ...basePayload, newStatus });
-      } else if (newStatus === "AKTIF") {
-        await CustomerEventDispatcher.onActivated({
-          ...basePayload,
-          newStatus,
-        });
-      } else {
-        // NONAKTIF, DISMANTLE, MAINTENANCE → suspended
-        await CustomerEventDispatcher.onSuspended({
-          ...basePayload,
-          newStatus,
-        });
-      }
+      });
     } catch (err) {
       logger.error(
         "[Pelanggan] Gagal publish customer update event (admin mutation):",

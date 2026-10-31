@@ -1,5 +1,6 @@
 import { prismaBilling } from "@/lib/prisma-billing";
 import type { Prisma } from "@prisma/client-billing";
+import { OUTSTANDING_INVOICE_STATUSES } from "@/lib/constants/invoice-status";
 import type {
   IInvoiceRepository,
   InvoiceWithPayment,
@@ -294,6 +295,23 @@ export class InvoiceRepository implements IInvoiceRepository {
         pelangganId,
         status: { notIn: ["PAID", "CANCELLED"] },
       },
+    });
+  }
+
+  /**
+   * Tagihan tertua yang belum lunas dan sudah lewat jatuh tempo — yang
+   * membuat pelanggan disebut menunggak. Tagihan yang belum jatuh tempo
+   * tidak dihitung.
+   */
+  async findOldestOverdueByPelangganId(pelangganId: string, now: Date) {
+    return prismaBilling.invoice.findFirst({
+      where: {
+        pelangganId,
+        status: { in: [...OUTSTANDING_INVOICE_STATUSES] },
+        OR: [{ status: "OVERDUE" }, { dueDate: { lte: now } }],
+      },
+      orderBy: { dueDate: "asc" },
+      select: { invoiceNumber: true, totalAmount: true, paidAmount: true },
     });
   }
 

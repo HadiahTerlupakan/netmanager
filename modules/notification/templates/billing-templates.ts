@@ -47,6 +47,10 @@ const formatJatuhTempo = (dueDate: string | undefined): string => {
     : FORMAT_TANGGAL.format(tanggal);
 };
 
+/** " (INV-001, Rp 150.000)" bila tagihan tunggakannya diketahui. */
+const formatTunggakan = (p: BillingTemplateParams): string =>
+  p.invoiceNumber ? ` (${p.invoiceNumber}, ${formatRupiah(p.amountDue)})` : "";
+
 /**
  * Registry template notifikasi billing.
  * Setiap key mewakili satu event lifecycle billing/pelanggan.
@@ -138,29 +142,82 @@ export const BILLING_TEMPLATES = {
     }),
     push: (p) => `Kelebihan bayar ${formatRupiah(p.amountDue)} menjadi saldo`,
   },
+  // Hanya untuk isolir yang memang karena tagihan lewat jatuh tempo; isolir
+  // tanpa tunggakan memakai `customerIsolatedByAdmin`.
   customerIsolated: {
     title: "Layanan diisolir",
-    inApp: () =>
-      "Layanan internet Anda telah diisolir karena tunggakan. Silakan bayar tagihan untuk reaktivasi.",
+    inApp: (p) =>
+      `Layanan internet Anda diisolir karena tunggakan${formatTunggakan(p)}. Silakan bayar tagihan untuk mengaktifkannya kembali.`,
     whatsapp: (p) =>
-      `Halo ${p.customerName},\n\nLayanan internet Anda telah diisolir karena tunggakan.${p.invoiceNumber ? `\n\nTagihan: ${p.invoiceNumber}\nJumlah: ${formatRupiah(p.amountDue)}` : ""}\n\nSilakan bayar untuk reaktivasi.`,
+      `Halo ${p.customerName},\n\nLayanan internet Anda diisolir karena tunggakan.${p.invoiceNumber ? `\n\nTagihan: ${p.invoiceNumber}\nJumlah: ${formatRupiah(p.amountDue)}` : ""}\n\nSilakan bayar untuk mengaktifkannya kembali.`,
     email: (p) => ({
       subject: "Layanan diisolir - butuh pembayaran",
-      body: `Halo ${p.customerName},\n\nLayanan Anda diisolir.${p.invoiceNumber ? ` Silakan bayar ${p.invoiceNumber}.` : ""}`,
+      body: `Halo ${p.customerName},\n\nLayanan internet Anda diisolir karena tunggakan${formatTunggakan(p)}.\n\nSilakan bayar tagihan untuk mengaktifkannya kembali.`,
     }),
-    push: () => "Layanan Anda diisolir",
+    push: () => "Layanan Anda diisolir karena tunggakan",
   },
+  customerIsolatedByAdmin: {
+    title: "Layanan diisolir",
+    inApp: () =>
+      "Layanan internet Anda diisolir oleh admin. Hubungi customer service untuk informasi lebih lanjut.",
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nLayanan internet Anda saat ini diisolir oleh admin.\nHubungi customer service kami untuk informasi lebih lanjut.`,
+    email: (p) => ({
+      subject: "Layanan Anda diisolir",
+      body: `Halo ${p.customerName},\n\nLayanan internet Anda saat ini diisolir oleh admin.\nHubungi customer service kami untuk informasi lebih lanjut.`,
+    }),
+    push: () => "Layanan Anda diisolir oleh admin",
+  },
+  // Netral: aktivasi juga datang dari admin, bukan hanya dari pelunasan, dan
+  // pelunasan sudah punya notifikasi `invoicePaid` sendiri.
   customerActivated: {
     title: "Layanan aktif kembali",
-    inApp: () =>
-      "Layanan internet Anda telah aktif kembali. Terima kasih atas pembayarannya.",
+    inApp: () => "Layanan internet Anda sudah aktif kembali.",
     whatsapp: (p) =>
-      `Halo ${p.customerName},\n\nLayanan internet Anda telah aktif kembali.\nTerima kasih atas pembayarannya.`,
+      `Halo ${p.customerName},\n\nLayanan internet Anda sudah aktif kembali.\nHubungi kami bila masih ada kendala.`,
     email: (p) => ({
       subject: "Layanan aktif kembali",
-      body: `Halo ${p.customerName},\n\nLayanan Anda aktif kembali. Terima kasih.`,
+      body: `Halo ${p.customerName},\n\nLayanan internet Anda sudah aktif kembali.`,
     }),
     push: () => "Layanan Anda aktif kembali",
+  },
+  customerDeactivated: {
+    title: "Layanan dinonaktifkan",
+    inApp: () =>
+      "Layanan internet Anda sedang dinonaktifkan. Hubungi customer service untuk informasi lebih lanjut.",
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nLayanan internet Anda sedang dinonaktifkan.\nHubungi customer service kami untuk informasi lebih lanjut.`,
+    email: (p) => ({
+      subject: "Layanan Anda dinonaktifkan",
+      body: `Halo ${p.customerName},\n\nLayanan internet Anda sedang dinonaktifkan.\nHubungi customer service kami untuk informasi lebih lanjut.`,
+    }),
+    push: () => "Layanan Anda dinonaktifkan",
+  },
+  customerMaintenance: {
+    title: "Layanan dalam pemeliharaan",
+    inApp: () =>
+      "Layanan internet Anda sedang dalam pemeliharaan oleh teknisi kami. Kami akan memberi tahu Anda begitu layanan aktif kembali.",
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nLayanan internet Anda sedang dalam pemeliharaan oleh teknisi kami.\nKami akan memberi tahu Anda begitu layanan aktif kembali.`,
+    email: (p) => ({
+      subject: "Layanan Anda dalam pemeliharaan",
+      body: `Halo ${p.customerName},\n\nLayanan internet Anda sedang dalam pemeliharaan oleh teknisi kami.\nKami akan memberi tahu Anda begitu layanan aktif kembali.`,
+    }),
+    push: () => "Layanan Anda dalam pemeliharaan",
+  },
+  // Kalimat inti sama dengan pesan login/refresh untuk pelanggan DISMANTLE
+  // (`CUSTOMER_DISMANTLED_MESSAGE` di lib/customer-portal-access.ts).
+  customerDismantled: {
+    title: "Langganan berakhir",
+    inApp: () =>
+      "Layanan Anda sudah berhenti berlangganan. Hubungi admin bila ini keliru.",
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nLayanan internet Anda sudah berhenti berlangganan, dan akses ke aplikasi pelanggan ditutup.\nHubungi admin bila ini keliru. Terima kasih telah berlangganan.`,
+    email: (p) => ({
+      subject: "Langganan Anda berakhir",
+      body: `Halo ${p.customerName},\n\nLayanan internet Anda sudah berhenti berlangganan, dan akses ke aplikasi pelanggan ditutup.\nHubungi admin bila ini keliru. Terima kasih telah berlangganan.`,
+    }),
+    push: () => "Layanan Anda sudah berhenti berlangganan",
   },
   packageChanged: {
     title: "Paket internet berubah",

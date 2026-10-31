@@ -35,6 +35,27 @@ export class FinanceRepositoryFacade {
   }
 
   /**
+   * Tagihan lewat jatuh tempo yang belum lunas (tertua) beserta sisanya, atau
+   * null bila pelanggan tidak menunggak. Dipakai module pelanggan untuk
+   * menentukan apakah isolir disebabkan tunggakan.
+   */
+  static async findOverdueInvoiceForPelanggan(
+    pelangganId: string,
+    now: Date = new Date(),
+  ): Promise<{ invoiceNumber: string; amountDue: number } | null> {
+    const invoice =
+      await new InvoiceRepository().findOldestOverdueByPelangganId(
+        pelangganId,
+        now,
+      );
+    if (!invoice) return null;
+    return {
+      invoiceNumber: invoice.invoiceNumber,
+      amountDue: Number(invoice.totalAmount - invoice.paidAmount),
+    };
+  }
+
+  /**
    * Konsumsi saldo kredit pelanggan secara atomic (SELECT FOR UPDATE).
    * Return jumlah yang berhasil dikonsumsi (0n jika tidak ada saldo).
    */
