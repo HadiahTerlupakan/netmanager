@@ -68,6 +68,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `lib/firebase/push-collapse.ts` (baru), `lib/firebase/messaging.ts`, `lib/realtime/firebase-realtime-service.ts`, `tests/lib/firebase/messaging-collapse.test.ts`, `tests/lib/realtime/firebase-realtime-service.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-11-01] — Push Expo ikut digabung per kategori; iOS menyebut nada gelembung
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification` | `lib/` | `lib/firebase`
+- **Author**: agent
+- **Deskripsi**: Push lewat Expo — `createExpoPushMessage` (push langsung, pelanggan, banyak pengguna, departemen, dan job `expo_push`), antrean retry, dan pengumuman lewat `lib/expo.ts` — kini membawa `collapseId` (Android dan iOS: selama ponsel offline hanya yang terakhir per kategori yang dikirim) dan `tag` (Android: menggantikan notifikasi kategori yang sama di baki) dari `getPushCollapseKey`. Fungsi itu kini juga membaca `type` (`WORK_ORDER`, `WO_REQUEST`) dan `link` di samping `sourceType` dan `url`, serta segmen `announcement`; obrolan dan broadcast tetap `chat-<conversationId>`. `sound` menjadi `notif_soft.wav` (di Expo hanya berlaku untuk iOS; pemasangan tanpa berkasnya jatuh ke bunyi bawaan). `channelId` sengaja tetap kosong: menurut dokumentasi Expo, push dengan channel yang tidak ada di perangkat tidak ditampilkan sama sekali, dan token Expo hanya didaftarkan aplikasi era Expo (sebelum 2026-04-16, `d616a7b` di mobile-netmanager) yang hanya membuat channel `default`. Rilis aplikasi sekarang hanya mendaftarkan token FCM; nada gelembungnya datang dari channel bawaan FCM `high-priority-bubble` (`firebase.json`, sejak `038baa0` 2026-10-31) yang dibuat `ensureForegroundNotificationChannel()` setiap kali aplikasi dibuka. Nama nada dipindah ke `lib/push-sound.ts` dan dipakai FCM maupun Expo; antrean retry membangun pesannya dengan `createExpoPushMessage` yang sama.
+- **Files**: `lib/push-sound.ts` (baru), `lib/firebase/push-collapse.ts`, `lib/firebase/messaging.ts`, `lib/expo.ts`, `modules/notification/services/ExpoPushService.helpers.ts`, `modules/notification/services/PushRetryQueue.helpers.ts`, `tests/modules/notification/expo-push-message.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

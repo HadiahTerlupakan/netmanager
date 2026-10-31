@@ -1,4 +1,6 @@
+import { getPushCollapseKey } from "@/lib/firebase/push-collapse";
 import { logger } from "@/lib/logger";
+import { PUSH_SOUND_IOS } from "@/lib/push-sound";
 import { Expo, type ExpoPushMessage } from "expo-server-sdk";
 
 const expo = new Expo();
@@ -11,6 +13,9 @@ export const sendExpoPushNotifications = async (
 ) => {
   if (!tokens.length) return;
 
+  // Sama dengan push Expo lainnya: tanpa channelId, karena pemasangan era
+  // Expo hanya punya channel `default` dan Expo membuang push ke channel lain.
+  const collapseKey = getPushCollapseKey(data);
   const messages: ExpoPushMessage[] = [];
   for (const token of tokens) {
     if (!Expo.isExpoPushToken(token)) {
@@ -20,10 +25,12 @@ export const sendExpoPushNotifications = async (
 
     messages.push({
       to: token,
-      sound: "default",
+      sound: PUSH_SOUND_IOS,
       title,
       body,
       data,
+      collapseId: collapseKey,
+      tag: collapseKey,
     });
   }
 

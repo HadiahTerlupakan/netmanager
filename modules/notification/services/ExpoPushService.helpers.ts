@@ -1,9 +1,10 @@
+import { getPushCollapseKey } from "@/lib/firebase/push-collapse";
 import { logger } from "@/lib/logger";
+import { PUSH_SOUND_IOS } from "@/lib/push-sound";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_CHUNK_SIZE = 100;
 const EXPO_CHUNK_DELAY_MS = 200;
-const EXPO_SOUND = "default";
 const DEVICE_NOT_REGISTERED_ERROR = "DeviceNotRegistered";
 const UNKNOWN_USER_ID = "unknown";
 
@@ -12,9 +13,11 @@ export interface ExpoPushMessage {
   title: string;
   body: string;
   data?: Record<string, unknown>;
-  sound?: "default" | null;
+  sound?: string | null;
   badge?: number;
   channelId?: string;
+  collapseId?: string;
+  tag?: string;
 }
 
 export interface ExpoPushTicket {
@@ -52,19 +55,29 @@ export interface PushFailureDependencies {
   }): Promise<void>;
 }
 
-/** Build one Expo push message payload. */
+/**
+ * Build one Expo push message payload.
+ *
+ * `channelId` sengaja tidak diisi: Expo membuang push yang channel-nya tidak
+ * ada di perangkat, dan token Expo hanya didaftarkan aplikasi era Expo
+ * (sebelum 2026-04-16) yang memiliki channel `default` saja, bukan
+ * `high-priority-bubble`. `sound` hanya berlaku di iOS.
+ */
 export function createExpoPushMessage(input: {
   token: string;
   title: string;
   body: string;
   data?: Record<string, unknown>;
 }): ExpoPushMessage {
+  const collapseKey = getPushCollapseKey(input.data);
   return {
     to: input.token,
     title: input.title,
     body: input.body,
     data: input.data || {},
-    sound: EXPO_SOUND,
+    sound: PUSH_SOUND_IOS,
+    collapseId: collapseKey,
+    tag: collapseKey,
   };
 }
 

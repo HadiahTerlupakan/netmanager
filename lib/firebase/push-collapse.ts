@@ -1,6 +1,6 @@
 /**
- * Kunci penggabung push FCM per kategori. Selama ponsel offline atau aplikasi
- * tertutup, FCM menyimpan push, lalu Android menampilkan sekaligus
+ * Kunci penggabung push per kategori, untuk FCM maupun Expo. Selama ponsel
+ * offline atau aplikasi tertutup, push disimpan, lalu Android menampilkan sekaligus
  * membunyikan semuanya begitu tersambung lagi. Dengan kunci yang sama, push
  * satu kategori yang tertunda tinggal yang terakhir, dan notifikasi baru
  * menggantikan yang lama di baki.
@@ -15,54 +15,60 @@ const CHAT_COLLAPSE_KEY_PREFIX = "chat-";
 
 interface CollapseCategory {
   key: string;
-  /** Nilai `sourceType` notifikasi yang dipakai kode ini. */
-  sourceTypes: readonly string[];
-  /** Menangkap pengirim yang hanya menyertakan tautan. */
+  /** Nilai `sourceType` (notifikasi) atau `type` (push Expo) di data push. */
+  kinds: readonly string[];
+  /** Segmen `url`/`link`, untuk pengirim yang hanya menyertakan tautan. */
   pathSegments: readonly string[];
 }
 
 const COLLAPSE_CATEGORIES: readonly CollapseCategory[] = [
   {
     key: "workorder",
-    sourceTypes: ["WORK_ORDER"],
+    kinds: ["WORK_ORDER", "WO_REQUEST"],
     pathSegments: ["workorders", "work-orders"],
   },
   {
     key: "ticket",
-    sourceTypes: ["TICKET", "KELUHAN"],
+    kinds: ["TICKET", "KELUHAN"],
     pathSegments: ["support", "tickets", "keluhan"],
   },
   {
     key: "billing",
-    sourceTypes: ["BILLING", "INVOICE", "PaymentReview"],
+    kinds: ["BILLING", "INVOICE", "PaymentReview"],
     pathSegments: ["tagihan", "invoices", "payments"],
   },
   {
     key: "announcement",
-    sourceTypes: ["ANNOUNCEMENT"],
-    pathSegments: ["announcements", "pengumuman"],
+    kinds: ["ANNOUNCEMENT"],
+    pathSegments: ["announcement", "announcements", "pengumuman"],
   },
 ];
 
-function getPathSegments(url: string | undefined): string[] {
-  const path = url?.split(/[?#]/, 1)[0] ?? "";
+function readText(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function getPathSegments(url: string): string[] {
+  const path = url.split(/[?#]/, 1)[0] ?? "";
   return path.split("/").filter(Boolean);
 }
 
 /**
  * Kunci yang sama dipakai untuk `android.collapseKey`,
- * `android.notification.tag`, dan `apns-collapse-id`.
+ * `android.notification.tag`, dan `apns-collapse-id` di FCM, serta
+ * `collapseId` dan `tag` di Expo.
  */
-export function getPushCollapseKey(data: Record<string, string> = {}): string {
-  if (data.conversationId) {
-    return `${CHAT_COLLAPSE_KEY_PREFIX}${data.conversationId}`;
-  }
+export function getPushCollapseKey(data: Record<string, unknown> = {}): string {
+  const conversationId = readText(data.conversationId);
+  if (conversationId) return `${CHAT_COLLAPSE_KEY_PREFIX}${conversationId}`;
 
-  const sourceType = data.sourceType ?? "";
-  const pathSegments = getPathSegments(data.url);
+  const kinds = [readText(data.sourceType), readText(data.type)];
+  const pathSegments = getPathSegments(
+    readText(data.url) || readText(data.link),
+  );
   const category =
     COLLAPSE_CATEGORIES.find((candidate) =>
-      candidate.sourceTypes.includes(sourceType),
+      kinds.some((kind) => candidate.kinds.includes(kind)),
     ) ??
     COLLAPSE_CATEGORIES.find((candidate) =>
       pathSegments.some((segment) => candidate.pathSegments.includes(segment)),
