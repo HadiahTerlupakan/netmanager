@@ -484,9 +484,17 @@ export function PppClientEditForm() {
     baseHandleChange(e, resetIdPelangganError);
   };
 
+  // Setiap status pelanggan wajib punya pilihan di sini. Radio status
+  // `required`: tanpa opsi MAINTENANCE tidak ada yang tercentang untuk
+  // pelanggan MAINTENANCE, dan browser diam-diam membatalkan submit.
   const editStatusOptions = [
     { value: "AKTIF", label: "Aktif sekarang" },
     { value: "NONAKTIF", label: "Menunggu" },
+    {
+      value: "MAINTENANCE",
+      label: "Maintenance (Perbaikan)",
+      accentClassName: "text-amber-600",
+    },
     {
       value: "ISOLIR",
       label: "Isolir (Menunggak)",
