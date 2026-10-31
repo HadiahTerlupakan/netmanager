@@ -87,6 +87,35 @@ describe("proxy — portal pelanggan", () => {
     );
   });
 
+  // returnUrl gateway untuk pembayaran dari aplikasi: browser yang membukanya
+  // tidak membawa cookie portal.
+  it("membuka /pembayaran/kembali tanpa sesi pelanggan", async () => {
+    const { proxy } = await import("@/proxy");
+
+    const response = await proxy(
+      portalRequest(
+        "https://pelanggan.radpro.id/pembayaran/kembali?ke=app&resultCode=00",
+      ),
+    );
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-middleware-rewrite")).toContain(
+      "/pembayaran/kembali",
+    );
+  });
+
+  it("halaman di bawah /pembayaran lainnya tetap butuh sesi", async () => {
+    const { proxy } = await import("@/proxy");
+
+    const response = await proxy(
+      portalRequest("https://pelanggan.radpro.id/pembayaran/kembali-lain"),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://pelanggan.radpro.id/login",
+    );
+  });
+
   it("membuka /dashboard di subdomain tenant untuk pelanggan yang sah", async () => {
     const { proxy } = await import("@/proxy");
 

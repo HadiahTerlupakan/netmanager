@@ -25,6 +25,9 @@ const CONTENT_SECURITY_POLICY = [
   `frame-src 'self' blob: ${FIREBASE_RTDB_HOST_PATTERN}`,
   "worker-src 'self' blob:",
 ].join("; ");
+// Halaman portal pelanggan yang terbuka tanpa sesi: returnUrl gateway untuk
+// pembayaran dari aplikasi, dibuka browser yang tidak membawa cookie portal.
+const PUBLIC_CUSTOMER_PORTAL_PATHS = new Set(["/pembayaran/kembali"]);
 
 export async function proxy(request: NextRequest) {
   const hostname = request.headers.get("host") || "";
@@ -164,7 +167,11 @@ async function handleRequest(request: NextRequest) {
   }
 
   // Redirect unauthorized access to Customer Subdomain
-  if (subdomain === "pelanggan" && !pathname.includes("/login")) {
+  if (
+    subdomain === "pelanggan" &&
+    !pathname.includes("/login") &&
+    !PUBLIC_CUSTOMER_PORTAL_PATHS.has(pathname)
+  ) {
     if (!(await hasCustomerPortalAccess(request, token))) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
