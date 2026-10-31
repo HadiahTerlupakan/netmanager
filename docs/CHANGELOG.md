@@ -41,6 +41,87 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Peringatan gateway SANDBOX di portal admin dan health check
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/payment-gateway` | `app/admin` | `app/api/health`
+- **Author**: agent
+- **Deskripsi**: Produksi sementara sengaja memakai Duitku SANDBOX, padahal halaman demo sandbox Duitku bisa "membayar" VA mana pun: tagihan lunas tanpa uang masuk. Selama `NODE_ENV=production` dan konfigurasi Duitku aktif tenant masih `isProduction=false`, layout admin menampilkan banner merah "Gateway pembayaran memakai SANDBOX — pembayaran pelanggan tidak menerima uang sungguhan" (super admin tanpa tenant: semua tenant diperiksa), dan jawaban health internal (header `x-internal-request`) membawa `paymentGateway.sandboxInProduction` (`null` bila gagal diperiksa). Jawaban health publik sengaja tidak memuatnya karena memberi tahu siapa pun bahwa tagihan bisa dilunasi dari halaman demo. Pemeriksaan yang gagal tidak menjatuhkan halaman admin maupun health check. Entry sempit `@/modules/payment-gateway/api` dipakai keduanya agar probe dan setiap halaman admin tidak memuat seluruh module gateway.
+- **Files**: `modules/payment-gateway/services/sandbox-gateway-warning.ts`, `modules/payment-gateway/api.ts`, `modules/payment-gateway/repositories/PaymentGatewayConfigRepository.ts`, `components/admin/GatewaySandboxBanner.tsx`, `app/admin/layout.tsx`, `app/api/health/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Penyapu checkout bertanya ke Duitku sebelum menutup checkout
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway` | `modules/pelanggan` | `app/api/customer/payments/check-status`
+- **Author**: agent
+- **Deskripsi**: `expireStaleGatewayPayments` dulu menutup checkout yang lewat batas waktu tanpa bertanya ke gateway, sehingga pembayaran yang callback-nya hilang (deploy, retry Duitku habis) dicatat EXPIRED, kuponnya dilepas, dan pelanggan diberi tahu "pembayaran gagal". Kini tiap checkout ditanyakan sekali (transactionStatus, maksimal 50 checkout per putaran, yang baru kedaluwarsa lebih dulu): lunas → dilunasi lewat `settleCheckoutPaidAtGateway`, yang memakai langkah dan helper webhook yang sama (cocokkan nominal dan nomor transaksi, pindah ke PAID dalam satu transaksi yang hanya berhasil sekali, catat biaya dari cek status, kembalikan kupon yang sudah dilepas, hitung ulang invoice, kreditkan kelebihan); callback yang datang belakangan hanya menghitung ulang. Belum dibayar → ditutup seperti dulu. Tidak terbaca (gateway tak terjangkau, jawaban tanpa status dikenal) → dibiarkan untuk putaran berikutnya: `DuitkuProvider.checkStatus` kini melempar untuk jawaban seperti itu alih-alih menganggapnya FAILED. Gateway yang menjawab tidak mengenal satu pun orderId checkout (mis. Snap Midtrans yang ditinggalkan sebelum kanal dipilih) berarti belum dibayar; Duitku, Midtrans, Xendit, Tripay, dan DANA melaporkan jawaban itu sebagai `GatewayTransactionNotFoundError`. orderId gateway sebuah checkout kini reference terkecilnya, jadi bisa ditemukan lagi dari baris checkout. Endpoint baru `POST /api/customer/payments/check-status` memakai jalur yang sama saat pelanggan kembali dari halaman bayar. Ganti metode saat checkout lama ternyata sudah dibayar juga langsung melunasinya sebelum menjawab 409.
+- **Files**: `modules/payment-gateway/services/abandoned-checkout.ts`, `modules/payment-gateway/services/checkout-reconciliation.ts`, `modules/payment-gateway/services/gateway-status-settlement.ts`, `modules/payment-gateway/services/providers/duitku-provider.ts`, `modules/payment-gateway/services/providers/{midtrans,xendit,tripay,dana}-provider.ts`, `modules/pelanggan/services/CustomerPaymentCheckoutService.ts`, `app/api/customer/payments/check-status/route.ts`, `tests/db/customer-payment-gateway.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Callback VA/QR yang sudah terbit tetap diterima saat gateway dimatikan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: `getProviderInstance` menolak konfigurasi nonaktif, dan dipakai juga untuk callback dan cek status. Mematikan Duitku membuat callback VA yang sudah diberikan ke pelanggan dijawab error, sehingga uang yang tetap masuk tidak pernah dibukukan. Kini `getIssuedTransactionProvider` (tanpa syarat aktif) dipakai untuk callback, cek status, dan pembatalan; `isEnabled` hanya menahan checkout baru. Tanda tangan callback tetap diverifikasi.
+- **Files**: `modules/payment-gateway/services/PaymentGatewayService.ts`, `modules/payment-gateway/services/pending-checkout-replacement.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Ganti metode menutup checkout lama setelah penggantinya berhasil
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway` | `modules/pelanggan` | `modules/coupons`
+- **Author**: agent
+- **Deskripsi**: Ganti metode dulu menutup checkout lama (CANCELLED, kupon dilepas) sebelum kupon diverifikasi dan checkout baru dibuat. Saat Duitku menolak metode baru (produksi 2026-10-31: DANA, ShopeePay, FT menjawab 502), pelanggan kehilangan VA/QR lama yang sebenarnya masih bisa dibayar. Kini `findReplaceableCheckouts` hanya mencari checkout lama, dan `closeReplacedCheckouts` menutupnya setelah checkout baru berhasil. Kupon yang sama dengan milik checkout lama memindah pemesanannya (`verifyCoupon` menerima `heldCouponId` sehingga kuota tidak dihitung ulang), jadi kupon berkuota satu tetap berlaku; bila checkout baru gagal, pemesanan tetap milik checkout lama. Daftar tagihan dan aliran SSE menampilkan checkout yang masih menunggu, bukan percobaan yang ditolak. Kunci checkout: tiap panggilan Duitku kini satu batas waktu termasuk percobaan ulang tanda tangan, cek status checkout lama paralel dengan batas 10 detik, pembatalan di gateway paralel, sehingga kasus terburuknya jauh di bawah TTL 120 detik.
+- **Files**: `modules/payment-gateway/services/pending-checkout-replacement.ts`, `modules/pelanggan/services/CustomerPaymentRouteService.ts`, `modules/coupons/services/CouponService.ts`, `modules/pelanggan/repositories/CustomerInvoiceRepository.ts`, `modules/finance/services/CustomerPaymentFinanceService.ts`, `tests/modules/pelanggan/CustomerPaymentRouteService.test.ts`, `tests/modules/finance/pendingCheckoutReplacement.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Aturan per kanal Duitku: masa berlaku, label ritel, kanal aktif, alasan gagal
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway` | `modules/finance` | `modules/pelanggan` | `app/api/customer/payment-methods`
+- **Author**: agent
+- **Deskripsi**: (a) Duitku dulu dikirimi `expiryPeriod` 1440 menit untuk semua kanal dan `expiresAt` disimpan +24 jam, padahal QRIS dan ShopeePay Apps ditutup Duitku setelah 60 menit dan LinkAja selalu 24 menit; portal menghitung mundur VA/QR yang sudah mati. Tabel per kanal (`duitku-expiry.ts`, docs.duitku.com/api/id) kini dipakai untuk keduanya: SA/SP/SQ 60, NQ/DANA/OVO maks 1440, LA/LF tetap 24, VC tetap 30, VA/ritel 1440. (b) FT kini "Alfamart / Pegadaian / Pos" dan Indomaret punya kanal IR sendiri. (c) Daftar metode pelanggan hanya menawarkan kanal yang dilaporkan aktif oleh Duitku (`getpaymentmethod`, tanda tangan HMAC, disimpan 10 menit per tenant dan nominal, `?amount=` opsional); Duitku yang tidak terjangkau (batas 5 detik) membuat katalog statis dipakai. (d) Penolakan gateway disimpan di `Payment.failureReason` dan dicatat di log; pelanggan menerima "Metode pembayaran ini sedang tidak tersedia. Silakan pilih metode lain." untuk kanal nonaktif, pesan minimum nominal tetap, sisanya pesan umum. Payment checkout yang gagal juga melepas pemesanan kuponnya.
+- **Files**: `modules/payment-gateway/services/providers/duitku-expiry.ts`, `modules/payment-gateway/services/providers/duitku-provider.ts`, `modules/payment-gateway/services/providers/duitku-provider-helpers.ts`, `modules/payment-gateway/services/payment-method-catalog.ts`, `modules/payment-gateway/services/active-payment-channels.ts`, `modules/finance/services/CustomerPaymentMethodService.ts`, `modules/finance/repositories/paymentRepository.customer-payments.ts`, `app/api/customer/payment-methods/route.ts`, `tests/payment-gateway/unit/duitku-method-rules.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Checkout beberapa invoice dan transfer manual di portal dan aplikasi
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/pelanggan` | `modules/finance` | `modules/payment-gateway` | `app/api/customer/payments`
+- **Author**: agent
+- **Deskripsi**: `lastPayment` di `GET /api/customer/invoices` kini membawa `checkoutId`, `checkoutTotal` (total seluruh checkout, yang benar-benar ditagih Duitku; dulu klien menampilkan bagian satu invoice sebagai "nominal pasti"), `checkoutInvoiceNumbers` (urut jatuh tempo), `isManual` (`accountId` terisi), `rejectionReason`, dan `bankAccount` (rekening tujuan transfer manual menurut `accountId`, termasuk rekening yang sudah dinonaktifkan; `null` untuk gateway). Transfer manual: memilih Transfer Manual lagi menggantikan transfer menunggu yang belum berbukti, memilih gateway menutupnya, dan bukti yang sedang diverifikasi menolak checkout baru dengan 409 berpesan. Endpoint baru `POST /api/customer/payments/cancel` membatalkan transfer manual menunggu (seluruh checkout-nya) selama belum diverifikasi dan mengembalikan kuponnya. Upload bukti kini dilampirkan ke setiap invoice checkout, boleh diganti selama masih menunggu, dicocokkan OCR dengan total checkout, dan jenis gambarnya ditentukan dari isi berkas (JPEG/PNG/WebP, maks 5 MB) alih-alih MIME kiriman klien. Payment transfer manual dikenali dari `accountId`, bukan `paymentMethod: BANK_TRANSFER` yang kini juga dipakai VA.
+- **Files**: `modules/pelanggan/repositories/CustomerInvoiceRepository.ts`, `modules/pelanggan/services/CustomerPaymentReceiptService.ts`, `modules/pelanggan/services/CustomerPaymentCheckoutService.ts`, `modules/finance/repositories/paymentRepository.customer-payments.ts`, `modules/finance/repositories/PaymentRepository.ts`, `modules/finance/services/CustomerPaymentFinanceService.ts`, `app/api/customer/payments/upload-receipt/route.ts`, `app/api/customer/payments/cancel/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Bukti transfer tidak lagi tersimpan di direktori publik
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: Bukti transfer pelanggan dulu disimpan di `public/receipts` (lokal), yang disajikan Next tanpa sesi apa pun kepada siapa saja yang tahu URL-nya, dan di R2 tanpa segmen tenant. Kini disimpan di `public/uploads/tenants/<tenant>/payment-proofs`, yang hanya disajikan `server.ts` kepada sesi tenant itu, dan kunci R2-nya ikut ber-namespace tenant. Payment tanpa tenant ditolak alih-alih jatuh ke direktori umum.
+- **Files**: `modules/pelanggan/services/CustomerPaymentReceiptService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Saldo kredit, metode bayar per kanal, dan kembali ke aplikasi
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/pelanggan` | `modules/payment-gateway` | `modules/finance` | `app/api/customer`
+- **Author**: agent
+- **Deskripsi**: `GET /api/customer/profile` membawa `data.profile.saldoKredit` dan `GET /api/customer/dashboard/summary` membawa `billing.data.saldoKredit` (rupiah). `POST /api/customer/payments` menerima `returnTo: "app" | "portal"` (bawaan portal); untuk aplikasi, gateway mengembalikan pelanggan ke `https://pelanggan.<DOMAIN>/pembayaran/kembali?ke=app` (Duitku, Midtrans, Xendit, DANA). Kode kanal kini dicatat sebagai enum `PaymentMethod` yang tepat alih-alih OTHER, saat checkout dibuat maupun saat callback melunasi (VA → BANK_TRANSFER, QRIS/e-wallet → E_WALLET, ritel tetap OTHER); `gatewayProvider` tetap menyimpan kode kanalnya. Pemetaannya dibaca dari katalog lewat entry sempit `@/modules/payment-gateway/catalog`.
+- **Files**: `modules/pelanggan/services/CustomerPortalService.ts`, `modules/pelanggan/repositories/CustomerInvoiceRepository.ts`, `modules/payment-gateway/services/gateway-return-url.ts`, `modules/payment-gateway/catalog.ts`, `modules/payment-gateway/services/webhook-utils.ts`, `modules/finance/repositories/paymentRepository.customer-payments.ts`, `app/api/customer/payments/route.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Verifikasi kupon staf berizin dan batas laju rute pembayaran pelanggan
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/coupons/verify` | `app/api/customer`
+- **Author**: agent
+- **Deskripsi**: `POST /api/coupons/verify` kini menuntut izin `coupon:read` dan membuang `pelangganId` dari body; pelanggan memakai `/api/customer/coupons/verify`. Rute pembayaran pelanggan dibatasi per pelanggan per menit dengan pembatas yang sama dengan rute login: buat checkout 10, cek status 12, batal 5, upload bukti 5, verifikasi kupon 10, koneksi SSE 10. Kuncinya id pelanggan, bukan IP, karena pelanggan seluler berbagi IP lewat CGNAT; cek status yang terlalu sering membuat Duitku memblokir merchant sekitar satu jam.
+- **Files**: `app/api/coupons/verify/route.ts`, `app/api/customer/rate-limit.ts`, `app/api/customer/payments/route.ts`, `app/api/customer/payments/sse/route.ts`, `app/api/customer/coupons/verify/route.ts`, `tests/api/coupons-verify-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Notifikasi tagihan pengganti saat paket siklus berubah
 
 - **Tipe**: [FIXED]
