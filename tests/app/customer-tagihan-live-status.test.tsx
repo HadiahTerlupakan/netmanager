@@ -83,6 +83,7 @@ describe("usePaymentLiveStatus", () => {
     es.kirim({ status: "OVERDUE", paymentId: "p2", gatewayStatus: "PENDING" });
 
     expect(handlers.onReplaced).toHaveBeenCalledTimes(1);
+    expect(handlers.onReplaced).toHaveBeenCalledWith("PENDING");
     expect(handlers.onEnded).not.toHaveBeenCalled();
   });
 
@@ -102,6 +103,91 @@ describe("usePaymentLiveStatus", () => {
     expect(handlers.onPaid).not.toHaveBeenCalled();
     expect(handlers.onReplaced).not.toHaveBeenCalled();
     expect(handlers.onEnded).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Aliran dulu ditutup pada galat apa pun, dan server sendiri mengakhirinya
+   * setelah 30 menit; pelunasan sesudahnya baru terlihat setelah muat ulang.
+   */
+  describe("sambung ulang", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    function putus(es: EventSourcePalsu) {
+      act(() => es.onerror?.());
+    }
+
+    function tunggu(ms: number) {
+      act(() => vi.advanceTimersByTime(ms));
+    }
+
+    it("tersambung lagi dengan jeda yang makin panjang", () => {
+      const es = pasang({ paymentId: "p1", gatewayStatus: "PENDING" });
+
+      putus(es);
+      expect(es.closed).toBe(true);
+      expect(sumber).toHaveLength(1);
+      tunggu(1000);
+      expect(sumber).toHaveLength(2);
+
+      putus(sumber[1]);
+      tunggu(1000);
+      expect(sumber).toHaveLength(2);
+      tunggu(1000);
+      expect(sumber).toHaveLength(3);
+    });
+
+    it("pesan yang masuk mengembalikan jeda ke awal", () => {
+      const es = pasang({ paymentId: "p1", gatewayStatus: "PENDING" });
+      putus(es);
+      tunggu(1000);
+      putus(sumber[1]);
+      tunggu(2000);
+
+      sumber[2].kirim({
+        status: "OVERDUE",
+        paymentId: "p1",
+        gatewayStatus: "PENDING",
+      });
+      putus(sumber[2]);
+      tunggu(1000);
+
+      expect(sumber).toHaveLength(4);
+    });
+
+    it("pelunasan setelah aliran diakhiri server tetap terlihat", () => {
+      const es = pasang({ paymentId: "p1", gatewayStatus: "PENDING" });
+
+      putus(es);
+      tunggu(1000);
+      sumber[1].kirim({
+        status: "PAID",
+        paymentId: "p1",
+        gatewayStatus: "PAID",
+      });
+
+      expect(handlers.onPaid).toHaveBeenCalledTimes(1);
+    });
+
+    it("setelah lunas tidak menyambung lagi", () => {
+      const es = pasang({ paymentId: "p1", gatewayStatus: "PENDING" });
+
+      es.kirim({ status: "PAID", paymentId: "p1", gatewayStatus: "PAID" });
+      putus(es);
+      tunggu(60_000);
+
+      expect(sumber).toHaveLength(1);
+    });
+
+    it("halaman yang ditinggalkan tidak menyambung lagi", () => {
+      const es = pasang({ paymentId: "p1", gatewayStatus: "PENDING" });
+
+      putus(es);
+      act(() => root.render(<></>));
+      tunggu(60_000);
+
+      expect(sumber).toHaveLength(1);
+    });
   });
 });
 

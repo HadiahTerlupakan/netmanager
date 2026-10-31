@@ -13,4 +13,10 @@ describe("getInvoiceStatusLabel", () => {
   it("tagihan yang dibatalkan berlabel Dibatalkan", () => {
     expect(getInvoiceStatusLabel(InvoiceStatus.CANCELLED)).toBe("Dibatalkan");
   });
+
+  // Aplikasi menyebutnya "Terlambat"; portal dulu menyamakannya dengan SENT.
+  it("tagihan lewat jatuh tempo berlabel Terlambat, sama dengan aplikasi", () => {
+    expect(getInvoiceStatusLabel(InvoiceStatus.OVERDUE)).toBe("Terlambat");
+    expect(getInvoiceStatusLabel(InvoiceStatus.SENT)).toBe("Belum Bayar");
+  });
 });

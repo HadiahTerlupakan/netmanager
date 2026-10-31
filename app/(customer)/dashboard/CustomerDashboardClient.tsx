@@ -4,12 +4,10 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
-  MdArrowForward,
   MdBolt,
   MdCheckCircle,
   MdDescription,
   MdHistory,
-  MdReceiptLong,
   MdRocketLaunch,
   MdRouter,
   MdSupportAgent,
@@ -21,6 +19,7 @@ import {
 } from "@/lib/dashboard/fetchDashboardResource";
 import { z } from "zod";
 import { CustomerNotificationBell } from "@/components/customer/CustomerNotificationBell";
+import { DashboardBillingCard } from "./DashboardBillingCard";
 import {
   getServiceStatusLabel,
   type ServiceStatusTone,
@@ -66,6 +65,8 @@ const dashboardSummarySchema = z.object({
         outstandingAmount: z.number(),
         nearestDueDate: z.string().nullable(),
         hasOverdue: z.boolean(),
+        // Server lama tidak mengirimnya.
+        saldoKredit: z.number().optional(),
       })
       .nullable(),
     message: z.string().optional(),
@@ -93,7 +94,6 @@ type DashboardFailureState = {
 };
 
 const INITIAL_LOAD_LABEL = "Memuat dashboard pelanggan";
-const BILLING_ERROR_LABEL = "Tagihan belum bisa diverifikasi";
 const CONNECTION_ERROR_LABEL = "Status perangkat belum tersedia";
 const DEFAULT_DASHBOARD_ERROR_MESSAGE =
   "Kami belum bisa membaca ringkasan dashboard saat ini.";
@@ -121,22 +121,6 @@ const SERVICE_STATUS_TONE_CLASSES: Record<
   },
 };
 const LOGIN_ACTION_LABEL = "Kembali ke login";
-
-function formatCurrency(value: number) {
-  return `Rp ${value.toLocaleString("id-ID")}`;
-}
-
-function formatDueDate(dateValue: string | null) {
-  if (!dateValue) {
-    return "Jadwal jatuh tempo belum tersedia";
-  }
-
-  return `Jatuh tempo: ${new Date(dateValue).toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  })}`;
-}
 
 function getPackageName(profileData: DashboardSummary["profile"]["data"]) {
   return profileData?.paket?.nama ?? "Belum berlangganan";
@@ -214,9 +198,10 @@ export function CustomerDashboardContent({
     connectionSection?.state === "ready"
       ? (connectionSection.data?.isOnline ?? false)
       : false;
+  // Tagihan yang sudah ditutup saldo tidak perlu dibayar lagi.
   const hasOutstandingInvoice =
     billingSection?.state === "ready" &&
-    (billingSection.data?.outstandingCount ?? 0) > 0;
+    (billingSection.data?.outstandingAmount ?? 0) > 0;
   const serviceStatus = getServiceStatusLabel({
     customerStatus: profileSection?.data?.status,
     connectionReady: connectionSection?.state === "ready",
@@ -351,52 +336,7 @@ export function CustomerDashboardContent({
           </div>
 
           <div className="px-4 pb-4">
-            <div className="relative overflow-hidden rounded-xl bg-linear-to-br from-[#0d9488] to-[#115e59] p-5 text-white shadow-lg">
-              <div className="absolute -right-8 -top-8 size-32 rounded-full bg-white/10 blur-2xl" />
-              <div className="relative z-10 flex flex-col gap-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="mb-1 text-sm font-medium text-teal-100">
-                      Tagihan Bulan Ini
-                    </p>
-                    <h3 className="text-3xl font-bold tracking-tight">
-                      {billingSection?.state === "ready" && billingSection.data
-                        ? formatCurrency(billingSection.data.outstandingAmount)
-                        : "Rp -"}
-                    </h3>
-                  </div>
-                  <div className="rounded-lg bg-white/20 p-2 backdrop-blur-sm">
-                    <MdReceiptLong className="text-xl text-white" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`flex h-2 w-2 rounded-full ${billingSection?.state === "ready" && billingSection.data && billingSection.data.outstandingCount > 0 ? "bg-orange-400" : "bg-green-400"}`}
-                  />
-                  <p className="text-sm font-medium text-teal-50">
-                    {billingSection?.state === "ready" && billingSection.data
-                      ? billingSection.data.outstandingCount > 0
-                        ? formatDueDate(billingSection.data.nearestDueDate)
-                        : "Tagihan lunas"
-                      : BILLING_ERROR_LABEL}
-                  </p>
-                </div>
-                <div className="pt-2">
-                  <Link href="/tagihan">
-                    <Button variant="outline" className="w-full">
-                      <span>
-                        {billingSection?.state === "ready" &&
-                        billingSection.data &&
-                        billingSection.data.outstandingCount > 0
-                          ? "Bayar Sekarang"
-                          : "Lihat Riwayat"}
-                      </span>
-                      <MdArrowForward className="text-sm" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </div>
+            <DashboardBillingCard billing={billingSection} />
           </div>
 
           <div className="px-4">

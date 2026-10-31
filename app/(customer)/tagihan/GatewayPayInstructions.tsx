@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import QRCodeLib from "qrcode";
 import { MdContentCopy, MdDownload } from "react-icons/md";
 import { Button } from "@/components/ui/Button";
 
 const QR_SIZE_PX = 240;
+const VA_INSTRUCTION =
+  "Bayar lewat m-banking, internet banking, atau ATM: pilih menu transfer ke Virtual Account, masukkan nomor di atas, lalu periksa nama dan nominalnya sebelum konfirmasi.";
 
 type Props = {
   amount: string;
@@ -19,9 +21,14 @@ type Props = {
 /**
  * Kartu checkout gateway yang menunggu dibayar. Halaman bayar gateway hanya
  * dibuka untuk metode tanpa instruksi (kartu kredit, e-wallet dengan login).
+ * `children` diletakkan di atas tombol ganti metode (tombol cek status).
  */
 export function GatewayPendingCard(
-  props: Props & { paymentUrl?: string; onChangeMethod: () => void },
+  props: Props & {
+    paymentUrl?: string | null;
+    onChangeMethod: () => void;
+    children?: ReactNode;
+  },
 ) {
   const hasInstructions = Boolean(props.vaNumber || props.qrString);
 
@@ -49,6 +56,7 @@ export function GatewayPendingCard(
           Lanjutkan ke Halaman Pembayaran
         </Button>
       )}
+      {props.children}
       {/* VA yang belum dibayar bisa diganti QRIS dan sebaliknya; backend
           menutup checkout lama. */}
       <Button
@@ -144,6 +152,7 @@ function CodeInstructions({
         <Button
           variant="outline"
           size="sm"
+          aria-label={`Salin ${label.toLowerCase()}`}
           onClick={() => onCopy(vaNumber, label)}
         >
           <MdContentCopy /> Salin
@@ -156,10 +165,18 @@ function CodeInstructions({
         <p className="font-bold text-[#0d9488] text-2xl">{amount}</p>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-        {isRetail
-          ? "Tunjukkan kode ini ke kasir Alfamart atau Indomaret."
-          : "Bayar lewat m-banking, internet banking, atau ATM: pilih menu transfer ke Virtual Account, masukkan nomor di atas, lalu periksa nama dan nominalnya sebelum konfirmasi."}
+        {isRetail ? retailInstruction(methodName) : VA_INSTRUCTION}
       </p>
     </div>
   );
+}
+
+/**
+ * Gerai yang melayani kode bergantung kanalnya (FT: Alfamart, Pegadaian,
+ * Pos; Indomaret kanal lain), jadi gerai disebut dari nama metodenya.
+ */
+function retailInstruction(methodName?: string) {
+  return methodName
+    ? `Tunjukkan kode pembayaran ini ke kasir ${methodName}.`
+    : "Tunjukkan kode pembayaran ini ke kasir gerai yang Anda pilih.";
 }

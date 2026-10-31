@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useToast } from "@/components/ui/Toast";
 
 type PaymentSnapshot = {
   status: string;
@@ -10,13 +9,34 @@ type PaymentSnapshot = {
 };
 
 const ENDED_STATUSES = new Set(["EXPIRED", "FAILED", "CANCELLED"]);
+const RECONNECT_BASE_DELAY_MS = 1000;
+const RECONNECT_MAX_DELAY_MS = 30_000;
 
 export type PaymentLiveHandlers = {
   onPaid: () => void;
-  /** Checkout terbaru bukan yang sedang ditampilkan (diganti di perangkat lain). */
-  onReplaced: () => void;
+  /**
+   * Checkout terbaru bukan yang sedang ditampilkan: diganti di perangkat
+   * lain, atau percobaan ganti metode yang gagal (status terbarunya bukan
+   * PENDING).
+   */
+  onReplaced: (gatewayStatus: string | null) => void;
   onEnded: (gatewayStatus: string) => void;
 };
+
+function parseSnapshot(raw: string): PaymentSnapshot | null {
+  try {
+    return JSON.parse(raw) as PaymentSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+function reconnectDelay(attempt: number) {
+  return Math.min(
+    RECONNECT_BASE_DELAY_MS * 2 ** attempt,
+    RECONNECT_MAX_DELAY_MS,
+  );
+}
 
 /**
  * Status live pembayaran invoice yang belum lunas, lewat SSE. Dipasang
@@ -24,6 +44,10 @@ export type PaymentLiveHandlers = {
  * halaman yang terbuka di perangkat lain ikut berubah ketika pelanggan
  * membayar atau mengganti metode di tempat lain, dan tidak lagi
  * menampilkan VA/QR yang sudah ditutup.
+ *
+ * Server mengakhiri aliran setelah 30 menit dan jaringan HP sering putus,
+ * jadi aliran disambung lagi dengan jeda 1, 2, 4 ... hingga 30 detik;
+ * hanya status PAID yang mengakhirinya.
  */
 export function usePaymentLiveStatus(
   invoiceId: string | undefined,
@@ -38,26 +62,24 @@ export function usePaymentLiveStatus(
   const { paymentId: shownPaymentId, gatewayStatus: shownStatus } = shown;
   useEffect(() => {
     if (!invoiceId) return;
-    // Satu kali per kejadian: SSE mengulang status yang sama tiap 5 detik.
+    // Satu kali per kejadian, juga lintas sambungan: SSE mengulang status
+    // yang sama tiap 5 detik dan lagi setiap kali tersambung.
     let notified = false;
-    const source = new EventSource(
-      `/api/customer/payments/sse?invoiceId=${invoiceId}`,
-    );
-    source.onmessage = (event) => {
-      let data: PaymentSnapshot;
-      try {
-        data = JSON.parse(event.data);
-      } catch {
-        return;
-      }
+    let isFinished = false;
+    let failedAttempts = 0;
+    let source: EventSource | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const handleSnapshot = (data: PaymentSnapshot) => {
       if (notified) return;
       if (data.status === "PAID") {
         notified = true;
-        source.close();
+        isFinished = true;
+        source?.close();
         handlersRef.current.onPaid();
       } else if (data.paymentId && data.paymentId !== shownPaymentId) {
         notified = true;
-        handlersRef.current.onReplaced();
+        handlersRef.current.onReplaced(data.gatewayStatus);
       } else if (
         shownStatus === "PENDING" &&
         data.gatewayStatus &&
@@ -67,86 +89,31 @@ export function usePaymentLiveStatus(
         handlersRef.current.onEnded(data.gatewayStatus);
       }
     };
-    source.onerror = () => source.close();
-    return () => source.close();
+
+    const connect = () => {
+      source = new EventSource(
+        `/api/customer/payments/sse?invoiceId=${invoiceId}`,
+      );
+      source.onmessage = (event) => {
+        failedAttempts = 0;
+        const data = parseSnapshot(event.data);
+        if (data) handleSnapshot(data);
+      };
+      source.onerror = () => {
+        source?.close();
+        if (isFinished) return;
+        retryTimer = setTimeout(connect, reconnectDelay(failedAttempts));
+        failedAttempts += 1;
+      };
+    };
+
+    connect();
+    return () => {
+      isFinished = true;
+      clearTimeout(retryTimer);
+      source?.close();
+    };
   }, [invoiceId, shownPaymentId, shownStatus]);
-}
-
-type WatchedInvoice = {
-  id: string;
-  invoiceNumber: string;
-  remainingAmount: number;
-  lastPayment?: { id?: string; gatewayStatus?: string };
-};
-
-export type PaidSummary = {
-  amount: number;
-  invoiceNumber?: string;
-  methodName?: string;
-};
-
-/**
- * Umpan balik halaman tagihan: layar sukses saat lunas, toast saat metode
- * diganti di perangkat lain atau checkout berakhir, dan pesan setelah
- * kembali dari halaman e-wallet/gateway.
- */
-export function useTagihanLiveUpdates(options: {
-  watchedInvoice?: WatchedInvoice;
-  hasActivePayment: boolean;
-  methodName?: string;
-  refetch: () => unknown;
-  onPaid: (summary: PaidSummary) => void;
-}) {
-  const { showToast } = useToast();
-  const { watchedInvoice, hasActivePayment, methodName, refetch, onPaid } =
-    options;
-
-  usePaymentLiveStatus(
-    watchedInvoice?.id,
-    {
-      paymentId: watchedInvoice?.lastPayment?.id,
-      gatewayStatus: watchedInvoice?.lastPayment?.gatewayStatus,
-    },
-    {
-      onPaid: () => {
-        onPaid({
-          amount: watchedInvoice?.remainingAmount ?? 0,
-          invoiceNumber: watchedInvoice?.invoiceNumber,
-          methodName,
-        });
-        refetch();
-      },
-      onReplaced: () => {
-        if (hasActivePayment) {
-          showToast(
-            "info",
-            "Metode pembayaran diperbarui. Gunakan instruksi bayar yang tampil sekarang.",
-          );
-        }
-        refetch();
-      },
-      onEnded: (gatewayStatus) => {
-        showToast(
-          "warning",
-          gatewayStatus === "EXPIRED"
-            ? "Waktu pembayaran habis. Silakan pilih metode dan bayar lagi."
-            : "Pembayaran tidak berhasil. Silakan coba lagi atau pilih metode lain.",
-        );
-        refetch();
-      },
-    },
-  );
-
-  // resultCode di URL hanya petunjuk dari gateway; status lunas tetap
-  // menunggu server lewat SSE.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const resultCode = params.get("resultCode");
-    if (!resultCode) return;
-    window.history.replaceState(null, "", window.location.pathname);
-    showToast(...gatewayReturnNotice(resultCode));
-    refetch();
-  }, [showToast, refetch]);
 }
 
 /** Kode hasil returnUrl Duitku: 00 berhasil, 02 dibatalkan, lainnya tertunda. */

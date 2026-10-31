@@ -122,6 +122,24 @@ describe("CustomerDashboardClient status isolir", () => {
   it("tetap meminta bayar saat masih ada tunggakan", () => {
     expect(renderWith(1)).toContain("Diisolir – bayar tagihan");
   });
+
+  // Sisa Rp 0: tagihan sudah ditutup saldo dan tinggal diproses.
+  it("tidak menyuruh bayar tagihan yang sudah ditutup saldo", () => {
+    const summary = buildSummary("ISOLIR", 1);
+    summary.billing.data.outstandingAmount = 0;
+
+    const markup = renderToStaticMarkup(
+      <CustomerDashboardContent
+        customerId="customer-1"
+        customerName="Pelanggan Satu"
+        summary={summary}
+        isLoading={false}
+        dashboardError={null}
+      />,
+    );
+
+    expect(markup).not.toContain("bayar tagihan");
+  });
 });
 
 // Sesi kedua pelanggan ini masih online, jadi titik status dulu ikut hijau.

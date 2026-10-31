@@ -17,6 +17,9 @@ vi.mock("@/components/customer/CustomerAuthProvider", () => ({
   }),
 }));
 vi.mock("@/components/ui/Toast", () => ({ useToast: () => ({ showToast }) }));
+const profil = vi.hoisted(() => ({
+  saldoKredit: undefined as number | undefined,
+}));
 vi.mock("@/lib/hooks/useApi", () => ({
   useApi: () => ({
     data: {
@@ -39,6 +42,7 @@ vi.mock("@/lib/hooks/useApi", () => ({
           isBillNotifEnabled: true,
           isPromoEnabled: false,
         },
+        saldoKredit: profil.saldoKredit,
       },
     },
     isLoading: false,
@@ -80,6 +84,7 @@ describe("halaman Pengaturan Akun pelanggan", () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {
+    profil.saldoKredit = undefined;
     showToast.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
@@ -152,5 +157,25 @@ describe("halaman Pengaturan Akun pelanggan", () => {
       "Password berhasil diubah",
     );
     expect(byText("Simpan Password")).toBeUndefined();
+  });
+
+  // Kelebihan bayar menjadi saldo; dulu pelanggan tidak bisa melihatnya.
+  describe("saldo kredit", () => {
+    it("ditampilkan bila ada", () => {
+      profil.saldoKredit = 25000;
+      act(() => root.render(<CustomerProfilPage />));
+
+      expect(document.body.textContent?.replace(/\u00a0/g, " ")).toContain(
+        "Saldo Anda Rp 25.000",
+      );
+    });
+
+    it("tidak ditampilkan bila nol", () => {
+      profil.saldoKredit = 0;
+      act(() => root.render(<CustomerProfilPage />));
+
+      expect(document.body.textContent).not.toContain("Saldo Anda");
+      expect(document.body.textContent).not.toContain("Saldo Kredit");
+    });
   });
 });

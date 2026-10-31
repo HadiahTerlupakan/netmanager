@@ -78,8 +78,9 @@ class EventSourcePalsu {
 
 type FetchCall = [string, RequestInit];
 
-function tombol(container: HTMLElement, label: string) {
-  const found = Array.from(container.querySelectorAll("button")).find((b) =>
+// Dialog bayar dirender ke body, di luar container halaman.
+function tombol(_container: HTMLElement, label: string) {
+  const found = Array.from(document.body.querySelectorAll("button")).find((b) =>
     b.textContent?.includes(label),
   );
   if (!found) throw new Error(`Tombol "${label}" tidak ditemukan`);
@@ -101,6 +102,15 @@ async function ketik(input: HTMLInputElement, value: string) {
     setter?.call(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
+}
+
+// Tidak ada metode yang terpilih otomatis; pelanggan harus memilih.
+async function pilihMetode() {
+  await klik(
+    document.body.querySelector<HTMLInputElement>(
+      'input[value="MANUAL_bank-1"]',
+    )!,
+  );
 }
 
 function bodyPanggilan(fetchMock: ReturnType<typeof vi.fn>, url: string) {
@@ -154,8 +164,8 @@ describe("halaman tagihan pelanggan: kupon dan pembayaran", () => {
   });
 
   it("memverifikasi kupon lewat endpoint pelanggan dan membaca data.valid", async () => {
-    const input = container.querySelector<HTMLInputElement>(
-      'input[placeholder="Masukan kode"]',
+    const input = document.body.querySelector<HTMLInputElement>(
+      'input[placeholder="Masukkan kode"]',
     )!;
     await ketik(input, "hemat10");
     await klik(tombol(container, "Gunakan"));
@@ -164,8 +174,9 @@ describe("halaman tagihan pelanggan: kupon dan pembayaran", () => {
       code: "HEMAT10",
       amount: 100000,
     });
-    expect(container.textContent).toContain("Diskon (HEMAT10)");
+    expect(document.body.textContent).toContain("Diskon (HEMAT10)");
 
+    await pilihMetode();
     await klik(tombol(container, "Konfirmasi & Bayar"));
     expect(bodyPanggilan(fetchMock, "/api/customer/payments")).toMatchObject({
       couponCode: "HEMAT10",
@@ -173,6 +184,7 @@ describe("halaman tagihan pelanggan: kupon dan pembayaran", () => {
   });
 
   it("tidak mengirim couponCode null saat membayar tanpa kupon", async () => {
+    await pilihMetode();
     await klik(tombol(container, "Konfirmasi & Bayar"));
 
     const body = bodyPanggilan(fetchMock, "/api/customer/payments");

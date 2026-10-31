@@ -4,6 +4,7 @@ import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
+import { SaldoKreditNote } from "@/components/customer/SaldoKreditNote";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
@@ -41,6 +42,8 @@ interface ProfileData {
     isBillNotifEnabled: boolean;
     isPromoEnabled: boolean;
   };
+  /** Tidak dikirim server lama. */
+  saldoKredit?: number;
 }
 
 // No 2FA toggle: customer login does not check is2FAEnabled, so offering it
@@ -170,6 +173,20 @@ export default function CustomerProfilPage() {
             </p>
           </div>
         </div>
+
+        {(profile.saldoKredit ?? 0) > 0 && (
+          <div className="px-4 mb-4">
+            <div className="rounded-xl border border-teal-100 bg-teal-50 p-4 text-teal-900 dark:border-teal-900/40 dark:bg-teal-950/30 dark:text-teal-100">
+              <p className="text-xs font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">
+                Saldo Kredit
+              </p>
+              <SaldoKreditNote
+                amount={profile.saldoKredit}
+                className="mt-1 text-sm font-medium"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Section: Data Diri */}
         <div className="px-4 mt-2">

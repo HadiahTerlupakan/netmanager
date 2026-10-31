@@ -28,11 +28,11 @@ export function isOutstandingInvoiceStatus(status: string): boolean {
 
 // Record atas enum Prisma: status baru di skema gagal dikompilasi sampai
 // diberi label, jadi pelanggan tidak lagi melihat kode mentah seperti
-// "CANCELLED". SENT dan OVERDUE sama bagi pelanggan: dua-duanya harus dibayar.
+// "CANCELLED". OVERDUE memakai kata yang sama dengan aplikasi mobile.
 const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   DRAFT: "Draf",
   SENT: "Belum Bayar",
-  OVERDUE: "Belum Bayar",
+  OVERDUE: "Terlambat",
   PAID: "Lunas",
   PARTIAL_PAID: "Dibayar Sebagian",
   CANCELLED: "Dibatalkan",

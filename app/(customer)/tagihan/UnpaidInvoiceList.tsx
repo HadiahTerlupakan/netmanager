@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MdChevronRight, MdHistory, MdPendingActions } from "react-icons/md";
 import { getInvoiceStatusLabel } from "@/lib/constants/invoice-status";
 import { formatCurrency } from "@/lib/utils";
+import { isCoveredBySaldo } from "./checkout";
 
 type UnpaidInvoice = {
   id: string;
@@ -16,6 +17,49 @@ const PARTIAL_BADGE_CLASS =
   "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 ring-amber-600/20 dark:ring-amber-400/20";
 const UNPAID_BADGE_CLASS =
   "text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 ring-orange-600/10 dark:ring-orange-400/20";
+const OVERDUE_BADGE_CLASS =
+  "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 ring-red-600/10 dark:ring-red-400/20";
+const COVERED_BADGE_CLASS =
+  "text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/30 ring-teal-600/20 dark:ring-teal-400/20";
+const BADGE_CLASS =
+  "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset";
+
+function statusBadgeClass(status: string) {
+  if (status === "PARTIAL_PAID") return PARTIAL_BADGE_CLASS;
+  if (status === "OVERDUE") return OVERDUE_BADGE_CLASS;
+  return UNPAID_BADGE_CLASS;
+}
+
+/**
+ * Sisa tagihan dan statusnya. Tagihan yang sisanya nol sudah ditutup saldo
+ * kredit dan tinggal diproses; "Belum Bayar Rp 0" membuat pelanggan
+ * mengira masih harus membayar.
+ */
+function InvoiceAmount({ invoice }: { invoice: UnpaidInvoice }) {
+  if (isCoveredBySaldo(invoice)) {
+    return (
+      <>
+        <p className="text-sm font-semibold text-teal-700 dark:text-teal-300">
+          Ditutup saldo
+        </p>
+        <span className={`${BADGE_CLASS} ${COVERED_BADGE_CLASS}`}>
+          Sedang diproses
+        </span>
+      </>
+    );
+  }
+  return (
+    <>
+      {/* Sisa tagihan, bukan total: itulah yang ditagihkan saat bayar. */}
+      <p className="text-base font-bold text-[#111418] dark:text-white">
+        {formatCurrency(invoice.remainingAmount)}
+      </p>
+      <span className={`${BADGE_CLASS} ${statusBadgeClass(invoice.status)}`}>
+        {getInvoiceStatusLabel(invoice.status)}
+      </span>
+    </>
+  );
+}
 
 function formatDueDate(dateString: string) {
   return new Date(dateString).toLocaleDateString("id-ID", {
@@ -76,19 +120,7 @@ export function UnpaidInvoiceList({ invoices }: { invoices: UnpaidInvoice[] }) {
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
-              {/* Sisa tagihan, bukan total: itulah yang ditagihkan saat bayar. */}
-              <p className="text-base font-bold text-[#111418] dark:text-white">
-                {formatCurrency(invoice.remainingAmount)}
-              </p>
-              <span
-                className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${
-                  invoice.status === "PARTIAL_PAID"
-                    ? PARTIAL_BADGE_CLASS
-                    : UNPAID_BADGE_CLASS
-                }`}
-              >
-                {getInvoiceStatusLabel(invoice.status)}
-              </span>
+              <InvoiceAmount invoice={invoice} />
             </div>
           </div>
         ))

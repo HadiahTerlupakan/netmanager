@@ -55,7 +55,29 @@ describe("GatewayPayInstructions", () => {
     );
   });
 
-  it("minimarket memakai label kode pembayaran", async () => {
+  // Kanal FT dilayani Alfamart, Pegadaian, dan Pos, bukan Indomaret; teks
+  // lama menyuruh pelanggan ke kasir Indomaret yang menolak kodenya.
+  it("minimarket menyebut gerai dari nama metodenya", async () => {
+    await act(async () => {
+      root.render(
+        <GatewayPayInstructions
+          amount="Rp 11.100"
+          vaNumber="FT123"
+          methodName="Alfamart / Pegadaian / Pos"
+          methodType="RETAIL"
+          onCopy={onCopy}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain("Kode Pembayaran");
+    expect(container.textContent).toContain(
+      "Tunjukkan kode pembayaran ini ke kasir Alfamart / Pegadaian / Pos.",
+    );
+    expect(container.textContent).not.toContain("Indomaret");
+  });
+
+  it("minimarket tanpa nama metode tidak menyebut jaringan gerai", async () => {
     await act(async () => {
       root.render(
         <GatewayPayInstructions
@@ -67,8 +89,8 @@ describe("GatewayPayInstructions", () => {
       );
     });
 
-    expect(container.textContent).toContain("Kode Pembayaran");
-    expect(container.textContent).toContain("Alfamart");
+    expect(container.textContent).not.toContain("Alfamart");
+    expect(container.textContent).not.toContain("Indomaret");
   });
 
   it("menggambar QRIS sebagai gambar yang bisa disimpan", async () => {

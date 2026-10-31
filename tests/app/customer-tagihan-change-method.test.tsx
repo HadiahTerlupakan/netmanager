@@ -128,7 +128,8 @@ describe("halaman tagihan pelanggan: ganti metode", () => {
       tombol.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(container.textContent).toMatch(/Bayar hanya yang baru/);
-    expect(container.textContent).toMatch(/kelebihannya menjadi saldo/);
+    // Dialog bayar dirender ke body, di luar container halaman.
+    expect(document.body.textContent).toMatch(/Bayar hanya yang baru/);
+    expect(document.body.textContent).toMatch(/kelebihannya menjadi saldo/);
   });
 });
