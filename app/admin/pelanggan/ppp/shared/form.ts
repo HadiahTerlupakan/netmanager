@@ -121,6 +121,12 @@ export function applyPppClientFieldChange<
     tanggalAktif: string | undefined,
     hargaPaketId: string | undefined,
   ) => string;
+  /**
+   * Form edit: jatuh tempo pelanggan lama adalah akhir periode yang sudah
+   * dibayar. Ganti paket (upgrade ditagih lewat prorate) tidak boleh
+   * menghitungnya ulang dari tanggal aktif.
+   */
+  jatuhTempoTetapSaatGantiPaket?: boolean;
 }): {
   updated: T;
   shouldMarkManualDueDate: boolean;
@@ -138,7 +144,12 @@ export function applyPppClientFieldChange<
     shouldMarkManualDueDate = true;
   }
 
-  if (params.name === "tanggalAktif" || params.name === "hargaPaketId") {
+  const gantiPaketTanpaHitungUlang =
+    params.name === "hargaPaketId" && params.jatuhTempoTetapSaatGantiPaket;
+  if (
+    (params.name === "tanggalAktif" || params.name === "hargaPaketId") &&
+    !gantiPaketTanpaHitungUlang
+  ) {
     shouldResetManualDueDate = true;
     updated.jatuhTempo = params.calculateJatuhTempo(
       params.name === "tanggalAktif" ? params.value : updated.tanggalAktif,

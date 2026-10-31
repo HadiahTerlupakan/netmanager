@@ -50,7 +50,8 @@ type UsePppFormOrchestrationOptions<T extends BasePppFormData> = {
   hargaPakets: HargaPaket[];
   allowNonPositiveProrate: boolean;
   // Form edit: jatuh tempo tersimpan bisa sudah maju karena perpanjangan,
-  // jadi baru dihitung ulang setelah tanggal aktif atau paket diubah.
+  // jadi baru dihitung ulang setelah tanggal aktif diubah; ganti paket
+  // tidak menggesernya.
   keepLoadedDueDate?: boolean;
 };
 
@@ -92,6 +93,7 @@ export function usePppFormOrchestration<T extends BasePppFormData>({
         checked,
         type,
         calculateJatuhTempo,
+        jatuhTempoTetapSaatGantiPaket: keepLoadedDueDate,
       });
 
       if (result.shouldMarkManualDueDate) {
