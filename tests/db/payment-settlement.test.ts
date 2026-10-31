@@ -274,6 +274,37 @@ function createVa(
   });
 }
 
+/** Checkout transfer manual ke rekening perusahaan, satu payment per tagihan. */
+async function createManualTransfer(
+  invoiceIds: string[],
+  options: { receiptUrl?: string } = {},
+) {
+  const checkoutId = randomUUID();
+  const payments = [];
+  for (const invoiceId of invoiceIds) {
+    payments.push(
+      await prismaBillingAuth.payment.create({
+        data: {
+          id: randomUUID(),
+          invoiceId,
+          pelangganId: PELANGGAN,
+          amount: PRICE,
+          checkoutId,
+          paymentDate: new Date(),
+          paymentMethod: "BANK_TRANSFER",
+          accountId: "rekening-settle",
+          reference: `PAY-${randomUUID()}`,
+          gatewayStatus: "PENDING",
+          receiptUrl: options.receiptUrl ?? null,
+          tenantId: TENANT,
+          updatedAt: new Date(),
+        },
+      }),
+    );
+  }
+  return payments;
+}
+
 /** Callback Duitku bertanda tangan sesuai dokumentasi. */
 function duitkuCallback(input: {
   merchantOrderId: string;
@@ -912,25 +943,17 @@ describeDb("pelunasan pembayaran pelanggan", () => {
       });
     });
 
-    it("saat tagihan lunas, transfer manual tanpa bukti dibatalkan dan yang berbukti tetap ditandai", async () => {
+    // Checkout transfer dibuat langsung (bukan lewat portal) supaya tes ini
+    // tidak bergantung pada aturan portal saat metode dipilih ulang.
+    it("saat tagihan lunas, transfer manual tanpa bukti dibatalkan per checkout dan yang berbukti tetap ditandai", async () => {
       await seed();
       const inv = await createInvoice("STL-12", PRICE);
-      await payFromPortal([inv.id], MANUAL_METHOD);
-      const abandoned = await prismaBillingAuth.payment.findFirstOrThrow({
-        where: { invoiceId: inv.id, paymentMethod: "BANK_TRANSFER" },
+      const other = await createInvoice("STL-12B", PRICE);
+      const abandoned = await createManualTransfer([inv.id, other.id]);
+      const [withProof] = await createManualTransfer([inv.id], {
+        receiptUrl: "/receipts/settle-proof.webp",
       });
-      await payFromPortal([inv.id], MANUAL_METHOD);
-      const withProof = await attachProof(inv.id);
-      await payFromPortal([inv.id], "SP");
-      const qris = await prismaBillingAuth.payment.findFirstOrThrow({
-        where: { invoiceId: inv.id, gatewayProvider: "SP" },
-      });
-      await duitkuCallback({
-        merchantOrderId: qris.reference!,
-        amount: PRICE,
-        reference: qris.transactionId!,
-        paymentCode: "SP",
-      });
+      await payVa(await createVa(inv.id, "PAY-SETTLE-T12"));
 
       await handleInvoicePaidManualPaymentCleanup(invoicePaidJob(inv.id));
 
@@ -940,11 +963,14 @@ describeDb("pelunasan pembayaran pelanggan", () => {
         }),
       );
       expect({
-        abandoned: (await payment(abandoned.id)).gatewayStatus,
+        abandoned: await Promise.all(
+          abandoned.map(async (p) => (await payment(p.id)).gatewayStatus),
+        ),
         withProof: (await payment(withProof.id)).gatewayStatus,
         queued: queue.map((p) => [p.id, p.settlementWarning]),
       }).toEqual({
-        abandoned: "CANCELLED",
+        // Seluruh checkout ditutup, termasuk bagian untuk tagihan lain.
+        abandoned: ["CANCELLED", "CANCELLED"],
         withProof: "PENDING",
         queued: [
           [
