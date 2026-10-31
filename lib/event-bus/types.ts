@@ -44,6 +44,7 @@ export const EVENT_NAMES = {
   PAYMENT_FAILED: "billing:payment.failed",
   PAYMENT_OVERPAID: "billing:payment.overpaid",
   PAYMENT_REDIRECTED: "billing:payment.redirected",
+  PAYMENT_REJECTED: "billing:payment.rejected",
   COUPON_USED: "billing:coupon.used",
   PACKAGE_CHANGED: "billing:package.changed",
 
@@ -185,6 +186,18 @@ export interface PaymentRedirectedPayload extends BaseEventPayload {
   amount: number;
   appliedAmount: number;
   creditedAmount: number;
+}
+
+/** Bukti transfer manual yang ditolak admin, untuk seluruh checkout-nya. */
+export interface PaymentRejectedPayload extends BaseEventPayload {
+  /** Tagihan pertama checkout; sumber notifikasi. */
+  invoiceId: string;
+  pelangganId: string;
+  /** Total transfer checkout yang ditolak. */
+  amount: number;
+  invoiceNumbers: string[];
+  /** Alasan admin, bila diberikan. */
+  reason?: string;
 }
 
 export interface InvoicePaidPayload extends BaseEventPayload {
@@ -723,6 +736,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.PAYMENT_FAILED]: InvoiceCreatedPayload;
   [EVENT_NAMES.PAYMENT_OVERPAID]: PaymentOverpaidPayload;
   [EVENT_NAMES.PAYMENT_REDIRECTED]: PaymentRedirectedPayload;
+  [EVENT_NAMES.PAYMENT_REJECTED]: PaymentRejectedPayload;
   [EVENT_NAMES.COUPON_USED]: CouponUsedPayload;
   [EVENT_NAMES.CUSTOMER_CREATED]: CustomerCreatedPayload;
   [EVENT_NAMES.CUSTOMER_UPDATED]: CustomerCreatedPayload;
@@ -884,6 +898,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.PAYMENT_REDIRECTED]: {
     name: EVENT_NAMES.PAYMENT_REDIRECTED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PAYMENT_REJECTED]: {
+    name: EVENT_NAMES.PAYMENT_REJECTED,
     category: "billing",
     priority: JOB_PRIORITIES.HIGH,
     persistent: true,

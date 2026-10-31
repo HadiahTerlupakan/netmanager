@@ -89,6 +89,7 @@ describe("admin verify-manual payment route", () => {
       paymentId: "pay-1",
       action: "APPROVE",
       notes: undefined,
+      reason: undefined,
       allowedSiteIds: undefined,
       verifiedBy: "admin@test.com",
     });

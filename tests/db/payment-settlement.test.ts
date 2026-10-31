@@ -80,6 +80,7 @@ const PROFIL = "profil-settle-fix";
 const PAKET = "paket-settle-fix";
 const PELANGGAN = "pel-settle-fix";
 const COUPON = "kupon-settle-fix";
+const COUPON_CODE = "SETTLEFIX10";
 const CONFIG_ID = "cfg-settle-duitku";
 const MERCHANT = "DSETTLE1";
 const API_KEY = "settle-api-key-for-tests-only";
@@ -816,7 +817,7 @@ describeDb("pelunasan pembayaran pelanggan", () => {
 
       const outcomes = await Promise.allSettled([
         adminVerify(manual.id, "APPROVE"),
-        adminVerify(manual.id, "REJECT"),
+        adminVerify(manual.id, "REJECT", { reason: "Buram" }),
       ]);
 
       const after = await payment(manual.id);
@@ -824,11 +825,88 @@ describeDb("pelunasan pembayaran pelanggan", () => {
       expect({
         payment: after.gatewayStatus,
         invoice: (await invoice(inv.id)).status,
+        reason: after.rejectionReason,
       }).toEqual(
         after.gatewayStatus === "PAID"
-          ? { payment: "PAID", invoice: "PAID" }
-          : { payment: "FAILED", invoice: "SENT" },
+          ? { payment: "PAID", invoice: "PAID", reason: null }
+          : { payment: "FAILED", invoice: "SENT", reason: "Buram" },
       );
+    });
+
+    it("menolak bukti menyimpan alasannya tanpa menimpa catatan OCR dan memberi tahu pelanggan", async () => {
+      await seed();
+      const inv = await createInvoice("STL-10", PRICE);
+      await payFromPortal([inv.id], MANUAL_METHOD);
+      const manual = await attachProof(inv.id);
+      await prismaBillingAuth.payment.update({
+        where: { id: manual.id },
+        data: { notes: "✅ [AI] Nominal dan rekening cocok" },
+      });
+
+      await adminVerify(manual.id, "REJECT", {
+        reason: "Nama pengirim tidak sesuai",
+      });
+
+      const after = await payment(manual.id);
+      expect({
+        status: after.gatewayStatus,
+        rejectionReason: after.rejectionReason,
+        notes: after.notes,
+        invoiceStatus: (await invoice(inv.id)).status,
+      }).toEqual({
+        status: "FAILED",
+        rejectionReason: "Nama pengirim tidak sesuai",
+        notes: "✅ [AI] Nominal dan rekening cocok",
+        invoiceStatus: "SENT",
+      });
+      expect(dispatcher.onPaymentRejected).toHaveBeenCalledWith(
+        expect.objectContaining({
+          invoiceId: inv.id,
+          pelangganId: PELANGGAN,
+          amount: Number(PRICE),
+          invoiceNumbers: ["STL-10"],
+          reason: "Nama pengirim tidak sesuai",
+          tenantId: TENANT,
+        }),
+      );
+    });
+
+    it("menolak bukti transfer mengembalikan kupon agar bisa dipakai lagi", async () => {
+      await seed();
+      await prismaAuth.coupon.create({
+        data: {
+          id: COUPON,
+          code: COUPON_CODE,
+          discountType: "FIXED",
+          discountValue: 10000,
+          startDate: new Date("2026-01-01"),
+          endDate: new Date("2027-01-01"),
+          quota: 1,
+          usedCount: 0,
+          tenantId: TENANT,
+        },
+      });
+      const inv = await createInvoice("STL-11", PRICE);
+      await payFromPortal([inv.id], MANUAL_METHOD, COUPON_CODE);
+      const manual = await attachProof(inv.id);
+
+      await adminVerify(manual.id, "REJECT");
+      const usedCountAfterReject = (
+        await prismaAuth.coupon.findUniqueOrThrow({ where: { id: COUPON } })
+      ).usedCount;
+      const retry = await payFromPortal(
+        [inv.id],
+        MANUAL_METHOD,
+        COUPON_CODE,
+      ).then(
+        () => "accepted",
+        (error: Error) => error.message,
+      );
+
+      expect({ usedCountAfterReject, retryWithSameCoupon: retry }).toEqual({
+        usedCountAfterReject: 0,
+        retryWithSameCoupon: "accepted",
+      });
     });
 
     it("saat tagihan lunas, transfer manual tanpa bukti dibatalkan dan yang berbukti tetap ditandai", async () => {

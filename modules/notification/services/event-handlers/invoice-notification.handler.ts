@@ -36,6 +36,12 @@ const optionalString = (value: unknown) =>
 const optionalNumber = (value: unknown) =>
   typeof value === "number" ? value : undefined;
 
+/** Checkout transfer bisa mencakup beberapa tagihan. */
+const joinInvoiceNumbers = (value: unknown) =>
+  Array.isArray(value) && value.length > 0
+    ? value.filter((item) => typeof item === "string").join(", ")
+    : undefined;
+
 function formatDateId(date: Date): string {
   return `${date.getDate()} ${MONTH_NAMES_ID[date.getMonth()]} ${date.getFullYear()}`;
 }
@@ -48,6 +54,7 @@ const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.PAYMENT_FAILED]: "paymentExpired",
   [EVENT_NAMES.PAYMENT_OVERPAID]: "overpaymentCredited",
   [EVENT_NAMES.PAYMENT_REDIRECTED]: "paymentRedirected",
+  [EVENT_NAMES.PAYMENT_REJECTED]: "paymentRejected",
 };
 
 // Tagihan pengganti tetap terbit lewat INVOICE_CREATED (jurnal dan PPN-nya
@@ -118,7 +125,8 @@ export async function handleInvoiceNotification(
   const amountDue = Number(payload.amountDue ?? payload.amount ?? 0);
   const providedInvoiceNumber =
     optionalString(payload.invoiceNumber) ??
-    optionalString(payload.cancelledInvoiceNumber);
+    optionalString(payload.cancelledInvoiceNumber) ??
+    joinInvoiceNumbers(payload.invoiceNumbers);
   const providedDueDate =
     typeof payload.dueDate === "string" ? payload.dueDate : undefined;
   const replacesInvoiceNumber =
@@ -161,6 +169,7 @@ export async function handleInvoiceNotification(
       ),
       appliedAmount: optionalNumber(payload.appliedAmount),
       creditedAmount: optionalNumber(payload.creditedAmount),
+      rejectionReason: optionalString(payload.reason),
     },
     sourceType: "BILLING",
     sourceId: invoiceId,

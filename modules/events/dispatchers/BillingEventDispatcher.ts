@@ -4,6 +4,7 @@ import {
   EVENT_NAMES,
   JOB_PRIORITIES,
   type PaymentRedirectedPayload,
+  type PaymentRejectedPayload,
 } from "@/lib/event-bus";
 
 export class BillingEventDispatcher {
@@ -97,6 +98,14 @@ export class BillingEventDispatcher {
    */
   static async onPaymentRedirected(data: PaymentRedirectedPayload) {
     await eventBus.publish(EVENT_NAMES.PAYMENT_REDIRECTED, data);
+  }
+
+  /**
+   * Admin menolak bukti transfer manual; pelanggan diberi tahu beserta
+   * alasannya agar bisa mengunggah ulang atau memilih metode lain.
+   */
+  static async onPaymentRejected(data: PaymentRejectedPayload) {
+    await eventBus.publish(EVENT_NAMES.PAYMENT_REJECTED, data);
   }
 
   /**

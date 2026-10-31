@@ -168,6 +168,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `app/api/coupons/verify/route.ts`, `app/api/customer/rate-limit.ts`, `app/api/customer/payments/route.ts`, `app/api/customer/payments/sse/route.ts`, `app/api/customer/coupons/verify/route.ts`, `tests/api/coupons-verify-route.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-10-31] — Alasan penolakan bukti transfer disimpan dan dikirim ke pelanggan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `modules/notification` | `lib/event-bus` | `app/api/admin/payments/verify-manual` | `app/admin/finance/manual-payments`
+- **Author**: agent
+- **Deskripsi**: Menolak bukti transfer menulis catatan admin ke `notes` (menimpa analisis OCR bukti), tidak mengembalikan pemesanan kupon checkout (pelanggan tidak bisa memakai kuponnya lagi), dan hanya mengirim push "Pembayaran Anda ditolak" tanpa alasan. Kini alasan disimpan di `Payment.rejectionReason` (kolom dari `fix/payment-e2e`) untuk seluruh payment checkout, `notes` tidak disentuh, kupon dikembalikan lewat `releaseCheckoutCoupons`, dan pelanggan diberi tahu lewat event baru `PAYMENT_REJECTED` → `NotificationDispatcher` (template `paymentRejected`: in-app, push, WhatsApp, dan email sesuai pengaturan notifikasi tagihannya) dengan alasan admin bila diisi. Route `verify-manual` menerima `reason` (maks. 500 karakter); klien lama yang mengirim alasan di `notes` tetap dilayani. Halaman Verifikasi Pembayaran Manual kini punya kolom "Alasan penolakan (dikirim ke pelanggan)" yang dianjurkan tetapi tidak wajib: menolak dengan alasan kosong meminta konfirmasi "Tolak tanpa alasan". Alasan tampil di daftar dan di detail bukti yang ditolak.
+- **Files**: `modules/finance/services/manual-payment-verification.ts`, `modules/finance/services/ManualPaymentAdminRouteService.ts`, `app/api/admin/payments/verify-manual/route.ts`, `app/admin/finance/manual-payments/ManualPaymentClient.tsx`, `app/admin/finance/manual-payments/RejectionReason.tsx`, `lib/event-bus/types.ts`, `lib/event-bus/index.ts`, `lib/event-bus/event-handlers.ts`, `modules/events/dispatchers/BillingEventDispatcher.ts`, `modules/notification/templates/billing-templates.ts`, `modules/notification/services/event-handlers/invoice-notification.handler.ts`, `tests/db/payment-settlement.test.ts`, `tests/modules/finance/manualPaymentVerification.test.ts`, `tests/modules/notification/billing-templates-payment-rejected.test.ts`, `tests/modules/notification/event-handlers/invoice-notification.handler.test.ts`, `tests/app/admin-manual-payments-client.test.tsx`, `tests/api/admin-payments-verify-manual-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Persetujuan transfer manual per checkout, kelebihan menjadi saldo
 
 - **Tipe**: [FIXED]

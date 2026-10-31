@@ -219,6 +219,7 @@ export function registerDefaultHandlers(): void {
     EVENT_NAMES.PAYMENT_REDIRECTED,
     handleInvoiceNotification,
   );
+  registerEventHandler(EVENT_NAMES.PAYMENT_REJECTED, handleInvoiceNotification);
 
   // --- NOTIFICATION EVENTS (best-effort — tidak re-throw karena WebSocket/realtime
   // bersifat non-critical; kegagalan tidak boleh block BullMQ retry untuk event lain) ---

@@ -14,6 +14,8 @@ export interface BillingTemplateParams {
   appliedAmount?: number;
   /** Bagian uang yang disimpan sebagai saldo kredit. */
   creditedAmount?: number;
+  /** Alasan admin menolak bukti transfer. */
+  rejectionReason?: string;
 }
 
 export interface EmailContent {
@@ -106,6 +108,12 @@ function describeRedirectedPayment(p: BillingTemplateParams): string {
 
 const describeRedirectedPaymentInDetail = (p: BillingTemplateParams) =>
   `Halo ${p.customerName},\n\n${describeRedirectedPayment(p)}${(p.creditedAmount ?? 0) > 0 ? "\n\nHubungi kami bila Anda ingin saldo tersebut dikembalikan." : ""}`;
+
+const describeRejectedProof = (p: BillingTemplateParams) =>
+  `Bukti transfer untuk tagihan ${p.invoiceNumber ?? "Anda"} (${formatRupiah(p.amountDue)}) ditolak${p.rejectionReason ? `: ${p.rejectionReason}` : ""}.`;
+
+const describeRejectedProofInDetail = (p: BillingTemplateParams) =>
+  `Halo ${p.customerName},\n\nBukti transfer untuk tagihan ${p.invoiceNumber ?? "Anda"} (${formatRupiah(p.amountDue)}) kami tolak.${p.rejectionReason ? `\nAlasan: ${p.rejectionReason}` : ""}\n\nSilakan unggah ulang bukti yang benar atau pilih metode pembayaran lain di menu Tagihan.`;
 
 /**
  * Registry template notifikasi billing.
@@ -216,6 +224,17 @@ export const BILLING_TEMPLATES = {
       p.replacementInvoiceNumber
         ? `Pembayaran ${formatRupiah(p.amountDue)} dipakai untuk tagihan ${p.replacementInvoiceNumber}`
         : `Pembayaran ${formatRupiah(p.amountDue)} disimpan sebagai saldo kredit`,
+  },
+  paymentRejected: {
+    title: "Pembayaran ditolak",
+    inApp: (p) =>
+      `${describeRejectedProof(p)} Silakan unggah ulang bukti yang benar atau pilih metode pembayaran lain.`,
+    whatsapp: describeRejectedProofInDetail,
+    email: (p) => ({
+      subject: "Bukti transfer ditolak",
+      body: describeRejectedProofInDetail(p),
+    }),
+    push: describeRejectedProof,
   },
   // Hanya untuk isolir yang memang karena tagihan lewat jatuh tempo; isolir
   // tanpa tunggakan memakai `customerIsolatedByAdmin`.

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const palsu = vi.hoisted(() => ({
   push: vi.fn(),
   settle: vi.fn(),
+  releaseCoupons: vi.fn(),
+  onPaymentRejected: vi.fn(),
   findPendingCheckoutPayments: vi.fn(),
   claimPendingPayments: vi.fn(),
   findSettledPayments: vi.fn(),
@@ -10,6 +12,12 @@ const palsu = vi.hoisted(() => ({
 
 vi.mock("@/modules/notification", () => ({
   sendCustomerPushNotification: palsu.push,
+}));
+vi.mock("@/modules/payment-gateway", () => ({
+  releaseCheckoutCoupons: palsu.releaseCoupons,
+}));
+vi.mock("@/modules/events", () => ({
+  BillingEventDispatcher: { onPaymentRejected: palsu.onPaymentRejected },
 }));
 vi.mock("@/modules/finance/services/received-payment-settlement", () => ({
   settleReceivedPayments: palsu.settle,
@@ -27,6 +35,7 @@ import type { VerifiablePayment } from "@/modules/finance/repositories/manualPay
 import {
   approveManualCheckout,
   isManualTransferPayment,
+  rejectManualCheckout,
 } from "@/modules/finance/services/manual-payment-verification";
 
 const transfer = (
@@ -171,5 +180,69 @@ describe("approveManualCheckout", () => {
       "Tagihan INV-1 sudah lunas; Rp 100.000 dikreditkan ke saldo kredit pelanggan.",
       "Tagihan INV-2 sudah dibatalkan; pembayarannya dipakai untuk tagihan pengganti INV-BARU, dan Rp 25.000 dikreditkan ke saldo kredit pelanggan.",
     ]);
+  });
+});
+
+describe("rejectManualCheckout", () => {
+  const P1 = { ...transfer("p1", "inv-1", "INV-1"), couponUsageId: "use-1" };
+  const P2 = { ...transfer("p2", "inv-2", "INV-2"), couponUsageId: "use-1" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    palsu.findPendingCheckoutPayments.mockResolvedValue([P1, P2]);
+    palsu.claimPendingPayments.mockResolvedValue(["p1", "p2"]);
+  });
+
+  // Dulu alasan admin menimpa `notes`, yang memuat analisis OCR bukti.
+  it("menyimpan alasan di rejectionReason tanpa menyentuh catatan OCR", async () => {
+    await rejectManualCheckout(P1, {
+      reason: "  Nominal tidak sesuai  ",
+      verifiedBy: "Admin",
+    });
+
+    const [claimed, buildData] = palsu.claimPendingPayments.mock.calls[0];
+    expect(claimed).toEqual([P1, P2]);
+    const data = buildData(P1);
+    expect(data).toMatchObject({
+      gatewayStatus: "FAILED",
+      verifiedBy: "Admin",
+      rejectionReason: "Nominal tidak sesuai",
+    });
+    expect(data).not.toHaveProperty("notes");
+  });
+
+  it("mengembalikan kupon checkout dan memberi tahu pelanggan beserta alasannya", async () => {
+    await rejectManualCheckout(P1, { reason: "Bukti buram" });
+
+    expect(palsu.releaseCoupons).toHaveBeenCalledWith([P1, P2]);
+    expect(palsu.onPaymentRejected).toHaveBeenCalledWith({
+      invoiceId: "inv-1",
+      pelangganId: "cust-1",
+      amount: 200000,
+      invoiceNumbers: ["INV-1", "INV-2"],
+      reason: "Bukti buram",
+      tenantId: "t1",
+    });
+  });
+
+  it("alasan kosong tetap memberi tahu pelanggan, tanpa alasan", async () => {
+    await rejectManualCheckout(P1, { reason: "   " });
+
+    expect(palsu.claimPendingPayments.mock.calls[0][1](P1)).toMatchObject({
+      rejectionReason: null,
+    });
+    expect(palsu.onPaymentRejected).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: undefined }),
+    );
+  });
+
+  it("gagal tanpa efek samping bila bukti sudah diproses admin lain", async () => {
+    palsu.claimPendingPayments.mockResolvedValue([]);
+
+    await expect(rejectManualCheckout(P1, {})).rejects.toThrow(
+      "Payment not found or already processed",
+    );
+    expect(palsu.releaseCoupons).not.toHaveBeenCalled();
+    expect(palsu.onPaymentRejected).not.toHaveBeenCalled();
   });
 });

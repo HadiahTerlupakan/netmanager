@@ -67,6 +67,7 @@ export type {
   InvoiceReplacementReason,
   InvoicePaidPayload,
   PaymentRedirectedPayload,
+  PaymentRejectedPayload,
   CustomerCreatedPayload,
   CustomerStatusPayload,
   WorkOrderCreatedPayload,

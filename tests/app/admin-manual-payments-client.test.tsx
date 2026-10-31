@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bongkarPanggung,
   cari,
+  isiMedan,
   klikTombol,
   pasangPanggung,
   render,
@@ -55,6 +56,7 @@ const bukti = (overrides: Record<string, unknown> = {}) => ({
   checkoutTotal: "100000",
   checkoutInvoiceNumbers: ["INV/2026/10/28-AAA"],
   settlementWarning: null as string | null,
+  rejectionReason: null as string | null,
   invoice: {
     id: "inv-1",
     invoiceNumber: "INV/2026/10/28-AAA",
@@ -143,5 +145,77 @@ describe("verifikasi pembayaran manual", () => {
     expect(document.body.textContent).toContain("Total Transfer (2 tagihan)");
     expect(document.body.textContent).toContain("Rp 150.000");
     expect(document.body.textContent).toContain("INV/A, INV/B");
+  });
+
+  describe("menolak bukti", () => {
+    function catatFetch() {
+      const fetchPalsu = vi.fn(async () =>
+        responsJson(200, { success: true, data: { success: true } }),
+      );
+      vi.stubGlobal("fetch", fetchPalsu);
+      return fetchPalsu;
+    }
+
+    const badanTerkirim = (fetchPalsu: ReturnType<typeof catatFetch>) =>
+      JSON.parse(
+        (fetchPalsu.mock.calls[0] as unknown as [string, RequestInit])[1]
+          .body as string,
+      );
+
+    it("mengirim alasan yang diisi admin ke server", async () => {
+      palsu.payments = [bukti()];
+      const fetchPalsu = catatFetch();
+
+      await render(panggung, <ManualPaymentClient />);
+      await klikTombol("Verifikasi");
+      await isiMedan("#alasan-penolakan", "Nama pengirim tidak sesuai");
+      await klikTombol("Tolak Pembayaran");
+      await tungguSampai(
+        () => fetchPalsu.mock.calls.length > 0,
+        "penolakan dikirim",
+      );
+
+      expect(badanTerkirim(fetchPalsu)).toMatchObject({
+        paymentId: "pay-1",
+        action: "REJECT",
+        reason: "Nama pengirim tidak sesuai",
+      });
+    });
+
+    // Dianjurkan, tidak wajib: tolak tanpa alasan butuh konfirmasi.
+    it("alasan kosong meminta konfirmasi sebelum menolak", async () => {
+      palsu.payments = [bukti()];
+      const fetchPalsu = catatFetch();
+
+      await render(panggung, <ManualPaymentClient />);
+      await klikTombol("Verifikasi");
+      await klikTombol("Tolak Pembayaran");
+
+      expect(fetchPalsu).not.toHaveBeenCalled();
+      expect(cari('[role="alert"]')?.textContent).toContain(
+        "Alasan masih kosong",
+      );
+
+      await klikTombol("Tolak tanpa alasan");
+      await tungguSampai(
+        () => fetchPalsu.mock.calls.length > 0,
+        "penolakan tanpa alasan dikirim",
+      );
+      expect(badanTerkirim(fetchPalsu)).not.toHaveProperty("reason");
+    });
+
+    it("bukti yang sudah ditolak menampilkan alasannya", async () => {
+      palsu.payments = [
+        bukti({ gatewayStatus: "FAILED", rejectionReason: "Bukti buram" }),
+      ];
+
+      await render(panggung, <ManualPaymentClient />);
+      expect(document.body.textContent).toContain("Alasan: Bukti buram");
+
+      await klikTombol("Detail");
+      expect(document.body.textContent).toContain(
+        "Alasan penolakan: Bukti buram",
+      );
+    });
   });
 });

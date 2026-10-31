@@ -57,6 +57,7 @@ export class ManualPaymentAdminRouteService {
       paymentDate: true,
       paymentMethod: true,
       notes: true,
+      rejectionReason: true,
       receiptUrl: true,
       createdAt: true,
       invoice: {
@@ -105,6 +106,8 @@ export class ManualPaymentAdminRouteService {
     paymentId: string;
     action: "APPROVE" | "REJECT";
     notes?: string | null;
+    /** Alasan penolakan untuk pelanggan; klien lama mengirimnya di `notes`. */
+    reason?: string | null;
     allowedSiteIds?: string[];
     verifiedBy?: string | null;
   }) {
@@ -140,13 +143,18 @@ export class ManualPaymentAdminRouteService {
       }
     }
 
-    const options = { notes: input.notes, verifiedBy: input.verifiedBy };
     if (input.action === "REJECT") {
-      return rejectManualCheckout(payment, options);
+      return rejectManualCheckout(payment, {
+        reason: input.reason ?? input.notes,
+        verifiedBy: input.verifiedBy,
+      });
     }
 
     if (input.action === "APPROVE") {
-      return approveManualCheckout(payment, options);
+      return approveManualCheckout(payment, {
+        notes: input.notes,
+        verifiedBy: input.verifiedBy,
+      });
     }
 
     throw createRouteServiceError(INVALID_ACTION_MESSAGE, HTTP_BAD_REQUEST);

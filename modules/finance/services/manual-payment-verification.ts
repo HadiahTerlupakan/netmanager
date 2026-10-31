@@ -1,4 +1,5 @@
 import { createRouteServiceError } from "@/lib/api/route-service-error";
+import { BillingEventDispatcher } from "@/modules/events";
 import { sendCustomerPushNotification } from "@/modules/notification";
 import {
   claimPendingPayments,
@@ -77,30 +78,54 @@ export async function approveManualCheckout(
   };
 }
 
-/** Tolak bukti transfer untuk seluruh checkout-nya; hanya yang masih PENDING. */
+/**
+ * Tolak bukti transfer untuk seluruh checkout-nya; hanya yang masih PENDING.
+ * Alasan admin disimpan di `rejectionReason`, terpisah dari `notes` yang
+ * memuat analisis OCR, lalu dikirim ke pelanggan lewat notifikasi tagihan
+ * (in-app, push, WhatsApp/email sesuai pengaturannya). Pemesanan kupon
+ * checkout dikembalikan supaya pelanggan bisa memakainya lagi.
+ */
 export async function rejectManualCheckout(
   payment: VerifiablePayment,
-  options: { notes?: string | null; verifiedBy?: string | null },
+  options: { reason?: string | null; verifiedBy?: string | null },
 ): Promise<ManualVerificationResult> {
   const checkout = await findPendingCheckoutPayments(payment);
   const now = new Date();
-  const rejectedIds = await claimPendingPayments(checkout, (pending) => ({
+  const reason = options.reason?.trim() || null;
+  const rejectedIds = await claimPendingPayments(checkout, () => ({
     gatewayStatus: "FAILED",
     verifiedAt: now,
     verifiedBy: options.verifiedBy ?? null,
-    notes: options.notes || pending.notes || null,
+    rejectionReason: reason,
   }));
   if (rejectedIds.length === 0) {
     throw createRouteServiceError(PAYMENT_NOT_FOUND_MESSAGE, HTTP_NOT_FOUND);
   }
 
-  await sendCustomerPushNotification(
-    payment.pelangganId,
-    "Pembayaran Ditolak",
-    "Pembayaran Anda ditolak. Mohon periksa kembali bukti transfer Anda.",
-    { paymentId: payment.id, invoiceId: payment.invoiceId, action: "REJECT" },
-  );
+  const rejected = checkout.filter((p) => rejectedIds.includes(p.id));
+  const { releaseCheckoutCoupons } = await import("@/modules/payment-gateway");
+  await releaseCheckoutCoupons(rejected);
+  await notifyRejection(payment, rejected, reason);
   return { success: true, message: "Payment rejected", warnings: [] };
+}
+
+async function notifyRejection(
+  payment: VerifiablePayment,
+  rejected: VerifiablePayment[],
+  reason: string | null,
+) {
+  const invoiceId = rejected.find((p) => p.invoiceId)?.invoiceId;
+  if (!invoiceId) return;
+  await BillingEventDispatcher.onPaymentRejected({
+    invoiceId,
+    pelangganId: payment.pelangganId,
+    amount: Number(rejected.reduce((sum, p) => sum + p.amount, 0n)),
+    invoiceNumbers: rejected.flatMap((p) =>
+      p.invoice ? [p.invoice.invoiceNumber] : [],
+    ),
+    reason: reason ?? undefined,
+    tenantId: payment.tenantId ?? undefined,
+  });
 }
 
 function appendNote(existing: string | null, note: string | null | undefined) {

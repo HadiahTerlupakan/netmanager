@@ -13,6 +13,7 @@ import {
 import { checkSiteRestriction } from "@/modules/roles";
 
 const manualPaymentAdminRouteService = new ManualPaymentAdminRouteService();
+const MAX_REJECTION_REASON_LENGTH = 500;
 
 const verifyManualPaymentSchema = z.object({
   paymentId: z.string().min(1, "paymentId wajib diisi"),
@@ -27,6 +28,8 @@ const verifyManualPaymentSchema = z.object({
     }),
   ),
   notes: z.string().optional(),
+  // Alasan penolakan yang dikirim ke pelanggan.
+  reason: z.string().max(MAX_REJECTION_REASON_LENGTH).optional(),
 });
 
 export const POST = createHandler(
@@ -48,6 +51,7 @@ export const POST = createHandler(
         paymentId: ctx.validated.paymentId,
         action: ctx.validated.action,
         notes: ctx.validated.notes,
+        reason: ctx.validated.reason,
         allowedSiteIds,
         verifiedBy: admin.name || admin.email || admin.id,
       });

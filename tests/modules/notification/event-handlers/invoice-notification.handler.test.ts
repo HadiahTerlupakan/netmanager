@@ -213,6 +213,30 @@ describe("InvoiceNotificationHandler", () => {
     );
   });
 
+  it("PAYMENT_REJECTED → paymentRejected dengan semua tagihan checkout dan alasannya", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.PAYMENT_REJECTED, {
+        invoiceId: "inv-1",
+        pelangganId: "cust-1",
+        amount: 150000,
+        invoiceNumbers: ["INV/A", "INV/B"],
+        reason: "Bukti buram",
+      }),
+    );
+    expect(mockInvoiceFindUnique).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "paymentRejected",
+        channels: undefined,
+        params: expect.objectContaining({
+          invoiceNumber: "INV/A, INV/B",
+          amountDue: 150000,
+          rejectionReason: "Bukti buram",
+        }),
+      }),
+    );
+  });
+
   it("INVOICE_REMINDER_DUE → dispatch invoiceReminder dengan reminderType", async () => {
     await handleInvoiceNotification(
       buildJob(EVENT_NAMES.INVOICE_REMINDER_DUE, {

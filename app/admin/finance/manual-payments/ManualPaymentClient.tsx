@@ -8,6 +8,7 @@ import Image from "next/image";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/lib/hooks/useApi";
 import { useInvalidateInvoicePaymentRelated } from "@/lib/hooks/useInvalidate";
+import { RejectionReasonField, RejectionReasonNote } from "./RejectionReason";
 
 interface PendingPayment {
   id: string;
@@ -19,6 +20,8 @@ interface PendingPayment {
   createdAt: string;
   customerName?: string;
   notes?: string;
+  /** Alasan admin menolak bukti; dikirim ke pelanggan. */
+  rejectionReason?: string | null;
   /** Total satu checkout transfer: bukti menutup semua tagihannya. */
   checkoutTotal: string;
   checkoutInvoiceNumbers: string[];
@@ -44,6 +47,8 @@ export default function ManualPaymentClient() {
     null,
   );
   const [notes, setNotes] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [isConfirmingEmptyReason, setIsConfirmingEmptyReason] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -119,14 +124,26 @@ export default function ManualPaymentClient() {
   const verifyPaymentMutation = useMutation<
     string[],
     Error,
-    { paymentId: string; action: "APPROVE" | "REJECT"; notes: string },
+    {
+      paymentId: string;
+      action: "APPROVE" | "REJECT";
+      notes: string;
+      reason: string;
+    },
     { previous: PendingPayment[] | undefined }
   >({
-    mutationFn: async ({ paymentId, action, notes: paymentNotes }) => {
+    mutationFn: async ({ paymentId, action, notes: paymentNotes, reason }) => {
       const res = await fetch("/api/admin/payments/verify-manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentId, action, notes: paymentNotes }),
+        body: JSON.stringify({
+          paymentId,
+          action,
+          notes: paymentNotes,
+          ...(action === "REJECT" && reason.trim()
+            ? { reason: reason.trim() }
+            : {}),
+        }),
       });
       const json = await res.json();
       if (!json.success) {
@@ -166,8 +183,7 @@ export default function ManualPaymentClient() {
       for (const warning of warnings) {
         toast(warning, { icon: "⚠️", duration: WARNING_TOAST_MS });
       }
-      setSelectedPayment(null);
-      setNotes("");
+      closeDetail();
     },
     onSettled: () => {
       // Re-fetch dari server agar cache sinkron dengan source of truth
@@ -178,12 +194,29 @@ export default function ManualPaymentClient() {
     },
   });
 
+  const closeDetail = () => {
+    setSelectedPayment(null);
+    setNotes("");
+    setRejectionReason("");
+    setIsConfirmingEmptyReason(false);
+  };
+
   const handleAction = (action: "APPROVE" | "REJECT") => {
     if (!selectedPayment) return;
+    // Alasan dianjurkan tetapi tidak wajib: tolak tanpa alasan butuh klik kedua.
+    if (
+      action === "REJECT" &&
+      !rejectionReason.trim() &&
+      !isConfirmingEmptyReason
+    ) {
+      setIsConfirmingEmptyReason(true);
+      return;
+    }
     verifyPaymentMutation.mutate({
       paymentId: selectedPayment.id,
       action,
       notes,
+      reason: rejectionReason,
     });
   };
 
@@ -460,6 +493,14 @@ export default function ManualPaymentClient() {
                             >
                               {statusText}
                             </span>
+                            {isFailed && payment.rejectionReason && (
+                              <span
+                                title={payment.rejectionReason}
+                                className="block mt-1 max-w-[12rem] mx-auto truncate text-xs text-red-700 dark:text-red-300"
+                              >
+                                Alasan: {payment.rejectionReason}
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                             <Button
@@ -510,10 +551,7 @@ export default function ManualPaymentClient() {
 
       <Modal
         isOpen={!!selectedPayment}
-        onClose={() => {
-          setSelectedPayment(null);
-          setNotes("");
-        }}
+        onClose={closeDetail}
         title={`Verifikasi Pembayaran ${selectedPayment?.invoice?.invoiceNumber}`}
         size="lg"
       >
@@ -604,7 +642,7 @@ export default function ManualPaymentClient() {
                 <textarea
                   className="w-full rounded-md border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm focus:ring-indigo-500 focus:border-indigo-500 dark:text-white"
                   rows={2}
-                  placeholder="Contoh: Dana sudah masuk valid / Bukti transfer buram"
+                  placeholder="Catatan internal saat menyetujui, mis. dana sudah masuk ke rekening BCA"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
@@ -618,13 +656,27 @@ export default function ManualPaymentClient() {
             </div>
 
             {selectedPayment.gatewayStatus === "PENDING" && (
+              <RejectionReasonField
+                value={rejectionReason}
+                onChange={setRejectionReason}
+                isConfirmingEmpty={isConfirmingEmptyReason}
+              />
+            )}
+            {selectedPayment.gatewayStatus !== "PENDING" &&
+              selectedPayment.rejectionReason && (
+                <RejectionReasonNote reason={selectedPayment.rejectionReason} />
+              )}
+
+            {selectedPayment.gatewayStatus === "PENDING" && (
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <Button
                   variant="destructive"
                   onClick={() => handleAction("REJECT")}
                   loading={verifyPaymentMutation.isPending}
                 >
-                  Tolak Pembayaran
+                  {isConfirmingEmptyReason && !rejectionReason.trim()
+                    ? "Tolak tanpa alasan"
+                    : "Tolak Pembayaran"}
                 </Button>
                 <Button
                   variant="success"
@@ -639,13 +691,7 @@ export default function ManualPaymentClient() {
             )}
             {selectedPayment.gatewayStatus !== "PENDING" && (
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedPayment(null);
-                    setNotes("");
-                  }}
-                >
+                <Button variant="outline" onClick={closeDetail}>
                   Tutup
                 </Button>
               </div>
