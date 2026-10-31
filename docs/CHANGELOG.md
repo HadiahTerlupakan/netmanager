@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Aksi status pelanggan PPP dibatasi tenant sesi
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/pelanggan-ppp/[id]` | `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: `PATCH /api/pelanggan-ppp/[id]/status` (aksi baris Isolir / Aktifkan Kembali / Dismantle) mencari pelanggan hanya berdasarkan id, lalu `PelangganService.updateStatusPelanggan` mencari dan mengubah baris lagi juga hanya berdasarkan id. Satu-satunya batas tenant adalah ekstensi Prisma `withTenantIsolation`, yang melewatkan super admin dan bergantung pada konteks tenant yang ter-resolve. Kini route meneruskan sesi, service memakai aturan yang sama dengan edit/hapus pelanggan (`getTenantScopedWhereById`: tenant sesi bila ada, tanpa batas hanya untuk super admin tanpa tenant, selain itu 403), dan tenant itu dipakai di lookup maupun di `findById`/`update` repository sehingga update tidak bisa mengenai baris tenant lain. Pelanggan tenant lain dijawab 404 seperti id yang tidak ada. Celah yang sama ditutup di `POST .../suspend`, `POST .../activate`, dan `GET .../suspension-history` (lookup pelanggan kini dibatasi tenant sesi). Pemanggil sistem (`AutomaticIsolationExecutionService`, handler invoice lunas) tidak berubah karena parameter tenant opsional.
+- **Files**: `app/api/pelanggan-ppp/[id]/status/route.ts`, `app/api/pelanggan-ppp/[id]/suspend/route.ts`, `app/api/pelanggan-ppp/[id]/activate/route.ts`, `app/api/pelanggan-ppp/[id]/suspension-history/route.ts`, `modules/pelanggan/services/PelangganPppRouteService.ts`, `modules/pelanggan/services/PelangganService.ts`, `modules/pelanggan/services/pelanggan-ppp-route-validation.ts`, `modules/pelanggan/services/pelanggan-ppp-route-queries.ts`, `modules/pelanggan/services/pelanggan-ppp-route-service.helpers.ts`, `modules/pelanggan/repositories/PelangganRepository.ts`, `modules/pelanggan/repositories/pelanggan-repository.prisma.helpers.ts`, `modules/pelanggan/domain/ports/IPelangganRepository.ts`, `tests/modules/pelanggan/pelanggan-ppp-route-tenant-scope.test.ts`, `tests/app/api/pelanggan-ppp-status.route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Portal: tagihan kosong, navigasi riwayat, status selain AKTIF
 
 - **Tipe**: [FIXED]

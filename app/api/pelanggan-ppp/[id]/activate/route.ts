@@ -137,6 +137,7 @@ export async function POST(
       id,
       userId: sessionUser.id,
       body,
+      session: auth,
     });
 
     return NextResponse.json(result);

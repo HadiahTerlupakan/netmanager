@@ -140,9 +140,9 @@ export class PelangganRepository implements IPelangganRepository {
     return findAllPaginatedPelangganRecords(filter, page, limit);
   }
 
-  /** Get customer by internal id. */
-  async findById(id: string) {
-    return findPelangganByIdRecord(id);
+  /** Get customer by internal id, limited to a tenant when one is given. */
+  async findById(id: string, tenantId?: string) {
+    return findPelangganByIdRecord(id, tenantId);
   }
 
   /** Get customer by customer code. */
@@ -160,9 +160,13 @@ export class PelangganRepository implements IPelangganRepository {
     return createPelangganRecord(data);
   }
 
-  /** Update customer by id. */
-  async update(id: string, data: Partial<CreatePelangganDTO>) {
-    return updatePelangganRecord(id, data);
+  /** Update customer by id, limited to a tenant when one is given. */
+  async update(
+    id: string,
+    data: Partial<CreatePelangganDTO>,
+    tenantId?: string,
+  ) {
+    return updatePelangganRecord(id, data, tenantId);
   }
 
   /** Get customer data needed for admin PPP mutation flow. */

@@ -41,6 +41,7 @@ export async function PATCH(
     const result = await pelangganPppRouteService.updateCustomerStatus({
       id,
       status,
+      session,
     });
 
     await logger.logActivity({

@@ -6,6 +6,8 @@ import {
   parseUsagePeriod,
   type UsageSummaryInput,
 } from "./pelanggan-ppp-route-helpers";
+import { getTenantScopedWhereById } from "./pelanggan-admin-mutation.helpers";
+import type { AdminMutationSession } from "./PelangganAdminMutationService";
 
 export const suspendRequestSchema = z.object({
   suspensionType: z.enum(["PAYMENT", "VIOLATION", "MAINTENANCE", "REQUEST"]),
@@ -58,6 +60,27 @@ export function parseRouteDateRange(
     return parseDateRange(startDate, endDate);
   } catch (error) {
     throwRouteValidationError(error, "Format tanggal tidak valid");
+  }
+}
+
+/**
+ * Tenant yang membatasi lookup dan update pelanggan untuk sesi route, atau
+ * undefined bagi super admin tanpa tenant sesi — aturan yang sama dengan
+ * edit/hapus pelanggan (`getTenantScopedWhereById`). Sesi lain tanpa tenant
+ * ditolak 403 alih-alih dibiarkan menjadi query tanpa batas tenant.
+ */
+export function resolveRouteTenantScope(
+  session: AdminMutationSession,
+  id: string,
+): string | undefined {
+  try {
+    const scope = getTenantScopedWhereById(session, id);
+    return "tenantId" in scope ? scope.tenantId : undefined;
+  } catch (error) {
+    throw new RouteServiceError(
+      error instanceof Error ? error.message : "Akses ditolak",
+      403,
+    );
   }
 }
 

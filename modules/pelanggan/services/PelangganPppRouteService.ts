@@ -42,8 +42,10 @@ import {
   normalizeRoutePagination,
   parseRouteDateRange,
   parseRouteUsagePeriod,
+  resolveRouteTenantScope,
   suspendRequestSchema,
 } from "./pelanggan-ppp-route-validation";
+import type { AdminMutationSession } from "./PelangganAdminMutationService";
 export { RouteServiceError } from "./pelanggan-ppp-route-validation";
 
 export class PelangganPppRouteService {
@@ -138,11 +140,15 @@ export class PelangganPppRouteService {
   }
 
   /** Get customer suspension history and summary. */
-  async getSuspensionHistory(input: SuspensionHistoryInput) {
+  async getSuspensionHistory(
+    input: SuspensionHistoryInput & { session: AdminMutationSession },
+  ) {
+    const tenantId = resolveRouteTenantScope(input.session, input.id);
     const pagination = normalizeRoutePagination(input.page, input.limit);
     const dateRange = parseRouteDateRange(input.startDate, input.endDate);
     const history = await getSuspensionHistoryData({
       id: input.id,
+      tenantId,
       suspensionType: input.suspensionType,
       status: input.status,
       sortBy: input.sortBy,
@@ -169,7 +175,11 @@ export class PelangganPppRouteService {
   /** Suspend one customer service and sync radius state. */
   async suspendCustomer(input: SuspendCustomerInput) {
     const payload = suspendRequestSchema.parse(input.body);
-    const pelanggan = await requireLifecycleCustomer(input.id, "suspend");
+    const pelanggan = await requireLifecycleCustomer(
+      input.id,
+      "suspend",
+      resolveRouteTenantScope(input.session, input.id),
+    );
     const result = await persistCustomerSuspension(pelanggan, {
       pelangganId: input.id,
       userId: input.userId,
@@ -190,14 +200,20 @@ export class PelangganPppRouteService {
     });
   }
 
-  /** Update one customer status and return audit context. */
+  /**
+   * Update one customer status within the session's tenant and return audit
+   * context. A customer of another tenant answers 404 like a missing id, so
+   * ids cannot be probed across tenants.
+   */
   async updateCustomerStatus(input: UpdateCustomerStatusInput) {
-    const pelanggan = await findUsageCustomer({ id: input.id });
+    const tenantId = resolveRouteTenantScope(input.session, input.id);
+    const pelanggan = await findUsageCustomer({ id: input.id, tenantId });
     if (!pelanggan) throw new RouteServiceError("Pelanggan not found", 404);
 
     const updatedPelanggan = await getPelangganService().updateStatusPelanggan(
       input.id,
       input.status,
+      tenantId,
     );
 
     return {
@@ -210,7 +226,11 @@ export class PelangganPppRouteService {
   /** Activate one suspended customer service and sync radius state. */
   async activateCustomer(input: ActivateCustomerInput) {
     const payload = activateRequestSchema.parse(input.body);
-    const pelanggan = await requireLifecycleCustomer(input.id, "activate");
+    const pelanggan = await requireLifecycleCustomer(
+      input.id,
+      "activate",
+      resolveRouteTenantScope(input.session, input.id),
+    );
 
     try {
       const result = await persistCustomerActivation(pelanggan, {
@@ -246,10 +266,12 @@ type SuspendCustomerInput = {
   id: string;
   userId: string;
   body: unknown;
+  session: AdminMutationSession;
 };
 
 type ActivateCustomerInput = {
   id: string;
   userId: string;
   body: unknown;
+  session: AdminMutationSession;
 };

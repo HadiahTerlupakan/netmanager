@@ -14,8 +14,9 @@ import {
 export async function requireLifecycleCustomer(
   id: string,
   action: "activate" | "suspend",
+  tenantId: string | undefined,
 ) {
-  const pelanggan = await findPelangganForLifecycle(id);
+  const pelanggan = await findPelangganForLifecycle(id, tenantId);
   if (!pelanggan) {
     throw new RouteServiceError("Customer not found", 404);
   }

@@ -26,6 +26,7 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const result = await pelangganPppRouteService.getSuspensionHistory({
       id,
+      session,
       page: parseInt(searchParams.get("page") || "1"),
       limit: parseInt(searchParams.get("limit") || "20"),
       suspensionType: searchParams.get("suspensionType"),

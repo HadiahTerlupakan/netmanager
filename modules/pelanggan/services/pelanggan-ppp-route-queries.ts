@@ -1,4 +1,5 @@
 import type { Status } from "../types/pelanggan.enums";
+import type { AdminMutationSession } from "./PelangganAdminMutationService";
 import { prisma } from "@/modules/database";
 import {
   createDatabaseUsageAccumulator,
@@ -39,6 +40,7 @@ export type DatabaseHistoryInput = {
 
 export type SuspensionHistoryQueryInput = {
   id: string;
+  tenantId?: string;
   suspensionType?: string | null;
   status: "active" | "inactive" | "all";
   sortBy: "suspendedAt" | "actualResumeAt" | "suspendedBy";
@@ -89,10 +91,10 @@ export async function getDatabaseHistory(input: DatabaseHistoryInput) {
   return usageRecords.map(mapDatabaseHistoryItem);
 }
 
-/** Ambil pelanggan untuk lifecycle PPP. */
-export function findPelangganForLifecycle(id: string) {
-  return prisma.pelanggan.findUnique({
-    where: { id },
+/** Ambil pelanggan untuk lifecycle PPP, dibatasi tenant bila diberikan. */
+export function findPelangganForLifecycle(id: string, tenantId?: string) {
+  return prisma.pelanggan.findFirst({
+    where: tenantId ? { id, tenantId } : { id },
     include: { hargaPaket: { include: { bandwidth: true } } },
   });
 }
@@ -117,8 +119,10 @@ export async function getSuspensionHistoryData(
 
   const [pelanggan, total, suspensions, allSuspensions, activeSuspensions] =
     await Promise.all([
-      prisma.pelanggan.findUnique({
-        where: { id: input.id },
+      prisma.pelanggan.findFirst({
+        where: input.tenantId
+          ? { id: input.id, tenantId: input.tenantId }
+          : { id: input.id },
         select: BASIC_CUSTOMER_SELECT,
       }),
       prisma.serviceSuspension.count({ where }),
@@ -147,6 +151,7 @@ export async function getSuspensionHistoryData(
 export type UpdateCustomerStatusInput = {
   id: string;
   status: Status;
+  session: AdminMutationSession;
 };
 
 function buildUsageStatsWhere(input: DatabaseUsageStatsInput) {

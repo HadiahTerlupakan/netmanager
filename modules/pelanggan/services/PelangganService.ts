@@ -105,17 +105,29 @@ export class PelangganService {
     return deleted;
   }
 
-  /** Update customer status and trigger radius synchronization. */
+  /**
+   * Update customer status and trigger radius synchronization.
+   *
+   * `tenantId` limits both the lookup and the write, so an admin route cannot
+   * change a row outside the caller's tenant even if its own lookup were
+   * skipped. System callers (automatic isolation, invoice-paid activation)
+   * leave it out.
+   */
   async updateStatusPelanggan(
     id: string,
     status: Status,
+    tenantId?: string,
   ): Promise<PelangganEntity> {
-    const existing = await this.pelangganRepository.findById(id);
+    const existing = await this.pelangganRepository.findById(id, tenantId);
     if (!existing) {
       throw new Error("Pelanggan tidak ditemukan");
     }
 
-    const pelanggan = await this.pelangganRepository.update(id, { status });
+    const pelanggan = await this.pelangganRepository.update(
+      id,
+      { status },
+      tenantId,
+    );
     await syncUpdatedCustomerStatus(this.pelangganRepository, {
       id,
       existing,

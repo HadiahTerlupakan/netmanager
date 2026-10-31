@@ -118,8 +118,8 @@ export interface IPelangganRepository {
     limit?: number,
   ): Promise<{ data: PelangganWithPackageEntity[]; total: number }>;
 
-  /** Get customer by internal id. */
-  findById(id: string): Promise<PelangganEntity | null>;
+  /** Get customer by internal id, limited to a tenant when one is given. */
+  findById(id: string, tenantId?: string): Promise<PelangganEntity | null>;
 
   /** Get customer by customer code. */
   findByIdPelanggan(idPelanggan: string): Promise<PelangganEntity | null>;
@@ -130,10 +130,11 @@ export interface IPelangganRepository {
   /** Create customer and return package relation when available. */
   create(data: CreatePelangganDTO): Promise<PelangganWithPackageEntity>;
 
-  /** Update customer by id. */
+  /** Update customer by id, limited to a tenant when one is given. */
   update(
     id: string,
     data: Partial<CreatePelangganDTO>,
+    tenantId?: string,
   ): Promise<PelangganEntity>;
 
   /** Get admin mutation payload. */

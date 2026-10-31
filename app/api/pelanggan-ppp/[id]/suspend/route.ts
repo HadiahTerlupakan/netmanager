@@ -141,6 +141,7 @@ export async function POST(
       id,
       userId: (auth as { user: { id: string } }).user.id,
       body: await req.json(),
+      session: auth,
     });
 
     return NextResponse.json(result);

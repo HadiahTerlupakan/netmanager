@@ -57,8 +57,10 @@ export async function findAllPaginatedPelanggan(
   };
 }
 
-export async function findPelangganById(id: string) {
-  const pelanggan = await prisma.pelanggan.findUnique({ where: { id } });
+export async function findPelangganById(id: string, tenantId?: string) {
+  const pelanggan = await prisma.pelanggan.findUnique({
+    where: tenantId ? { id, tenantId } : { id },
+  });
   return pelanggan ? PelangganMapper.toDomain(pelanggan) : null;
 }
 
@@ -84,9 +86,10 @@ export async function createPelanggan(data: CreatePelangganDTO) {
 export async function updatePelanggan(
   id: string,
   data: Partial<CreatePelangganDTO>,
+  tenantId?: string,
 ) {
   const pelanggan = await prisma.pelanggan.update({
-    where: { id },
+    where: tenantId ? { id, tenantId } : { id },
     data,
   });
 
