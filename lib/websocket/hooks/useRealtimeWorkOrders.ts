@@ -1,6 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
-import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
+import { playStaffNotificationSound } from "@/lib/notification-sound";
 import { unwrapApiData } from "@/lib/utils/fetch-wrapper";
 
 import { useState, useCallback } from "react";
@@ -119,17 +119,6 @@ export function useRealtimeWorkOrders(
     }
   }
 
-  const playSound = () => {
-    try {
-      const audio = new Audio(NOTIFICATION_SOUND_SRC);
-      audio
-        .play()
-        .catch((_err) => clientLogger.info("Audio play failed:", _err));
-    } catch (_error) {
-      // Ignore audio errors
-    }
-  };
-
   // Handle new notification from WebSocket
   const handleNewNotification = useCallback(
     (payload: NotificationPayload) => {
@@ -140,7 +129,7 @@ export function useRealtimeWorkOrders(
         "[WorkOrders] New notification received:",
         payload.title,
       );
-      playSound();
+      playStaffNotificationSound();
 
       // Add to beginning of list
       setNotifications((prev) => {
@@ -167,7 +156,7 @@ export function useRealtimeWorkOrders(
   const handleWorkOrderActivity = useCallback(
     (_payload: unknown) => {
       clientLogger.info("[WorkOrders] Activity received, refreshing...");
-      playSound();
+      playStaffNotificationSound();
       fetchNotifications();
     },
     [fetchNotifications],

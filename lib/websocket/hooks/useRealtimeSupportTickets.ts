@@ -1,6 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
-import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
+import { playStaffNotificationSound } from "@/lib/notification-sound";
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -146,17 +146,6 @@ export function useRealtimeSupportTickets(
     return () => clearTimeout(handle);
   }, [autoFetch, isPermissionLoading, enabled, fetchTickets]);
 
-  const playSound = useCallback(() => {
-    try {
-      const audio = new Audio(NOTIFICATION_SOUND_SRC);
-      audio
-        .play()
-        .catch((_err) => clientLogger.info("Audio play failed:", _err));
-    } catch (_error) {
-      // Ignore audio errors
-    }
-  }, []);
-
   const handleNewTicket = useCallback(
     (payload: TicketPayload) => {
       if (!shouldHandleAdminTicketEvents) {
@@ -164,10 +153,10 @@ export function useRealtimeSupportTickets(
       }
 
       clientLogger.info("[Tickets] New ticket received:", payload.ticketNumber);
-      playSound();
+      playStaffNotificationSound();
       void fetchTickets();
     },
-    [fetchTickets, playSound, shouldHandleAdminTicketEvents],
+    [fetchTickets, shouldHandleAdminTicketEvents],
   );
 
   const handleTicketUpdate = useCallback(
@@ -199,10 +188,10 @@ export function useRealtimeSupportTickets(
       }
 
       clientLogger.info("[Tickets] Ticket reply:", payload.ticketNumber);
-      playSound();
+      playStaffNotificationSound();
       void fetchTickets();
     },
-    [fetchTickets, playSound, shouldHandleAdminTicketEvents],
+    [fetchTickets, shouldHandleAdminTicketEvents],
   );
 
   const handleCountUpdate = useCallback(

@@ -5,7 +5,7 @@ import { MdVolumeUp } from "react-icons/md";
 
 import {
   isCustomerNotificationSoundEnabled,
-  playCustomerNotificationSound,
+  previewCustomerNotificationSound,
   setCustomerNotificationSoundEnabled,
 } from "@/lib/notification-sound";
 
@@ -28,7 +28,7 @@ export function NotificationSoundToggle() {
     const next = !enabled;
     setChosen(next);
     setCustomerNotificationSoundEnabled(next);
-    if (next) playCustomerNotificationSound();
+    if (next) previewCustomerNotificationSound();
   };
 
   return (

@@ -96,7 +96,6 @@ const largeUiFileBaseline = new Set([
   "app/admin/proyek/RABList.tsx",
   "app/admin/workorders/WoIndexClient.tsx",
   "app/admin/workorders/new/WoNewClient.tsx",
-  "app/admin/chat/ChatPageClient.tsx",
   "app/admin/salary/profiles/ProfilesClient.tsx",
 ]);
 

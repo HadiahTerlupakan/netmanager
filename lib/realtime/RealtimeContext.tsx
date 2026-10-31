@@ -1,6 +1,7 @@
 "use client";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { clientLogger } from "@/lib/client-logger";
+import { holdNotificationSounds } from "@/lib/notification-sound";
 
 import {
   createContext,
@@ -198,6 +199,31 @@ function getSessionFingerprint(user?: SessionUser): string {
   });
 }
 
+/**
+ * Membuka halaman, membangunkan tab yang dibekukan, kembali ke tab, dan
+ * jaringan yang pulih diperlakukan sama: badge tetap diperbarui, nada ditahan
+ * selama jeda tenang. Event yang tertahan di tab beku tiba sekaligus saat ia
+ * bangun, sebelum SDK sempat menyadari koneksinya pernah putus.
+ */
+function useHoldNotificationSoundsWhileSettling() {
+  useEffect(() => {
+    holdNotificationSounds();
+
+    const holdWhenVisible = () => {
+      if (document.visibilityState === "visible") holdNotificationSounds();
+    };
+    document.addEventListener("visibilitychange", holdWhenVisible);
+    document.addEventListener("resume", holdNotificationSounds);
+    window.addEventListener("online", holdNotificationSounds);
+
+    return () => {
+      document.removeEventListener("visibilitychange", holdWhenVisible);
+      document.removeEventListener("resume", holdNotificationSounds);
+      window.removeEventListener("online", holdNotificationSounds);
+    };
+  }, []);
+}
+
 function getDefaultScopes(user: SessionUser): RealtimeScope[] {
   if (!user.id) {
     return [];
@@ -238,6 +264,7 @@ export function RealtimeProvider({
     userOverride,
   );
   const sessionFingerprint = getSessionFingerprint(user);
+  useHoldNotificationSoundsWhileSettling();
 
   const scopes = useMemo(
     () =>
@@ -526,11 +553,17 @@ export function useRealtimeSubscription<TPayload>(
         orderBy("createdAt", "desc"),
         limit(20),
       );
+      // Listener baru — halaman dibuka, koneksi kembali, scope berubah —
+      // diperlakukan seperti halaman yang baru dibuka.
+      holdNotificationSounds();
 
       return onSnapshot(
         channelQuery,
         { includeMetadataChanges: true },
-        createChannelSnapshotListener(deliverEvent),
+        createChannelSnapshotListener({
+          onNewEvent: deliverEvent,
+          onCatchUp: holdNotificationSounds,
+        }),
         (error) => {
           clientLogger.error("Realtime Firestore subscription failed", {
             scope: serializeScope(scope),

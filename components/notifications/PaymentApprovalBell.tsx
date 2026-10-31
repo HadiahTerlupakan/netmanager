@@ -10,8 +10,7 @@ import { id } from "date-fns/locale";
 
 import { usePermission } from "@/hooks/use-permission";
 import { useRealtimePaymentApprovals } from "@/lib/websocket/hooks/useRealtimePaymentApprovals";
-import { clientLogger } from "@/lib/client-logger";
-import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
+import { playStaffNotificationSound } from "@/lib/notification-sound";
 
 const LAST_READ_KEY = "payment-approval-last-read";
 
@@ -82,14 +81,7 @@ function PaymentApprovalBellContent() {
         prevMaxDateRef.current > 0 &&
         currentMaxDate > prevMaxDateRef.current
       ) {
-        try {
-          const audio = new Audio(NOTIFICATION_SOUND_SRC);
-          audio
-            .play()
-            .catch((e) => clientLogger.error("Audio play failed:", e));
-        } catch (e) {
-          clientLogger.error("Audio initialization failed:", e);
-        }
+        playStaffNotificationSound();
       }
 
       if (currentMaxDate > prevMaxDateRef.current) {

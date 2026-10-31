@@ -1,6 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
-import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
+import { playStaffNotificationSound } from "@/lib/notification-sound";
 import { unwrapApiData } from "@/lib/utils/fetch-wrapper";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
@@ -120,29 +120,7 @@ export function useRealtimeNotifications(
         "[Notifications] New notification received:",
         payload.title,
       );
-
-      // Play notification sound based on settings
-      try {
-        const soundEnabled =
-          localStorage.getItem("chat_sound_enabled") !== "false";
-
-        if (soundEnabled) {
-          const soundType = localStorage.getItem("chat_sound_type");
-          const customData = localStorage.getItem("chat_custom_sound_data");
-
-          let audioSrc = NOTIFICATION_SOUND_SRC;
-          if (soundType === "custom" && customData) {
-            audioSrc = customData;
-          }
-
-          const audio = new Audio(audioSrc);
-          audio
-            .play()
-            .catch((_err) => clientLogger.info("Audio play failed:", _err));
-        }
-      } catch (_error) {
-        // Ignore audio errors
-      }
+      playStaffNotificationSound();
 
       setNotifications((prev) => {
         const result = addUnreadRealtimeNotification(prev, payload, limit);

@@ -61,13 +61,23 @@ function getNewestCreatedAt(documents: ChannelDocument[]): number | null {
  *
  * Batas waktunya diambil dari createdAt tulisan server, bukan jam perangkat:
  * jam PC yang maju beberapa menit akan membuang event yang sungguh baru.
+ *
+ * Sejak SDK melayani dari cache sampai server menyusul, yang datang adalah
+ * susulan (mis. setelah laptop tidur). Ia tetap diteruskan supaya badge
+ * benar, tetapi `onCatchUp` dipanggil lebih dulu supaya diperlakukan seperti
+ * halaman yang baru dibuka.
  */
-export function createChannelSnapshotListener(
-  onNewEvent: (envelope: ChannelEnvelope) => void,
-) {
+export function createChannelSnapshotListener({
+  onNewEvent,
+  onCatchUp,
+}: {
+  onNewEvent: (envelope: ChannelEnvelope) => void;
+  onCatchUp: () => void;
+}) {
   const seenDocumentIds = new Set<string>();
   let isHydrated = false;
   let historyCutoff: number | null = null;
+  let wasServedFromCache = false;
 
   const isOlderThanHistory = (envelope: ChannelEnvelope) => {
     const createdAt = toEpochMillis(envelope.createdAt);
@@ -89,6 +99,10 @@ export function createChannelSnapshotListener(
           : newestCreatedAt - HISTORY_CLOCK_SKEW_MS;
       return;
     }
+
+    const { fromCache } = snapshot.metadata;
+    if (fromCache || wasServedFromCache) onCatchUp();
+    wasServedFromCache = fromCache;
 
     snapshot.docChanges().forEach((change) => {
       if (change.type !== "added" || seenDocumentIds.has(change.doc.id)) {
