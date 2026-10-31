@@ -50,6 +50,42 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `app/(customer)/tagihan/page.tsx`, `app/(customer)/riwayat/page.tsx`, `components/customer/BottomNav.tsx`, `app/(customer)/dashboard/service-status.ts`, `app/(customer)/dashboard/CustomerDashboardClient.tsx`, `app/(customer)/paket/page.tsx`, `app/(customer)/upgrade-paket/page.tsx`, `components/common/StatusBadge.tsx`, `lib/customer-portal-access.ts`, `tests/app/customer-tagihan-unpaid-only.test.tsx`, `tests/app/customer-riwayat-status.test.tsx`, `tests/components/customer-bottom-nav.test.tsx`, `tests/app/customer-dashboard-service-status.test.ts`, `tests/app/customer-dashboard-client.test.tsx`, `tests/app/customer-paket-page.test.tsx`, `tests/app/customer-upgrade-paket-status.test.tsx`, `tests/lib/customer-portal-access.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-10-31] — Paket terjadwal tidak lagi membuka isolir di router
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/network/services/event-handlers` | `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Cron 00:05 (`PendingPackageApplierService`) menerapkan paket NEXT_CYCLE tanpa melihat status pelanggan lalu menerbitkan PACKAGE_CHANGED, dan handler jaringannya selalu memanggil `handleStatusChange(id, "AKTIF")`. Pelanggan ISOLIR/NONAKTIF/MAINTENANCE/DISMANTLE yang paketnya berganti malam itu dibuka kembali aksesnya di router padahal di database masih terputus (sama untuk ganti paket langsung oleh admin). Handler kini menerapkan ulang status pelanggan saat ini dan melewati pelanggan yang sudah dihapus. Ditambah tes Postgres sungguhan (`npm run test:db`) untuk jalur cron: penjadwalan lewat `InvoiceProrateService` menyimpan `pendingPackageApplyAt` = jatuh tempo (00:00 WIB), cron malam sebelumnya tidak menerapkan, cron 00:05 WIB pada jatuh tempo mengganti `hargaPaketId`, mengosongkan semua field pending, dan menerbitkan PACKAGE_CHANGED sekali; cron malam berikutnya tidak mengulang.
+- **Files**: `modules/network/services/event-handlers/package-change.handler.ts`, `tests/modules/network/event-handlers/package-change.handler.test.ts`, `tests/db/pending-package-applier.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Form Edit Pelanggan bisa menyimpan pelanggan MAINTENANCE
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/pelanggan/ppp/[id]/edit`
+- **Author**: agent
+- **Deskripsi**: Pilihan status di form edit tidak memuat MAINTENANCE, padahal semua radio status `required`. Untuk pelanggan MAINTENANCE tidak ada radio yang tercentang, sehingga validasi bawaan browser membatalkan submit di tab Paket: tidak ada request ke API, tidak ada pesan galat, dan perubahan tidak tersimpan. API dan service sudah menerima MAINTENANCE; kini form juga menampilkannya.
+- **Files**: `app/admin/pelanggan/ppp/[id]/edit/PppEditClient.tsx`, `tests/app/pelanggan-ppp-edit-maintenance.test.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Pesan jelas untuk pelanggan DISMANTLE saat login dan refresh
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/jwt.ts` | `lib/customer-auth.ts` | `lib/customer-session-refresh.ts` | `proxy.ts` | `modules/users` | `modules/pelanggan` | `app/api/mobile/auth` | `app/api/customer/auth/login`
+- **Author**: agent
+- **Deskripsi**: Pelanggan DISMANTLE ditolak dengan "Akun tidak aktif" saat login dan "Refresh token tidak valid" saat refresh, sehingga aplikasi dan portal hanya jatuh ke layar login. Kini pesannya "Layanan Anda sudah berhenti berlangganan. Hubungi admin bila ini keliru." dengan `code: "CUSTOMER_DISMANTLED"`; status HTTP dan bentuk JSON tetap (login mobile 403, refresh mobile 401, login portal 403; `{success:false, error, code}`). `verifyPelangganRefreshToken` memeriksa status paling akhir dan hanya memberi alasan dismantle untuk sesi yang selain itu sah, jadi token mati tetap ditolak biasa. Route login portal kini memilih 403 dari kode, bukan dari isi pesan. Proxy portal mengalihkan halaman ke `/login?reason=dismantled` dan menghapus cookie sesi; halaman login memetakan alasan ke teks tetap (`lib/customer-login-reason.ts`) dan tidak pernah menampilkan isi query.
+- **Files**: `lib/customer-portal-access.ts`, `lib/jwt.ts`, `lib/customer-auth.ts`, `lib/customer-session-refresh.ts`, `lib/customer-login-reason.ts`, `proxy.ts`, `components/customer/CustomerLoginReasonNotice.tsx`, `app/(customer)/login/page.tsx`, `app/api/mobile/auth/refresh/route.ts`, `app/api/customer/auth/login/route.ts`, `modules/users/services/MobileCustomerAuthService.ts`, `modules/users/services/MobileAuthRouteService.ts`, `modules/pelanggan/services/CustomerAuthService.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-10-31] — Notifikasi perubahan status pelanggan sesuai alasannya
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification` | `modules/pelanggan` | `modules/finance` | `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Isolir manual oleh admin tetap mengirim "diisolir karena tunggakan" walau pelanggan tidak menunggak. Event CUSTOMER_ISOLATED kini membawa tagihan lewat jatuh tempo tertua (`arrearsInvoiceNumber`, `arrearsAmount`) bila ada; dengan itu pelanggan menerima pesan tunggakan berikut nomor dan sisa tagihannya, tanpa itu pesan netral "diisolir oleh admin, hubungi customer service" (juga bila billing gagal dibaca). Pesan aktif kembali tidak lagi berterima kasih atas pembayaran. NONAKTIF, MAINTENANCE, dan DISMANTLE (CUSTOMER_SUSPENDED) sebelumnya tidak mengirim notifikasi apa pun; kini lewat `NotificationDispatcher` yang sama dengan template `customerDeactivated`, `customerMaintenance`, `customerDismantled`. Dispatch berjalan dari antrean dan tidak bergantung pada sesi pelanggan, jadi pemberitahuan dismantle tetap sampai. Pemetaan status → event yang tadinya diduplikasi di aksi baris dan form edit kini satu (`publishCustomerStatusChange`).
+- **Files**: `modules/pelanggan/services/customer-status-events.ts`, `modules/notification/services/event-handlers/customer-notification.handler.ts`, `modules/notification/templates/billing-templates.ts`, `modules/finance/services/FinanceRepositoryFacade.ts`, `modules/finance/repositories/InvoiceRepository.ts`, `modules/events/dispatchers/CustomerEventDispatcher.ts`, `lib/event-bus/types.ts`, `lib/event-bus/event-handlers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Portal: halaman bayar dipisah dari riwayat tagihan
 
 - **Tipe**: [CHANGED] | [FIXED]
