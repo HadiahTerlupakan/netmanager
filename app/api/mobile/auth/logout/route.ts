@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
+import { revokePelangganSession } from "@/lib/jwt";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { getInvestorMobileSession } from "@/lib/mobile-investor-auth";
 import { getMobileInvestorAuthService } from "@/modules/investor";
@@ -16,6 +17,16 @@ import { performMobileLogout } from "@/modules/users";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Pelanggan memakai access token portal (bukan token mobile karyawan), yang
+    // ditolak `getMobileAuthPayload`. Tangani lebih dulu dan akhiri hanya sesi
+    // perangkat ini, supaya portal web pelanggan tetap masuk.
+    const bearer = request.headers
+      .get("authorization")
+      ?.replace(/^Bearer /, "");
+    if (bearer && (await revokePelangganSession(bearer))) {
+      return apiSuccess({ message: "Logout berhasil" });
+    }
+
     const investorSession = await getInvestorMobileSession(request);
     if (investorSession) {
       await getMobileInvestorAuthService().logout(investorSession.id);

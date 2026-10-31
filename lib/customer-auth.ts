@@ -263,6 +263,7 @@ export async function refreshCustomerToken(request: NextRequest): Promise<{
       nama: pelanggan.nama,
       username: pelanggan.username,
       status: pelanggan.status,
+      sessionId: result.sessionId,
     });
 
     return {

@@ -37,6 +37,7 @@ vi.mock("@/lib/mobile-auth", () => ({
 }));
 
 vi.mock("@/lib/jwt", () => ({
+  createPelangganSessionId: () => "sesi-1",
   generatePelangganAccessToken: (...args: unknown[]) =>
     mockGeneratePelangganAccessToken(...args),
   generatePelangganRefreshToken: (...args: unknown[]) =>
@@ -115,9 +116,13 @@ describe("POST /api/mobile/auth/login", () => {
       }),
       "15m",
     );
-    expect(mockGeneratePelangganRefreshToken).toHaveBeenCalledWith("cust-1", {
-      appVersionCode: 55,
-      appVersionName: "1.2.3",
-    });
+    expect(mockGeneratePelangganRefreshToken).toHaveBeenCalledWith(
+      "cust-1",
+      {
+        appVersionCode: 55,
+        appVersionName: "1.2.3",
+      },
+      "sesi-1",
+    );
   });
 });

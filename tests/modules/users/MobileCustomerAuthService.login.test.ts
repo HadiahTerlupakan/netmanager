@@ -25,6 +25,7 @@ vi.mock("bcryptjs", () => ({
   hash: vi.fn(() => Promise.resolve("$2a$10$hash")),
 }));
 vi.mock("@/lib/jwt", () => ({
+  createPelangganSessionId: () => "sesi-1",
   generatePelangganAccessToken: vi.fn(() => "token-akses"),
   generatePelangganRefreshToken: vi.fn(() => Promise.resolve("token-refresh")),
   verifyPelangganRefreshToken: vi.fn(),

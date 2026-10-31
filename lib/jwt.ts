@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 /**
  * Klien tanpa isolasi tenant — disengaja.
@@ -16,6 +17,10 @@ import jwt from "jsonwebtoken";
  */
 import { prismaAuth as prisma } from "./prisma";
 import { canUseCustomerPortal } from "./customer-portal-access";
+import {
+  isPelangganSessionRevoked,
+  markPelangganSessionRevoked,
+} from "./pelanggan-session-revocation";
 
 interface PelangganJWTPayload {
   id: string;
@@ -26,14 +31,21 @@ interface PelangganJWTPayload {
   appVersionCode?: number;
   appVersionName?: string | null;
   tenantId?: string | null;
+  sid?: string;
   iat?: number;
   exp?: number;
 }
 
+/**
+ * `sid` menandai satu sesi login (satu perangkat) dan tetap sama saat refresh
+ * token diputar, supaya logout bisa mengakhiri perangkat itu saja. Token yang
+ * terbit sebelum ada `sid` tidak membawanya.
+ */
 interface RefreshTokenPayload {
   id: string;
   tokenVersion: number;
   type: "refresh";
+  sid?: string;
   appVersionCode?: number;
   appVersionName?: string | null;
   iat?: number;
@@ -62,7 +74,9 @@ const getJwtSecret = () => {
 };
 
 const JWT_EXPIRES_IN = "15m"; // 15 menit untuk access token
-const REFRESH_TOKEN_EXPIRES_IN = "7d"; // 7 hari untuk refresh token
+const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+const JWT_ISSUER = "netmanager";
+const JWT_AUDIENCE = "pelanggan-portal";
 
 /**
  * Generate access token untuk pelanggan
@@ -77,6 +91,7 @@ export function generatePelangganAccessToken(
     appVersionCode?: number;
     appVersionName?: string | null;
     tenantId?: string | null;
+    sessionId?: string;
   },
   expiresIn: string | number = JWT_EXPIRES_IN,
 ): string {
@@ -89,29 +104,34 @@ export function generatePelangganAccessToken(
     appVersionCode: pelanggan.appVersionCode,
     appVersionName: pelanggan.appVersionName,
     tenantId: pelanggan.tenantId,
+    sid: pelanggan.sessionId,
   };
 
   return jwt.sign(payload, getJwtSecret(), {
     expiresIn: expiresIn as jwt.SignOptions["expiresIn"],
-    issuer: "netmanager",
-    audience: "pelanggan-portal",
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
   });
 }
 
+/** Id baru untuk satu sesi login pelanggan. */
+export function createPelangganSessionId(): string {
+  return randomUUID();
+}
+
 /**
- * Generate refresh token untuk pelanggan
+ * Generate refresh token untuk pelanggan.
+ *
+ * Sengaja TIDAK menaikkan `tokenVersion`: dulu setiap login dan refresh
+ * menaikkannya, sehingga login di portal web mengeluarkan aplikasi mobile
+ * (dan sebaliknya) pada refresh berikutnya. `tokenVersion` kini hanya naik
+ * saat semua sesi memang harus dicabut (ganti password).
  */
 export async function generatePelangganRefreshToken(
   pelangganId: string,
-  versionMetadata?: PelangganVersionMetadata,
+  versionMetadata: PelangganVersionMetadata | undefined,
+  sessionId: string,
 ): Promise<string> {
-  // Increment token version untuk invalidate refresh token lama
-  await prisma.pelanggan.update({
-    where: { id: pelangganId },
-    data: { tokenVersion: { increment: 1 } },
-  });
-
-  // Ambil token version terbaru dan metadata versi aplikasi tepercaya
   const pelanggan = await prisma.pelanggan.findUnique({
     where: { id: pelangganId },
     select: {
@@ -131,12 +151,13 @@ export async function generatePelangganRefreshToken(
       undefined,
     appVersionName:
       versionMetadata?.appVersionName ?? pelanggan?.lastVersionName ?? null,
+    sid: sessionId,
   };
 
   return jwt.sign(payload, getJwtSecret(), {
-    expiresIn: REFRESH_TOKEN_EXPIRES_IN,
-    issuer: "netmanager",
-    audience: "pelanggan-portal",
+    expiresIn: REFRESH_TOKEN_TTL_SECONDS,
+    issuer: JWT_ISSUER,
+    audience: JWT_AUDIENCE,
   });
 }
 
@@ -148,8 +169,8 @@ export function verifyPelangganAccessToken(
 ): PelangganJWTPayload | null {
   try {
     const decoded = jwt.verify(token, getJwtSecret(), {
-      issuer: "netmanager",
-      audience: "pelanggan-portal",
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
     }) as PelangganJWTPayload;
 
     return decoded;
@@ -167,11 +188,12 @@ export async function verifyPelangganRefreshToken(token: string): Promise<{
   valid: boolean;
   appVersionCode?: number;
   appVersionName?: string | null;
+  sessionId?: string;
 }> {
   try {
     const decoded = jwt.verify(token, getJwtSecret(), {
-      issuer: "netmanager",
-      audience: "pelanggan-portal",
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
     }) as RefreshTokenPayload;
 
     if (decoded.type !== "refresh") {
@@ -193,11 +215,16 @@ export async function verifyPelangganRefreshToken(token: string): Promise<{
       return { id: "", valid: false };
     }
 
+    if (decoded.sid && (await isPelangganSessionRevoked(decoded.sid))) {
+      return { id: "", valid: false };
+    }
+
     return {
       id: decoded.id,
       valid: true,
       appVersionCode: decoded.appVersionCode,
       appVersionName: decoded.appVersionName ?? null,
+      sessionId: decoded.sid,
     };
   } catch (error) {
     logger.debug("Refresh token verification (customer path):", error);
@@ -218,11 +245,16 @@ export async function generatePelangganTokenPair(
     tenantId?: string | null;
   } & PelangganVersionMetadata,
 ) {
-  const accessToken = generatePelangganAccessToken(pelanggan);
-  const refreshToken = await generatePelangganRefreshToken(pelanggan.id, {
-    appVersionCode: pelanggan.appVersionCode,
-    appVersionName: pelanggan.appVersionName,
-  });
+  const sessionId = createPelangganSessionId();
+  const accessToken = generatePelangganAccessToken({ ...pelanggan, sessionId });
+  const refreshToken = await generatePelangganRefreshToken(
+    pelanggan.id,
+    {
+      appVersionCode: pelanggan.appVersionCode,
+      appVersionName: pelanggan.appVersionName,
+    },
+    sessionId,
+  );
 
   return {
     accessToken,
@@ -241,4 +273,53 @@ export async function invalidatePelangganRefreshTokens(pelangganId: string) {
     where: { id: pelangganId },
     data: { tokenVersion: { increment: 1 } },
   });
+}
+
+/**
+ * Logout satu perangkat dari token miliknya (refresh atau access token).
+ * Mengembalikan false bila token bukan token pelanggan, supaya endpoint
+ * logout bersama bisa meneruskannya ke jalur akun lain.
+ *
+ * Token kedaluwarsa tetap diterima selama tandatangannya sah: logout dengan
+ * access token yang sudah lewat 15 menit harus tetap mengakhiri sesinya, dan
+ * yang dicabut hanya sesi token itu sendiri.
+ */
+export async function revokePelangganSession(token: string): Promise<boolean> {
+  let decoded: { id?: string; sid?: string; exp?: number };
+  try {
+    decoded = jwt.verify(token, getJwtSecret(), {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+      ignoreExpiration: true,
+    }) as { id?: string; sid?: string; exp?: number };
+  } catch {
+    return false;
+  }
+  if (!decoded.id) return false;
+
+  if (!decoded.sid) {
+    // Token lama tanpa `sid` tidak bisa dicabut sendiri; cabut semua sesi
+    // seperti perilaku logout sebelumnya. Token lama yang sudah kedaluwarsa
+    // tidak berhak mengeluarkan perangkat lain.
+    if (isExpired(decoded.exp)) return true;
+    await invalidatePelangganRefreshTokens(decoded.id);
+    return true;
+  }
+
+  try {
+    await markPelangganSessionRevoked(decoded.sid, REFRESH_TOKEN_TTL_SECONDS);
+  } catch (error) {
+    // Logout harus mengakhiri perangkat ini apa pun yang terjadi; bila sesinya
+    // tidak bisa dicatat, cabut semua sesi daripada membiarkannya hidup.
+    logger.warn(
+      "[PelangganSession] Gagal mencatat logout; semua sesi dicabut",
+      error,
+    );
+    await invalidatePelangganRefreshTokens(decoded.id);
+  }
+  return true;
+}
+
+function isExpired(exp: number | undefined) {
+  return typeof exp === "number" && exp * 1000 <= Date.now();
 }

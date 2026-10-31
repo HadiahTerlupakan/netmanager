@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Pelanggan bisa masuk di aplikasi dan portal web sekaligus
+
+- **Tipe**: [FIXED] | [SECURITY]
+- **Scope**: `lib/jwt.ts` | `app/api/customer/auth/logout` | `app/api/mobile/auth/logout` | `modules/pelanggan` | `modules/users`
+- **Author**: agent
+- **Deskripsi**: Setiap login dan refresh menaikkan `pelanggan.tokenVersion`, sehingga login di portal web mengeluarkan aplikasi mobile pada refresh berikutnya (dan sebaliknya). Kini `tokenVersion` hanya naik saat semua sesi memang harus dicabut: ganti password dari portal/aplikasi (`PATCH /api/customer/profile`, sebelumnya tidak mencabut apa pun), ganti password login oleh admin (sebelumnya juga tidak), dan ganti password lewat `/api/mobile/profile/password`. Setiap login membawa id sesi (`sid`) di access dan refresh token, tetap sama saat refresh diputar. Logout web dan mobile hanya mengakhiri sesi perangkat itu dengan mencatat `sid` di Redis (`pelanggan:sesi-dicabut:<sid>`, TTL 7 hari); bila Redis gagal saat logout, semua sesi dicabut. Saat refresh, Redis yang tidak terbaca tidak menolak refresh. Token lama tanpa `sid` saat logout mencabut semua sesi seperti dulu. Logout mobile pelanggan sebelumnya selalu 401 karena `getMobileAuthPayload` menolak access token portal; kini ditangani sebelum jalur itu. DISMANTLE tetap ditolak saat refresh.
+- **Files**: `lib/jwt.ts`, `lib/pelanggan-session-revocation.ts`, `lib/customer-auth.ts`, `app/api/customer/auth/logout/route.ts`, `app/api/mobile/auth/logout/route.ts`, `modules/users/services/MobileCustomerAuthService.ts`, `modules/pelanggan/services/CustomerPortalService.ts`, `modules/pelanggan/services/PelangganAdminMutationService.ts`, `tests/lib/jwt-pelanggan-multi-session.test.ts`, `tests/api/pelanggan-logout-single-device.test.ts`, `tests/modules/pelanggan/customer-password-change-revokes-sessions.test.ts`, `tests/helpers/pelanggan-session-stores.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-27] — Walled garden: pelanggan isolir bisa membuka portal pelanggan
 
 - **Tipe**: [ADDED] | [SECURITY]

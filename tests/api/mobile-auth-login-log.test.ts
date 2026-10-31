@@ -37,6 +37,7 @@ vi.mock("@/lib/mobile-auth", () => ({
 }));
 
 vi.mock("@/lib/jwt", () => ({
+  createPelangganSessionId: () => "sesi-1",
   generatePelangganAccessToken: (...args: unknown[]) =>
     mockGeneratePelangganAccessToken(...args),
   generatePelangganRefreshToken: (...args: unknown[]) =>

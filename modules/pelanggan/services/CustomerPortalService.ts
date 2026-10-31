@@ -1,4 +1,5 @@
 import { compare, hash } from "bcryptjs";
+import { invalidatePelangganRefreshTokens } from "@/lib/jwt";
 import { PelangganMapper } from "../mappers/PelangganMapper";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
@@ -93,9 +94,14 @@ export class CustomerPortalService {
 
     // Hash and update new password
     const newHash = await hash(newPassword, 12);
-    return this.pelangganRepository.updateProfile(customerId, {
+    const updated = await this.pelangganRepository.updateProfile(customerId, {
       passwordHash: newHash,
     });
+    // Sesi yang sudah login (termasuk yang mungkin bocor) di perangkat lain
+    // harus ikut keluar; perangkat ini pun diminta masuk ulang dengan
+    // password barunya, sama seperti ganti password dari aplikasi mobile.
+    await invalidatePelangganRefreshTokens(customerId);
+    return updated;
   }
 
   /**

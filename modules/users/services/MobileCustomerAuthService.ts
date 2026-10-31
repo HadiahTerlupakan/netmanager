@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import {
+  createPelangganSessionId,
   generatePelangganAccessToken,
   generatePelangganRefreshToken,
   verifyPelangganRefreshToken,
@@ -102,6 +103,9 @@ export class MobileCustomerAuthService {
       return { kind: "unsupported" as const, response: unsupportedResponse };
     }
 
+    // Refresh token yang terbit sebelum ada id sesi diberi sesi baru, supaya
+    // logout berikutnya cukup mengakhiri perangkat ini.
+    const sessionId = verified.sessionId ?? createPelangganSessionId();
     return {
       kind: "success" as const,
       token: generatePelangganAccessToken(
@@ -114,13 +118,18 @@ export class MobileCustomerAuthService {
           tenantId: customer.tenantId,
           appVersionCode: trustedVersion.trustedVersionCode || undefined,
           appVersionName: trustedVersion.trustedVersionName,
+          sessionId,
         },
         "15m",
       ),
-      refreshToken: await generatePelangganRefreshToken(customer.id, {
-        appVersionCode: trustedVersion.trustedVersionCode || undefined,
-        appVersionName: trustedVersion.trustedVersionName,
-      }),
+      refreshToken: await generatePelangganRefreshToken(
+        customer.id,
+        {
+          appVersionCode: trustedVersion.trustedVersionCode || undefined,
+          appVersionName: trustedVersion.trustedVersionName,
+        },
+        sessionId,
+      ),
     };
   }
 }
@@ -191,17 +200,19 @@ async function buildSuccessfulCustomerLogin(
   input: MobileLoginPayload,
 ): Promise<MobileLoginResult> {
   const versionMetadata = buildVersionMetadata(input);
+  const sessionId = createPelangganSessionId();
   return {
     found: true,
     success: true,
     data: {
       token: generatePelangganAccessToken(
-        buildCustomerTokenPayload(customer, input),
+        { ...buildCustomerTokenPayload(customer, input), sessionId },
         "15m",
       ),
       refreshToken: await generatePelangganRefreshToken(
         customer.id,
         versionMetadata,
+        sessionId,
       ),
       user: buildCustomerUserPayload(customer),
     },

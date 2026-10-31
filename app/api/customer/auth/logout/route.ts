@@ -3,17 +3,31 @@ import { NextRequest } from "next/server";
 import { apiSuccess } from "@/lib/api-response";
 import {
   clearCustomerAuthCookies,
-  getCustomerSession,
+  CUSTOMER_ACCESS_TOKEN_COOKIE,
+  CUSTOMER_REFRESH_TOKEN_COOKIE,
 } from "@/lib/customer-auth";
-import { invalidatePelangganRefreshTokens } from "@/lib/jwt";
+import { revokePelangganSession } from "@/lib/jwt";
+
+/**
+ * Refresh token didahulukan: access token sering sudah kedaluwarsa saat
+ * pelanggan menekan logout, sedangkan yang harus mati adalah refresh token.
+ */
+function readLogoutToken(request: NextRequest): string | null {
+  const authHeader = request.headers.get("Authorization");
+  return (
+    request.cookies.get(CUSTOMER_REFRESH_TOKEN_COOKIE)?.value ??
+    request.cookies.get(CUSTOMER_ACCESS_TOKEN_COOKIE)?.value ??
+    (authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null)
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getCustomerSession(request);
-
-    // Invalidate refresh tokens if we have a session
-    if (session) {
-      await invalidatePelangganRefreshTokens(session.id);
+    // Hanya sesi perangkat ini yang diakhiri; aplikasi mobile dan browser lain
+    // milik pelanggan yang sama tetap masuk.
+    const token = readLogoutToken(request);
+    if (token) {
+      await revokePelangganSession(token);
     }
 
     // Create response

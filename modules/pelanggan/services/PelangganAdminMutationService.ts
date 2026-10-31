@@ -273,6 +273,9 @@ export class PelangganAdminMutationService {
         odpId: normalizedData.odpId,
         ...normalizedData.profile,
         ...(nextPasswordHash ? { passwordHash: nextPasswordHash } : {}),
+        // Password login baru dari admin (mis. akun pelanggan diambil alih)
+        // harus mengeluarkan semua perangkat yang masih memakai password lama.
+        ...(passwordLoginChanged ? { tokenVersion: { increment: 1 } } : {}),
       },
       packageChanged:
         existingPelanggan?.hargaPaketId !== normalizedData.hargaPaketId ||

@@ -24,6 +24,7 @@ vi.mock("@/lib/mobile-auth", () => ({
 }));
 
 vi.mock("@/lib/jwt", () => ({
+  createPelangganSessionId: () => "sesi-1",
   verifyPelangganRefreshToken: (...args: unknown[]) =>
     mockVerifyPelangganRefreshToken(...args),
   generatePelangganAccessToken: (...args: unknown[]) =>
@@ -272,10 +273,14 @@ describe("POST /api/mobile/auth/refresh", () => {
       }),
       "15m",
     );
-    expect(mockGeneratePelangganRefreshToken).toHaveBeenCalledWith("cust-1", {
-      appVersionCode: 55,
-      appVersionName: "1.2.3",
-    });
+    expect(mockGeneratePelangganRefreshToken).toHaveBeenCalledWith(
+      "cust-1",
+      {
+        appVersionCode: 55,
+        appVersionName: "1.2.3",
+      },
+      "sesi-1",
+    );
   });
 
   it("rejects missing refresh token payload", async () => {
