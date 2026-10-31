@@ -1,5 +1,11 @@
 import { revalidatePath } from "next/cache";
-import { apiSuccess, ApiErrors, createHandler, apiError } from "@/lib/api";
+import {
+  apiSuccess,
+  ApiErrors,
+  createHandler,
+  apiError,
+  buildSessionWithPermissions,
+} from "@/lib/api";
 import { isSuperAdmin } from "@/lib/auth";
 import {
   PelangganAdminMutationError,
@@ -109,7 +115,12 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     session.user.tenantId ?? null,
   );
   if (!result) return ApiErrors.notFound("Pelanggan");
-  if (!canAccessPelangganBySite(session as never, result.pelanggan.siteId)) {
+  if (
+    !canAccessPelangganBySite(
+      buildSessionWithPermissions(session, ctx.permissions) as never,
+      result.pelanggan.siteId,
+    )
+  ) {
     return ApiErrors.forbidden(
       "Anda tidak memiliki akses ke pelanggan di site ini",
     );
@@ -126,7 +137,7 @@ export const PUT = createHandler(
   { auth: true, permissions: ["pelanggan:update"] },
   async (req, ctx) => {
     const { id } = ctx.params;
-    const session = ctx.session!;
+    const session = buildSessionWithPermissions(ctx.session!, ctx.permissions);
     const formData = await req.formData();
 
     try {
@@ -211,7 +222,7 @@ export const DELETE = createHandler(
   { auth: true, permissions: ["pelanggan:delete"] },
   async (_req, ctx) => {
     const { id } = ctx.params;
-    const session = ctx.session!;
+    const session = buildSessionWithPermissions(ctx.session!, ctx.permissions);
 
     try {
       const pelanggan = await pelangganAdminMutationService.deletePppById({

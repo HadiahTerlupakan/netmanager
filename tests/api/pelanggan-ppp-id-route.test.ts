@@ -203,6 +203,7 @@ describe("pelanggan PPP [id] route", () => {
         session: {
           user: { id: "admin-1", role: "ADMIN", tenantId: "tenant-1" },
         },
+        permissions: ["pelanggan:delete", "pelanggan:site_only"],
       } as never,
     );
     const json = (await response.json()) as {
@@ -212,9 +213,17 @@ describe("pelanggan PPP [id] route", () => {
 
     expect(response.status).toBe(200);
     expect(json.data.message).toBe("Pelanggan berhasil dihapus");
+    // Izin ikut di sesi supaya pemeriksaan `pelanggan:site_only` terbaca.
     expect(mockFns.deletePppById).toHaveBeenCalledWith({
       id: "pel-1",
-      session: { user: { id: "admin-1", role: "ADMIN", tenantId: "tenant-1" } },
+      session: expect.objectContaining({
+        user: {
+          id: "admin-1",
+          role: "ADMIN",
+          tenantId: "tenant-1",
+          permissions: ["pelanggan:delete", "pelanggan:site_only"],
+        },
+      }),
     });
     expect(prismaMock.pelanggan.findFirst).not.toHaveBeenCalled();
   });

@@ -1,5 +1,11 @@
 import { revalidatePath } from "next/cache";
-import { apiError, apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  apiError,
+  apiSuccess,
+  ApiErrors,
+  buildSessionWithPermissions,
+  createHandler,
+} from "@/lib/api";
 import { CustomerRenewalError } from "@/modules/finance";
 import {
   PelangganAdminMutationError,
@@ -22,7 +28,7 @@ export const POST = createHandler(
   },
   async (_req, ctx) => {
     const { id } = ctx.params;
-    const session = ctx.session!;
+    const session = buildSessionWithPermissions(ctx.session!, ctx.permissions);
 
     try {
       const result = await pelangganRenewalService.renew({

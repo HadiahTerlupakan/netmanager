@@ -67,7 +67,7 @@ export const POST = createHandler(
   },
   async (_req, ctx) => {
     const startTime = Date.now();
-    const { session, validated: body } = ctx;
+    const { session, validated: body, permissions } = ctx;
 
     if (!session) return ApiErrors.unauthorized();
 
@@ -80,7 +80,7 @@ export const POST = createHandler(
     try {
       const adminUserRouteService = new AdminUserRouteService();
       const user = await adminUserRouteService.createAdminUser(
-        session as Session & {
+        { ...session, user: { ...session.user, permissions } } as Session & {
           user: Session["user"] & {
             id: string;
             isSuperAdmin?: boolean;

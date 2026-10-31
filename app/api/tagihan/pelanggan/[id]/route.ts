@@ -1,4 +1,9 @@
-import { apiSuccess, createHandler, ApiErrors } from "@/lib/api";
+import {
+  apiSuccess,
+  buildSessionWithPermissions,
+  createHandler,
+  ApiErrors,
+} from "@/lib/api";
 import { isSuperAdmin } from "@/lib/auth";
 import {
   CustomerLegacyBillingError,
@@ -11,7 +16,7 @@ export const GET = createHandler(
   { auth: true, permissions: ["pelanggan:read"] },
   async (req, ctx) => {
     const { id: pelangganId } = ctx.params;
-    const session = ctx.session!;
+    const session = buildSessionWithPermissions(ctx.session!, ctx.permissions);
     const tenantId = session.user.tenantId ?? null;
     const isUserSuperAdmin = isSuperAdmin(session.user);
 

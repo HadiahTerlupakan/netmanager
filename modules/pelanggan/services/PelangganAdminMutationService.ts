@@ -469,9 +469,17 @@ export class PelangganAdminMutationService {
     session: AdminMutationSession;
   }) {
     const scope = getTenantScopedWhereById(input.session, input.id);
+    const tenantId = "tenantId" in scope ? scope.tenantId : undefined;
+    const existing = await this.pelangganRepository.findForAdminMutation(
+      input.id,
+      tenantId,
+    );
+    // A missing row is answered below from the repository's `found` flag.
+    if (existing) this.assertSiteAccess(input.session, existing.siteId);
+
     const result = await this.pelangganRepository.cancelPendingPackage(
       input.id,
-      "tenantId" in scope ? scope.tenantId : undefined,
+      tenantId,
     );
 
     if (!result.found) {

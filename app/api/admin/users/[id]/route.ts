@@ -40,7 +40,10 @@ export const GET = createHandler(
         : await getUserPermissions(session.user.id);
 
     const result = await adminUserRouteService.getAdminUserById(
-      session as Session & { user: { id: string } },
+      {
+        ...session,
+        user: { ...session.user, permissions: resolvedPermissions },
+      } as Session & { user: { id: string; permissions?: string[] } },
       userId,
       resolvedPermissions,
     );

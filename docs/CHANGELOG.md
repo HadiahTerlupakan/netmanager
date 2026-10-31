@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Pemeriksaan site benar-benar membatasi admin site_only
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/pelanggan-ppp/[id]` | `app/api/tagihan/pelanggan/[id]` | `app/api/admin/users` | `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: `checkSiteRestriction`/`canAccessSite` membaca `session.user.permissions`, tetapi `ctx.session` yang dibangun `createHandler` tidak membawa izin. Route yang meneruskan `ctx.session` apa adanya membuat pembatasan `*:site_only` tidak pernah terbaca, sehingga admin yang dibatasi site bisa membaca dan mengubah data site lain. Kini route berikut meneruskan sesi lewat `buildSessionWithPermissions` (atau menggabungkan `permissions` seperti `PATCH /api/admin/users/[id]`): `GET/PUT/DELETE /api/pelanggan-ppp/[id]`, `POST .../renew`, `POST .../cancel-pending-package`, `GET /api/tagihan/pelanggan/[id]`, `GET /api/admin/users/[id]`, dan `POST /api/admin/users`. `cancelPendingPackage` sebelumnya tidak punya pemeriksaan site sama sekali; kini memakai pemeriksaan yang sama dengan edit/hapus. Pelanggan atau user di site lain dijawab 403 tanpa ada yang ditulis. Di `POST /api/admin/users` izin aktor kini juga sampai ke `assertCanAssignRoleId`, yang sebelumnya selalu menerima daftar kosong. Route yang memakai sesi NextAuth langsung (`getServerSession`/`requireAuth`) tidak terdampak karena callback sesi sudah mengisi `permissions`.
+- **Files**: `app/api/pelanggan-ppp/[id]/route-handlers-impl.ts`, `app/api/pelanggan-ppp/[id]/renew/route.ts`, `app/api/pelanggan-ppp/[id]/cancel-pending-package/route.ts`, `app/api/tagihan/pelanggan/[id]/route.ts`, `app/api/admin/users/[id]/route.ts`, `app/api/admin/users/route.ts`, `modules/pelanggan/services/PelangganAdminMutationService.ts`, `tests/api/pelanggan-ppp-site-access-route.test.ts`, `tests/api/admin-users-site-scope-route.test.ts`, `tests/api/pelanggan-ppp-id-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Aksi status pelanggan PPP menuntut pelanggan:update dan akses site
 
 - **Tipe**: [SECURITY]

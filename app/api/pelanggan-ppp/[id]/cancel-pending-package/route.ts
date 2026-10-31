@@ -1,5 +1,10 @@
 import { revalidatePath } from "next/cache";
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import {
+  apiSuccess,
+  ApiErrors,
+  buildSessionWithPermissions,
+  createHandler,
+} from "@/lib/api";
 import {
   PelangganAdminMutationError,
   PelangganAdminMutationService,
@@ -15,7 +20,7 @@ export const POST = createHandler(
   { auth: true, permissions: ["pelanggan:update"] },
   async (_req, ctx) => {
     const { id } = ctx.params;
-    const session = ctx.session!;
+    const session = buildSessionWithPermissions(ctx.session!, ctx.permissions);
 
     try {
       const result = await pelangganAdminMutationService.cancelPendingPackage({
