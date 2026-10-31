@@ -38,7 +38,7 @@ async function refreshWeb(refreshToken: string) {
       headers: { cookie: `customer-refresh-token=${refreshToken}` },
     }),
   );
-  return result?.refreshToken ?? null;
+  return result?.kind === "refreshed" ? result.refreshToken : null;
 }
 
 function signLegacyRefreshToken(claims: { sid?: string }) {

@@ -47,6 +47,8 @@ export type MobileLoginResult =
       found: true;
       success: false;
       error?: string;
+      /** Kode mesin di field `code` respons; default UNAUTHORIZED. */
+      code?: string;
       status?: number;
       response?: NextResponse;
     }
@@ -135,9 +137,11 @@ export async function loginMobileRoute(input: MobileLoginRouteInput) {
       return result.response;
     }
 
-    return apiError(result.error ?? "Login gagal", ErrorCodes.UNAUTHORIZED, {
-      status: result.status || 401,
-    });
+    return apiError(
+      result.error ?? "Login gagal",
+      result.code ?? ErrorCodes.UNAUTHORIZED,
+      { status: result.status || 401 },
+    );
   }
 
   recordMobileLogin({

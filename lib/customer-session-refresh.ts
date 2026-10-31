@@ -1,4 +1,5 @@
-import { NextRequest, type NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { CUSTOMER_LOGIN_REASON_DISMANTLED } from "./customer-login-reason";
 
 const ACCESS_COOKIE = "customer-token";
 const REFRESH_COOKIE = "customer-refresh-token";
@@ -8,6 +9,13 @@ export interface RefreshedCustomerTokens {
   accessToken: string;
   refreshToken: string;
 }
+
+/** Hasil `refreshCustomerAccessToken`. */
+export type CustomerSessionRefresh =
+  | { kind: "refreshed"; tokens: RefreshedCustomerTokens }
+  /** Sesi sah, tetapi pelanggan sudah berhenti berlangganan. */
+  | { kind: "dismantled" }
+  | null;
 
 /**
  * Access token pelanggan berumur 15 menit, refresh token 7 hari, tetapi
@@ -19,7 +27,7 @@ export interface RefreshedCustomerTokens {
  */
 export async function refreshCustomerAccessToken(
   request: NextRequest,
-): Promise<RefreshedCustomerTokens | null> {
+): Promise<CustomerSessionRefresh> {
   if (!request.cookies.get(REFRESH_COOKIE)?.value) return null;
 
   // Import dinamis: lib/jwt dan lib/customer-auth memuat Prisma, yang tidak
@@ -31,10 +39,44 @@ export async function refreshCustomerAccessToken(
   const { refreshCustomerToken } = await import("./customer-auth");
   const refreshed = await refreshCustomerToken(request);
   if (!refreshed) return null;
+  if (refreshed.kind === "dismantled") return refreshed;
   return {
-    accessToken: refreshed.accessToken,
-    refreshToken: refreshed.refreshToken,
+    kind: "refreshed",
+    tokens: {
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+    },
   };
+}
+
+/**
+ * Halaman, bukan API atau berkas statis. Panggilan API tidak dialihkan: klien
+ * membaca 401-nya lalu membuka /login, dan permintaan itu yang dialihkan.
+ */
+function isPageRequest(pathname: string) {
+  return (
+    !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/_next") &&
+    !pathname.includes(".")
+  );
+}
+
+/**
+ * Pelanggan yang sesinya berakhir karena dismantle: halaman dialihkan ke
+ * /login?reason=dismantled dengan cookie sesi dihapus, supaya halaman login
+ * bisa menjelaskan alasannya. null untuk permintaan selain halaman.
+ */
+export function redirectDismantledCustomer(
+  request: NextRequest,
+): NextResponse | null {
+  if (!isPageRequest(request.nextUrl.pathname)) return null;
+
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("reason", CUSTOMER_LOGIN_REASON_DISMANTLED);
+  const response = NextResponse.redirect(loginUrl);
+  response.cookies.delete(ACCESS_COOKIE);
+  response.cookies.delete(REFRESH_COOKIE);
+  return response;
 }
 
 /**

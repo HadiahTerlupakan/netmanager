@@ -16,7 +16,11 @@ import jwt from "jsonwebtoken";
  * seperti `MobileCustomerAuthService` yang memang sudah memakai `prismaAuth`.
  */
 import { prismaAuth as prisma } from "./prisma";
-import { canUseCustomerPortal } from "./customer-portal-access";
+import {
+  canUseCustomerPortal,
+  CUSTOMER_DISMANTLED_CODE,
+  isCustomerDismantled,
+} from "./customer-portal-access";
 import {
   isPelangganSessionRevoked,
   markPelangganSessionRevoked,
@@ -199,9 +203,14 @@ export function verifyPelangganAccessToken(
   }
 }
 
-/** Hasil `verifyPelangganRefreshToken`. */
+/**
+ * Hasil `verifyPelangganRefreshToken`. `reason` hanya diisi untuk sesi yang
+ * selain itu sah, supaya pemegang token mati tidak bisa membaca status
+ * pelanggan.
+ */
 export type PelangganRefreshVerification =
   | { id: ""; valid: false }
+  | { id: string; valid: false; reason: typeof CUSTOMER_DISMANTLED_CODE }
   | {
       id: string;
       valid: true;
@@ -244,12 +253,7 @@ export async function verifyPelangganRefreshToken(
       select: { tokenVersion: true, status: true },
     });
 
-    if (!pelanggan || !canUseCustomerPortal(pelanggan.status)) {
-      return INVALID_REFRESH;
-    }
-
-    // Bandingkan token version
-    if (pelanggan.tokenVersion !== decoded.tokenVersion) {
+    if (!pelanggan || pelanggan.tokenVersion !== decoded.tokenVersion) {
       return INVALID_REFRESH;
     }
 
@@ -264,6 +268,15 @@ export async function verifyPelangganRefreshToken(
     );
     if (!rotation) {
       await endReplayedSession(decoded.id, sessionId);
+      return INVALID_REFRESH;
+    }
+
+    // Status diperiksa paling akhir: hanya sesi yang masih hidup yang boleh
+    // tahu pelanggannya sudah berhenti berlangganan.
+    if (isCustomerDismantled(pelanggan.status)) {
+      return { id: decoded.id, valid: false, reason: CUSTOMER_DISMANTLED_CODE };
+    }
+    if (!canUseCustomerPortal(pelanggan.status)) {
       return INVALID_REFRESH;
     }
 

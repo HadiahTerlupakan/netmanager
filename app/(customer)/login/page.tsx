@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
+import { CustomerLoginReasonNotice } from "@/components/customer/CustomerLoginReasonNotice";
 import { Button } from "@/components/ui/Button";
 import {
   DEFAULT_PUBLIC_APP_LOGO_URL,
@@ -128,6 +129,10 @@ export default function CustomerLoginPage() {
             onSubmit={handleSubmit}
             className="flex flex-col gap-4 px-4 py-6"
           >
+            <Suspense fallback={null}>
+              <CustomerLoginReasonNotice />
+            </Suspense>
+
             <label className="flex flex-col min-w-40 flex-1">
               <p className="text-[#111418] dark:text-gray-200 text-sm font-medium leading-normal pb-2">
                 Email atau ID Pelanggan

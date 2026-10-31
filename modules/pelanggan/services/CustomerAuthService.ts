@@ -7,7 +7,12 @@ import {
 } from "@/lib/security/login-rate-limit";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
-import { canUseCustomerPortal } from "@/lib/customer-portal-access";
+import {
+  canUseCustomerPortal,
+  CUSTOMER_DISMANTLED_CODE,
+  CUSTOMER_DISMANTLED_MESSAGE,
+  isCustomerDismantled,
+} from "@/lib/customer-portal-access";
 
 interface LoginResult {
   success: boolean;
@@ -22,6 +27,8 @@ interface LoginResult {
     refreshToken: string;
   };
   error?: string;
+  /** Kode mesin untuk route (mis. `CUSTOMER_DISMANTLED`). */
+  code?: string;
   message?: string;
 }
 
@@ -110,6 +117,13 @@ export class CustomerAuthService {
     }
 
     // Check status
+    if (isCustomerDismantled(pelanggan.status)) {
+      return {
+        success: false,
+        error: CUSTOMER_DISMANTLED_MESSAGE,
+        code: CUSTOMER_DISMANTLED_CODE,
+      };
+    }
     if (!canUseCustomerPortal(pelanggan.status)) {
       return {
         success: false,

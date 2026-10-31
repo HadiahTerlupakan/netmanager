@@ -107,6 +107,11 @@ describe("CustomerAuthService", () => {
       await import("@/modules/pelanggan/services/CustomerAuthService");
     const result = await new CustomerAuthService().login("67863587", "rahasia");
 
-    expect(result).toMatchObject({ success: false, error: "Akun tidak aktif" });
+    expect(result).toMatchObject({
+      success: false,
+      error:
+        "Layanan Anda sudah berhenti berlangganan. Hubungi admin bila ini keliru.",
+      code: "CUSTOMER_DISMANTLED",
+    });
   });
 });

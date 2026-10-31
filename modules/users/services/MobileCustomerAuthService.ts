@@ -17,9 +17,15 @@ import {
   buildVersionUpdate,
   MobileAuthVersionService,
 } from "./MobileAuthVersionService";
-import { canUseCustomerPortal } from "@/lib/customer-portal-access";
+import {
+  canUseCustomerPortal,
+  CUSTOMER_DISMANTLED_CODE,
+  CUSTOMER_DISMANTLED_MESSAGE,
+  isCustomerDismantled,
+} from "@/lib/customer-portal-access";
 
 const CUSTOMER_ROLE = "CUSTOMER";
+const DISMANTLED_REFRESH = { kind: "dismantled" as const };
 
 type CustomerPackageRecord = { name: string } | null | undefined;
 
@@ -60,6 +66,15 @@ export class MobileCustomerAuthService {
         status: 401,
       };
     }
+    if (isCustomerDismantled(customer.status)) {
+      return {
+        found: true,
+        success: false,
+        error: CUSTOMER_DISMANTLED_MESSAGE,
+        code: CUSTOMER_DISMANTLED_CODE,
+        status: 403,
+      };
+    }
     if (!canUseCustomerPortal(customer.status)) {
       return {
         found: true,
@@ -82,12 +97,21 @@ export class MobileCustomerAuthService {
     return buildSuccessfulCustomerLogin(customer, input);
   }
 
-  /** Memperbarui access token customer dari refresh token. */
+  /**
+   * Memperbarui access token customer dari refresh token. `dismantled` bila
+   * sesinya sah tetapi pelanggan sudah berhenti berlangganan; null bila
+   * token bukan milik pelanggan atau tidak sah.
+   */
   async tryRefreshToken(refreshToken: string) {
     const verified = await verifyPelangganRefreshToken(refreshToken);
-    if (!verified.valid) return null;
+    if (!verified.valid) {
+      return "reason" in verified ? DISMANTLED_REFRESH : null;
+    }
 
     const customer = await findCustomerForRefresh(verified.id);
+    if (customer && isCustomerDismantled(customer.status)) {
+      return DISMANTLED_REFRESH;
+    }
     if (!customer || !canUseCustomerPortal(customer.status)) return null;
     return this.buildCustomerRefreshResult(verified, customer);
   }

@@ -7,7 +7,23 @@
  * berlangganan) yang ditutup.
  */
 export function canUseCustomerPortal(status: string | null | undefined) {
-  return Boolean(status) && status !== "DISMANTLE";
+  return Boolean(status) && !isCustomerDismantled(status);
+}
+
+/**
+ * Pesan untuk pelanggan DISMANTLE di login, refresh token, dan halaman login
+ * portal setelah sesinya diakhiri. Aplikasi mobile menampilkan field `error`
+ * apa adanya, jadi teksnya ditulis untuk pelanggan.
+ */
+export const CUSTOMER_DISMANTLED_MESSAGE =
+  "Layanan Anda sudah berhenti berlangganan. Hubungi admin bila ini keliru.";
+
+/** Kode mesin yang stabil untuk `CUSTOMER_DISMANTLED_MESSAGE` (field `code`). */
+export const CUSTOMER_DISMANTLED_CODE = "CUSTOMER_DISMANTLED";
+
+/** Pelanggan sudah berhenti berlangganan. */
+export function isCustomerDismantled(status: string | null | undefined) {
+  return status === "DISMANTLE";
 }
 
 /**

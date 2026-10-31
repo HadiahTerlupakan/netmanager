@@ -2,6 +2,10 @@ import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import {
+  CUSTOMER_DISMANTLED_CODE,
+  CUSTOMER_DISMANTLED_MESSAGE,
+} from "@/lib/customer-portal-access";
 import { getMobileRequestVersionReport } from "@/lib/mobile-api-auth";
 import { getClientIP } from "@/lib/rate-limit";
 import {
@@ -40,6 +44,14 @@ export async function POST(request: NextRequest) {
     const customerTokens = await tryRefreshCustomerToken(refreshToken);
     if (customerTokens?.kind === "unsupported") {
       return customerTokens.response;
+    }
+
+    // Status dan bentuk sama dengan refresh token tidak sah (401), supaya
+    // aplikasi lama tetap keluar; pesan dan kodenya yang menjelaskan.
+    if (customerTokens?.kind === "dismantled") {
+      return apiError(CUSTOMER_DISMANTLED_MESSAGE, CUSTOMER_DISMANTLED_CODE, {
+        status: 401,
+      });
     }
 
     if (customerTokens?.kind === "success") {

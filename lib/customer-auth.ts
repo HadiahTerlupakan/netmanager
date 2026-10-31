@@ -27,7 +27,10 @@ import {
   generatePelangganRefreshToken,
 } from "./jwt";
 import { prisma } from "./prisma";
-import { canUseCustomerPortal } from "./customer-portal-access";
+import {
+  canUseCustomerPortal,
+  isCustomerDismantled,
+} from "./customer-portal-access";
 
 // Cookie names
 export const CUSTOMER_ACCESS_TOKEN_COOKIE = "customer-token";
@@ -217,16 +220,27 @@ export function clearCustomerAuthCookies(response: NextResponse) {
   return response;
 }
 
+/** Hasil `refreshCustomerToken`. */
+export type CustomerTokenRefreshResult =
+  | {
+      kind: "refreshed";
+      accessToken: string;
+      refreshToken: string;
+      session: CustomerSession;
+    }
+  /** Sesi sah, tetapi pelanggan sudah berhenti berlangganan. */
+  | { kind: "dismantled" }
+  | null;
+
 /**
  * Tukar refresh token dari cookie dengan access token dan refresh token baru.
  * Refresh token lama hanya diterima sekali (lihat
  * `verifyPelangganRefreshToken`), jadi yang baru wajib disimpan ke cookie.
+ * null bila tidak ada token atau tokennya tidak sah.
  */
-export async function refreshCustomerToken(request: NextRequest): Promise<{
-  accessToken: string;
-  refreshToken: string;
-  session: CustomerSession;
-} | null> {
+export async function refreshCustomerToken(
+  request: NextRequest,
+): Promise<CustomerTokenRefreshResult> {
   try {
     const refreshToken = request.cookies.get(
       CUSTOMER_REFRESH_TOKEN_COOKIE,
@@ -241,7 +255,7 @@ export async function refreshCustomerToken(request: NextRequest): Promise<{
     const result = await verifyPelangganRefreshToken(refreshToken);
 
     if (!result.valid) {
-      return null;
+      return "reason" in result ? { kind: "dismantled" } : null;
     }
 
     // Get fresh customer data
@@ -256,6 +270,9 @@ export async function refreshCustomerToken(request: NextRequest): Promise<{
       },
     });
 
+    if (pelanggan && isCustomerDismantled(pelanggan.status)) {
+      return { kind: "dismantled" };
+    }
     if (!pelanggan || !canUseCustomerPortal(pelanggan.status)) {
       return null;
     }
@@ -280,6 +297,7 @@ export async function refreshCustomerToken(request: NextRequest): Promise<{
     );
 
     return {
+      kind: "refreshed",
       accessToken,
       refreshToken: rotatedRefreshToken,
       session: {

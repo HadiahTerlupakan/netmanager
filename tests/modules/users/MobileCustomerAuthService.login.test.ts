@@ -120,6 +120,25 @@ describe("login mobile pelanggan", () => {
     expect(prismaMock.pelanggan.update).not.toHaveBeenCalled();
   });
 
+  it("menolak pelanggan dismantle dengan pesan dan kode yang menjelaskan", async () => {
+    prismaMock.pelanggan.findFirst.mockResolvedValueOnce({
+      ...PELANGGAN,
+      status: "DISMANTLE",
+    } as never);
+
+    const hasil = await login();
+
+    expect(hasil).toEqual({
+      found: true,
+      success: false,
+      status: 403,
+      error:
+        "Layanan Anda sudah berhenti berlangganan. Hubungi admin bila ini keliru.",
+      code: "CUSTOMER_DISMANTLED",
+    });
+    expect(prismaMock.pelanggan.update).not.toHaveBeenCalled();
+  });
+
   it("melewati pencatatan versi bila aplikasi tidak melaporkan versinya", async () => {
     await new MobileCustomerAuthService().tryLogin({
       email: "plgqa",

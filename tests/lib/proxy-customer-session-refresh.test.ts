@@ -44,6 +44,7 @@ describe("proxy — perpanjangan sesi pelanggan", () => {
   it("access token habis + refresh token sah: halaman terbuka dan cookie baru dipasang", async () => {
     const baru = accessToken();
     palsu.refreshCustomerToken.mockResolvedValue({
+      kind: "refreshed",
       accessToken: baru,
       refreshToken: "r2",
     });
@@ -63,6 +64,7 @@ describe("proxy — perpanjangan sesi pelanggan", () => {
   it("panggilan API ikut membawa access token baru ke handler", async () => {
     const baru = accessToken();
     palsu.refreshCustomerToken.mockResolvedValue({
+      kind: "refreshed",
       accessToken: baru,
       refreshToken: "r2",
     });
@@ -95,6 +97,49 @@ describe("proxy — perpanjangan sesi pelanggan", () => {
     );
 
     expect(palsu.refreshCustomerToken).not.toHaveBeenCalled();
+  });
+
+  // Dulu pelanggan dismantle hanya jatuh ke /login tanpa penjelasan.
+  it("pelanggan dismantle: dialihkan ke /login dengan alasan dan cookie dihapus", async () => {
+    palsu.refreshCustomerToken.mockResolvedValue({ kind: "dismantled" });
+    const { proxy } = await import("@/proxy");
+
+    const response = await proxy(
+      request("/tagihan", "customer-refresh-token=r1"),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://pelanggan.radpro.id/login?reason=dismantled",
+    );
+    expect(response.cookies.get("customer-token")?.value).toBe("");
+    expect(response.cookies.get("customer-refresh-token")?.value).toBe("");
+  });
+
+  it("pelanggan dismantle membuka /login: tetap diberi alasan", async () => {
+    palsu.refreshCustomerToken.mockResolvedValue({ kind: "dismantled" });
+    const { proxy } = await import("@/proxy");
+
+    const response = await proxy(
+      request("/login", "customer-refresh-token=r1"),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://pelanggan.radpro.id/login?reason=dismantled",
+    );
+  });
+
+  // Panggilan API tidak dialihkan: klien membaca 401-nya lalu membuka /login,
+  // dan cookie yang masih ada membuat permintaan itu mendapat alasannya.
+  it("pelanggan dismantle memanggil API: tidak dialihkan dan cookie tetap", async () => {
+    palsu.refreshCustomerToken.mockResolvedValue({ kind: "dismantled" });
+    const { proxy } = await import("@/proxy");
+
+    const response = await proxy(
+      request("/api/customer/invoices", "customer-refresh-token=r1"),
+    );
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.cookies.get("customer-refresh-token")).toBeUndefined();
   });
 
   it("refresh token tidak sah: tetap dialihkan ke /login", async () => {

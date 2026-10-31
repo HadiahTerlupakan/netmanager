@@ -13,6 +13,7 @@ const mockFns = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockFns.push }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("next/image", () => ({

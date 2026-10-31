@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { apiError, apiSuccess, ErrorCodes } from "@/lib/api-response";
 import { setCustomerAuthCookies } from "@/lib/customer-auth";
+import { CUSTOMER_DISMANTLED_CODE } from "@/lib/customer-portal-access";
 import { CustomerAuthService } from "@/modules/pelanggan";
 import { rateLimit, getClientIP, RATE_LIMITS } from "@/lib/rate-limit";
 import {
@@ -100,13 +101,16 @@ export async function POST(request: NextRequest) {
       if (result.error?.includes("Terlalu banyak")) statusCode = 429;
       if (
         result.error?.includes("belum diaktifkan") ||
-        result.error?.includes("tidak aktif")
+        result.error?.includes("tidak aktif") ||
+        result.code === CUSTOMER_DISMANTLED_CODE
       )
         statusCode = 403;
 
-      return apiError(result.error ?? "Login gagal", ErrorCodes.UNAUTHORIZED, {
-        status: statusCode,
-      });
+      return apiError(
+        result.error ?? "Login gagal",
+        result.code ?? ErrorCodes.UNAUTHORIZED,
+        { status: statusCode },
+      );
     }
 
     // Reset failed login counter on successful login

@@ -5,6 +5,7 @@ import { getToken, type JWT } from "next-auth/jwt";
 import { isSuperAdmin } from "./lib/auth";
 import {
   persistRefreshedCustomerTokens,
+  redirectDismantledCustomer,
   refreshCustomerAccessToken,
   withRefreshedCustomerTokens,
 } from "./lib/customer-session-refresh";
@@ -30,15 +31,18 @@ export async function proxy(request: NextRequest) {
   const isCustomerPortal =
     hostname.startsWith("pelanggan.") ||
     hostname.startsWith("pelanggan-staging.");
-  const refreshedTokens = isCustomerPortal
+  const refresh = isCustomerPortal
     ? await refreshCustomerAccessToken(request)
     : null;
-  if (!refreshedTokens) return handleRequest(request);
+  if (refresh?.kind === "dismantled") {
+    return redirectDismantledCustomer(request) ?? handleRequest(request);
+  }
+  if (!refresh) return handleRequest(request);
 
   const response = await handleRequest(
-    withRefreshedCustomerTokens(request, refreshedTokens),
+    withRefreshedCustomerTokens(request, refresh.tokens),
   );
-  await persistRefreshedCustomerTokens(response, refreshedTokens);
+  await persistRefreshedCustomerTokens(response, refresh.tokens);
   return response;
 }
 
