@@ -18,6 +18,11 @@ interface FakeDocument {
   data: () => Record<string, unknown>;
 }
 
+interface FakeFirebaseUser {
+  uid: string;
+  getIdTokenResult: () => Promise<{ claims: Record<string, unknown> }>;
+}
+
 interface FakeListener {
   path: string;
   includeMetadataChanges: boolean;
@@ -37,7 +42,7 @@ export const fakeRealtime = {
   },
   services: {
     firebaseApp: {},
-    auth: { currentUser: null as { uid: string } | null },
+    auth: { currentUser: null as FakeFirebaseUser | null },
     firestore: { kind: "firestore" },
     realtimeDatabase: null as unknown,
   },
@@ -69,8 +74,24 @@ vi.mock("firebase/firestore", () => ({
   },
 }));
 
+/** Pengguna Firebase Auth membawa klaim token custom yang dipakai saat masuk. */
+function firebaseUser(
+  uid: string,
+  claims: Record<string, unknown>,
+): FakeFirebaseUser {
+  return { uid, getIdTokenResult: async () => ({ claims }) };
+}
+
 vi.mock("firebase/auth", () => ({
-  signInWithCustomToken: vi.fn(),
+  signInWithCustomToken: vi.fn(
+    async (auth: { currentUser: FakeFirebaseUser | null }, token: string) => {
+      const minted = JSON.parse(token) as {
+        uid: string;
+        claims: Record<string, unknown>;
+      };
+      auth.currentUser = firebaseUser(minted.uid, minted.claims);
+    },
+  ),
   signOut: vi.fn(() => Promise.resolve()),
 }));
 
@@ -88,12 +109,46 @@ vi.mock("@/lib/realtime/client", () => ({
   getRealtimeClientServices: () => fakeRealtime.services,
 }));
 
-/** Masuk sebagai `userId`: sesi NextAuth dan pengguna Firebase Auth sama. */
+/**
+ * Klaim yang dicetak `app/api/auth/firebase-token` untuk pengguna sesi,
+ * ditulis ulang di sini supaya tes tidak bersandar pada kode yang diujinya.
+ */
+export function mintedClaimsFor(user: Record<string, unknown>) {
+  const isSuperAdmin =
+    user.isSuperAdmin === true ||
+    user.role === "SUPER_ADMIN" ||
+    user.role === "Super Admin";
+  const primarySiteId = user.primarySiteId ?? user.siteId ?? null;
+  return {
+    role: isSuperAdmin ? "SUPER_ADMIN" : (user.role ?? "USER"),
+    tenantId: user.tenantId ?? null,
+    departmentId: user.departmentId ?? null,
+    siteId: primarySiteId,
+    primarySiteId,
+    accessAdminPanel: user.accessAdminPanel ?? false,
+    accessEmployeePanel: user.accessEmployeePanel ?? false,
+    isSuperAdmin,
+  };
+}
+
+/** Jawaban route token palsu: token custom untuk sesi NextAuth saat ini. */
+export function mintTokenForCurrentSession(): string {
+  const user = fakeRealtime.session.data?.user ?? {};
+  return JSON.stringify({ uid: user.id, claims: mintedClaimsFor(user) });
+}
+
+/**
+ * Masuk sebagai `user`: sesi NextAuth dan pengguna Firebase Auth yang
+ * diingat browser sama, dengan klaim yang dicetak untuk sesi itu.
+ */
 export function signInAs(user: { id: string } & Record<string, unknown>) {
   fakeRealtime.listeners.length = 0;
   fakeRealtime.session.status = "authenticated";
   fakeRealtime.session.data = { user };
-  fakeRealtime.services.auth.currentUser = { uid: user.id };
+  fakeRealtime.services.auth.currentUser = firebaseUser(
+    user.id,
+    mintedClaimsFor(user),
+  );
 }
 
 /** Dokumen event seperti yang ditulis `firebaseRealtimeService.publish`. */

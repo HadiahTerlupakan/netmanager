@@ -86,6 +86,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `lib/realtime/RealtimeContext.tsx`, `lib/realtime/channel-snapshot.ts`, `lib/realtime/hooks/useRealtimeResync.ts` (baru), `lib/websocket/hooks/useRealtimeNotifications.ts`, `lib/websocket/hooks/useRealtimeWorkOrders.ts`, `lib/websocket/hooks/useRealtimeSupportTickets.ts`, `lib/websocket/hooks/useRealtimePaymentApprovals.ts`, `lib/websocket/hooks/useCustomerNotifications.ts`, `tests/lib/realtime/realtime-scope-stability.test.tsx`
 - **Breaking**: ❌ Tidak
 
+### [2026-11-01] — Realtime masuk ulang dengan klaim baru saat site, role, atau tenant sesi berubah
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/realtime` | `app/api/auth/firebase-token`
+- **Author**: agent
+- **Deskripsi**: Bila sesi berpindah site, role, atau tenant tanpa berganti pengguna, efek sidik jari sesi mematikan kesiapan Firebase, tetapi efek autentikasi hanya berjalan ulang bila id pengguna berubah: realtime mati sampai halaman dimuat ulang, dan tokennya tetap membawa klaim lama yang dibaca aturan Firestore. Kini efek autentikasi berjalan ulang setiap kali sidik jari sesi berubah dan membandingkan klaim token yang sedang dipakai (`getIdTokenResult`) dengan klaim yang akan dicetak untuk sesi itu. Bila berbeda, token custom baru diambil dari `/api/auth/firebase-token` dan pengguna masuk ulang (tanpa keluar lebih dulu bila uid-nya sama); listener lalu dipasang di scope baru dan tersinkron dengan diam, dengan jeda tenang saat pemasangan dan tanpa memutar ulang riwayat. Bila klaim tidak berubah (mis. hanya `siteIds`), realtime tersambung lagi tanpa token baru. Pemeriksaan yang sama berlaku saat halaman dibuka: sesi Firebase yang diingat browser dengan klaim lama kini dicetak ulang, bukan dipakai apa adanya; bila klaimnya masih sama tidak ada token baru, jadi `createCustomToken` tidak dipanggil di setiap kunjungan. Pemetaan klaim dipindah dari route ke `buildRealtimeClaims` (`lib/realtime/firebase-claims.ts`), dipakai route dan klien.
+- **Files**: `lib/realtime/firebase-claims.ts` (baru), `lib/realtime/RealtimeContext.tsx`, `app/api/auth/firebase-token/route.ts`, `tests/lib/realtime/realtime-claims-reauth.test.tsx`, `tests/lib/realtime/firestore-channel-fake.ts`, `tests/lib/realtime/realtime-subscription-hydration.test.tsx`, `tests/lib/realtime/realtime-scope-stability.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

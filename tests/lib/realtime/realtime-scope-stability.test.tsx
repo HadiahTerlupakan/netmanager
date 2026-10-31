@@ -77,16 +77,17 @@ function expectSameListeners(recorded: ReturnType<typeof recordListeners>) {
 describe("realtime scopes stay put while nothing relevant changes", () => {
   let root: Root;
 
-  function render(children: React.ReactNode, status = "authenticated") {
-    act(() =>
+  /** Render lalu tunggu pemeriksaan klaim token Firebase yang asinkron. */
+  async function render(children: React.ReactNode, status = "authenticated") {
+    await act(async () => {
       root.render(
         <RealtimeProvider
           statusOverride={status as "authenticated" | "loading"}
         >
           {children}
         </RealtimeProvider>,
-      ),
-    );
+      );
+    });
   }
 
   beforeEach(() => {
@@ -98,21 +99,21 @@ describe("realtime scopes stay put while nothing relevant changes", () => {
     act(() => root.unmount());
   });
 
-  it("keeps every listener when NextAuth reloads an identical session as the tab regains focus", () => {
-    render(<NotificationListener />);
+  it("keeps every listener when NextAuth reloads an identical session as the tab regains focus", async () => {
+    await render(<NotificationListener />);
     const before = recordListeners();
 
     fakeRealtime.session = {
       status: "authenticated",
       data: { user: { ...ADMIN, siteIds: [...ADMIN.siteIds] } },
     };
-    render(<NotificationListener />);
+    await render(<NotificationListener />);
 
     expectSameListeners(before);
   });
 
-  it("keeps every listener when another component registers a scope already registered", () => {
-    render(
+  it("keeps every listener when another component registers a scope already registered", async () => {
+    await render(
       <>
         <NotificationListener />
         <WorkOrderScope />
@@ -120,7 +121,7 @@ describe("realtime scopes stay put while nothing relevant changes", () => {
     );
     const before = recordListeners();
 
-    render(
+    await render(
       <>
         <NotificationListener />
         <WorkOrderScope />
@@ -131,33 +132,33 @@ describe("realtime scopes stay put while nothing relevant changes", () => {
     expectSameListeners(before);
   });
 
-  it("keeps every listener when a wrapper passes a new object for the same user", () => {
+  it("keeps every listener when a wrapper passes a new object for the same user", async () => {
     const renderCustomer = () =>
-      act(() =>
+      act(async () => {
         root.render(
           <RealtimeProvider
-            userOverride={{ id: "admin-1" }}
+            userOverride={{ ...ADMIN }}
             statusOverride="authenticated"
           >
             <NotificationListener />
           </RealtimeProvider>,
-        ),
-      );
-    renderCustomer();
+        );
+      });
+    await renderCustomer();
     const before = recordListeners();
 
-    renderCustomer();
+    await renderCustomer();
 
     expectSameListeners(before);
   });
 
-  it("still listens on a new channel when a page adds a scope", () => {
-    render(<NotificationListener />);
+  it("still listens on a new channel when a page adds a scope", async () => {
+    await render(<NotificationListener />);
     expect(
       activeListeners("admins/workorders.site.site-1/events"),
     ).toHaveLength(0);
 
-    render(
+    await render(
       <>
         <NotificationListener />
         <WorkOrderScope />

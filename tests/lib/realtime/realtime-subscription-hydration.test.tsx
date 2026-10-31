@@ -53,20 +53,24 @@ describe("useRealtimeSubscription hydration", () => {
   let root: Root;
   const onEvent = vi.fn();
 
-  function render(
+  /**
+   * Render lalu tunggu pemeriksaan klaim token Firebase yang asinkron;
+   * listener baru dipasang setelah realtime siap.
+   */
+  async function render(
     options: {
       status?: "authenticated" | "loading";
       withExtraScope?: boolean;
     } = {},
   ) {
-    act(() =>
+    await act(async () => {
       root.render(
         <RealtimeProvider statusOverride={options.status ?? "authenticated"}>
           <NotificationProbe onEvent={onEvent} />
           {options.withExtraScope ? <ExtraScopeProbe /> : null}
         </RealtimeProvider>,
-      ),
-    );
+      );
+    });
   }
 
   beforeEach(() => {
@@ -82,8 +86,8 @@ describe("useRealtimeSubscription hydration", () => {
     vi.useRealTimers();
   });
 
-  it("treats what the server already holds as history when the first snapshot came from an empty cache", () => {
-    render();
+  it("treats what the server already holds as history when the first snapshot came from an empty cache", async () => {
+    await render();
     act(() => disconnectChannel(CHANNEL));
     act(() => syncChannel(CHANNEL, history));
 
@@ -96,8 +100,8 @@ describe("useRealtimeSubscription hydration", () => {
     expect(onEvent).toHaveBeenCalledWith(payloadOf(fresh));
   });
 
-  it("hands a document to its listener once, even when the SDK reports it as added again", () => {
-    render();
+  it("hands a document to its listener once, even when the SDK reports it as added again", async () => {
+    await render();
     act(() => syncChannel(CHANNEL, history));
     const fresh = channelEvent("new-1");
     act(() => syncChannel(CHANNEL, [fresh, ...history]));
@@ -121,8 +125,8 @@ describe("useRealtimeSubscription hydration", () => {
     ],
   ])(
     "ignores an added document older than its hydrated history when createdAt is %s",
-    (_format, formatCreatedAt) => {
-      render();
+    async (_format, formatCreatedAt) => {
+      await render();
       act(() => syncChannel(CHANNEL, history));
 
       const stale = channelEvent("stale", {
@@ -138,10 +142,10 @@ describe("useRealtimeSubscription hydration", () => {
     },
   );
 
-  it("still delivers an event the server wrote a moment after stamping it", () => {
+  it("still delivers an event the server wrote a moment after stamping it", async () => {
     // Publish yang di-throttle ditulis lewat batch hingga 2 detik kemudian,
     // dengan createdAt dari saat publish dipanggil.
-    render();
+    await render();
     act(() => syncChannel(CHANNEL, history));
     const batched = channelEvent("batched", {
       createdAt: new Date(HYDRATED_AT - 2_000).toISOString(),
@@ -154,24 +158,24 @@ describe("useRealtimeSubscription hydration", () => {
   it.each([
     [
       "the connection drops and comes back",
-      (rerender: typeof render) => {
-        rerender({ status: "loading" });
+      async (rerender: typeof render) => {
+        await rerender({ status: "loading" });
         expect(activeListeners(CHANNEL)).toHaveLength(0);
-        rerender();
+        await rerender();
       },
     ],
     [
       "a page adds a scope",
       (rerender: typeof render) => rerender({ withExtraScope: true }),
     ],
-  ])("does not replay history when %s", (_trigger, resubscribe) => {
-    render();
+  ])("does not replay history when %s", async (_trigger, resubscribe) => {
+    await render();
     act(() => syncChannel(CHANNEL, history));
     const delivered = channelEvent("new-1");
     act(() => syncChannel(CHANNEL, [delivered, ...history]));
     expect(onEvent).toHaveBeenCalledTimes(1);
 
-    resubscribe(render);
+    await resubscribe(render);
     expect(activeListeners(CHANNEL)).toHaveLength(1);
     act(() => disconnectChannel(CHANNEL));
     act(() => syncChannel(CHANNEL, [delivered, ...history]));
@@ -184,8 +188,8 @@ describe("useRealtimeSubscription hydration", () => {
     expect(onEvent).toHaveBeenLastCalledWith(payloadOf(fresh));
   });
 
-  it("delivers what arrived while offline once the server catches up, without repeating the rest", () => {
-    render();
+  it("delivers what arrived while offline once the server catches up, without repeating the rest", async () => {
+    await render();
     act(() => syncChannel(CHANNEL, history));
     const before = channelEvent("before");
     act(() => syncChannel(CHANNEL, [before, ...history]));

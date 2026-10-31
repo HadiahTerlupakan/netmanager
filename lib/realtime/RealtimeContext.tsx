@@ -32,6 +32,10 @@ import {
 } from "@/lib/realtime/channel-map";
 import { createChannelSnapshotListener } from "@/lib/realtime/channel-snapshot";
 import { getRealtimeClientServices } from "@/lib/realtime/client";
+import {
+  hasCurrentRealtimeClaims,
+  type RealtimeClaimsSource,
+} from "@/lib/realtime/firebase-claims";
 import type {
   PresenceSnapshot,
   RealtimeEnvelope,
@@ -401,19 +405,31 @@ export function RealtimeProvider({
       try {
         setFirebaseError(null);
 
+        // Aturan Firestore membaca klaim token (role, tenant, site). Sesi
+        // yang berpindah site, role, atau tenant tanpa berganti pengguna
+        // masih memegang token lama, begitu pula sesi Firebase yang diingat
+        // browser sejak kunjungan sebelumnya: token baru dicetak bila klaimnya
+        // tidak lagi sama.
+        const sessionClaims = JSON.parse(
+          sessionFingerprint,
+        ) as RealtimeClaimsSource & { id: string | null };
         const currentUser = services.auth.currentUser;
-        if (currentUser?.uid === user?.id) {
-          if (active) {
-            setIsFirebaseReady(true);
+        const isSameUser = currentUser?.uid === sessionClaims.id;
+        if (isSameUser) {
+          const { claims } = await currentUser.getIdTokenResult();
+          if (hasCurrentRealtimeClaims(claims, sessionClaims)) {
+            if (active) {
+              setIsFirebaseReady(true);
+            }
+            return;
           }
-          return;
         }
 
         if (active) {
           setIsFirebaseReady(false);
         }
 
-        if (currentUser) {
+        if (currentUser && !isSameUser) {
           await signOut(services.auth);
         }
 
@@ -453,7 +469,9 @@ export function RealtimeProvider({
     return () => {
       active = false;
     };
-  }, [services.auth, isAuthValid, user?.id, reconnectVersion]);
+    // Berjalan ulang bila sidik jari sesi berubah (klaim atau scope), bukan
+    // setiap kali objek sesinya dibuat ulang.
+  }, [services.auth, isAuthValid, sessionFingerprint, reconnectVersion]);
 
   const isConnected =
     status === "authenticated" &&
