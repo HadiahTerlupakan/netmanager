@@ -1,12 +1,23 @@
 import { CompanyBankAccountRepository } from "../repositories/CompanyBankAccountRepository";
 import {
   PaymentGatewayManager,
+  getActivePaymentChannels,
   getCustomerPaymentMethodsByProvider,
 } from "@/modules/payment-gateway";
 
 interface GatewayManagerLike {
   getEnabledProviders(tenantId?: string): Promise<Array<{ provider: string }>>;
 }
+
+type ActiveChannelLookup = (input: {
+  provider: string;
+  tenantId?: string;
+  amount: number;
+}) => Promise<Set<string> | null>;
+
+// Nominal tagihan bulanan biasa, untuk klien yang tidak mengirim nominal:
+// kanal tidak tersembunyi hanya karena nominal contoh di bawah minimumnya.
+const DEFAULT_CHANNEL_CHECK_AMOUNT = 100000;
 
 interface BankAccountRepositoryLike {
   findActive(tenantId?: string): Promise<ManualBankAccount[]>;
@@ -23,14 +34,25 @@ export class CustomerPaymentMethodService {
   constructor(
     private readonly gatewayManager: GatewayManagerLike = new PaymentGatewayManager(),
     private readonly bankAccountRepository: BankAccountRepositoryLike = new CompanyBankAccountRepository(),
+    private readonly findActiveChannels: ActiveChannelLookup = getActivePaymentChannels,
   ) {}
 
-  /** Mengambil metode pembayaran customer dari gateway aktif dan rekening manual. */
-  async getCustomerPaymentMethods(tenantId?: string) {
+  /**
+   * Mengambil metode pembayaran customer dari gateway aktif dan rekening
+   * manual. `amount`: total tagihan yang akan dibayar, bila diketahui.
+   */
+  async getCustomerPaymentMethods(tenantId?: string, amount?: number) {
     const providers = await this.gatewayManager.getEnabledProviders(tenantId);
-    const paymentMethods = providers.flatMap((provider) =>
-      getCustomerPaymentMethodsByProvider(provider.provider),
+    const gatewayMethods = await Promise.all(
+      providers.map((provider) =>
+        this.findOfferedMethods(
+          provider.provider,
+          tenantId,
+          amount ?? DEFAULT_CHANNEL_CHECK_AMOUNT,
+        ),
+      ),
     );
+    const paymentMethods = gatewayMethods.flat();
 
     paymentMethods.push(
       ...this.mapManualMethods(
@@ -51,6 +73,27 @@ export class CustomerPaymentMethodService {
     }
 
     return paymentMethods;
+  }
+
+  /**
+   * Metode katalog gateway ini yang dilaporkan aktif untuk merchant; kanal
+   * yang belum diaktifkan selalu ditolak saat checkout. Daftar kanal yang
+   * tidak terbaca tidak mengosongkan pilihan: seluruh katalog ditawarkan.
+   */
+  private async findOfferedMethods(
+    provider: string,
+    tenantId: string | undefined,
+    amount: number,
+  ) {
+    const catalog = getCustomerPaymentMethodsByProvider(provider);
+    const active = await this.findActiveChannels({
+      provider,
+      tenantId,
+      amount,
+    });
+    return active
+      ? catalog.filter((method) => active.has(method.code))
+      : catalog;
   }
 
   private mapManualMethods(accounts: ManualBankAccount[]) {

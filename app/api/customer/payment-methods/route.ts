@@ -9,6 +9,19 @@ export const dynamic = "force-dynamic";
 
 const service = new CustomerPaymentMethodService();
 
+/** Nominal rupiah dari query; nilai yang tidak sah diabaikan. */
+function parseAmount(value: string | null) {
+  const amount = Number(value);
+  return value && Number.isSafeInteger(amount) && amount > 0
+    ? amount
+    : undefined;
+}
+
+/**
+ * GET - Metode pembayaran untuk pelanggan. `?amount=` (opsional): total yang
+ * akan dibayar, agar kanal gateway yang tidak aktif untuk nominal itu tidak
+ * ditawarkan.
+ */
 export async function GET(request: NextRequest) {
   try {
     const authResult = await requireCustomerAuth(request);
@@ -19,7 +32,10 @@ export async function GET(request: NextRequest) {
       return ApiErrors.badRequest("Tenant ID tidak ditemukan");
     }
 
-    return apiSuccess(await service.getCustomerPaymentMethods(tenantId));
+    const amount = parseAmount(request.nextUrl.searchParams.get("amount"));
+    return apiSuccess(
+      await service.getCustomerPaymentMethods(tenantId, amount),
+    );
   } catch (error) {
     logger.error(
       "[Payment Methods Error]",

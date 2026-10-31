@@ -63,3 +63,4 @@ export {
   findPaymentMethodProvider,
   getCustomerPaymentMethodsByProvider,
 } from "./services/payment-method-catalog";
+export { getActivePaymentChannels } from "./services/active-payment-channels";
