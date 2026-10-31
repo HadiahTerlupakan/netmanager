@@ -11,6 +11,7 @@ const mockFns = vi.hoisted(() => ({
   markInvoiceSent: vi.fn(),
   syncInvoiceBillingSchedules: vi.fn(),
   cancelInvoiceBillingSchedules: vi.fn(),
+  closeAbandonedManualTransfers: vi.fn(),
 }));
 
 vi.mock("@/modules/users/repositories/UserRepository", () => ({
@@ -39,6 +40,10 @@ vi.mock("@/modules/finance/repositories/InvoiceRepository", () => ({
 vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
   syncInvoiceBillingSchedules: mockFns.syncInvoiceBillingSchedules,
   cancelInvoiceBillingSchedules: mockFns.cancelInvoiceBillingSchedules,
+}));
+
+vi.mock("@/modules/finance/services/abandoned-manual-transfer", () => ({
+  closeAbandonedManualTransfers: mockFns.closeAbandonedManualTransfers,
 }));
 
 import {
@@ -147,9 +152,29 @@ describe("InvoiceRouteService", () => {
         totalAmount: 2000n,
       },
     });
+    expect(mockFns.closeAbandonedManualTransfers).not.toHaveBeenCalled();
   });
 
-  it("cancels billing schedules before deleting an existing invoice", async () => {
+  it("closes manual transfers without proof when an update cancels the invoice", async () => {
+    mockFns.findInvoiceWithRelations.mockResolvedValue(baseInvoice);
+    mockFns.updateInvoiceWithItems.mockResolvedValue({
+      ...baseInvoice,
+      status: "CANCELLED",
+    });
+
+    await updateInvoiceForRoute({
+      invoiceId: "inv-1",
+      user: { id: "user-1", role: "SUPER_ADMIN" },
+      isRestricted: false,
+      input: { status: "CANCELLED" },
+    });
+
+    expect(mockFns.closeAbandonedManualTransfers).toHaveBeenCalledWith("inv-1");
+  });
+
+  // Penghapusan melepas invoiceId payment-nya, jadi transfer tanpa bukti
+  // harus ditutup selagi masih bisa ditemukan dari tagihannya.
+  it("cancels billing schedules and closes manual transfers without proof before deleting an existing invoice", async () => {
     mockFns.findInvoiceWithRelations.mockResolvedValue(baseInvoice);
 
     await deleteInvoiceForRoute({
@@ -159,7 +184,11 @@ describe("InvoiceRouteService", () => {
     });
 
     expect(mockFns.cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-1");
+    expect(mockFns.closeAbandonedManualTransfers).toHaveBeenCalledWith("inv-1");
     expect(mockFns.deleteInvoice).toHaveBeenCalledWith("inv-1");
+    expect(
+      mockFns.closeAbandonedManualTransfers.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockFns.deleteInvoice.mock.invocationCallOrder[0]);
   });
 
   it("sends draft invoice using fallback customer contact", async () => {

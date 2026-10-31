@@ -1,4 +1,5 @@
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
+import { closeAbandonedManualTransfers } from "./abandoned-manual-transfer";
 import { reverseJournalsOfCancelledInvoice } from "./invoice-cancellation-journals";
 import type { PelangganBillingBridgeService } from "@/modules/pelanggan";
 import { getPelangganBillingBridge } from "../pelanggan-registry";
@@ -70,6 +71,7 @@ export class VoidInvoiceService {
       const { cancelInvoiceBillingSchedules } =
         await import("./billingScheduleLifecycle");
       await cancelInvoiceBillingSchedules(invoice.id);
+      await this.closeAbandonedTransfers(invoice.id);
 
       const pelanggan = await this.pelangganBridge.findById(
         invoice.pelangganId,
@@ -152,6 +154,23 @@ export class VoidInvoiceService {
     } catch (error: unknown) {
       logger.error("[VoidInvoiceService] Fatal error:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Transfer manual tanpa bukti untuk tagihan yang dibatalkan tidak punya
+   * jalan keluar. Kegagalannya hanya dicatat: pembatalannya sudah tersimpan
+   * dan tidak bisa diulang, sedangkan jatuh tempo pelanggan tetap harus
+   * dikembalikan.
+   */
+  private async closeAbandonedTransfers(invoiceId: string) {
+    try {
+      await closeAbandonedManualTransfers(invoiceId);
+    } catch (error) {
+      logger.error(
+        `[VoidInvoiceService] Transfer manual tanpa bukti untuk invoice ${invoiceId} gagal ditutup:`,
+        error,
+      );
     }
   }
 }

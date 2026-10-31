@@ -1,8 +1,9 @@
 import type { Prisma } from "../lib/billing-prisma-boundary";
-import type { InvoiceStatus } from "../types/invoice.enums";
+import { InvoiceStatus } from "../types/invoice.enums";
 import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
 import { UserLookupService } from "@/modules/users";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
+import { closeAbandonedManualTransfers } from "./abandoned-manual-transfer";
 
 type RouteUser = {
   id: string;
@@ -121,6 +122,11 @@ async function performInvoiceUpdate(
   const { syncInvoiceBillingSchedules } =
     await import("./billingScheduleLifecycle");
   await syncInvoiceBillingSchedules(updatedInvoice);
+  // Tombol "Batalkan tagihan" di halaman perpanjangan membatalkan lewat ubah
+  // tagihan; pelanggan tidak bisa lagi mengunggah bukti untuk tagihan itu.
+  if (updatedInvoice.status === InvoiceStatus.CANCELLED) {
+    await closeAbandonedManualTransfers(updatedInvoice.id);
+  }
   return buildInvoiceWithPelanggan(updatedInvoice);
 }
 
@@ -232,6 +238,9 @@ export async function deleteInvoiceForRoute(options: {
   const { cancelInvoiceBillingSchedules } =
     await import("./billingScheduleLifecycle");
   await cancelInvoiceBillingSchedules(options.invoiceId);
+  // Sebelum dihapus: penghapusan melepas invoiceId payment-nya (SET NULL),
+  // dan transfer tanpa bukti tidak lagi bisa ditemukan dari tagihannya.
+  await closeAbandonedManualTransfers(options.invoiceId);
   await invoiceRepository.deleteById(options.invoiceId);
   return true;
 }

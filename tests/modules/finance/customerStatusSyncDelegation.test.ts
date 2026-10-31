@@ -17,6 +17,8 @@ const mockFns = vi.hoisted(() => ({
   onInvoicePaid: vi.fn(),
   onIsolated: vi.fn(),
   reconcile: vi.fn(),
+  closeAbandonedManualTransfers: vi.fn(),
+  logError: vi.fn(),
 }));
 
 vi.mock("@/modules/finance/repositories/InvoiceRepository", () => ({
@@ -68,8 +70,12 @@ vi.mock("@/modules/finance/utils/customerFinanceNotifications", () => ({
 vi.mock("@/lib/logger", () => ({
   logger: {
     logActivity: mockFns.logActivity,
-    error: vi.fn(),
+    error: mockFns.logError,
   },
+}));
+
+vi.mock("@/modules/finance/services/abandoned-manual-transfer", () => ({
+  closeAbandonedManualTransfers: mockFns.closeAbandonedManualTransfers,
 }));
 
 vi.mock("@/modules/events", () => ({
@@ -107,6 +113,7 @@ describe("finance customer status sync delegation", () => {
     mockFns.logActivity.mockResolvedValue(undefined);
     mockFns.onInvoicePaid.mockResolvedValue(undefined);
     mockFns.onIsolated.mockResolvedValue(undefined);
+    mockFns.closeAbandonedManualTransfers.mockResolvedValue(0);
     mockFns.findSetting.mockResolvedValue({ value: "true" });
     mockFns.findOverdueInvoices.mockResolvedValue([{ pelangganId: "cust-1" }]);
     mockFns.reconcile.mockResolvedValue({
@@ -201,5 +208,39 @@ describe("finance customer status sync delegation", () => {
     );
     expect(mockFns.updateStatusPelanggan).not.toHaveBeenCalled();
     expect(mockFns.handleStatusChange).not.toHaveBeenCalled();
+    expect(mockFns.closeAbandonedManualTransfers).toHaveBeenCalledWith("inv-1");
+  });
+
+  // Pembatalannya sudah tersimpan dan tidak bisa diulang (invoice tidak lagi
+  // PAID/PARTIAL_PAID), jadi jatuh tempo pelanggan tetap harus dikembalikan.
+  it("void tetap mengembalikan jatuh tempo bila transfer tanpa bukti gagal ditutup", async () => {
+    mockFns.findInvoice.mockResolvedValue({
+      id: "inv-1",
+      invoiceNumber: "INV-001",
+      status: "PARTIAL_PAID",
+      notes: null,
+      totalAmount: 100000,
+      pelangganId: "cust-1",
+    });
+    mockFns.bridgeFindById.mockResolvedValue({
+      id: "cust-1",
+      status: "ISOLIR",
+      jatuhTempo: new Date("2026-04-20T00:00:00.000Z"),
+    });
+    mockFns.closeAbandonedManualTransfers.mockRejectedValue(
+      new Error("billing DB putus"),
+    );
+
+    await expect(
+      VoidInvoiceService.voidInvoice("inv-1", "salah tagih", "admin-1"),
+    ).resolves.toMatchObject({ success: true });
+
+    expect(mockFns.bridgeUpdate).toHaveBeenCalledWith("cust-1", {
+      jatuhTempo: new Date("2026-03-20T00:00:00.000Z"),
+    });
+    expect(mockFns.logError).toHaveBeenCalledWith(
+      expect.stringContaining("inv-1 gagal ditutup"),
+      expect.any(Error),
+    );
   });
 });

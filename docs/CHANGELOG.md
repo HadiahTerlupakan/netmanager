@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Setiap pembatalan tagihan menutup Transfer Manual tanpa bukti
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Pilihan "Transfer Manual" tanpa bukti untuk tagihan yang dibatalkan hanya ditutup oleh "Batalkan & Buat Tagihan Baru" dan hitung ulang paket siklus (`cancelReplacedInvoice`). Void admin untuk tagihan PAID/PARTIAL_PAID (`VoidInvoiceService`), ubah tagihan menjadi CANCELLED (`updateInvoiceForRoute`, dipakai tombol "Batalkan tagihan" di halaman perpanjangan), dan hapus tagihan (`deleteInvoiceForRoute`) meninggalkannya menunggu tanpa jalan bagi pelanggan untuk mengunggah bukti, dengan kupon yang tetap tertahan. Kini ketiganya memanggil `closeAbandonedManualTransfers` (utuh per checkout, kupon dikembalikan bila tidak dipegang payment lain; yang berbukti tetap di antrean verifikasi). Hapus tagihan menutupnya sebelum delete karena `Payment.invoiceId` di-SET NULL; pada void kegagalannya hanya dicatat, karena void tidak bisa diulang dan jatuh tempo pelanggan tetap harus dikembalikan.
+- **Files**: `modules/finance/services/VoidInvoiceService.ts`, `modules/finance/services/InvoiceRouteService.ts`, `tests/db/invoice-cancellation-transfers.test.ts`, `tests/modules/finance/InvoiceRouteService.test.ts`, `tests/modules/finance/customerStatusSyncDelegation.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Ketidakcocokan gateway diteruskan ke staf sekali, bukan tiap putaran penyapu
 
 - **Tipe**: [FIXED] [MIGRATION]
