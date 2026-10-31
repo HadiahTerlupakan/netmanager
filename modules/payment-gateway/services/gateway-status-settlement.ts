@@ -70,11 +70,13 @@ function markCheckoutPaid(
   status: TransactionStatus,
 ): Promise<MarkOutcome> {
   return prismaBillingAuth.$transaction(async (tx) => {
+    // Payment orderId yang sudah PAID tidak berarti seluruh checkout lunas:
+    // checkout lama bisa memakai payment Rp 0 (tertutup kupon, PAID sejak
+    // dibuat) sebagai orderId. Payment lain yang belum PAID tetap dipindah.
     const current = await tx.payment.findUnique({
       where: { id: paymentId },
-      select: { gatewayStatus: true, transactionId: true },
+      select: { transactionId: true },
     });
-    if (current?.gatewayStatus === "PAID") return "ALREADY_PAID";
     if (
       hasTransactionMismatch(
         current?.transactionId ?? null,

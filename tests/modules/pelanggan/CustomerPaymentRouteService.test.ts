@@ -87,9 +87,16 @@ describe("CustomerPaymentRouteService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFns.validateInvoicesForPayment.mockResolvedValue({
-      totalAmount: 100000,
-    });
+    mockFns.validateInvoicesForPayment.mockImplementation(
+      async (invoiceIds: string[]) => ({
+        totalAmount: 100000,
+        invoices: invoiceIds.map((id) => ({
+          id,
+          totalAmount: 100000,
+          paidAmount: 0,
+        })),
+      }),
+    );
     mockFns.createPaymentsForInvoices.mockResolvedValue([
       { id: "pay-1", reference: "PAY-1" },
     ]);
@@ -171,6 +178,71 @@ describe("CustomerPaymentRouteService", () => {
     expect(mockFns.markPaymentsAsFailed).toHaveBeenCalledWith(
       ["pay-1"],
       "Duitku HTTP 400: Payment channel not available",
+    );
+  });
+
+  // Invoice Rp 0 dulu dibuatkan payment Rp 0 yang langsung PAID dan bisa
+  // menjadi orderId gateway.
+  it("invoice Rp 0 dilewati dan permintaan yang hanya berisi Rp 0 ditolak", async () => {
+    mockFns.validateInvoicesForPayment.mockImplementation(
+      async (invoiceIds: string[]) => ({
+        totalAmount: 100000,
+        invoices: invoiceIds.map((id) => ({
+          id,
+          totalAmount: id === "inv-nol" ? 0 : 100000,
+          paidAmount: 0,
+        })),
+      }),
+    );
+
+    await createCustomerPaymentForRoute({
+      customerId: "cust-1",
+      tenantId: "tenant-1",
+      invoiceIds: ["inv-nol", "inv-1"],
+      paymentMethod: "MANUAL",
+    });
+    await expect(
+      createCustomerPaymentForRoute({
+        customerId: "cust-1",
+        tenantId: "tenant-1",
+        invoiceIds: ["inv-nol"],
+        paymentMethod: "MANUAL",
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: "Tidak ada tagihan yang perlu dibayar.",
+    });
+
+    expect(mockFns.createPaymentsForInvoices).toHaveBeenCalledTimes(1);
+    expect(mockFns.createPaymentsForInvoices).toHaveBeenCalledWith(
+      expect.objectContaining({ invoiceIds: ["inv-1"] }),
+    );
+  });
+
+  it("payment Rp 0 (tertutup kupon) tidak menjadi orderId maupun penerima VA", async () => {
+    mockFns.createPaymentsForInvoices.mockResolvedValue([
+      { id: "pay-nol", reference: "PAY-0", gatewayStatus: "PAID" },
+      { id: "pay-1", reference: "PAY-1", gatewayStatus: "PENDING" },
+    ]);
+    mockFns.findPelangganById.mockResolvedValue({ id: "cust-1", nama: "Budi" });
+    mockFns.createGatewayPayment.mockResolvedValue({
+      success: true,
+      transactionId: "D1",
+      vaNumber: "7007",
+    });
+
+    await createCustomerPaymentForRoute({
+      customerId: "cust-1",
+      tenantId: "tenant-1",
+      invoiceIds: ["inv-0", "inv-1"],
+      paymentMethod: "BC",
+    });
+
+    expect(mockFns.createGatewayPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: "PAY-1" }),
+    );
+    expect(mockFns.updateGatewayMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentIds: ["pay-1"] }),
     );
   });
 

@@ -878,6 +878,164 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
     });
   });
 
+  describe("pembayaran Rp 0 dalam checkout", () => {
+    // Kupon yang menutup penuh invoice pertama membuat payment Rp 0 yang
+    // langsung PAID. Bila payment itu menjadi orderId Duitku, callback-nya
+    // dijawab "Already processed" dan invoice lain tidak pernah lunas.
+    it("kupon yang menutup penuh invoice pertama: callback melunasi invoice lainnya", async () => {
+      await createCoupon(1);
+      const small = await createInvoice(
+        "GWF-Z1",
+        DISCOUNT,
+        new Date("2026-10-01T03:00:00.000Z"),
+      );
+      const big = await createInvoice("GWF-Z2", PRICE);
+
+      await payFromPortal([small.id, big.id], "BC", COUPON_CODE);
+
+      const inquiry = http.fetch.mock.calls.find(([url]) =>
+        String(url).endsWith("/merchant/v2/inquiry"),
+      )!;
+      const order = JSON.parse((inquiry[1] as { body: string }).body) as {
+        merchantOrderId: string;
+        paymentAmount: number;
+      };
+      const [zeroRow] = await paymentsOf(small.id);
+      const [bigRow] = await paymentsOf(big.id);
+      const callback = await duitkuCallback({
+        merchantOrderId: order.merchantOrderId,
+        amount: BigInt(order.paymentAmount),
+        reference: `DREF-${order.merchantOrderId}`,
+      });
+
+      expect({
+        orderRow: order.merchantOrderId,
+        charged: order.paymentAmount,
+        zeroRowStatus: zeroRow.gatewayStatus,
+        zeroRowExpiresAt: zeroRow.expiresAt,
+        callback: callback.status,
+        bigInvoice: (await invoice(big.id)).status,
+        smallInvoice: (await invoice(small.id)).status,
+      }).toEqual({
+        orderRow: bigRow.reference,
+        charged: Number(PRICE),
+        zeroRowStatus: "PAID",
+        zeroRowExpiresAt: null,
+        callback: 200,
+        bigInvoice: "PAID",
+        smallInvoice: "PAID",
+      });
+    });
+
+    it("invoice Rp 0 dalam permintaan dilewati, dan permintaan yang hanya berisi Rp 0 ditolak", async () => {
+      const zero = await createInvoice("GWF-Z3", 0n);
+      const big = await createInvoice("GWF-Z4", PRICE);
+
+      await payFromPortal([zero.id, big.id], "BC");
+      const zeroOnly = await payFromPortal([zero.id], "BC").then(
+        () => ({ status: 200 }),
+        (error: { status?: number; message: string }) => ({
+          status: error.status,
+          message: error.message,
+        }),
+      );
+
+      expect({
+        zeroInvoicePayments: (await paymentsOf(zero.id)).length,
+        bigInvoicePayments: (await paymentsOf(big.id)).length,
+        zeroOnly,
+      }).toEqual({
+        zeroInvoicePayments: 0,
+        bigInvoicePayments: 1,
+        zeroOnly: {
+          status: 400,
+          message: "Tidak ada tagihan yang perlu dibayar.",
+        },
+      });
+    });
+
+    // Checkout lama yang terlanjur memakai payment Rp 0 sebagai orderId.
+    describe("checkout lama dengan orderId pada payment Rp 0 yang sudah PAID", () => {
+      async function legacyCheckout(expiresAt: Date) {
+        const small = await createInvoice("GWF-L1", DISCOUNT);
+        const big = await createInvoice("GWF-L2", PRICE);
+        const checkoutId = randomUUID();
+        const row = (
+          invoiceId: string,
+          reference: string,
+          amount: bigint,
+          gatewayStatus: "PAID" | "PENDING",
+        ) =>
+          prismaBillingAuth.payment.create({
+            data: {
+              id: randomUUID(),
+              invoiceId,
+              pelangganId: PELANGGAN,
+              amount,
+              discountAmount: amount === 0n ? DISCOUNT : 0n,
+              checkoutId,
+              paymentDate: new Date(),
+              paymentMethod: "BANK_TRANSFER",
+              reference,
+              gatewayStatus,
+              gatewayProvider: "BC",
+              transactionId: "DREF-PAY-GWFIX-L0",
+              expiresAt,
+              tenantId: TENANT,
+              updatedAt: new Date(),
+            },
+          });
+        await row(small.id, "PAY-GWFIX-L0", 0n, "PAID");
+        const pending = await row(big.id, "PAY-GWFIX-L1", PRICE, "PENDING");
+        http.paidOrders.add("PAY-GWFIX-L0");
+        inquiryAmounts.set("PAY-GWFIX-L0", Number(PRICE));
+        return { big, pending };
+      }
+
+      it("penyapu melunasi payment lain checkout itu", async () => {
+        const { big, pending } = await legacyCheckout(
+          new Date(Date.now() - 2 * HOUR_MS),
+        );
+
+        await runAsSystemContext("tes: penyapu checkout", () =>
+          expireStaleGatewayPayments(new Date()),
+        );
+
+        expect({
+          pendingRow: (
+            await prismaBillingAuth.payment.findUniqueOrThrow({
+              where: { id: pending.id },
+            })
+          ).gatewayStatus,
+          bigInvoice: (await invoice(big.id)).status,
+          failedNotices: dispatcher.onPaymentFailed.mock.calls.length,
+        }).toEqual({
+          pendingRow: "PAID",
+          bigInvoice: "PAID",
+          failedNotices: 0,
+        });
+      });
+
+      it("cek status dari portal melunasi payment lain checkout itu", async () => {
+        const { big } = await legacyCheckout(
+          new Date(Date.now() + 23 * HOUR_MS),
+        );
+
+        const status = await asTenant(() =>
+          checkCustomerPaymentStatus({
+            customerId: PELANGGAN,
+            invoiceId: big.id,
+          }),
+        );
+
+        expect({
+          status,
+          bigInvoice: (await invoice(big.id)).status,
+        }).toEqual({ status: "PAID", bigInvoice: "PAID" });
+      });
+    });
+  });
+
   describe("ganti metode (M8)", () => {
     it("kupon berkuota satu tetap berlaku saat pindah dari VA ke QRIS", async () => {
       await createCoupon(1);

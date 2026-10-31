@@ -16,6 +16,13 @@ export type CheckoutPaymentRef = {
   tenantId: string | null;
 };
 
+const CHECKOUT_REF_SELECT = {
+  id: true,
+  reference: true,
+  gatewayProvider: true,
+  tenantId: true,
+} as const;
+
 export type CheckoutReconciliation =
   | { outcome: "PAID" }
   | {
@@ -68,7 +75,10 @@ export async function reconcileCheckout(
   payments: CheckoutPaymentRef[],
   options: StatusCheckOptions = {},
 ): Promise<CheckoutReconciliation> {
-  const answer = await queryCheckoutStatus(payments, options);
+  const answer = await queryCheckoutStatus(
+    await withWholeCheckouts(payments),
+    options,
+  );
   if (answer === "UNREADABLE") return { outcome: "UNKNOWN" };
   if (answer === "NOT_FOUND") {
     return { outcome: "UNPAID", gatewayStatus: "EXPIRED" };
@@ -113,14 +123,35 @@ export async function reconcileInvoiceCheckout(input: {
           gatewayStatus: "PENDING",
         }
       : { id: latest.id },
-    select: {
-      id: true,
-      reference: true,
-      gatewayProvider: true,
-      tenantId: true,
-    },
+    select: CHECKOUT_REF_SELECT,
   });
   return reconcileCheckout(checkout);
+}
+
+/**
+ * Semua payment checkout-checkout ini, apa pun statusnya: orderId gateway
+ * checkout lama bisa berada pada payment Rp 0 yang sudah PAID sejak dibuat.
+ */
+async function withWholeCheckouts(
+  payments: CheckoutPaymentRef[],
+): Promise<CheckoutPaymentRef[]> {
+  const rows = await prismaBillingAuth.payment.findMany({
+    where: { id: { in: payments.map((p) => p.id) }, checkoutId: { not: null } },
+    select: { checkoutId: true },
+  });
+  const checkoutIds = [
+    ...new Set(
+      rows.flatMap((p): string[] => (p.checkoutId ? [p.checkoutId] : [])),
+    ),
+  ];
+  if (checkoutIds.length === 0) return payments;
+
+  const siblings = await prismaBillingAuth.payment.findMany({
+    where: { checkoutId: { in: checkoutIds } },
+    select: CHECKOUT_REF_SELECT,
+  });
+  const byId = new Map([...payments, ...siblings].map((p) => [p.id, p]));
+  return [...byId.values()];
 }
 
 async function queryCheckoutStatus(

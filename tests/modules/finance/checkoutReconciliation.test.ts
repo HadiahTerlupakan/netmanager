@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { prismaMock } from "../../setup";
+
 const palsu = vi.hoisted(() => ({
   checkStatus: vi.fn(),
   settle: vi.fn(),
@@ -37,6 +39,24 @@ describe("rekonsiliasi checkout dengan gateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     palsu.settle.mockResolvedValue(true);
+    prismaMock.payment.findMany.mockResolvedValue([]);
+  });
+
+  // Checkout lama memakai payment Rp 0 (PAID sejak dibuat) sebagai orderId;
+  // tanpa payment itu, reference yang ditanyakan tidak dikenal gateway.
+  it("orderId pada payment checkout yang sudah PAID tetap ditanyakan", async () => {
+    prismaMock.payment.findMany
+      .mockResolvedValueOnce([{ checkoutId: "c1" }])
+      .mockResolvedValueOnce([payment("p0", "PAY-0"), payment("p1", "PAY-a")]);
+    palsu.checkStatus.mockResolvedValue({ status: "PAID", amount: 100000 });
+
+    await expect(reconcileCheckout([payment("p1", "PAY-a")])).resolves.toEqual({
+      outcome: "PAID",
+    });
+    expect(palsu.checkStatus.mock.calls[0][1]).toBe("PAY-0");
+    expect(palsu.settle).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentId: "p0" }),
+    );
   });
 
   it("menanyakan orderId checkout lebih dulu: reference terkecil", async () => {

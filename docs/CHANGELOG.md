@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Payment Rp 0 tidak lagi menjadi orderId checkout gateway
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/pelanggan` | `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: orderId gateway sebuah checkout diambil dari salah satu payment-nya. Bila yang terpilih payment Rp 0 (invoice yang tertutup penuh kupon, atau invoice Rp 0 yang ikut dipilih), payment itu sudah PAID sejak dibuat, sehingga callback Duitku untuk checkout itu dijawab "Already processed" dan invoice lain di checkout yang sama tidak pernah lunas walau pelanggan sudah membayar. Kini invoice Rp 0 dilewati (permintaan yang hanya berisi Rp 0 ditolak 400 "Tidak ada tagihan yang perlu dibayar."), orderId dan data VA/QR hanya untuk payment yang masih ditagih, dan payment Rp 0 dilunasi di dalam aplikasi seperti sebelumnya. Untuk checkout lama, pelunasan lewat cek status (penyapu dan check-status) menanyakan orderId di seluruh payment checkout, apa pun statusnya, dan memindahkan setiap payment yang belum PAID walau payment orderId-nya sudah PAID.
+- **Files**: `modules/pelanggan/services/CustomerPaymentRouteService.ts`, `modules/payment-gateway/services/checkout-reconciliation.ts`, `modules/payment-gateway/services/gateway-status-settlement.ts`, `tests/db/customer-payment-gateway.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Callback hanya diverifikasi dengan kunci tenant pemilik payment; sakelar darurat gateway
 
 - **Tipe**: [SECURITY] [MIGRATION]

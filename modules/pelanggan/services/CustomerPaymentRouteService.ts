@@ -53,6 +53,7 @@ const BELOW_METHOD_MINIMUM_MESSAGE =
   "Nominal tagihan di bawah batas minimum metode pembayaran ini. Silakan pilih metode lain, misalnya QRIS.";
 const CHANNEL_UNAVAILABLE_MESSAGE =
   "Metode pembayaran ini sedang tidak tersedia. Silakan pilih metode lain.";
+const NOTHING_TO_PAY_MESSAGE = "Tidak ada tagihan yang perlu dibayar.";
 // Duitku: "Minimum Payment 10000 IDR". Batasnya per channel (VA menolak,
 // QRIS menerima nominal yang sama), jadi tidak bisa diperiksa sebelum memanggil.
 const BELOW_MINIMUM_REJECTION = /minimum payment/i;
@@ -74,12 +75,38 @@ export function createCustomerPaymentForRoute(input: CustomerPaymentInput) {
   );
 }
 
-async function createCustomerPayment(input: CustomerPaymentInput) {
-  const { totalAmount } =
+/**
+ * Invoice yang benar-benar masih bersisa tagihan, urut seperti permintaan.
+ * Invoice Rp 0 tidak dibuatkan payment: payment Rp 0 langsung PAID dan tidak
+ * boleh ikut ke gateway.
+ */
+function selectPayableInvoiceIds(
+  invoiceIds: string[],
+  invoices: Array<
+    { totalAmount: unknown; paidAmount: unknown } & Record<string, unknown>
+  >,
+) {
+  const payable = new Set(
+    invoices
+      .filter((inv) => Number(inv.totalAmount) - Number(inv.paidAmount) > 0)
+      .map((inv) => String(inv.id)),
+  );
+  if (payable.size === 0) {
+    throw createRouteServiceError(NOTHING_TO_PAY_MESSAGE, HTTP_BAD_REQUEST);
+  }
+  return invoiceIds.filter((id) => payable.has(id));
+}
+
+async function createCustomerPayment(request: CustomerPaymentInput) {
+  const { invoices, totalAmount } =
     await customerPortalService.validateInvoicesForPayment(
-      input.invoiceIds,
-      input.customerId,
+      request.invoiceIds,
+      request.customerId,
     );
+  const input = {
+    ...request,
+    invoiceIds: selectPayableInvoiceIds(request.invoiceIds, invoices),
+  };
   // Membayar lagi invoice yang masih punya checkout menunggu berarti ganti
   // metode. Checkout lama baru ditutup setelah penggantinya berhasil dibuat,
   // jadi VA/QR lamanya tetap tampil bila gateway menolak metode baru.
@@ -253,14 +280,24 @@ async function resolveCoupon(
 }
 
 type GatewayPaymentInput = CustomerPaymentInput & {
-  payments: Array<{ id: string; reference?: string | null }>;
+  payments: Array<{
+    id: string;
+    reference?: string | null;
+    gatewayStatus?: string | null;
+  }>;
   finalAmount: number;
 };
 
 async function createGatewayPaymentIfNeeded(
   input: GatewayPaymentInput,
 ): Promise<GatewayCheckout> {
-  const orderPayment = selectGatewayOrderPayment(input.payments);
+  // Payment yang tertutup penuh kupon sudah PAID dan dilunasi di sini juga;
+  // yang dikirim ke gateway, termasuk orderId-nya, hanya yang masih ditagih.
+  // orderId pada payment PAID membuat callback-nya dianggap sudah diproses.
+  const billedPayments = input.payments.filter(
+    (payment) => payment.gatewayStatus !== "PAID",
+  );
+  const orderPayment = selectGatewayOrderPayment(billedPayments);
   if (
     isManualPayment(input.paymentMethod) ||
     !orderPayment ||
@@ -269,20 +306,25 @@ async function createGatewayPaymentIfNeeded(
     return NO_GATEWAY_CHECKOUT;
   }
 
-  const paymentIds = input.payments.map((payment) => payment.id);
   try {
     const result = await requestGatewayPayment(input, orderPayment);
     if (!result.success) {
       throw new GatewayRejectionError(String(result.error));
     }
-    return await storeGatewayCheckout(input, paymentIds, result);
+    return await storeGatewayCheckout(
+      input,
+      billedPayments.map((payment) => payment.id),
+      result,
+    );
   } catch (error) {
     // Payment PENDING tanpa URL tidak bisa dibayar pelanggan namun tetap
     // tampil sebagai tagihan menunggu; tandai FAILED, beserta alasan dari
     // gateway untuk admin, agar pelanggan bisa memilih metode lain.
+    // Seluruh checkout gagal, termasuk payment Rp 0-nya: pemesanan kuponnya
+    // dilepas, jadi potongan itu juga tidak berlaku.
     logger.error("[Gateway Integration Error]:", error);
     await markCustomerPaymentsAsFailed(
-      paymentIds,
+      input.payments.map((payment) => payment.id),
       error instanceof Error ? error.message : String(error),
     );
     throw toCustomerGatewayError(error);
