@@ -124,6 +124,61 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `modules/payment-gateway/services/abandoned-checkout.ts`, `modules/payment-gateway/services/customer-checkout-lock.ts`, `modules/payment-gateway/services/pending-checkout-replacement.ts`, `modules/payment-gateway/index.ts`, `tests/db/customer-payment-gateway.test.ts`, `tests/modules/finance/abandonedCheckout.test.ts`, `tests/payment-gateway/unit/customer-checkout-lock.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-11-01] — Void mengembalikan saldo kredit sekali; kunci checkout berpesan admin
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `app/api/admin/invoices/[id]/void` | `app/api/invoices/[id]` | `lib/api`
+- **Author**: agent
+- **Deskripsi**: Void tagihan PAID/PARTIAL_PAID oleh admin (`VoidInvoiceService`) mengembalikan payment (REFUNDED) dan memundurkan jatuh tempo, tetapi saldo kredit yang memotong tagihan itu hilang. Kini saldo itu dikembalikan dengan aturan yang sama dengan pembatalan lain (`refundSaldoKreditUsedBy`, dipakai juga rutin pembatalan bersama: hanya bagian saldo kredit, bukan diskon lain). `voidInvoiceTransaction` kini bersyarat (hanya memindahkan invoice yang masih PAID/PARTIAL_PAID dan melaporkan apakah ia yang memindahkannya), sehingga klik ganda atau ulangan hanya berhasil sekali: saldo tidak dikembalikan dua kali dan jatuh tempo tidak dimundurkan dua bulan; void kedua yang bersamaan ditolak 409. Perilaku payment dan pengembalian jatuh tempo untuk satu void tidak berubah. Void kini juga berjalan di bawah kunci checkout pelanggan seperti aksi pembatalan lain. Bila kunci itu sedang dipegang pelanggan, aksi admin (ubah tagihan menjadi CANCELLED, hapus tagihan, void, "Batalkan & Buat Tagihan Baru") kini gagal dengan 409 "Pelanggan sedang memproses pembayaran untuk tagihan ini. Coba lagi beberapa saat lagi." (`runAdminActionUnderCustomerCheckoutLock`) alih-alih pesan portal "Pembayaran Anda sedang diproses di perangkat lain"; form edit pelanggan tetap membungkusnya dengan pesannya sendiri untuk "Batalkan & Buat Tagihan Baru", dan jalur pelanggan tetap memakai pesan portal. Route void dan ubah/hapus tagihan memetakan penolakan itu ke 409 lewat `responsPenolakanTagihan` (void dulu menjawab 500).
+- **Files**: `modules/finance/services/VoidInvoiceService.ts`, `modules/finance/services/customer-checkout-lock.ts`, `modules/finance/services/outstanding-invoice.helpers.ts`, `modules/finance/services/InvoiceRouteService.ts`, `modules/finance/services/AutomaticBillingService.ts`, `modules/finance/repositories/invoiceRepository.write.ts`, `modules/finance/repositories/InvoiceRepository.ts`, `modules/finance/domain/ports/IInvoiceRepository.ts`, `lib/api/invoice-route.ts`, `app/api/admin/invoices/[id]/void/route.ts`, `app/api/invoices/[id]/route.ts`, `docs/project-memory/12-critical-flows.md`, `tests/db/invoice-cancellation-transfers.test.ts`, `tests/modules/finance/customerCheckoutLock.test.ts`, `tests/modules/finance/customerStatusSyncDelegation.test.ts`, `tests/modules/finance/InvoiceRouteService.test.ts`, `tests/api/admin-invoice-void-route.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Batalkan lewat ubah tagihan dan hapus tagihan dijaga seperti pembatalan lain
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `app/api/invoices/[id]`
+- **Author**: agent
+- **Deskripsi**: Ubah tagihan menjadi CANCELLED (`PUT /api/invoices/[id]`, dipakai tombol "Batalkan tagihan" di halaman perpanjangan) dulu hanya mengganti statusnya: saldo kredit yang memotong tagihan itu hilang, jurnal piutang dan pendapatannya tetap berdiri, dan tagihan yang sedang dibayar (VA/QRIS aktif, bukti transfer menunggu verifikasi) atau sudah dibayar sebagian ikut dibatalkan. Kini ia memakai pembatalan yang sama dengan "Batalkan & Buat Tagihan Baru" (`cancelOutstandingInvoice`, lewat rutin yang juga dipakai `cancelReplacedInvoice`: pembatalan bersyarat, saldo kredit dikembalikan, jurnal dibalik atas nama admin dengan alasan "Tagihan dibatalkan admin", transfer tanpa bukti ditutup) beserta penjaganya (`findRepriceBlocker`), di bawah kunci checkout pelanggan; yang tertahan ditolak 409 dengan pesan yang sama seperti "Batalkan & Buat Tagihan Baru". Tagihan yang sudah menerima uang dibatalkan lewat Void. Hapus tagihan (`DELETE /api/invoices/[id]`) dulu melepas payment-nya (`invoiceId` di-SET NULL): bukti transfer yang lalu disetujui tidak melunasi atau mengkreditkan apa pun, dan VA yang dibayar menerima uang tanpa tagihan. Kini penghapusan ditolak 409 selama ada bukti transfer yang menunggu verifikasi ("Tagihan punya bukti transfer yang belum diverifikasi; tolak atau setujui dulu.") atau VA/QRIS yang masih bisa dibayar ("Tagihan sedang dibayar pelanggan (… aktif sampai … WIB); tunggu sampai dibayar atau kedaluwarsa."), juga di bawah kunci checkout.
+- **Files**: `modules/finance/services/outstanding-invoice.helpers.ts`, `modules/finance/services/InvoiceRouteService.ts`, `app/api/invoices/[id]/route.ts`, `docs/project-memory/12-critical-flows.md`, `tests/db/invoice-cancellation-transfers.test.ts`, `tests/modules/finance/InvoiceRouteService.test.ts`, `tests/modules/finance/services/replace-outstanding-invoice.test.ts`, `tests/api/invoices-id-route-refusal.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Alur pelunasan pembayaran di project memory diperbarui
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Flow 2 di `12-critical-flows.md` masih menggambarkan satu transaksi webhook yang memperbarui payment dan invoice sekaligus menulis INVOICE_PAID ke outbox. Payment dan outbox ada di database berbeda, dan pelunasan kini lewat satu jalur untuk callback, cek status, penyapu, dan persetujuan transfer, dipulihkan rekonsiliasi 15 menit. Bagian itu ditulis ulang lebih ringkas sesuai alur sekarang, termasuk penutupan transfer tanpa bukti, penanda ketidakcocokan, dan celah yang masih ada; rujukan alur pembayaran di Cross-Flow Dependencies dan Dual-Write ikut diperbaiki.
+- **Files**: `docs/project-memory/12-critical-flows.md`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Rekonsiliasi 15 menit mengulang pelunasan yang terhenti setelah PAID
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `lib/cron-registry.ts`
+- **Author**: agent
+- **Deskripsi**: Persetujuan transfer manual, callback, dan cek status gateway menyimpan payment PAID lebih dulu lalu menjalankan `settleReceivedPayments`. Bila pelunasan itu gagal (database terputus, proses mati), tidak ada yang mengulangnya: admin yang mengulang persetujuan dijawab "sudah diproses", dan cek status serta penyapu hanya menanyakan payment yang masih menunggu, sehingga tagihannya tertinggal belum lunas walau uangnya sudah diterima. Cron rekonsiliasi INVOICE_PAID kini lebih dulu menjalankan `retryInterruptedSettlements`: tagihan yang tidak dibatalkan dengan payment PAID tiga hari terakhir (minus jeda 15 menit) yang `paidAmount`-nya di bawah payment yang diterima beserta potongan kuponnya dilunasi ulang lewat jalur yang sama, maks 100 tagihan per putaran. Idempoten: INVOICE_PAID tetap sekali (`claimPaidTransition`) dan kelebihan bayar tidak dikreditkan dua kali (`kelebihanBayar`); kreditnya ke payment terbaru. `sumActivePayments` diekspor dari `InvoicePaymentStateService` supaya aturan "sudah terbayar" tetap satu.
+- **Files**: `modules/finance/services/settlement-retry.ts`, `modules/finance/repositories/settlementRetry.repository.ts`, `modules/finance/services/InvoicePaymentStateService.ts`, `modules/finance/index.ts`, `lib/cron-registry.ts`, `tests/db/settlement-retry.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Setiap pembatalan tagihan menutup Transfer Manual tanpa bukti
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Pilihan "Transfer Manual" tanpa bukti untuk tagihan yang dibatalkan hanya ditutup oleh "Batalkan & Buat Tagihan Baru" dan hitung ulang paket siklus (`cancelReplacedInvoice`). Void admin untuk tagihan PAID/PARTIAL_PAID (`VoidInvoiceService`), ubah tagihan menjadi CANCELLED (`updateInvoiceForRoute`, dipakai tombol "Batalkan tagihan" di halaman perpanjangan), dan hapus tagihan (`deleteInvoiceForRoute`) meninggalkannya menunggu tanpa jalan bagi pelanggan untuk mengunggah bukti, dengan kupon yang tetap tertahan. Kini ketiganya memanggil `closeAbandonedManualTransfers` (utuh per checkout, kupon dikembalikan bila tidak dipegang payment lain; yang berbukti tetap di antrean verifikasi). Hapus tagihan menutupnya sebelum delete karena `Payment.invoiceId` di-SET NULL; pada void kegagalannya hanya dicatat, karena void tidak bisa diulang dan jatuh tempo pelanggan tetap harus dikembalikan.
+- **Files**: `modules/finance/services/VoidInvoiceService.ts`, `modules/finance/services/InvoiceRouteService.ts`, `tests/db/invoice-cancellation-transfers.test.ts`, `tests/modules/finance/InvoiceRouteService.test.ts`, `tests/modules/finance/customerStatusSyncDelegation.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Ketidakcocokan gateway diteruskan ke staf sekali, bukan tiap putaran penyapu
+
+- **Tipe**: [FIXED] [MIGRATION]
+- **Scope**: `modules/payment-gateway` | `modules/finance` | `prisma/billing.prisma`
+- **Author**: agent
+- **Deskripsi**: Checkout yang nominal atau nomor transaksinya tidak cocok tetap menunggu (tidak dilunasi otomatis), jadi penyapu checkout menanyakannya lagi tiap 15 menit dan portal tiap kali pelanggan menunggu; setiap jawaban yang sama menulis log error dan event `PAYMENT_REVIEW_REQUIRED` (baris outbox) baru, walau notifikasi staf sudah dibatasi sekali per staf. Kini `settleCheckoutPaidAtGateway` mencatat ketidakcocokan yang sudah diteruskan di kolom baru `Payment.reviewFlag` (alasan, yang tercatat, yang dikirim gateway) lewat satu pernyataan bersyarat (`FinanceRepositoryFacade.claimPaymentReviewFlag`), dan hanya ketidakcocokan yang belum tercatat yang diteruskan; jawaban gateway yang berbeda (mis. nominal lain) diteruskan lagi. Kolom baru dipakai karena tidak ada catatan yang cocok: `notes` tampil ke pelanggan di portal, `failureReason` berarti checkout gagal dibuat, baris outbox dihapus setelah 7 hari, dan `WebhookEvent` hanya ada untuk callback. Di `modules/payment-gateway` yang berubah hanya pemanggilan penanda itu di `gateway-status-settlement.ts`.
+- **Files**: `prisma/billing.prisma`, `prisma/generated/billing/*`, `modules/finance/repositories/paymentReviewFlag.repository.ts`, `modules/finance/services/FinanceRepositoryFacade.ts`, `modules/payment-gateway/services/gateway-status-settlement.ts`, `tests/modules/finance/gatewayStatusSettlement.test.ts`, `tests/db/customer-payment-gateway.test.ts`
+- **Migration**: `20261101140000_add_payment_review_flag` (database billing; `ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "reviewFlag" TEXT`)
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

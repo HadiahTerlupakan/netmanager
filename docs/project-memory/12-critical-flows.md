@@ -1,12 +1,12 @@
 # Critical Business Flows - NetManager
 
 > Dokumentasi end-to-end flows untuk critical operations dalam NetManager ISP management system.
-> Last updated: 2026-08-09
+> Last updated: 2026-11-01
 
 ## Table of Contents
 
 1. [Customer Registration & Activation Flow](#flow-1-customer-registration--activation)
-2. [Payment Processing Flow (Webhook)](#flow-2-payment-processing-flow-webhook)
+2. [Payment Settlement Flow (Gateway & Transfer Manual)](#flow-2-payment-settlement-flow-gateway--transfer-manual)
 3. [Auto-Isolir Flow (Overdue Billing)](#flow-3-auto-isolir-flow-overdue-billing)
 4. [Work Order Lifecycle Flow](#flow-4-work-order-lifecycle-flow)
 5. [Invoice Generation Flow (Recurring)](#flow-5-invoice-generation-flow-recurring)
@@ -199,365 +199,112 @@ Public User → POST /api/registrations
 
 ---
 
-## Flow 2: Payment Processing Flow (Webhook)
+## Flow 2: Payment Settlement Flow (Gateway & Transfer Manual)
 
 ### Overview
-Flow ini menangani webhook dari payment gateway (Xendit, Moota, dll) untuk update status pembayaran, rekonsiliasi invoice, dan trigger aktivasi pelanggan.
 
-### Entry Point
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/app/api/webhooks/[provider]/route.ts`
-- **Function:** `POST` handler
-- **HTTP Endpoint:** `POST /api/webhooks/{provider}` (provider: xendit, moota, tripay, dll)
-- **Authentication:** Signature verification (provider-specific)
+Uang pelanggan masuk lewat checkout gateway (Duitku dan provider lain: VA, QRIS, ritel) atau transfer manual ke rekening perusahaan yang buktinya diverifikasi admin. Checkout portal membuat satu `Payment` per invoice dengan `checkoutId` yang sama; gateway hanya mengenal orderId satu payment (reference terkecil, tidak pernah payment Rp 0) dan menagih totalnya. Semua jalur yang menyatakan uang diterima berakhir di satu langkah pelunasan, `settleReceivedPayments` (modul finance).
 
-### Authentication & Authorization
-- **Signature Verification:** Provider-specific (Xendit callback token, Moota secret, etc)
-- **Service:** `WebhookVerificationService.verifySignature()`
-- **Headers:** Provider-specific (e.g., `x-callback-token` for Xendit)
+Payment dan invoice ada di database billing, outbox event di database utama. Keduanya tidak pernah satu transaksi: proses yang mati di antaranya dipulihkan oleh retry gateway dan rekonsiliasi 15 menit, bukan oleh atomisitas.
 
-### Input Validation
-- **Validation Service:** `WebhookPayloadParser.parse()`
-- **Format:** JSON (provider-specific structure)
-- **Required Data:** 
-  - Transaction ID
-  - Order ID (maps to Payment.id or Invoice.invoiceNumber)
-  - Amount
-  - Status (PAID, PENDING, EXPIRED, etc)
-  - Payment method
-  - Timestamp
+### Entry Points
+
+| Jalur                                    | Entry                                                                                                      | Hasil                                                                                                                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Callback gateway                         | `POST /api/webhooks/[provider]` → `WebhookProcessingService.process()`                                     | PAID → `settleCheckoutPaidAtGateway`; kedaluwarsa/gagal/batal hanya menutup payment checkout yang masih PENDING                                                         |
+| Cek status dari portal                   | `POST /api/customer/payments/check-status` → `checkCustomerPaymentStatus()` → `reconcileInvoiceCheckout()` | `settleCheckoutPaidAtGateway` bila gateway menjawab PAID                                                                                                                |
+| Penyapu checkout (cron `*/15`)           | `expireStaleGatewayPayments()`                                                                             | Checkout yang lewat batas waktu + 1 jam ditanyakan ke gateway (maks 50 per putaran): PAID → dilunasi; belum dibayar → EXPIRED, kupon dilepas; tidak terbaca → dibiarkan |
+| Verifikasi transfer manual               | `POST /api/admin/payments/verify-manual` → `approveManualCheckout()` / `rejectManualCheckout()`            | Setuju → `settleReceivedPayments`; tolak → FAILED + `rejectionReason`, kupon dilepas, `PAYMENT_REJECTED`                                                                |
+| Rekonsiliasi (cron `7,22,37,52 * * * *`) | `retryInterruptedSettlements()` lalu `replayMissingInvoicePaidEvents()`                                    | Lihat "Pemulihan"                                                                                                                                                       |
+
+Pelanggan mengunggah bukti lewat `POST /api/customer/payments/upload-receipt` (bukti menempel di semua payment checkout) dan membatalkan transfer lewat `POST /api/customer/payments/cancel` (seluruh checkout atau tidak sama sekali; 409 bila admin lebih dulu memprosesnya).
 
 ### Flow Diagram
 
 ```
-Payment Gateway → POST /api/webhooks/{provider}
-    ↓
-1. Extract & Verify Signature
-    ↓
-2. Parse Webhook Payload
-    ↓
-3. Check Idempotency (prevent duplicate processing)
-    ↓
-4. Record Webhook Event
-    ↓
-5. Find Payment Record (by orderId or transactionId)
-    ↓
-6. Validate Amount Match
-    ↓
-7. [TRANSACTION START]
-    ↓
-8. Update Payment.gatewayStatus to PAID
-    ↓
-9. Recompute Invoice Payment State
-    ↓
-10. If Invoice becomes PAID → Insert INVOICE_PAID event to Outbox
-    ↓
-11. Mark Webhook Event as PROCESSED
-    ↓
-12. [TRANSACTION COMMIT]
-    ↓
-13. Background: EventProcessor dispatches INVOICE_PAID
-    ↓
-14. Background: InvoicePaidActivationHandler activates customer
-    ↓
-15. Background: CustomerStatusHandler syncs to MikroTik/RADIUS
+Callback PAID ─┐
+Cek status ────┼─► settleCheckoutPaidAtGateway(paymentId, provider, status)
+Penyapu ───────┘     (modules/payment-gateway/services/gateway-status-settlement.ts)
+                     1. baca semua baris checkout di dalam transaksi
+                     2. semua payment bernominal sudah PAID → ALREADY_PAID, lanjut ke 6
+                     3. nomor transaksi berbeda, atau nominal ≠ jumlah baris PENDING/EXPIRED/CANCELLED
+                          → tidak dilunasi, checkout tetap menunggu
+                          → FinanceRepositoryFacade.claimPaymentReviewFlag: hanya ketidakcocokan baru
+                            (Payment.reviewFlag) yang diteruskan lewat flagPaymentForReview
+                            → log error + PAYMENT_REVIEW_REQUIRED (notifikasi staf payment_gateway:read)
+                     4. updateMany bersyarat baris-baris itu → PAID (hanya satu pemanggil yang memindahkan)
+                     5. bila dipindah: recordGatewayFee, restoreReleasedCoupons
+                     6. settleReceivedPayments(checkout)
+
+Persetujuan admin ─► claimPendingCheckout: seluruh checkout dalam satu pernyataan bersyarat
+                     (masih PENDING dan belum diverifikasi), selain itu 409
+                 └─► settleReceivedPayments(checkout)
+
+settleReceivedPayments(payments)   (modules/finance/services/received-payment-settlement.ts)
+  per invoice, dalam konteks tenant payment-nya:
+    InvoicePaymentStateService.recompute(invoiceId)
+      paidAmount = Σ(amount + discountAmount) payment PAID atau tanpa status gateway
+      → PAID lewat claimPaidTransition (INVOICE_PAID tepat sekali), atau PARTIAL_PAID (INVOICE_PARTIALLY_PAID)
+      → invoice CANCELLED tidak diubah: redirectPaymentsOfCancelledInvoice memindahkan payment ke
+        tagihan pengganti yang terbit bersama pembatalannya, sisanya saldo kredit (PAYMENT_REDIRECTED)
+  creditOverpaidPayments: kelebihan di atas total → saldo kredit, ditandai Payment.kelebihanBayar (PAYMENT_OVERPAID)
 ```
 
-### Step-by-Step Execution
+### Aturan yang dijaga
 
-#### Step 1: Signature Verification
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/payment-gateway/services/WebhookVerificationService.ts`
-- **Function:** `verifySignature()`
-- **Action:**
-  - Extract signature from headers (provider-specific header name)
-  - Load secret key from environment or settings
-  - Verify signature matches expected value
-  - Throw WebhookVerificationError if invalid
-- **Database:** None
-- **Events:** None
-- **Result:** 401 Unauthorized if signature invalid
+- Hanya payment PENDING, EXPIRED, atau CANCELLED (VA lama yang tetap dibayar setelah ganti metode) yang dijumlah dan dipindah ke PAID; REFUNDED dan FAILED tidak pernah.
+- `settleReceivedPayments` idempoten dan juga dijalankan untuk checkout yang sudah PAID, sehingga callback atau cek status berikutnya memulihkan proses yang mati setelah commit. Event webhook baru ditandai PROCESSED setelah pelunasan; kunci idempotensinya provider, transactionId, orderId, dan status.
+- Notifikasi tanpa uang hanya menutup payment PENDING; kupon dilepas hanya bila tidak dipegang payment lain yang menunggu atau lunas (`releaseUnusedCheckoutCoupons`).
+- Tagihan yang dibatalkan tidak pernah dihidupkan lagi; uang yang datang untuknya dialihkan.
+- Satu ketidakcocokan diteruskan ke staf sekali per payment. Penyapu dan portal menanyakan checkout yang tidak cocok berulang kali; jawaban yang sama tidak menulis log maupun event lagi, jawaban yang berbeda diteruskan lagi.
 
-#### Step 2: Parse Webhook Payload
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/payment-gateway/services/WebhookPayloadParser.ts`
-- **Function:** `parse()`
-- **Action:**
-  - Parse raw JSON body
-  - Extract standard fields (orderId, transactionId, amount, status)
-  - Normalize provider-specific format to internal WebhookResult
-- **Database:** None
-- **Events:** None
+### Transfer manual tanpa bukti
 
-#### Step 3: Check Idempotency
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/payment-gateway/services/WebhookIdempotencyService.ts`
-- **Function:** `checkIdempotency()`
-- **Action:**
-  - Generate idempotency key: `{provider}:{transactionId}:{orderId}`
-  - Query WebhookEvent table for existing record with same key
-  - If found and status=PROCESSED → return 200 OK immediately (skip processing)
-- **Database:** `WebhookEvent` (SELECT)
-- **Events:** None
+`closeAbandonedManualTransfers(invoiceId)` menutup (CANCELLED) pilihan "Transfer Manual" yang belum membawa bukti, utuh per checkout, dan mengembalikan kupon yang tidak lagi dipegang payment lain. Dipanggil saat:
 
-#### Step 4: Record Webhook Event
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/payment-gateway/services/WebhookIdempotencyService.ts`
-- **Function:** `recordWebhookEvent()`
-- **Action:**
-  - Insert WebhookEvent record with status=PENDING
-  - Store idempotency key, provider, payload, signature, rawBody
-- **Database:** `WebhookEvent` (INSERT)
-- **Events:** None
+- INVOICE_PAID dari jalur mana pun (`handleInvoicePaidManualPaymentCleanup`);
+- "Batalkan & Buat Tagihan Baru" dan hitung ulang paket siklus (`cancelReplacedInvoice`);
+- void tagihan PAID/PARTIAL_PAID oleh admin (`VoidInvoiceService`; kegagalannya hanya dicatat karena void tidak bisa diulang);
+- ubah tagihan menjadi CANCELLED (`updateInvoiceForRoute`, termasuk "Batalkan tagihan" di halaman perpanjangan);
+- hapus tagihan (`deleteInvoiceForRoute`), sebelum delete karena `Payment.invoiceId` di-SET NULL.
 
-#### Step 5: Find Payment Record
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/payment-gateway/services/WebhookPaymentLookupService.ts`
-- **Function:** `findPaymentByEarlyOrderId()` or `findPaymentAfterWebhook()`
-- **Action:**
-  - Try early lookup: Query Payment by orderId (Payment.id or Payment.reference)
-  - If not found, try after webhook: Query by transactionId or amount (for Moota)
-  - For Moota: may record UnmatchedMutation if payment not found
-- **Database:** `Payment` (SELECT), optionally `UnmatchedMutation` (INSERT)
-- **Events:** None
+Ubah tagihan menjadi CANCELLED memakai pembatalan yang sama dengan "Batalkan & Buat Tagihan Baru" (`cancelOutstandingInvoice`: saldo kredit yang dipakai kembali, jurnal dibalik atas nama admin) dan penjaganya (`findRepriceBlocker`): tagihan yang sudah menerima uang, punya VA/QRIS yang masih bisa dibayar, atau bukti transfer yang menunggu verifikasi ditolak 409 dengan alasannya. Hapus tagihan ditolak 409 selama ada bukti transfer yang menunggu verifikasi atau VA/QRIS yang masih bisa dibayar (`findInvoiceDeleteBlocker`). Void (`VoidInvoiceService`) bersyarat pada status PAID/PARTIAL_PAID, jadi klik ganda hanya berhasil sekali, dan mengembalikan saldo kredit yang dipakai tagihan itu (`refundSaldoKreditUsedBy`, aturan yang sama dengan pembatalan). Keempat aksi admin ini (ubah tagihan, hapus, void, "Batalkan & Buat Tagihan Baru") berjalan di bawah kunci checkout pelanggan lewat `runAdminActionUnderCustomerCheckoutLock`; bila pelanggan sedang memegangnya, admin menerima 409 "Pelanggan sedang memproses pembayaran untuk tagihan ini. Coba lagi beberapa saat lagi." sedangkan portal tetap menjawab dengan pesan untuk pelanggan.
 
-#### Step 6: Validate Amount
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/payment-gateway/services/webhook-utils.ts`
-- **Function:** `hasAmountMismatch()`
-- **Action:**
-  - Compare Payment.amount with webhook amount
-  - Allow small rounding differences (< 1 rupiah)
-  - If mismatch detected, mark webhook as FAILED and return 200 OK (logged for manual review)
-- **Database:** None
-- **Events:** None
+Yang sudah membawa bukti tetap di antrean verifikasi; menyetujuinya untuk tagihan yang sudah lunas atau dibatalkan mengkreditkan atau mengalihkan uangnya.
 
-#### Step 7-12: Atomic Transaction
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/payment-gateway/services/webhook-processing-service.ts`
-- **Function:** `process()` - `prismaBillingAuth.$transaction()`
-- **Action:** All following steps happen atomically
+### Event INVOICE_PAID
 
-##### Step 8: Update Payment Status
-- **Database:** `Payment` (UPDATE)
-- **Fields Updated:**
-  - `gatewayStatus`: PAID
-  - `transactionId`: from webhook
-  - `gatewayProvider`: provider name
-  - `paymentMethod`: normalized from webhook (if available)
-  - `paymentDate`: paidAt timestamp from webhook
+Handler (berurutan dalam satu job, masing-masing idempoten): billing (jatuh tempo + batalkan schedule overdue/isolir), aktivasi pelanggan, komisi reseller, penutupan checkout gateway lain, penutupan transfer manual tanpa bukti, notifikasi pelanggan, jurnal akuntansi.
 
-##### Step 9: Recompute Invoice Payment State
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/finance/services/InvoicePaymentStateService.ts`
-- **Function:** Called via `WebhookInvoiceSettlementService.updateInvoicesOnPaymentTx()`
-- **Action:**
-  - Extract invoice IDs from Payment.notes or Payment.invoiceId
-  - For each invoice:
-    - Sum all payments with gatewayStatus=PAID or null
-    - If total >= invoice.totalAmount → set status=PAID, paidAt=now
-    - If 0 < total < totalAmount → set status=PARTIAL_PAID
-    - Update invoice.paidAmount
-- **Database:** `Invoice` (UPDATE)
-- **Events:** None yet (will emit in next step)
+### Pemulihan (rekonsiliasi 15 menit)
 
-##### Step 10: Emit INVOICE_PAID Event to Outbox
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/lib/event-bus/outbox.ts`
-- **Function:** `saveToOutboxTx()`
-- **Action:**
-  - For each invoice that became PAID (status transitioned from non-PAID to PAID):
-    - Insert event to EventOutbox table
-    - eventName: "INVOICE_PAID"
-    - payload: { invoiceId, pelangganId, amount, paidAt, paymentMethod, tenantId }
-    - priority: CRITICAL
-    - category: "billing"
-    - status: PENDING
-- **Database:** `EventOutbox` (INSERT)
-- **Events:** INVOICE_PAID (via outbox, processed later)
-
-##### Step 11: Mark Webhook Event as PROCESSED
-- **Database:** `WebhookEvent` (UPDATE)
-- **Fields:** status=PROCESSED, processedAt=now
-
-##### Step 12: Transaction Commit
-- **Action:** If all operations succeed, commit transaction atomically
-- **Guarantee:** Payment update + Invoice update + Outbox event insert are all-or-nothing
-
-#### Step 13: Background Event Processing
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/lib/event-bus/processor.ts`
-- **Function:** EventProcessor polls EventOutbox table
-- **Action:**
-  - Pick events with status=PENDING
-  - Dispatch to BullMQ queue based on category
-  - Update EventOutbox status to PROCESSING
-  - After successful job completion, update to COMPLETED
-
-#### Step 14: Invoice Paid Activation Handler
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/pelanggan/services/event-handlers/invoice-paid-activation.handler.ts`
-- **Function:** `handleInvoicePaidActivation()`
-- **Action:**
-  - Receive INVOICE_PAID event from queue
-  - Load customer (Pelanggan) by pelangganId
-  - Check activation guard:
-    - If customer.status already AKTIF → skip
-    - If customer.tipe == "REGULER" AND has other unpaid invoices → skip (prevent premature activation)
-    - If customer.tipe != "REGULER" (e.g., PRABAYAR) → activate immediately
-  - If should activate:
-    - Update Pelanggan.status to AKTIF
-    - Emit CUSTOMER_ACTIVATED event
-- **Database:** `Pelanggan` (SELECT, UPDATE)
-- **Events:** CUSTOMER_ACTIVATED
-
-#### Step 15: Network Provisioning (Customer Status Handler)
-- **File:** `/Users/rohadimraja/Documents/radpro/netmanager/modules/network/services/event-handlers/customer-status.handler.ts`
-- **Function:** `handleCustomerStatusEvent()`
-- **Action:**
-  - Receive CUSTOMER_ACTIVATED event
-  - Call `RadiusSyncService.handleStatusChange(pelangganId, "AKTIF")`
-  - Sync customer to RADIUS database or MikroTik API (depending on connection mode setting)
-  - If sync succeeds: Update Pelanggan.syncStatus to SYNCED
-  - If sync fails: Update Pelanggan.syncStatus to FAILED, throw error for retry
-- **Database:** `Pelanggan` (UPDATE syncStatus), `RadiusUser` (INSERT/UPDATE), or MikroTik API call
-- **Events:** None
-- **External API:** MikroTik RouterOS API (if connection mode = MIKROTIK_API)
-
-### Database Operations
-- **Tables:**
-  - `WebhookEvent` (INSERT, UPDATE)
-  - `Payment` (SELECT, UPDATE)
-  - `Invoice` (SELECT, UPDATE)
-  - `EventOutbox` (INSERT)
-  - `Pelanggan` (SELECT, UPDATE)
-  - `RadiusUser` (INSERT/UPDATE via RADIUS database)
-  - `UnmatchedMutation` (INSERT if payment not found for Moota)
-- **Transaction Boundary:** 
-  - Main transaction: Steps 8-12 (Payment update + Invoice update + Outbox insert + Webhook mark)
-  - Event handlers run in separate transactions (can retry independently)
-- **Isolation Level:** Default (READ COMMITTED)
-
-### External API Calls
-1. **MikroTik RouterOS API** (if connection mode = MIKROTIK_API)
-   - Called from `RadiusSyncService` → `MikroTikPPPSecretService`
-   - Operations: Add/update/delete PPP secret, enable/disable user
-   - Retry: Handled by event queue (BullMQ)
-
-### Events Emitted
-1. **INVOICE_PAID** (via EventOutbox)
-   - Payload: `{ invoiceId, pelangganId, amount, paidAt, paymentMethod, tenantId }`
-   - Priority: CRITICAL
-   - Category: billing
-   - Handlers:
-     - `invoice-paid-activation.handler.ts` (activates customer if eligible)
-     - Potentially accounting/notification handlers
-
-2. **CUSTOMER_ACTIVATED** (from InvoicePaidActivationHandler)
-   - Payload: `{ customerId, newStatus, tenantId }`
-   - Handlers:
-     - `customer-status.handler.ts` (syncs to network infrastructure)
-
-### Side Effects
-- Payment gateway status updated to PAID
-- Invoice marked as PAID (if fully paid) or PARTIAL_PAID
-- Customer status changed to AKTIF (if eligible)
-- Network access provisioned (RADIUS/MikroTik)
-- Webhook event logged for audit trail
-- Metrics recorded for monitoring
-
-### Success Criteria
-- Webhook signature verified
-- Payment record found and updated
-- Invoice payment state recomputed correctly
-- INVOICE_PAID event persisted to outbox atomically
-- Customer activated if eligible
-- Network infrastructure synced successfully
-- HTTP 200 OK response returned to payment gateway
+1. `retryInterruptedSettlements` (`modules/finance/services/settlement-retry.ts`): tagihan yang tidak dibatalkan dengan payment PAID tiga hari terakhir (minus jeda 15 menit) yang `paidAmount`-nya di bawah Σ(amount + discountAmount) payment yang diterima → `settleReceivedPayments` diulang, maks 100 tagihan per putaran. Ini memulihkan persetujuan yang tersimpan tetapi pelunasannya gagal (admin yang mengulang dijawab "sudah diproses"), dan callback atau cek status yang pelunasannya mati setelah PAID tanpa retry gateway.
+2. `replayMissingInvoicePaidEvents` (`modules/finance/services/invoice-paid-reconciliation.ts`): invoice PAID (paidAt tiga hari terakhir, minus 15 menit) tanpa baris outbox INVOICE_PAID → event dikirim ulang. Jendelanya lebih pendek dari retensi outbox (baris COMPLETED dihapus setelah 7 hari).
 
 ### Failure Scenarios
 
-#### 1. Invalid Signature (HTTP 401)
-- **Cause:** Wrong secret key or tampered payload
-- **Handling:** Return 401 immediately, log warning
-- **Rollback:** No database operation performed
-- **Retry:** Payment gateway will retry (most gateways retry on non-2xx)
-- **Manual Fix:** Check secret key configuration
+| Kejadian                                                                      | Penanganan                                                                                           |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Signature tidak valid                                                         | 401, tidak ada perubahan                                                                             |
+| Payment tidak ditemukan                                                       | 200; mutasi Moota dicatat sebagai `UnmatchedMutation`                                                |
+| Nominal atau nomor transaksi tidak cocok                                      | Tidak dilunasi; staf diberi tahu sekali per ketidakcocokan; webhook dijawab 200 dan event-nya FAILED |
+| Callback ganda                                                                | "Already processed"; pelunasan (ALREADY_PAID) tetap dijalankan ulang                                 |
+| Gateway tidak terjangkau saat penyapu atau cek status                         | Checkout tidak ditutup (UNKNOWN), ditanyakan lagi putaran berikutnya                                 |
+| Proses mati setelah payment PAID                                              | Retry callback, cek status berikutnya, atau `retryInterruptedSettlements`                            |
+| INVOICE_PAID tidak tercatat di outbox                                         | `replayMissingInvoicePaidEvents`                                                                     |
+| Persetujuan/penolakan bersamaan, atau pelanggan membatalkan di saat yang sama | Satu yang menang; yang lain 409                                                                      |
+| Admin membatalkan (ubah tagihan) atau menghapus tagihan yang sedang dibayar   | 409 dengan alasannya; tagihan dan payment-nya tidak berubah                                          |
 
-#### 2. Payment Not Found (HTTP 200)
-- **Cause:** orderId/transactionId doesn't match any Payment record
-- **Handling:** 
-  - For Moota: Record as UnmatchedMutation for manual reconciliation
-  - Mark webhook as PROCESSED (no retry needed)
-  - Log warning
-- **Rollback:** No rollback needed
-- **Retry:** No automatic retry (requires manual investigation)
-- **Manual Fix:** Check if Payment was created, match manually, or create payment from webhook data
+### Celah yang diketahui
 
-#### 3. Amount Mismatch (HTTP 200)
-- **Cause:** Webhook amount differs from Payment.amount
-- **Handling:**
-  - Mark webhook as FAILED with mismatch details
-  - Log warning
-  - Return 200 OK (prevent gateway retry)
-- **Rollback:** No update performed
-- **Retry:** No automatic retry
-- **Manual Fix:** Investigate discrepancy, adjust Payment.amount if needed, manually mark as paid
-
-#### 4. Duplicate Webhook (HTTP 200)
-- **Cause:** Same transactionId+orderId already processed
-- **Handling:** Return 200 OK immediately with "Already processed" message
-- **Rollback:** Not applicable (detected before processing)
-- **Retry:** No retry needed
-
-#### 5. Database Transaction Failure (HTTP 500)
-- **Cause:** Database connection issue, deadlock, constraint violation
-- **Handling:**
-  - Transaction rollback automatic
-  - Return 500 error
-  - Payment gateway will retry
-- **Rollback:** Automatic (all operations in transaction)
-- **Retry:** Yes (gateway retries on 5xx)
-- **Manual Fix:** Investigate database issue, fix, wait for gateway retry
-
-#### 6. Event Dispatch Failure (HTTP 500)
-- **Cause:** BullMQ connection failure, EventOutbox insert fails
-- **Handling:**
-  - Transaction rollback (outbox insert is part of transaction)
-  - Return 500 error
-  - Payment gateway will retry entire flow
-- **Rollback:** Automatic
-- **Retry:** Yes
-- **Manual Fix:** Fix event queue infrastructure
-
-#### 7. Network Sync Failure (Async, not blocking webhook response)
-- **Cause:** MikroTik API unavailable, RADIUS database down
-- **Handling:**
-  - Event handler throws error
-  - BullMQ retries with exponential backoff
-  - Pelanggan.syncStatus set to FAILED
-  - Customer shows as AKTIF in app but network access might not work
-- **Rollback:** Only network sync operation
-- **Retry:** Yes (BullMQ retry mechanism)
-- **Manual Fix:** 
-  - Check MikroTik/RADIUS connectivity
-  - Manually trigger sync from admin panel
-  - Event queue will keep retrying
-
-### Performance Characteristics
-- **Expected Duration:** 
-  - Webhook processing: 50-200ms (database transaction)
-  - End-to-end (including async events): 1-5 seconds
-- **Bottlenecks:**
-  - Database transaction (50-150ms)
-  - Network sync to MikroTik (500ms-2s if connection slow)
-  - Event queue dispatch latency (100-500ms)
-- **Optimization:**
-  - Webhook returns 200 immediately after transaction commit (don't wait for async events)
-  - Event processing runs in background with retry
-  - Database indexes on Payment.id, Payment.reference, Payment.transactionId
+- Kelebihan bayar yang gagal dikreditkan setelah `paidAmount` sudah terhitung tidak diulang rekonsiliasi; yang dicari hanya `paidAmount` yang tertinggal.
+- Pengalihan uang untuk tagihan batal yang gagal di tengah tidak diulang rekonsiliasi (tagihan CANCELLED dilewati); callback gateway yang di-retry tetap memulihkannya.
+- Biaya gateway dan pencatatan ulang kupon (langkah 5) tidak diulang bila proses mati tepat setelah payment dipindah ke PAID.
 
 ### Testing
-- **Test Files:** Unknown (needs verification in `/tests/modules/payment-gateway/`)
-- **Test Coverage:** Unknown
-- **How to Test Manually:**
-  1. Create Payment record with gatewayStatus=PENDING
-  2. Use ngrok or webhook.site to capture webhook payload structure
-  3. POST webhook payload to `/api/webhooks/{provider}` with correct signature
-  4. Verify Payment.gatewayStatus updated to PAID
-  5. Verify Invoice.status updated to PAID
-  6. Check EventOutbox for INVOICE_PAID event
-  7. Wait for async processing, verify customer status AKTIF
-  8. Check RADIUS database or MikroTik for customer credentials
-  9. Test duplicate webhook - should return "Already processed"
+
+- DB nyata (`npx vitest run --config vitest.config.db.ts`): `tests/db/payment-settlement.test.ts`, `tests/db/customer-payment-gateway.test.ts`, `tests/db/settlement-retry.test.ts`, `tests/db/invoice-cancellation-transfers.test.ts`, `tests/db/invoice-paid-reconciliation.test.ts`.
+- Unit: `tests/modules/finance/gatewayStatusSettlement.test.ts`, `webhookCheckoutSettlement.test.ts`, `manualPaymentVerification.test.ts`, `receivedPaymentSettlement.test.ts`, `checkoutReconciliation.test.ts`.
 
 ---
 
@@ -2290,11 +2037,11 @@ Employee (Mobile) → POST /api/attendance/check-in
 ## Cross-Flow Dependencies
 
 ### Payment → Customer Activation → Network Provisioning
-**Flow:** Payment Webhook → Invoice Paid → Customer Activated → RADIUS/MikroTik Sync
+**Flow:** Pelunasan (callback, cek status, penyapu, atau persetujuan transfer) → Invoice Paid → Customer Activated → RADIUS/MikroTik Sync
 
 **Dependency Chain:**
-1. Payment webhook updates invoice to PAID
-2. INVOICE_PAID event emitted
+1. `settleReceivedPayments` menghitung ulang invoice menjadi PAID (Flow 2)
+2. INVOICE_PAID event emitted (sekali, oleh pemenang `claimPaidTransition`)
 3. InvoicePaidActivationHandler checks eligibility and activates customer
 4. CUSTOMER_ACTIVATED event emitted
 5. CustomerStatusHandler syncs to network infrastructure
@@ -2440,21 +2187,11 @@ if (!VALID_TRANSITIONS[currentStatus].includes(newStatus)) {
 - Move to dead letter queue after exhaustion
 
 ### Dual-Write Problem Mitigation
-**Pattern:** Write to EventOutbox atomically with main operation
+**Pattern:** Write to EventOutbox atomically with main operation, or reconcile when that is impossible
 
 **Usage:**
-- Payment webhook: Update Payment + Invoice + Emit INVOICE_PAID (single transaction)
-- Ensures event not lost even if dispatch fails
-
-**Implementation:**
-```typescript
-await prisma.$transaction(async (tx) => {
-  await tx.payment.update({ ... });
-  await tx.invoice.update({ ... });
-  await saveToOutboxTx(tx, { eventName: "INVOICE_PAID", ... });
-});
-// Separate process polls EventOutbox and dispatches to queue
-```
+- Dalam satu database: tulis outbox di transaksi yang sama dengan perubahannya.
+- Pelunasan pembayaran: payment dan invoice di database billing, outbox di database utama, jadi tidak bisa satu transaksi. Langkahnya dibuat idempoten (pindah status bersyarat, `claimPaidTransition`, penanda `kelebihanBayar`) dan dipulihkan oleh rekonsiliasi 15 menit: `retryInterruptedSettlements` untuk pelunasan yang terhenti setelah payment PAID, `replayMissingInvoicePaidEvents` untuk INVOICE_PAID yang tidak tercatat (Flow 2).
 
 ### Geofence Validation
 **Pattern:** Calculate distance between two GPS coordinates using Haversine formula

@@ -5591,6 +5591,7 @@ export namespace Prisma {
     receiptUrl: string | null
     rejectionReason: string | null
     failureReason: string | null
+    reviewFlag: string | null
     tenantId: string | null
   }
 
@@ -5625,6 +5626,7 @@ export namespace Prisma {
     receiptUrl: string | null
     rejectionReason: string | null
     failureReason: string | null
+    reviewFlag: string | null
     tenantId: string | null
   }
 
@@ -5659,6 +5661,7 @@ export namespace Prisma {
     receiptUrl: number
     rejectionReason: number
     failureReason: number
+    reviewFlag: number
     tenantId: number
     _all: number
   }
@@ -5709,6 +5712,7 @@ export namespace Prisma {
     receiptUrl?: true
     rejectionReason?: true
     failureReason?: true
+    reviewFlag?: true
     tenantId?: true
   }
 
@@ -5743,6 +5747,7 @@ export namespace Prisma {
     receiptUrl?: true
     rejectionReason?: true
     failureReason?: true
+    reviewFlag?: true
     tenantId?: true
   }
 
@@ -5777,6 +5782,7 @@ export namespace Prisma {
     receiptUrl?: true
     rejectionReason?: true
     failureReason?: true
+    reviewFlag?: true
     tenantId?: true
     _all?: true
   }
@@ -5898,6 +5904,7 @@ export namespace Prisma {
     receiptUrl: string | null
     rejectionReason: string | null
     failureReason: string | null
+    reviewFlag: string | null
     tenantId: string | null
     _count: PaymentCountAggregateOutputType | null
     _avg: PaymentAvgAggregateOutputType | null
@@ -5951,6 +5958,7 @@ export namespace Prisma {
     receiptUrl?: boolean
     rejectionReason?: boolean
     failureReason?: boolean
+    reviewFlag?: boolean
     tenantId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -5987,6 +5995,7 @@ export namespace Prisma {
     receiptUrl?: boolean
     rejectionReason?: boolean
     failureReason?: boolean
+    reviewFlag?: boolean
     tenantId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -6023,6 +6032,7 @@ export namespace Prisma {
     receiptUrl?: boolean
     rejectionReason?: boolean
     failureReason?: boolean
+    reviewFlag?: boolean
     tenantId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -6059,10 +6069,11 @@ export namespace Prisma {
     receiptUrl?: boolean
     rejectionReason?: boolean
     failureReason?: boolean
+    reviewFlag?: boolean
     tenantId?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "discountAmount" | "checkoutId" | "couponUsageId" | "couponId" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "vaNumber" | "qrString" | "gatewayFee" | "kelebihanBayar" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "rejectionReason" | "failureReason" | "tenantId", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "discountAmount" | "checkoutId" | "couponUsageId" | "couponId" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "vaNumber" | "qrString" | "gatewayFee" | "kelebihanBayar" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "rejectionReason" | "failureReason" | "reviewFlag" | "tenantId", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -6113,6 +6124,7 @@ export namespace Prisma {
       receiptUrl: string | null
       rejectionReason: string | null
       failureReason: string | null
+      reviewFlag: string | null
       tenantId: string | null
     }, ExtArgs["result"]["payment"]>
     composites: {}
@@ -6569,6 +6581,7 @@ export namespace Prisma {
     readonly receiptUrl: FieldRef<"Payment", 'String'>
     readonly rejectionReason: FieldRef<"Payment", 'String'>
     readonly failureReason: FieldRef<"Payment", 'String'>
+    readonly reviewFlag: FieldRef<"Payment", 'String'>
     readonly tenantId: FieldRef<"Payment", 'String'>
   }
     
@@ -10719,6 +10732,7 @@ export namespace Prisma {
     receiptUrl: 'receiptUrl',
     rejectionReason: 'rejectionReason',
     failureReason: 'failureReason',
+    reviewFlag: 'reviewFlag',
     tenantId: 'tenantId'
   };
 
@@ -11467,6 +11481,7 @@ export namespace Prisma {
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
     rejectionReason?: StringNullableFilter<"Payment"> | string | null
     failureReason?: StringNullableFilter<"Payment"> | string | null
+    reviewFlag?: StringNullableFilter<"Payment"> | string | null
     tenantId?: StringNullableFilter<"Payment"> | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
     unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
@@ -11503,6 +11518,7 @@ export namespace Prisma {
     receiptUrl?: SortOrderInput | SortOrder
     rejectionReason?: SortOrderInput | SortOrder
     failureReason?: SortOrderInput | SortOrder
+    reviewFlag?: SortOrderInput | SortOrder
     tenantId?: SortOrderInput | SortOrder
     invoice?: InvoiceOrderByWithRelationInput
     unmatchedMutation?: UnmatchedMutationOrderByWithRelationInput
@@ -11542,6 +11558,7 @@ export namespace Prisma {
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
     rejectionReason?: StringNullableFilter<"Payment"> | string | null
     failureReason?: StringNullableFilter<"Payment"> | string | null
+    reviewFlag?: StringNullableFilter<"Payment"> | string | null
     tenantId?: StringNullableFilter<"Payment"> | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
     unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
@@ -11578,6 +11595,7 @@ export namespace Prisma {
     receiptUrl?: SortOrderInput | SortOrder
     rejectionReason?: SortOrderInput | SortOrder
     failureReason?: SortOrderInput | SortOrder
+    reviewFlag?: SortOrderInput | SortOrder
     tenantId?: SortOrderInput | SortOrder
     _count?: PaymentCountOrderByAggregateInput
     _avg?: PaymentAvgOrderByAggregateInput
@@ -11620,6 +11638,7 @@ export namespace Prisma {
     receiptUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     rejectionReason?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     failureReason?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    reviewFlag?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     tenantId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
   }
 
@@ -12414,6 +12433,7 @@ export namespace Prisma {
     receiptUrl?: string | null
     rejectionReason?: string | null
     failureReason?: string | null
+    reviewFlag?: string | null
     tenantId?: string | null
     invoice?: InvoiceCreateNestedOneWithoutPaymentInput
     unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
@@ -12450,6 +12470,7 @@ export namespace Prisma {
     receiptUrl?: string | null
     rejectionReason?: string | null
     failureReason?: string | null
+    reviewFlag?: string | null
     tenantId?: string | null
   }
 
@@ -12482,6 +12503,7 @@ export namespace Prisma {
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     failureReason?: NullableStringFieldUpdateOperationsInput | string | null
+    reviewFlag?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
     unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
@@ -12518,6 +12540,7 @@ export namespace Prisma {
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     failureReason?: NullableStringFieldUpdateOperationsInput | string | null
+    reviewFlag?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -12552,6 +12575,7 @@ export namespace Prisma {
     receiptUrl?: string | null
     rejectionReason?: string | null
     failureReason?: string | null
+    reviewFlag?: string | null
     tenantId?: string | null
   }
 
@@ -12584,6 +12608,7 @@ export namespace Prisma {
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     failureReason?: NullableStringFieldUpdateOperationsInput | string | null
+    reviewFlag?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -12618,6 +12643,7 @@ export namespace Prisma {
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     failureReason?: NullableStringFieldUpdateOperationsInput | string | null
+    reviewFlag?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -13666,6 +13692,7 @@ export namespace Prisma {
     receiptUrl?: SortOrder
     rejectionReason?: SortOrder
     failureReason?: SortOrder
+    reviewFlag?: SortOrder
     tenantId?: SortOrder
   }
 
@@ -13707,6 +13734,7 @@ export namespace Prisma {
     receiptUrl?: SortOrder
     rejectionReason?: SortOrder
     failureReason?: SortOrder
+    reviewFlag?: SortOrder
     tenantId?: SortOrder
   }
 
@@ -13741,6 +13769,7 @@ export namespace Prisma {
     receiptUrl?: SortOrder
     rejectionReason?: SortOrder
     failureReason?: SortOrder
+    reviewFlag?: SortOrder
     tenantId?: SortOrder
   }
 
@@ -14939,6 +14968,7 @@ export namespace Prisma {
     receiptUrl?: string | null
     rejectionReason?: string | null
     failureReason?: string | null
+    reviewFlag?: string | null
     tenantId?: string | null
     unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
   }
@@ -14973,6 +15003,7 @@ export namespace Prisma {
     receiptUrl?: string | null
     rejectionReason?: string | null
     failureReason?: string | null
+    reviewFlag?: string | null
     tenantId?: string | null
   }
 
@@ -15122,6 +15153,7 @@ export namespace Prisma {
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
     rejectionReason?: StringNullableFilter<"Payment"> | string | null
     failureReason?: StringNullableFilter<"Payment"> | string | null
+    reviewFlag?: StringNullableFilter<"Payment"> | string | null
     tenantId?: StringNullableFilter<"Payment"> | string | null
   }
 
@@ -15649,6 +15681,7 @@ export namespace Prisma {
     receiptUrl?: string | null
     rejectionReason?: string | null
     failureReason?: string | null
+    reviewFlag?: string | null
     tenantId?: string | null
     invoice?: InvoiceCreateNestedOneWithoutPaymentInput
   }
@@ -15683,6 +15716,7 @@ export namespace Prisma {
     receiptUrl?: string | null
     rejectionReason?: string | null
     failureReason?: string | null
+    reviewFlag?: string | null
     tenantId?: string | null
   }
 
@@ -15731,6 +15765,7 @@ export namespace Prisma {
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     failureReason?: NullableStringFieldUpdateOperationsInput | string | null
+    reviewFlag?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
   }
@@ -15765,6 +15800,7 @@ export namespace Prisma {
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     failureReason?: NullableStringFieldUpdateOperationsInput | string | null
+    reviewFlag?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -15808,6 +15844,7 @@ export namespace Prisma {
     receiptUrl?: string | null
     rejectionReason?: string | null
     failureReason?: string | null
+    reviewFlag?: string | null
     tenantId?: string | null
   }
 
@@ -15893,6 +15930,7 @@ export namespace Prisma {
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     failureReason?: NullableStringFieldUpdateOperationsInput | string | null
+    reviewFlag?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
   }
@@ -15927,6 +15965,7 @@ export namespace Prisma {
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     failureReason?: NullableStringFieldUpdateOperationsInput | string | null
+    reviewFlag?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -15960,6 +15999,7 @@ export namespace Prisma {
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
     failureReason?: NullableStringFieldUpdateOperationsInput | string | null
+    reviewFlag?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 

@@ -90,7 +90,7 @@ export interface IInvoiceRepository {
     invoiceId: string,
     reason: string,
     invoiceNotes: string | null,
-  ): Promise<void>;
+  ): Promise<boolean>;
   countUnpaidByPelangganId(pelangganId: string): Promise<number>;
   findUniqueAuthWithPayment(id: string): Promise<InvoiceWithPayment | null>;
   findUniqueAuth(id: string): Promise<InvoiceEntity | null>;

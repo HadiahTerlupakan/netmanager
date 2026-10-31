@@ -204,7 +204,17 @@ function describePaidAmounts(invoice: InvoiceWithPayment) {
   };
 }
 
-function sumActivePayments(invoice: InvoiceWithPayment): bigint {
+/**
+ * Nominal yang sudah diterima untuk tagihan: payment PAID atau manual tanpa
+ * status gateway, ditambah potongan kuponnya. Dasar `paidAmount`.
+ */
+export function sumActivePayments(invoice: {
+  payment: Array<{
+    amount: bigint;
+    discountAmount?: bigint | null;
+    gatewayStatus?: string | null;
+  }>;
+}): bigint {
   return invoice.payment.reduce<bigint>((sum, payment) => {
     if (!isActivePayment(payment)) return sum;
     // Potongan kupon menutup bagian tagihan yang tidak dibayar pelanggan.

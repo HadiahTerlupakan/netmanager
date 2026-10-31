@@ -1,5 +1,8 @@
 import { prismaBillingAuth } from "@/lib/prisma-billing";
-import { settleReceivedPayments } from "@/modules/finance";
+import {
+  FinanceRepositoryFacade,
+  settleReceivedPayments,
+} from "@/modules/finance";
 import { restoreReleasedCoupons } from "./abandoned-checkout";
 import { recordGatewayFee } from "./gateway-fee";
 import { flagPaymentForReview } from "./payment-review";
@@ -111,15 +114,22 @@ export async function settleCheckoutPaidAtGateway(input: {
     marked.outcome === "AMOUNT_MISMATCH" ||
     marked.outcome === "TRANSACTION_MISMATCH"
   ) {
-    await flagPaymentForReview({
-      provider: input.provider,
-      orderId: input.status.orderId,
+    const mismatch = {
       paymentId: input.paymentId,
-      tenantId: orderPayment?.tenantId ?? null,
       reason: marked.outcome,
       expected: marked.expected,
       received: marked.received,
-    });
+    };
+    // Checkout yang tidak cocok tetap menunggu dan ditanyakan lagi oleh
+    // penyapu tiap putaran; jawaban yang sama diteruskan ke staf sekali.
+    if (await FinanceRepositoryFacade.claimPaymentReviewFlag(mismatch)) {
+      await flagPaymentForReview({
+        ...mismatch,
+        provider: input.provider,
+        orderId: input.status.orderId,
+        tenantId: orderPayment?.tenantId ?? null,
+      });
+    }
     return marked;
   }
 

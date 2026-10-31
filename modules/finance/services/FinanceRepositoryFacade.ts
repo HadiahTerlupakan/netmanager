@@ -3,6 +3,10 @@ import { logger } from "@/lib/logger";
 import { consumeSaldoKreditAtomic } from "../repositories/SaldoKreditRepository";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
+import {
+  claimPaymentReviewFlag,
+  type PaymentReviewMismatch,
+} from "../repositories/paymentReviewFlag.repository";
 import { UnmatchedMutationRepository } from "../repositories/UnmatchedMutationRepository";
 
 /**
@@ -22,6 +26,17 @@ export class FinanceRepositoryFacade {
 
   static createUnmatchedMutationRepository(): UnmatchedMutationRepository {
     return new UnmatchedMutationRepository();
+  }
+
+  /**
+   * Tandai bahwa ketidakcocokan gateway ini sudah diteruskan ke staf
+   * keuangan; false bila yang sama sudah pernah diteruskan untuk payment itu.
+   * Dipakai jalur pelunasan gateway (module payment-gateway).
+   */
+  static claimPaymentReviewFlag(
+    mismatch: PaymentReviewMismatch,
+  ): Promise<boolean> {
+    return claimPaymentReviewFlag(mismatch);
   }
 
   /**

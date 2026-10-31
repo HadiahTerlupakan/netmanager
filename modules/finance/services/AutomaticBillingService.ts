@@ -6,7 +6,7 @@ import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { PaymentRepository } from "../repositories/PaymentRepository";
 import { BillingInvoiceCreationService } from "./BillingInvoiceCreationService";
 import { BillingReminderService } from "./BillingReminderService";
-import { runUnderCustomerCheckoutLockAsSystem } from "./customer-checkout-lock";
+import { runAdminActionUnderCustomerCheckoutLock } from "./customer-checkout-lock";
 import {
   canGenerateRealtimeInvoice,
   createBillingCatchUpRange,
@@ -283,7 +283,7 @@ export class AutomaticBillingService {
       import("@/modules/payment-gateway"),
     ]);
 
-    return runUnderCustomerCheckoutLockAsSystem(
+    return runAdminActionUnderCustomerCheckoutLock(
       pelangganId,
       "replace-outstanding-invoice",
       () =>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as z from "zod";
 import { createHandler, ApiErrors } from "@/lib/api";
+import { responsPenolakanTagihan } from "@/lib/api/invoice-route";
 import {
   INVOICE_READ_PERMISSIONS,
   INVOICE_WRITE_PERMISSIONS,
@@ -86,7 +87,11 @@ export const PUT = createHandler(
         user: ctx.session!.user,
       }),
       input: validatedData,
-    });
+    }).catch(responsPenolakanTagihan);
+
+    if (result instanceof NextResponse) {
+      return result;
+    }
 
     if (!result) {
       return ApiErrors.notFound("Invoice");
@@ -110,7 +115,11 @@ export const DELETE = createHandler(
         permissions: ctx.permissions,
         user: ctx.session!.user,
       }),
-    });
+    }).catch(responsPenolakanTagihan);
+
+    if (deleted instanceof NextResponse) {
+      return deleted;
+    }
 
     if (!deleted) {
       return ApiErrors.notFound("Invoice");

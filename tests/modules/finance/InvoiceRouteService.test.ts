@@ -11,6 +11,10 @@ const mockFns = vi.hoisted(() => ({
   markInvoiceSent: vi.fn(),
   syncInvoiceBillingSchedules: vi.fn(),
   cancelInvoiceBillingSchedules: vi.fn(),
+  closeAbandonedManualTransfers: vi.fn(),
+  cancelOutstandingInvoice: vi.fn(),
+  findInvoiceDeleteBlocker: vi.fn(),
+  underCheckoutLock: vi.fn(),
 }));
 
 vi.mock("@/modules/users/repositories/UserRepository", () => ({
@@ -41,6 +45,23 @@ vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
   cancelInvoiceBillingSchedules: mockFns.cancelInvoiceBillingSchedules,
 }));
 
+vi.mock("@/modules/finance/services/abandoned-manual-transfer", () => ({
+  closeAbandonedManualTransfers: mockFns.closeAbandonedManualTransfers,
+}));
+
+vi.mock("@/modules/finance/services/outstanding-invoice.helpers", () => ({
+  cancelOutstandingInvoice: mockFns.cancelOutstandingInvoice,
+  findInvoiceDeleteBlocker: mockFns.findInvoiceDeleteBlocker,
+}));
+
+vi.mock("@/modules/finance/services/customer-checkout-lock", () => ({
+  runAdminActionUnderCustomerCheckoutLock: mockFns.underCheckoutLock,
+}));
+
+vi.mock("@/modules/payment-gateway", () => ({
+  findPaymentMethodByCode: vi.fn(),
+}));
+
 import {
   deleteInvoiceForRoute,
   getInvoiceForRoute,
@@ -64,6 +85,12 @@ const baseInvoice = {
 describe("InvoiceRouteService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFns.underCheckoutLock.mockImplementation(
+      (_pelangganId: string, _reason: string, task: () => Promise<unknown>) =>
+        task(),
+    );
+    mockFns.cancelOutstandingInvoice.mockResolvedValue(null);
+    mockFns.findInvoiceDeleteBlocker.mockResolvedValue(null);
   });
 
   it("returns serialized invoice and pelanggan for unrestricted access", async () => {
@@ -147,9 +174,87 @@ describe("InvoiceRouteService", () => {
         totalAmount: 2000n,
       },
     });
+    expect(mockFns.cancelOutstandingInvoice).not.toHaveBeenCalled();
   });
 
-  it("cancels billing schedules before deleting an existing invoice", async () => {
+  it("cancels through the shared cancellation under the customer's checkout lock, then saves the other changes", async () => {
+    mockFns.findInvoiceWithRelations.mockResolvedValue({
+      ...baseInvoice,
+      status: "SENT",
+    });
+    mockFns.updateInvoiceWithItems.mockResolvedValue({
+      ...baseInvoice,
+      status: "CANCELLED",
+    });
+
+    await updateInvoiceForRoute({
+      invoiceId: "inv-1",
+      user: { id: "user-1", role: "SUPER_ADMIN" },
+      isRestricted: false,
+      input: { status: "CANCELLED", notes: "Pelanggan berhenti" },
+    });
+
+    expect(mockFns.underCheckoutLock).toHaveBeenCalledWith(
+      "cust-1",
+      "cancel-invoice",
+      expect.any(Function),
+    );
+    expect(mockFns.cancelOutstandingInvoice).toHaveBeenCalledWith(
+      expect.objectContaining({ invoiceId: "inv-1", cancelledBy: "user-1" }),
+    );
+    expect(mockFns.updateInvoiceWithItems).toHaveBeenCalledWith(
+      expect.objectContaining({ updateData: { notes: "Pelanggan berhenti" } }),
+    );
+  });
+
+  it("refuses with 409 and changes nothing when the cancellation is kept", async () => {
+    mockFns.findInvoiceWithRelations.mockResolvedValue({
+      ...baseInvoice,
+      status: "SENT",
+    });
+    mockFns.cancelOutstandingInvoice.mockResolvedValue({
+      message:
+        "Tagihan INV-1 tidak dibatalkan karena pelanggan sedang membayar (BCA VA aktif sampai 2 Nov 2026 10.00 WIB).",
+    });
+
+    await expect(
+      updateInvoiceForRoute({
+        invoiceId: "inv-1",
+        user: { id: "user-1", role: "SUPER_ADMIN" },
+        isRestricted: false,
+        input: { status: "CANCELLED" },
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining("pelanggan sedang membayar"),
+    });
+    expect(mockFns.updateInvoiceWithItems).not.toHaveBeenCalled();
+  });
+
+  it("does not cancel again an invoice that is already cancelled", async () => {
+    mockFns.findInvoiceWithRelations.mockResolvedValue({
+      ...baseInvoice,
+      status: "CANCELLED",
+    });
+    mockFns.updateInvoiceWithItems.mockResolvedValue({
+      ...baseInvoice,
+      status: "CANCELLED",
+    });
+
+    await updateInvoiceForRoute({
+      invoiceId: "inv-1",
+      user: { id: "user-1", role: "SUPER_ADMIN" },
+      isRestricted: false,
+      input: { status: "CANCELLED", notes: "Catatan" },
+    });
+
+    expect(mockFns.cancelOutstandingInvoice).not.toHaveBeenCalled();
+    expect(mockFns.updateInvoiceWithItems).toHaveBeenCalled();
+  });
+
+  // Penghapusan melepas invoiceId payment-nya, jadi transfer tanpa bukti
+  // harus ditutup selagi masih bisa ditemukan dari tagihannya.
+  it("cancels billing schedules and closes manual transfers without proof before deleting an existing invoice", async () => {
     mockFns.findInvoiceWithRelations.mockResolvedValue(baseInvoice);
 
     await deleteInvoiceForRoute({
@@ -158,8 +263,38 @@ describe("InvoiceRouteService", () => {
       isRestricted: false,
     });
 
+    expect(mockFns.underCheckoutLock).toHaveBeenCalledWith(
+      "cust-1",
+      "delete-invoice",
+      expect.any(Function),
+    );
     expect(mockFns.cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-1");
+    expect(mockFns.closeAbandonedManualTransfers).toHaveBeenCalledWith("inv-1");
     expect(mockFns.deleteInvoice).toHaveBeenCalledWith("inv-1");
+    expect(
+      mockFns.closeAbandonedManualTransfers.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockFns.deleteInvoice.mock.invocationCallOrder[0]);
+  });
+
+  it("refuses with 409 to delete an invoice that is being paid", async () => {
+    mockFns.findInvoiceWithRelations.mockResolvedValue(baseInvoice);
+    mockFns.findInvoiceDeleteBlocker.mockResolvedValue(
+      "Tagihan punya bukti transfer yang belum diverifikasi; tolak atau setujui dulu.",
+    );
+
+    await expect(
+      deleteInvoiceForRoute({
+        invoiceId: "inv-1",
+        user: { id: "user-1", role: "SUPER_ADMIN" },
+        isRestricted: false,
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      message:
+        "Tagihan punya bukti transfer yang belum diverifikasi; tolak atau setujui dulu.",
+    });
+    expect(mockFns.closeAbandonedManualTransfers).not.toHaveBeenCalled();
+    expect(mockFns.deleteInvoice).not.toHaveBeenCalled();
   });
 
   it("sends draft invoice using fallback customer contact", async () => {
