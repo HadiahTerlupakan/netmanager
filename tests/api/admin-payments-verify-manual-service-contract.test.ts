@@ -53,10 +53,7 @@ const TRANSFER_MANUAL = {
   id: "pay-1",
   pelangganId: "pel-1",
   gatewayStatus: "PENDING",
-  paymentMethod: "BANK_TRANSFER",
-  expiresAt: null as Date | null,
-  transactionId: null as string | null,
-  gatewayProvider: null as string | null,
+  accountId: "rek-bca" as string | null,
 };
 
 function verify(action: string) {
@@ -108,10 +105,7 @@ describe("verify-manual — route dan layanan asli", () => {
   it("checkout gateway ditolak sebelum menyentuh jalur approve", async () => {
     mockFns.findVerifiablePayment.mockResolvedValue({
       ...TRANSFER_MANUAL,
-      paymentMethod: "OTHER",
-      expiresAt: new Date(),
-      transactionId: "DREF-1",
-      gatewayProvider: "BC",
+      accountId: null,
     });
 
     const response = await verify("APPROVE");

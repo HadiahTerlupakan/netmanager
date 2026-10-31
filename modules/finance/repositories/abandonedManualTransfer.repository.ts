@@ -21,13 +21,10 @@ const ABANDONED_TRANSFER_SELECT = {
   receiptUrl: true,
 } as const;
 
-// Transfer manual: BANK_TRANSFER tanpa jejak checkout gateway.
+// Transfer manual dikenali dari rekening tujuannya, seperti di sisi checkout.
 const PENDING_MANUAL_TRANSFER: Prisma.PaymentWhereInput = {
   gatewayStatus: "PENDING",
-  paymentMethod: "BANK_TRANSFER",
-  expiresAt: null,
-  transactionId: null,
-  gatewayProvider: null,
+  accountId: { not: null },
 };
 
 class ProofArrivedError extends Error {}

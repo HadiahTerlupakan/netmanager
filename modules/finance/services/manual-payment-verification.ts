@@ -28,22 +28,17 @@ export type ManualVerificationResult = {
 };
 
 /**
- * Transfer manual (rekening bank, mutasi Moota): bukan checkout gateway, yang
- * hanya boleh dilunasi oleh webhook atau cek status gateway. Tanpa pemeriksaan
- * ini admin bisa "menyetujui" VA yang belum dibayar lewat id payment-nya.
+ * Transfer manual ke rekening perusahaan, dikenali dari rekening tujuannya
+ * (`accountId`) seperti di sisi checkout pelanggan; payment VA kini juga
+ * BANK_TRANSFER, jadi metode pembayaran tidak bisa dipakai. Checkout gateway
+ * hanya boleh dilunasi oleh webhook atau cek status gateway: tanpa
+ * pemeriksaan ini admin bisa "menyetujui" VA yang belum dibayar lewat id
+ * payment-nya.
  */
 export function isManualTransferPayment(payment: {
-  paymentMethod: string;
-  expiresAt: Date | null;
-  transactionId: string | null;
-  gatewayProvider: string | null;
+  accountId: string | null;
 }): boolean {
-  return (
-    payment.paymentMethod === "BANK_TRANSFER" &&
-    payment.expiresAt === null &&
-    payment.transactionId === null &&
-    payment.gatewayProvider === null
-  );
+  return payment.accountId !== null;
 }
 
 /**

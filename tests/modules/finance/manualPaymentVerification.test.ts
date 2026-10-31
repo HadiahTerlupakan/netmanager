@@ -51,10 +51,7 @@ const transfer = (
   tenantId: "t1",
   amount: 100000n,
   gatewayStatus: "PENDING",
-  paymentMethod: "BANK_TRANSFER",
-  expiresAt: null,
-  transactionId: null,
-  gatewayProvider: null,
+  accountId: "rek-bca",
   notes: "✅ [AI] cocok",
   couponUsageId: null,
   couponId: null,
@@ -69,21 +66,15 @@ const settled = (
 ) => ({ id, invoiceId, kelebihanBayar, invoice });
 
 describe("isManualTransferPayment", () => {
-  it("transfer bank tanpa jejak gateway adalah transfer manual", () => {
+  it("transfer ke rekening perusahaan adalah transfer manual", () => {
     expect(isManualTransferPayment(transfer("p1", "inv-1", "INV-1"))).toBe(
       true,
     );
   });
 
-  it("VA yang belum dibayar bukan transfer manual", () => {
-    expect(
-      isManualTransferPayment({
-        paymentMethod: "OTHER",
-        expiresAt: new Date(),
-        transactionId: "DREF-1",
-        gatewayProvider: "BC",
-      }),
-    ).toBe(false);
+  // Payment VA kini juga BANK_TRANSFER; yang membedakan rekening tujuannya.
+  it("checkout gateway tanpa rekening tujuan bukan transfer manual", () => {
+    expect(isManualTransferPayment({ accountId: null })).toBe(false);
   });
 });
 
