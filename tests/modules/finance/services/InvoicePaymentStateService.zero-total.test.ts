@@ -61,7 +61,11 @@ describe("InvoicePaymentStateService.recompute — invoice Rp0", () => {
       expect.objectContaining({ status: "PAID", paidAmount: 0n }),
     );
     expect(hasil?.becamePaid).toBe(true);
-    expect(palsu.onInvoicePaid).toHaveBeenCalledWith("inv-0", "pel-1", 0);
+    expect(palsu.onInvoicePaid).toHaveBeenCalledWith("inv-0", "pel-1", 0, {
+      amountPaid: 0,
+      couponDiscount: 0,
+      saldoUsed: 0,
+    });
     expect(palsu.cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-0");
   });
 

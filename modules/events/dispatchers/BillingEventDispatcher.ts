@@ -3,6 +3,7 @@ import {
   eventBus,
   EVENT_NAMES,
   JOB_PRIORITIES,
+  type InvoicePaidBreakdown,
   type PaymentRedirectedPayload,
   type PaymentRejectedPayload,
 } from "@/lib/event-bus";
@@ -35,6 +36,7 @@ export class BillingEventDispatcher {
     invoiceId: string,
     pelangganId: string,
     amount?: number,
+    breakdown?: InvoicePaidBreakdown,
   ) {
     await eventBus.publish(
       EVENT_NAMES.INVOICE_PAID,
@@ -43,6 +45,7 @@ export class BillingEventDispatcher {
         pelangganId,
         amount: amount ?? 0,
         paidAt: new Date().toISOString(),
+        ...breakdown,
       },
       {
         // Critical event — use highest priority

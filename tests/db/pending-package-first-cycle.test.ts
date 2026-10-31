@@ -38,7 +38,10 @@ import { getCustomerPackageUpgradeService } from "@/modules/pelanggan/services/C
  */
 
 vi.mock("@/modules/events", () => ({
-  BillingEventDispatcher: { onPackageChanged: vi.fn(async () => undefined) },
+  BillingEventDispatcher: {
+    onPackageChanged: vi.fn(async () => undefined),
+    onInvoicePaid: vi.fn(async () => undefined),
+  },
 }));
 vi.mock("@/lib/event-bus", () => ({
   eventBus: { publish: vi.fn(async () => undefined) },
@@ -339,11 +342,13 @@ describeDb("tagihan siklus pertama paket terjadwal", () => {
 
     const hidup = await tagihanHidup();
     expect(hidup).toHaveLength(1);
+    // Tertutup penuh saldo kredit: lunas saat terbit, tidak menunggu OVERDUE.
     expect(hidup[0]).toMatchObject({
       subtotal: 150000n,
       taxAmount: 16500n,
       discountAmount: TOTAL_LAMA,
       totalAmount: 0n,
+      status: "PAID",
     });
     const pelanggan = await prismaAuth.pelanggan.findUniqueOrThrow({
       where: { id: PELANGGAN },

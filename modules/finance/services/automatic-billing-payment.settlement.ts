@@ -14,6 +14,11 @@ export async function settleImmediateInvoice(options: {
   if (!options.shouldMarkPaid || !options.invoice) {
     return;
   }
+  // Tagihan Rp0 sudah dilunasi saat terbit; payment Rp0 hanya mengotori
+  // riwayat pembayaran.
+  if (options.invoice.totalAmount <= 0n) {
+    return;
+  }
 
   await createInvoicePaymentRecord(options.paymentRepo, {
     pelangganId: options.pelangganId,

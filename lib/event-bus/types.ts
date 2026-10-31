@@ -160,8 +160,13 @@ export interface InvoiceCreatedPayload
   extends BaseEventPayload, Partial<InvoiceReplacement> {
   invoiceId: string;
   pelangganId: string;
+  /** Yang perlu dibayar pelanggan, setelah saldo kredit. */
   amount: number;
   dueDate: string;
+  /** Saldo kredit yang memotong tagihan ini; ada hanya bila terpakai. */
+  creditApplied?: number;
+  /** Total sebelum saldo kredit; ada bersama `creditApplied`. */
+  grossAmount?: number;
 }
 
 /** Kelebihan bayar sebuah invoice yang dikreditkan ke saldo pelanggan. */
@@ -200,9 +205,19 @@ export interface PaymentRejectedPayload extends BaseEventPayload {
   reason?: string;
 }
 
-export interface InvoicePaidPayload extends BaseEventPayload {
+/** Rincian pelunasan untuk notifikasi; total tagihan tetap di `amount`. */
+export interface InvoicePaidBreakdown {
+  /** Uang yang benar-benar dibayar pelanggan untuk tagihan ini. */
+  amountPaid: number;
+  couponDiscount: number;
+  saldoUsed: number;
+}
+
+export interface InvoicePaidPayload
+  extends BaseEventPayload, Partial<InvoicePaidBreakdown> {
   invoiceId: string;
   pelangganId: string;
+  /** Total tagihan (setelah saldo kredit); dasar komisi reseller. */
   amount: number;
   paidAt: string;
   paymentMethod?: string;

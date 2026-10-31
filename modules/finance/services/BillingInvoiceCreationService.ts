@@ -7,8 +7,10 @@ import {
   type BillingPackage,
   findPendingPackageAppliedBy,
 } from "../repositories/CycleBillingRepository";
+import type { InvoiceEntity } from "../domain/entities/InvoiceEntity";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { FinanceRepositoryFacade } from "./FinanceRepositoryFacade";
+import { InvoicePaymentStateService } from "./InvoicePaymentStateService";
 import { formatSaldoKreditNote } from "./saldo-kredit-note";
 
 type BillingCustomerPayload = {
@@ -36,6 +38,10 @@ export class BillingInvoiceCreationService {
    * Create invoice and send customer notifications. `replacement` diisi bila
    * tagihan ini menggantikan tagihan siklus yang baru dibatalkan, supaya
    * notifikasinya menyebut penggantian, bukan tagihan baru.
+   *
+   * Tagihan yang totalnya Rp0 (tertutup saldo kredit, atau paket gratis)
+   * langsung dilunasi: ia tidak bisa menerima payment, jadi dulu tertahan
+   * SENT lalu menjadi OVERDUE dan memicu isolir pelanggan yang tidak berutang.
    */
   async createInvoiceForCustomer(
     billedCustomer: BillingCustomerPayload,
@@ -53,38 +59,71 @@ export class BillingInvoiceCreationService {
       customer.id,
       grossTotal,
     );
+    const invoice = await this.createRefundingSaldoOnFailure(customer, {
+      dueDate,
+      subtotal,
+      taxAmount,
+      creditApplied,
+      totalAmount: grossTotal - creditApplied,
+    });
 
+    await this.logInvoiceCreated(customer, invoice, creditApplied);
+    await this.publishInvoiceCreated(customer, invoice, dueDate, replacement, {
+      creditApplied,
+      grossTotal,
+    });
+    if (BigInt(invoice.totalAmount) === 0n) {
+      return this.settleWithoutPayment(invoice);
+    }
+    const { syncInvoiceBillingSchedules } =
+      await import("./billingScheduleLifecycle");
+    await syncInvoiceBillingSchedules(invoice);
+    return invoice;
+  }
+
+  /**
+   * Saldo dikembalikan hanya bila tagihannya gagal dibuat. Setelah tagihan
+   * tersimpan saldonya sudah terpakai olehnya; mengembalikannya karena
+   * langkah sesudahnya gagal membuat pelanggan menerima potongan dan saldo.
+   */
+  private async createRefundingSaldoOnFailure(
+    customer: BillingCustomerPayload,
+    amounts: {
+      dueDate: Date;
+      subtotal: bigint;
+      taxAmount: bigint;
+      creditApplied: bigint;
+      totalAmount: bigint;
+    },
+  ) {
     try {
-      const invoice = await this.invoiceRepo.create({
-        ...this.buildInvoicePayload({
-          customer,
-          dueDate,
-          subtotal,
-          taxAmount,
-          creditApplied,
-          totalAmount: grossTotal - creditApplied,
-        }),
+      return await this.invoiceRepo.create({
+        ...this.buildInvoicePayload({ customer, ...amounts }),
         invoiceItem: {
           create: [this.buildInvoiceItemPayload(customer)],
         },
       });
-
-      await this.logInvoiceCreated(customer, invoice, creditApplied);
-      await this.publishInvoiceCreated(customer, invoice, dueDate, replacement);
-      const { syncInvoiceBillingSchedules } =
-        await import("./billingScheduleLifecycle");
-      await syncInvoiceBillingSchedules(invoice);
-      return invoice;
     } catch (err) {
-      // Compensating action — kembalikan saldo bila invoice gagal dibuat
-      if (creditApplied > 0n) {
+      if (amounts.creditApplied > 0n) {
         await FinanceRepositoryFacade.refundSaldoKredit(
           customer.id,
-          creditApplied,
+          amounts.creditApplied,
         );
       }
       throw err;
     }
+  }
+
+  /**
+   * Lunasi tagihan Rp0 lewat jalur pelunasan biasa: status PAID, jadwal
+   * overdue/isolir dibatalkan, dan INVOICE_PAID terkirim sekali (perpanjangan
+   * jatuh tempo, aktivasi, notifikasi "dibayar dengan saldo").
+   */
+  private async settleWithoutPayment(invoice: InvoiceEntity) {
+    const result = await new InvoicePaymentStateService(
+      this.invoiceRepo,
+    ).recompute(invoice.id);
+    return result?.invoice ?? invoice;
   }
 
   /**
@@ -207,6 +246,7 @@ export class BillingInvoiceCreationService {
     invoice: { id: string; totalAmount: bigint },
     dueDate: Date,
     replacement: InvoiceReplacement | undefined,
+    saldo: { creditApplied: bigint; grossTotal: bigint },
   ) {
     const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
     await eventBus
@@ -215,6 +255,13 @@ export class BillingInvoiceCreationService {
         pelangganId: customer.id,
         amount: Number(invoice.totalAmount),
         dueDate: dueDate.toISOString(),
+        // Pelanggan perlu tahu saldo yang terpakai dan sisa yang dibayar.
+        ...(saldo.creditApplied > 0n
+          ? {
+              creditApplied: Number(saldo.creditApplied),
+              grossAmount: Number(saldo.grossTotal),
+            }
+          : {}),
         ...replacement,
       })
       .catch((error) =>

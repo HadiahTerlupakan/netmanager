@@ -75,19 +75,41 @@ function isReplacementReason(
   );
 }
 
-/** Template untuk event ini; tagihan pengganti memakai template penggantian. */
+/**
+ * Template untuk event ini; tagihan pengganti memakai template penggantian,
+ * dan tagihan yang lunas seluruhnya dengan saldo kredit memakai template
+ * "dibayar dengan saldo", bukan "Pembayaran Rp 0 berhasil".
+ */
 function resolveTemplateKey(
   eventName: string,
-  replacementReason: unknown,
+  payload: Record<string, unknown>,
 ): BillingTemplateKey | undefined {
   if (
     eventName === EVENT_NAMES.INVOICE_CREATED &&
-    isReplacementReason(replacementReason)
+    isReplacementReason(payload.replacementReason)
   ) {
-    return REPLACEMENT_TEMPLATE_MAP[replacementReason];
+    return REPLACEMENT_TEMPLATE_MAP[payload.replacementReason];
+  }
+  if (eventName === EVENT_NAMES.INVOICE_PAID && isPaidWithSaldoOnly(payload)) {
+    return "invoicePaidWithSaldo";
   }
   return EVENT_TEMPLATE_MAP[eventName];
 }
+
+const isPaidWithSaldoOnly = (payload: Record<string, unknown>) =>
+  payload.amountPaid === 0 && Number(payload.saldoUsed ?? 0) > 0;
+
+/**
+ * Tagihan biasa yang seluruhnya tertutup saldo kredit lunas saat terbit;
+ * pemberitahuan "dibayar dengan saldo" dari INVOICE_PAID-nya sudah cukup.
+ */
+const isCoveredBySaldoAtCreation = (
+  templateKey: BillingTemplateKey,
+  payload: Record<string, unknown>,
+) =>
+  templateKey === "invoiceCreated" &&
+  Number(payload.amount ?? 0) === 0 &&
+  Number(payload.creditApplied ?? 0) > 0;
 
 // Checkout yang ditinggal cukup diingatkan di portal dan aplikasi; WhatsApp
 // dan email disimpan untuk tagihan itu sendiri.
@@ -104,10 +126,16 @@ export async function handleInvoiceNotification(
   job: Job<EventJobData>,
 ): Promise<void> {
   const { eventName, payload } = job.data;
-  const templateKey = resolveTemplateKey(eventName, payload.replacementReason);
+  const templateKey = resolveTemplateKey(eventName, payload);
   if (!templateKey) {
     logger.debug(
       `[InvoiceNotificationHandler] Skip unrecognized event ${eventName}`,
+    );
+    return;
+  }
+  if (isCoveredBySaldoAtCreation(templateKey, payload)) {
+    logger.debug(
+      `[InvoiceNotificationHandler] Skip invoiceCreated untuk tagihan yang lunas dengan saldo kredit`,
     );
     return;
   }
@@ -170,6 +198,11 @@ export async function handleInvoiceNotification(
       appliedAmount: optionalNumber(payload.appliedAmount),
       creditedAmount: optionalNumber(payload.creditedAmount),
       rejectionReason: optionalString(payload.reason),
+      creditApplied: optionalNumber(payload.creditApplied),
+      grossAmount: optionalNumber(payload.grossAmount),
+      amountPaid: optionalNumber(payload.amountPaid),
+      couponDiscount: optionalNumber(payload.couponDiscount),
+      saldoUsed: optionalNumber(payload.saldoUsed),
     },
     sourceType: "BILLING",
     sourceId: invoiceId,

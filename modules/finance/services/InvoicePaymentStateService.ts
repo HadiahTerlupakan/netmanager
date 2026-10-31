@@ -11,6 +11,7 @@ import {
   cancelInvoiceBillingSchedules,
   syncInvoiceBillingSchedules,
 } from "./billingScheduleLifecycle";
+import { readSaldoKreditUsed } from "./saldo-kredit-note";
 
 type RecomputeResult = {
   invoice: InvoiceEntity;
@@ -84,7 +85,7 @@ export class InvoicePaymentStateService {
 
     await this.syncSchedules(updatedInvoice, becamePaid);
     if (becamePaid) {
-      await this.publishInvoicePaid(updatedInvoice);
+      await this.publishInvoicePaid(invoice);
     } else if (
       nextStatus === InvoiceStatus.PARTIAL_PAID &&
       totalPaid > invoice.paidAmount
@@ -108,7 +109,7 @@ export class InvoicePaymentStateService {
     await syncInvoiceBillingSchedules(invoice);
   }
 
-  private async publishInvoicePaid(invoice: InvoiceEntity) {
+  private async publishInvoicePaid(invoice: InvoiceWithPayment) {
     if (!invoice.pelangganId) {
       logger.warn(
         `[InvoicePaymentState] Invoice ${invoice.id} tidak punya pelangganId — event INVOICE_PAID tidak di-emit`,
@@ -116,16 +117,19 @@ export class InvoicePaymentStateService {
       return;
     }
 
-    await BillingEventDispatcher.onInvoicePaid(
-      invoice.id,
-      invoice.pelangganId,
-      Number(invoice.totalAmount),
-    ).catch((error) =>
+    try {
+      await BillingEventDispatcher.onInvoicePaid(
+        invoice.id,
+        invoice.pelangganId,
+        Number(invoice.totalAmount),
+        describePaidAmounts(invoice),
+      );
+    } catch (error) {
       logger.error(
         "[InvoicePaymentState] Failed to publish INVOICE_PAID event",
         error instanceof Error ? error : undefined,
-      ),
-    );
+      );
+    }
   }
 
   /** Uang dari pembayaran sebagian harus dibukukan walau tagihan belum lunas. */
@@ -155,14 +159,41 @@ function keepCancelled(invoice: InvoiceWithPayment): RecomputeResult {
   };
 }
 
+const isActivePayment = (payment: { gatewayStatus?: string | null }) =>
+  (payment.gatewayStatus ?? null) === null || payment.gatewayStatus === "PAID";
+
+const smaller = (left: bigint, right: bigint) => (left < right ? left : right);
+
+/**
+ * Yang benar-benar dibayar pelanggan untuk tagihan ini, dan bagian yang
+ * ditutup kupon serta saldo kredit. Notifikasi dulu menyebut total tagihan:
+ * pelanggan yang memakai kupon membaca nominal yang tidak pernah ia bayar,
+ * dan tagihan yang lunas dengan saldo terbaca "Pembayaran Rp 0 berhasil".
+ * Kelebihan bayar tidak dihitung di sini; ia punya pemberitahuan sendiri.
+ */
+function describePaidAmounts(invoice: InvoiceWithPayment) {
+  const active = invoice.payment.filter(isActivePayment);
+  const total = BigInt(invoice.totalAmount);
+  const coupon = smaller(
+    active.reduce((sum, p) => sum + (p.discountAmount ?? 0n), 0n),
+    total,
+  );
+  const paid = smaller(
+    active.reduce((sum, p) => sum + p.amount, 0n),
+    total - coupon,
+  );
+  return {
+    amountPaid: Number(paid),
+    couponDiscount: Number(coupon),
+    saldoUsed: Number(readSaldoKreditUsed(invoice)),
+  };
+}
+
 function sumActivePayments(invoice: InvoiceWithPayment): bigint {
   return invoice.payment.reduce<bigint>((sum, payment) => {
-    const status = payment.gatewayStatus ?? null;
-    if (status === null || status === "PAID") {
-      // Potongan kupon menutup bagian tagihan yang tidak dibayar pelanggan.
-      return sum + payment.amount + (payment.discountAmount ?? 0n);
-    }
-    return sum;
+    if (!isActivePayment(payment)) return sum;
+    // Potongan kupon menutup bagian tagihan yang tidak dibayar pelanggan.
+    return sum + payment.amount + (payment.discountAmount ?? 0n);
   }, 0n);
 }
 

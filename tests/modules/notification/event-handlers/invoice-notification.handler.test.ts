@@ -237,6 +237,87 @@ describe("InvoiceNotificationHandler", () => {
     );
   });
 
+  it("INVOICE_CREATED yang dipotong saldo membawa saldo terpakai dan total sebelum saldo", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.INVOICE_CREATED, {
+        invoiceId: "inv-1",
+        pelangganId: "cust-1",
+        amount: 61000,
+        creditApplied: 50000,
+        grossAmount: 111000,
+        dueDate: "2026-11-10T17:00:00.000Z",
+      }),
+    );
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "invoiceCreated",
+        params: expect.objectContaining({
+          amountDue: 61000,
+          creditApplied: 50000,
+          grossAmount: 111000,
+        }),
+      }),
+    );
+  });
+
+  // Tagihan itu lunas saat terbit; "dibayar dengan saldo" dari INVOICE_PAID
+  // sudah memberi tahu pelanggan.
+  it("INVOICE_CREATED yang seluruhnya tertutup saldo tidak mengirim 'tagihan baru'", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.INVOICE_CREATED, {
+        invoiceId: "inv-1",
+        pelangganId: "cust-1",
+        amount: 0,
+        creditApplied: 111000,
+        grossAmount: 111000,
+        dueDate: "2026-11-10T17:00:00.000Z",
+      }),
+    );
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  it("INVOICE_PAID tanpa uang dan dengan saldo → invoicePaidWithSaldo", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.INVOICE_PAID, {
+        invoiceId: "inv-1",
+        pelangganId: "cust-1",
+        amount: 0,
+        amountPaid: 0,
+        couponDiscount: 0,
+        saldoUsed: 111000,
+      }),
+    );
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "invoicePaidWithSaldo",
+        params: expect.objectContaining({ amountPaid: 0, saldoUsed: 111000 }),
+      }),
+    );
+  });
+
+  it("INVOICE_PAID biasa membawa rincian kupon dan saldo ke template", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.INVOICE_PAID, {
+        invoiceId: "inv-1",
+        pelangganId: "cust-1",
+        amount: 95000,
+        amountPaid: 85000,
+        couponDiscount: 10000,
+        saldoUsed: 5000,
+      }),
+    );
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateKey: "invoicePaid",
+        params: expect.objectContaining({
+          amountPaid: 85000,
+          couponDiscount: 10000,
+          saldoUsed: 5000,
+        }),
+      }),
+    );
+  });
+
   it("INVOICE_REMINDER_DUE → dispatch invoiceReminder dengan reminderType", async () => {
     await handleInvoiceNotification(
       buildJob(EVENT_NAMES.INVOICE_REMINDER_DUE, {

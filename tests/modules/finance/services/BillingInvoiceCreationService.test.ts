@@ -39,6 +39,13 @@ vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
   cancelInvoiceBillingSchedules: mockCancelInvoiceBillingSchedules,
 }));
 
+const mockRecompute = vi.hoisted(() => vi.fn());
+vi.mock("@/modules/finance/services/InvoicePaymentStateService", () => ({
+  InvoicePaymentStateService: class {
+    recompute = mockRecompute;
+  },
+}));
+
 describe("BillingInvoiceCreationService", () => {
   let service: BillingInvoiceCreationService;
   let mockInvoiceRepo: InvoiceRepository;
@@ -454,6 +461,78 @@ describe("BillingInvoiceCreationService", () => {
           }),
         );
       });
+    });
+
+    // Tagihan Rp0 tidak bisa menerima payment; dulu tertahan SENT lalu
+    // menjadi OVERDUE dan memicu isolir pelanggan yang tidak berutang.
+    describe("tagihan yang tertutup penuh saldo kredit", () => {
+      const lunasSaldo = {
+        ...mockInvoice,
+        discountAmount: 555_000n,
+        totalAmount: 0n,
+      };
+
+      it("langsung dilunasi lewat jalur pelunasan biasa", async () => {
+        setSaldoKredit(1_000_000n);
+        vi.mocked(mockInvoiceRepo.create).mockResolvedValue(lunasSaldo);
+        mockRecompute.mockResolvedValue({
+          invoice: { ...lunasSaldo, status: "PAID" },
+          becamePaid: true,
+        });
+
+        const result = await service.createInvoiceForCustomer(
+          mockCustomer,
+          new Date(),
+        );
+
+        expect(mockRecompute).toHaveBeenCalledWith("invoice-1");
+        expect(result.status).toBe("PAID");
+        // Jadwal overdue/isolir tidak dipasang untuk tagihan yang lunas.
+        expect(mockSyncInvoiceBillingSchedules).not.toHaveBeenCalled();
+      });
+
+      it("event INVOICE_CREATED menyebut saldo yang terpakai dan total sebelum saldo", async () => {
+        const { eventBus } = await import("@/lib/event-bus");
+        setSaldoKredit(1_000_000n);
+        vi.mocked(mockInvoiceRepo.create).mockResolvedValue(lunasSaldo);
+        mockRecompute.mockResolvedValue({ invoice: lunasSaldo });
+
+        const dueDate = new Date("2026-05-31");
+        await service.createInvoiceForCustomer(mockCustomer, dueDate);
+
+        expect(eventBus.publish).toHaveBeenCalledWith("invoice.created", {
+          invoiceId: "invoice-1",
+          pelangganId: "customer-1",
+          amount: 0,
+          dueDate: dueDate.toISOString(),
+          creditApplied: 555000,
+          grossAmount: 555000,
+        });
+      });
+    });
+
+    // Saldo yang sudah memotong tagihan tersimpan tidak boleh dikembalikan
+    // lagi: pelanggan akan menerima potongan dan saldonya sekaligus.
+    it("langkah sesudah tagihan tersimpan yang gagal tidak mengembalikan saldo", async () => {
+      setSaldoKredit(30_000n);
+      vi.mocked(mockInvoiceRepo.create).mockResolvedValue({
+        ...mockInvoice,
+        discountAmount: 30_000n,
+        totalAmount: 525_000n,
+      });
+      mockSyncInvoiceBillingSchedules.mockRejectedValueOnce(
+        new Error("antrean mati"),
+      );
+
+      await expect(
+        service.createInvoiceForCustomer(mockCustomer, new Date()),
+      ).rejects.toThrow("antrean mati");
+
+      expect(prismaMock.pelanggan.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { saldoKreditRupiah: { increment: 30_000n } },
+        }),
+      );
     });
   });
 });

@@ -64,7 +64,9 @@ import { runWithRequestTenantContext } from "@/lib/tenant-context";
 import { encryptApiKey } from "@/lib/utils/encryption";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { BillingEventDispatcher } from "@/modules/events";
+import { InvoiceRepository } from "@/modules/finance/repositories/InvoiceRepository";
 import { AutomaticBillingService } from "@/modules/finance/services/AutomaticBillingService";
+import { FinanceRepositoryFacade } from "@/modules/finance/services/FinanceRepositoryFacade";
 import { findRepriceBlocker } from "@/modules/finance/services/cycle-invoice-reprice";
 import { handleInvoicePaidManualPaymentCleanup } from "@/modules/finance/services/event-handlers/invoice-paid-manual-cleanup.handler";
 import { ManualPaymentAdminRouteService } from "@/modules/finance/services/ManualPaymentAdminRouteService";
@@ -973,5 +975,44 @@ describeDb("pelunasan pembayaran pelanggan", () => {
       withoutProof: null,
       withProof: "PAYMENT_RECORDED",
     });
+  });
+
+  it("tagihan yang tertutup penuh oleh saldo kredit langsung lunas saat dibuat", async () => {
+    // Lebih besar dari total kotor (paket + PPN), jadi seluruh tagihan tertutup.
+    await seed({ saldo: 2n * PRICE });
+    await asTenant(() =>
+      AutomaticBillingService.generateImmediateInvoice(PELANGGAN),
+    );
+    const [created] = await invoices();
+    const afterDue = new Date(created.dueDate.getTime() + 24 * HOUR_MS);
+
+    const unpaidCountForActivationGuard = await asTenant(() =>
+      FinanceRepositoryFacade.countUnpaidInvoicesForPelanggan(PELANGGAN),
+    );
+    const markedOverdue = await asTenant(() =>
+      new InvoiceRepository().markOverdueIfEligible(created.id, afterDue),
+    );
+
+    expect({
+      totalAmount: created.totalAmount,
+      creditApplied: created.discountAmount,
+      statusAtCreation: created.status,
+      unpaidCountForActivationGuard,
+      flippedToOverdueAfterDueDate: markedOverdue,
+      invoicePaidEvents: dispatcher.onInvoicePaid.mock.calls.length,
+    }).toEqual({
+      totalAmount: 0n,
+      creditApplied: created.subtotal + created.taxAmount,
+      statusAtCreation: "PAID",
+      unpaidCountForActivationGuard: 0,
+      flippedToOverdueAfterDueDate: false,
+      invoicePaidEvents: 1,
+    });
+    expect(dispatcher.onInvoicePaid).toHaveBeenCalledWith(
+      created.id,
+      PELANGGAN,
+      0,
+      { amountPaid: 0, couponDiscount: 0, saldoUsed: Number(PRICE) },
+    );
   });
 });

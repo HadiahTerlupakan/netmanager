@@ -16,6 +16,16 @@ export interface BillingTemplateParams {
   creditedAmount?: number;
   /** Alasan admin menolak bukti transfer. */
   rejectionReason?: string;
+  /** Saldo kredit yang memotong tagihan saat terbit. */
+  creditApplied?: number;
+  /** Total tagihan sebelum saldo kredit. */
+  grossAmount?: number;
+  /** Uang yang benar-benar dibayar pelanggan untuk tagihan yang lunas. */
+  amountPaid?: number;
+  /** Bagian tagihan lunas yang ditutup potongan kupon. */
+  couponDiscount?: number;
+  /** Bagian tagihan lunas yang ditutup saldo kredit. */
+  saldoUsed?: number;
 }
 
 export interface EmailContent {
@@ -60,6 +70,34 @@ const formatJatuhTempo = (dueDate: string | undefined): string => {
 /** " (INV-001, Rp 150.000)" bila tagihan tunggakannya diketahui. */
 const formatTunggakan = (p: BillingTemplateParams): string =>
   p.invoiceNumber ? ` (${p.invoiceNumber}, ${formatRupiah(p.amountDue)})` : "";
+
+const nomorTagihan = (p: BillingTemplateParams) =>
+  p.invoiceNumber ? ` ${p.invoiceNumber}` : "";
+
+const isSaldoApplied = (p: BillingTemplateParams) => (p.creditApplied ?? 0) > 0;
+
+/** Rincian saldo untuk tagihan yang sebagian ditutup saldo kredit. */
+const describeSaldoApplied = (p: BillingTemplateParams) =>
+  `Saldo kredit ${formatRupiah(p.creditApplied)} terpakai, sisa yang perlu dibayar ${formatRupiah(p.amountDue)}`;
+
+/**
+ * Potongan kupon dan saldo kredit yang ikut melunasi tagihan; dulu
+ * notifikasi menyebut total tagihan seolah semuanya dibayar tunai.
+ */
+function describeOtherCoverage(p: BillingTemplateParams): string {
+  const parts = [
+    (p.couponDiscount ?? 0) > 0
+      ? `potongan kupon ${formatRupiah(p.couponDiscount)}`
+      : null,
+    (p.saldoUsed ?? 0) > 0 ? `saldo kredit ${formatRupiah(p.saldoUsed)}` : null,
+  ].filter((part): part is string => part !== null);
+  if (parts.length === 0) return "";
+  const joined = parts.join(" dan ");
+  return ` ${joined.charAt(0).toUpperCase()}${joined.slice(1)} ikut melunasi tagihan ini.`;
+}
+
+/** Uang yang dibayar; event lama tanpa rincian memakai total tagihan. */
+const paidAmount = (p: BillingTemplateParams) => p.amountPaid ?? p.amountDue;
 
 /** "Tagihan jatuh tempo 1 Nov 2026", atau "Tagihan Anda" tanpa jatuh tempo. */
 const formatTagihanSiklus = (p: BillingTemplateParams): string =>
@@ -138,15 +176,19 @@ export const BILLING_TEMPLATES = {
   invoiceCreated: {
     title: "Tagihan baru dibuat",
     inApp: (p) =>
-      `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} sebesar ${formatRupiah(p.amountDue)} telah dibuat${p.dueDate ? `. Jatuh tempo ${formatJatuhTempo(p.dueDate)}` : ""}.`,
+      isSaldoApplied(p)
+        ? `Tagihan${nomorTagihan(p)} sebesar ${formatRupiah(p.grossAmount)} telah dibuat. ${describeSaldoApplied(p)}${p.dueDate ? `. Jatuh tempo ${formatJatuhTempo(p.dueDate)}` : ""}.`
+        : `Tagihan${nomorTagihan(p)} sebesar ${formatRupiah(p.amountDue)} telah dibuat${p.dueDate ? `. Jatuh tempo ${formatJatuhTempo(p.dueDate)}` : ""}.`,
     whatsapp: (p) =>
-      `Halo ${p.customerName},\n\nTagihan baru:${p.invoiceNumber ? `\nNomor: ${p.invoiceNumber}` : ""}\nJumlah: ${formatRupiah(p.amountDue)}${p.dueDate ? `\nJatuh tempo: ${formatJatuhTempo(p.dueDate)}` : ""}\n\nSilakan bayar sebelum jatuh tempo.`,
+      `Halo ${p.customerName},\n\nTagihan baru:${p.invoiceNumber ? `\nNomor: ${p.invoiceNumber}` : ""}${isSaldoApplied(p) ? `\nJumlah: ${formatRupiah(p.grossAmount)}\nSaldo kredit terpakai: ${formatRupiah(p.creditApplied)}\nSisa yang perlu dibayar: ${formatRupiah(p.amountDue)}` : `\nJumlah: ${formatRupiah(p.amountDue)}`}${p.dueDate ? `\nJatuh tempo: ${formatJatuhTempo(p.dueDate)}` : ""}\n\nSilakan bayar sebelum jatuh tempo.`,
     email: (p) => ({
-      subject: `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} - ${formatRupiah(p.amountDue)}`,
-      body: `Halo ${p.customerName},\n\nTagihan baru telah dibuat.\nJumlah: ${formatRupiah(p.amountDue)}${p.dueDate ? `\nJatuh tempo: ${formatJatuhTempo(p.dueDate)}` : ""}`,
+      subject: `Tagihan${nomorTagihan(p)} - ${formatRupiah(p.amountDue)}`,
+      body: `Halo ${p.customerName},\n\nTagihan baru telah dibuat.${isSaldoApplied(p) ? `\nJumlah: ${formatRupiah(p.grossAmount)}\nSaldo kredit terpakai: ${formatRupiah(p.creditApplied)}\nSisa yang perlu dibayar: ${formatRupiah(p.amountDue)}` : `\nJumlah: ${formatRupiah(p.amountDue)}`}${p.dueDate ? `\nJatuh tempo: ${formatJatuhTempo(p.dueDate)}` : ""}`,
     }),
     push: (p) =>
-      `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""}: ${formatRupiah(p.amountDue)}`,
+      isSaldoApplied(p)
+        ? `Tagihan${nomorTagihan(p)}: ${formatRupiah(p.amountDue)} setelah saldo kredit ${formatRupiah(p.creditApplied)}`
+        : `Tagihan${nomorTagihan(p)}: ${formatRupiah(p.amountDue)}`,
   },
   invoiceRepriced: buildInvoiceReplacedTemplate(
     (amount) => `diperbarui ke ${amount} mengikuti perubahan paket`,
@@ -177,15 +219,28 @@ export const BILLING_TEMPLATES = {
   invoicePaid: {
     title: "Pembayaran berhasil",
     inApp: (p) =>
-      `Pembayaran${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} sebesar ${formatRupiah(p.amountDue)} berhasil. Terima kasih.`,
+      `Pembayaran${nomorTagihan(p)} sebesar ${formatRupiah(paidAmount(p))} berhasil.${describeOtherCoverage(p)} Terima kasih.`,
     whatsapp: (p) =>
-      `Halo ${p.customerName},\n\nPembayaran Anda telah kami terima:${p.invoiceNumber ? `\n${p.invoiceNumber}` : ""} - ${formatRupiah(p.amountDue)}\n\nLayanan akan aktif segera. Terima kasih.`,
+      `Halo ${p.customerName},\n\nPembayaran Anda telah kami terima:${p.invoiceNumber ? `\n${p.invoiceNumber}` : ""} - ${formatRupiah(paidAmount(p))}${describeOtherCoverage(p) ? `\n${describeOtherCoverage(p).trim()}` : ""}\n\nLayanan akan aktif segera. Terima kasih.`,
     email: (p) => ({
-      subject: `Pembayaran${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} berhasil`,
-      body: `Halo ${p.customerName},\n\nPembayaran Anda sebesar ${formatRupiah(p.amountDue)} telah diterima.\n\nTerima kasih.`,
+      subject: `Pembayaran${nomorTagihan(p)} berhasil`,
+      body: `Halo ${p.customerName},\n\nPembayaran Anda sebesar ${formatRupiah(paidAmount(p))} telah diterima.${describeOtherCoverage(p)}\n\nTerima kasih.`,
     }),
-    push: (p) =>
-      `Pembayaran${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""} berhasil`,
+    push: (p) => `Pembayaran${nomorTagihan(p)} berhasil`,
+  },
+  // Tagihan yang seluruhnya tertutup saldo kredit: tidak ada uang yang
+  // dibayar, jadi bukan "Pembayaran Rp 0 berhasil".
+  invoicePaidWithSaldo: {
+    title: "Tagihan dibayar dengan saldo",
+    inApp: (p) =>
+      `Tagihan${nomorTagihan(p)} sebesar ${formatRupiah(p.saldoUsed)} lunas dibayar dengan saldo kredit. Tidak ada yang perlu dibayar.`,
+    whatsapp: (p) =>
+      `Halo ${p.customerName},\n\nTagihan${nomorTagihan(p)} sebesar ${formatRupiah(p.saldoUsed)} lunas dibayar dengan saldo kredit Anda. Tidak ada yang perlu dibayar.\n\nTerima kasih.`,
+    email: (p) => ({
+      subject: `Tagihan${nomorTagihan(p)} dibayar dengan saldo kredit`,
+      body: `Halo ${p.customerName},\n\nTagihan${nomorTagihan(p)} sebesar ${formatRupiah(p.saldoUsed)} lunas dibayar dengan saldo kredit Anda. Tidak ada yang perlu dibayar.\n\nTerima kasih.`,
+    }),
+    push: (p) => `Tagihan${nomorTagihan(p)} dibayar dengan saldo kredit`,
   },
   paymentExpired: {
     title: "Waktu pembayaran habis",
