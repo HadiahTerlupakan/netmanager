@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Penyapu checkout memegang kunci checkout pelanggan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: Ganti metode memindah pemesanan kupon checkout lama ke checkout baru sebelum baris payment barunya dibuat. Penyapu checkout kedaluwarsa (`expireStaleGatewayPayments`) yang menutup checkout lama di antara keduanya melepas pemesanan itu: checkout baru tercatat memegang pemesanan yang sudah dihapus, kuota kupon kembali, dan pemakaiannya tidak pernah tercatat walau checkout baru dibayar. Kini penutupan dan pelepasan kupon oleh penyapu berjalan per pelanggan di bawah kunci yang sama dengan pembuatan checkout (`checkout:<pelangganId>`); pertanyaan ke gateway tetap di luar kunci supaya pelanggan tidak menunggu gateway. Pelanggan yang sedang membuat checkout dilewati, payment-nya tetap PENDING dan ditanyakan lagi pada putaran berikutnya. Kunci dipindah ke `customer-checkout-lock.ts` beserta varian `tryWithCustomerCheckoutLock` yang tidak melempar 409.
+- **Files**: `modules/payment-gateway/services/abandoned-checkout.ts`, `modules/payment-gateway/services/customer-checkout-lock.ts`, `modules/payment-gateway/services/pending-checkout-replacement.ts`, `modules/payment-gateway/index.ts`, `tests/db/customer-payment-gateway.test.ts`, `tests/modules/finance/abandonedCheckout.test.ts`, `tests/payment-gateway/unit/customer-checkout-lock.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

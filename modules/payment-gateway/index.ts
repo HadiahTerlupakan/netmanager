@@ -60,8 +60,8 @@ export {
   closeReplacedCheckouts,
   findReplaceableCheckouts,
   handleInvoicePaidCheckoutCleanup,
-  withCustomerCheckoutLock,
 } from "./services/pending-checkout-replacement";
+export { withCustomerCheckoutLock } from "./services/customer-checkout-lock";
 export type { ReplaceableCheckouts } from "./services/pending-checkout-replacement";
 export {
   reconcileInvoiceCheckout,

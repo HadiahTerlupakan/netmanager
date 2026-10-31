@@ -7,6 +7,7 @@ import {
 import { couponService } from "@/modules/coupons";
 import { BillingEventDispatcher } from "@/modules/events";
 import { reconcileCheckout } from "./checkout-reconciliation";
+import { tryWithCustomerCheckoutLock } from "./customer-checkout-lock";
 
 const UNPAID_TERMINAL_STATUSES = new Set(["EXPIRED", "FAILED", "CANCELLED"]);
 // Gateway kadang mengirim notifikasi PAID sedikit setelah batas waktunya;
@@ -134,7 +135,8 @@ export async function restoreReleasedCoupons(payments: CouponHolder[]) {
  *
  * Gateway ditanya dulu per checkout: yang ternyata dibayar (callback-nya
  * hilang) dilunasi, dan yang statusnya tidak terbaca dibiarkan untuk putaran
- * berikutnya. Hanya checkout yang menurut gateway belum dibayar yang ditutup.
+ * berikutnya. Hanya checkout yang menurut gateway belum dibayar yang ditutup,
+ * per pelanggan di bawah kunci checkout-nya (expireCustomerCheckouts).
  */
 export async function expireStaleGatewayPayments(now = new Date()) {
   const stale = await prismaBillingAuth.payment.findMany({
@@ -161,20 +163,50 @@ export async function expireStaleGatewayPayments(now = new Date()) {
     take: SWEEP_BATCH_SIZE,
   });
   const unpaid = await keepUnpaidCheckouts(stale);
-  if (unpaid.length === 0) return 0;
 
-  // Hanya yang benar-benar berpindah ke EXPIRED yang kuponnya dilepas dan
-  // diberi tahu: callback bisa melunasinya di antara pertanyaan dan penutupan.
-  const expired = await prismaBillingAuth.payment.updateManyAndReturn({
-    where: { id: { in: unpaid.map((p) => p.id) }, gatewayStatus: "PENDING" },
-    data: { gatewayStatus: "EXPIRED" },
-    select: { id: true },
+  let expiredCount = 0;
+  for (const [customerId, payments] of groupBy(unpaid, (p) => p.pelangganId)) {
+    expiredCount += await expireCustomerCheckouts(customerId, payments);
+  }
+  return expiredCount;
+}
+
+/**
+ * Ganti metode memindah pemesanan kupon checkout lama ke checkout baru
+ * sebelum baris payment barunya ada. Menutup checkout lama di antara keduanya
+ * melepas kupon yang akan dipakai checkout baru, jadi penutupan dan pelepasan
+ * kupon memegang kunci yang sama dengan pembuatan checkout. Gateway ditanya
+ * sebelumnya, di luar kunci, agar pelanggan tidak tertahan menunggu gateway.
+ * Pelanggan yang sedang membuat checkout dilewati; payment-nya tetap PENDING
+ * dan ditanyakan lagi pada putaran berikutnya.
+ */
+async function expireCustomerCheckouts<T extends ExpiredPayment>(
+  customerId: string,
+  unpaid: T[],
+) {
+  const attempt = await tryWithCustomerCheckoutLock(customerId, async () => {
+    // Hanya yang benar-benar berpindah ke EXPIRED yang kuponnya dilepas dan
+    // diberi tahu: callback bisa melunasinya di antara pertanyaan dan
+    // penutupan, dan ganti metode menutupnya sebagai CANCELLED.
+    const expired = await prismaBillingAuth.payment.updateManyAndReturn({
+      where: { id: { in: unpaid.map((p) => p.id) }, gatewayStatus: "PENDING" },
+      data: { gatewayStatus: "EXPIRED" },
+      select: { id: true },
+    });
+    const expiredIds = new Set(expired.map((p) => p.id));
+    const closed = unpaid.filter((p) => expiredIds.has(p.id));
+    await releaseUnusedCheckoutCoupons(closed);
+    return closed;
   });
-  const expiredIds = new Set(expired.map((p) => p.id));
-  const closed = unpaid.filter((p) => expiredIds.has(p.id));
-  await releaseUnusedCheckoutCoupons(closed);
-  await notifyExpiredCheckouts(closed);
-  return expired.length;
+  if (!attempt.isAcquired) {
+    logger.info(
+      `[Checkout] Pelanggan ${customerId} sedang membuat checkout; penutupan checkout lamanya menunggu putaran berikutnya`,
+    );
+    return 0;
+  }
+
+  await notifyExpiredCheckouts(attempt.value);
+  return attempt.value.length;
 }
 
 async function keepUnpaidCheckouts<
@@ -198,6 +230,7 @@ async function keepUnpaidCheckouts<
 type ExpiredPayment = {
   id: string;
   checkoutId: string | null;
+  couponUsageId: string | null;
   pelangganId: string;
   invoiceId: string | null;
   amount: bigint;
@@ -205,15 +238,19 @@ type ExpiredPayment = {
   invoice: { dueDate: Date } | null;
 };
 
+function groupBy<T>(items: T[], keyOf: (item: T) => string) {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = keyOf(item);
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return groups;
+}
+
 function groupByCheckout<T extends { id: string; checkoutId: string | null }>(
   payments: T[],
 ) {
-  const checkouts = new Map<string, T[]>();
-  for (const payment of payments) {
-    const key = payment.checkoutId ?? payment.id;
-    checkouts.set(key, [...(checkouts.get(key) ?? []), payment]);
-  }
-  return checkouts;
+  return groupBy(payments, (payment) => payment.checkoutId ?? payment.id);
 }
 
 // Satu pemberitahuan per checkout, bukan per invoice di dalamnya.

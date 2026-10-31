@@ -18,6 +18,8 @@ const http = vi.hoisted(() => ({
   paidOrders: new Set<string>(),
   unreachable: false,
   rejectInquiry: false,
+  /** Dijalankan sekali, saat cek status berikutnya sebelum dijawab. */
+  duringStatusQuery: null as null | (() => Promise<void>),
 }));
 
 vi.mock(
@@ -56,6 +58,7 @@ vi.mock("@/modules/notification", () => ({
   notifyPackageUpgradeCancelled: vi.fn(async () => undefined),
 }));
 
+import { acquireLock } from "@/lib/distributed-lock";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import {
@@ -64,6 +67,7 @@ import {
 } from "@/lib/tenant-context";
 import { encryptApiKey } from "@/lib/utils/encryption";
 import { BillingEventDispatcher } from "@/modules/events";
+import { withCustomerCheckoutLock } from "@/modules/payment-gateway";
 import { expireStaleGatewayPayments } from "@/modules/payment-gateway/services/abandoned-checkout";
 import { getCustomerInvoicePaymentSnapshot } from "@/modules/finance/services/CustomerPaymentFinanceService";
 import { ManualPaymentAdminRouteService } from "@/modules/finance/services/ManualPaymentAdminRouteService";
@@ -115,7 +119,7 @@ function jsonResponse(body: unknown, status = 200) {
  * dikirim saat inquiry.
  */
 const inquiryAmounts = new Map<string, number>();
-function fakeDuitku(url: string, init: { body: string }) {
+async function fakeDuitku(url: string, init: { body: string }) {
   if (http.unreachable) throw new Error("connect ETIMEDOUT");
   const body = JSON.parse(init.body) as {
     merchantOrderId: string;
@@ -136,6 +140,9 @@ function fakeDuitku(url: string, init: { body: string }) {
     });
   }
   if (url.endsWith("/merchant/transactionStatus")) {
+    const interleaved = http.duringStatusQuery;
+    http.duringStatusQuery = null;
+    await interleaved?.();
     const amount = String(
       inquiryAmounts.get(body.merchantOrderId) ?? Number(PRICE),
     );
@@ -431,12 +438,37 @@ const statusQueries = () =>
     String(url).endsWith("/merchant/transactionStatus"),
   ).length;
 
+const sweep = () =>
+  runAsSystemContext("tes: penyapu checkout", () =>
+    expireStaleGatewayPayments(new Date()),
+  );
+
+const acquireAnyLock = async () => async (): Promise<void> => undefined;
+
+/**
+ * Kunci yang benar-benar eksklusif: yang sedang dipegang tidak bisa diambil
+ * lagi sampai dilepas. `acquireLock` asli menunggu sebentar lalu menyerah
+ * dengan null.
+ */
+function holdLocksExclusively() {
+  const held = new Set<string>();
+  vi.mocked(acquireLock).mockImplementation(async (key: string) => {
+    if (held.has(key)) return null;
+    held.add(key);
+    return async () => {
+      held.delete(key);
+    };
+  });
+}
+
 describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.mocked(acquireLock).mockImplementation(acquireAnyLock);
     http.paidOrders.clear();
     http.unreachable = false;
     http.rejectInquiry = false;
+    http.duringStatusQuery = null;
     inquiryAmounts.clear();
     http.fetch.mockImplementation(async (url: string, init: { body: string }) =>
       fakeDuitku(url, init),
@@ -531,11 +563,6 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
   });
 
   describe("penyapu checkout kedaluwarsa (M4)", () => {
-    const sweep = () =>
-      runAsSystemContext("tes: penyapu checkout", () =>
-        expireStaleGatewayPayments(new Date()),
-      );
-
     it("bertanya ke Duitku dulu dan melunasi checkout yang callback-nya hilang", async () => {
       const inv = await createInvoice("GWF-S1", PRICE);
       const va = await createOpenVa(
@@ -1268,6 +1295,72 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
         qrisHoldsCoupon: true,
         couponUsedCount: 1,
       });
+    });
+
+    // Ganti metode memindah pemesanan kupon VA lama ke QRIS sebelum baris
+    // QRIS ada. Penyapu yang menutup VA lama di antaranya dulu melepas kupon
+    // itu: QRIS memegang pemesanan yang sudah dihapus dan kuotanya kembali.
+    it("penyapu yang berjalan di tengah ganti metode tidak melepas kupon yang dipindah", async () => {
+      await createCoupon(1);
+      const inv = await createInvoice("GWF-G3", PRICE);
+      await payFromPortal([inv.id], "BC", COUPON_CODE);
+      await prismaBillingAuth.payment.updateMany({
+        where: { invoiceId: inv.id },
+        data: { expiresAt: new Date(Date.now() - 2 * HOUR_MS) },
+      });
+      holdLocksExclusively();
+      let expiredBySweep: number | undefined;
+      // Ganti metode menanyakan VA lama ke Duitku setelah membaca kuponnya
+      // dan sebelum membuat baris QRIS.
+      http.duringStatusQuery = async () => {
+        expiredBySweep = await sweep();
+      };
+
+      await payFromPortal([inv.id], "SP", COUPON_CODE);
+
+      const payments = await paymentsOf(inv.id);
+      const va = payments.find((p) => p.gatewayProvider === "BC")!;
+      const qris = payments.find((p) => p.gatewayProvider === "SP")!;
+      const qrisUsage = await prismaAuth.couponUsage.findFirst({
+        where: { id: qris.couponUsageId ?? "" },
+      });
+      expect({
+        expiredBySweep,
+        vaStatus: va.gatewayStatus,
+        qrisStatus: qris.gatewayStatus,
+        qrisUsageExists: qrisUsage !== null,
+        couponUsedCount: await couponUsedCount(),
+      }).toEqual({
+        expiredBySweep: 0,
+        vaStatus: "CANCELLED",
+        qrisStatus: "PENDING",
+        qrisUsageExists: true,
+        couponUsedCount: 1,
+      });
+    });
+
+    it("checkout yang dilewati penyapu karena pelanggan sibuk ditutup pada putaran berikutnya", async () => {
+      const inv = await createInvoice("GWF-G4", PRICE);
+      const va = await createOpenVa(
+        inv.id,
+        "PAY-GWFIX-G4",
+        new Date(Date.now() - 2 * HOUR_MS),
+      );
+      holdLocksExclusively();
+
+      // Pelanggan sedang membuat checkout di perangkat lain.
+      const whileBusy = await withCustomerCheckoutLock(PELANGGAN, sweep);
+      const afterwards = await sweep();
+
+      expect({
+        whileBusy,
+        afterwards,
+        status: (
+          await prismaBillingAuth.payment.findUniqueOrThrow({
+            where: { id: va.id },
+          })
+        ).gatewayStatus,
+      }).toEqual({ whileBusy: 0, afterwards: 1, status: "EXPIRED" });
     });
 
     it("metode baru yang ditolak Duitku membiarkan checkout lama tetap terbuka dengan kuponnya", async () => {

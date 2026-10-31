@@ -12,11 +12,14 @@ const palsu = vi.hoisted(() => ({
   restoreUsage: vi.fn(),
   onPaymentFailed: vi.fn(),
   reconcile: vi.fn(),
+  acquireLock: vi.fn(),
 }));
 
 vi.mock("@/modules/payment-gateway/services/checkout-reconciliation", () => ({
   reconcileCheckout: palsu.reconcile,
 }));
+
+vi.mock("@/lib/distributed-lock", () => ({ acquireLock: palsu.acquireLock }));
 
 vi.mock("@/modules/events", () => ({
   BillingEventDispatcher: { onPaymentFailed: palsu.onPaymentFailed },
@@ -80,6 +83,7 @@ describe("checkout gateway yang ditinggalkan", () => {
       outcome: "UNPAID",
       gatewayStatus: "EXPIRED",
     });
+    palsu.acquireLock.mockResolvedValue(async (): Promise<void> => undefined);
   });
 
   it("hanya payment PENDING yang lewat batas waktu + jeda yang ditutup", async () => {
@@ -140,6 +144,26 @@ describe("checkout gateway yang ditinggalkan", () => {
     expect(payments.updateManyAndReturn).not.toHaveBeenCalled();
     expect(palsu.onPaymentFailed).not.toHaveBeenCalled();
     expect(palsu.releaseUsage).not.toHaveBeenCalled();
+  });
+
+  // Ganti metode memindah pemesanan kupon checkout lama sebelum baris
+  // checkout barunya ada; menutup checkout lama di antaranya melepas kupon
+  // yang akan dipakai checkout baru.
+  it("checkout ditutup di bawah kunci checkout pelanggannya", async () => {
+    await expireStaleGatewayPayments(NOW);
+
+    expect(palsu.acquireLock.mock.calls).toEqual([
+      ["checkout:cust-1", expect.objectContaining({ ttlSeconds: 120 })],
+    ]);
+  });
+
+  it("pelanggan yang sedang membuat checkout dilewati sampai putaran berikutnya", async () => {
+    palsu.acquireLock.mockResolvedValue(null);
+
+    await expect(expireStaleGatewayPayments(NOW)).resolves.toBe(0);
+    expect(payments.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(palsu.releaseUsage).not.toHaveBeenCalled();
+    expect(palsu.onPaymentFailed).not.toHaveBeenCalled();
   });
 
   it("status yang tidak terbaca dibiarkan untuk putaran berikutnya", async () => {

@@ -26,11 +26,7 @@ const palsu = vi.hoisted(() => ({
   restoreUsage: vi.fn(),
   reconcile: vi.fn(),
   cancelPayment: vi.fn(),
-  acquireLock: vi.fn(),
-  release: vi.fn(),
 }));
-
-vi.mock("@/lib/distributed-lock", () => ({ acquireLock: palsu.acquireLock }));
 
 vi.mock("@/modules/coupons", () => ({
   couponService: {
@@ -61,7 +57,6 @@ import {
   closeReplacedCheckouts,
   findReplaceableCheckouts,
   handleInvoicePaidCheckoutCleanup,
-  withCustomerCheckoutLock,
 } from "@/modules/payment-gateway/services/pending-checkout-replacement";
 
 const VA_LAMA = {
@@ -223,42 +218,6 @@ describe("ganti metode pembayaran", () => {
     ).resolves.toBe(0);
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
     expect(palsu.reconcile).not.toHaveBeenCalled();
-  });
-
-  it("kunci checkout dipegang per pelanggan selama checkout dibuat", async () => {
-    palsu.acquireLock.mockResolvedValue(palsu.release);
-    const task = vi.fn().mockResolvedValue("checkout");
-
-    await expect(withCustomerCheckoutLock("cust-1", task)).resolves.toBe(
-      "checkout",
-    );
-
-    expect(palsu.acquireLock).toHaveBeenCalledWith(
-      "checkout:cust-1",
-      expect.objectContaining({ ttlSeconds: 120 }),
-    );
-    expect(palsu.release).toHaveBeenCalledTimes(1);
-  });
-
-  it("kunci dilepas walau pembuatan checkout gagal", async () => {
-    palsu.acquireLock.mockResolvedValue(palsu.release);
-
-    await expect(
-      withCustomerCheckoutLock("cust-1", () =>
-        Promise.reject(new Error("gateway")),
-      ),
-    ).rejects.toThrow("gateway");
-    expect(palsu.release).toHaveBeenCalledTimes(1);
-  });
-
-  it("kunci yang sedang dipegang perangkat lain menolak dengan 409", async () => {
-    palsu.acquireLock.mockResolvedValue(null);
-    const task = vi.fn();
-
-    await expect(
-      withCustomerCheckoutLock("cust-1", task),
-    ).rejects.toMatchObject({ status: 409 });
-    expect(task).not.toHaveBeenCalled();
   });
 
   // VA lama dibayar setelah pelanggan sudah membuat QRIS: QRIS-nya ditutup

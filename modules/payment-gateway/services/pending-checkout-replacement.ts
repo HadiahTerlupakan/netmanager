@@ -1,6 +1,5 @@
 import type { Job } from "bullmq";
 import { createRouteServiceError } from "@/lib/api/route-service-error";
-import { acquireLock } from "@/lib/distributed-lock";
 import { requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { logger } from "@/lib/logger";
@@ -17,14 +16,6 @@ const HTTP_CONFLICT = 409;
 // Cek status checkout lama di dalam kunci checkout. Status yang tidak
 // terbaca tidak menahan pelanggan, jadi batasnya cukup pendek.
 const PREVIOUS_CHECKOUT_STATUS_TIMEOUT_MS = 10_000;
-// Kunci harus hidup lebih lama dari kasus terburuk di dalamnya: cek status
-// checkout lama (paralel, 10 detik), pembuatan checkout baru (30 detik
-// termasuk percobaan ulang tanda tangan, DUITKU_REQUEST_TIMEOUT_MS),
-// pembatalan di gateway (paralel, satu batas waktu gateway), dan query
-// database. Kunci yang habis lebih dulu membuka pintu checkout ganda.
-const CHECKOUT_LOCK_TTL_SECONDS = 120;
-const CHECKOUT_BUSY_MESSAGE =
-  "Pembayaran Anda sedang diproses di perangkat lain. Coba lagi sebentar lagi.";
 const ALREADY_PAID_MESSAGE =
   "Pembayaran sebelumnya sudah diterima. Muat ulang halaman untuk melihat status tagihan terbaru.";
 const RECEIPT_UNDER_REVIEW_MESSAGE =
@@ -139,34 +130,6 @@ export async function closeReplacedCheckouts(
         : payment,
     ),
   );
-}
-
-/**
- * Satu checkout per pelanggan dalam satu waktu. Tanpa kunci, dua perangkat
- * yang menekan "Ganti Metode" bersamaan sama-sama menutup checkout lama lalu
- * masing-masing membuat checkout baru, sehingga ada dua VA/QR yang bisa
- * dibayar untuk satu tagihan.
- *
- * Kuncinya di Redis, bukan advisory lock database: permintaan yang menunggu
- * tidak boleh memegang koneksi pool, atau pool habis dan pemegang kunci tak
- * bisa menyelesaikan query-nya sendiri. Bila kunci tidak didapat (termasuk
- * Redis mati), permintaan ditolak, seperti perpanjangan pelanggan.
- */
-export async function withCustomerCheckoutLock<T>(
-  customerId: string,
-  task: () => Promise<T>,
-): Promise<T> {
-  const release = await acquireLock(`checkout:${customerId}`, {
-    ttlSeconds: CHECKOUT_LOCK_TTL_SECONDS,
-  });
-  if (!release) {
-    throw createRouteServiceError(CHECKOUT_BUSY_MESSAGE, HTTP_CONFLICT);
-  }
-  try {
-    return await task();
-  } finally {
-    await release();
-  }
 }
 
 /**
