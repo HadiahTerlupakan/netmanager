@@ -5,13 +5,26 @@ const base = {
   connectionReady: true,
   isOnline: true,
   connectionErrorLabel: "Status perangkat belum tersedia",
+  hasOutstandingInvoice: false,
 };
 
 describe("getServiceStatusLabel", () => {
   it("pelanggan isolir yang online tidak tampil sebagai aktif", () => {
     expect(
-      getServiceStatusLabel({ ...base, customerStatus: "ISOLIR" }),
+      getServiceStatusLabel({
+        ...base,
+        customerStatus: "ISOLIR",
+        hasOutstandingInvoice: true,
+      }),
     ).toEqual({ label: "Diisolir – bayar tagihan", healthy: false });
+  });
+
+  // Admin bisa mengisolir manual tanpa tunggakan; layar yang sama berkata
+  // "Tagihan lunas", jadi menyuruh bayar menyesatkan.
+  it("pelanggan isolir tanpa tunggakan diarahkan ke CS, bukan disuruh bayar", () => {
+    expect(
+      getServiceStatusLabel({ ...base, customerStatus: "ISOLIR" }),
+    ).toEqual({ label: "Diisolir – hubungi admin/CS", healthy: false });
   });
 
   it("pelanggan nonaktif ditandai nonaktif", () => {

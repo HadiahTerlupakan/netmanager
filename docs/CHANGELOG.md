@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Portal: tagihan kosong, navigasi riwayat, status selain AKTIF
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/(customer)/tagihan` | `app/(customer)/riwayat` | `app/(customer)/dashboard` | `app/(customer)/paket` | `app/(customer)/upgrade-paket` | `components/customer/BottomNav.tsx` | `lib/customer-portal-access.ts`
+- **Author**: agent
+- **Deskripsi**: (1) `/tagihan` tanpa tagihan terbuka masih menampilkan penanda "— akhir daftar —" di bawah "Tidak ada tagihan yang perlu dibayar"; sentinel infinite scroll kini hanya dipasang bila daftarnya berisi. (2) `/riwayat` memasang navigasi bawahnya sendiri (Beranda/Paket/Riwayat/Akun) di atas navigasi portal; navigasi itu dihapus sehingga yang tampil navigasi bersama dari layout, dengan tab Tagihan aktif di `/riwayat` (`relatedPaths`) dan tab aktif ditandai `aria-current="page"`. (3a) Dashboard menulis "Diisolir – bayar tagihan" walau tidak ada tunggakan (isolir manual oleh admin, layar yang sama berkata "Tagihan lunas"); kini ajakan bayar hanya muncul bila ringkasan tagihan menunjukkan tunggakan, selain itu "Diisolir – hubungi admin/CS". (3b) Halaman Paket menulis "Non-Aktif" untuk semua status selain AKTIF; kini label status sebenarnya dari label `StatusBadge` yang sudah ada (diekspor sebagai `getStatusLabel`): Aktif/Isolir/Nonaktif/Maintenance. (3c) Tombol "Upgrade Speed" di `/paket` dan "Ajukan Upgrade" di `/upgrade-paket` kini dinonaktifkan beserta alasannya bila status bukan AKTIF, dan kartu rekomendasi upgrade disembunyikan; aturannya `canRequestPackageUpgrade` di `lib/customer-portal-access.ts`. Pemeriksaan di server (`CustomerPackageUpgradeService`) tidak diubah.
+- **Files**: `app/(customer)/tagihan/page.tsx`, `app/(customer)/riwayat/page.tsx`, `components/customer/BottomNav.tsx`, `app/(customer)/dashboard/service-status.ts`, `app/(customer)/dashboard/CustomerDashboardClient.tsx`, `app/(customer)/paket/page.tsx`, `app/(customer)/upgrade-paket/page.tsx`, `components/common/StatusBadge.tsx`, `lib/customer-portal-access.ts`, `tests/app/customer-tagihan-unpaid-only.test.tsx`, `tests/app/customer-riwayat-status.test.tsx`, `tests/components/customer-bottom-nav.test.tsx`, `tests/app/customer-dashboard-service-status.test.ts`, `tests/app/customer-dashboard-client.test.tsx`, `tests/app/customer-paket-page.test.tsx`, `tests/app/customer-upgrade-paket-status.test.tsx`, `tests/lib/customer-portal-access.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Portal: halaman bayar dipisah dari riwayat tagihan
 
 - **Tipe**: [CHANGED] | [FIXED]

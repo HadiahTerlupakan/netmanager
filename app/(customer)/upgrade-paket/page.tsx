@@ -6,6 +6,10 @@ import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { useApi } from "@/lib/hooks/useApi";
 import { Button } from "@/components/ui/Button";
 import {
+  PACKAGE_UPGRADE_UNAVAILABLE_MESSAGE,
+  canRequestPackageUpgrade,
+} from "@/lib/customer-portal-access";
+import {
   MdArrowBack,
   MdCalendarMonth,
   MdSpeed,
@@ -137,6 +141,7 @@ export default function CustomerUpgradePackagePage() {
   );
 
   const pendingUpgrade = data?.pendingUpgrade ?? null;
+  const canUpgrade = canRequestPackageUpgrade(data?.subscription?.status);
 
   const cancelUpgradeRequest = async () => {
     if (isSubmitting) return;
@@ -412,10 +417,15 @@ export default function CustomerUpgradePackagePage() {
                   {submitError}
                 </p>
               ) : null}
+              {canUpgrade ? null : (
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  {PACKAGE_UPGRADE_UNAVAILABLE_MESSAGE}
+                </p>
+              )}
               <Button
                 className="w-full"
                 type="button"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !canUpgrade}
                 onClick={submitUpgradeRequest}
               >
                 <span className="truncate">

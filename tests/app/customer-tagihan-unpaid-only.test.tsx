@@ -16,10 +16,6 @@ vi.mock("@/components/customer/CustomerNotificationBell", () => ({
   CustomerNotificationBell: (): null => null,
 }));
 
-vi.mock("@/components/ui/InfiniteScrollSentinel", () => ({
-  InfiniteScrollSentinel: (): null => null,
-}));
-
 const invoiceList = vi.hoisted(() => ({
   items: [] as Array<Record<string, unknown>>,
   requestedUrl: null as string | null,
@@ -128,6 +124,7 @@ describe("halaman tagihan pelanggan: hanya tagihan yang belum dibayar", () => {
     expect(container.textContent).not.toContain("INV-BATAL");
     expect(container.textContent).not.toContain("Unduh Semua");
     expect(linkRiwayat()?.getAttribute("href")).toBe("/riwayat");
+    expect(container.textContent).toContain("akhir daftar");
   });
 
   it("meminta server hanya tagihan terbuka, agar tidak ada yang tertinggal di halaman berikutnya", async () => {
@@ -152,5 +149,17 @@ describe("halaman tagihan pelanggan: hanya tagihan yang belum dibayar", () => {
     );
     expect(container.textContent).not.toContain("INV-LUNAS");
     expect(linkRiwayat()?.getAttribute("href")).toBe("/riwayat");
+  });
+
+  // Penanda akhir daftar di bawah keadaan kosong terbaca seperti daftar yang
+  // gagal dimuat.
+  it("tanpa tagihan terbuka tidak menampilkan penanda akhir daftar", async () => {
+    invoiceList.items = [];
+    await render();
+
+    expect(container.textContent).toContain(
+      "Tidak ada tagihan yang perlu dibayar",
+    );
+    expect(container.textContent).not.toContain("akhir daftar");
   });
 });

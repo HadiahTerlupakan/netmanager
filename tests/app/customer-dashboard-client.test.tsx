@@ -1,5 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("@/components/customer/CustomerNotificationBell", () => ({
+  CustomerNotificationBell: (): null => null,
+}));
+
 import { DashboardHttpError } from "@/lib/dashboard/fetchDashboardResource";
 import {
   CustomerDashboardContent,
@@ -65,5 +69,53 @@ describe("CustomerDashboardClient failure state", () => {
     expect(markup).toContain("Sesi pelanggan sudah berakhir");
     expect(markup).toContain('href="/login"');
     expect(markup).toContain("Kembali ke login");
+  });
+});
+
+function buildIsolatedSummary(outstandingCount: number) {
+  return {
+    profile: {
+      state: "ready" as const,
+      data: { nama: "Pelanggan Satu", status: "ISOLIR", paket: null as null },
+    },
+    connection: {
+      state: "ready" as const,
+      data: { isOnline: true, ipAddress: "10.255.0.2" },
+    },
+    billing: {
+      state: "ready" as const,
+      data: {
+        outstandingCount,
+        outstandingAmount: outstandingCount * 150000,
+        nearestDueDate: outstandingCount > 0 ? "2026-11-10" : null,
+        hasOverdue: outstandingCount > 0,
+      },
+    },
+  };
+}
+
+describe("CustomerDashboardClient status isolir", () => {
+  function renderWith(outstandingCount: number) {
+    return renderToStaticMarkup(
+      <CustomerDashboardContent
+        customerId="customer-1"
+        customerName="Pelanggan Satu"
+        summary={buildIsolatedSummary(outstandingCount)}
+        isLoading={false}
+        dashboardError={null}
+      />,
+    );
+  }
+
+  it("tidak menyuruh bayar saat tagihan sudah lunas", () => {
+    const markup = renderWith(0);
+
+    expect(markup).toContain("Tagihan lunas");
+    expect(markup).toContain("Diisolir – hubungi admin/CS");
+    expect(markup).not.toContain("bayar tagihan");
+  });
+
+  it("tetap meminta bayar saat masih ada tunggakan", () => {
+    expect(renderWith(1)).toContain("Diisolir – bayar tagihan");
   });
 });

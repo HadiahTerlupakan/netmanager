@@ -119,4 +119,54 @@ describe("halaman Detail Layanan pelanggan", () => {
     expect(teks).toContain("Upgrade ke Home 20M?");
     expect(teks).toContain("Tambah Rp 50.000/bln");
   });
+
+  function renderWithStatus(status: string) {
+    respons["/api/customer/profile"] = {
+      profile: { ...profilTesLab, status },
+    };
+    respons["/api/customer/package"] = {
+      upgradeOptions: [opsiUpgrade("a", "Home 20M", 50000)],
+    };
+    return render();
+  }
+
+  function upgradeLink() {
+    return container.querySelector('a[href="/upgrade-paket"]');
+  }
+
+  function upgradeButton() {
+    return Array.from(container.querySelectorAll("button")).find((button) =>
+      button.textContent?.includes("Upgrade Speed"),
+    );
+  }
+
+  // Dulu setiap status selain AKTIF tampil sebagai "Non-Aktif".
+  it.each([
+    ["AKTIF", "Aktif"],
+    ["ISOLIR", "Isolir"],
+    ["NONAKTIF", "Nonaktif"],
+    ["MAINTENANCE", "Maintenance"],
+  ])("menampilkan label status %s apa adanya", (status, label) => {
+    renderWithStatus(status);
+    const badge = container.querySelector("[data-testid=status-layanan]");
+    expect(badge?.textContent).toBe(label);
+  });
+
+  it("menawarkan upgrade saat layanan aktif", () => {
+    renderWithStatus("AKTIF");
+    expect(upgradeLink()).not.toBeNull();
+    expect(upgradeButton()?.disabled).toBe(false);
+  });
+
+  // Server menolak upgrade selain AKTIF; tombol yang bisa diklik hanya
+  // berujung pesan penolakan.
+  it("menonaktifkan upgrade beserta alasannya saat layanan tidak aktif", () => {
+    const teks = renderWithStatus("ISOLIR");
+    expect(upgradeLink()).toBeNull();
+    expect(upgradeButton()?.disabled).toBe(true);
+    expect(teks).toContain(
+      "Upgrade paket hanya bisa diajukan saat layanan aktif",
+    );
+    expect(teks).not.toContain("Rekomendasi untukmu");
+  });
 });

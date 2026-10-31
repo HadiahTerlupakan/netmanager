@@ -14,8 +14,17 @@ import {
     HiCube,
     HiUser
 } from 'react-icons/hi2'
+import type { IconType } from 'react-icons'
 
-const navItems = [
+type NavItem = {
+    name: string
+    href: string
+    relatedPaths?: string[]
+    icon: IconType
+    activeIcon: IconType
+}
+
+const navItems: NavItem[] = [
     {
         name: 'Beranda',
         href: '/dashboard',
@@ -31,6 +40,8 @@ const navItems = [
     {
         name: 'Tagihan',
         href: '/tagihan',
+        // /riwayat dibuka dari tautan di /tagihan dan tidak punya tab sendiri.
+        relatedPaths: ['/riwayat'],
         icon: HiOutlineDocumentText,
         activeIcon: HiDocumentText,
     },
@@ -48,6 +59,17 @@ const navItems = [
     },
 ]
 
+function isPathUnder(pathname: string, path: string) {
+    return pathname === path || pathname.startsWith(path + '/')
+}
+
+/** Tab aktif bila halaman ini miliknya atau termasuk halaman terkaitnya. */
+function isNavItemActive(item: NavItem, pathname: string) {
+    return [item.href, ...(item.relatedPaths ?? [])].some((path) =>
+        isPathUnder(pathname, path),
+    )
+}
+
 export default function BottomNav() {
     const pathname = usePathname()
 
@@ -61,13 +83,14 @@ export default function BottomNav() {
             {/* Navigation content */}
             <div className="relative flex items-center justify-around h-20 max-w-lg mx-auto px-4 pb-safe">
                 {navItems.map((item) => {
-                    const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                    const isActive = isNavItemActive(item, pathname)
                     const Icon = isActive ? item.activeIcon : item.icon
 
                     return (
                         <Link
                             key={item.name}
                             href={item.href}
+                            aria-current={isActive ? 'page' : undefined}
                             className={`relative flex flex-col items-center justify-center flex-1 py-3 transition-all duration-200 ${isActive
                                 ? 'text-teal-600 dark:text-teal-400'
                                 : 'text-slate-400 dark:text-slate-500 active:scale-95'

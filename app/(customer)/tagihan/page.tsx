@@ -638,11 +638,16 @@ export default function CustomerInvoicesPage() {
           )}
 
           <UnpaidInvoiceList invoices={pendingInvoices} />
-          <InfiniteScrollSentinel
-            onLoadMore={fetchNextInvoices}
-            hasNextPage={hasNextInvoices}
-            isFetchingNextPage={isFetchingNextInvoices}
-          />
+          {/* Server hanya mengirim tagihan terbuka, jadi daftar kosong berarti
+              tidak ada halaman berikutnya; penanda "akhir daftar" di bawah
+              keadaan kosong hanya membingungkan. */}
+          {pendingInvoices.length > 0 && (
+            <InfiniteScrollSentinel
+              onLoadMore={fetchNextInvoices}
+              hasNextPage={hasNextInvoices}
+              isFetchingNextPage={isFetchingNextInvoices}
+            />
+          )}
         </div>
       </div>
 

@@ -17,6 +17,11 @@ import {
 } from "react-icons/md";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { getStatusLabel } from "@/components/common/StatusBadge";
+import {
+  PACKAGE_UPGRADE_UNAVAILABLE_MESSAGE,
+  canRequestPackageUpgrade,
+} from "@/lib/customer-portal-access";
 import { useApi } from "@/lib/hooks/useApi";
 import {
   classifyIpAddress,
@@ -88,6 +93,7 @@ export default function CustomerPaketPage() {
   const { profile } = data;
   const { paket } = profile;
   const isAktif = profile.status === "AKTIF";
+  const canUpgrade = canRequestPackageUpgrade(profile.status);
   const sessionIp = usage?.connection?.isOnline
     ? usage.connection.ipAddress
     : null;
@@ -136,6 +142,7 @@ export default function CustomerPaketPage() {
               <div className="absolute bottom-4 left-4 z-10">
                 <div className="flex items-center gap-2 mb-2">
                   <span
+                    data-testid="status-layanan"
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
                       isAktif
                         ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
@@ -145,7 +152,7 @@ export default function CustomerPaketPage() {
                     <span
                       className={`size-1.5 rounded-full ${isAktif ? "bg-green-600 dark:bg-green-400" : "bg-red-600 dark:bg-red-400"}`}
                     ></span>
-                    {profile.status === "AKTIF" ? "Aktif" : "Non-Aktif"}
+                    {getStatusLabel(profile.status)}
                   </span>
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
@@ -267,19 +274,31 @@ export default function CustomerPaketPage() {
             </div>
           </div>
 
-          {upgradeCandidate && (
+          {canUpgrade && upgradeCandidate && (
             <UpgradePromoCard candidate={upgradeCandidate} />
           )}
         </main>
 
         {/* Fixed Bottom Actions */}
         <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white dark:bg-[#1a2632] p-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 z-40 pb-6">
-          <Link href="/upgrade-paket" className="w-full">
-            <Button className="w-full">
-              <MdSpeed className="mr-2 text-[20px]" />
-              <span>Upgrade Speed</span>
-            </Button>
-          </Link>
+          {canUpgrade ? (
+            <Link href="/upgrade-paket" className="w-full">
+              <Button className="w-full">
+                <MdSpeed className="mr-2 text-[20px]" />
+                <span>Upgrade Speed</span>
+              </Button>
+            </Link>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <Button className="w-full" disabled>
+                <MdSpeed className="mr-2 text-[20px]" />
+                <span>Upgrade Speed</span>
+              </Button>
+              <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+                {PACKAGE_UPGRADE_UNAVAILABLE_MESSAGE}
+              </p>
+            </div>
+          )}
           <Link href="/dukungan" className="w-full">
             <Button variant="secondary" className="w-full">
               <MdSupportAgent className="mr-2 text-[20px]" />

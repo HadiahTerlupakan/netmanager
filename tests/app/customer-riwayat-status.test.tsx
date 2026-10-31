@@ -103,4 +103,11 @@ describe("halaman riwayat pelanggan: status tagihan", () => {
     expect(container.textContent).toContain("INV-SEBAGIAN");
     expect(container.textContent).not.toContain("INV-BATAL");
   });
+
+  // Navigasi bawah berasal dari layout portal; navigasi buatan halaman ini
+  // dulu menimpanya dengan menu yang berbeda dari halaman lain.
+  it("tidak memasang navigasi bawah sendiri", () => {
+    expect(container.querySelector("nav")).toBeNull();
+    expect(container.textContent).not.toContain("Akun");
+  });
 });

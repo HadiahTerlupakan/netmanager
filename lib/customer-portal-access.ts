@@ -9,3 +9,16 @@
 export function canUseCustomerPortal(status: string | null | undefined) {
   return Boolean(status) && status !== "DISMANTLE";
 }
+
+/**
+ * Pelanggan hanya bisa mengajukan upgrade paket saat layanannya AKTIF.
+ * Cerminan aturan `CustomerPackageUpgradeService` di server, dipakai portal
+ * untuk menutup tombol upgrade sebelum pelanggan membentur penolakan server.
+ */
+export function canRequestPackageUpgrade(status: string | null | undefined) {
+  return status === "AKTIF";
+}
+
+/** Alasan yang ditampilkan di samping tombol upgrade yang dinonaktifkan. */
+export const PACKAGE_UPGRADE_UNAVAILABLE_MESSAGE =
+  "Upgrade paket hanya bisa diajukan saat layanan aktif. Hubungi CS bila perlu bantuan.";

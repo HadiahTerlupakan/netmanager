@@ -54,6 +54,11 @@ const statusConfig: Record<'AKTIF' | 'NONAKTIF' | 'MAINTENANCE' | 'ISOLIR' | 'DI
   },
 }
 
+/** Label status untuk ditampilkan tanpa badge-nya, mis. di portal pelanggan. */
+export function getStatusLabel(status: string): string {
+  return statusConfig[status as StatusBadgeProps['status']]?.label ?? status
+}
+
 export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
   const config = statusConfig[status]
 

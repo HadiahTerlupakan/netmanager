@@ -191,11 +191,15 @@ export function CustomerDashboardContent({
     connectionSection?.state === "ready"
       ? (connectionSection.data?.isOnline ?? false)
       : false;
+  const hasOutstandingInvoice =
+    billingSection?.state === "ready" &&
+    (billingSection.data?.outstandingCount ?? 0) > 0;
   const serviceStatus = getServiceStatusLabel({
     customerStatus: profileSection?.data?.status,
     connectionReady: connectionSection?.state === "ready",
     isOnline,
     connectionErrorLabel: CONNECTION_ERROR_LABEL,
+    hasOutstandingInvoice,
   });
 
   if (isLoading) {

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
@@ -16,10 +15,6 @@ import {
   MdReceiptLong,
   MdRouter,
   MdErrorOutline,
-  MdHome,
-  MdDataUsage,
-  MdHistory,
-  MdPerson,
 } from "react-icons/md";
 
 interface Invoice {
@@ -284,49 +279,6 @@ export default function CustomerHistoryPage() {
             <p>Menampilkan semua transaksi terbaru</p>
           </div>
         </main>
-
-        {/* Bottom Navigation */}
-        <nav className="sticky bottom-0 z-50 bg-white dark:bg-[#1C2630] border-t border-gray-100 dark:border-gray-800 pb-safe">
-          <div className="flex justify-around items-center h-16 px-2">
-            <Link
-              href="/dashboard"
-              className="flex flex-col items-center justify-center w-full h-full gap-1 group"
-            >
-              <MdHome className="text-[#617589] dark:text-gray-400 group-hover:text-[#0d9488] transition-colors text-[24px]" />
-              <span className="text-[10px] font-medium text-[#617589] dark:text-gray-400 group-hover:text-[#0d9488] transition-colors">
-                Beranda
-              </span>
-            </Link>
-            <Link
-              href="/paket"
-              className="flex flex-col items-center justify-center w-full h-full gap-1 group"
-            >
-              <MdDataUsage className="text-[#617589] dark:text-gray-400 group-hover:text-[#0d9488] transition-colors text-[24px]" />
-              <span className="text-[10px] font-medium text-[#617589] dark:text-gray-400 group-hover:text-[#0d9488] transition-colors">
-                Paket
-              </span>
-            </Link>
-            <Link
-              href="/riwayat"
-              className="flex flex-col items-center justify-center w-full h-full gap-1"
-            >
-              <MdHistory className="text-[#0d9488] text-[24px]" />
-              <span className="text-[10px] font-medium text-[#0d9488]">
-                Riwayat
-              </span>
-            </Link>
-            <Link
-              href="/profil"
-              className="flex flex-col items-center justify-center w-full h-full gap-1 group"
-            >
-              <MdPerson className="text-[#617589] dark:text-gray-400 group-hover:text-[#0d9488] transition-colors text-[24px]" />
-              <span className="text-[10px] font-medium text-[#617589] dark:text-gray-400 group-hover:text-[#0d9488] transition-colors">
-                Akun
-              </span>
-            </Link>
-          </div>
-          <div className="h-4 w-full bg-white dark:bg-[#1C2630]"></div>
-        </nav>
       </div>
     </div>
   );
