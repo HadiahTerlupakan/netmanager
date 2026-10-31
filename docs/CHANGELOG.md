@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Index Payment.receiptUrl untuk penjaga bukti transfer lama
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/billing.prisma` | `prisma/billing_migrations`
+- **Author**: agent
+- **Deskripsi**: Penjaga `/receipts/*` mencari payment pemilik berkas lewat `receiptUrl` di setiap permintaan staf; tanpa index, setiap bukti yang dibuka memindai seluruh tabel Payment. Ditambahkan `@@index([receiptUrl])` (`Payment_receiptUrl_idx`, `CREATE INDEX IF NOT EXISTS`) beserta client billing yang dibuat ulang. Penjaga migrasi billing kini juga memeriksa setiap `@@index` di skema punya `CREATE INDEX` di migrasinya, seperti tabel dan unik. Sudah diterapkan ke billing_test.
+- **Files**: `prisma/billing.prisma`, `prisma/billing_migrations/20261101170000_add_payment_receipt_url_index/migration.sql`, `prisma/generated/billing/*`, `tests/ci/billing-migration-coverage.test.ts`
+- **Migration**: `20261101170000_add_payment_receipt_url_index` (database billing)
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Berkas upload privat tidak disimpan cache bersama
 
 - **Tipe**: [SECURITY]

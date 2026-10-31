@@ -153,6 +153,9 @@ model Payment {
   @@index([tenantId])
   @@index([accountId])
   @@index([checkoutId])
+  // Penjaga bukti transfer lama (`/receipts/*`) mencari payment pemilik
+  // berkas lewat kolom ini di setiap permintaan staf.
+  @@index([receiptUrl])
 }
 
 model PaymentGatewayConfig {

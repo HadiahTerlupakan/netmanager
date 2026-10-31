@@ -23,6 +23,16 @@ const models = [...schema.matchAll(/^model (\w+) \{([\s\S]*?)^\}/gm)].map(
   ([, name, body]) => ({ name, body }),
 );
 
+function indexNames(model: { name: string; body: string }) {
+  return [...model.body.matchAll(/@@index\(\[([^\]]+)\]/g)].map(
+    ([, cols]) =>
+      `${model.name}_${cols
+        .split(",")
+        .map((c) => c.trim())
+        .join("_")}_idx`,
+  );
+}
+
 function uniqueIndexNames(model: { name: string; body: string }) {
   const composite = [...model.body.matchAll(/@@unique\(\[([^\]]+)\]/g)].map(
     ([, cols]) =>
@@ -46,6 +56,15 @@ describe("migrasi billing mencakup skema", () => {
 
   it.each(models.flatMap((m) => uniqueIndexNames(m).map((i) => [i])))(
     "unik %s dibuat migrasi",
+    (indexName) => {
+      expect(migrations).toContain(`"${indexName}"`);
+    },
+  );
+
+  // Index yang hanya ada di skema membuat query yang mengandalkannya
+  // memindai seluruh tabel di produksi.
+  it.each(models.flatMap((m) => indexNames(m).map((i) => [i])))(
+    "index %s dibuat migrasi",
     (indexName) => {
       expect(migrations).toContain(`"${indexName}"`);
     },
