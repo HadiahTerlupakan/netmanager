@@ -2,37 +2,64 @@ import { logger } from "@/lib/logger";
 import { getAppUrl } from "@/lib/utils/env";
 import { getCustomerPortalBillingUrl } from "@/lib/utils/portal-url";
 import { fetchWithTimeout } from "./fetch-with-timeout";
-import type {
-  CreatePaymentParams,
-  PaymentProvider,
-  PaymentResult,
-  ProviderConfig,
-  TestResult,
-  TransactionStatus,
-  WebhookResult,
+import {
+  GatewayTransactionNotFoundError,
+  type CreatePaymentParams,
+  type PaymentProvider,
+  type PaymentResult,
+  type ProviderConfig,
+  type StatusCheckOptions,
+  type TestResult,
+  type TransactionStatus,
+  type WebhookResult,
 } from "../provider-interface";
 import {
   buildDuitkuTestResult,
   buildDuitkuWebhookResult,
   createDuitkuInvoiceSignatures,
+  createDuitkuPaymentMethodSignatures,
   createDuitkuStatusSignatures,
   createDuitkuWebhookSignatures,
+  formatDuitkuDatetime,
   mapDuitkuStatus,
 } from "./duitku-provider-helpers";
+import { resolveDuitkuExpiryMinutes } from "./duitku-expiry";
 import { timingSafeCompare } from "./signature-compare.helpers";
 
 // Batas panjang customerVaName di API Duitku.
 const VA_NAME_MAX_LENGTH = 20;
+const MINUTE_MS = 60 * 1000;
+// Satu panggilan Duitku, termasuk percobaan ulang tanda tangan lama, selesai
+// dalam batas ini; kunci checkout menghitung waktunya dari sini.
+export const DUITKU_REQUEST_TIMEOUT_MS = 30_000;
+// Daftar kanal dibaca saat pelanggan membuka pilihan metode: Duitku yang
+// lambat tidak boleh menahan halaman, katalog statis dipakai sebagai gantinya.
+const PAYMENT_METHOD_LIST_TIMEOUT_MS = 5_000;
+const KNOWN_STATUS_CODES = new Set(["00", "01", "02", "03"]);
 
 type DuitkuInquiryResponse = {
   statusCode?: string;
   statusMessage?: string;
+  responseCode?: string;
+  responseMessage?: string;
   Message?: string;
   paymentUrl?: string;
   vaNumber?: string;
   qrString?: string;
   reference?: string;
   raw?: string;
+};
+
+type DuitkuStatusResponse = {
+  settlementDate?: string;
+  paymentCode?: string;
+  paymentMethod?: string;
+  amount?: number | string;
+  fee?: number | string;
+};
+
+type DuitkuPaymentMethodResponse = {
+  paymentFee?: Array<{ paymentMethod?: string }>;
 };
 
 // Error Duitku tidak selalu JSON berisi statusMessage: penolakan (misalnya
@@ -52,24 +79,38 @@ async function readDuitkuResponse<T>(response: {
 const WRONG_SIGNATURE = /wrong signature/i;
 const TRANSACTION_NOT_FOUND = /transaction not found/i;
 
-function isWrongSignature(result: DuitkuInquiryResponse) {
-  return WRONG_SIGNATURE.test(
-    result.statusMessage || result.Message || result.raw || "",
+function describeResult(result: DuitkuInquiryResponse) {
+  return (
+    result.statusMessage ||
+    result.responseMessage ||
+    result.Message ||
+    result.raw?.slice(0, 200)
   );
 }
 
-/** POST ke Duitku, mengulang dengan tanda tangan berikutnya bila ditolak. */
+function isWrongSignature(result: DuitkuInquiryResponse) {
+  return WRONG_SIGNATURE.test(describeResult(result) || "");
+}
+
+/**
+ * POST ke Duitku, mengulang dengan tanda tangan berikutnya bila ditolak.
+ * Seluruh percobaan berbagi satu batas waktu: percobaan ulang hanya mendapat
+ * sisanya.
+ */
 async function postSigned<T>(
   url: string,
   body: Record<string, unknown>,
   signatures: string[],
+  timeoutMs = DUITKU_REQUEST_TIMEOUT_MS,
 ) {
+  const deadline = Date.now() + timeoutMs;
   let attempt!: { status: number; result: T & DuitkuInquiryResponse };
   for (const signature of signatures) {
     const response = await fetchWithTimeout(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, signature }),
+      timeoutMs: Math.max(deadline - Date.now(), 0),
     });
     attempt = {
       status: response.status,
@@ -81,9 +122,11 @@ async function postSigned<T>(
 }
 
 function describeDuitkuError(status: number, result: DuitkuInquiryResponse) {
-  const message =
-    result.statusMessage || result.Message || result.raw?.slice(0, 200);
-  return `Duitku HTTP ${status}: ${message || "tanpa pesan"}`;
+  return `Duitku HTTP ${status}: ${describeResult(result) || "tanpa pesan"}`;
+}
+
+function toOptionalNumber(value: number | string | undefined) {
+  return value === undefined ? undefined : Number(value);
 }
 
 export class DuitkuProvider implements PaymentProvider {
@@ -106,11 +149,18 @@ export class DuitkuProvider implements PaymentProvider {
       const merchantCode = config.merchantId || "";
       const merchantOrderId = params.orderId;
       const paymentAmount = params.amount;
-      const expiryHours = params.expiryHours || 24;
+      const paymentMethod = params.paymentMethods?.[0] || "VC";
+      const expiryMinutes = resolveDuitkuExpiryMinutes(
+        paymentMethod,
+        params.expiryHours ? params.expiryHours * 60 : undefined,
+      );
+      // Diambil sebelum permintaan: Duitku mulai menghitung saat transaksinya
+      // dibuat, jadi hitung mundur portal tidak boleh berakhir lebih lambat.
+      const issuedAt = Date.now();
       const requestBody = {
         merchantCode,
         paymentAmount,
-        paymentMethod: params.paymentMethods?.[0] || "VC",
+        paymentMethod,
         merchantOrderId,
         productDetails: params.description,
         merchantUserInfo: params.customerName,
@@ -118,8 +168,8 @@ export class DuitkuProvider implements PaymentProvider {
         email: params.customerEmail,
         phoneNumber: params.customerPhone,
         callbackUrl: `${getAppUrl()}/api/webhooks/duitku`,
-        returnUrl: getCustomerPortalBillingUrl(),
-        expiryPeriod: expiryHours * 60,
+        returnUrl: params.returnUrl ?? getCustomerPortalBillingUrl(),
+        expiryPeriod: expiryMinutes,
       };
       const { status, result } = await postSigned<DuitkuInquiryResponse>(
         // createinvoice adalah endpoint API POP di host lain (dengan header
@@ -147,7 +197,7 @@ export class DuitkuProvider implements PaymentProvider {
         vaNumber: result.vaNumber,
         qrString: result.qrString,
         transactionId: result.reference,
-        expiresAt: new Date(Date.now() + expiryHours * 60 * 60 * 1000),
+        expiresAt: new Date(issuedAt + expiryMinutes * MINUTE_MS),
       };
     } catch (error: unknown) {
       logger.error("Duitku createPayment error:", error);
@@ -159,27 +209,37 @@ export class DuitkuProvider implements PaymentProvider {
     }
   }
 
-  /** Mengecek status transaksi Duitku. */
-  async checkStatus(orderId: string): Promise<TransactionStatus> {
+  /**
+   * Mengecek status transaksi Duitku. Jawaban tanpa status yang dikenal
+   * (order tidak ditemukan, merchant salah, galat server) dilempar, bukan
+   * dianggap gagal: pemanggil tidak boleh menutup checkout atas dasar itu.
+   */
+  async checkStatus(
+    orderId: string,
+    options: StatusCheckOptions = {},
+  ): Promise<TransactionStatus> {
     try {
       const config = this.requireConfig();
       const merchantCode = config.merchantId || "";
-      const { result } = await postSigned<{
-        settlementDate?: string;
-        paymentCode?: string;
-        paymentMethod?: string;
-        amount?: number;
-        fee?: string;
-      }>(
-        `${this.baseUrl}/merchant/transactionStatus`,
-        { merchantCode, merchantOrderId: orderId },
-        createDuitkuStatusSignatures({
-          merchantCode,
-          merchantOrderId: orderId,
-          apiKey: config.apiKey,
-        }),
-      );
+      const { status: httpStatus, result } =
+        await postSigned<DuitkuStatusResponse>(
+          `${this.baseUrl}/merchant/transactionStatus`,
+          { merchantCode, merchantOrderId: orderId },
+          createDuitkuStatusSignatures({
+            merchantCode,
+            merchantOrderId: orderId,
+            apiKey: config.apiKey,
+          }),
+          options.timeoutMs,
+        );
+      if (!result.statusCode || !KNOWN_STATUS_CODES.has(result.statusCode)) {
+        const message = describeDuitkuError(httpStatus, result);
+        throw TRANSACTION_NOT_FOUND.test(describeResult(result) || "")
+          ? new GatewayTransactionNotFoundError(message)
+          : new Error(message);
+      }
       const status = mapDuitkuStatus(result.statusCode);
+      const fee = toOptionalNumber(result.fee);
 
       return {
         orderId,
@@ -192,15 +252,40 @@ export class DuitkuProvider implements PaymentProvider {
             }
           : {}),
         paymentMethod: result.paymentCode || result.paymentMethod,
-        amount: result.amount,
+        amount: toOptionalNumber(result.amount),
         transactionId: result.reference,
         // Duitku hanya melaporkan biaya di cek status, tidak di callback.
-        ...(result.fee !== undefined ? { fee: Number(result.fee) } : {}),
+        ...(fee !== undefined ? { fee } : {}),
       };
     } catch (error: unknown) {
       logger.error("Duitku checkStatus error:", error);
       throw error;
     }
+  }
+
+  /** Kode kanal yang aktif untuk merchant ini pada nominal tertentu. */
+  async getActivePaymentMethods(amount: number): Promise<string[]> {
+    const config = this.requireConfig();
+    const merchantCode = config.merchantId || "";
+    const datetime = formatDuitkuDatetime(new Date());
+    const { status, result } = await postSigned<DuitkuPaymentMethodResponse>(
+      `${this.baseUrl}/merchant/paymentmethod/getpaymentmethod`,
+      { merchantcode: merchantCode, amount, datetime },
+      createDuitkuPaymentMethodSignatures({
+        merchantCode,
+        amount,
+        datetime,
+        apiKey: config.apiKey,
+      }),
+      PAYMENT_METHOD_LIST_TIMEOUT_MS,
+    );
+    if (result.responseCode !== "00" || !Array.isArray(result.paymentFee)) {
+      throw new Error(describeDuitkuError(status, result));
+    }
+
+    return result.paymentFee.flatMap((fee) =>
+      fee.paymentMethod ? [fee.paymentMethod] : [],
+    );
   }
 
   /** Membiarkan transaksi Duitku expired otomatis. */

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const palsu = vi.hoisted(() => ({ fetch: vi.fn() }));
 
@@ -9,6 +9,7 @@ vi.mock(
 );
 
 import { DuitkuProvider } from "@/modules/payment-gateway/services/providers/duitku-provider";
+import { GatewayTransactionNotFoundError } from "@/modules/payment-gateway/services/provider-interface";
 
 const CONFIG = {
   apiKey: "kunci-uji",
@@ -170,6 +171,170 @@ describe("DuitkuProvider", () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain(reason);
     expect(result.error).toContain("400");
+  });
+
+  it("mengembalikan pelanggan ke returnUrl yang diminta, bila ada", async () => {
+    await provider().createPayment({
+      orderId: "PAY-1",
+      amount: 100000,
+      customerName: "Uji",
+      customerEmail: "a@b.c",
+      customerPhone: "08",
+      description: "Tagihan",
+      paymentMethods: ["SA"],
+      returnUrl: "https://pelanggan.radpro.id/pembayaran/kembali?ke=app",
+    } as never);
+
+    const [, init] = palsu.fetch.mock.calls[0] as [string, { body: string }];
+    expect(JSON.parse(init.body).returnUrl).toBe(
+      "https://pelanggan.radpro.id/pembayaran/kembali?ke=app",
+    );
+  });
+
+  // Percobaan MD5 sesudah HMAC ditolak dulu mendapat 30 detik sendiri, jadi
+  // satu panggilan bisa memakan 60 detik di dalam kunci checkout 120 detik.
+  it("percobaan ulang tanda tangan memakai sisa batas waktu yang sama", async () => {
+    vi.useFakeTimers();
+    try {
+      palsu.fetch.mockImplementationOnce(async () => {
+        // HMAC ditolak setelah tujuh detik.
+        vi.advanceTimersByTime(7_000);
+        return {
+          status: 401,
+          text: async () => JSON.stringify({ Message: "Wrong signature" }),
+        };
+      });
+
+      await provider().checkStatus("PAY-1", { timeoutMs: 10_000 });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    const timeouts = palsu.fetch.mock.calls.map(
+      ([, init]) => (init as { timeoutMs: number }).timeoutMs,
+    );
+    expect(timeouts).toEqual([10_000, 3_000]);
+  });
+
+  describe("cek status", () => {
+    it("lunas membawa nominal dan biaya sebagai angka", async () => {
+      palsu.fetch.mockResolvedValue({
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            merchantOrderId: "PAY-1",
+            reference: "D1",
+            amount: "100000",
+            fee: "4000",
+            statusCode: "00",
+          }),
+      });
+
+      await expect(provider().checkStatus("PAY-1")).resolves.toMatchObject({
+        status: "PAID",
+        amount: 100000,
+        fee: 4000,
+        transactionId: "D1",
+      });
+    });
+
+    it.each([
+      ["01", "PENDING"],
+      ["02", "EXPIRED"],
+    ])("statusCode %s menjadi %s", async (statusCode, status) => {
+      palsu.fetch.mockResolvedValue({
+        status: 200,
+        text: async () => JSON.stringify({ statusCode }),
+      });
+
+      await expect(provider().checkStatus("PAY-1")).resolves.toMatchObject({
+        status,
+      });
+    });
+
+    // Jawaban tanpa status yang dikenal dulu dianggap FAILED, sehingga
+    // penyapu bisa menutup checkout yang sebenarnya sudah dibayar.
+    it("order yang tidak dikenal Duitku dilaporkan sebagai tidak ditemukan", async () => {
+      palsu.fetch.mockResolvedValue({
+        status: 404,
+        text: async () => JSON.stringify({ Message: "Transaction not found" }),
+      });
+
+      await expect(provider().checkStatus("PAY-2")).rejects.toBeInstanceOf(
+        GatewayTransactionNotFoundError,
+      );
+    });
+
+    it.each([
+      [401, { Message: "Merchant not found" }],
+      [500, { Message: "Internal Server Error" }],
+      [200, { statusCode: "99" }],
+    ])("jawaban HTTP %i %j bukan status pembayaran", async (status, body) => {
+      palsu.fetch.mockResolvedValue({
+        status,
+        text: async () => JSON.stringify(body),
+      });
+
+      const error = await provider()
+        .checkStatus("PAY-1")
+        .catch((e: Error) => e);
+      expect(error).toBeInstanceOf(Error);
+      expect(error).not.toBeInstanceOf(GatewayTransactionNotFoundError);
+    });
+  });
+
+  describe("kanal aktif (getpaymentmethod)", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      // 31 Okt 2026 22:30:15 WIB.
+      vi.setSystemTime(new Date("2026-10-31T15:30:15.000Z"));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("mengirim nominal dan waktu WIB bertanda tangan HMAC, lalu membaca kodenya", async () => {
+      palsu.fetch.mockResolvedValue({
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            paymentFee: [
+              { paymentMethod: "BC", paymentName: "BCA VA", totalFee: "4000" },
+              { paymentMethod: "SP", paymentName: "QRIS", totalFee: "0" },
+            ],
+            responseCode: "00",
+            responseMessage: "SUCCESS",
+          }),
+      });
+
+      const codes = await provider().getActivePaymentMethods(11100);
+
+      const [url, init] = palsu.fetch.mock.calls[0] as [
+        string,
+        { body: string },
+      ];
+      expect(url).toBe(
+        "https://sandbox.duitku.com/webapi/api/merchant/paymentmethod/getpaymentmethod",
+      );
+      expect(JSON.parse(init.body)).toEqual({
+        merchantcode: "DS123",
+        amount: 11100,
+        datetime: "2026-10-31 22:30:15",
+        signature: hmac("DS12311100" + "2026-10-31 22:30:15"),
+      });
+      expect(codes).toEqual(["BC", "SP"]);
+    });
+
+    it("jawaban selain sukses tidak dianggap daftar kanal kosong", async () => {
+      palsu.fetch.mockResolvedValue({
+        status: 401,
+        text: async () => JSON.stringify({ Message: "Merchant not found" }),
+      });
+
+      await expect(provider().getActivePaymentMethods(11100)).rejects.toThrow(
+        /Merchant not found/,
+      );
+    });
   });
 
   describe("callback", () => {

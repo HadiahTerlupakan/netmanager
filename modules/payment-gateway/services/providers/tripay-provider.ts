@@ -1,16 +1,20 @@
 import { logger } from "@/lib/logger";
 import { fetchWithTimeout } from "./fetch-with-timeout";
 import crypto from "crypto";
-import type {
-  PaymentProvider,
-  ProviderConfig,
-  CreatePaymentParams,
-  PaymentResult,
-  TransactionStatus,
-  WebhookResult,
-  TestResult,
+import {
+  GatewayTransactionNotFoundError,
+  type PaymentProvider,
+  type ProviderConfig,
+  type CreatePaymentParams,
+  type PaymentResult,
+  type TransactionStatus,
+  type WebhookResult,
+  type TestResult,
 } from "../provider-interface";
 import { timingSafeCompare } from "./signature-compare.helpers";
+
+const HTTP_NOT_FOUND = 404;
+const NOT_FOUND_MESSAGE = /not found|tidak ditemukan/i;
 
 export class TripayProvider implements PaymentProvider {
   name = "Tripay";
@@ -134,7 +138,11 @@ export class TripayProvider implements PaymentProvider {
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.message || "Failed to check status");
+        const message = result.message || "Failed to check status";
+        throw response.status === HTTP_NOT_FOUND ||
+          NOT_FOUND_MESSAGE.test(message)
+          ? new GatewayTransactionNotFoundError(message)
+          : new Error(message);
       }
 
       const data = result.data;

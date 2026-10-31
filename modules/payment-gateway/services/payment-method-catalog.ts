@@ -63,12 +63,22 @@ const DUITKU_PAYMENT_METHODS: PaymentMethodCatalogItem[] = [
     code,
     group: "E-Wallet & QRIS",
   })),
+  // Kanal FT hanya melayani Pegadaian, Alfamart, dan Pos; Indomaret punya
+  // kanal sendiri (docs.duitku.com/api/id, daftar metode pembayaran).
   {
     id: "duitku_alfamart",
-    name: "Alfamart / Indomaret",
+    name: "Alfamart / Pegadaian / Pos",
     provider: "DUITKU",
     type: "RETAIL",
     code: "FT",
+    group: "Minimarket",
+  },
+  {
+    id: "duitku_indomaret",
+    name: "Indomaret",
+    provider: "DUITKU",
+    type: "RETAIL",
+    code: "IR",
     group: "Minimarket",
   },
 ];
@@ -133,6 +143,29 @@ const CATALOG: Record<string, PaymentMethodCatalogItem[]> = {
   TRIPAY: TRIPAY_PAYMENT_METHODS,
   ...HOSTED_CHECKOUT_METHODS,
 };
+
+/** Nilai enum PaymentMethod billing yang punya padanan di katalog. */
+export type BillingPaymentMethod = "BANK_TRANSFER" | "E_WALLET";
+
+// Ritel dan halaman bayar gateway (kanalnya dipilih di sana) tetap OTHER.
+const BILLING_METHOD_BY_TYPE: Record<string, BillingPaymentMethod> = {
+  VA: "BANK_TRANSFER",
+  AUTO_TRANSFER: "BANK_TRANSFER",
+  QRIS: "E_WALLET",
+  EWALLET: "E_WALLET",
+};
+
+/**
+ * Enum PaymentMethod billing untuk kode kanal katalog (mis. "BC" →
+ * BANK_TRANSFER); null bila tidak ada yang lebih tepat dari OTHER.
+ * gatewayProvider tetap menyimpan kode kanalnya.
+ */
+export function findBillingPaymentMethod(
+  code: string,
+): BillingPaymentMethod | null {
+  const method = findPaymentMethodByCode(code);
+  return method ? (BILLING_METHOD_BY_TYPE[method.type] ?? null) : null;
+}
 
 /**
  * Get static customer payment methods for an enabled provider.

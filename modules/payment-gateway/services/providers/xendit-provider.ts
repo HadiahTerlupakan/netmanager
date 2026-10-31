@@ -1,14 +1,15 @@
 import type XenditClient from "xendit-node";
 import { logger } from "@/lib/logger";
 import { getCustomerPortalBillingUrl } from "@/lib/utils/portal-url";
-import type {
-  CreatePaymentParams,
-  PaymentProvider,
-  PaymentResult,
-  ProviderConfig,
-  TestResult,
-  TransactionStatus,
-  WebhookResult,
+import {
+  GatewayTransactionNotFoundError,
+  type CreatePaymentParams,
+  type PaymentProvider,
+  type PaymentResult,
+  type ProviderConfig,
+  type TestResult,
+  type TransactionStatus,
+  type WebhookResult,
 } from "../provider-interface";
 import {
   buildXenditWebhookResult,
@@ -61,8 +62,8 @@ export class XenditProvider implements PaymentProvider {
             email: params.customerEmail,
             mobileNumber: params.customerPhone,
           },
-          successRedirectUrl: getCustomerPortalBillingUrl(),
-          failureRedirectUrl: getCustomerPortalBillingUrl(),
+          successRedirectUrl: params.returnUrl ?? getCustomerPortalBillingUrl(),
+          failureRedirectUrl: params.returnUrl ?? getCustomerPortalBillingUrl(),
         },
       });
 
@@ -92,7 +93,7 @@ export class XenditProvider implements PaymentProvider {
       const invoice = invoices[0];
 
       if (!invoice) {
-        throw new Error("Invoice not found");
+        throw new GatewayTransactionNotFoundError("Invoice not found");
       }
 
       return {

@@ -2,14 +2,15 @@ import { logger } from "@/lib/logger";
 import { getCustomerPortalBillingUrl } from "@/lib/utils/portal-url";
 import * as crypto from "crypto";
 import midtransClient from "midtrans-client";
-import type {
-  CreatePaymentParams,
-  PaymentProvider,
-  PaymentResult,
-  ProviderConfig,
-  TestResult,
-  TransactionStatus,
-  WebhookResult,
+import {
+  GatewayTransactionNotFoundError,
+  type CreatePaymentParams,
+  type PaymentProvider,
+  type PaymentResult,
+  type ProviderConfig,
+  type TestResult,
+  type TransactionStatus,
+  type WebhookResult,
 } from "../provider-interface";
 import {
   buildMidtransCoreApi,
@@ -18,6 +19,16 @@ import {
   testMidtransConnection,
 } from "./midtrans-provider-helpers";
 import { timingSafeCompare } from "./signature-compare.helpers";
+
+const HTTP_NOT_FOUND = 404;
+
+// MidtransError membawa status_code API sebagai httpStatusCode (string).
+function isMidtransNotFound(error: unknown) {
+  return (
+    Number((error as { httpStatusCode?: unknown })?.httpStatusCode) ===
+    HTTP_NOT_FOUND
+  );
+}
 
 export class MidtransProvider implements PaymentProvider {
   name = "Midtrans";
@@ -59,9 +70,9 @@ export class MidtransProvider implements PaymentProvider {
         ],
         callbacks: {
           // /payment/* tidak pernah ada; pelanggan kembali ke tagihannya.
-          finish: getCustomerPortalBillingUrl(),
-          error: getCustomerPortalBillingUrl(),
-          pending: getCustomerPortalBillingUrl(),
+          finish: params.returnUrl ?? getCustomerPortalBillingUrl(),
+          error: params.returnUrl ?? getCustomerPortalBillingUrl(),
+          pending: params.returnUrl ?? getCustomerPortalBillingUrl(),
         },
       });
 
@@ -103,7 +114,11 @@ export class MidtransProvider implements PaymentProvider {
       };
     } catch (error: unknown) {
       logger.error("Midtrans checkStatus error:", error);
-      throw error;
+      // Snap yang ditinggalkan sebelum pelanggan memilih kanal tidak pernah
+      // menjadi transaksi Core API: 404 "Transaction doesn't exist".
+      throw isMidtransNotFound(error)
+        ? new GatewayTransactionNotFoundError((error as Error).message)
+        : error;
     }
   }
 

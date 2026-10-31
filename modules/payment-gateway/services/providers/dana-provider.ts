@@ -1,13 +1,14 @@
 import { logger } from "@/lib/logger";
 import { fetchWithTimeout } from "./fetch-with-timeout";
-import type {
-  CreatePaymentParams,
-  PaymentProvider,
-  PaymentResult,
-  ProviderConfig,
-  TestResult,
-  TransactionStatus,
-  WebhookResult,
+import {
+  GatewayTransactionNotFoundError,
+  type CreatePaymentParams,
+  type PaymentProvider,
+  type PaymentResult,
+  type ProviderConfig,
+  type TestResult,
+  type TransactionStatus,
+  type WebhookResult,
 } from "../provider-interface";
 import {
   buildDanaCreatePayload,
@@ -28,6 +29,8 @@ import {
   type DanaWebhookPayload,
 } from "./dana-provider-helpers";
 import { timingSafeCompare } from "./signature-compare.helpers";
+
+const HTTP_NOT_FOUND = 404;
 
 export class DANAProvider implements PaymentProvider {
   name = "DANA";
@@ -90,9 +93,10 @@ export class DANAProvider implements PaymentProvider {
       const result = parseDanaStatusResponse(await response.json());
 
       if (!isDanaSuccessResponse(response, result)) {
-        throw new Error(
-          resolveDanaApiError(result) || "Failed to check status",
-        );
+        const message = resolveDanaApiError(result) || "Failed to check status";
+        throw response.status === HTTP_NOT_FOUND
+          ? new GatewayTransactionNotFoundError(message)
+          : new Error(message);
       }
 
       return buildDanaStatusResult(

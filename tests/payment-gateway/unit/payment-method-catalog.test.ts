@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  findBillingPaymentMethod,
   findPaymentMethodProvider,
   getCustomerPaymentMethodsByProvider,
 } from "@/modules/payment-gateway/services/payment-method-catalog";
@@ -39,5 +40,21 @@ describe("katalog metode pembayaran", () => {
   it("kode di luar katalog tidak menunjuk gateway mana pun", () => {
     expect(findPaymentMethodProvider("MANUAL_bank-1")).toBeNull();
     expect(findPaymentMethodProvider("ONLINE")).toBeNull();
+  });
+
+  // Semua pembayaran gateway dulu tercatat OTHER, sehingga laporan per
+  // metode tidak bisa membedakan VA dari e-wallet.
+  it.each([
+    ["BC", "BANK_TRANSFER"],
+    ["BRIVA", "BANK_TRANSFER"],
+    ["SP", "E_WALLET"],
+    ["DA", "E_WALLET"],
+    ["QRIS", "E_WALLET"],
+    ["MOOTA_MANUAL", "BANK_TRANSFER"],
+    ["FT", null],
+    ["MIDTRANS_SNAP", null],
+    ["MANUAL_bank-1", null],
+  ])("kanal %s dicatat sebagai %s", (code, method) => {
+    expect(findBillingPaymentMethod(code)).toBe(method);
   });
 });

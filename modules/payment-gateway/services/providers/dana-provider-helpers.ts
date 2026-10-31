@@ -114,8 +114,8 @@ export function buildDanaCreatePayload(
       // Webhook dilayani /api/webhooks/[provider]; /api/payment/webhook/dana
       // tidak pernah ada.
       callbackUrl: `${getAppUrl()}/api/webhooks/dana`,
-      returnUrl: getCustomerPortalBillingUrl(),
-      cancelUrl: getCustomerPortalBillingUrl(),
+      returnUrl: params.returnUrl ?? getCustomerPortalBillingUrl(),
+      cancelUrl: params.returnUrl ?? getCustomerPortalBillingUrl(),
     },
     expiryTime,
   };

@@ -31,6 +31,35 @@ export function createDuitkuInvoiceSignatures(input: {
   return [hmacSha256(base, input.apiKey), md5(`${base}${input.apiKey}`)];
 }
 
+/**
+ * Tanda tangan getpaymentmethod: HMAC-SHA256 saat ini, lalu SHA256 polos lama
+ * (merchantcode + amount + datetime + apiKey) untuk merchant yang belum
+ * dipindahkan, seperti tanda tangan endpoint lain.
+ */
+export function createDuitkuPaymentMethodSignatures(input: {
+  merchantCode: string;
+  amount: number;
+  datetime: string;
+  apiKey: string;
+}) {
+  const base = `${input.merchantCode}${input.amount}${input.datetime}`;
+  return [
+    hmacSha256(base, input.apiKey),
+    crypto.createHash("sha256").update(`${base}${input.apiKey}`).digest("hex"),
+  ];
+}
+
+// WIB tidak mengenal DST, jadi selisihnya selalu tujuh jam.
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+/** Waktu WIB berformat `yyyy-MM-dd HH:mm:ss` yang diminta API Duitku. */
+export function formatDuitkuDatetime(date: Date): string {
+  return new Date(date.getTime() + WIB_OFFSET_MS)
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
+}
+
 export function createDuitkuStatusSignatures(input: {
   merchantCode: string;
   merchantOrderId: string;
