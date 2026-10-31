@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Backfill enum PaymentMethod untuk payment Duitku lama
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/billing_migrations`
+- **Author**: agent
+- **Deskripsi**: Payment Duitku dari portal yang dibuat sebelum kode kanal dipetakan ke enum tersimpan dengan `paymentMethod` OTHER walau `gatewayProvider`-nya kode kanal Duitku. Migration data billing ini memakai pemetaan yang sama dengan `findBillingPaymentMethod`: VA (BC, M2, BR) menjadi BANK_TRANSFER, QRIS dan e-wallet (SP, DA, OV, SA, LA) menjadi E_WALLET; ritel (FT, IR), kode gateway lain, dan baris yang enum-nya bukan OTHER tidak disentuh. Hanya baris OTHER yang diubah, jadi aman dijalankan ulang. Skema tidak berubah, client Prisma tidak perlu dibuat ulang. Diuji terhadap billing_test (`tests/db/payment-method-backfill.test.ts`).
+- **Files**: `prisma/billing_migrations/20261101160000_backfill_duitku_payment_method/migration.sql`, `tests/db/payment-method-backfill.test.ts`
+- **Migration**: `20261101160000_backfill_duitku_payment_method` (database billing, data saja)
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Banner gateway SANDBOX hanya untuk pengelola pembayaran
 
 - **Tipe**: [CHANGED]
