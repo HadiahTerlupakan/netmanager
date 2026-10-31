@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Cek status Tripay mencari orderId sebagai merchant_ref
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway`
+- **Author**: agent
+- **Deskripsi**: `TripayProvider.checkStatus` menanyakan orderId kita ke `transaction/detail?reference=`, padahal parameter itu hanya menerima reference milik Tripay (T…); orderId kita dikirim ke Tripay sebagai `merchant_ref`. Akibatnya setiap cek status Tripay terbaca "tidak ditemukan": penyapu checkout menutup checkout yang sudah dibayar (callback-nya hilang) sebagai EXPIRED, dan ganti metode tidak tahu checkout lamanya sudah dibayar. Kini dicari lewat Daftar Transaksi merchant (`merchant/transactions?merchant_ref=`, sesuai dokumentasi Tripay), orderId di-encode di URL, dan hanya transaksi dengan merchant_ref yang sama persis yang dipakai; tanpa transaksi itu jawabannya tetap `GatewayTransactionNotFoundError`. `paid_at` berupa teks juga dibaca sebagai detik. Nominal tetap `amount` dari Tripay seperti sebelumnya.
+- **Files**: `modules/payment-gateway/services/providers/tripay-provider.ts`, `tests/payment-gateway/unit/tripay-check-status.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Backfill enum PaymentMethod untuk payment Duitku lama
 
 - **Tipe**: [MIGRATION]

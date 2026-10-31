@@ -123,12 +123,19 @@ export class TripayProvider implements PaymentProvider {
     }
   }
 
+  /**
+   * Status transaksi untuk orderId kita, yang dikirim sebagai merchant_ref.
+   * `transaction/detail` hanya menerima reference milik Tripay (T…), jadi
+   * orderId dicari lewat daftar transaksi merchant yang disaring merchant_ref
+   * (tripay.co.id/developer, Daftar Transaksi).
+   */
   async checkStatus(orderId: string): Promise<TransactionStatus> {
     if (!this.config) throw new Error("Provider not initialized");
 
     try {
+      const query = new URLSearchParams({ merchant_ref: orderId });
       const response = await fetchWithTimeout(
-        `${this.baseUrl}/transaction/detail?reference=${orderId}`,
+        `${this.baseUrl}/merchant/transactions?${query}`,
         {
           method: "GET",
           headers: this.getHeaders(),
@@ -145,7 +152,17 @@ export class TripayProvider implements PaymentProvider {
           : new Error(message);
       }
 
-      const data = result.data;
+      // Saringan merchant_ref tidak dijamin persis; hanya yang sama persis.
+      const data = (Array.isArray(result.data) ? result.data : []).find(
+        (transaction: { merchant_ref?: unknown }) =>
+          transaction.merchant_ref === orderId,
+      );
+      if (!data) {
+        throw new GatewayTransactionNotFoundError(
+          `Transaksi Tripay untuk ${orderId} tidak ditemukan`,
+        );
+      }
+
       let status: TransactionStatus["status"] = "PENDING";
 
       switch (data.status) {
@@ -166,7 +183,10 @@ export class TripayProvider implements PaymentProvider {
       return {
         orderId: data.merchant_ref,
         status,
-        ...(data.paid_at ? { paidAt: new Date(data.paid_at * 1000) } : {}),
+        // Dokumentasi Tripay menuliskannya sebagai angka maupun teks detik.
+        ...(data.paid_at
+          ? { paidAt: new Date(Number(data.paid_at) * 1000) }
+          : {}),
         paymentMethod: data.payment_method,
         amount: data.amount,
         transactionId: data.reference,
