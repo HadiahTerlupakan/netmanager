@@ -1,4 +1,5 @@
 import { createRouteServiceError } from "@/lib/api/route-service-error";
+import { logger } from "@/lib/logger";
 import { BillingEventDispatcher } from "@/modules/events";
 import {
   CUSTOMER_APP_BILLING_ROUTE,
@@ -107,6 +108,11 @@ export async function rejectManualCheckout(
   return { success: true, message: "Payment rejected", warnings: [] };
 }
 
+/**
+ * Penolakannya sudah tersimpan saat ini dipanggil; pemberitahuan yang gagal
+ * dicatat saja, supaya admin tidak melihat galat untuk penolakan yang berhasil
+ * lalu mencoba lagi dan mendapat "sudah diproses".
+ */
 async function notifyRejection(
   payment: VerifiablePayment,
   rejected: VerifiablePayment[],
@@ -114,16 +120,23 @@ async function notifyRejection(
 ) {
   const invoiceId = rejected.find((p) => p.invoiceId)?.invoiceId;
   if (!invoiceId) return;
-  await BillingEventDispatcher.onPaymentRejected({
-    invoiceId,
-    pelangganId: payment.pelangganId,
-    amount: Number(rejected.reduce((sum, p) => sum + p.amount, 0n)),
-    invoiceNumbers: rejected.flatMap((p) =>
-      p.invoice ? [p.invoice.invoiceNumber] : [],
-    ),
-    reason: reason ?? undefined,
-    tenantId: payment.tenantId ?? undefined,
-  });
+  try {
+    await BillingEventDispatcher.onPaymentRejected({
+      invoiceId,
+      pelangganId: payment.pelangganId,
+      amount: Number(rejected.reduce((sum, p) => sum + p.amount, 0n)),
+      invoiceNumbers: rejected.flatMap((p) =>
+        p.invoice ? [p.invoice.invoiceNumber] : [],
+      ),
+      reason: reason ?? undefined,
+      tenantId: payment.tenantId ?? undefined,
+    });
+  } catch (error) {
+    logger.error(
+      `[VerifikasiTransfer] Pemberitahuan penolakan untuk invoice ${invoiceId} gagal dikirim`,
+      error instanceof Error ? error : undefined,
+    );
+  }
 }
 
 function appendNote(existing: string | null, note: string | null | undefined) {

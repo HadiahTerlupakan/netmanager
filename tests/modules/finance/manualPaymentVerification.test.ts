@@ -232,6 +232,21 @@ describe("rejectManualCheckout", () => {
     );
   });
 
+  // Penolakan sudah tersimpan; galat di sini membuat admin mengulang dan
+  // mendapat "sudah diproses".
+  it("pemberitahuan yang gagal tidak menggagalkan penolakan yang tersimpan", async () => {
+    palsu.onPaymentRejected.mockRejectedValueOnce(new Error("redis mati"));
+
+    await expect(
+      rejectManualCheckout(P1, { reason: "Buram" }),
+    ).resolves.toEqual({
+      success: true,
+      message: "Payment rejected",
+      warnings: [],
+    });
+    expect(palsu.releaseCoupons).toHaveBeenCalled();
+  });
+
   it("gagal tanpa efek samping bila bukti sudah diproses admin lain", async () => {
     palsu.claimPendingPayments.mockResolvedValue([]);
 
