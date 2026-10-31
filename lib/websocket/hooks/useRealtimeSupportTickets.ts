@@ -6,6 +6,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeResync } from "@/lib/realtime/hooks/useRealtimeResync";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import { type TicketPayload, type CountPayload } from "../types";
 import { usePermission } from "@/hooks/use-permission";
@@ -210,6 +211,7 @@ export function useRealtimeSupportTickets(
   useRealtimeEvent<TicketPayload>("ticket.update", handleTicketUpdate);
   useRealtimeEvent<TicketPayload>("ticket.reply", handleTicketReply);
   useRealtimeEvent<CountPayload>("ticket.count", handleCountUpdate);
+  useRealtimeResync(fetchTickets);
 
   return {
     tickets,

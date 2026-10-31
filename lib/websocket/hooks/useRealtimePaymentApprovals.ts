@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useSession } from "next-auth/react";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeResync } from "@/lib/realtime/hooks/useRealtimeResync";
 
 export interface PendingPayment {
   id: string;
@@ -85,6 +86,7 @@ export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn
       handlePaymentNew(payload);
     }
   });
+  useRealtimeResync(fetchPendingPayments);
 
   return {
     payments,

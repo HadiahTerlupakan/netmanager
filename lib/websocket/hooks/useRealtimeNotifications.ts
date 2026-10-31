@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload, type CountPayload } from "../types";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeResync } from "@/lib/realtime/hooks/useRealtimeResync";
 import { addUnreadRealtimeNotification } from "@/lib/realtime/notification-state";
 
 export interface Notification {
@@ -140,6 +141,7 @@ export function useRealtimeNotifications(
 
   useRealtimeEvent("notification.new", handleNewNotification);
   useRealtimeEvent("notification.count", handleCountUpdate);
+  useRealtimeResync(fetchNotifications);
 
   // Mark single notification as read
   const markAsRead = useCallback(async (notificationId: string) => {

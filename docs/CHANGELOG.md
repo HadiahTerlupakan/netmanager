@@ -77,6 +77,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `lib/push-sound.ts` (baru), `lib/firebase/push-collapse.ts`, `lib/firebase/messaging.ts`, `lib/expo.ts`, `modules/notification/services/ExpoPushService.helpers.ts`, `modules/notification/services/PushRetryQueue.helpers.ts`, `tests/modules/notification/expo-push-message.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-11-01] — Listener realtime bertahan untuk sesi yang sama; hitungan dimuat ulang setelah tersinkron ulang
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/realtime` | `lib/websocket/hooks`
+- **Author**: agent
+- **Deskripsi**: Setiap kali NextAuth memuat ulang sesi saat tab kembali fokus, `CustomerRealtimeProviderWrapper` merender ulang (`userOverride` objek baru), atau sebuah komponen mendaftarkan scope yang sudah terdaftar, `scopes` menjadi array baru dan seluruh listener Firestore dilepas lalu dipasang ulang. Kini daftar scope di-memo dengan kunci isinya sendiri (scope bawaan dan dinamis yang sudah di-dedupe, di-serialisasi), sehingga listener hanya dipasang ulang bila scope-nya benar-benar berubah. Bila listener tersinkron ulang — dipasang ulang setelah koneksi kembali, atau server menyusul setelah SDK melayani dari cache — event yang tiba di selanya tidak pernah datang sebagai event. `useRealtimeSubscription` kini mengingat channel yang pernah tersinkron per hook; sinkronisasi kedua sebuah channel memanggil `noteRealtimeResync`, yang setelah jeda 1 detik (beberapa channel digabung menjadi satu) menahan nada lalu menaikkan `connectionEpoch` di konteks realtime. `useRealtimeResync(onResync)` memanggil fungsi muat ulang sekali per kenaikan epoch (tidak saat mount) dan dipakai `useRealtimeNotifications`, `useRealtimeWorkOrders`, `useRealtimeSupportTickets`, `useRealtimePaymentApprovals`, dan `useCustomerNotifications`. Sinkronisasi pertama saat halaman dibuka tidak memicu muat ulang.
+- **Files**: `lib/realtime/RealtimeContext.tsx`, `lib/realtime/channel-snapshot.ts`, `lib/realtime/hooks/useRealtimeResync.ts` (baru), `lib/websocket/hooks/useRealtimeNotifications.ts`, `lib/websocket/hooks/useRealtimeWorkOrders.ts`, `lib/websocket/hooks/useRealtimeSupportTickets.ts`, `lib/websocket/hooks/useRealtimePaymentApprovals.ts`, `lib/websocket/hooks/useCustomerNotifications.ts`, `tests/lib/realtime/realtime-scope-stability.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

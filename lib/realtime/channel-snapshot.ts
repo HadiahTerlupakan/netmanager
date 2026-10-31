@@ -66,13 +66,18 @@ function getNewestCreatedAt(documents: ChannelDocument[]): number | null {
  * susulan (mis. setelah laptop tidur). Ia tetap diteruskan supaya badge
  * benar, tetapi `onCatchUp` dipanggil lebih dulu supaya diperlakukan seperti
  * halaman yang baru dibuka.
+ *
+ * `onServerSync` dipanggil setiap kali server mengonfirmasi channel: saat
+ * riwayat pertama lengkap, dan saat susulan setelah cache selesai.
  */
 export function createChannelSnapshotListener({
   onNewEvent,
   onCatchUp,
+  onServerSync,
 }: {
   onNewEvent: (envelope: ChannelEnvelope) => void;
   onCatchUp: () => void;
+  onServerSync: () => void;
 }) {
   const seenDocumentIds = new Set<string>();
   let isHydrated = false;
@@ -97,11 +102,13 @@ export function createChannelSnapshotListener({
         newestCreatedAt === null
           ? null
           : newestCreatedAt - HISTORY_CLOCK_SKEW_MS;
+      onServerSync();
       return;
     }
 
     const { fromCache } = snapshot.metadata;
-    if (fromCache || wasServedFromCache) onCatchUp();
+    const isCatchingUp = fromCache || wasServedFromCache;
+    if (isCatchingUp) onCatchUp();
     wasServedFromCache = fromCache;
 
     snapshot.docChanges().forEach((change) => {
@@ -115,5 +122,7 @@ export function createChannelSnapshotListener({
 
       onNewEvent(envelope);
     });
+
+    if (isCatchingUp && !fromCache) onServerSync();
   };
 }

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeResync } from "@/lib/realtime/hooks/useRealtimeResync";
 import { playCustomerNotificationSound } from "@/lib/notification-sound";
 
 export interface CustomerNotification {
@@ -126,6 +127,7 @@ export function useCustomerNotifications(
   useRealtimeEvent("announcement.new", handleNewNotification);
   useRealtimeEvent("ticket.message", handleNewNotification);
   useRealtimeEvent("ticket.reply", handleNewNotification);
+  useRealtimeResync(fetchNotifications);
 
   return {
     notifications,

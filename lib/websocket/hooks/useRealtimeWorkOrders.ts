@@ -9,6 +9,7 @@ import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
 import { usePermission } from "@/hooks/use-permission";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeResync } from "@/lib/realtime/hooks/useRealtimeResync";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 
 export interface WorkOrderNotification {
@@ -175,6 +176,7 @@ export function useRealtimeWorkOrders(
   useRealtimeEvent("workorder.activity", handleWorkOrderActivity);
   useRealtimeEvent("workorder.update", handleWorkOrderActivity);
   useRealtimeEvent("workorder.new", handleWorkOrderActivity);
+  useRealtimeResync(fetchNotifications);
 
   // Mark single notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
