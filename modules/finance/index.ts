@@ -38,6 +38,7 @@ export * from "./services/PaymentCancellationService";
 export * from "./services/InvoicePaymentStateService";
 export { settleReceivedPayments } from "./services/received-payment-settlement";
 export { replayMissingInvoicePaidEvents } from "./services/invoice-paid-reconciliation";
+export { retryInterruptedSettlements } from "./services/settlement-retry";
 export * from "./services/InvoiceRouteService";
 export * from "./services/InvoiceCollectionRouteService";
 export * from "./services/PaymentRouteService";

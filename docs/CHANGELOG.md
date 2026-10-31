@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Rekonsiliasi 15 menit mengulang pelunasan yang terhenti setelah PAID
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `lib/cron-registry.ts`
+- **Author**: agent
+- **Deskripsi**: Persetujuan transfer manual, callback, dan cek status gateway menyimpan payment PAID lebih dulu lalu menjalankan `settleReceivedPayments`. Bila pelunasan itu gagal (database terputus, proses mati), tidak ada yang mengulangnya: admin yang mengulang persetujuan dijawab "sudah diproses", dan cek status serta penyapu hanya menanyakan payment yang masih menunggu, sehingga tagihannya tertinggal belum lunas walau uangnya sudah diterima. Cron rekonsiliasi INVOICE_PAID kini lebih dulu menjalankan `retryInterruptedSettlements`: tagihan yang tidak dibatalkan dengan payment PAID tiga hari terakhir (minus jeda 15 menit) yang `paidAmount`-nya di bawah payment yang diterima beserta potongan kuponnya dilunasi ulang lewat jalur yang sama, maks 100 tagihan per putaran. Idempoten: INVOICE_PAID tetap sekali (`claimPaidTransition`) dan kelebihan bayar tidak dikreditkan dua kali (`kelebihanBayar`); kreditnya ke payment terbaru. `sumActivePayments` diekspor dari `InvoicePaymentStateService` supaya aturan "sudah terbayar" tetap satu.
+- **Files**: `modules/finance/services/settlement-retry.ts`, `modules/finance/repositories/settlementRetry.repository.ts`, `modules/finance/services/InvoicePaymentStateService.ts`, `modules/finance/index.ts`, `lib/cron-registry.ts`, `tests/db/settlement-retry.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Setiap pembatalan tagihan menutup Transfer Manual tanpa bukti
 
 - **Tipe**: [FIXED]
