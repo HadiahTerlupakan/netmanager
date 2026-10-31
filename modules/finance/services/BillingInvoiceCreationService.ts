@@ -1,6 +1,11 @@
 import { randomUUID } from "crypto";
 import { logger } from "@/lib/logger";
+import { toEndOfDay } from "@/lib/utils/server-datetime";
 import { getPpnRateResolver } from "@/modules/tax";
+import {
+  type BillingPackage,
+  findPendingPackageAppliedBy,
+} from "../repositories/CycleBillingRepository";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { FinanceRepositoryFacade } from "./FinanceRepositoryFacade";
 
@@ -11,23 +16,26 @@ type BillingCustomerPayload = {
   userId: string | null;
   usePPN: boolean;
   tenantId: string | null;
-  hargaPaket: {
-    id: string;
-    name: string;
-    harga: number;
-    usePPN: boolean;
-    ppnPercentage: number | null;
-  };
+  hargaPaket: BillingPackage;
 };
 
+type PendingPackageLookup = (
+  pelangganId: string,
+  appliesBy: Date,
+) => Promise<BillingPackage | null>;
+
 export class BillingInvoiceCreationService {
-  constructor(private readonly invoiceRepo = new InvoiceRepository()) {}
+  constructor(
+    private readonly invoiceRepo = new InvoiceRepository(),
+    private readonly findPendingPackage: PendingPackageLookup = findPendingPackageAppliedBy,
+  ) {}
 
   /** Create invoice and send customer notifications. */
   async createInvoiceForCustomer(
-    customer: BillingCustomerPayload,
+    billedCustomer: BillingCustomerPayload,
     dueDate: Date,
   ) {
+    const customer = await this.withCyclePackage(billedCustomer, dueDate);
     const subtotal = BigInt(customer.hargaPaket.harga);
     const taxAmount = await this.calculateTaxAmount(customer, subtotal);
     const grossTotal = subtotal + taxAmount;
@@ -72,6 +80,30 @@ export class BillingInvoiceCreationService {
     }
   }
 
+  /**
+   * Paket yang menagih siklus ber-jatuh-tempo `dueDate`.
+   *
+   * Tagihan siklus terbit beberapa hari sebelum jatuh tempo, sedangkan paket
+   * terjadwal (NEXT_CYCLE) baru diganti cron pada jatuh tempo itu. Siklus yang
+   * dimulai pada atau setelah tanggal berlakunya sudah milik paket baru, jadi
+   * ditagih dengan paket itu, bukan paket yang kebetulan masih terpasang.
+   */
+  async withCyclePackage<T extends { id: string; hargaPaket: BillingPackage }>(
+    customer: T,
+    dueDate: Date,
+  ): Promise<T> {
+    const pendingPackage = await this.findPendingPackage(
+      customer.id,
+      toEndOfDay(dueDate),
+    );
+    if (!pendingPackage) return customer;
+
+    logger.info(
+      `[Billing] Tagihan jatuh tempo ${dueDate.toISOString()} pelanggan ${customer.id} memakai paket terjadwal ${pendingPackage.id}, bukan paket sekarang ${customer.hargaPaket.id}`,
+    );
+    return { ...customer, hargaPaket: pendingPackage };
+  }
+
   private buildInvoicePayload(params: {
     customer: BillingCustomerPayload;
     dueDate: Date;
@@ -98,6 +130,9 @@ export class BillingInvoiceCreationService {
       totalAmount: params.totalAmount,
       notes: note,
       updatedAt: new Date(),
+      // Billing harian berjalan di konteks sistem, yang tidak menyuntikkan
+      // tenantId; tanpa ini tagihannya tak terlihat oleh query ber-tenant.
+      tenantId: params.customer.tenantId,
     };
   }
 
@@ -110,6 +145,7 @@ export class BillingInvoiceCreationService {
       unitPrice: amount,
       totalPrice: amount,
       itemType: "SERVICE" as const,
+      tenantId: customer.tenantId,
     };
   }
 

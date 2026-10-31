@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { InvoiceProrateService } from "@/modules/finance/services/InvoiceProrateService";
+import {
+  type CycleInvoiceSyncer,
+  InvoiceProrateService,
+} from "@/modules/finance/services/InvoiceProrateService";
 import type { IProrateRepository } from "@/modules/finance/domain/ports/IProrateRepository";
 
 // Mock logger
@@ -29,6 +32,8 @@ const basePelanggan = {
   tanggalAktif: TANGGAL_AKTIF,
   hargaPaketId: "paket-lama",
   tenantId: "tenant-1" as string | null,
+  pendingPackageId: null as string | null,
+  pendingPackageApplyAt: null as Date | null,
 };
 
 const oldPackage = { id: "paket-lama", harga: 100000 };
@@ -73,13 +78,20 @@ const buildMockRepo = (): MockedProrateRepo => ({
 
 describe("InvoiceProrateService", () => {
   let repo: ReturnType<typeof buildMockRepo>;
+  let cycleInvoice: { syncCycleInvoice: ReturnType<typeof vi.fn> };
   let service: InvoiceProrateService;
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.setSystemTime(NOW);
     repo = buildMockRepo();
-    service = new InvoiceProrateService(repo as unknown as IProrateRepository);
+    cycleInvoice = {
+      syncCycleInvoice: vi.fn().mockResolvedValue({ status: "NOT_ISSUED" }),
+    };
+    service = new InvoiceProrateService(
+      repo as unknown as IProrateRepository,
+      cycleInvoice as unknown as CycleInvoiceSyncer,
+    );
 
     // Default: pelanggan + pair found
     repo.findPelangganProrateContext.mockResolvedValue(basePelanggan);
@@ -243,6 +255,124 @@ describe("InvoiceProrateService", () => {
       expect(repo.createProrateInvoice).not.toHaveBeenCalled();
       expect(repo.createRefundPaymentRecord).not.toHaveBeenCalled();
       expect(repo.recordProrateLog).toHaveBeenCalledOnce();
+    });
+
+    // Tagihan siklus itu bisa sudah terbit (±5 hari sebelum jatuh tempo)
+    // dengan harga paket lama sebelum perubahannya diajukan.
+    it("tagihan siklus yang sudah terbit diselaraskan setelah jadwal tersimpan", async () => {
+      const urutan: string[] = [];
+      repo.schedulePackageChange.mockImplementation(async () => {
+        urutan.push("schedule");
+      });
+      cycleInvoice.syncCycleInvoice.mockImplementation(async () => {
+        urutan.push("sync");
+        return { status: "REPRICED", invoiceId: "inv-baru" };
+      });
+
+      const result = await service.applyPackageChange({
+        ...baseInput,
+        upgradeApplyTime: "NEXT_CYCLE",
+      });
+
+      expect(cycleInvoice.syncCycleInvoice).toHaveBeenCalledWith({
+        pelangganId: "pelanggan-1",
+        cycleDate: JATUH_TEMPO,
+        previousPackageId: "paket-lama",
+      });
+      expect(urutan).toEqual(["schedule", "sync"]);
+      expect(result.cycleInvoice).toEqual({
+        status: "REPRICED",
+        invoiceId: "inv-baru",
+      });
+    });
+
+    it("jadwal yang menimpa jadwal lain menyelaraskan dari paket jadwal lama", async () => {
+      repo.findPelangganProrateContext.mockResolvedValue({
+        ...basePelanggan,
+        pendingPackageId: "paket-jadwal-lama",
+        pendingPackageApplyAt: JATUH_TEMPO,
+      });
+
+      await service.applyPackageChange({
+        ...baseInput,
+        upgradeApplyTime: "NEXT_CYCLE",
+      });
+
+      expect(cycleInvoice.syncCycleInvoice).toHaveBeenCalledWith(
+        expect.objectContaining({ previousPackageId: "paket-jadwal-lama" }),
+      );
+    });
+
+    // Jadwalnya sudah tersimpan: gagal menyelaraskan tagihan tidak boleh
+    // membuat pengajuan terlihat gagal lalu diulang.
+    it("gagal menyelaraskan tagihan tidak menggagalkan penjadwalan", async () => {
+      cycleInvoice.syncCycleInvoice.mockRejectedValue(new Error("redis mati"));
+
+      const result = await service.applyPackageChange({
+        ...baseInput,
+        upgradeApplyTime: "NEXT_CYCLE",
+      });
+
+      expect(result.applied).toBe(false);
+      expect(result.cycleInvoice).toEqual({ status: "FAILED" });
+    });
+  });
+
+  describe("IMMEDIATE menggantikan jadwal", () => {
+    it("tagihan siklus yang sudah dihitung dari paket jadwal diselaraskan lagi", async () => {
+      repo.findPelangganProrateContext.mockResolvedValue({
+        ...basePelanggan,
+        pendingPackageId: "paket-jadwal",
+        pendingPackageApplyAt: JATUH_TEMPO,
+      });
+
+      await service.applyPackageChange({ ...baseInput });
+
+      expect(cycleInvoice.syncCycleInvoice).toHaveBeenCalledWith({
+        pelangganId: "pelanggan-1",
+        cycleDate: JATUH_TEMPO,
+        previousPackageId: "paket-jadwal",
+      });
+    });
+
+    it("tanpa jadwal, tagihan siklus tidak disentuh", async () => {
+      await service.applyPackageChange({ ...baseInput });
+
+      expect(cycleInvoice.syncCycleInvoice).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("syncCycleInvoiceAfterCancel", () => {
+    it("tagihan siklus dikembalikan dari paket yang jadwalnya dibatalkan", async () => {
+      cycleInvoice.syncCycleInvoice.mockResolvedValue({
+        status: "REPRICED",
+        invoiceId: "inv-pulih",
+      });
+
+      const result = await service.syncCycleInvoiceAfterCancel({
+        pelangganId: "pelanggan-1",
+        cancelledPackageId: "paket-baru-upgrade",
+        applyAt: JATUH_TEMPO,
+      });
+
+      expect(cycleInvoice.syncCycleInvoice).toHaveBeenCalledWith({
+        pelangganId: "pelanggan-1",
+        cycleDate: JATUH_TEMPO,
+        previousPackageId: "paket-baru-upgrade",
+      });
+      expect(result).toEqual({ status: "REPRICED", invoiceId: "inv-pulih" });
+    });
+
+    it("kegagalan dilaporkan sebagai FAILED, tidak dilempar", async () => {
+      cycleInvoice.syncCycleInvoice.mockRejectedValue(new Error("gagal"));
+
+      const result = await service.syncCycleInvoiceAfterCancel({
+        pelangganId: "pelanggan-1",
+        cancelledPackageId: "paket-baru-upgrade",
+        applyAt: JATUH_TEMPO,
+      });
+
+      expect(result).toEqual({ status: "FAILED" });
     });
   });
 

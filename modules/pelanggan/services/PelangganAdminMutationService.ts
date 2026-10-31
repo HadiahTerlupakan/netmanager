@@ -496,6 +496,15 @@ export class PelangganAdminMutationService {
       };
     }
 
+    if (result.cancelledPackageId && result.cancelledApplyAt) {
+      const { InvoiceProrateService } = await import("@/modules/finance");
+      await new InvoiceProrateService().syncCycleInvoiceAfterCancel({
+        pelangganId: input.id,
+        cancelledPackageId: result.cancelledPackageId,
+        applyAt: result.cancelledApplyAt,
+      });
+    }
+
     return { cancelled: true };
   }
 

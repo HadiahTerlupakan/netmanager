@@ -29,6 +29,8 @@ export class ProrateRepository implements IProrateRepository {
         tanggalAktif: true,
         hargaPaketId: true,
         tenantId: true,
+        pendingPackageId: true,
+        pendingPackageApplyAt: true,
       },
     });
   }

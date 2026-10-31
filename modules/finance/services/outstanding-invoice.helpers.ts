@@ -28,17 +28,28 @@ export async function cancelOutstandingInvoices(options: {
   const cancelledIds: string[] = [];
 
   for (const invoice of cancellable) {
-    await cancelSingleInvoice(options.invoiceRepo, invoice.id);
-    await reverseJournalsOfCancelledInvoice({
-      invoiceId: invoice.id,
-      tenantId: invoice.tenantId,
-      reason: "Tagihan diganti dengan tagihan baru",
-      reversedBy: "Sistem",
-    });
+    await cancelReplacedInvoice({ invoiceRepo: options.invoiceRepo, invoice });
     cancelledIds.push(invoice.id);
   }
 
   return cancelledIds;
+}
+
+/**
+ * Membatalkan satu tagihan yang akan diganti tagihan baru: status, durable
+ * schedule, dan jurnalnya. Pemanggil yang memastikan tagihan belum dibayar.
+ */
+export async function cancelReplacedInvoice(options: {
+  invoiceRepo: InvoiceRepository;
+  invoice: { id: string; tenantId: string | null };
+}) {
+  await cancelSingleInvoice(options.invoiceRepo, options.invoice.id);
+  await reverseJournalsOfCancelledInvoice({
+    invoiceId: options.invoice.id,
+    tenantId: options.invoice.tenantId,
+    reason: "Tagihan diganti dengan tagihan baru",
+    reversedBy: "Sistem",
+  });
 }
 
 /** Tagihan hidup tanpa pembayaran yang menempel. */

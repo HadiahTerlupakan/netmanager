@@ -58,6 +58,16 @@ interface CustomerPackageResponse {
   upgradeOptions: UpgradeOption[];
 }
 
+/** Nasib tagihan siklus pertama paket baru, dari respons pengajuan upgrade. */
+type UpgradeCycleInvoice =
+  | { status: "NOT_ISSUED_YET" | "UNKNOWN" }
+  | {
+      status: "REISSUED" | "UNCHANGED" | "KEPT";
+      invoiceId: string;
+      dueDate: string;
+      totalAmount: number;
+    };
+
 const TIER_ICONS = [MdSpeed, MdRocketLaunch, MdSportsEsports];
 
 const DURATION_UNIT_LABELS: Record<string, string> = {
@@ -80,6 +90,20 @@ const formatDate = (dateString: string) =>
     month: "short",
     year: "numeric",
   });
+
+/**
+ * Catatan bila tagihan siklus pertama paket baru sudah terbit, supaya harga
+ * paket di halaman ini tidak bertentangan dengan nominal di menu tagihan.
+ */
+const describeCycleInvoice = (cycleInvoice?: UpgradeCycleInvoice) => {
+  if (cycleInvoice?.status === "REISSUED") {
+    return `Tagihan jatuh tempo ${formatDate(cycleInvoice.dueDate)} sudah diperbarui ke harga paket baru: ${formatCurrency(cycleInvoice.totalAmount)}.`;
+  }
+  if (cycleInvoice?.status === "KEPT") {
+    return `Tagihan jatuh tempo ${formatDate(cycleInvoice.dueDate)} sudah terbit sebesar ${formatCurrency(cycleInvoice.totalAmount)} dan tidak diubah; harga paket baru berlaku mulai tagihan berikutnya.`;
+  }
+  return null;
+};
 
 /** Ubah durasi paket jadi label periode tagihan, mis. "30 hari" atau "bulan". */
 const formatBillingPeriod = (durasi: number, durasiUnit: string) => {
@@ -104,6 +128,9 @@ export default function CustomerUpgradePackagePage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [cycleInvoiceNotice, setCycleInvoiceNotice] = useState<string | null>(
+    null,
+  );
 
   const {
     data,
@@ -159,6 +186,7 @@ export default function CustomerUpgradePackagePage() {
         return;
       }
 
+      setCycleInvoiceNotice(null);
       await refetchPackage();
     } catch {
       setSubmitError("Gagal terhubung ke server. Coba lagi.");
@@ -185,6 +213,7 @@ export default function CustomerUpgradePackagePage() {
         return;
       }
 
+      setCycleInvoiceNotice(describeCycleInvoice(result.data?.cycleInvoice));
       await refetchPackage();
     } catch {
       setSubmitError("Gagal terhubung ke server. Coba lagi.");
@@ -284,6 +313,17 @@ export default function CustomerUpgradePackagePage() {
                   {isSubmitting ? "Membatalkan..." : "Batalkan Pengajuan"}
                 </Button>
               </div>
+            </div>
+          </div>
+        ) : null}
+
+        {cycleInvoiceNotice ? (
+          <div className="mx-4 mt-2 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-900/20 p-4">
+            <div className="flex gap-3">
+              <MdInfo className="text-xl text-[#0d9488] shrink-0" />
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                {cycleInvoiceNotice}
+              </p>
             </div>
           </div>
         ) : null}

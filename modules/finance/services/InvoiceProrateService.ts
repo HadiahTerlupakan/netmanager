@@ -2,6 +2,10 @@ import { logger } from "@/lib/logger";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
 import type { IProrateRepository } from "../domain/ports/IProrateRepository";
 import { ProrateRepository } from "../repositories/ProrateRepository";
+import type {
+  CycleInvoiceSyncResult,
+  SyncCycleInvoiceInput,
+} from "./CycleInvoiceRepriceService";
 
 /** Konstanta dan tipe pendukung. */
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -37,6 +41,16 @@ export interface ApplyPackageChangeInput {
   requestedByCustomer?: boolean;
 }
 
+/** Hasil penyelarasan tagihan siklus; FAILED bila penyelarasannya gagal. */
+export type CycleInvoiceOutcome = CycleInvoiceSyncResult | { status: "FAILED" };
+
+/** Kontrak minimal penyelaras tagihan siklus yang dipakai service ini. */
+export interface CycleInvoiceSyncer {
+  syncCycleInvoice(
+    input: SyncCycleInvoiceInput,
+  ): Promise<CycleInvoiceSyncResult>;
+}
+
 export interface ApplyPackageChangeResult {
   /** true = paket sudah berubah di DB; false = scheduled (NEXT_CYCLE) */
   applied: boolean;
@@ -46,6 +60,8 @@ export interface ApplyPackageChangeResult {
   creditApplied?: bigint;
   refundPaymentId?: string;
   scheduledFor?: Date;
+  /** Tagihan siklus yang paketnya berubah; hanya bila siklus itu tersentuh. */
+  cycleInvoice?: CycleInvoiceOutcome;
 }
 
 /**
@@ -67,6 +83,8 @@ type PelangganProrateContext = {
   tanggalAktif: Date;
   hargaPaketId: string;
   tenantId: string | null;
+  pendingPackageId: string | null;
+  pendingPackageApplyAt: Date | null;
 };
 
 /**
@@ -76,9 +94,14 @@ type PelangganProrateContext = {
  */
 export class InvoiceProrateService {
   private readonly repo: IProrateRepository;
+  private cycleInvoiceSyncer: CycleInvoiceSyncer | undefined;
 
-  constructor(repo: IProrateRepository = new ProrateRepository()) {
+  constructor(
+    repo: IProrateRepository = new ProrateRepository(),
+    cycleInvoiceSyncer?: CycleInvoiceSyncer,
+  ) {
     this.repo = repo;
+    this.cycleInvoiceSyncer = cycleInvoiceSyncer;
   }
 
   /** Entry point utama — dispatch ke branch NEXT_CYCLE atau IMMEDIATE. */
@@ -150,11 +173,68 @@ export class InvoiceProrateService {
       `[InvoiceProrateService] NEXT_CYCLE scheduled for ${input.pelangganId} at ${pelanggan.jatuhTempo.toISOString()}`,
     );
 
+    // Tagihan siklus itu terbit beberapa hari sebelum jatuh tempo; bila sudah
+    // terbit dengan paket sebelumnya, ia diselaraskan ke paket yang dijadwalkan.
+    const cycleInvoice = await this.syncCycleInvoiceSafely({
+      pelangganId: input.pelangganId,
+      cycleDate: pelanggan.jatuhTempo,
+      previousPackageId: pelanggan.pendingPackageId ?? input.oldHargaPaketId,
+    });
+
     return {
       applied: false,
       prorateAmount: 0n,
       scheduledFor: pelanggan.jatuhTempo,
+      cycleInvoice,
     };
+  }
+
+  /**
+   * Setelah perubahan paket terjadwal dibatalkan: tagihan siklus yang sudah
+   * dihitung dari paket terjadwal itu dikembalikan ke paket yang berlaku.
+   * Tidak pernah melempar; pembatalannya sendiri sudah tersimpan.
+   */
+  async syncCycleInvoiceAfterCancel(input: {
+    pelangganId: string;
+    cancelledPackageId: string;
+    applyAt: Date;
+  }): Promise<CycleInvoiceOutcome> {
+    return this.syncCycleInvoiceSafely({
+      pelangganId: input.pelangganId,
+      cycleDate: input.applyAt,
+      previousPackageId: input.cancelledPackageId,
+    });
+  }
+
+  /**
+   * Perubahan paketnya sudah tersimpan saat ini dipanggil, jadi kegagalan
+   * menyelaraskan tagihan dilaporkan, bukan dilempar: melemparnya membuat
+   * pengajuan terlihat gagal padahal jadwalnya sudah berlaku.
+   */
+  private async syncCycleInvoiceSafely(
+    input: SyncCycleInvoiceInput,
+  ): Promise<CycleInvoiceOutcome> {
+    try {
+      const syncer = await this.getCycleInvoiceSyncer();
+      return await syncer.syncCycleInvoice(input);
+    } catch (error) {
+      logger.error(
+        `[InvoiceProrateService] Gagal menyelaraskan tagihan siklus ${input.cycleDate.toISOString()} pelanggan ${input.pelangganId}; tagihan yang sudah terbit tidak berubah`,
+        error instanceof Error ? error : undefined,
+      );
+      return { status: "FAILED" };
+    }
+  }
+
+  // Dimuat saat dipakai: penyelaras menarik jalur pembuatan tagihan dan
+  // registry modul pelanggan, yang sendiri mengimpor service ini.
+  private async getCycleInvoiceSyncer(): Promise<CycleInvoiceSyncer> {
+    if (!this.cycleInvoiceSyncer) {
+      const { CycleInvoiceRepriceService } =
+        await import("./CycleInvoiceRepriceService");
+      this.cycleInvoiceSyncer = new CycleInvoiceRepriceService();
+    }
+    return this.cycleInvoiceSyncer;
   }
 
   /**
@@ -172,6 +252,16 @@ export class InvoiceProrateService {
     // Paket diganti sekarang menggantikan perubahan terjadwal (mis. pengajuan
     // upgrade pelanggan); tanpa ini pengajuannya tetap tampil sebagai menunggu.
     await this.repo.clearPendingPackage(input.pelangganId);
+    // Tagihan siklus yang sudah dihitung dari paket terjadwal itu tidak boleh
+    // tertinggal dengan harga paket yang kini batal dipasang.
+    const cycleInvoice =
+      pelanggan.pendingPackageId && pelanggan.pendingPackageApplyAt
+        ? await this.syncCycleInvoiceAfterCancel({
+            pelangganId: input.pelangganId,
+            cancelledPackageId: pelanggan.pendingPackageId,
+            applyAt: pelanggan.pendingPackageApplyAt,
+          })
+        : undefined;
 
     const priceDiff = BigInt(newPackage.harga) - BigInt(oldPackage.harga);
     const isUpgrade = priceDiff > 0n;
@@ -220,6 +310,7 @@ export class InvoiceProrateService {
       prorateInvoiceId,
       creditApplied,
       refundPaymentId,
+      ...(cycleInvoice ? { cycleInvoice } : {}),
     };
   }
 

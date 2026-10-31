@@ -29,6 +29,14 @@ vi.mock("@/modules/events", () => ({
   },
 }));
 
+// Penyelarasan tagihan siklus memakai kunci Redis dan database billing; yang
+// diuji di sini hanya event paketnya.
+vi.mock("@/modules/finance/services/CycleInvoiceRepriceService", () => ({
+  CycleInvoiceRepriceService: class {
+    syncCycleInvoice = vi.fn(async () => ({ status: "NOT_ISSUED" }));
+  },
+}));
+
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const SESSION = {

@@ -252,6 +252,111 @@ describe("BillingInvoiceCreationService", () => {
       );
     });
 
+    // Billing harian berjalan di konteks sistem, yang tidak menyuntikkan
+    // tenantId; tanpa ini tagihannya tak terlihat oleh query ber-tenant.
+    it("invoice dan itemnya membawa tenant pelanggan", async () => {
+      vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
+
+      await service.createInvoiceForCustomer(
+        { ...mockCustomer, tenantId: "tenant-1" },
+        new Date("2026-05-31"),
+      );
+
+      expect(mockInvoiceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: "tenant-1",
+          invoiceItem: {
+            create: [expect.objectContaining({ tenantId: "tenant-1" })],
+          },
+        }),
+      );
+    });
+
+    // Tagihan siklus dibuat ±5 hari sebelum jatuh tempo, padahal paket yang
+    // dijadwalkan (NEXT_CYCLE) baru diganti cron pada jatuh tempo itu: siklus
+    // pertama paket baru dulu ditagih dengan harga paket lama.
+    describe("paket terjadwal yang berlaku pada siklus ini", () => {
+      const paketTerjadwal = {
+        id: "paket-ultra",
+        name: "Paket Ultra",
+        harga: 750000,
+        usePPN: true,
+        ppnPercentage: 11,
+      };
+
+      it("menagih siklus dari paket terjadwal, termasuk PPN dan uraiannya", async () => {
+        const { toEndOfDay } = await import("@/lib/utils/server-datetime");
+        const findPendingPackage = vi.fn().mockResolvedValue(paketTerjadwal);
+        service = new BillingInvoiceCreationService(
+          mockInvoiceRepo,
+          findPendingPackage,
+        );
+        vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
+        const dueDate = new Date("2026-05-31");
+
+        await service.createInvoiceForCustomer(mockCustomer, dueDate);
+
+        expect(findPendingPackage).toHaveBeenCalledWith(
+          "customer-1",
+          toEndOfDay(dueDate),
+        );
+        expect(mockInvoiceRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            subtotal: 750000n,
+            taxAmount: 82500n,
+            totalAmount: 832500n,
+            invoiceItem: {
+              create: [
+                expect.objectContaining({
+                  description: "Berlangganan Internet Paket Paket Ultra",
+                  unitPrice: 750000n,
+                  totalPrice: 750000n,
+                }),
+              ],
+            },
+          }),
+        );
+      });
+
+      it("PPN paket terjadwal dihitung dari pengaturan paket itu sendiri", async () => {
+        service = new BillingInvoiceCreationService(
+          mockInvoiceRepo,
+          vi.fn().mockResolvedValue({ ...paketTerjadwal, usePPN: false }),
+        );
+        vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
+
+        await service.createInvoiceForCustomer(
+          { ...mockCustomer, usePPN: false },
+          new Date("2026-05-31"),
+        );
+
+        expect(mockInvoiceRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            subtotal: 750000n,
+            taxAmount: 0n,
+            totalAmount: 750000n,
+          }),
+        );
+      });
+
+      it("tanpa perubahan yang berlaku, paket sekarang yang ditagih", async () => {
+        service = new BillingInvoiceCreationService(
+          mockInvoiceRepo,
+          vi.fn().mockResolvedValue(null),
+        );
+        vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
+
+        await service.createInvoiceForCustomer(
+          mockCustomer,
+          new Date("2026-05-31"),
+        );
+
+        expect(mockInvoiceRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({ subtotal: 500000n, totalAmount: 555000n }),
+        );
+      });
+    });
+
     describe("saldo kredit konsumsi", () => {
       it("apply discount sebesar saldo kalau saldo < total", async () => {
         setSaldoKredit(30_000n);

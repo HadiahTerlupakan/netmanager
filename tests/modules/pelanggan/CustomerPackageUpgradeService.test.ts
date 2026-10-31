@@ -46,7 +46,11 @@ function buildDependencies(options: {
     applied: false,
     prorateAmount: 0n,
     scheduledFor: NEXT_DUE_DATE,
+    cycleInvoice: { status: "NOT_ISSUED" },
   });
+  const syncCycleInvoiceAfterCancel = vi
+    .fn()
+    .mockResolvedValue({ status: "NOT_ISSUED" });
   // Clears the request in one write, only while it is still the customer's.
   const cancelCustomerRequestedPackage = vi.fn().mockResolvedValue(true);
   const repository = {
@@ -65,12 +69,14 @@ function buildDependencies(options: {
 
   const service = new CustomerPackageUpgradeService(repository, {
     applyPackageChange,
+    syncCycleInvoiceAfterCancel,
   } as never);
 
   return {
     service,
     repository,
     applyPackageChange,
+    syncCycleInvoiceAfterCancel,
     cancelCustomerRequestedPackage,
   };
 }
@@ -113,6 +119,78 @@ describe("CustomerPackageUpgradeService.requestUpgrade", () => {
     expect(result).toEqual({
       scheduledFor: NEXT_DUE_DATE,
       package: { id: TARGET_PACKAGE_ID, nama: "Standard", harga: 250_000 },
+      cycleInvoice: { status: "NOT_ISSUED_YET" },
+    });
+  });
+
+  // Portal menampilkan harga paket baru mulai siklus berikutnya; responsnya
+  // harus mengatakan apa yang terjadi pada tagihan siklus itu supaya angka di
+  // portal dan di tagihan tidak bertentangan.
+  describe("tagihan siklus pertama paket baru", () => {
+    it.each([
+      [
+        "terbit ulang dengan harga paket baru",
+        {
+          status: "REPRICED",
+          invoiceId: "inv-baru",
+          replacedInvoiceId: "inv-lama",
+          dueDate: NEXT_DUE_DATE,
+          totalAmount: 277_500n,
+        },
+        {
+          status: "REISSUED",
+          invoiceId: "inv-baru",
+          dueDate: NEXT_DUE_DATE,
+          totalAmount: 277_500,
+        },
+      ],
+      [
+        "sudah dibayar/checkout aktif: tetap harga lama",
+        {
+          status: "KEPT",
+          reason: "ACTIVE_CHECKOUT",
+          invoiceId: "inv-lama",
+          dueDate: NEXT_DUE_DATE,
+          totalAmount: 166_500n,
+        },
+        {
+          status: "KEPT",
+          invoiceId: "inv-lama",
+          dueDate: NEXT_DUE_DATE,
+          totalAmount: 166_500,
+        },
+      ],
+      [
+        "sudah seharga paket baru",
+        {
+          status: "UNCHANGED",
+          invoiceId: "inv-lama",
+          dueDate: NEXT_DUE_DATE,
+          totalAmount: 277_500n,
+        },
+        {
+          status: "UNCHANGED",
+          invoiceId: "inv-lama",
+          dueDate: NEXT_DUE_DATE,
+          totalAmount: 277_500,
+        },
+      ],
+      ["penyelarasan gagal", { status: "FAILED" }, { status: "UNKNOWN" }],
+    ])("%s", async (_label, cycleInvoice, expected) => {
+      const { service, applyPackageChange } = buildDependencies({});
+      applyPackageChange.mockResolvedValue({
+        applied: false,
+        prorateAmount: 0n,
+        scheduledFor: NEXT_DUE_DATE,
+        cycleInvoice,
+      });
+
+      const result = await service.requestUpgrade(
+        CUSTOMER_ID,
+        TARGET_PACKAGE_ID,
+      );
+
+      expect(result.cycleInvoice).toEqual(expected);
     });
   });
 
@@ -212,6 +290,39 @@ describe("CustomerPackageUpgradeService.cancelUpgrade", () => {
     });
   });
 
+  it("returns the cycle invoice to the current package after clearing", async () => {
+    const {
+      service,
+      cancelCustomerRequestedPackage,
+      syncCycleInvoiceAfterCancel,
+    } = buildDependencies({
+      customer: buildCustomer({
+        pendingPackageId: TARGET_PACKAGE_ID,
+        pendingPackageApplyAt: NEXT_DUE_DATE,
+        pendingPackageByCustomer: true,
+        pendingPackage: { id: TARGET_PACKAGE_ID, name: "Standard" },
+      }),
+    });
+    const urutan: string[] = [];
+    cancelCustomerRequestedPackage.mockImplementation(async () => {
+      urutan.push("cancel");
+      return true;
+    });
+    syncCycleInvoiceAfterCancel.mockImplementation(async () => {
+      urutan.push("sync");
+      return { status: "REPRICED" };
+    });
+
+    await service.cancelUpgrade(CUSTOMER_ID);
+
+    expect(syncCycleInvoiceAfterCancel).toHaveBeenCalledWith({
+      pelangganId: CUSTOMER_ID,
+      cancelledPackageId: TARGET_PACKAGE_ID,
+      applyAt: NEXT_DUE_DATE,
+    });
+    expect(urutan).toEqual(["cancel", "sync"]);
+  });
+
   // Staff can schedule any change, a downgrade included; the customer's
   // cancel button must not undo it.
   it("refuses to cancel a change staff scheduled", async () => {
@@ -235,7 +346,11 @@ describe("CustomerPackageUpgradeService.cancelUpgrade", () => {
   // Staff may replace the request between the read and the write; the clear
   // itself must refuse then, not the earlier read.
   it("refuses when staff replaced the request before it was cleared", async () => {
-    const { service, cancelCustomerRequestedPackage } = buildDependencies({
+    const {
+      service,
+      cancelCustomerRequestedPackage,
+      syncCycleInvoiceAfterCancel,
+    } = buildDependencies({
       customer: buildCustomer({
         pendingPackageId: TARGET_PACKAGE_ID,
         pendingPackageApplyAt: NEXT_DUE_DATE,
@@ -250,6 +365,7 @@ describe("CustomerPackageUpgradeService.cancelUpgrade", () => {
       "PACKAGE_CHANGE_BY_STAFF",
     );
     expect(mockNotifyPackageUpgradeCancelled).not.toHaveBeenCalled();
+    expect(syncCycleInvoiceAfterCancel).not.toHaveBeenCalled();
   });
 
   it("rejects when there is nothing to cancel", async () => {

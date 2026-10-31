@@ -33,6 +33,13 @@ const onPackageChanged = vi.hoisted(() =>
 vi.mock("@/modules/events", () => ({
   BillingEventDispatcher: { onPackageChanged },
 }));
+// Tagihan siklus yang sudah terbit dibuktikan di
+// pending-package-first-cycle.test.ts; di sini belum ada tagihan.
+vi.mock("@/modules/finance/services/CycleInvoiceRepriceService", () => ({
+  CycleInvoiceRepriceService: class {
+    syncCycleInvoice = async () => ({ status: "NOT_ISSUED" });
+  },
+}));
 
 const adaDbUji = Boolean(process.env.TEST_DATABASE_URL);
 const describeDb = adaDbUji ? describe : describe.skip;

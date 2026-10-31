@@ -344,11 +344,17 @@ export class PelangganRepository implements IPelangganRepository {
   async cancelPendingPackage(id: string, tenantId?: string | null) {
     const existing = await prisma.pelanggan.findFirst({
       where: tenantId ? { id, tenantId } : { id },
-      select: { id: true, pendingPackageId: true },
+      select: { id: true, pendingPackageId: true, pendingPackageApplyAt: true },
     });
 
     if (!existing) {
-      return { id, found: false, hasPendingPackage: false };
+      return {
+        id,
+        found: false,
+        hasPendingPackage: false,
+        cancelledPackageId: null,
+        cancelledApplyAt: null,
+      };
     }
 
     const hasPendingPackage = existing.pendingPackageId !== null;
@@ -364,6 +370,12 @@ export class PelangganRepository implements IPelangganRepository {
       });
     }
 
-    return { id, found: true, hasPendingPackage };
+    return {
+      id,
+      found: true,
+      hasPendingPackage,
+      cancelledPackageId: existing.pendingPackageId,
+      cancelledApplyAt: existing.pendingPackageApplyAt,
+    };
   }
 }

@@ -11,6 +11,9 @@ export interface PelangganProrateContext {
   tanggalAktif: Date;
   hargaPaketId: string;
   tenantId: string | null;
+  /** Perubahan terjadwal yang sedang menunggu, bila ada. */
+  pendingPackageId: string | null;
+  pendingPackageApplyAt: Date | null;
 }
 
 export interface PackageInfo {

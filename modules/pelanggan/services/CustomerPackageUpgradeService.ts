@@ -1,4 +1,7 @@
-import { InvoiceProrateService } from "@/modules/finance";
+import {
+  type CycleInvoiceOutcome,
+  InvoiceProrateService,
+} from "@/modules/finance";
 import type { IPelangganRepository } from "../domain/ports/IPelangganRepository";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 import {
@@ -28,6 +31,26 @@ export class CustomerPackageUpgradeError extends Error {
   }
 }
 
+/**
+ * Tagihan siklus pertama paket baru, supaya portal tidak menjanjikan angka
+ * yang berbeda dari tagihannya.
+ * - NOT_ISSUED_YET: tagihan belum terbit dan akan memakai harga paket baru.
+ * - REISSUED: tagihan yang sudah terbit diganti dengan harga paket baru.
+ * - UNCHANGED: tagihan yang sudah terbit sudah seharga paket baru.
+ * - KEPT: tagihan yang sudah terbit tetap dengan nominal lamanya (sudah atau
+ *   sedang dibayar lewat VA/QRIS, atau nominalnya sudah diubah petugas).
+ * - UNKNOWN: tagihan gagal diselaraskan; yang sudah terbit tidak berubah.
+ */
+export type UpgradeCycleInvoice =
+  | { status: "NOT_ISSUED_YET" }
+  | {
+      status: "REISSUED" | "UNCHANGED" | "KEPT";
+      invoiceId: string;
+      dueDate: Date;
+      totalAmount: number;
+    }
+  | { status: "UNKNOWN" };
+
 export interface UpgradeRequestResult {
   scheduledFor: Date;
   package: {
@@ -35,10 +58,34 @@ export interface UpgradeRequestResult {
     nama: string;
     harga: number;
   };
+  cycleInvoice: UpgradeCycleInvoice;
 }
 
 /** Kontrak minimal yang dipakai dari modul finance. */
-type PackageChangeScheduler = Pick<InvoiceProrateService, "applyPackageChange">;
+type PackageChangeScheduler = Pick<
+  InvoiceProrateService,
+  "applyPackageChange" | "syncCycleInvoiceAfterCancel"
+>;
+
+function toUpgradeCycleInvoice(
+  outcome: CycleInvoiceOutcome | undefined,
+): UpgradeCycleInvoice {
+  switch (outcome?.status) {
+    case "NOT_ISSUED":
+      return { status: "NOT_ISSUED_YET" };
+    case "REPRICED":
+    case "KEPT":
+    case "UNCHANGED":
+      return {
+        status: outcome.status === "REPRICED" ? "REISSUED" : outcome.status,
+        invoiceId: outcome.invoiceId,
+        dueDate: outcome.dueDate,
+        totalAmount: Number(outcome.totalAmount),
+      };
+    default:
+      return { status: "UNKNOWN" };
+  }
+}
 
 /**
  * Pengajuan upgrade paket oleh pelanggan sendiri lewat portal.
@@ -138,6 +185,7 @@ export class CustomerPackageUpgradeService {
         nama: targetPackage.name,
         harga: targetPackage.harga,
       },
+      cycleInvoice: toUpgradeCycleInvoice(result.cycleInvoice),
     };
   }
 
@@ -173,6 +221,14 @@ export class CustomerPackageUpgradeService {
         "Perubahan paket ini dijadwalkan petugas. Hubungi customer service untuk membatalkannya.",
         "PACKAGE_CHANGE_BY_STAFF",
       );
+    }
+
+    if (customer.pendingPackageApplyAt) {
+      await this.packageChangeScheduler.syncCycleInvoiceAfterCancel({
+        pelangganId: customer.id,
+        cancelledPackageId: customer.pendingPackageId,
+        applyAt: customer.pendingPackageApplyAt,
+      });
     }
 
     notifyUpgradeCancelled({
