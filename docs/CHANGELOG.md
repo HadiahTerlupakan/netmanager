@@ -59,6 +59,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `lib/notification-sound.ts`, `lib/realtime/RealtimeContext.tsx`, `lib/realtime/channel-snapshot.ts`, `lib/websocket/hooks/useRealtimeNotifications.ts`, `lib/websocket/hooks/useRealtimeWorkOrders.ts`, `lib/websocket/hooks/useRealtimeSupportTickets.ts`, `lib/websocket/hooks/useRealtimePaymentApprovals.ts`, `components/notifications/PaymentApprovalBell.tsx`, `app/admin/chat/ChatPageClient.tsx`, `app/(customer)/profil/NotificationSoundToggle.tsx`, `tests/lib/notification-sound.test.ts`, `tests/lib/realtime/notification-sound-rules.test.tsx`, `tests/components/notifications/PaymentApprovalBell.test.tsx`, `tests/app/customer-notification-sound-toggle.test.tsx`, `tests/lib/realtime/realtime-context-admin-consumers.test.ts`, `tests/architecture/module-public-api.test.ts` (`ChatPageClient.tsx` kini di bawah 1000 baris, keluar dari baseline)
 - **Breaking**: ❌ Tidak
 
+### [2026-11-01] — Push FCM yang tertunda digabung per kategori
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/firebase` | `lib/realtime`
+- **Author**: agent
+- **Deskripsi**: Selama ponsel offline atau aplikasi tertutup, FCM menyimpan setiap push, dan begitu tersambung lagi Android menampilkan sekaligus membunyikan semuanya. `sendFCMNotification` dan `firebaseRealtimeService.sendPush` kini memberi setiap push satu kunci kategori dari `getPushCollapseKey` (`lib/firebase/push-collapse.ts`) yang dipakai sebagai `android.collapseKey`, `android.notification.tag` (notifikasi baru menggantikan notifikasi kategori yang sama di baki), dan `apns.headers["apns-collapse-id"]`. Kategori diturunkan dari data yang sudah dikirim: `sourceType` lebih dulu (`WORK_ORDER` → workorder; `TICKET`/`KELUHAN` → ticket; `BILLING`/`INVOICE`/`PaymentReview` → billing; `ANNOUNCEMENT` → announcement), lalu segmen tautan `url` (workorders, support/tickets/keluhan, tagihan/invoices/payments, announcements/pengumuman); obrolan memakai `chat-<conversationId>` supaya percakapan berbeda tidak saling menimpa; selebihnya `general`. `data.url`, nada `notif_soft`, dan prioritas tinggi tidak berubah. Catatan: FCM hanya menyimpan empat collapse key berbeda per perangkat, dan dokumentasinya menyebut notification message di Android bisa mengabaikan `collapse_key`, sehingga penggantian di baki Android bertumpu pada `tag`. Push lewat Expo (tagihan pelanggan, obrolan, push work order) belum ikut digabung.
+- **Files**: `lib/firebase/push-collapse.ts` (baru), `lib/firebase/messaging.ts`, `lib/realtime/firebase-realtime-service.ts`, `tests/lib/firebase/messaging-collapse.test.ts`, `tests/lib/realtime/firebase-realtime-service.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

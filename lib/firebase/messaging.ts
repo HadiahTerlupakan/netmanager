@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { messaging } from "@/lib/firebase/admin";
+import { getPushCollapseKey } from "@/lib/firebase/push-collapse";
 import { prisma } from "@/lib/prisma";
 import { prismaMitra } from "@/lib/prisma-mitra";
 import { clearStaleFcmTokens } from "@/modules/notification";
@@ -105,6 +106,10 @@ export async function sendFCMNotification(
     return;
   }
 
+  // Dipakai sebagai collapse key, tag baki, dan apns-collapse-id: push
+  // kategori yang sama saling menggantikan selama ponsel offline.
+  const collapseKey = getPushCollapseKey(data);
+
   try {
     const response = await messaging.sendEachForMulticast({
       tokens,
@@ -114,6 +119,7 @@ export async function sendFCMNotification(
       },
       data: data || {},
       apns: {
+        headers: { "apns-collapse-id": collapseKey },
         payload: {
           // iOS menyebut nada di payload, lengkap dengan ekstensinya. Berkasnya
           // dikirim bersama aplikasi; pemasangan lama yang belum memilikinya
@@ -123,11 +129,12 @@ export async function sendFCMNotification(
       },
       android: {
         priority: "high",
+        collapseKey,
         // Android merujuk berkas di res/raw tanpa ekstensi. Nilai ini hanya
         // berlaku pada perangkat pra-Android 8 — sejak Android 8 suara
         // ditentukan channel, dan aplikasi mengarahkan notifikasi latar
         // belakang ke channel bernada lembut lewat penunjuk di manifest.
-        notification: { sound: NOTIFICATION_SOUND_ANDROID },
+        notification: { sound: NOTIFICATION_SOUND_ANDROID, tag: collapseKey },
       },
       webpush: {
         notification: {
