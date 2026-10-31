@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Banner gateway SANDBOX hanya untuk pengelola pembayaran
+
+- **Tipe**: [CHANGED]
+- **Scope**: `components/admin`
+- **Author**: agent
+- **Deskripsi**: Banner merah "Gateway pembayaran memakai SANDBOX" tampil di layar setiap pengguna portal admin, termasuk yang tidak berurusan dengan pembayaran. Kini hanya pemegang `payment_gateway:read`, `payment_gateway:update`, atau `manual_payments:verify` (super admin selalu) yang melihatnya; tanpa sesi atau tanpa izin, konfigurasi gateway tidak diperiksa sama sekali. Flag `paymentGateway.sandboxInProduction` di jawaban health internal tidak berubah.
+- **Files**: `components/admin/GatewaySandboxBanner.tsx`, `tests/components/gateway-sandbox-banner.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Tombol sakelar darurat konfigurasi payment gateway di admin
 
 - **Tipe**: [ADDED]
