@@ -99,4 +99,42 @@ describe("useCustomerNotifications sound", () => {
 
     expect(mocks.playSound).not.toHaveBeenCalled();
   });
+
+  describe("fallback polling while realtime is unavailable", () => {
+    async function settleFake(ms = 0) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms);
+      });
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+    });
+
+    it("refetches the unread count every minute while the tab is visible", async () => {
+      vi.useFakeTimers();
+      respondWithUnread(2);
+      act(() => root.render(<Probe />));
+      await settleFake();
+
+      respondWithUnread(3);
+      await settleFake(60_000);
+
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(mocks.playSound).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not poll while the tab is hidden", async () => {
+      vi.useFakeTimers();
+      vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      respondWithUnread(2);
+      act(() => root.render(<Probe />));
+      await settleFake();
+
+      await settleFake(3 * 60_000);
+
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+  });
 });

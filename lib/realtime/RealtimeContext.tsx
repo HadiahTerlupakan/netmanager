@@ -33,7 +33,10 @@ import {
 import { createChannelSnapshotListener } from "@/lib/realtime/channel-snapshot";
 import { getRealtimeClientServices } from "@/lib/realtime/client";
 import {
-  hasCurrentRealtimeClaims,
+  REALTIME_TOKEN_PATHS,
+  getExpectedRealtimeClaims,
+  hasRealtimeClaims,
+  type RealtimeAudience,
   type RealtimeClaimsSource,
 } from "@/lib/realtime/firebase-claims";
 import type {
@@ -120,6 +123,8 @@ interface RealtimeProviderProps {
   children: ReactNode;
   userOverride?: SessionUser | null;
   statusOverride?: "authenticated" | "unauthenticated" | "loading";
+  /** Menentukan rute token dan klaim yang diharapkan; bawaannya staf. */
+  audience?: RealtimeAudience;
 }
 
 function resolveAuthStatus(
@@ -290,6 +295,7 @@ export function RealtimeProvider({
   children,
   userOverride,
   statusOverride,
+  audience = "staff",
 }: RealtimeProviderProps) {
   const { data: session, status: sessionStatus } = useSession();
   const [dynamicScopes, setDynamicScopes] = useState<RealtimeScope[]>([]);
@@ -417,7 +423,11 @@ export function RealtimeProvider({
         const isSameUser = currentUser?.uid === sessionClaims.id;
         if (isSameUser) {
           const { claims } = await currentUser.getIdTokenResult();
-          if (hasCurrentRealtimeClaims(claims, sessionClaims)) {
+          const expectedClaims = getExpectedRealtimeClaims(
+            audience,
+            sessionClaims,
+          );
+          if (hasRealtimeClaims(claims, expectedClaims)) {
             if (active) {
               setIsFirebaseReady(true);
             }
@@ -433,7 +443,7 @@ export function RealtimeProvider({
           await signOut(services.auth);
         }
 
-        const response = await fetch("/api/auth/firebase-token", {
+        const response = await fetch(REALTIME_TOKEN_PATHS[audience], {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -471,7 +481,13 @@ export function RealtimeProvider({
     };
     // Berjalan ulang bila sidik jari sesi berubah (klaim atau scope), bukan
     // setiap kali objek sesinya dibuat ulang.
-  }, [services.auth, isAuthValid, sessionFingerprint, reconnectVersion]);
+  }, [
+    services.auth,
+    isAuthValid,
+    sessionFingerprint,
+    audience,
+    reconnectVersion,
+  ]);
 
   const isConnected =
     status === "authenticated" &&

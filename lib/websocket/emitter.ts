@@ -114,15 +114,24 @@ export const socketEmitter = {
       sender?: { id: string; name: string; image?: string } | null;
       attachments?: string[] | null;
     },
+    ownerCustomerId?: string,
   ) {
+    const payload = { ticketId, reply };
     dispatchRealtime(
       "ticket:message",
       { kind: "ticket", id: ticketId },
-      {
-        ticketId,
-        reply,
-      },
+      payload,
     );
+
+    // Token realtime pelanggan hanya membuka kanalnya sendiri, bukan kanal
+    // tiket; pemilik tiket menerima pesannya di sana.
+    if (ownerCustomerId) {
+      dispatchRealtime(
+        "ticket:message",
+        { kind: "user", id: ownerCustomerId },
+        payload,
+      );
+    }
   },
 
   updateTicketCount(count: number, siteId?: string) {

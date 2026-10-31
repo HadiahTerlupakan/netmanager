@@ -308,4 +308,29 @@ describe("socketEmitter Firebase adapter", () => {
       },
     });
   });
+
+  it("publishes a ticket message to the ticket channel and to the ticket owner's own channel", async () => {
+    // Pelanggan hanya boleh membaca kanal miliknya sendiri; kanal tiket
+    // dibuka aturan Firestore untuk staf dan token se-tenant.
+    const { socketEmitter } = await import("@/lib/websocket/emitter");
+    const reply = {
+      id: "reply-1",
+      message: "Sudah kami cek",
+      isFromAdmin: true,
+      createdAt: "2026-11-01T08:00:00.000Z",
+    };
+
+    socketEmitter.ticketMessage("ticket-1", reply, "cust-1");
+
+    expect(mockFns.publish).toHaveBeenCalledWith({
+      type: "ticket.message",
+      scope: { kind: "ticket", id: "ticket-1" },
+      payload: { ticketId: "ticket-1", reply },
+    });
+    expect(mockFns.publish).toHaveBeenCalledWith({
+      type: "ticket.message",
+      scope: { kind: "user", id: "cust-1" },
+      payload: { ticketId: "ticket-1", reply },
+    });
+  });
 });

@@ -8,6 +8,13 @@ import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
 import { useRealtimeResync } from "@/lib/realtime/hooks/useRealtimeResync";
 import { playCustomerNotificationSound } from "@/lib/notification-sound";
 
+/**
+ * Cadangan bila realtime tidak tersedia: hitungan dimuat ulang tiap menit
+ * selama tab terlihat. Aturan nadanya sama: hanya kenaikan setelah muat
+ * pertama yang berbunyi, lewat gerbang jeda tenang dan throttle.
+ */
+const UNREAD_POLL_INTERVAL_MS = 60_000;
+
 export interface CustomerNotification {
   id: string;
   type: string;
@@ -109,6 +116,14 @@ export function useCustomerNotifications(
     if (!autoFetch || hasFetchedRef.current) return;
     hasFetchedRef.current = true;
     void fetchNotifications();
+  }, [autoFetch, fetchNotifications]);
+
+  useEffect(() => {
+    if (!autoFetch) return undefined;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void fetchNotifications();
+    }, UNREAD_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
   }, [autoFetch, fetchNotifications]);
 
   // Handle new notification from WebSocket

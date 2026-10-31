@@ -131,6 +131,14 @@ export function mintedClaimsFor(user: Record<string, unknown>) {
   };
 }
 
+/** Sesi Firebase Auth yang diingat browser, dengan klaim apa adanya. */
+export function rememberFirebaseUser(
+  uid: string,
+  claims: Record<string, unknown>,
+) {
+  fakeRealtime.services.auth.currentUser = firebaseUser(uid, claims);
+}
+
 /** Jawaban route token palsu: token custom untuk sesi NextAuth saat ini. */
 export function mintTokenForCurrentSession(): string {
   const user = fakeRealtime.session.data?.user ?? {};

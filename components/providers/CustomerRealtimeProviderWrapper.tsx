@@ -23,6 +23,7 @@ export default function CustomerRealtimeProviderWrapper({
 
   return (
     <RealtimeProvider
+      audience="customer"
       userOverride={userOverride}
       statusOverride={statusOverride}
     >

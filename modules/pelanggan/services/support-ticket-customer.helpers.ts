@@ -71,11 +71,15 @@ export function emitCustomerReply(input: {
   ticket: { pelanggan?: { nama: string } | null };
   reply: CustomerReplyRecord;
 }) {
-  socketEmitter.ticketMessage(input.ticketId, {
-    ...buildReplySocketBody(input.reply),
-    sender: buildReplySender(input.customerId, input.ticket),
-    attachments: (input.reply.attachments as string[] | null) ?? null,
-  });
+  socketEmitter.ticketMessage(
+    input.ticketId,
+    {
+      ...buildReplySocketBody(input.reply),
+      sender: buildReplySender(input.customerId, input.ticket),
+      attachments: (input.reply.attachments as string[] | null) ?? null,
+    },
+    input.customerId,
+  );
 }
 
 /** Build API response for customer reply. */
