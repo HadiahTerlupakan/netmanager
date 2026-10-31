@@ -2,6 +2,7 @@ import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
 import { requireCustomerAuth } from "@/lib/customer-auth";
 import { getCustomerPaymentStreamStatus } from "@/modules/pelanggan";
+import { limitCustomerPaymentRequest } from "../../rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,13 @@ export async function GET(request: NextRequest) {
   if (authResult.response) {
     return authResult.response;
   }
+
+  // Tiap aliran membaca database setiap 5 detik selama 30 menit.
+  const limited = limitCustomerPaymentRequest(
+    "paymentStream",
+    authResult.session.id,
+  );
+  if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
   const invoiceId = searchParams.get("invoiceId");

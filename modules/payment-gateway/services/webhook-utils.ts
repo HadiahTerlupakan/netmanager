@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import { parseOptionalDate } from "@/lib/utils/server-datetime";
 import type { PaymentMethod } from "@/modules/finance";
+import { findBillingPaymentMethod } from "./payment-method-catalog";
 import type { WebhookResult } from "./provider-interface";
 
 const PAYMENT_METHOD_MAP: Record<string, PaymentMethod> = {
@@ -26,10 +27,18 @@ export function parseWebhookPayload(rawBody: string, providerType: string) {
   }
 }
 
-/** Normalize nama metode pembayaran gateway ke enum billing. */
+/**
+ * Normalize metode pembayaran dari gateway ke enum billing: kode kanal
+ * katalog (mis. paymentCode Duitku "SP") lebih dulu, lalu nama umum.
+ */
 export function normalizePaymentMethod(paymentMethod: string | undefined) {
   if (!paymentMethod) {
     return undefined;
+  }
+
+  const channelMethod = findBillingPaymentMethod(paymentMethod.trim());
+  if (channelMethod) {
+    return channelMethod;
   }
 
   const normalized = paymentMethod.trim().toUpperCase().replace(/\s+/g, "_");

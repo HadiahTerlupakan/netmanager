@@ -14,6 +14,11 @@ const mockFns = vi.hoisted(() => ({
   createCustomerPaymentsForInvoices: vi.fn(),
   updateCustomerPaymentGatewayMetadata: vi.fn(),
   createPayment: vi.fn(),
+  limitCustomerPaymentRequest: vi.fn(),
+}));
+
+vi.mock("@/app/api/customer/rate-limit", () => ({
+  limitCustomerPaymentRequest: mockFns.limitCustomerPaymentRequest,
 }));
 
 vi.mock("@/lib/customer-auth", () => ({
@@ -78,6 +83,7 @@ import { RouteServiceError } from "@/lib/api/route-service-error";
 describe("customer payments route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFns.limitCustomerPaymentRequest.mockReturnValue(null);
 
     prismaMock.$transaction.mockImplementation(async (callback: unknown) => {
       if (typeof callback === "function") {
@@ -249,6 +255,42 @@ describe("customer payments route", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe("Kuota kupon habis");
+  });
+
+  // Aplikasi mobile kembali ke halaman publik yang membuka deep link-nya.
+  it("meneruskan returnTo app ke service", async () => {
+    const response = await POST(
+      buildPaymentRequest({ paymentMethod: "SP", returnTo: "app" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFns.createCustomerPaymentForRoute).toHaveBeenCalledWith(
+      expect.objectContaining({ returnTo: "app" }),
+    );
+  });
+
+  it("menolak returnTo yang tidak dikenal", async () => {
+    const response = await POST(
+      buildPaymentRequest({ returnTo: "https://phishing.example" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockFns.createCustomerPaymentForRoute).not.toHaveBeenCalled();
+  });
+
+  it("pelanggan yang melewati batas permintaan ditolak sebelum gateway dipanggil", async () => {
+    mockFns.limitCustomerPaymentRequest.mockReturnValue(
+      NextResponse.json({ success: false }, { status: 429 }),
+    );
+
+    const response = await POST(buildPaymentRequest());
+
+    expect(response.status).toBe(429);
+    expect(mockFns.limitCustomerPaymentRequest).toHaveBeenCalledWith(
+      "createPayment",
+      "customer-1",
+    );
+    expect(mockFns.createCustomerPaymentForRoute).not.toHaveBeenCalled();
   });
 
   it("menolak 400 bila paymentMethod tidak dikirim, sebelum service dipanggil", async () => {

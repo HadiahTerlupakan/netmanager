@@ -15,15 +15,23 @@ export interface IPaymentRepository {
     where: PaymentWhereInput,
     select?: PaymentSelectInput,
   ): Promise<unknown[]>;
-  findPendingManualTransfer(options: {
+  findPendingManualCheckout(options: {
     invoiceId: string;
     pelangganId: string;
-  }): Promise<PaymentEntity | null>;
-  updateReceipt(options: {
-    paymentId: string;
+  }): Promise<
+    Array<{
+      id: string;
+      checkoutId: string | null;
+      amount: bigint;
+      notes: string | null;
+      tenantId: string | null;
+    }>
+  >;
+  attachReceipt(options: {
     receiptUrl: string;
-    notes: string;
-  }): Promise<PaymentEntity>;
+    payments: Array<{ id: string; notes: string }>;
+  }): Promise<number>;
+  cancelPendingManual(paymentIds: string[]): Promise<number>;
   findByIdWithInvoice(id: string): Promise<PaymentEntity | null>;
   findPaginatedWithInvoice(options: {
     where: PaymentWhereInput;

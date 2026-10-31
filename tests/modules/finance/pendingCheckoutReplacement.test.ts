@@ -5,9 +5,8 @@ import { prismaMock } from "../../setup";
 const palsu = vi.hoisted(() => ({
   releaseUsage: vi.fn(),
   restoreUsage: vi.fn(),
-  checkStatus: vi.fn(),
+  reconcile: vi.fn(),
   cancelPayment: vi.fn(),
-  providerFor: vi.fn(),
   acquireLock: vi.fn(),
   release: vi.fn(),
 }));
@@ -21,21 +20,28 @@ vi.mock("@/modules/coupons", () => ({
   },
 }));
 
+vi.mock(
+  "@/modules/payment-gateway/services/checkout-reconciliation",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("@/modules/payment-gateway/services/checkout-reconciliation")
+    >()),
+    reconcileCheckout: palsu.reconcile,
+  }),
+);
+
 vi.mock("@/modules/payment-gateway/services/PaymentGatewayService", () => ({
   PaymentGatewayManager: class {
-    checkPaymentStatus = (provider: string, orderId: string) => {
-      palsu.providerFor(provider);
-      return palsu.checkStatus(orderId);
-    };
-    getProviderInstance = async () => ({
+    getIssuedTransactionProvider = async () => ({
       cancelPayment: palsu.cancelPayment,
     });
   },
 }));
 
 import {
+  closeReplacedCheckouts,
+  findReplaceableCheckouts,
   handleInvoicePaidCheckoutCleanup,
-  replacePendingGatewayCheckouts,
   withCustomerCheckoutLock,
 } from "@/modules/payment-gateway/services/pending-checkout-replacement";
 
@@ -45,38 +51,56 @@ const VA_LAMA = {
   reference: "PAY-1",
   gatewayProvider: "BC",
   couponUsageId: "u1",
+  couponId: "kupon-1",
   tenantId: "t1",
+  accountId: null as string | null,
+  receiptUrl: null as string | null,
+  expiresAt: new Date("2026-11-01T00:00:00Z") as Date | null,
 };
-const INPUT = { customerId: "cust-1", invoiceIds: ["inv-1"], tenantId: "t1" };
+const TRANSFER_MANUAL = {
+  id: "p9",
+  checkoutId: "c9",
+  reference: "PAY-9",
+  gatewayProvider: null as string | null,
+  couponUsageId: null as string | null,
+  couponId: null as string | null,
+  tenantId: "t1",
+  accountId: "rekening-1" as string | null,
+  receiptUrl: null as string | null,
+  expiresAt: null as Date | null,
+};
+const INPUT = { customerId: "cust-1", invoiceIds: ["inv-1"] };
 
 /**
- * Dulu pelanggan yang sudah memilih VA tidak bisa pindah ke QRIS: portal
- * menyembunyikan tombol bayar sampai VA kedaluwarsa, dan backend menumpuk
- * checkout baru di samping yang lama tanpa menutupnya.
+ * Ganti metode dulu menutup checkout lama sebelum kupon diverifikasi dan
+ * checkout baru dibuat. Saat Duitku menolak metode baru (produksi
+ * 2026-10-31: DANA, ShopeePay, FT menjawab 502), pelanggan tidak lagi
+ * melihat VA/QR lama yang sebenarnya masih bisa dibayar.
  */
 describe("ganti metode pembayaran", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.payment.findMany.mockResolvedValue([VA_LAMA]);
     prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
-    palsu.checkStatus.mockResolvedValue({ status: "PENDING" });
-  });
-
-  it("menutup checkout gateway lama, mengembalikan kupon, membatalkan di gateway", async () => {
-    const closed = await replacePendingGatewayCheckouts(INPUT);
-
-    expect(closed).toBe(1);
-    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["p1"] }, gatewayStatus: "PENDING" },
-      data: { gatewayStatus: "CANCELLED" },
+    palsu.reconcile.mockResolvedValue({
+      outcome: "UNPAID",
+      gatewayStatus: "PENDING",
     });
-    expect(palsu.releaseUsage).toHaveBeenCalledWith("u1");
-    expect(palsu.providerFor).toHaveBeenCalledWith("DUITKU");
-    expect(palsu.cancelPayment).toHaveBeenCalledWith("PAY-1");
   });
 
-  it("transfer manual (tanpa expiresAt) tidak dicari untuk ditutup", async () => {
-    await replacePendingGatewayCheckouts(INPUT);
+  it("mencari checkout lama tanpa menutupnya", async () => {
+    const previous = await findReplaceableCheckouts(INPUT);
+
+    expect(previous).toEqual({
+      payments: [VA_LAMA],
+      heldCoupon: { couponId: "kupon-1", couponUsageId: "u1" },
+    });
+    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+    expect(palsu.releaseUsage).not.toHaveBeenCalled();
+  });
+
+  it("checkout gateway dan transfer manual sama-sama bisa diganti", async () => {
+    await findReplaceableCheckouts(INPUT);
 
     expect(prismaMock.payment.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -84,16 +108,38 @@ describe("ganti metode pembayaran", () => {
           pelangganId: "cust-1",
           invoiceId: { in: ["inv-1"] },
           gatewayStatus: "PENDING",
-          expiresAt: { not: null },
+          OR: [{ expiresAt: { not: null } }, { accountId: { not: null } }],
         }),
       }),
     );
   });
 
-  it("checkout lama yang sudah dibayar menolak ganti metode tanpa menutupnya", async () => {
-    palsu.checkStatus.mockResolvedValue({ status: "PAID" });
+  it("bukti transfer yang sedang diverifikasi menolak checkout baru", async () => {
+    prismaMock.payment.findMany.mockResolvedValue([
+      { ...TRANSFER_MANUAL, receiptUrl: "/uploads/tenants/t1/bukti.webp" },
+    ]);
 
-    await expect(replacePendingGatewayCheckouts(INPUT)).rejects.toMatchObject({
+    await expect(findReplaceableCheckouts(INPUT)).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringMatching(/sedang diverifikasi/),
+    });
+  });
+
+  it("status checkout gateway lama ditanyakan dengan batas waktu pendek", async () => {
+    prismaMock.payment.findMany.mockResolvedValue([VA_LAMA, TRANSFER_MANUAL]);
+
+    await findReplaceableCheckouts(INPUT);
+
+    expect(palsu.reconcile).toHaveBeenCalledTimes(1);
+    expect(palsu.reconcile).toHaveBeenCalledWith([VA_LAMA], {
+      timeoutMs: 10_000,
+    });
+  });
+
+  it("checkout lama yang sudah dibayar menolak ganti metode tanpa menutupnya", async () => {
+    palsu.reconcile.mockResolvedValue({ outcome: "PAID" });
+
+    await expect(findReplaceableCheckouts(INPUT)).rejects.toMatchObject({
       status: 409,
     });
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
@@ -101,17 +147,50 @@ describe("ganti metode pembayaran", () => {
   });
 
   it("status gateway yang tidak terbaca tidak menahan pelanggan", async () => {
-    palsu.checkStatus.mockRejectedValue(new Error("timeout"));
+    palsu.reconcile.mockResolvedValue({ outcome: "UNKNOWN" });
 
-    await expect(replacePendingGatewayCheckouts(INPUT)).resolves.toBe(1);
+    await expect(findReplaceableCheckouts(INPUT)).resolves.toMatchObject({
+      payments: [VA_LAMA],
+    });
+  });
+
+  it("setelah pengganti berhasil: checkout lama ditutup, kupon dikembalikan, dibatalkan di gateway", async () => {
+    prismaMock.payment.findMany.mockResolvedValue([VA_LAMA, TRANSFER_MANUAL]);
+    const previous = await findReplaceableCheckouts(INPUT);
+
+    await closeReplacedCheckouts(previous, { keptCouponUsageId: null });
+
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["p1", "p9"] }, gatewayStatus: "PENDING" },
+      data: { gatewayStatus: "CANCELLED" },
+    });
+    expect(palsu.releaseUsage).toHaveBeenCalledWith("u1");
+    expect(palsu.cancelPayment.mock.calls).toEqual([["PAY-1"]]);
+  });
+
+  // Kupon berkuota satu: pemesanannya pindah ke checkout baru, bukan
+  // dikembalikan lalu dipesan ulang.
+  it("kupon yang dipindah ke checkout baru tidak dikembalikan", async () => {
+    const previous = await findReplaceableCheckouts(INPUT);
+
+    await closeReplacedCheckouts(previous, { keptCouponUsageId: "u1" });
+
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["p1"] }, couponUsageId: "u1" },
+      data: { couponUsageId: null },
+    });
+    expect(palsu.releaseUsage).not.toHaveBeenCalled();
   });
 
   it("tanpa checkout menunggu tidak ada yang diubah", async () => {
     prismaMock.payment.findMany.mockResolvedValue([]);
 
-    await expect(replacePendingGatewayCheckouts(INPUT)).resolves.toBe(0);
+    const previous = await findReplaceableCheckouts(INPUT);
+    await expect(
+      closeReplacedCheckouts(previous, { keptCouponUsageId: null }),
+    ).resolves.toBe(0);
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
-    expect(palsu.checkStatus).not.toHaveBeenCalled();
+    expect(palsu.reconcile).not.toHaveBeenCalled();
   });
 
   it("kunci checkout dipegang per pelanggan selama checkout dibuat", async () => {
@@ -160,7 +239,12 @@ describe("ganti metode pembayaran", () => {
       },
     } as never);
 
-    expect(palsu.checkStatus).not.toHaveBeenCalled();
+    expect(palsu.reconcile).not.toHaveBeenCalled();
+    expect(prismaMock.payment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ expiresAt: { not: null } }),
+      }),
+    );
     expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["p1"] }, gatewayStatus: "PENDING" },
       data: { gatewayStatus: "CANCELLED" },

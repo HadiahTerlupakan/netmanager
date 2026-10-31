@@ -52,6 +52,8 @@ export type CustomerDashboardBillingData = {
   outstandingAmount: number;
   nearestDueDate: string | null;
   hasOverdue: boolean;
+  /** Saldo kredit pelanggan dalam rupiah. */
+  saldoKredit: number;
 };
 
 export type CustomerDashboardViewModel = {

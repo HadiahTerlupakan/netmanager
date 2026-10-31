@@ -22,6 +22,10 @@ vi.mock(
     mapPaymentEntity: vi.fn((payment) => payment),
     createCustomerPaymentsForInvoices: vi.fn(),
     findFirstAuthPayment: vi.fn(),
+    findPendingManualCheckout: vi.fn(),
+    attachReceiptToPayments: vi.fn(),
+    cancelPendingManualPayments: vi.fn(),
+    markCustomerCheckoutFailed: vi.fn(),
   }),
 );
 
@@ -119,69 +123,6 @@ describe("PaymentRepository", () => {
       expect(prismaBilling.payment.findMany).toHaveBeenCalledWith({
         where: { pelangganId: "customer-1" },
         select: { id: true, amount: true },
-      });
-    });
-  });
-
-  describe("findPendingManualTransfer", () => {
-    it("harus return pending manual transfer payment", async () => {
-      vi.mocked(prismaBilling.payment.findFirst).mockResolvedValue(
-        mockPayment as never,
-      );
-
-      const result = await paymentRepository.findPendingManualTransfer({
-        invoiceId: "invoice-1",
-        pelangganId: "customer-1",
-      });
-
-      expect(result).toBeTruthy();
-      expect(prismaBilling.payment.findFirst).toHaveBeenCalledWith({
-        where: {
-          invoiceId: "invoice-1",
-          pelangganId: "customer-1",
-          gatewayStatus: "PENDING",
-          paymentMethod: "BANK_TRANSFER",
-        },
-      });
-    });
-
-    it("harus return null jika tidak ada pending payment", async () => {
-      vi.mocked(prismaBilling.payment.findFirst).mockResolvedValue(null);
-
-      const result = await paymentRepository.findPendingManualTransfer({
-        invoiceId: "invoice-1",
-        pelangganId: "customer-1",
-      });
-
-      expect(result).toBeNull();
-    });
-  });
-
-  describe("updateReceipt", () => {
-    it("harus update payment receipt", async () => {
-      const updatedPayment = {
-        ...mockPayment,
-        receiptUrl: "new-receipt.jpg",
-        notes: "Updated notes",
-      };
-
-      vi.mocked(prismaBilling.payment.update).mockResolvedValue(
-        updatedPayment as never,
-      );
-
-      const result = await paymentRepository.updateReceipt({
-        paymentId: "payment-1",
-        receiptUrl: "new-receipt.jpg",
-        notes: "Updated notes",
-      });
-
-      expect(result.receiptUrl).toBe("new-receipt.jpg");
-      expect(prismaBilling.payment.update).toHaveBeenCalledWith({
-        where: { id: "payment-1" },
-        data: {
-          receiptUrl: "new-receipt.jpg",
-          notes: "Updated notes",
-        },
       });
     });
   });

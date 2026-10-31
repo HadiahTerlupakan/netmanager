@@ -57,12 +57,17 @@ export class CouponService {
 
   /**
    * Verify coupon against transaction amount.
+   *
+   * `heldCouponId`: kupon yang satu pemakaiannya sudah dipesan pelanggan ini
+   * (checkout lama yang sedang diganti). Pemesanannya dipindah, bukan
+   * ditambah, jadi kuotanya tidak dihitung ulang.
    */
   async verifyCoupon(
     code: string,
     amount: number,
     _pelangganId?: string,
     tenantId?: string | null,
+    heldCouponId?: string | null,
   ): Promise<VerifyCouponResult> {
     if (!code) {
       return this.createInvalidResult(REQUIRED_CODE_MESSAGE, amount);
@@ -76,7 +81,11 @@ export class CouponService {
       return this.createInvalidResult(MISSING_COUPON_MESSAGE, amount);
     }
 
-    return this.buildVerificationResult(coupon, amount);
+    return this.buildVerificationResult(
+      coupon,
+      amount,
+      coupon.id === heldCouponId,
+    );
   }
 
   /**
@@ -170,8 +179,9 @@ export class CouponService {
   private buildVerificationResult(
     coupon: CouponEntity,
     amount: number,
+    isUsageHeld: boolean,
   ): VerifyCouponResult {
-    const error = this.getCouponValidationError(coupon, amount);
+    const error = this.getCouponValidationError(coupon, amount, isUsageHeld);
     if (error) {
       return this.createInvalidResult(error, amount);
     }
@@ -191,6 +201,7 @@ export class CouponService {
   private getCouponValidationError(
     coupon: CouponEntity,
     amount: number,
+    isUsageHeld: boolean,
   ): string | null {
     if (!coupon.isActive) {
       return INACTIVE_COUPON_MESSAGE;
@@ -198,7 +209,7 @@ export class CouponService {
     if (this.isCouponOutsideActivePeriod(coupon)) {
       return INVALID_DATE_RANGE_MESSAGE;
     }
-    if (this.isQuotaExhausted(coupon)) {
+    if (!isUsageHeld && this.isQuotaExhausted(coupon)) {
       return EXHAUSTED_QUOTA_MESSAGE;
     }
     if (amount < coupon.minTransaction) {

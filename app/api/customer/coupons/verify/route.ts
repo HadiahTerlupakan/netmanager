@@ -4,6 +4,7 @@ import { requireCustomerAuth } from "@/lib/customer-auth";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { couponService, verifyCouponSchema } from "@/modules/coupons";
+import { limitCustomerPaymentRequest } from "../../rate-limit";
 
 // `pelangganId` dibuang dari payload: pelanggan hanya boleh memverifikasi
 // kupon atas namanya sendiri, jadi id selalu diambil dari sesi.
@@ -18,6 +19,13 @@ export async function POST(request: NextRequest) {
     if (authResult.response) {
       return authResult.response;
     }
+
+    // Kode kupon bisa ditebak dengan mencoba berulang-ulang.
+    const limited = limitCustomerPaymentRequest(
+      "verifyCoupon",
+      authResult.session.id,
+    );
+    if (limited) return limited;
 
     const parsed = customerVerifyCouponSchema.safeParse(await request.json());
     if (!parsed.success) {

@@ -146,6 +146,59 @@ describe("CouponService", () => {
       expect(result.error).toBe("Kuota kupon habis");
     });
 
+    // Pelanggan yang mengganti metode bayar sudah memegang satu pemakaian
+    // kupon ini di checkout lamanya; kupon berkuota satu dulu ditolak.
+    describe("pemakaian yang sudah dipegang pelanggan", () => {
+      const fullCoupon = () =>
+        mockRepo.findByCode.mockResolvedValueOnce({
+          id: "coupon-1",
+          code: "SEKALI",
+          isActive: true,
+          startDate: new Date("2024-01-01"),
+          endDate: new Date("2030-12-31"),
+          quota: 1,
+          usedCount: 1,
+          minTransaction: 0,
+          discountType: "FIXED",
+          discountValue: 10000,
+        });
+
+      it("kupon yang sama tidak ditolak karena kuota", async () => {
+        fullCoupon();
+
+        const result = await service.verifyCoupon(
+          "SEKALI",
+          100000,
+          "cust-1",
+          "tenant-1",
+          "coupon-1",
+        );
+
+        expect(result).toMatchObject({
+          valid: true,
+          discountAmount: 10000,
+          couponId: "coupon-1",
+        });
+      });
+
+      it("kupon lain tetap dibatasi kuotanya", async () => {
+        fullCoupon();
+
+        const result = await service.verifyCoupon(
+          "SEKALI",
+          100000,
+          "cust-1",
+          "tenant-1",
+          "coupon-lain",
+        );
+
+        expect(result).toMatchObject({
+          valid: false,
+          error: "Kuota kupon habis",
+        });
+      });
+    });
+
     it("should return invalid for transaction below minimum", async () => {
       mockRepo.findByCode.mockResolvedValueOnce({
         id: "coupon-1",

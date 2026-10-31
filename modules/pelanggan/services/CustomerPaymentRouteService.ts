@@ -1,14 +1,16 @@
 import { logger } from "@/lib/logger";
-import {
-  createRouteServiceError,
-  isRouteServiceError,
-} from "@/lib/api/route-service-error";
+import { createRouteServiceError } from "@/lib/api/route-service-error";
 import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 import { couponService } from "@/modules/coupons";
 import {
+  closeReplacedCheckouts,
   findPaymentMethodProvider,
-  replacePendingGatewayCheckouts,
+  findReplaceableCheckouts,
+  resolveGatewayReturnUrl,
+  selectGatewayOrderPayment,
   withCustomerCheckoutLock,
+  type CheckoutReturnTarget,
+  type ReplaceableCheckouts,
 } from "@/modules/payment-gateway";
 import {
   createCustomerPaymentsForInvoices,
@@ -39,6 +41,7 @@ type CustomerPaymentInput = {
   couponCode?: string | null;
   paymentMethod: string;
   notes?: string | null;
+  returnTo?: CheckoutReturnTarget;
 };
 
 const HTTP_BAD_REQUEST = 400;
@@ -48,12 +51,21 @@ const GATEWAY_FAILED_MESSAGE =
   "Gagal menghubungi payment gateway. Silakan coba lagi atau gunakan metode pembayaran lain.";
 const BELOW_METHOD_MINIMUM_MESSAGE =
   "Nominal tagihan di bawah batas minimum metode pembayaran ini. Silakan pilih metode lain, misalnya QRIS.";
+const CHANNEL_UNAVAILABLE_MESSAGE =
+  "Metode pembayaran ini sedang tidak tersedia. Silakan pilih metode lain.";
 // Duitku: "Minimum Payment 10000 IDR". Batasnya per channel (VA menolak,
 // QRIS menerima nominal yang sama), jadi tidak bisa diperiksa sebelum memanggil.
 const BELOW_MINIMUM_REJECTION = /minimum payment/i;
+// Duitku menjawab "Payment channel not available" (HTTP 404) untuk kanal yang
+// belum diaktifkan merchant; produksi 2026-10-31: DANA, ShopeePay, dan FT.
+const CHANNEL_UNAVAILABLE_REJECTION =
+  /\b(channel|method)\b[^.]*\b(not (available|active|enabled)|inactive|disabled)\b/i;
 
 const customerPortalService = new CustomerPortalService();
 const pelangganRepository = new PelangganRepository();
+
+/** Penolakan gateway atas permintaan checkout, dengan teks aslinya. */
+class GatewayRejectionError extends Error {}
 
 /** Creates customer portal payments and optional payment gateway metadata. */
 export function createCustomerPaymentForRoute(input: CustomerPaymentInput) {
@@ -68,14 +80,15 @@ async function createCustomerPayment(input: CustomerPaymentInput) {
       input.invoiceIds,
       input.customerId,
     );
-  // Membayar lagi invoice yang masih punya checkout gateway menunggu berarti
-  // ganti metode; checkout lama ditutup sebelum kupon diverifikasi ulang.
-  await replacePendingGatewayCheckouts(input);
-  const coupon = await resolveCoupon(input, totalAmount);
+  // Membayar lagi invoice yang masih punya checkout menunggu berarti ganti
+  // metode. Checkout lama baru ditutup setelah penggantinya berhasil dibuat,
+  // jadi VA/QR lamanya tetap tampil bila gateway menolak metode baru.
+  const previous = await findReplaceableCheckouts(input);
+  const coupon = await resolveCoupon(input, totalAmount, previous);
   const finalAmount = totalAmount - coupon.discountAmount;
   // Kuota dipesan sebelum payment dibuat: payment yang tertutup penuh oleh
   // kupon langsung PAID, jadi kupon harus sudah sah lebih dulu.
-  const usageId = await reserveCoupon(input, coupon);
+  const usage = await reserveCoupon(input, coupon, previous);
 
   let payments: Awaited<ReturnType<typeof createCustomerPaymentsForInvoices>>;
   let gateway: GatewayCheckout;
@@ -87,7 +100,7 @@ async function createCustomerPayment(input: CustomerPaymentInput) {
       discountAmount: coupon.discountAmount,
       paymentMethod: input.paymentMethod,
       notes: input.notes,
-      couponUsageId: usageId,
+      couponUsageId: usage.usageId,
       couponId: coupon.couponId,
     });
     gateway = await createGatewayPaymentIfNeeded({
@@ -98,12 +111,16 @@ async function createCustomerPayment(input: CustomerPaymentInput) {
   } catch (error) {
     // Kupon di database utama, payment di database billing: tidak bisa satu
     // transaksi, jadi pesanan kuota dibatalkan manual bila pembayaran gagal.
-    await releaseCoupon(usageId);
+    // Pemesanan yang dipindah tetap milik checkout lama yang masih terbuka.
+    if (!usage.isMoved) await releaseCoupon(usage.usageId);
     throw error;
   }
 
+  await closeReplacedCheckouts(previous, {
+    keptCouponUsageId: usage.isMoved ? usage.usageId : null,
+  });
   await settleFullyDiscountedPayments(payments);
-  await publishCouponUsed(input, coupon, usageId);
+  await publishCouponUsed(input, coupon, usage.usageId);
 
   return { payments, ...gateway };
 }
@@ -123,13 +140,20 @@ const NO_GATEWAY_CHECKOUT: GatewayCheckout = {
 };
 
 type ResolvedCoupon = { discountAmount: number; couponId: string | null };
+type CouponReservation = { usageId: string | null; isMoved: boolean };
 
+// Kupon yang sama dengan milik checkout yang diganti memakai pemesanan lama;
+// memesan lagi membuat kupon berkuota satu ditolak saat ganti metode.
 async function reserveCoupon(
   input: CustomerPaymentInput,
   coupon: ResolvedCoupon,
-) {
+  previous: ReplaceableCheckouts,
+): Promise<CouponReservation> {
   if (!coupon.couponId || coupon.discountAmount <= 0) {
-    return null;
+    return { usageId: null, isMoved: false };
+  }
+  if (previous.heldCoupon?.couponId === coupon.couponId) {
+    return { usageId: previous.heldCoupon.couponUsageId, isMoved: true };
   }
 
   const usageId = await couponService.reserveUsage(
@@ -139,7 +163,7 @@ async function reserveCoupon(
   if (!usageId) {
     throw createRouteServiceError(EXHAUSTED_COUPON_MESSAGE, HTTP_BAD_REQUEST);
   }
-  return usageId;
+  return { usageId, isMoved: false };
 }
 
 async function releaseCoupon(usageId: string | null) {
@@ -190,6 +214,7 @@ async function publishCouponUsed(
 async function resolveCoupon(
   input: CustomerPaymentInput,
   totalAmount: number,
+  previous: ReplaceableCheckouts,
 ): Promise<ResolvedCoupon> {
   if (!input.couponCode) {
     return { discountAmount: 0, couponId: null };
@@ -209,6 +234,7 @@ async function resolveCoupon(
     totalAmount,
     input.customerId,
     input.tenantId,
+    previous.heldCoupon?.couponId,
   );
 
   // Penolakan kupon (kuota habis, kedaluwarsa, minimal belanja) adalah
@@ -234,9 +260,10 @@ type GatewayPaymentInput = CustomerPaymentInput & {
 async function createGatewayPaymentIfNeeded(
   input: GatewayPaymentInput,
 ): Promise<GatewayCheckout> {
+  const orderPayment = selectGatewayOrderPayment(input.payments);
   if (
     isManualPayment(input.paymentMethod) ||
-    input.payments.length === 0 ||
+    !orderPayment ||
     input.finalAmount <= 0
   ) {
     return NO_GATEWAY_CHECKOUT;
@@ -244,32 +271,54 @@ async function createGatewayPaymentIfNeeded(
 
   const paymentIds = input.payments.map((payment) => payment.id);
   try {
-    return await requestGatewayPayment(input, paymentIds);
+    const result = await requestGatewayPayment(input, orderPayment);
+    if (!result.success) {
+      throw new GatewayRejectionError(String(result.error));
+    }
+    return await storeGatewayCheckout(input, paymentIds, result);
   } catch (error) {
     // Payment PENDING tanpa URL tidak bisa dibayar pelanggan namun tetap
-    // tampil sebagai tagihan menunggu; tandai FAILED agar pelanggan bisa
-    // mencoba lagi atau memilih transfer manual.
+    // tampil sebagai tagihan menunggu; tandai FAILED, beserta alasan dari
+    // gateway untuk admin, agar pelanggan bisa memilih metode lain.
     logger.error("[Gateway Integration Error]:", error);
-    await markCustomerPaymentsAsFailed(paymentIds);
-    if (isRouteServiceError(error)) {
-      throw error;
-    }
-    throw createRouteServiceError(GATEWAY_FAILED_MESSAGE, HTTP_BAD_GATEWAY);
+    await markCustomerPaymentsAsFailed(
+      paymentIds,
+      error instanceof Error ? error.message : String(error),
+    );
+    throw toCustomerGatewayError(error);
   }
+}
+
+// Pelanggan diberi pesan sesuai kategorinya; teks gateway hanya untuk admin.
+function toCustomerGatewayError(error: unknown) {
+  if (error instanceof GatewayRejectionError) {
+    if (BELOW_MINIMUM_REJECTION.test(error.message)) {
+      return createRouteServiceError(
+        BELOW_METHOD_MINIMUM_MESSAGE,
+        HTTP_BAD_REQUEST,
+      );
+    }
+    if (CHANNEL_UNAVAILABLE_REJECTION.test(error.message)) {
+      return createRouteServiceError(
+        CHANNEL_UNAVAILABLE_MESSAGE,
+        HTTP_BAD_GATEWAY,
+      );
+    }
+  }
+  return createRouteServiceError(GATEWAY_FAILED_MESSAGE, HTTP_BAD_GATEWAY);
 }
 
 async function requestGatewayPayment(
   input: GatewayPaymentInput,
-  paymentIds: string[],
-): Promise<GatewayCheckout> {
+  orderPayment: GatewayPaymentInput["payments"][number],
+): Promise<GatewayPaymentResult> {
   const customer = await pelangganRepository.findById(input.customerId);
   if (!customer) {
     throw new Error(`Pelanggan ${input.customerId} tidak ditemukan`);
   }
 
-  const gatewayManager = new PaymentGatewayManager();
   const params = {
-    orderId: input.payments[0].reference || input.payments[0].id,
+    orderId: orderPayment.reference || orderPayment.id,
     amount: Number(input.finalAmount),
     customerName: customer.nama,
     customerEmail: customer.email
@@ -279,27 +328,23 @@ async function requestGatewayPayment(
     description: "Pembayaran Tagihan NetManager",
     paymentMethods: [input.paymentMethod],
     tenantId: input.tenantId || undefined,
+    returnUrl: resolveGatewayReturnUrl(input.returnTo),
   };
   // Kode metode menentukan gateway-nya; tanpa ini tenant dengan beberapa
   // gateway selalu ditagih lewat gateway pertama, yang tidak mengenal kode
   // channel gateway lain.
+  const gatewayManager = new PaymentGatewayManager();
   const provider = findPaymentMethodProvider(input.paymentMethod);
-  const result = (await (provider
+  return (await (provider
     ? gatewayManager.createPaymentWithProvider(provider, params)
     : gatewayManager.createPayment(params))) as GatewayPaymentResult;
+}
 
-  if (!result.success) {
-    const rejection = String(result.error);
-    if (BELOW_MINIMUM_REJECTION.test(rejection)) {
-      logger.warn("[Gateway] Nominal di bawah minimum metode:", rejection);
-      throw createRouteServiceError(
-        BELOW_METHOD_MINIMUM_MESSAGE,
-        HTTP_BAD_REQUEST,
-      );
-    }
-    throw new Error(`Payment gateway menolak: ${rejection}`);
-  }
-
+async function storeGatewayCheckout(
+  input: GatewayPaymentInput,
+  paymentIds: string[],
+  result: GatewayPaymentResult,
+): Promise<GatewayCheckout> {
   const paymentUrl = result.paymentUrl || result.qrCodeUrl || null;
   const transactionId = result.transactionId || null;
   const vaNumber = result.vaNumber || null;

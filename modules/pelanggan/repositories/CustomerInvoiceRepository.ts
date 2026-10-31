@@ -1,4 +1,5 @@
 import { Prisma as PrismaBilling, InvoiceStatus } from "@prisma/client-billing";
+import { prisma } from "@/lib/prisma";
 import { prismaBilling } from "@/lib/prisma-billing";
 import { OUTSTANDING_INVOICE_STATUSES } from "@/lib/constants/invoice-status";
 import { parseInvoiceStatuses } from "./pelanggan-repository-billing.helpers";
@@ -13,6 +14,22 @@ type InvoiceWithRelations = PrismaBilling.InvoiceGetPayload<{
   };
 }>;
 
+/** Checkout tempat pembayaran terakhir sebuah invoice berada. */
+type CheckoutSummary = { total: number; invoiceNumbers: string[] };
+
+/** Rekening tujuan transfer manual. */
+type BankAccountSummary = {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+};
+
+/** Invoice pelanggan beserta konteks pembayaran terakhirnya. */
+export type CustomerInvoiceRow = InvoiceWithRelations & {
+  lastCheckout: CheckoutSummary | null;
+  lastBankAccount: BankAccountSummary | null;
+};
+
 const UNPAID_INVOICE_STATUSES = [
   ...OUTSTANDING_INVOICE_STATUSES,
 ] as InvoiceStatus[];
@@ -22,13 +39,14 @@ export type CustomerDashboardBillingSummary = {
   outstandingAmount: number;
   nearestDueDate: string | null;
   hasOverdue: boolean;
+  saldoKredit: number;
 };
 
 /**
  * Repository for customer invoice operations
  * Handles invoice queries with items, payment history, and dashboard summaries
  */
-function formatInvoiceResponse(invoice: InvoiceWithRelations) {
+function formatInvoiceResponse(invoice: CustomerInvoiceRow) {
   return {
     ...formatInvoiceIdentity(invoice),
     ...formatInvoiceAmounts(invoice),
@@ -69,12 +87,19 @@ function formatInvoiceItem(item: InvoiceWithRelations["invoiceItem"][number]) {
   };
 }
 
-function formatLastPayment(invoice: InvoiceWithRelations) {
+/**
+ * Pembayaran terakhir invoice. Checkout beberapa invoice membuat satu payment
+ * per invoice, tetapi pelanggan membayar totalnya sekali (satu VA/QR, satu
+ * transfer): `amount` hanya bagian invoice ini, `checkoutTotal` yang harus
+ * dibayar.
+ */
+function formatLastPayment(invoice: CustomerInvoiceRow) {
   const payment = invoice.payment[0];
   if (!payment) return null;
+  const amount = Number(payment.amount);
   return {
     id: payment.id,
-    amount: Number(payment.amount),
+    amount,
     date: payment.paymentDate,
     method: payment.paymentMethod,
     accountId: payment.accountId,
@@ -85,7 +110,138 @@ function formatLastPayment(invoice: InvoiceWithRelations) {
     qrString: payment.qrString,
     gatewayProvider: payment.gatewayProvider,
     receiptUrl: payment.receiptUrl,
+    checkoutId: payment.checkoutId,
+    checkoutTotal: invoice.lastCheckout?.total ?? amount,
+    checkoutInvoiceNumbers: invoice.lastCheckout?.invoiceNumbers ?? [
+      invoice.invoiceNumber,
+    ],
+    isManual: payment.accountId !== null,
+    rejectionReason: payment.rejectionReason,
+    bankAccount: invoice.lastBankAccount,
   };
+}
+
+function compareByDueDate(
+  a: { dueDate: Date; invoiceNumber: string },
+  b: { dueDate: Date; invoiceNumber: string },
+) {
+  return (
+    a.dueDate.getTime() - b.dueDate.getTime() ||
+    a.invoiceNumber.localeCompare(b.invoiceNumber)
+  );
+}
+
+/** Total dan nomor invoice (urut jatuh tempo) per checkout. */
+async function findCheckoutSummaries(
+  checkoutIds: string[],
+): Promise<Map<string, CheckoutSummary>> {
+  if (checkoutIds.length === 0) return new Map();
+
+  const payments = await prismaBilling.payment.findMany({
+    where: { checkoutId: { in: checkoutIds } },
+    select: {
+      checkoutId: true,
+      amount: true,
+      invoice: { select: { invoiceNumber: true, dueDate: true } },
+    },
+  });
+  const grouped = new Map<string, typeof payments>();
+  for (const payment of payments) {
+    if (!payment.checkoutId) continue;
+    grouped.set(payment.checkoutId, [
+      ...(grouped.get(payment.checkoutId) ?? []),
+      payment,
+    ]);
+  }
+
+  return new Map(
+    [...grouped].map(([checkoutId, checkout]) => [
+      checkoutId,
+      {
+        total: checkout.reduce((sum, p) => sum + Number(p.amount), 0),
+        invoiceNumbers: checkout
+          .flatMap((p) => (p.invoice ? [p.invoice] : []))
+          .sort(compareByDueDate)
+          .map((invoice) => invoice.invoiceNumber),
+      },
+    ]),
+  );
+}
+
+/**
+ * Rekening tujuan transfer manual menurut accountId, termasuk rekening yang
+ * sudah dinonaktifkan: pelanggan yang sudah mentransfer tetap perlu melihat
+ * ke rekening mana ia membayar.
+ */
+async function findBankAccounts(
+  accountIds: string[],
+): Promise<Map<string, BankAccountSummary>> {
+  if (accountIds.length === 0) return new Map();
+
+  const accounts = await prisma.companyBankAccount.findMany({
+    where: { id: { in: accountIds } },
+    select: {
+      id: true,
+      bankName: true,
+      accountName: true,
+      accountNumber: true,
+    },
+  });
+  return new Map(accounts.map(({ id, ...account }) => [id, account]));
+}
+
+function uniqueValues(values: Array<string | null | undefined>): string[] {
+  return [...new Set(values.filter((value): value is string => !!value))];
+}
+
+/**
+ * Percobaan checkout yang ditolak gateway (FAILED) tidak boleh menutupi
+ * checkout yang masih menunggu: VA/QR lamanya tetap bisa dibayar dan harus
+ * tetap tampil. Aturan yang sama dipakai aliran SSE
+ * (getCustomerInvoicePaymentSnapshot).
+ */
+async function preferOpenCheckouts(
+  invoices: InvoiceWithRelations[],
+): Promise<InvoiceWithRelations[]> {
+  const failedInvoiceIds = invoices
+    .filter((invoice) => invoice.payment[0]?.gatewayStatus === "FAILED")
+    .map((invoice) => invoice.id);
+  if (failedInvoiceIds.length === 0) return invoices;
+
+  const pending = await prismaBilling.payment.findMany({
+    where: { invoiceId: { in: failedInvoiceIds }, gatewayStatus: "PENDING" },
+    orderBy: { paymentDate: "desc" },
+  });
+  const latestPending = new Map<string, (typeof pending)[number]>();
+  for (const payment of pending) {
+    if (payment.invoiceId && !latestPending.has(payment.invoiceId)) {
+      latestPending.set(payment.invoiceId, payment);
+    }
+  }
+
+  return invoices.map((invoice) => {
+    const open = latestPending.get(invoice.id);
+    return open ? { ...invoice, payment: [open] } : invoice;
+  });
+}
+
+async function attachPaymentDetails(
+  invoices: InvoiceWithRelations[],
+): Promise<CustomerInvoiceRow[]> {
+  const lastPayments = invoices.map((invoice) => invoice.payment[0]);
+  const [checkouts, bankAccounts] = await Promise.all([
+    findCheckoutSummaries(uniqueValues(lastPayments.map((p) => p?.checkoutId))),
+    findBankAccounts(uniqueValues(lastPayments.map((p) => p?.accountId))),
+  ]);
+
+  return invoices.map((invoice, index) => {
+    const payment = lastPayments[index];
+    return {
+      ...invoice,
+      lastCheckout: checkouts.get(payment?.checkoutId ?? "") ?? null,
+      lastBankAccount: bankAccounts.get(payment?.accountId ?? "") ?? null,
+    };
+  });
 }
 
 export class CustomerInvoiceRepository {
@@ -157,26 +313,34 @@ export class CustomerInvoiceRepository {
       prismaBilling.invoice.count({ where }),
     ]);
 
-    return { invoices, total };
+    return {
+      invoices: await attachPaymentDetails(await preferOpenCheckouts(invoices)),
+      total,
+    };
   }
 
   /**
    * Get billing summary data for the customer dashboard
    */
-  async getDashboardBillingSummary(pelangganId: string) {
-    const invoices = await prismaBilling.invoice.findMany({
-      where: {
-        pelangganId,
-        status: { in: UNPAID_INVOICE_STATUSES },
-      },
-      orderBy: { dueDate: "asc" },
-      select: {
-        status: true,
-        dueDate: true,
-        totalAmount: true,
-        paidAmount: true,
-      },
-    });
+  async getDashboardBillingSummary(
+    pelangganId: string,
+  ): Promise<CustomerDashboardBillingSummary> {
+    const [invoices, saldoKredit] = await Promise.all([
+      prismaBilling.invoice.findMany({
+        where: {
+          pelangganId,
+          status: { in: UNPAID_INVOICE_STATUSES },
+        },
+        orderBy: { dueDate: "asc" },
+        select: {
+          status: true,
+          dueDate: true,
+          totalAmount: true,
+          paidAmount: true,
+        },
+      }),
+      this.getSaldoKredit(pelangganId),
+    ]);
 
     const outstandingAmount = invoices.reduce((total, invoice) => {
       return total + (Number(invoice.totalAmount) - Number(invoice.paidAmount));
@@ -189,13 +353,26 @@ export class CustomerInvoiceRepository {
       hasOverdue: invoices.some(
         (invoice) => invoice.status === InvoiceStatus.OVERDUE,
       ),
+      saldoKredit,
     };
+  }
+
+  /**
+   * Saldo kredit pelanggan (rupiah): kelebihan bayar yang memotong tagihan
+   * berikutnya. Disimpan di database utama, bukan billing.
+   */
+  async getSaldoKredit(pelangganId: string): Promise<number> {
+    const customer = await prisma.pelanggan.findUnique({
+      where: { id: pelangganId },
+      select: { saldoKreditRupiah: true },
+    });
+    return Number(customer?.saldoKreditRupiah ?? 0n);
   }
 
   /**
    * Format invoices for API response
    */
-  formatInvoicesForResponse(invoices: InvoiceWithRelations[]) {
+  formatInvoicesForResponse(invoices: CustomerInvoiceRow[]) {
     return invoices.map(formatInvoiceResponse);
   }
 }

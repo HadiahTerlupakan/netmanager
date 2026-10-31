@@ -15,13 +15,15 @@ const mockFns = vi.hoisted(() => ({
   recomputeInvoice: vi.fn(),
   publish: vi.fn(),
   routedProvider: vi.fn(),
-  replacePending: vi.fn(),
+  findReplaceable: vi.fn(),
+  closeReplaced: vi.fn(),
   checkoutLock: vi.fn(),
 }));
 
 vi.mock("@/modules/payment-gateway", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/modules/payment-gateway")>()),
-  replacePendingGatewayCheckouts: mockFns.replacePending,
+  findReplaceableCheckouts: mockFns.findReplaceable,
+  closeReplacedCheckouts: mockFns.closeReplaced,
   withCustomerCheckoutLock: (customerId: string, task: () => unknown) => {
     mockFns.checkoutLock(customerId);
     return task();
@@ -77,6 +79,12 @@ vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
 import { createCustomerPaymentForRoute } from "@/modules/pelanggan/services/CustomerPaymentRouteService";
 
 describe("CustomerPaymentRouteService", () => {
+  type HeldCoupon = { couponId: string; couponUsageId: string } | null;
+  const NO_PREVIOUS_CHECKOUT = {
+    payments: [] as Array<{ id: string }>,
+    heldCoupon: null as HeldCoupon,
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockFns.validateInvoicesForPayment.mockResolvedValue({
@@ -85,18 +93,34 @@ describe("CustomerPaymentRouteService", () => {
     mockFns.createPaymentsForInvoices.mockResolvedValue([
       { id: "pay-1", reference: "PAY-1" },
     ]);
+    mockFns.findReplaceable.mockResolvedValue(NO_PREVIOUS_CHECKOUT);
   });
 
   // Pelanggan yang mengganti metode (VA ke QRIS) membayar lagi invoice yang
-  // checkout lamanya masih menunggu; checkout itu ditutup lebih dulu.
-  it("menutup checkout gateway lama sebelum kupon diverifikasi", async () => {
+  // checkout lamanya masih menunggu. Dulu checkout itu ditutup sebelum kupon
+  // diverifikasi; kini baru setelah penggantinya berhasil dibuat.
+  it("menutup checkout lama hanya setelah checkout pengganti berhasil dibuat", async () => {
     const order: string[] = [];
-    mockFns.replacePending.mockImplementation(async () => {
-      order.push("replace");
+    const previous = {
+      payments: [{ id: "lama" }],
+      heldCoupon: null as HeldCoupon,
+    };
+    mockFns.findReplaceable.mockImplementation(async () => {
+      order.push("find");
+      return previous;
     });
     mockFns.verifyCoupon.mockImplementation(async () => {
       order.push("coupon");
-      return { valid: false, error: "x" };
+      return { valid: true, discountAmount: 10000, couponId: "coupon-1" };
+    });
+    mockFns.reserveUsage.mockResolvedValue("usage-1");
+    mockFns.findPelangganById.mockResolvedValue({ id: "cust-1", nama: "Budi" });
+    mockFns.createGatewayPayment.mockImplementation(async () => {
+      order.push("gateway");
+      return { success: true, paymentUrl: "https://pay.example" };
+    });
+    mockFns.closeReplaced.mockImplementation(async () => {
+      order.push("close");
     });
 
     await createCustomerPaymentForRoute({
@@ -105,15 +129,96 @@ describe("CustomerPaymentRouteService", () => {
       invoiceIds: ["inv-1"],
       couponCode: "HEMAT",
       paymentMethod: "SP",
-    }).catch((): undefined => undefined);
+    });
 
-    expect(mockFns.replacePending).toHaveBeenCalledWith(
+    expect(mockFns.findReplaceable).toHaveBeenCalledWith(
       expect.objectContaining({ customerId: "cust-1", invoiceIds: ["inv-1"] }),
     );
-    expect(order).toEqual(["replace", "coupon"]);
+    expect(order).toEqual(["find", "coupon", "gateway", "close"]);
+    expect(mockFns.closeReplaced).toHaveBeenCalledWith(previous, {
+      keptCouponUsageId: null,
+    });
     // Dua perangkat yang menekan "Ganti Metode" bersamaan diproses bergiliran.
     expect(mockFns.checkoutLock).toHaveBeenCalledWith("cust-1");
   });
+
+  // Probe audit 2026-10-31: Duitku menolak kanal DA/SA/FT dengan 502, dan
+  // pelanggan kehilangan VA/QR lama yang masih bisa dibayar.
+  it("membiarkan checkout QRIS/VA lama terbuka saat metode baru ditolak Duitku", async () => {
+    mockFns.findReplaceable.mockResolvedValue({
+      payments: [{ id: "lama" }],
+      heldCoupon: null,
+    });
+    mockFns.findPelangganById.mockResolvedValue({ id: "cust-1", nama: "Budi" });
+    mockFns.createGatewayPayment.mockResolvedValue({
+      success: false,
+      error: "Duitku HTTP 400: Payment channel not available",
+    });
+
+    await expect(
+      createCustomerPaymentForRoute({
+        customerId: "cust-1",
+        tenantId: "tenant-1",
+        invoiceIds: ["inv-1"],
+        paymentMethod: "DA",
+      }),
+    ).rejects.toMatchObject({
+      status: 502,
+      message:
+        "Metode pembayaran ini sedang tidak tersedia. Silakan pilih metode lain.",
+    });
+    expect(mockFns.closeReplaced).not.toHaveBeenCalled();
+    expect(mockFns.markPaymentsAsFailed).toHaveBeenCalledWith(
+      ["pay-1"],
+      "Duitku HTTP 400: Payment channel not available",
+    );
+  });
+
+  it("orderId gateway adalah reference terkecil checkout", async () => {
+    mockFns.createPaymentsForInvoices.mockResolvedValue([
+      { id: "pay-2", reference: "PAY-b" },
+      { id: "pay-1", reference: "PAY-a" },
+    ]);
+    mockFns.findPelangganById.mockResolvedValue({ id: "cust-1", nama: "Budi" });
+    mockFns.createGatewayPayment.mockResolvedValue({ success: true });
+
+    await createCustomerPaymentForRoute({
+      customerId: "cust-1",
+      tenantId: "tenant-1",
+      invoiceIds: ["inv-2", "inv-1"],
+      paymentMethod: "BC",
+    });
+
+    expect(mockFns.createGatewayPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: "PAY-a" }),
+    );
+  });
+
+  it.each([
+    ["app", "https://pelanggan.radpro.id/pembayaran/kembali?ke=app"],
+    [undefined, "https://pelanggan.radpro.id/tagihan"],
+  ] as const)(
+    "returnTo %s mengembalikan pelanggan ke %s",
+    async (returnTo, returnUrl) => {
+      mockFns.findPelangganById.mockResolvedValue({
+        id: "cust-1",
+        nama: "Budi",
+      });
+      mockFns.createGatewayPayment.mockResolvedValue({ success: true });
+
+      await createCustomerPaymentForRoute({
+        customerId: "cust-1",
+        tenantId: "tenant-1",
+        invoiceIds: ["inv-1"],
+        paymentMethod: "SP",
+        returnTo,
+      });
+
+      expect(mockFns.createGatewayPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ returnUrl }),
+      );
+    },
+  );
 
   it("creates manual customer payments through payment repository", async () => {
     const result = await createCustomerPaymentForRoute({
@@ -273,8 +378,15 @@ describe("CustomerPaymentRouteService", () => {
           invoiceIds: ["inv-1"],
           paymentMethod: "QRIS",
         }),
-      ).rejects.toMatchObject({ status: 502 });
-      expect(mockFns.markPaymentsAsFailed).toHaveBeenCalledWith(["pay-1"]);
+      ).rejects.toMatchObject({
+        status: 502,
+        message:
+          "Gagal menghubungi payment gateway. Silakan coba lagi atau gunakan metode pembayaran lain.",
+      });
+      expect(mockFns.markPaymentsAsFailed).toHaveBeenCalledWith(
+        ["pay-1"],
+        expect.stringMatching(/merchant nonaktif|timeout/),
+      );
       expect(mockFns.updateGatewayMetadata).not.toHaveBeenCalled();
     },
   );
@@ -299,7 +411,10 @@ describe("CustomerPaymentRouteService", () => {
       status: 400,
       message: expect.stringMatching(/minimum.*metode lain/i),
     });
-    expect(mockFns.markPaymentsAsFailed).toHaveBeenCalledWith(["pay-1"]);
+    expect(mockFns.markPaymentsAsFailed).toHaveBeenCalledWith(
+      ["pay-1"],
+      "Duitku HTTP 400: Minimum Payment 10000 IDR",
+    );
   });
 
   describe("kupon", () => {
@@ -386,6 +501,52 @@ describe("CustomerPaymentRouteService", () => {
         status: 400,
       });
       expect(mockFns.createPaymentsForInvoices).not.toHaveBeenCalled();
+    });
+
+    describe("kupon yang sama dengan checkout yang diganti", () => {
+      const previous = {
+        payments: [{ id: "lama" }],
+        heldCoupon: { couponId: "coupon-1", couponUsageId: "usage-lama" },
+      };
+
+      beforeEach(() => {
+        mockFns.findReplaceable.mockResolvedValue(previous);
+        gatewayPelanggan();
+      });
+
+      it("memindah pemesanannya alih-alih memesan lagi", async () => {
+        mockFns.createGatewayPayment.mockResolvedValue({ success: true });
+
+        await bayarDenganKupon("SP");
+
+        expect(mockFns.verifyCoupon).toHaveBeenCalledWith(
+          "HEMAT10",
+          100000,
+          "cust-1",
+          "tenant-1",
+          "coupon-1",
+        );
+        expect(mockFns.reserveUsage).not.toHaveBeenCalled();
+        expect(mockFns.createPaymentsForInvoices).toHaveBeenCalledWith(
+          expect.objectContaining({
+            couponUsageId: "usage-lama",
+            couponId: "coupon-1",
+          }),
+        );
+        expect(mockFns.closeReplaced).toHaveBeenCalledWith(previous, {
+          keptCouponUsageId: "usage-lama",
+        });
+      });
+
+      it("pemesanan tetap milik checkout lama bila gateway gagal", async () => {
+        mockFns.createGatewayPayment.mockRejectedValue(new Error("timeout"));
+
+        await expect(bayarDenganKupon("SP")).rejects.toMatchObject({
+          status: 502,
+        });
+        expect(mockFns.releaseUsage).not.toHaveBeenCalled();
+        expect(mockFns.closeReplaced).not.toHaveBeenCalled();
+      });
     });
   });
 

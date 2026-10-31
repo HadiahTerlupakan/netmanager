@@ -52,12 +52,24 @@ export type {
   TestResult,
 } from "./services/provider-interface";
 
-export { expireStaleGatewayPayments } from "./services/abandoned-checkout";
 export {
+  expireStaleGatewayPayments,
+  releaseCheckoutCoupons,
+} from "./services/abandoned-checkout";
+export {
+  closeReplacedCheckouts,
+  findReplaceableCheckouts,
   handleInvoicePaidCheckoutCleanup,
-  replacePendingGatewayCheckouts,
   withCustomerCheckoutLock,
 } from "./services/pending-checkout-replacement";
+export type { ReplaceableCheckouts } from "./services/pending-checkout-replacement";
+export {
+  reconcileInvoiceCheckout,
+  selectGatewayOrderPayment,
+} from "./services/checkout-reconciliation";
+export type { CheckoutReconciliation } from "./services/checkout-reconciliation";
+export { resolveGatewayReturnUrl } from "./services/gateway-return-url";
+export type { CheckoutReturnTarget } from "./services/gateway-return-url";
 export {
   findPaymentMethodByCode,
   findPaymentMethodProvider,

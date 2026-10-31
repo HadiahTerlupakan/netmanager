@@ -23,9 +23,12 @@ export function createCustomerPaymentsForInvoices(options: {
   return getPaymentRepository().createCustomerPaymentsForInvoices(options);
 }
 
-/** Marks customer payments as FAILED when gateway call fails. */
-export function markCustomerPaymentsAsFailed(paymentIds: string[]) {
-  return getPaymentRepository().markAsFailed(paymentIds);
+/** Marks customer payments as FAILED with the gateway's rejection text. */
+export function markCustomerPaymentsAsFailed(
+  paymentIds: string[],
+  failureReason: string,
+) {
+  return getPaymentRepository().markAsFailed(paymentIds, failureReason);
 }
 
 /** Stores payment gateway metadata on customer payments. */
@@ -42,24 +45,31 @@ export function updateCustomerPaymentGatewayMetadata(options: {
   return getPaymentRepository().updateGatewayMetadata(options);
 }
 
-/** Finds pending manual transfer payment for customer receipt upload. */
-export function findPendingManualCustomerTransfer(options: {
+/**
+ * Payment transfer manual pelanggan yang masih menunggu verifikasi dari
+ * checkout yang memuat invoice ini; kosong bila tidak ada.
+ */
+export function findPendingManualCustomerCheckout(options: {
   invoiceId: string;
   customerId: string;
 }) {
-  return getPaymentRepository().findPendingManualTransfer({
+  return getPaymentRepository().findPendingManualCheckout({
     invoiceId: options.invoiceId,
     pelangganId: options.customerId,
   });
 }
 
-/** Updates customer payment receipt metadata. */
-export function updateCustomerPaymentReceipt(options: {
-  paymentId: string;
+/** Melampirkan bukti transfer ke payment checkout yang masih menunggu. */
+export function attachCustomerCheckoutReceipt(options: {
   receiptUrl: string;
-  notes: string;
+  payments: Array<{ id: string; notes: string }>;
 }) {
-  return getPaymentRepository().updateReceipt(options);
+  return getPaymentRepository().attachReceipt(options);
+}
+
+/** Menutup payment transfer manual pelanggan yang belum diverifikasi. */
+export function cancelPendingManualCustomerPayments(paymentIds: string[]) {
+  return getPaymentRepository().cancelPendingManual(paymentIds);
 }
 
 /** Returns customer invoice status used by customer payment polling. */
@@ -87,26 +97,44 @@ export async function getCustomerInvoicePaymentSnapshot(options: {
   if (!invoice) {
     return null;
   }
-  const latest = invoice.payment[0];
+  const latest = await preferOpenCheckout(invoice.payment[0], options);
   return {
-    status: resolveEffectivePaymentStatus(invoice),
+    status: resolveEffectivePaymentStatus(invoice.status, latest),
     paymentId: latest?.id ?? null,
     gatewayStatus: latest?.gatewayStatus ?? null,
   };
 }
 
-function resolveEffectivePaymentStatus(invoice: {
-  status: string;
-  payment: Array<{ gatewayStatus: string | null }>;
-}) {
-  if (invoice.status === "PAID" || invoice.payment.length === 0) {
-    return invoice.status;
+type LatestPayment = { id: string; gatewayStatus: string | null } | undefined;
+
+/**
+ * Percobaan ganti metode yang ditolak gateway (FAILED) tidak menutupi
+ * checkout lama yang masih menunggu; tanpa ini perangkat lain menyembunyikan
+ * VA/QR yang masih bisa dibayar, dan aplikasi menampilkan "gagal".
+ */
+async function preferOpenCheckout(
+  latest: LatestPayment,
+  options: { invoiceId: string; customerId: string },
+): Promise<LatestPayment> {
+  if (latest?.gatewayStatus !== "FAILED") return latest;
+  const pending = await getPaymentRepository().findLatestPending({
+    invoiceId: options.invoiceId,
+    pelangganId: options.customerId,
+  });
+  return pending ?? latest;
+}
+
+function resolveEffectivePaymentStatus(
+  invoiceStatus: string,
+  latest: LatestPayment,
+) {
+  if (invoiceStatus === "PAID" || !latest) {
+    return invoiceStatus;
   }
-  const latest = invoice.payment[0];
   // Aplikasi mobile sudah menangani EXPIRED (muat ulang tanpa pesan "ditolak
   // admin" yang dipakainya untuk FAILED).
   if (latest.gatewayStatus === "EXPIRED") return "EXPIRED";
   const isFailedStatus =
     latest.gatewayStatus === "FAILED" || latest.gatewayStatus === "CANCELLED";
-  return isFailedStatus ? "FAILED" : invoice.status;
+  return isFailedStatus ? "FAILED" : invoiceStatus;
 }

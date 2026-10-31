@@ -5,8 +5,9 @@ import * as CustomerPaymentFinanceService from "@/modules/finance/services/Custo
 const mockPaymentRepository = {
   createCustomerPaymentsForInvoices: vi.fn(),
   updateGatewayMetadata: vi.fn(),
-  findPendingManualTransfer: vi.fn(),
-  updateReceipt: vi.fn(),
+  findPendingManualCheckout: vi.fn(),
+  markAsFailed: vi.fn(),
+  findLatestPending: vi.fn(),
 };
 
 const mockInvoiceRepository = {
@@ -18,8 +19,9 @@ vi.mock("@/modules/finance/repositories/PaymentRepository", () => ({
     createCustomerPaymentsForInvoices =
       mockPaymentRepository.createCustomerPaymentsForInvoices;
     updateGatewayMetadata = mockPaymentRepository.updateGatewayMetadata;
-    findPendingManualTransfer = mockPaymentRepository.findPendingManualTransfer;
-    updateReceipt = mockPaymentRepository.updateReceipt;
+    findPendingManualCheckout = mockPaymentRepository.findPendingManualCheckout;
+    markAsFailed = mockPaymentRepository.markAsFailed;
+    findLatestPending = mockPaymentRepository.findLatestPending;
   },
 }));
 
@@ -32,6 +34,7 @@ vi.mock("@/modules/finance/repositories/InvoiceRepository", () => ({
 describe("CustomerPaymentFinanceService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPaymentRepository.findLatestPending.mockResolvedValue(null);
   });
 
   describe("createCustomerPaymentsForInvoices", () => {
@@ -138,79 +141,66 @@ describe("CustomerPaymentFinanceService", () => {
     });
   });
 
-  describe("findPendingManualCustomerTransfer", () => {
-    it("harus find pending manual transfer payment", async () => {
-      const options = {
-        invoiceId: "inv-1",
-        customerId: "customer-1",
-      };
-
-      const mockPayment = {
-        id: "payment-1",
-        invoiceId: "inv-1",
-        pelangganId: "customer-1",
-        gatewayStatus: "PENDING",
-        paymentMethod: "BANK_TRANSFER",
-      };
-
-      mockPaymentRepository.findPendingManualTransfer.mockResolvedValue(
-        mockPayment,
-      );
+  describe("checkout transfer manual", () => {
+    it("dicari dengan id pelanggan dari sesi sebagai pelangganId", async () => {
+      mockPaymentRepository.findPendingManualCheckout.mockResolvedValue([
+        { id: "payment-1" },
+      ]);
 
       const result =
-        await CustomerPaymentFinanceService.findPendingManualCustomerTransfer(
-          options,
-        );
+        await CustomerPaymentFinanceService.findPendingManualCustomerCheckout({
+          invoiceId: "inv-1",
+          customerId: "customer-1",
+        });
 
-      expect(result).toEqual(mockPayment);
+      expect(result).toEqual([{ id: "payment-1" }]);
       expect(
-        mockPaymentRepository.findPendingManualTransfer,
-      ).toHaveBeenCalledWith({
-        invoiceId: "inv-1",
-        pelangganId: "customer-1",
-      });
-    });
-
-    it("harus return null jika tidak ada pending payment", async () => {
-      const options = {
-        invoiceId: "inv-1",
-        customerId: "customer-1",
-      };
-
-      mockPaymentRepository.findPendingManualTransfer.mockResolvedValue(null);
-
-      const result =
-        await CustomerPaymentFinanceService.findPendingManualCustomerTransfer(
-          options,
-        );
-
-      expect(result).toBeNull();
+        mockPaymentRepository.findPendingManualCheckout,
+      ).toHaveBeenCalledWith({ invoiceId: "inv-1", pelangganId: "customer-1" });
     });
   });
 
-  describe("updateCustomerPaymentReceipt", () => {
-    it("harus update payment receipt", async () => {
-      const options = {
-        paymentId: "payment-1",
-        receiptUrl: "https://storage.com/receipt.jpg",
-        notes: "Receipt uploaded",
-      };
+  describe("markCustomerPaymentsAsFailed", () => {
+    it("menyimpan alasan penolakan gateway", async () => {
+      await CustomerPaymentFinanceService.markCustomerPaymentsAsFailed(
+        ["payment-1"],
+        "Duitku HTTP 404: Payment channel not available",
+      );
 
-      const mockUpdatedPayment = {
-        id: "payment-1",
-        receiptUrl: "https://storage.com/receipt.jpg",
-        notes: "Receipt uploaded",
-      };
+      expect(mockPaymentRepository.markAsFailed).toHaveBeenCalledWith(
+        ["payment-1"],
+        "Duitku HTTP 404: Payment channel not available",
+      );
+    });
+  });
 
-      mockPaymentRepository.updateReceipt.mockResolvedValue(mockUpdatedPayment);
+  // Ganti metode yang ditolak gateway meninggalkan payment FAILED terbaru,
+  // sementara VA/QR lama masih menunggu dan masih bisa dibayar.
+  describe("getCustomerInvoicePaymentSnapshot", () => {
+    it("percobaan yang ditolak tidak menutupi checkout yang masih menunggu", async () => {
+      mockInvoiceRepository.findCustomerPaymentStatus.mockResolvedValue({
+        status: "SENT",
+        payment: [{ id: "pay-gagal", gatewayStatus: "FAILED" }],
+      });
+      mockPaymentRepository.findLatestPending.mockResolvedValue({
+        id: "pay-va-lama",
+        gatewayStatus: "PENDING",
+      });
 
-      const result =
-        await CustomerPaymentFinanceService.updateCustomerPaymentReceipt(
-          options,
-        );
-
-      expect(result).toEqual(mockUpdatedPayment);
-      expect(mockPaymentRepository.updateReceipt).toHaveBeenCalledWith(options);
+      await expect(
+        CustomerPaymentFinanceService.getCustomerInvoicePaymentSnapshot({
+          invoiceId: "inv-1",
+          customerId: "customer-1",
+        }),
+      ).resolves.toEqual({
+        status: "SENT",
+        paymentId: "pay-va-lama",
+        gatewayStatus: "PENDING",
+      });
+      expect(mockPaymentRepository.findLatestPending).toHaveBeenCalledWith({
+        invoiceId: "inv-1",
+        pelangganId: "customer-1",
+      });
     });
   });
 

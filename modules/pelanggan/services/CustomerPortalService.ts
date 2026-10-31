@@ -19,16 +19,19 @@ export class CustomerPortalService {
   }
 
   /**
-   * Get customer profile for customer portal
+   * Get customer profile for customer portal, termasuk saldo kredit yang
+   * memotong tagihan berikutnya.
    */
   async getProfile(customerId: string) {
-    const customer =
-      await this.pelangganRepository.findByIdWithPackage(customerId);
+    const [customer, saldoKredit] = await Promise.all([
+      this.pelangganRepository.findByIdWithPackage(customerId),
+      this.invoiceRepository.getSaldoKredit(customerId),
+    ]);
     if (!customer) {
       throw new Error("Data pelanggan tidak ditemukan");
     }
 
-    return PelangganMapper.toPortal(customer);
+    return { ...PelangganMapper.toPortal(customer), saldoKredit };
   }
 
   /**

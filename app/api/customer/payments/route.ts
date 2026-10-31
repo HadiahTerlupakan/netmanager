@@ -12,6 +12,7 @@ import {
   ErrorCodes,
   apiError,
 } from "@/lib/api-response";
+import { limitCustomerPaymentRequest } from "../rate-limit";
 
 const HTTP_BAD_GATEWAY = 502;
 const PAYMENT_METHOD_REQUIRED_MESSAGE = "Metode pembayaran wajib diisi";
@@ -38,6 +39,8 @@ const customerPaymentSchema = z.object({
     .nullish()
     .transform((code) => code || undefined),
   notes: z.string().max(500, "Catatan maksimal 500 karakter").optional(),
+  // Aplikasi mobile kembali lewat halaman publik yang membuka deep link-nya.
+  returnTo: z.enum(["app", "portal"]).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -72,6 +75,12 @@ export async function POST(request: NextRequest) {
       return authResult.response;
     }
 
+    const limited = limitCustomerPaymentRequest(
+      "createPayment",
+      authResult.session.id,
+    );
+    if (limited) return limited;
+
     const json = await request.json();
     const parsed = customerPaymentSchema.safeParse(json);
     if (!parsed.success) {
@@ -79,7 +88,8 @@ export async function POST(request: NextRequest) {
       return apiError(firstError, ErrorCodes.VALIDATION_ERROR, { status: 400 });
     }
 
-    const { invoiceIds, couponCode, paymentMethod, notes } = parsed.data;
+    const { invoiceIds, couponCode, paymentMethod, notes, returnTo } =
+      parsed.data;
     const { tenantId } = await getTenantIdFromContext();
 
     const result = await createCustomerPaymentForRoute({
@@ -89,6 +99,7 @@ export async function POST(request: NextRequest) {
       couponCode,
       paymentMethod,
       notes,
+      returnTo,
     });
 
     return apiSuccess(result, {

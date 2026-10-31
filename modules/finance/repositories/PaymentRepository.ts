@@ -3,9 +3,14 @@ import { type Prisma } from "@prisma/client-billing";
 import type { IPaymentRepository } from "../domain/ports/IPaymentRepository";
 import type { PaymentEntity } from "../domain/entities/PaymentEntity";
 import {
+  attachReceiptToPayments,
+  cancelPendingManualPayments,
   createCustomerPaymentsForInvoices,
   findFirstAuthPayment,
+  findLatestPendingCustomerPayment,
+  findPendingManualCheckout,
   mapPaymentEntity,
+  markCustomerCheckoutFailed,
 } from "./paymentRepository.customer-payments";
 
 export class PaymentRepository implements IPaymentRepository {
@@ -43,36 +48,33 @@ export class PaymentRepository implements IPaymentRepository {
     });
   }
 
-  /** Mengambil pembayaran transfer manual pending milik pelanggan. */
-  async findPendingManualTransfer(options: {
+  /**
+   * Payment transfer manual yang menunggu verifikasi dari checkout yang
+   * memuat invoice ini, seluruh invoice-nya.
+   */
+  async findPendingManualCheckout(options: {
     invoiceId: string;
     pelangganId: string;
-  }): Promise<PaymentEntity | null> {
-    const payment = await prismaBilling.payment.findFirst({
-      where: {
-        invoiceId: options.invoiceId,
-        pelangganId: options.pelangganId,
-        gatewayStatus: "PENDING",
-        paymentMethod: "BANK_TRANSFER",
-      },
-    });
-    return payment ? mapPaymentEntity(payment) : null;
+  }) {
+    return findPendingManualCheckout(options);
   }
 
-  /** Memperbarui bukti pembayaran pelanggan. */
-  async updateReceipt(options: {
-    paymentId: string;
+  /** Melampirkan bukti transfer ke payment checkout yang masih menunggu. */
+  async attachReceipt(options: {
     receiptUrl: string;
-    notes: string;
-  }): Promise<PaymentEntity> {
-    const payment = await prismaBilling.payment.update({
-      where: { id: options.paymentId },
-      data: {
-        receiptUrl: options.receiptUrl,
-        notes: options.notes,
-      },
-    });
-    return mapPaymentEntity(payment);
+    payments: Array<{ id: string; notes: string }>;
+  }): Promise<number> {
+    return attachReceiptToPayments(options);
+  }
+
+  /** Payment menunggu terbaru milik pelanggan untuk invoice ini. */
+  async findLatestPending(options: { invoiceId: string; pelangganId: string }) {
+    return findLatestPendingCustomerPayment(options);
+  }
+
+  /** Menutup payment transfer manual yang belum diverifikasi. */
+  async cancelPendingManual(paymentIds: string[]): Promise<number> {
+    return cancelPendingManualPayments(paymentIds);
   }
 
   /** Mengambil pembayaran berdasarkan id beserta invoice. */
@@ -179,12 +181,9 @@ export class PaymentRepository implements IPaymentRepository {
     });
   }
 
-  /** Marks payment records as FAILED (gateway call failed). */
-  async markAsFailed(paymentIds: string[]) {
-    return prismaBilling.payment.updateMany({
-      where: { id: { in: paymentIds } },
-      data: { gatewayStatus: "FAILED" },
-    });
+  /** Marks checkout payments as FAILED with the gateway's rejection text. */
+  async markAsFailed(paymentIds: string[], failureReason: string) {
+    return markCustomerCheckoutFailed(paymentIds, failureReason);
   }
 
   /** Mengambil pembayaran pertama dengan client auth untuk webhook. */

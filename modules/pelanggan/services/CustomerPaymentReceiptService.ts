@@ -1,11 +1,17 @@
 import { logger } from "@/lib/logger";
 import { firebaseRealtimeService } from "@/lib/realtime";
 import { getAdminTokens, sendFCMNotification } from "@/lib/firebase/messaging";
+import { buildTenantUploadDir } from "@/lib/upload/upload-policy";
+import {
+  validateFileSignature,
+  validateFileSize,
+  type AllowedFileType,
+} from "@/lib/utils/file-validation";
 import { analyzeReceiptWithOCR } from "@/modules/integrations";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
 import {
-  findPendingManualCustomerTransfer,
-  updateCustomerPaymentReceipt,
+  attachCustomerCheckoutReceipt,
+  findPendingManualCustomerCheckout,
 } from "@/modules/finance";
 import { PelangganRepository } from "../repositories/PelangganRepository";
 
@@ -14,114 +20,153 @@ type ReceiptUploadOptions = {
   file: File;
   customerId: string;
   customerCode?: string | null;
+  /** Tenant sesi, dipakai bila payment lama tidak mencatat tenantnya. */
+  tenantId?: string | null;
 };
 
 type ReceiptUploadResult =
   | { status: "not-found" }
+  | { status: "invalid-file"; message: string }
   | { status: "uploaded"; receiptUrl: string };
+
+type CheckoutPayment = Awaited<
+  ReturnType<typeof findPendingManualCustomerCheckout>
+>[number];
 
 const RECEIPT_NOTIFICATION_TITLE = "Persetujuan Pembayaran";
 const RECEIPT_NOTIFICATION_MESSAGE = "Struk pembayaran baru diunggah pelanggan";
 const RECEIPT_NOTIFICATION_URL = "/admin/payments/approval";
+// Di bawah `public/uploads/`, yang hanya disajikan `server.ts` kepada sesi
+// yang berhak; `public/receipts` dulu terbuka untuk siapa saja yang tahu URL.
+const RECEIPT_UPLOAD_DIR = "public/uploads/payment-proofs";
+const RECEIPT_STORAGE_CATEGORY = "payment-proofs";
+const INVALID_IMAGE_MESSAGE = "File harus berupa gambar JPG, PNG, atau WebP";
+const OVERSIZED_IMAGE_MESSAGE = "Ukuran file maksimal 5MB";
+const MISSING_TENANT_MESSAGE =
+  "Pembayaran tanpa tenant tidak bisa menyimpan bukti transfer";
+
+// Jenis gambar ditentukan dari isi berkas, bukan MIME kiriman klien.
+const RECEIPT_IMAGE_TYPES: Array<[AllowedFileType, string]> = [
+  ["jpg", "image/jpeg"],
+  ["png", "image/png"],
+  ["webp", "image/webp"],
+];
 
 const pelangganRepository = new PelangganRepository();
 
-/** Stores customer payment receipt and publishes admin realtime notification. */
+/**
+ * Simpan bukti transfer untuk checkout transfer manual yang memuat invoice
+ * ini, dilampirkan ke setiap invoice checkout-nya. Bukti boleh diganti selama
+ * checkout masih menunggu verifikasi.
+ */
 export async function uploadCustomerPaymentReceipt(
   options: ReceiptUploadOptions,
 ): Promise<ReceiptUploadResult> {
-  const payment = await findReceiptPayment(options);
-  if (!payment) return handleMissingReceiptPayment(options);
+  const mimeType = await detectReceiptImageType(options.file);
+  if (!mimeType) {
+    return { status: "invalid-file", message: INVALID_IMAGE_MESSAGE };
+  }
+  if (!validateFileSize(options.file)) {
+    return { status: "invalid-file", message: OVERSIZED_IMAGE_MESSAGE };
+  }
 
-  const receiptUrl = await saveReceiptImage(options, payment.id);
-  const updatedPayment = await updateCustomerPaymentReceipt({
-    paymentId: payment.id,
+  const checkout = await findPendingManualCustomerCheckout(options);
+  if (checkout.length === 0) return handleMissingReceiptPayment(options);
+
+  const tenantId = checkout[0].tenantId ?? options.tenantId;
+  if (!tenantId) throw new Error(MISSING_TENANT_MESSAGE);
+
+  const receiptUrl = await saveReceiptImage(options, checkout[0], tenantId);
+  const expectedAmount = Number(
+    checkout.reduce((sum, payment) => sum + payment.amount, 0n),
+  );
+  const analysis = await analyzeReceipt(
+    options.file,
+    mimeType,
+    expectedAmount,
+    tenantId,
+  );
+  const attached = await attachCustomerCheckoutReceipt({
     receiptUrl,
-    notes: await buildPaymentReceiptNotes(options.file, payment),
+    payments: checkout.map((payment) => ({
+      id: payment.id,
+      notes: appendNote(payment.notes, analysis),
+    })),
   });
+  // Admin menyetujui atau pelanggan membatalkan di antara kedua langkah.
+  if (attached === 0) return handleMissingReceiptPayment(options);
 
   await publishReceiptUploadSideEffects(
     options.customerId,
-    updatedPayment.id,
-    Number(payment.amount),
-    Reflect.get(payment, "tenantId") as string | null | undefined,
+    checkout[0].id,
+    expectedAmount,
+    tenantId,
   );
-  return {
-    status: "uploaded",
-    receiptUrl: updatedPayment.receiptUrl ?? receiptUrl,
-  };
+  return { status: "uploaded", receiptUrl };
 }
 
-function findReceiptPayment(options: ReceiptUploadOptions) {
-  return findPendingManualCustomerTransfer({
-    invoiceId: options.invoiceId,
-    customerId: options.customerId,
-  });
+async function detectReceiptImageType(file: File) {
+  for (const [signature, mimeType] of RECEIPT_IMAGE_TYPES) {
+    if (await validateFileSignature(file, [signature])) return mimeType;
+  }
+  return null;
 }
 
 function handleMissingReceiptPayment(
   options: ReceiptUploadOptions,
 ): ReceiptUploadResult {
   logger.error(
-    `[upload-receipt] FAIL: No pending BANK_TRANSFER found. invoiceId: ${options.invoiceId}, pelangganId: ${options.customerCode}`,
+    `[upload-receipt] FAIL: No pending manual transfer found. invoiceId: ${options.invoiceId}, pelangganId: ${options.customerCode}`,
   );
   return { status: "not-found" };
 }
 
-async function saveReceiptImage(
+function saveReceiptImage(
   options: ReceiptUploadOptions,
-  paymentId: string,
+  payment: CheckoutPayment,
+  tenantId: string,
 ) {
   return convertAndSaveImage(
     options.file,
-    "public/receipts",
-    `receipt_${paymentId}_${Date.now()}`,
-    "payment-proofs",
-    `pelanggan_${options.customerId}`,
+    buildTenantUploadDir(RECEIPT_UPLOAD_DIR, tenantId),
+    `receipt_${payment.checkoutId ?? payment.id}_${Date.now()}`,
+    RECEIPT_STORAGE_CATEGORY,
   );
 }
 
-async function buildPaymentReceiptNotes(
-  file: File,
-  payment: NonNullable<Awaited<ReturnType<typeof findReceiptPayment>>>,
-) {
-  return buildReceiptNotes(
-    payment.notes,
-    Number(payment.amount),
-    file,
-    Reflect.get(payment, "tenantId") as string | null | undefined,
-  );
+function appendNote(existingNotes: string | null, note: string) {
+  return existingNotes ? `${existingNotes}\n---\n${note}` : note;
 }
 
 async function publishReceiptUploadSideEffects(
   customerId: string,
   paymentId: string,
   amount: number,
-  tenantId: string | null | undefined,
+  tenantId: string,
 ) {
   await publishPaymentUploadNotification({ customerId, paymentId, amount });
   await notifyAdminsAboutReceiptUpload(tenantId);
 }
 
-async function buildReceiptNotes(
-  existingNotes: string | null,
-  expectedAmount: number,
+/** Catatan verifikasi otomatis (OCR) untuk admin, satu kali per bukti. */
+async function analyzeReceipt(
   file: File,
-  tenantId?: string | null,
+  mimeType: string,
+  expectedAmount: number,
+  tenantId: string,
 ) {
   const ocrResult = await analyzeReceiptWithOCR(
     await file.arrayBuffer(),
-    file.type,
+    mimeType,
     tenantId,
   );
-  let notes = existingNotes ? `${existingNotes}\n---\n` : "";
 
   if (ocrResult.is_potentially_fake) {
-    return `${notes}⚠️ [AI Peringatan] Terindikasi palsu/editan. ${ocrResult.catatan_analisis}`.trim();
+    return `⚠️ [AI Peringatan] Terindikasi palsu/editan. ${ocrResult.catatan_analisis}`.trim();
   }
 
   if (!ocrResult.is_valid_receipt) {
-    return `${notes}⚠️ [AI Peringatan] Bukan gambar struk transfer/E-Wallet yang valid. ${ocrResult.catatan_analisis}`.trim();
+    return `⚠️ [AI Peringatan] Bukan gambar struk transfer/E-Wallet yang valid. ${ocrResult.catatan_analisis}`.trim();
   }
 
   const warnings = buildAmountWarnings(ocrResult.nominal, expectedAmount);
@@ -130,8 +175,7 @@ async function buildReceiptNotes(
       ? `⚠️ [AI Peringatan] ${warnings.join(", ")}.`
       : `✅ [AI Validasi] Nominal sesuai (Rp${expectedAmount.toLocaleString("id-ID")}).`;
 
-  notes += `${statusText} ${ocrResult.catatan_analisis}`;
-  return notes.trim();
+  return `${statusText} ${ocrResult.catatan_analisis}`.trim();
 }
 
 function buildAmountWarnings(nominal: number | null, expectedAmount: number) {
@@ -197,16 +241,7 @@ async function publishReceiptNotificationScopes(
 }
 
 /** Mengirim push notification admin setelah pelanggan mengunggah bukti pembayaran. */
-async function notifyAdminsAboutReceiptUpload(
-  tenantId: string | null | undefined,
-) {
-  if (!tenantId) {
-    logger.warn(
-      "[FCM] Skip push admin — payment tanpa tenantId, tidak bisa target tenant scope",
-    );
-    return;
-  }
-
+async function notifyAdminsAboutReceiptUpload(tenantId: string) {
   try {
     const tokens = await getAdminTokens(tenantId);
     await sendFCMNotification(
