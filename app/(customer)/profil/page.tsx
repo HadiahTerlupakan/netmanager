@@ -7,6 +7,7 @@ import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
+import { NotificationSoundToggle } from "./NotificationSoundToggle";
 import {
   MdArrowBack,
   MdEdit,
@@ -317,6 +318,7 @@ export default function CustomerProfilPage() {
                 </div>
               </div>
             </div>
+            <NotificationSoundToggle />
             {/* Language Item */}
             <div className="flex items-center gap-3 p-4 justify-between active:bg-gray-50 dark:active:bg-gray-700 transition-colors cursor-pointer">
               <div className="flex items-center gap-3">

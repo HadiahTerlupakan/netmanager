@@ -1,5 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
+import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
 import { unwrapApiData } from "@/lib/utils/fetch-wrapper";
 
 import { useState, useCallback } from "react";
@@ -120,7 +121,7 @@ export function useRealtimeWorkOrders(
 
   const playSound = () => {
     try {
-      const audio = new Audio("/sounds/notification.mp3");
+      const audio = new Audio(NOTIFICATION_SOUND_SRC);
       audio
         .play()
         .catch((_err) => clientLogger.info("Audio play failed:", _err));

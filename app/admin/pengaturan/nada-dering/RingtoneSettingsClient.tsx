@@ -1,6 +1,7 @@
 "use client";
 
 import { clientLogger } from "@/lib/client-logger";
+import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
 import { useState, useEffect, useRef } from "react";
 import {
   HiOutlineSpeakerWave,
@@ -268,7 +269,7 @@ export default function RingtoneSettingsClient() {
     }
 
     if (soundType === "default") {
-      playSound("/sounds/notification.mp3");
+      playSound(NOTIFICATION_SOUND_SRC);
     } else {
       if (customSoundData) {
         playSound(customSoundData);
@@ -343,7 +344,7 @@ export default function RingtoneSettingsClient() {
                     Default System
                   </span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Nada standar aplikasi (/sounds/notification.mp3)
+                    Nada standar aplikasi (gelembung lembut)
                   </span>
                 </div>
               </div>

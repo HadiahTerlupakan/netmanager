@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Nada notifikasi gelembung di admin dan portal pelanggan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `public/sounds` | `lib/notification-sound.ts` | `lib/websocket/hooks` | `app/(customer)/profil` | `app/admin/chat` | `app/admin/pengaturan/nada-dering` | `components/notifications`
+- **Author**: agent
+- **Deskripsi**: Nada bawaan admin (`notification.mp3`, ±2 detik, asal tidak tercatat) diganti nada "gelembung" yang sama dengan aplikasi mobile (`notification.wav`, 0,45 detik, sinus murni, kenyaringan standar), dirujuk lewat satu konstanta `NOTIFICATION_SOUND_SRC`. Admin yang memakai nada unggahan sendiri tidak terpengaruh. `notify-6-313751.mp3` yang tidak dipakai dihapus. Portal pelanggan sebelumnya tanpa bunyi; kini berbunyi sekali saat event realtime (pengumuman, balasan tiket) menambah jumlah notifikasi belum dibaca, tidak untuk yang sudah ada saat halaman dibuka, dan bisa dimatikan per browser lewat "Bunyi Notifikasi" di Profil. Notifikasi push browser saat tab tertutup tetap memakai nada sistem operasi; browser tidak mengizinkan situs memilih nada.
+- **Files**: `public/sounds/notification.wav`, `public/sounds/README.md`, `lib/notification-sound.ts`, `lib/websocket/hooks/useCustomerNotifications.ts`, `app/(customer)/profil/NotificationSoundToggle.tsx`, `app/(customer)/profil/page.tsx`, `app/admin/chat/ChatPageClient.tsx`, `app/admin/pengaturan/nada-dering/RingtoneSettingsClient.tsx`, `components/notifications/PaymentApprovalBell.tsx`, `lib/websocket/hooks/useRealtimeNotifications.ts`, `lib/websocket/hooks/useRealtimeWorkOrders.ts`, `lib/websocket/hooks/useRealtimeSupportTickets.ts`, `lib/websocket/hooks/useRealtimePaymentApprovals.ts`, `tests/lib/notification-sound.test.ts`, `tests/lib/websocket/useCustomerNotifications-sound.test.tsx`, `tests/app/customer-notification-sound-toggle.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Pemeriksaan site benar-benar membatasi admin site_only
 
 - **Tipe**: [SECURITY]

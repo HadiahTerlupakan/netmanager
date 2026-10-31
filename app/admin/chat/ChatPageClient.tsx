@@ -1,5 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
+import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -207,15 +208,15 @@ export default function ChatPageClient() {
         const soundType = localStorage.getItem("chat_sound_type");
         const customData = localStorage.getItem("chat_custom_sound_data");
 
-        let src = "/sounds/notification.mp3"; // Absolute fallback
+        let src = NOTIFICATION_SOUND_SRC; // Absolute fallback
 
         // Priority: LocalStorage Custom -> LocalStorage Default -> Chat Argument -> Default
         if (soundType === "custom" && customData) {
           src = customData;
         } else if (soundType === "default") {
-          src = "/sounds/notification.mp3";
+          src = NOTIFICATION_SOUND_SRC;
         } else if (type === "chat") {
-          src = "/sounds/notification.mp3";
+          src = NOTIFICATION_SOUND_SRC;
         }
 
         let audioSrc = src;
@@ -260,7 +261,7 @@ export default function ChatPageClient() {
               clientLogger.info(
                 "[Chat] chat.mp3 not found, falling back to default",
               );
-              new Audio("/sounds/notification.mp3")
+              new Audio(NOTIFICATION_SOUND_SRC)
                 .play()
                 .catch((e) => clientLogger.error("Fallback audio failed:", e));
             }
@@ -766,7 +767,7 @@ export default function ChatPageClient() {
                         "Ini adalah tes notifikasi suara dan visual.",
                       );
                       alert(
-                        "Tes notifikasi dikirim. Jika tidak bunyi chat.mp3, akan fallback ke notification.mp3",
+                        "Tes notifikasi dikirim. Jika tidak bunyi chat.mp3, akan memakai nada standar",
                       );
                     }}
                     title="Test Notification"

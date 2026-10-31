@@ -1,5 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
+import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
 import { unwrapApiData } from "@/lib/utils/fetch-wrapper";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
@@ -129,7 +130,7 @@ export function useRealtimeNotifications(
           const soundType = localStorage.getItem("chat_sound_type");
           const customData = localStorage.getItem("chat_custom_sound_data");
 
-          let audioSrc = "/sounds/notification.mp3";
+          let audioSrc = NOTIFICATION_SOUND_SRC;
           if (soundType === "custom" && customData) {
             audioSrc = customData;
           }

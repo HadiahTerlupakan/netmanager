@@ -1,5 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
+import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
@@ -72,7 +73,7 @@ export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn
 
       // Play notification sound
       try {
-        const audio = new Audio("/sounds/notification.mp3");
+        const audio = new Audio(NOTIFICATION_SOUND_SRC);
         audio.play().catch((e) => clientLogger.error("Audio play failed:", e));
       } catch (e) {
         clientLogger.error("Audio initialization failed:", e);

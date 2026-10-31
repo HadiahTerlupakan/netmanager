@@ -1,8 +1,12 @@
-# Notification Sound
+# Nada notifikasi
 
-Please place your notification sound file here.
+`notification.wav` adalah nada notifikasi bawaan admin dan portal pelanggan,
+dirujuk lewat `NOTIFICATION_SOUND_SRC` di `lib/notification-sound.ts`.
 
-1. Rename your MP3 file to `notification.mp3`.
-2. Move it to this directory: `public/sounds/notification.mp3`.
+Berkasnya salinan `assets/sounds/notif_soft.wav` dari repo mobile-netmanager,
+yang disintesis oleh `scripts/generate-notification-sound.py` di sana, supaya
+satu notifikasi terdengar sama di aplikasi dan di browser. Untuk mengganti
+nada, ubah skrip itu, jalankan, lalu salin hasilnya ke sini.
 
-The application expects the file to be playable at `/sounds/notification.mp3`.
+Admin bisa memakai nada sendiri lewat Pengaturan → Nada Dering; pilihan itu
+disimpan per browser dan tidak mengubah berkas ini.

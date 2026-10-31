@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { playCustomerNotificationSound } from "@/lib/notification-sound";
 
 export interface CustomerNotification {
   id: string;
@@ -67,6 +68,9 @@ export function useCustomerNotifications(
   const [unreadTicketCount, setUnreadTicketCount] = useState(0);
   const [unreadAnnouncementCount, setUnreadAnnouncementCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  // null sampai muat pertama: notifikasi yang sudah belum dibaca saat halaman
+  // dibuka tidak dibunyikan, hanya yang datang sesudahnya.
+  const lastUnreadRef = useRef<number | null>(null);
 
   // Fetch notifications from customer API
   const fetchNotifications = useCallback(async () => {
@@ -77,7 +81,15 @@ export function useCustomerNotifications(
 
       if (response.ok) {
         const data = await response.json();
-        setUnreadCount(data.unreadCount || 0);
+        const nextUnread: number = data.unreadCount || 0;
+        if (
+          lastUnreadRef.current !== null &&
+          nextUnread > lastUnreadRef.current
+        ) {
+          playCustomerNotificationSound();
+        }
+        lastUnreadRef.current = nextUnread;
+        setUnreadCount(nextUnread);
         setUnreadTicketCount(data.unreadTicketCount || 0);
         setUnreadAnnouncementCount(data.unreadAnnouncementCount || 0);
         setNotifications(data.notifications || []);
