@@ -7,11 +7,11 @@ import { PaymentGatewayManager } from "./PaymentGatewayService";
 import {
   isUnpaidTerminalStatus,
   releaseCheckoutCoupons,
-  restoreReleasedCoupons,
 } from "./abandoned-checkout";
+import { flagPaymentForReview } from "./payment-review";
 import {
   findCheckoutPayments,
-  settleCheckoutInvoices,
+  settlePaidCheckout,
   sumCheckoutAmount,
 } from "./webhook-checkout-settlement";
 import { WebhookPaymentLookupService } from "./webhook-payment-lookup-service";
@@ -27,7 +27,6 @@ import { WebhookIdempotencyService } from "./WebhookIdempotencyService";
 import { getPaymentGatewayMetrics } from "./PaymentGatewayMetrics";
 import type { WebhookResult } from "./provider-interface";
 import { recordGatewayFee } from "./gateway-fee";
-import { creditCheckoutOverpayment } from "./overpayment-credit";
 import {
   hasAmountMismatch,
   normalizePaymentMethod,
@@ -52,6 +51,8 @@ export type ProcessWebhookResult = {
   status: number;
   body: { status?: string; error?: string; message?: string };
 };
+
+const TRANSACTION_MISMATCH = "TRANSACTION_MISMATCH";
 
 const GATEWAY_STATUS_MAP: Record<
   WebhookResult["status"],
@@ -199,11 +200,18 @@ export class WebhookProcessingService {
       const checkout = payment ? await findCheckoutPayments(payment.id) : [];
       const chargedAmount = sumCheckoutAmount(checkout);
 
-      // Step 8: Validate amount
+      // Step 8: Validate amount. Tetap dijawab 200 (retry tidak mengubah
+      // nominal), tetapi staf keuangan diberi tahu karena tidak dilunasi.
       if (payment && hasAmountMismatch(chargedAmount, webhookResult.amount)) {
-        logger.warn(
-          `[Webhook] Amount mismatch for payment ${payment.id}: expected ${chargedAmount}, received ${webhookResult.amount}`,
-        );
+        await flagPaymentForReview({
+          provider,
+          orderId: webhookResult.orderId,
+          paymentId: payment.id,
+          tenantId: payment.tenantId ?? null,
+          reason: "AMOUNT_MISMATCH",
+          expected: chargedAmount.toString(),
+          received: String(webhookResult.amount),
+        });
         await this.idempotencyService.markAsFailed(
           webhookEventId,
           `Amount mismatch: expected ${chargedAmount}, received ${webhookResult.amount}`,
@@ -238,8 +246,7 @@ export class WebhookProcessingService {
       // Step 10: Check if already processed. Invoice tetap dihitung ulang:
       // proses yang mati setelah commit dipulihkan oleh retry gateway.
       if (payment.gatewayStatus === "PAID") {
-        await settleCheckoutInvoices(checkout);
-        await creditCheckoutOverpayment(checkout);
+        await settlePaidCheckout(checkout, { justMarkedPaid: false });
         await this.idempotencyService.markAsProcessed(webhookEventId);
         this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);
         return {
@@ -265,7 +272,7 @@ export class WebhookProcessingService {
             webhookResult.transactionId,
           )
         ) {
-          return null;
+          return TRANSACTION_MISMATCH;
         }
 
         // gatewayProvider tetap kode channel dari portal (mis. "SP"), agar
@@ -310,6 +317,16 @@ export class WebhookProcessingService {
         return moved.count > 0 ? gatewayStatus : null;
       });
 
+      if (outcome === TRANSACTION_MISMATCH) {
+        return this.flagTransactionMismatch({
+          provider,
+          payment,
+          webhookResult,
+          webhookEventId,
+          startTime,
+        });
+      }
+
       // Step 12: Lunasi invoice, atau kembalikan kupon checkout yang tidak
       // dibayar, setelah commit. Invoice dan kupon ada di database lain dari
       // transaksi ini, jadi tidak bisa ikut di dalamnya.
@@ -317,9 +334,7 @@ export class WebhookProcessingService {
         // Biaya dicatat sebelum pelunasan: jurnal penerimaan (worker
         // INVOICE_PAID) membukukannya sebagai beban.
         await recordGatewayFee(provider, payment);
-        await restoreReleasedCoupons(checkout);
-        await settleCheckoutInvoices(checkout);
-        await creditCheckoutOverpayment(checkout);
+        await settlePaidCheckout(checkout, { justMarkedPaid: true });
       } else if (outcome && isUnpaidTerminalStatus(outcome)) {
         await releaseCheckoutCoupons(checkout);
       }
@@ -349,6 +364,48 @@ export class WebhookProcessingService {
 
       return this.handleError(error);
     }
+  }
+
+  /**
+   * Nomor transaksi gateway berbeda dari yang tercatat saat checkout dibuat:
+   * tidak dilunasi, tetapi dijawab 200 (retry tidak mengubah nomornya) dan
+   * staf keuangan diberi tahu. Dulu dijawab "ok" tanpa jejak apa pun selain
+   * baris WebhookEvent yang tertinggal PENDING.
+   */
+  private async flagTransactionMismatch(input: {
+    provider: string;
+    payment: {
+      id: string;
+      tenantId: string | null;
+      transactionId: string | null;
+    };
+    webhookResult: WebhookResult;
+    webhookEventId: string;
+    startTime: number;
+  }): Promise<ProcessWebhookResult> {
+    const expected = input.payment.transactionId ?? "-";
+    const received = input.webhookResult.transactionId ?? "-";
+    await flagPaymentForReview({
+      provider: input.provider,
+      orderId: input.webhookResult.orderId,
+      paymentId: input.payment.id,
+      tenantId: input.payment.tenantId,
+      reason: "TRANSACTION_MISMATCH",
+      expected,
+      received,
+    });
+    await this.idempotencyService.markAsFailed(
+      input.webhookEventId,
+      `Transaction mismatch: expected ${expected}, received ${received}`,
+    );
+    this.metrics.recordWebhookFailed(input.provider, "Transaction mismatch");
+    return {
+      status: 200,
+      body: {
+        status: "ok",
+        message: "Payment transaction mismatch - flagged for review",
+      },
+    };
   }
 
   private handleError(error: unknown): ProcessWebhookResult {

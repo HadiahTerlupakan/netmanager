@@ -6,6 +6,7 @@ import {
   type InvoicePaidBreakdown,
   type PaymentRedirectedPayload,
   type PaymentRejectedPayload,
+  type PaymentReviewRequiredPayload,
 } from "@/lib/event-bus";
 
 export class BillingEventDispatcher {
@@ -109,6 +110,15 @@ export class BillingEventDispatcher {
    */
   static async onPaymentRejected(data: PaymentRejectedPayload) {
     await eventBus.publish(EVENT_NAMES.PAYMENT_REJECTED, data);
+  }
+
+  /**
+   * Gateway melaporkan pembayaran yang tidak cocok dengan catatan checkout
+   * (nominal atau nomor transaksi); staf keuangan perlu memeriksanya karena
+   * tagihannya tidak dilunasi otomatis.
+   */
+  static async onPaymentReviewRequired(data: PaymentReviewRequiredPayload) {
+    await eventBus.publish(EVENT_NAMES.PAYMENT_REVIEW_REQUIRED, data);
   }
 
   /**

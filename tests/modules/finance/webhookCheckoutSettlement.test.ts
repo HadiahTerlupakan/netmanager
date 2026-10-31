@@ -17,14 +17,9 @@ const mockFns = vi.hoisted(() => ({
   markAsFailed: vi.fn(),
   generateIdempotencyKey: vi.fn(),
   findCheckoutPayments: vi.fn(),
-  settleCheckoutInvoices: vi.fn(),
+  settlePaidCheckout: vi.fn(),
   releaseCheckoutCoupons: vi.fn(),
-  restoreReleasedCoupons: vi.fn(),
-  creditCheckoutOverpayment: vi.fn(),
-}));
-
-vi.mock("@/modules/payment-gateway/services/overpayment-credit", () => ({
-  creditCheckoutOverpayment: mockFns.creditCheckoutOverpayment,
+  flagPaymentForReview: vi.fn(),
 }));
 
 vi.mock(
@@ -32,9 +27,12 @@ vi.mock(
   async (importOriginal) => ({
     ...(await importOriginal<object>()),
     releaseCheckoutCoupons: mockFns.releaseCheckoutCoupons,
-    restoreReleasedCoupons: mockFns.restoreReleasedCoupons,
   }),
 );
+
+vi.mock("@/modules/payment-gateway/services/payment-review", () => ({
+  flagPaymentForReview: mockFns.flagPaymentForReview,
+}));
 
 vi.mock("@/modules/payment-gateway/services/PaymentGatewayService", () => ({
   PaymentGatewayManager: class {
@@ -68,7 +66,7 @@ vi.mock(
   async (importOriginal) => ({
     ...(await importOriginal<object>()),
     findCheckoutPayments: mockFns.findCheckoutPayments,
-    settleCheckoutInvoices: mockFns.settleCheckoutInvoices,
+    settlePaidCheckout: mockFns.settlePaidCheckout,
   }),
 );
 
@@ -146,8 +144,9 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
       where: { id: { in: ["pay-1", "pay-2"] }, gatewayStatus: { not: "PAID" } },
       data: expect.objectContaining({ gatewayStatus: "PAID" }),
     });
-    expect(mockFns.restoreReleasedCoupons).toHaveBeenCalledWith(CHECKOUT);
-    expect(mockFns.settleCheckoutInvoices).toHaveBeenCalledWith(CHECKOUT);
+    expect(mockFns.settlePaidCheckout).toHaveBeenCalledWith(CHECKOUT, {
+      justMarkedPaid: true,
+    });
     const { webhookEvent } = prismaMock as unknown as {
       webhookEvent: { update: ReturnType<typeof vi.fn> };
     };
@@ -171,10 +170,11 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
         data: expect.objectContaining({ gatewayStatus: "PAID" }),
       }),
     );
-    expect(mockFns.settleCheckoutInvoices).toHaveBeenCalledWith(CHECKOUT);
     // Invoice-nya bisa sudah lunas oleh metode pengganti: kelebihannya
-    // menjadi saldo, bukan diterima diam-diam.
-    expect(mockFns.creditCheckoutOverpayment).toHaveBeenCalledWith(CHECKOUT);
+    // menjadi saldo, bukan diterima diam-diam (settlePaidCheckout).
+    expect(mockFns.settlePaidCheckout).toHaveBeenCalledWith(CHECKOUT, {
+      justMarkedPaid: true,
+    });
   });
 
   it("nominal dicocokkan dengan total checkout, bukan payment pertama", async () => {
@@ -182,7 +182,58 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
 
     expect(result.body.message).toContain("mismatch");
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
-    expect(mockFns.settleCheckoutInvoices).not.toHaveBeenCalled();
+    expect(mockFns.settlePaidCheckout).not.toHaveBeenCalled();
+  });
+
+  // Dulu hanya log warn dan baris WebhookEvent: tidak ada yang tahu ada
+  // uang yang tidak dilunasi.
+  it("nominal yang tidak cocok diteruskan ke staf keuangan untuk diperiksa", async () => {
+    const result = await webhook("PAID", 60000);
+
+    expect(result.status).toBe(200);
+    expect(mockFns.flagPaymentForReview).toHaveBeenCalledWith({
+      provider: "TRIPAY",
+      orderId: "PAY-1",
+      paymentId: "pay-1",
+      tenantId: "tenant-a",
+      reason: "AMOUNT_MISMATCH",
+      expected: "100000",
+      received: "60000",
+    });
+  });
+
+  it("nomor transaksi yang tidak cocok tidak melunasi dan diteruskan untuk diperiksa", async () => {
+    prismaMock.payment.findUnique.mockResolvedValue({
+      ...PAYMENT,
+      transactionId: "tx-lain",
+    });
+    prismaMock.payment.findFirst.mockResolvedValue({
+      ...PAYMENT,
+      transactionId: "tx-lain",
+    });
+
+    const result = await webhook("PAID");
+
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        status: "ok",
+        message: "Payment transaction mismatch - flagged for review",
+      },
+    });
+    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+    expect(mockFns.settlePaidCheckout).not.toHaveBeenCalled();
+    expect(mockFns.markAsFailed).toHaveBeenCalledWith(
+      "event-1",
+      "Transaction mismatch: expected tx-lain, received tx-1",
+    );
+    expect(mockFns.flagPaymentForReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "TRANSACTION_MISMATCH",
+        expected: "tx-lain",
+        received: "tx-1",
+      }),
+    );
   });
 
   it("retry setelah payment PAID tetap menghitung ulang invoice", async () => {
@@ -193,8 +244,9 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
 
     await webhook("PAID");
 
-    expect(mockFns.settleCheckoutInvoices).toHaveBeenCalledWith(CHECKOUT);
-    expect(mockFns.creditCheckoutOverpayment).toHaveBeenCalledWith(CHECKOUT);
+    expect(mockFns.settlePaidCheckout).toHaveBeenCalledWith(CHECKOUT, {
+      justMarkedPaid: false,
+    });
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
   });
 
@@ -203,7 +255,7 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
 
     await webhook("PAID");
 
-    expect(mockFns.settleCheckoutInvoices).not.toHaveBeenCalled();
+    expect(mockFns.settlePaidCheckout).not.toHaveBeenCalled();
   });
 
   it("EXPIRED hanya mengubah status payment tanpa melunasi invoice", async () => {
@@ -214,7 +266,7 @@ describe("WebhookProcessingService — pelunasan checkout", () => {
         data: expect.objectContaining({ gatewayStatus: "EXPIRED" }),
       }),
     );
-    expect(mockFns.settleCheckoutInvoices).not.toHaveBeenCalled();
+    expect(mockFns.settlePaidCheckout).not.toHaveBeenCalled();
     // Checkout yang tidak dibayar dulu menghabiskan kuota kupon pelanggan.
     expect(mockFns.releaseCheckoutCoupons).toHaveBeenCalledWith(CHECKOUT);
   });

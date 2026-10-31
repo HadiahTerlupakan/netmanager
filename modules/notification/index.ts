@@ -166,6 +166,7 @@ export {
 // import path internal services/.
 export { handleCustomerNotification } from "./services/event-handlers/customer-notification.handler";
 export { handleInvoiceNotification } from "./services/event-handlers/invoice-notification.handler";
+export { handlePaymentReviewRequired } from "./services/event-handlers/payment-review.handler";
 
 // Validators (Zod) — public agar API route bisa pakai tanpa langgar
 // no-restricted-imports.

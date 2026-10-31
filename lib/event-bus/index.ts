@@ -69,6 +69,7 @@ export type {
   InvoicePaidPayload,
   PaymentRedirectedPayload,
   PaymentRejectedPayload,
+  PaymentReviewRequiredPayload,
   CustomerCreatedPayload,
   CustomerStatusPayload,
   WorkOrderCreatedPayload,

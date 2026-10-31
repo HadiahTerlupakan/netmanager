@@ -171,6 +171,24 @@ export async function findPelangganManagers(input: {
   });
 }
 
+/**
+ * Staf yang bisa membuka halaman Transaksi Payment Gateway
+ * (`payment_gateway:read`) di tenant itu: merekalah yang menindaklanjuti
+ * pembayaran gateway yang tidak cocok dengan catatannya.
+ */
+export async function findPaymentGatewayReviewers(input: {
+  userLookupService: UserLookupService;
+  tenantId: string;
+}): Promise<RecipientUser[]> {
+  return input.userLookupService.findManyWithCustomWhere({
+    isActive: true,
+    tenantId: input.tenantId,
+    role: {
+      permission: { some: { resource: "payment_gateway", action: "read" } },
+    },
+  });
+}
+
 function buildEligibleRecipientWhere(input: {
   departmentId?: string;
   siteId?: string;

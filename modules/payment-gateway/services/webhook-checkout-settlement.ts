@@ -1,5 +1,7 @@
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import { settleInvoicesOfReceivedPayments } from "@/modules/finance";
+import { restoreReleasedCoupons } from "./abandoned-checkout";
+import { creditCheckoutOverpayment } from "./overpayment-credit";
 
 const CHECKOUT_PAYMENT_SELECT = {
   id: true,
@@ -63,4 +65,20 @@ export function sumCheckoutAmount(payments: CheckoutPayment[]): bigint {
  */
 export async function settleCheckoutInvoices(payments: CheckoutPayment[]) {
   await settleInvoicesOfReceivedPayments(payments);
+}
+
+/**
+ * Langkah setelah gateway menyatakan checkout PAID, satu jalur untuk webhook
+ * dan cek status gateway: kupon yang sempat dikembalikan dicatat ulang (hanya
+ * saat checkout baru dipindah ke PAID), invoice dilunasi, dan kelebihan bayar
+ * menjadi saldo kredit. Biaya gateway dicatat pemanggil lebih dulu, karena
+ * sumbernya berbeda per jalur. Idempoten.
+ */
+export async function settlePaidCheckout(
+  checkout: CheckoutPayment[],
+  options: { justMarkedPaid: boolean },
+) {
+  if (options.justMarkedPaid) await restoreReleasedCoupons(checkout);
+  await settleCheckoutInvoices(checkout);
+  await creditCheckoutOverpayment(checkout);
 }

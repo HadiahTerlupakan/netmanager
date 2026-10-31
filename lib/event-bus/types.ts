@@ -45,6 +45,7 @@ export const EVENT_NAMES = {
   PAYMENT_OVERPAID: "billing:payment.overpaid",
   PAYMENT_REDIRECTED: "billing:payment.redirected",
   PAYMENT_REJECTED: "billing:payment.rejected",
+  PAYMENT_REVIEW_REQUIRED: "billing:payment.review_required",
   COUPON_USED: "billing:coupon.used",
   PACKAGE_CHANGED: "billing:package.changed",
 
@@ -211,6 +212,18 @@ export interface InvoicePaidBreakdown {
   amountPaid: number;
   couponDiscount: number;
   saldoUsed: number;
+}
+
+/** Gateway melaporkan pembayaran yang tidak cocok dengan catatan checkout. */
+export interface PaymentReviewRequiredPayload extends BaseEventPayload {
+  provider: string;
+  orderId: string;
+  paymentId: string;
+  reason: "AMOUNT_MISMATCH" | "TRANSACTION_MISMATCH";
+  /** Nominal checkout atau nomor transaksi yang tercatat. */
+  expected: string;
+  /** Nominal atau nomor transaksi yang dikirim gateway. */
+  received: string;
 }
 
 export interface InvoicePaidPayload
@@ -752,6 +765,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.PAYMENT_OVERPAID]: PaymentOverpaidPayload;
   [EVENT_NAMES.PAYMENT_REDIRECTED]: PaymentRedirectedPayload;
   [EVENT_NAMES.PAYMENT_REJECTED]: PaymentRejectedPayload;
+  [EVENT_NAMES.PAYMENT_REVIEW_REQUIRED]: PaymentReviewRequiredPayload;
   [EVENT_NAMES.COUPON_USED]: CouponUsedPayload;
   [EVENT_NAMES.CUSTOMER_CREATED]: CustomerCreatedPayload;
   [EVENT_NAMES.CUSTOMER_UPDATED]: CustomerCreatedPayload;
@@ -920,6 +934,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.PAYMENT_REJECTED]: {
     name: EVENT_NAMES.PAYMENT_REJECTED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.PAYMENT_REVIEW_REQUIRED]: {
+    name: EVENT_NAMES.PAYMENT_REVIEW_REQUIRED,
     category: "billing",
     priority: JOB_PRIORITIES.HIGH,
     persistent: true,

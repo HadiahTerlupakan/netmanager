@@ -47,6 +47,7 @@ import {
 import {
   handleCustomerNotification,
   handleInvoiceNotification,
+  handlePaymentReviewRequired,
 } from "@/modules/notification";
 import {
   handleInvoicePaidBilling,
@@ -220,6 +221,11 @@ export function registerDefaultHandlers(): void {
     handleInvoiceNotification,
   );
   registerEventHandler(EVENT_NAMES.PAYMENT_REJECTED, handleInvoiceNotification);
+  // Pembayaran gateway yang tidak cocok dengan catatan → staf keuangan.
+  registerEventHandler(
+    EVENT_NAMES.PAYMENT_REVIEW_REQUIRED,
+    handlePaymentReviewRequired,
+  );
 
   // --- NOTIFICATION EVENTS (best-effort — tidak re-throw karena WebSocket/realtime
   // bersifat non-critical; kegagalan tidak boleh block BullMQ retry untuk event lain) ---

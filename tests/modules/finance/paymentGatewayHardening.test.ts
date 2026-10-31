@@ -57,12 +57,13 @@ vi.mock(
     sumCheckoutAmount: (payments: Array<{ amount: bigint }>) =>
       payments.reduce((sum, p) => sum + p.amount, 0n),
     settleCheckoutInvoices: vi.fn(),
+    settlePaidCheckout: vi.fn(),
   }),
 );
 
-// Pengkreditan kelebihan bayar diuji di overpaymentCredit.test.ts.
-vi.mock("@/modules/payment-gateway/services/overpayment-credit", () => ({
-  creditCheckoutOverpayment: vi.fn(),
+// Pemberitahuan pemeriksaan diuji di webhookCheckoutSettlement.test.ts.
+vi.mock("@/modules/payment-gateway/services/payment-review", () => ({
+  flagPaymentForReview: vi.fn(),
 }));
 
 vi.mock("@/modules/payment-gateway/services/PaymentGatewayMetrics", () => ({
@@ -226,11 +227,14 @@ describe("payment gateway hardening", () => {
       tenantId: "tenant-a",
     });
 
-    // Dalam arsitektur produksi, transaction mismatch di-handle di dalam tx
-    // sehingga return 200 ok (tidak error, hanya skip)
+    // Tetap 200 (retry gateway tidak mengubah nomornya), tidak dilunasi,
+    // dan ditandai untuk diperiksa staf keuangan.
     expect(result).toEqual({
       status: 200,
-      body: { status: "ok" },
+      body: {
+        status: "ok",
+        message: "Payment transaction mismatch - flagged for review",
+      },
     });
     expect(prismaMock.payment.update).not.toHaveBeenCalled();
   });

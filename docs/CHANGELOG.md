@@ -168,6 +168,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `app/api/coupons/verify/route.ts`, `app/api/customer/rate-limit.ts`, `app/api/customer/payments/route.ts`, `app/api/customer/payments/sse/route.ts`, `app/api/customer/coupons/verify/route.ts`, `tests/api/coupons-verify-route.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-10-31] — Callback gateway yang tidak cocok diteruskan ke staf keuangan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/payment-gateway` | `modules/notification` | `modules/events` | `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Callback yang nominalnya berbeda dari total checkout hanya dicatat `logger.warn` dan di WebhookEvent, dan callback yang nomor transaksinya berbeda dari catatan dijawab "ok" tanpa jejak apa pun selain baris WebhookEvent yang tertinggal PENDING; uang yang tidak dilunasi itu tidak terlihat siapa pun. Keduanya tetap dijawab 200 (retry gateway tidak mengubah datanya) dan tidak dilunasi, tetapi kini dicatat `logger.error`, event WebhookEvent ditandai gagal beserta alasannya, dan `flagPaymentForReview` menerbitkan event baru `PAYMENT_REVIEW_REQUIRED`. Handler `handlePaymentReviewRequired` membuat notifikasi admin (ALERT, prioritas HIGH: lonceng, realtime, push admin) untuk staf aktif yang memegang `payment_gateway:read` di tenant pembayaran itu, sekali per staf per kejadian, bertaut ke Transaksi Payment Gateway; tanpa tenant tidak ada yang diberi tahu supaya tidak bocor lintas tenant. Langkah setelah gateway menyatakan checkout PAID (kupon yang dikembalikan dicatat ulang, invoice dilunasi, kelebihan bayar ke saldo) kini satu fungsi `settlePaidCheckout`, dipakai webhook untuk pelunasan pertama maupun retry, dan siap dipakai cek status gateway supaya aturan pelunasan tidak bisa berbeda antarjalur.
+- **Files**: `modules/payment-gateway/services/webhook-processing-service.ts`, `modules/payment-gateway/services/webhook-checkout-settlement.ts`, `modules/payment-gateway/services/payment-review.ts`, `modules/events/dispatchers/BillingEventDispatcher.ts`, `lib/event-bus/types.ts`, `lib/event-bus/index.ts`, `lib/event-bus/event-handlers.ts`, `modules/notification/services/NotificationService.ts`, `modules/notification/services/NotificationService.recipients.ts`, `modules/notification/services/event-handlers/payment-review.handler.ts`, `modules/notification/index.ts`, `tests/modules/finance/webhookCheckoutSettlement.test.ts`, `tests/modules/finance/paymentGatewayHardening.test.ts`, `tests/modules/finance/settlePaidCheckout.test.ts`, `tests/modules/finance/paymentReview.test.ts`, `tests/modules/notification/payment-review-notification.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Tagihan yang tertutup saldo kredit lunas saat terbit
 
 - **Tipe**: [FIXED]

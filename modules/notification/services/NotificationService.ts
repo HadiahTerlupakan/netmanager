@@ -14,6 +14,7 @@ import {
 } from "./NotificationService.holiday";
 import {
   findCanvasingVerifiers,
+  findPaymentGatewayReviewers,
   findPelangganManagers,
 } from "./NotificationService.recipients";
 import type {
@@ -360,6 +361,65 @@ async function fanOutPackageUpgradeNotification(input: {
       }),
     ),
   );
+}
+
+/** Pembayaran gateway yang tidak cocok dengan catatan checkout-nya. */
+export interface PaymentReviewNotificationData {
+  provider: string;
+  orderId: string;
+  reason: "AMOUNT_MISMATCH" | "TRANSACTION_MISMATCH";
+  expected: string;
+  received: string;
+  tenantId: string;
+}
+
+const PAYMENT_REVIEW_SOURCE = "PaymentReview";
+const PAYMENT_GATEWAY_TRANSACTIONS_PATH = "/admin/finance/payment-gateway";
+
+const formatNominal = (value: string) =>
+  `Rp ${Number(value).toLocaleString("id-ID")}`;
+
+function describePaymentReview(data: PaymentReviewNotificationData) {
+  const mismatch =
+    data.reason === "AMOUNT_MISMATCH"
+      ? `menyebut ${formatNominal(data.received)}, padahal checkout-nya ${formatNominal(data.expected)}`
+      : `membawa nomor transaksi ${data.received}, berbeda dengan catatan ${data.expected}`;
+  return `Callback ${data.provider} untuk ${data.orderId} ${mismatch}. Tagihannya tidak dilunasi otomatis; periksa di Transaksi Payment Gateway.`;
+}
+
+/**
+ * Beri tahu staf keuangan tenant itu bahwa pembayaran gateway perlu diperiksa.
+ * Sekali per staf per kejadian: handler event berjalan at-least-once.
+ */
+export async function notifyPaymentReviewRequired(
+  data: PaymentReviewNotificationData,
+): Promise<void> {
+  const userLookupService = getUserLookupService();
+  const recipients = await findPaymentGatewayReviewers({
+    userLookupService,
+    tenantId: data.tenantId,
+  });
+  const sourceId = `${data.orderId}:${data.reason}`;
+
+  for (const recipient of recipients as Array<{ id: string }>) {
+    const alreadyNotified = await hasNotificationForSource({
+      userId: recipient.id,
+      sourceType: PAYMENT_REVIEW_SOURCE,
+      sourceId,
+    });
+    if (alreadyNotified) continue;
+    await createNotification({
+      type: "ALERT",
+      priority: "HIGH",
+      title: "Pembayaran perlu diperiksa",
+      message: describePaymentReview(data),
+      link: PAYMENT_GATEWAY_TRANSACTIONS_PATH,
+      userId: recipient.id,
+      sourceType: PAYMENT_REVIEW_SOURCE,
+      sourceId,
+      tenantId: data.tenantId,
+    });
+  }
 }
 
 export type {
