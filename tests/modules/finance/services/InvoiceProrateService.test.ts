@@ -278,6 +278,7 @@ describe("InvoiceProrateService", () => {
         pelangganId: "pelanggan-1",
         cycleDate: JATUH_TEMPO,
         previousPackageId: "paket-lama",
+        reason: "PACKAGE_CHANGED",
       });
       expect(urutan).toEqual(["schedule", "sync"]);
       expect(result.cycleInvoice).toEqual({
@@ -332,6 +333,7 @@ describe("InvoiceProrateService", () => {
         pelangganId: "pelanggan-1",
         cycleDate: JATUH_TEMPO,
         previousPackageId: "paket-jadwal",
+        reason: "PACKAGE_CHANGE_CANCELLED",
       });
     });
 
@@ -359,6 +361,7 @@ describe("InvoiceProrateService", () => {
         pelangganId: "pelanggan-1",
         cycleDate: JATUH_TEMPO,
         previousPackageId: "paket-baru-upgrade",
+        reason: "PACKAGE_CHANGE_CANCELLED",
       });
       expect(result).toEqual({ status: "REPRICED", invoiceId: "inv-pulih" });
     });

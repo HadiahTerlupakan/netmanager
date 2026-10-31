@@ -139,7 +139,23 @@ export interface BaseEventPayload {
   timestamp?: string;
 }
 
-export interface InvoiceCreatedPayload extends BaseEventPayload {
+/** Mengapa tagihan siklus diterbitkan ulang menggantikan tagihan yang sudah terbit. */
+export type InvoiceReplacementReason =
+  | "PACKAGE_CHANGED"
+  | "PACKAGE_CHANGE_CANCELLED";
+
+/**
+ * Tagihan yang digantikan oleh tagihan yang baru terbit. Tanpa ini pelanggan
+ * menerima dua "Tagihan baru dibuat" untuk siklus yang sama dan tidak tahu
+ * yang pertama sudah dibatalkan.
+ */
+export interface InvoiceReplacement {
+  replacesInvoiceNumber: string;
+  replacementReason: InvoiceReplacementReason;
+}
+
+export interface InvoiceCreatedPayload
+  extends BaseEventPayload, Partial<InvoiceReplacement> {
   invoiceId: string;
   pelangganId: string;
   amount: number;

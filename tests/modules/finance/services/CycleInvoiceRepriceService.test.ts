@@ -39,6 +39,7 @@ const customer = {
 function cycleInvoice(overrides: Record<string, unknown> = {}) {
   return {
     id: "inv-lama",
+    invoiceNumber: "INV/2026/10/28-LAMA",
     status: "SENT",
     dueDate: JATUH_TEMPO,
     subtotal: 150000n,
@@ -93,6 +94,7 @@ const input = {
   pelangganId: PELANGGAN,
   cycleDate: JATUH_TEMPO,
   previousPackageId: PAKET_LAMA.id,
+  reason: "PACKAGE_CHANGED" as const,
 };
 
 describe("CycleInvoiceRepriceService.syncCycleInvoice", () => {
@@ -122,6 +124,10 @@ describe("CycleInvoiceRepriceService.syncCycleInvoice", () => {
     expect(deps.invoiceCreation.createInvoiceForCustomer).toHaveBeenCalledWith(
       customer,
       JATUH_TEMPO,
+      {
+        replacesInvoiceNumber: "INV/2026/10/28-LAMA",
+        replacementReason: "PACKAGE_CHANGED",
+      },
     );
     expect(result).toEqual({
       status: "REPRICED",
@@ -130,6 +136,22 @@ describe("CycleInvoiceRepriceService.syncCycleInvoice", () => {
       dueDate: JATUH_TEMPO,
       totalAmount: 250000n,
     });
+  });
+
+  it("tagihan yang dipulihkan setelah jadwal dibatalkan membawa alasan pembatalan", async () => {
+    await newService(deps).syncCycleInvoice({
+      ...input,
+      reason: "PACKAGE_CHANGE_CANCELLED",
+    });
+
+    expect(deps.invoiceCreation.createInvoiceForCustomer).toHaveBeenCalledWith(
+      customer,
+      JATUH_TEMPO,
+      {
+        replacesInvoiceNumber: "INV/2026/10/28-LAMA",
+        replacementReason: "PACKAGE_CHANGE_CANCELLED",
+      },
+    );
   });
 
   it("pembatalan dan penerbitan ulang berjalan di bawah kunci checkout pelanggan", async () => {

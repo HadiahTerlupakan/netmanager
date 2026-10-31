@@ -63,6 +63,8 @@ export type {
   QueueName,
   BaseEventPayload,
   InvoiceCreatedPayload,
+  InvoiceReplacement,
+  InvoiceReplacementReason,
   InvoicePaidPayload,
   CustomerCreatedPayload,
   CustomerStatusPayload,

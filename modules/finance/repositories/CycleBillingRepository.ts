@@ -50,6 +50,7 @@ export async function findBillingPackage(
 /** Tagihan langganan siklus beserta jejak pembayarannya. */
 export type CycleInvoice = {
   id: string;
+  invoiceNumber: string;
   status: string;
   dueDate: Date;
   subtotal: bigint;
@@ -79,6 +80,7 @@ export async function findCycleInvoicesWithPayments(
     },
     select: {
       id: true,
+      invoiceNumber: true,
       status: true,
       dueDate: true,
       subtotal: true,

@@ -1,3 +1,4 @@
+import type { InvoiceReplacementReason } from "@/lib/event-bus";
 import { logger } from "@/lib/logger";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { getPelangganBillingBridge } from "../pelanggan-registry";
@@ -53,6 +54,8 @@ export interface SyncCycleInvoiceInput {
   cycleDate: Date;
   /** Paket yang menagih siklus itu sebelum perubahan. */
   previousPackageId: string;
+  /** Disebut di notifikasi tagihan pengganti yang diterima pelanggan. */
+  reason: InvoiceReplacementReason;
 }
 
 /** Dependensi yang bisa diganti di test. */
@@ -144,7 +147,7 @@ export class CycleInvoiceRepriceService {
       (await this.findPriceEdit(invoice, input.previousPackageId));
     if (keptReason) return this.keep(input, invoice, keptReason);
 
-    return this.replace(invoice, customer);
+    return this.replace(invoice, customer, input.reason);
   }
 
   private async loadCustomer(pelangganId: string, invoice: CycleInvoice) {
@@ -189,6 +192,7 @@ export class CycleInvoiceRepriceService {
   private async replace(
     invoice: CycleInvoice,
     customer: BillingCustomerPayload,
+    reason: InvoiceReplacementReason,
   ): Promise<CycleInvoiceSyncResult> {
     await this.deps.cancelInvoice({
       id: invoice.id,
@@ -201,7 +205,7 @@ export class CycleInvoiceRepriceService {
       await this.deps.refundSaldoKredit(customer.id, creditUsed);
     }
 
-    const replacement = await this.createReplacement(invoice, customer);
+    const replacement = await this.createReplacement(invoice, customer, reason);
     logger.info(
       `[CycleInvoiceReprice] Tagihan ${invoice.id} (${invoice.totalAmount}) pelanggan ${customer.id} diganti ${replacement.id} (${replacement.totalAmount}) mengikuti paket siklusnya`,
     );
@@ -217,11 +221,16 @@ export class CycleInvoiceRepriceService {
   private async createReplacement(
     invoice: CycleInvoice,
     customer: BillingCustomerPayload,
+    reason: InvoiceReplacementReason,
   ) {
     try {
       return await this.deps.invoiceCreation.createInvoiceForCustomer(
         customer,
         invoice.dueDate,
+        {
+          replacesInvoiceNumber: invoice.invoiceNumber,
+          replacementReason: reason,
+        },
       );
     } catch (error) {
       // Billing harian menganggap siklus yang punya invoice batal sudah

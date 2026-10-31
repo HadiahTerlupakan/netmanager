@@ -60,6 +60,70 @@ describe("InvoiceNotificationHandler", () => {
     );
   });
 
+  // Tagihan siklus yang diterbitkan ulang karena perubahan paket: pelanggan
+  // perlu tahu tagihan lamanya diganti, bukan menerima "tagihan baru" kedua.
+  it.each([
+    ["PACKAGE_CHANGED", "invoiceRepriced"],
+    ["PACKAGE_CHANGE_CANCELLED", "invoiceRepriceReverted"],
+  ])(
+    "INVOICE_CREATED pengganti (%s) → dispatch %s dengan nomor yang digantikan",
+    async (replacementReason, templateKey) => {
+      await handleInvoiceNotification(
+        buildJob(EVENT_NAMES.INVOICE_CREATED, {
+          invoiceId: "inv-baru",
+          pelangganId: "cust-1",
+          amount: 22200,
+          dueDate: "2026-10-31T17:00:00.000Z",
+          replacesInvoiceNumber: "INV/2026/10/28-LAMA",
+          replacementReason,
+        }),
+      );
+      expect(mockDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          templateKey,
+          sourceId: "inv-baru",
+          params: expect.objectContaining({
+            amountDue: 22200,
+            invoiceNumber: "INV/2026/001",
+            replacesInvoiceNumber: "INV/2026/10/28-LAMA",
+          }),
+        }),
+      );
+    },
+  );
+
+  it("INVOICE_CREATED tanpa alasan penggantian yang dikenal tetap invoiceCreated", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.INVOICE_CREATED, {
+        invoiceId: "inv-1",
+        pelangganId: "cust-1",
+        amount: 100000,
+        replacesInvoiceNumber: "INV/2026/10/28-LAMA",
+        replacementReason: "LAINNYA",
+      }),
+    );
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ templateKey: "invoiceCreated" }),
+    );
+  });
+
+  // Pengingat dan checkout kedaluwarsa memakai payload yang sama; penanda
+  // penggantian hanya berarti untuk tagihan yang baru terbit.
+  it("INVOICE_OVERDUE dengan penanda penggantian tetap invoiceReminder", async () => {
+    await handleInvoiceNotification(
+      buildJob(EVENT_NAMES.INVOICE_OVERDUE, {
+        invoiceId: "inv-1",
+        pelangganId: "cust-1",
+        amount: 100000,
+        replacesInvoiceNumber: "INV/2026/10/28-LAMA",
+        replacementReason: "PACKAGE_CHANGED",
+      }),
+    );
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ templateKey: "invoiceReminder" }),
+    );
+  });
+
   it("INVOICE_PAID → dispatch invoicePaid", async () => {
     await handleInvoiceNotification(
       buildJob(EVENT_NAMES.INVOICE_PAID, {

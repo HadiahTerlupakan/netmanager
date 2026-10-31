@@ -216,6 +216,28 @@ describe("BillingInvoiceCreationService", () => {
       });
     });
 
+    // Notifikasi pelanggan membedakan tagihan pengganti dari tagihan baru.
+    it("tagihan pengganti membawa nomor tagihan lama dan alasannya di event", async () => {
+      const { eventBus } = await import("@/lib/event-bus");
+
+      vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
+
+      const dueDate = new Date("2026-05-31");
+      await service.createInvoiceForCustomer(mockCustomer, dueDate, {
+        replacesInvoiceNumber: "INV/2026/05/01-LAMA",
+        replacementReason: "PACKAGE_CHANGED",
+      });
+
+      expect(eventBus.publish).toHaveBeenCalledWith("invoice.created", {
+        invoiceId: "invoice-1",
+        pelangganId: "customer-1",
+        amount: 555000,
+        dueDate: dueDate.toISOString(),
+        replacesInvoiceNumber: "INV/2026/05/01-LAMA",
+        replacementReason: "PACKAGE_CHANGED",
+      });
+    });
+
     it("harus sinkronkan billing schedule setelah invoice berhasil dibuat", async () => {
       vi.mocked(mockInvoiceRepo.create).mockResolvedValue(mockInvoice);
 

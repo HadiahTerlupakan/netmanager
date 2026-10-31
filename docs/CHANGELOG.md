@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-10-31] — Notifikasi tagihan pengganti saat paket siklus berubah
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `modules/notification` | `lib/event-bus`
+- **Author**: agent
+- **Deskripsi**: Saat perubahan paket NEXT_CYCLE diajukan setelah tagihan siklusnya terbit, atau dibatalkan, `CycleInvoiceRepriceService` membatalkan tagihan itu dan menerbitkan pengganti lewat `createInvoiceForCustomer`. Pengganti memicu notifikasi umum "Tagihan baru dibuat", sehingga di produksi pelanggan menerima "Tagihan baru dibuat ... Rp 22.200" lalu "Tagihan baru dibuat ... Rp 11.100" untuk siklus yang sama dalam semenit, tanpa keterangan bahwa yang pertama sudah diganti. Kini `createInvoiceForCustomer` menerima `replacement` opsional yang ikut di payload `INVOICE_CREATED` (`replacesInvoiceNumber`, `replacementReason`: `PACKAGE_CHANGED` / `PACKAGE_CHANGE_CANCELLED`), dan `handleInvoiceNotification` memilih template `invoiceRepriced` ("Tagihan diperbarui": "Tagihan jatuh tempo <tanggal> diperbarui ke Rp <baru> mengikuti perubahan paket (menggantikan <nomor lama>).") atau `invoiceRepriceReverted` ("... dikembalikan ke Rp <x> karena perubahan paket dibatalkan ..."). WhatsApp dan email menyebut nomor baru, nomor lama, dan bahwa tagihan lama tidak perlu dibayar. Alasannya dibawa `SyncCycleInvoiceInput.reason` dari `InvoiceProrateService` (penjadwalan vs pembatalan, termasuk IMMEDIATE yang menggantikan jadwal). Tagihan biasa tetap memakai kalimat "Tagihan baru dibuat". Pembatalan tagihan lama (`cancelReplacedInvoice`) memang tidak mengirim notifikasi apa pun, jadi tidak ada pemberitahuan "tagihan dibatalkan" ganda.
+- **Files**: `lib/event-bus/types.ts`, `lib/event-bus/index.ts`, `modules/finance/services/BillingInvoiceCreationService.ts`, `modules/finance/services/CycleInvoiceRepriceService.ts`, `modules/finance/services/InvoiceProrateService.ts`, `modules/finance/repositories/CycleBillingRepository.ts`, `modules/notification/services/event-handlers/invoice-notification.handler.ts`, `modules/notification/templates/billing-templates.ts`, `tests/modules/notification/billing-templates-invoice-replaced.test.ts`, `tests/modules/notification/event-handlers/invoice-notification.handler.test.ts`, `tests/modules/finance/services/BillingInvoiceCreationService.test.ts`, `tests/modules/finance/services/CycleInvoiceRepriceService.test.ts`, `tests/modules/finance/services/InvoiceProrateService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-10-31] — Label status portal untuk pelanggan maintenance dan dismantle
 
 - **Tipe**: [FIXED]

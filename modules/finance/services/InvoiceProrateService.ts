@@ -179,6 +179,7 @@ export class InvoiceProrateService {
       pelangganId: input.pelangganId,
       cycleDate: pelanggan.jatuhTempo,
       previousPackageId: pelanggan.pendingPackageId ?? input.oldHargaPaketId,
+      reason: "PACKAGE_CHANGED",
     });
 
     return {
@@ -203,6 +204,7 @@ export class InvoiceProrateService {
       pelangganId: input.pelangganId,
       cycleDate: input.applyAt,
       previousPackageId: input.cancelledPackageId,
+      reason: "PACKAGE_CHANGE_CANCELLED",
     });
   }
 

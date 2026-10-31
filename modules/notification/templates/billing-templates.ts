@@ -6,6 +6,8 @@ export interface BillingTemplateParams {
   packageName?: string;
   username?: string;
   reminderType?: "UPCOMING" | "DUE_TODAY" | "OVERDUE";
+  /** Nomor tagihan yang dibatalkan dan digantikan tagihan ini. */
+  replacesInvoiceNumber?: string;
 }
 
 export interface EmailContent {
@@ -51,6 +53,39 @@ const formatJatuhTempo = (dueDate: string | undefined): string => {
 const formatTunggakan = (p: BillingTemplateParams): string =>
   p.invoiceNumber ? ` (${p.invoiceNumber}, ${formatRupiah(p.amountDue)})` : "";
 
+/** "Tagihan jatuh tempo 1 Nov 2026", atau "Tagihan Anda" tanpa jatuh tempo. */
+const formatTagihanSiklus = (p: BillingTemplateParams): string =>
+  p.dueDate
+    ? `Tagihan jatuh tempo ${formatJatuhTempo(p.dueDate)}`
+    : "Tagihan Anda";
+
+/**
+ * Tagihan siklus yang diterbitkan ulang setelah paket siklusnya berubah atau
+ * perubahannya dibatalkan. Tanpa template ini pelanggan menerima dua "Tagihan
+ * baru dibuat" untuk siklus yang sama dan tidak tahu yang pertama sudah batal.
+ * `describeChange` melanjutkan "Tagihan jatuh tempo ..." dengan nominal baru.
+ */
+function buildInvoiceReplacedTemplate(
+  describeChange: (amount: string) => string,
+): BillingTemplate {
+  const summarize = (p: BillingTemplateParams) =>
+    `${formatTagihanSiklus(p)} ${describeChange(formatRupiah(p.amountDue))}`;
+  const detail = (p: BillingTemplateParams) =>
+    `Halo ${p.customerName},\n\n${summarize(p)}.${p.invoiceNumber ? `\nNomor: ${p.invoiceNumber}` : ""}\nJumlah: ${formatRupiah(p.amountDue)}${p.replacesInvoiceNumber ? `\nMenggantikan: ${p.replacesInvoiceNumber}` : ""}\n\nTagihan ${p.replacesInvoiceNumber ?? "sebelumnya"} tidak perlu dibayar.`;
+
+  return {
+    title: "Tagihan diperbarui",
+    inApp: (p) =>
+      `${summarize(p)}${p.replacesInvoiceNumber ? ` (menggantikan ${p.replacesInvoiceNumber})` : ""}.`,
+    whatsapp: detail,
+    email: (p) => ({
+      subject: `Tagihan diperbarui - ${formatRupiah(p.amountDue)}`,
+      body: detail(p),
+    }),
+    push: summarize,
+  };
+}
+
 /**
  * Registry template notifikasi billing.
  * Setiap key mewakili satu event lifecycle billing/pelanggan.
@@ -84,6 +119,12 @@ export const BILLING_TEMPLATES = {
     push: (p) =>
       `Tagihan${p.invoiceNumber ? ` ${p.invoiceNumber}` : ""}: ${formatRupiah(p.amountDue)}`,
   },
+  invoiceRepriced: buildInvoiceReplacedTemplate(
+    (amount) => `diperbarui ke ${amount} mengikuti perubahan paket`,
+  ),
+  invoiceRepriceReverted: buildInvoiceReplacedTemplate(
+    (amount) => `dikembalikan ke ${amount} karena perubahan paket dibatalkan`,
+  ),
   invoiceReminder: {
     title: "Pengingat tagihan",
     inApp: (p) =>

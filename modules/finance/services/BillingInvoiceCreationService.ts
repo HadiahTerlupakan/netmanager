@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import type { InvoiceReplacement } from "@/lib/event-bus";
 import { logger } from "@/lib/logger";
 import { toEndOfDay } from "@/lib/utils/server-datetime";
 import { getPpnRateResolver } from "@/modules/tax";
@@ -30,10 +31,15 @@ export class BillingInvoiceCreationService {
     private readonly findPendingPackage: PendingPackageLookup = findPendingPackageAppliedBy,
   ) {}
 
-  /** Create invoice and send customer notifications. */
+  /**
+   * Create invoice and send customer notifications. `replacement` diisi bila
+   * tagihan ini menggantikan tagihan siklus yang baru dibatalkan, supaya
+   * notifikasinya menyebut penggantian, bukan tagihan baru.
+   */
   async createInvoiceForCustomer(
     billedCustomer: BillingCustomerPayload,
     dueDate: Date,
+    replacement?: InvoiceReplacement,
   ) {
     const customer = await this.withCyclePackage(billedCustomer, dueDate);
     const subtotal = BigInt(customer.hargaPaket.harga);
@@ -63,7 +69,7 @@ export class BillingInvoiceCreationService {
       });
 
       await this.logInvoiceCreated(customer, invoice, creditApplied);
-      await this.publishInvoiceCreated(customer, invoice, dueDate);
+      await this.publishInvoiceCreated(customer, invoice, dueDate, replacement);
       const { syncInvoiceBillingSchedules } =
         await import("./billingScheduleLifecycle");
       await syncInvoiceBillingSchedules(invoice);
@@ -199,6 +205,7 @@ export class BillingInvoiceCreationService {
     customer: BillingCustomerPayload,
     invoice: { id: string; totalAmount: bigint },
     dueDate: Date,
+    replacement: InvoiceReplacement | undefined,
   ) {
     const { eventBus, EVENT_NAMES } = await import("@/lib/event-bus");
     await eventBus
@@ -207,6 +214,7 @@ export class BillingInvoiceCreationService {
         pelangganId: customer.id,
         amount: Number(invoice.totalAmount),
         dueDate: dueDate.toISOString(),
+        ...replacement,
       })
       .catch((error) =>
         logger.error(

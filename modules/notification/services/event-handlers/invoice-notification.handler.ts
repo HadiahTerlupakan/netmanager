@@ -1,7 +1,11 @@
 import type { Job } from "bullmq";
 import { logger } from "@/lib/logger";
 import { prismaBilling } from "@/lib/prisma-billing";
-import { EVENT_NAMES, requirePayloadString } from "@/lib/event-bus";
+import {
+  EVENT_NAMES,
+  requirePayloadString,
+  type InvoiceReplacementReason,
+} from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import {
   NotificationDispatcher,
@@ -39,6 +43,38 @@ const EVENT_TEMPLATE_MAP: Record<string, BillingTemplateKey> = {
   [EVENT_NAMES.PAYMENT_OVERPAID]: "overpaymentCredited",
 };
 
+// Tagihan pengganti tetap terbit lewat INVOICE_CREATED (jurnal dan PPN-nya
+// sama dengan tagihan biasa), tetapi pelanggan perlu tahu tagihan lamanya batal.
+const REPLACEMENT_TEMPLATE_MAP: Record<
+  InvoiceReplacementReason,
+  BillingTemplateKey
+> = {
+  PACKAGE_CHANGED: "invoiceRepriced",
+  PACKAGE_CHANGE_CANCELLED: "invoiceRepriceReverted",
+};
+
+function isReplacementReason(
+  value: unknown,
+): value is InvoiceReplacementReason {
+  return (
+    typeof value === "string" && Object.hasOwn(REPLACEMENT_TEMPLATE_MAP, value)
+  );
+}
+
+/** Template untuk event ini; tagihan pengganti memakai template penggantian. */
+function resolveTemplateKey(
+  eventName: string,
+  replacementReason: unknown,
+): BillingTemplateKey | undefined {
+  if (
+    eventName === EVENT_NAMES.INVOICE_CREATED &&
+    isReplacementReason(replacementReason)
+  ) {
+    return REPLACEMENT_TEMPLATE_MAP[replacementReason];
+  }
+  return EVENT_TEMPLATE_MAP[eventName];
+}
+
 // Checkout yang ditinggal cukup diingatkan di portal dan aplikasi; WhatsApp
 // dan email disimpan untuk tagihan itu sendiri.
 const EVENT_CHANNELS: Partial<Record<string, NotificationChannel[]>> = {
@@ -54,7 +90,7 @@ export async function handleInvoiceNotification(
   job: Job<EventJobData>,
 ): Promise<void> {
   const { eventName, payload } = job.data;
-  const templateKey = EVENT_TEMPLATE_MAP[eventName];
+  const templateKey = resolveTemplateKey(eventName, payload.replacementReason);
   if (!templateKey) {
     logger.debug(
       `[InvoiceNotificationHandler] Skip unrecognized event ${eventName}`,
@@ -79,6 +115,10 @@ export async function handleInvoiceNotification(
       : undefined;
   const providedDueDate =
     typeof payload.dueDate === "string" ? payload.dueDate : undefined;
+  const replacesInvoiceNumber =
+    typeof payload.replacesInvoiceNumber === "string"
+      ? payload.replacesInvoiceNumber
+      : undefined;
   const reminderType =
     typeof payload.reminderType === "string"
       ? (payload.reminderType as "UPCOMING" | "DUE_TODAY" | "OVERDUE")
@@ -109,6 +149,7 @@ export async function handleInvoiceNotification(
       amountDue,
       dueDate,
       reminderType: effectiveReminderType,
+      replacesInvoiceNumber,
     },
     sourceType: "BILLING",
     sourceId: invoiceId,
