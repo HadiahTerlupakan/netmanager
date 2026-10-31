@@ -56,6 +56,7 @@ vi.mock("@/modules/notification", () => ({
   notifyPackageUpgradeCancelled: vi.fn(async () => undefined),
 }));
 
+import { logger } from "@/lib/logger";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import {
@@ -700,6 +701,55 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
       });
     },
   );
+
+  // Checkout yang tidak cocok tetap menunggu, jadi penyapu menanyakannya tiap
+  // 15 menit dan portal selama pelanggan menunggu; dulu setiap jawaban yang
+  // sama menulis log error dan event PAYMENT_REVIEW_REQUIRED lagi.
+  it("ketidakcocokan yang sama diteruskan ke staf sekali; nominal lain diteruskan lagi", async () => {
+    const inv = await createInvoice("GWF-R2", PRICE);
+    const va = await createOpenVa(
+      inv.id,
+      "PAY-GWFIX-R2",
+      new Date(Date.now() - 2 * HOUR_MS),
+    );
+    http.paidOrders.add(va.reference!);
+    inquiryAmounts.set(va.reference!, 60_000);
+    const sweep = () =>
+      runAsSystemContext("tes: penyapu checkout", () =>
+        expireStaleGatewayPayments(new Date()),
+      );
+    const errorLog = vi.spyOn(logger, "error");
+
+    await sweep();
+    await sweep();
+    await asTenant(() =>
+      checkCustomerPaymentStatus({ customerId: PELANGGAN, invoiceId: inv.id }),
+    );
+    inquiryAmounts.set(va.reference!, 70_000);
+    await sweep();
+    await sweep();
+
+    // Penyapu menyapu seluruh database uji bersama; yang dihitung hanya VA ini.
+    const reviewLogs = errorLog.mock.calls.filter(([message]) =>
+      String(message).includes(`(payment ${va.id})`),
+    );
+    errorLog.mockRestore();
+    expect({
+      paymentStatus: (
+        await prismaBillingAuth.payment.findUniqueOrThrow({
+          where: { id: va.id },
+        })
+      ).gatewayStatus,
+      reviewed: dispatcher.onPaymentReviewRequired.mock.calls
+        .filter(([data]) => data.paymentId === va.id)
+        .map(([data]) => data.received),
+      reviewLogs: reviewLogs.length,
+    }).toEqual({
+      paymentStatus: "PENDING",
+      reviewed: ["60000", "70000"],
+      reviewLogs: 2,
+    });
+  });
 
   it("callback untuk VA yang sudah terbit tetap diterima setelah konfigurasi Duitku dimatikan (M5)", async () => {
     const inv = await createInvoice("GWF-M5", PRICE);

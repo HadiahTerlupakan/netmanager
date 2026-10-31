@@ -143,6 +143,11 @@ model Payment {
   // Pesan penolakan dari gateway saat checkout gagal dibuat (mis. kanal
   // tidak aktif, masa berlaku melebihi batas), untuk ditelusuri admin.
   failureReason       String?
+  // Ketidakcocokan gateway (alasan, yang tercatat, yang dikirim gateway) yang
+  // sudah diteruskan ke staf keuangan untuk payment ini. Checkout yang tidak
+  // cocok tetap menunggu dan ditanyakan lagi tiap putaran penyapu; jawaban
+  // yang sama tidak diteruskan lagi.
+  reviewFlag          String?
   tenantId            String?
 
   @@index([invoiceId])

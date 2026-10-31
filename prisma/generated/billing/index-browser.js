@@ -210,6 +210,7 @@ exports.Prisma.PaymentScalarFieldEnum = {
   receiptUrl: 'receiptUrl',
   rejectionReason: 'rejectionReason',
   failureReason: 'failureReason',
+  reviewFlag: 'reviewFlag',
   tenantId: 'tenantId'
 };
 

@@ -41,6 +41,16 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Ketidakcocokan gateway diteruskan ke staf sekali, bukan tiap putaran penyapu
+
+- **Tipe**: [FIXED] [MIGRATION]
+- **Scope**: `modules/payment-gateway` | `modules/finance` | `prisma/billing.prisma`
+- **Author**: agent
+- **Deskripsi**: Checkout yang nominal atau nomor transaksinya tidak cocok tetap menunggu (tidak dilunasi otomatis), jadi penyapu checkout menanyakannya lagi tiap 15 menit dan portal tiap kali pelanggan menunggu; setiap jawaban yang sama menulis log error dan event `PAYMENT_REVIEW_REQUIRED` (baris outbox) baru, walau notifikasi staf sudah dibatasi sekali per staf. Kini `settleCheckoutPaidAtGateway` mencatat ketidakcocokan yang sudah diteruskan di kolom baru `Payment.reviewFlag` (alasan, yang tercatat, yang dikirim gateway) lewat satu pernyataan bersyarat (`FinanceRepositoryFacade.claimPaymentReviewFlag`), dan hanya ketidakcocokan yang belum tercatat yang diteruskan; jawaban gateway yang berbeda (mis. nominal lain) diteruskan lagi. Kolom baru dipakai karena tidak ada catatan yang cocok: `notes` tampil ke pelanggan di portal, `failureReason` berarti checkout gagal dibuat, baris outbox dihapus setelah 7 hari, dan `WebhookEvent` hanya ada untuk callback. Di `modules/payment-gateway` yang berubah hanya pemanggilan penanda itu di `gateway-status-settlement.ts`.
+- **Files**: `prisma/billing.prisma`, `prisma/generated/billing/*`, `modules/finance/repositories/paymentReviewFlag.repository.ts`, `modules/finance/services/FinanceRepositoryFacade.ts`, `modules/payment-gateway/services/gateway-status-settlement.ts`, `tests/modules/finance/gatewayStatusSettlement.test.ts`, `tests/db/customer-payment-gateway.test.ts`
+- **Migration**: `20261101140000_add_payment_review_flag` (database billing; `ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "reviewFlag" TEXT`)
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

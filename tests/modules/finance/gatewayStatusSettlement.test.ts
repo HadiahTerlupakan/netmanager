@@ -14,6 +14,7 @@ const palsu = vi.hoisted(() => ({
   recordFee: vi.fn(),
   restoreCoupons: vi.fn(),
   flag: vi.fn(),
+  claimFlag: vi.fn(),
 }));
 
 vi.mock("@/modules/finance/services/received-payment-settlement", () => ({
@@ -31,6 +32,9 @@ vi.mock(
 );
 vi.mock("@/modules/payment-gateway/services/payment-review", () => ({
   flagPaymentForReview: palsu.flag,
+}));
+vi.mock("@/modules/finance/repositories/paymentReviewFlag.repository", () => ({
+  claimPaymentReviewFlag: palsu.claimFlag,
 }));
 
 import { settleCheckoutPaidAtGateway } from "@/modules/payment-gateway/services/gateway-status-settlement";
@@ -82,6 +86,7 @@ describe("settleCheckoutPaidAtGateway", () => {
       typeof callback === "function" ? callback(prismaMock) : callback,
     );
     prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
+    palsu.claimFlag.mockResolvedValue(true);
   });
 
   it("hanya payment yang masih bisa menerima uang yang dijumlah dan dipindah", async () => {
@@ -113,6 +118,12 @@ describe("settleCheckoutPaidAtGateway", () => {
       expected: "60000",
       received: "100000",
     });
+    expect(palsu.claimFlag).toHaveBeenCalledWith({
+      paymentId: "p1",
+      reason: "AMOUNT_MISMATCH",
+      expected: "60000",
+      received: "100000",
+    });
     expect(palsu.flag).toHaveBeenCalledWith({
       provider: "DUITKU",
       orderId: "PAY-p1",
@@ -122,6 +133,22 @@ describe("settleCheckoutPaidAtGateway", () => {
       expected: "60000",
       received: "100000",
     });
+    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+    expect(palsu.settle).not.toHaveBeenCalled();
+  });
+
+  // Penyapu menanyakan checkout yang sama tiap putaran dan portal selama
+  // pelanggan menunggu; jawaban yang sama dulu menulis log dan event lagi.
+  it("ketidakcocokan yang sudah diteruskan ke staf tidak diteruskan lagi dan tetap tidak dilunasi", async () => {
+    givenCheckout([{ id: "p1", amount: 60000n, gatewayStatus: "PENDING" }]);
+    palsu.claimFlag.mockResolvedValue(false);
+
+    await expect(settle()).resolves.toEqual({
+      outcome: "AMOUNT_MISMATCH",
+      expected: "60000",
+      received: "100000",
+    });
+    expect(palsu.flag).not.toHaveBeenCalled();
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
     expect(palsu.settle).not.toHaveBeenCalled();
   });
