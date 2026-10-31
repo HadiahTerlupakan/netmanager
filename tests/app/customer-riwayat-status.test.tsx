@@ -12,11 +12,16 @@ vi.mock("@/components/customer/CustomerAuthProvider", () => ({
   useCustomerAuth: () => ({ isLoading: false, isAuthenticated: true }),
 }));
 
-function buatInvoice(invoiceNumber: string, status: string) {
+function buatInvoice(
+  invoiceNumber: string,
+  status: string,
+  totalAmount = 150000,
+) {
   return {
     id: invoiceNumber,
     invoiceNumber,
-    totalAmount: 150000,
+    totalAmount,
+    remainingAmount: status === "PAID" ? 0 : totalAmount,
     status,
     items: [{ description: `Tagihan ${invoiceNumber}` }],
     issueDate: "2026-10-10T00:00:00.000Z",
@@ -32,6 +37,8 @@ vi.mock("@/lib/hooks/useApi", () => ({
         buatInvoice("INV-SENT", "SENT"),
         buatInvoice("INV-SEBAGIAN", "PARTIAL_PAID"),
         buatInvoice("INV-BATAL", "CANCELLED"),
+        buatInvoice("INV-TELAT", "OVERDUE"),
+        buatInvoice("INV-SALDO", "SENT", 0),
       ],
     },
     isLoading: false,
@@ -65,11 +72,23 @@ describe("halaman riwayat pelanggan: status tagihan", () => {
     container.remove();
   });
 
+  const LABEL_STATUS = [
+    "Lunas",
+    "Belum Bayar",
+    "Terlambat",
+    "Dibayar Sebagian",
+    "Dibatalkan",
+    "Draf",
+    "Ditutup saldo",
+  ];
+
   function badgeUntuk(invoiceNumber: string) {
-    const baris = Array.from(container.querySelectorAll("p"))
-      .find((p) => p.textContent === `#${invoiceNumber}`)
-      ?.closest("div.justify-between");
-    return baris?.querySelector("span")?.textContent;
+    const baris = Array.from(container.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes(`#${invoiceNumber}`),
+    );
+    return Array.from(baris?.querySelectorAll("span") ?? [])
+      .map((span) => span.textContent ?? "")
+      .find((text) => LABEL_STATUS.includes(text));
   }
 
   async function klikFilter(label: string) {
@@ -85,7 +104,13 @@ describe("halaman riwayat pelanggan: status tagihan", () => {
     expect(badgeUntuk("INV-BATAL")).toBe("Dibatalkan");
     expect(badgeUntuk("INV-SEBAGIAN")).toBe("Dibayar Sebagian");
     expect(badgeUntuk("INV-LUNAS")).toBe("Lunas");
+    expect(badgeUntuk("INV-TELAT")).toBe("Terlambat");
     expect(container.textContent).not.toContain("CANCELLED");
+  });
+
+  // Seluruhnya dipotong saldo kredit dan tinggal diproses.
+  it("tagihan Rp 0 yang belum lunas berlabel ditutup saldo, bukan Belum Bayar", () => {
+    expect(badgeUntuk("INV-SALDO")).toBe("Ditutup saldo");
   });
 
   it("filter Dibatalkan menampilkan tagihan CANCELLED", async () => {

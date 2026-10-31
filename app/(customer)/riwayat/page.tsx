@@ -5,10 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCustomerAuth } from "@/components/customer/CustomerAuthProvider";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
-import {
-  getInvoiceStatusLabel,
-  isOutstandingInvoiceStatus,
-} from "@/lib/constants/invoice-status";
+import { getInvoiceStatusLabel } from "@/lib/constants/invoice-status";
+import { formatCurrency } from "@/lib/utils";
 import {
   MdArrowBack,
   MdSearch,
@@ -16,22 +14,131 @@ import {
   MdRouter,
   MdErrorOutline,
 } from "react-icons/md";
+import { isCoveredBySaldo } from "../tagihan/checkout";
+import { InvoiceDetailSheet } from "./InvoiceDetailSheet";
+import {
+  filterHistory,
+  formatDay,
+  getPaymentInfo,
+  groupByIssueMonth,
+  type HistoryFilter,
+  type HistoryInvoice,
+} from "./invoice-history";
 
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  totalAmount: number;
-  status: string;
-  items: Array<{ description: string }>;
-  issueDate: string;
-  dueDate: string;
+const FILTER_CHIPS: Array<[HistoryFilter, string]> = [
+  ["ALL", "Semua"],
+  ["SUCCESS", "Berhasil"],
+  ["PENDING", "Menunggu"],
+  ["FAILED", "Dibatalkan"],
+];
+const COVERED_BY_SALDO_BADGE = "Ditutup saldo";
+
+const formatIssuedAt = (dateString: string) =>
+  new Date(dateString).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const getStatusConfig = (status: string) => {
+  switch (status) {
+    case "PAID":
+      return {
+        icon: MdReceiptLong,
+        iconBg: "bg-[#0d9488]/10",
+        iconColor: "text-[#0d9488]",
+        badgeBg: "bg-green-100 dark:bg-green-900/30",
+        badgeText: "text-green-800 dark:text-green-400",
+      };
+    case "SENT":
+    case "OVERDUE":
+    case "PARTIAL_PAID":
+      return {
+        icon: MdRouter,
+        iconBg: "bg-orange-50 dark:bg-orange-500/10",
+        iconColor: "text-orange-500",
+        badgeBg: "bg-yellow-100 dark:bg-yellow-900/30",
+        badgeText: "text-yellow-800 dark:text-yellow-400",
+      };
+    default:
+      return {
+        icon: MdErrorOutline,
+        iconBg: "bg-red-50 dark:bg-red-500/10",
+        iconColor: "text-red-500",
+        badgeBg: "bg-red-100 dark:bg-red-900/30",
+        badgeText: "text-red-800 dark:text-red-400",
+      };
+  }
+};
+
+function HistoryRow({
+  invoice,
+  onOpen,
+}: {
+  invoice: HistoryInvoice;
+  onOpen: (invoice: HistoryInvoice) => void;
+}) {
+  const config = getStatusConfig(invoice.status);
+  const Icon = config.icon;
+  const payment = getPaymentInfo(invoice);
+  // "Belum Bayar Rp 0" membuat pelanggan mengira masih harus membayar.
+  const badge = isCoveredBySaldo(invoice)
+    ? COVERED_BY_SALDO_BADGE
+    : getInvoiceStatusLabel(invoice.status);
+
+  return (
+    <li className="bg-white dark:bg-[#1C2630] border-b border-gray-100 dark:border-gray-800/50 first:border-t">
+      <button
+        type="button"
+        onClick={() => onOpen(invoice)}
+        className="flex w-full gap-4 px-4 py-4 justify-between items-center text-left hover:bg-gray-50 dark:hover:bg-[#252e38] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0d9488]"
+      >
+        <span className="flex items-start gap-4">
+          <span
+            className={`${config.iconColor} ${config.iconBg} flex items-center justify-center rounded-xl shrink-0 size-12`}
+          >
+            <Icon className="text-[24px]" aria-hidden="true" />
+          </span>
+          <span className="flex flex-1 flex-col justify-center gap-0.5">
+            <span className="text-[#111418] dark:text-white text-base font-semibold leading-tight">
+              {invoice.items[0]?.description || "Tagihan Layanan"}
+            </span>
+            <span className="text-[#617589] dark:text-gray-400 text-xs leading-normal">
+              #{invoice.invoiceNumber}
+            </span>
+            <span className="text-[#617589] dark:text-gray-400 text-xs leading-normal mt-0.5">
+              {formatIssuedAt(invoice.issueDate)}
+            </span>
+            {payment && (
+              <span className="text-[#0d9488] text-xs leading-normal">
+                Dibayar {formatDay(payment.date)} · {payment.method}
+              </span>
+            )}
+          </span>
+        </span>
+        <span className="flex flex-col items-end gap-1 shrink-0">
+          <span className="text-[#111418] dark:text-white text-base font-bold leading-normal">
+            {formatCurrency(invoice.totalAmount)}
+          </span>
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${config.badgeBg} ${config.badgeText}`}
+          >
+            {badge}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
 }
 
 export default function CustomerHistoryPage() {
   const { isLoading: authLoading, isAuthenticated } = useCustomerAuth();
-  const [filter, setFilter] = useState<
-    "ALL" | "SUCCESS" | "PENDING" | "FAILED"
-  >("ALL");
+  const [filter, setFilter] = useState<HistoryFilter>("ALL");
+  const [query, setQuery] = useState("");
+  const [selectedInvoice, setSelectedInvoice] = useState<HistoryInvoice | null>(
+    null,
+  );
   const router = useRouter();
 
   useEffect(() => {
@@ -40,86 +147,17 @@ export default function CustomerHistoryPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  const { data, isLoading } = useApi<{ invoices: Invoice[] }>(
+  const { data, isLoading } = useApi<{ invoices: HistoryInvoice[] }>(
     isAuthenticated ? "/api/customer/invoices?limit=50" : null,
   );
   const invoices = data?.invoices ?? [];
-
-  // Filter Logic
-  const filteredInvoices = invoices.filter((inv) => {
-    if (filter === "ALL") return true;
-    if (filter === "SUCCESS") return inv.status === "PAID";
-    if (filter === "PENDING") return isOutstandingInvoiceStatus(inv.status);
-    // Enum InvoiceStatus tidak punya VOID; tagihan yang batal berstatus CANCELLED.
-    if (filter === "FAILED") return inv.status === "CANCELLED";
-    return true;
-  });
-
-  // Group by Month
-  const groupedInvoices = filteredInvoices.reduce(
-    (acc, inv) => {
-      const date = new Date(inv.issueDate);
-      const monthYear = date.toLocaleDateString("id-ID", {
-        month: "long",
-        year: "numeric",
-      });
-      if (!acc[monthYear]) acc[monthYear] = [];
-      acc[monthYear].push(inv);
-      return acc;
-    },
-    {} as Record<string, Invoice[]>,
+  const groupedInvoices = Object.entries(
+    groupByIssueMonth(filterHistory(invoices, filter, query)),
   );
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case "PAID":
-        return {
-          label: getInvoiceStatusLabel(status),
-          icon: MdReceiptLong,
-          iconBg: "bg-[#0d9488]/10",
-          iconColor: "text-[#0d9488]",
-          badgeBg: "bg-green-100 dark:bg-green-900/30",
-          badgeText: "text-green-800 dark:text-green-400",
-        };
-      case "SENT":
-      case "OVERDUE":
-      case "PARTIAL_PAID":
-        return {
-          label: getInvoiceStatusLabel(status),
-          icon: MdRouter, // Example icon for pending
-          iconBg: "bg-orange-50 dark:bg-orange-500/10",
-          iconColor: "text-orange-500",
-          badgeBg: "bg-yellow-100 dark:bg-yellow-900/30",
-          badgeText: "text-yellow-800 dark:text-yellow-400",
-        };
-      default:
-        return {
-          label: getInvoiceStatusLabel(status),
-          icon: MdErrorOutline,
-          iconBg: "bg-red-50 dark:bg-red-500/10",
-          iconColor: "text-red-500",
-          badgeBg: "bg-red-100 dark:bg-red-900/30",
-          badgeText: "text-red-800 dark:text-red-400",
-        };
-    }
-  };
+  const emptyMessage =
+    query.trim() && invoices.length > 0
+      ? "Tidak ada tagihan yang cocok dengan pencarian"
+      : "Belum ada riwayat transaksi";
 
   if (authLoading || isLoading) {
     return (
@@ -132,146 +170,77 @@ export default function CustomerHistoryPage() {
   return (
     <div className="font-sans bg-[#f6f7f8] dark:bg-[#101922] text-[#111418] dark:text-white overflow-x-hidden w-full min-h-screen">
       <div className="relative flex h-full min-h-screen w-full flex-col max-w-md mx-auto bg-white dark:bg-[#1C2630] shadow-xl">
-        {/* Header */}
         <header className="sticky top-0 z-50 bg-white dark:bg-[#1C2630] border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center px-4 py-3 justify-between">
             <Button
               variant="ghost"
               size="icon"
               type="button"
+              aria-label="Kembali"
               onClick={() => router.back()}
             >
-              <MdArrowBack className="text-2xl" />
+              <MdArrowBack className="text-2xl" aria-hidden="true" />
             </Button>
             <h2 className="text-[#111418] dark:text-white text-lg font-bold leading-tight flex-1 text-center pr-10">
               Riwayat Transaksi
             </h2>
           </div>
 
-          {/* Search Bar */}
           <div className="px-4 py-2">
-            <label className="flex flex-col h-12 w-full">
-              <div className="flex w-full flex-1 items-stretch rounded-lg h-full bg-[#f0f2f4] dark:bg-[#2A3441] overflow-hidden focus-within:ring-2 focus-within:ring-[#0d9488]/50 transition-all">
-                <div className="text-[#617589] dark:text-gray-400 flex items-center justify-center pl-4 pr-2">
-                  <MdSearch className="text-[24px]" />
-                </div>
-                <input
-                  className="flex w-full min-w-0 flex-1 resize-none bg-transparent border-none text-[#111418] dark:text-white placeholder:text-[#617589] dark:placeholder:text-gray-500 focus:outline-0 focus:ring-0 px-2 text-base font-normal leading-normal"
-                  placeholder="Cari ID Tagihan..."
-                />
+            <div className="flex h-12 w-full items-stretch rounded-lg bg-[#f0f2f4] dark:bg-[#2A3441] overflow-hidden focus-within:ring-2 focus-within:ring-[#0d9488]/50 transition-all">
+              <div className="text-[#617589] dark:text-gray-400 flex items-center justify-center pl-4 pr-2">
+                <MdSearch className="text-[24px]" aria-hidden="true" />
               </div>
-            </label>
+              <input
+                type="search"
+                aria-label="Cari tagihan"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="flex w-full min-w-0 flex-1 bg-transparent border-none text-[#111418] dark:text-white placeholder:text-[#617589] dark:placeholder:text-gray-500 focus:outline-0 focus:ring-0 px-2 text-base font-normal leading-normal"
+                placeholder="Cari nomor atau keterangan tagihan"
+              />
+            </div>
           </div>
 
-          {/* Chips / Filters */}
           <div className="flex gap-3 px-4 py-3 overflow-x-auto hide-scrollbar pb-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFilter("ALL")}
-              className={`shrink-0 rounded-full ${
-                filter === "ALL"
-                  ? "bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30 hover:bg-[#0d9488]"
-                  : "bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300"
-              }`}
-            >
-              Semua
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFilter("SUCCESS")}
-              className={`shrink-0 rounded-full ${
-                filter === "SUCCESS"
-                  ? "bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30 hover:bg-[#0d9488]"
-                  : "bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300"
-              }`}
-            >
-              Berhasil
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFilter("PENDING")}
-              className={`shrink-0 rounded-full ${
-                filter === "PENDING"
-                  ? "bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30 hover:bg-[#0d9488]"
-                  : "bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300"
-              }`}
-            >
-              Menunggu
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setFilter("FAILED")}
-              className={`shrink-0 rounded-full ${
-                filter === "FAILED"
-                  ? "bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30 hover:bg-[#0d9488]"
-                  : "bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300"
-              }`}
-            >
-              Dibatalkan
-            </Button>
+            {FILTER_CHIPS.map(([value, label]) => (
+              <Button
+                key={value}
+                variant="ghost"
+                size="sm"
+                aria-pressed={filter === value}
+                onClick={() => setFilter(value)}
+                className={`shrink-0 rounded-full ${
+                  filter === value
+                    ? "bg-[#0d9488] text-white shadow-sm shadow-[#0d9488]/30 hover:bg-[#0d9488]"
+                    : "bg-[#f0f2f4] dark:bg-[#2A3441] text-[#111418] dark:text-gray-300"
+                }`}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
         </header>
 
-        {/* Main Content List */}
         <main className="flex-1 overflow-y-auto pb-24 bg-gray-50 dark:bg-[#101922]/50">
-          {Object.entries(groupedInvoices).length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              Belum ada riwayat transaksi
-            </div>
+          {groupedInvoices.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">{emptyMessage}</div>
           ) : (
-            Object.entries(groupedInvoices).map(([month, items]) => (
-              <div key={month} className="pt-4">
+            groupedInvoices.map(([month, items]) => (
+              <section key={month} className="pt-4">
                 <h3 className="text-[#617589] dark:text-gray-400 text-sm font-semibold uppercase tracking-wider px-4 pb-2">
                   {month}
                 </h3>
-                {items.map((invoice, idx) => {
-                  const config = getStatusConfig(invoice.status);
-                  const Icon = config.icon;
-
-                  return (
-                    <div
+                <ul>
+                  {items.map((invoice) => (
+                    <HistoryRow
                       key={invoice.id}
-                      className={`bg-white dark:bg-[#1C2630] ${idx === 0 ? "border-t" : ""} border-b border-gray-100 dark:border-gray-800/50`}
-                    >
-                      <div className="flex gap-4 px-4 py-4 justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-[#252e38] transition-colors">
-                        <div className="flex items-start gap-4">
-                          <div
-                            className={`${config.iconColor} ${config.iconBg} flex items-center justify-center rounded-xl shrink-0 size-12`}
-                          >
-                            <Icon className="text-[24px]" />
-                          </div>
-                          <div className="flex flex-1 flex-col justify-center gap-0.5">
-                            <p className="text-[#111418] dark:text-white text-base font-semibold leading-tight">
-                              {invoice.items[0]?.description ||
-                                "Tagihan Layanan"}
-                            </p>
-                            <p className="text-[#617589] dark:text-gray-400 text-xs font-normal leading-normal">
-                              #{invoice.invoiceNumber}
-                            </p>
-                            <p className="text-[#617589] dark:text-gray-400 text-xs font-normal leading-normal mt-0.5">
-                              {formatDate(invoice.issueDate)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <p className="text-[#111418] dark:text-white text-base font-bold leading-normal">
-                            {formatCurrency(invoice.totalAmount)}
-                          </p>
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${config.badgeBg} ${config.badgeText}`}
-                          >
-                            {config.label}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      invoice={invoice}
+                      onOpen={setSelectedInvoice}
+                    />
+                  ))}
+                </ul>
+              </section>
             ))
           )}
 
@@ -280,6 +249,12 @@ export default function CustomerHistoryPage() {
           </div>
         </main>
       </div>
+      {selectedInvoice && (
+        <InvoiceDetailSheet
+          invoice={selectedInvoice}
+          onClose={() => setSelectedInvoice(null)}
+        />
+      )}
     </div>
   );
 }
