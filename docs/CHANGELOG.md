@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Listener realtime tidak lagi memutar ulang riwayat sebagai event baru
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/realtime`
+- **Author**: agent
+- **Deskripsi**: `useRealtimeSubscription` menganggap potret Firestore pertama apa pun sebagai riwayat. Saat SDK menganggap dirinya offline — koneksi belum terbentuk dalam 10 detik atau gagal sekali, yang lazim ketika halaman baru dibuka, laptop bangun dari tidur, atau listener dipasang ulang karena koneksi/scope berubah — potret pertama itu adalah cache memori yang kosong. Begitu server menyusul, sampai 20 event lama per channel datang sebagai "added" dan diteruskan ke setiap hook (notifikasi, work order, tiket, pembayaran), yang masing-masing membunyikan nadanya. Kini listener dipasang dengan `includeMetadataChanges`, mengumpulkan id dokumen selama potret masih dari cache, dan baru menganggap riwayat lengkap pada potret pertama yang dikonfirmasi server (`fromCache: false`). Sebagai jaring pengaman, dokumen "added" yang createdAt-nya (string ISO, epoch ms, atau Timestamp) lebih tua 60 detik dari event terbaru saat sinkronisasi dibuang; batas itu diambil dari stempel server, bukan jam perangkat, supaya PC yang jamnya maju tidak membuang event yang sungguh baru. Event yang benar-benar baru tetap sampai tepat sekali per listener, termasuk yang datang selama koneksi putus.
+- **Files**: `lib/realtime/channel-snapshot.ts` (baru), `lib/realtime/RealtimeContext.tsx`, `tests/lib/realtime/realtime-subscription-hydration.test.tsx`, `tests/lib/realtime/firestore-channel-fake.ts`, `tests/lib/realtime/realtime-context-subscription-errors.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

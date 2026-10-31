@@ -104,7 +104,7 @@ describe("useRealtimeSubscription error diagnostics", () => {
 
   it("logs scope and channel when Firestore subscription fails", async () => {
     realtimeSubscriptionMocks.onSnapshotMock.mockImplementation(
-      (_query, _next, errorHandler) => {
+      (_query, _options, _next, errorHandler) => {
         errorHandler({
           code: "permission-denied",
           message: "Missing or insufficient permissions.",

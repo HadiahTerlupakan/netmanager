@@ -29,6 +29,7 @@ import {
   buildScopeChannel,
   getEventSubscriptionNames,
 } from "@/lib/realtime/channel-map";
+import { createChannelSnapshotListener } from "@/lib/realtime/channel-snapshot";
 import { getRealtimeClientServices } from "@/lib/realtime/client";
 import type {
   PresenceSnapshot,
@@ -511,9 +512,15 @@ export function useRealtimeSubscription<TPayload>(
       isEventAllowedForScope(canonicalEvent, scope),
     );
 
+    const deliverEvent = (envelope: Partial<RealtimeEnvelope<unknown>>) => {
+      if (!envelope.type || !subscriptionEvents.has(envelope.type)) {
+        return;
+      }
+
+      handlerRef.current((envelope.payload ?? envelope) as TPayload);
+    };
+
     const unsubscribes = allowedScopes.map((scope) => {
-      const seenDocumentIds = new Set<string>();
-      let hydrated = false;
       const channelQuery = query(
         collection(firestore, buildScopeChannel(scope)),
         orderBy("createdAt", "desc"),
@@ -522,32 +529,8 @@ export function useRealtimeSubscription<TPayload>(
 
       return onSnapshot(
         channelQuery,
-        (snapshot) => {
-          if (!hydrated) {
-            snapshot.docs.forEach((document) => {
-              seenDocumentIds.add(document.id);
-            });
-            hydrated = true;
-            return;
-          }
-
-          snapshot.docChanges().forEach((change) => {
-            if (change.type !== "added" || seenDocumentIds.has(change.doc.id)) {
-              return;
-            }
-
-            seenDocumentIds.add(change.doc.id);
-            const data = change.doc.data() as Partial<
-              RealtimeEnvelope<TPayload>
-            >;
-
-            if (!data.type || !subscriptionEvents.has(data.type)) {
-              return;
-            }
-
-            handlerRef.current((data.payload ?? data) as TPayload);
-          });
-        },
+        { includeMetadataChanges: true },
+        createChannelSnapshotListener(deliverEvent),
         (error) => {
           clientLogger.error("Realtime Firestore subscription failed", {
             scope: serializeScope(scope),
