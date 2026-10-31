@@ -30,6 +30,21 @@ export class PaymentGatewayConfigRepository implements IPaymentGatewayConfigRepo
     return config ? this.toDomain(config) : null;
   }
 
+  /** Jumlah konfigurasi aktif provider ini yang masih memakai sandbox. */
+  async countEnabledSandbox(
+    provider: ProviderType,
+    tenantId?: string | null,
+  ): Promise<number> {
+    return prismaBillingAuth.paymentGatewayConfig.count({
+      where: {
+        provider,
+        isEnabled: true,
+        isProduction: false,
+        ...(tenantId ? { tenantId } : {}),
+      },
+    });
+  }
+
   async save(config: PaymentGatewayConfig): Promise<void> {
     await prismaBillingAuth.paymentGatewayConfig.create({
       data: {

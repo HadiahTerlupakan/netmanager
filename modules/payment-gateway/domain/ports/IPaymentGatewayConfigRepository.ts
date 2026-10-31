@@ -8,6 +8,10 @@ export interface IPaymentGatewayConfigRepository {
     provider: ProviderType,
     tenantId?: string | null,
   ): Promise<PaymentGatewayConfig | null>;
+  countEnabledSandbox(
+    provider: ProviderType,
+    tenantId?: string | null,
+  ): Promise<number>;
   save(config: PaymentGatewayConfig): Promise<void>;
   update(id: string, data: Partial<PaymentGatewayConfig>): Promise<void>;
 }
