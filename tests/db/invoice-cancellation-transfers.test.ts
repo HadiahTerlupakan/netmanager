@@ -9,10 +9,19 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
  * menunggu tanpa jalan keluar dan memegang kuotanya. Yang sudah membawa bukti
  * tetap di antrean verifikasi admin.
  *
+ * Pembatalan lewat ubah tagihan juga mengembalikan saldo kredit dan membalik
+ * jurnal seperti "Batalkan & Buat Tagihan Baru", dan seperti penghapusan
+ * menolak tagihan yang sedang dibayar.
+ *
  * "Batalkan & Buat Tagihan Baru" diuji di payment-settlement.test.ts. Yang
- * di-mock hanya event bus, antrean schedule BullMQ, dan kunci Redis; invoice,
- * payment, kupon, dan pelanggan nyata (netmanager_test + billing_test).
+ * di-mock hanya event bus, antrean schedule BullMQ, kunci Redis, dan
+ * pembalikan jurnal akuntansi (dicatat argumennya); invoice, payment, kupon,
+ * dan pelanggan nyata (netmanager_test + billing_test).
  */
+
+const akuntansi = vi.hoisted(() => ({
+  reverseCancelledInvoiceJournals: vi.fn(async () => 0),
+}));
 
 vi.mock("@/modules/events", () => ({
   BillingEventDispatcher: {
@@ -49,6 +58,10 @@ vi.mock("@/modules/notification", () => ({
   notifyPackageUpgradeRequested: vi.fn(async () => undefined),
   notifyPackageUpgradeCancelled: vi.fn(async () => undefined),
 }));
+vi.mock("@/modules/accounting", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  reverseCancelledInvoiceJournals: akuntansi.reverseCancelledInvoiceJournals,
+}));
 
 import { prismaAuth } from "@/lib/prisma";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
@@ -59,6 +72,7 @@ import {
   updateInvoiceForRoute,
 } from "@/modules/finance/services/InvoiceRouteService";
 import { VoidInvoiceService } from "@/modules/finance/services/VoidInvoiceService";
+import { formatSaldoKreditNote } from "@/modules/finance/services/saldo-kredit-note";
 import { createCustomerPaymentForRoute } from "@/modules/pelanggan/services/CustomerPaymentRouteService";
 
 const hasTestDb = Boolean(
@@ -77,6 +91,7 @@ const MANUAL_METHOD = "MANUAL_rekening-batal-tf";
 const ADMIN = { id: "admin-batal-tf", role: "SUPER_ADMIN" };
 const PRICE = 100000n;
 const NEW_PRICE = 150000n;
+const HOUR_MS = 60 * 60 * 1000;
 // 11 Nov 2026 00:00 WIB.
 const DUE = new Date("2026-11-10T17:00:00.000Z");
 
@@ -172,8 +187,14 @@ async function seed() {
 
 function createInvoice(
   invoiceNumber: string,
-  options: { status?: "SENT" | "PARTIAL_PAID"; paidAmount?: bigint } = {},
+  options: {
+    status?: "SENT" | "PARTIAL_PAID";
+    paidAmount?: bigint;
+    /** Saldo kredit yang dipakai tagihan saat terbit. */
+    saldoUsed?: bigint;
+  } = {},
 ) {
+  const saldoUsed = options.saldoUsed ?? 0n;
   return prismaBillingAuth.invoice.create({
     data: {
       id: randomUUID(),
@@ -183,8 +204,34 @@ function createInvoice(
       dueDate: DUE,
       status: options.status ?? "SENT",
       subtotal: PRICE,
-      totalAmount: PRICE,
+      discountAmount: saldoUsed,
+      totalAmount: PRICE - saldoUsed,
       paidAmount: options.paidAmount ?? 0n,
+      notes: saldoUsed > 0n ? formatSaldoKreditNote(saldoUsed) : null,
+      tenantId: TENANT,
+      updatedAt: new Date(),
+    },
+  });
+}
+
+/** VA BCA yang sudah terbit dan masih bisa dibayar. */
+function createOpenVa(invoiceId: string) {
+  const reference = `PAY-${randomUUID()}`;
+  return prismaBillingAuth.payment.create({
+    data: {
+      id: randomUUID(),
+      invoiceId,
+      pelangganId: PELANGGAN,
+      amount: PRICE,
+      checkoutId: randomUUID(),
+      paymentDate: new Date(),
+      paymentMethod: "BANK_TRANSFER",
+      reference,
+      gatewayStatus: "PENDING",
+      gatewayProvider: "BC",
+      transactionId: `DREF-${reference}`,
+      vaNumber: "7007014000000001",
+      expiresAt: new Date(Date.now() + 23 * HOUR_MS),
       tenantId: TENANT,
       updatedAt: new Date(),
     },
@@ -260,6 +307,53 @@ async function couponUsedCount() {
   });
   return coupon.usedCount;
 }
+
+async function saldoKredit() {
+  const customer = await prismaAuth.pelanggan.findUniqueOrThrow({
+    where: { id: PELANGGAN },
+    select: { saldoKreditRupiah: true },
+  });
+  return customer.saldoKreditRupiah;
+}
+
+const cancelByEdit = (invoiceId: string) =>
+  asTenant(() =>
+    updateInvoiceForRoute({
+      invoiceId,
+      user: ADMIN,
+      isRestricted: false,
+      input: { status: "CANCELLED" },
+    }),
+  );
+
+const deleteByAdmin = (invoiceId: string) =>
+  asTenant(() =>
+    deleteInvoiceForRoute({ invoiceId, user: ADMIN, isRestricted: false }),
+  );
+
+/** Tagihan yang sedang dibayar pelanggan, dengan cara yang berbeda-beda. */
+const BEING_PAID = {
+  "VA yang masih bisa dibayar": async () => {
+    const inv = await createInvoice("BTF-PAY-VA");
+    await createOpenVa(inv.id);
+    return inv;
+  },
+  "bukti transfer yang menunggu verifikasi": async () => {
+    const inv = await createInvoice("BTF-PAY-TF");
+    await createManualTransfer(inv.id, {
+      receiptUrl: "/receipts/batal-tf.webp",
+    });
+    return inv;
+  },
+  "pembayaran yang sudah diterima": async () => {
+    const inv = await createInvoice("BTF-PAY-KASIR", {
+      status: "PARTIAL_PAID",
+      paidAmount: 40000n,
+    });
+    await createCashierPayment(inv.id, 40000n);
+    return inv;
+  },
+};
 
 describeDb(
   "tagihan yang dibatalkan menutup Transfer Manual tanpa bukti",
@@ -403,3 +497,109 @@ describeDb(
     });
   },
 );
+
+describeDb("membatalkan dan menghapus tagihan dari admin", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await cleanup();
+    await seed();
+  });
+
+  afterAll(cleanup);
+
+  // Dulu ubah tagihan hanya mengganti statusnya: saldo yang memotong tagihan
+  // itu hilang dan piutang serta pendapatannya tetap tercatat.
+  it("membatalkan lewat ubah tagihan mengembalikan saldo kredit yang dipakainya dan membalik jurnalnya", async () => {
+    const inv = await createInvoice("BTF-6", { saldoUsed: 30000n });
+
+    await cancelByEdit(inv.id);
+
+    expect({
+      invoice: await invoiceStatus(inv.id),
+      saldo: await saldoKredit(),
+      reversals: akuntansi.reverseCancelledInvoiceJournals.mock.calls,
+    }).toEqual({
+      invoice: "CANCELLED",
+      saldo: 30000n,
+      reversals: [
+        [
+          {
+            tenantId: TENANT,
+            invoiceId: inv.id,
+            reason: "Tagihan dibatalkan admin",
+            reversedBy: ADMIN.id,
+          },
+        ],
+      ],
+    });
+  });
+
+  it.each([
+    [
+      "VA yang masih bisa dibayar",
+      /^Tagihan BTF-PAY-VA tidak dibatalkan karena pelanggan sedang membayar \(.+ aktif sampai .+ WIB\)\.$/,
+    ],
+    [
+      "bukti transfer yang menunggu verifikasi",
+      /^Tagihan BTF-PAY-TF tidak dibatalkan karena ada bukti transfer yang menunggu verifikasi; setujui atau tolak dulu di Verifikasi Pembayaran Manual\.$/,
+    ],
+    [
+      "pembayaran yang sudah diterima",
+      /^Tagihan BTF-PAY-KASIR tidak dibatalkan karena sudah menerima pembayaran\.$/,
+    ],
+  ] as const)(
+    "ubah tagihan tidak membatalkan tagihan dengan %s",
+    async (label, message) => {
+      const inv = await BEING_PAID[label]();
+      const before = await invoiceStatus(inv.id);
+
+      await expect(cancelByEdit(inv.id)).rejects.toMatchObject({
+        status: 409,
+        message: expect.stringMatching(message),
+      });
+
+      expect({
+        invoice: await invoiceStatus(inv.id),
+        reversals: akuntansi.reverseCancelledInvoiceJournals.mock.calls.length,
+      }).toEqual({ invoice: before, reversals: 0 });
+    },
+  );
+
+  // Penghapusan melepas invoiceId payment-nya: bukti yang lalu disetujui
+  // tidak melunasi apa pun, dan VA yang dibayar menerima uang tanpa tagihan.
+  it.each([
+    [
+      "bukti transfer yang menunggu verifikasi",
+      /^Tagihan punya bukti transfer yang belum diverifikasi; tolak atau setujui dulu\.$/,
+    ],
+    [
+      "VA yang masih bisa dibayar",
+      /^Tagihan sedang dibayar pelanggan \(.+ aktif sampai .+ WIB\); tunggu sampai dibayar atau kedaluwarsa\.$/,
+    ],
+  ] as const)(
+    "menghapus tagihan dengan %s ditolak dan payment-nya tetap di tagihan itu",
+    async (label, message) => {
+      const inv = await BEING_PAID[label]();
+
+      await expect(deleteByAdmin(inv.id)).rejects.toMatchObject({
+        status: 409,
+        message: expect.stringMatching(message),
+      });
+
+      const payments = await prismaBillingAuth.payment.findMany({
+        where: { pelangganId: PELANGGAN },
+        select: { invoiceId: true, gatewayStatus: true },
+      });
+      expect({
+        invoiceKept:
+          (await prismaBillingAuth.invoice.findUnique({
+            where: { id: inv.id },
+          })) !== null,
+        payments,
+      }).toEqual({
+        invoiceKept: true,
+        payments: [{ invoiceId: inv.id, gatewayStatus: "PENDING" }],
+      });
+    },
+  );
+});

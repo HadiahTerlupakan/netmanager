@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Batalkan lewat ubah tagihan dan hapus tagihan dijaga seperti pembatalan lain
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/finance` | `app/api/invoices/[id]`
+- **Author**: agent
+- **Deskripsi**: Ubah tagihan menjadi CANCELLED (`PUT /api/invoices/[id]`, dipakai tombol "Batalkan tagihan" di halaman perpanjangan) dulu hanya mengganti statusnya: saldo kredit yang memotong tagihan itu hilang, jurnal piutang dan pendapatannya tetap berdiri, dan tagihan yang sedang dibayar (VA/QRIS aktif, bukti transfer menunggu verifikasi) atau sudah dibayar sebagian ikut dibatalkan. Kini ia memakai pembatalan yang sama dengan "Batalkan & Buat Tagihan Baru" (`cancelOutstandingInvoice`, lewat rutin yang juga dipakai `cancelReplacedInvoice`: pembatalan bersyarat, saldo kredit dikembalikan, jurnal dibalik atas nama admin dengan alasan "Tagihan dibatalkan admin", transfer tanpa bukti ditutup) beserta penjaganya (`findRepriceBlocker`), di bawah kunci checkout pelanggan; yang tertahan ditolak 409 dengan pesan yang sama seperti "Batalkan & Buat Tagihan Baru". Tagihan yang sudah menerima uang dibatalkan lewat Void. Hapus tagihan (`DELETE /api/invoices/[id]`) dulu melepas payment-nya (`invoiceId` di-SET NULL): bukti transfer yang lalu disetujui tidak melunasi atau mengkreditkan apa pun, dan VA yang dibayar menerima uang tanpa tagihan. Kini penghapusan ditolak 409 selama ada bukti transfer yang menunggu verifikasi ("Tagihan punya bukti transfer yang belum diverifikasi; tolak atau setujui dulu.") atau VA/QRIS yang masih bisa dibayar ("Tagihan sedang dibayar pelanggan (… aktif sampai … WIB); tunggu sampai dibayar atau kedaluwarsa."), juga di bawah kunci checkout.
+- **Files**: `modules/finance/services/outstanding-invoice.helpers.ts`, `modules/finance/services/InvoiceRouteService.ts`, `app/api/invoices/[id]/route.ts`, `docs/project-memory/12-critical-flows.md`, `tests/db/invoice-cancellation-transfers.test.ts`, `tests/modules/finance/InvoiceRouteService.test.ts`, `tests/modules/finance/services/replace-outstanding-invoice.test.ts`, `tests/api/invoices-id-route-refusal.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Alur pelunasan pembayaran di project memory diperbarui
 
 - **Tipe**: [DOCS]

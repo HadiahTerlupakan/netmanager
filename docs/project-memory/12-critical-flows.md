@@ -268,6 +268,8 @@ settleReceivedPayments(payments)   (modules/finance/services/received-payment-se
 - ubah tagihan menjadi CANCELLED (`updateInvoiceForRoute`, termasuk "Batalkan tagihan" di halaman perpanjangan);
 - hapus tagihan (`deleteInvoiceForRoute`), sebelum delete karena `Payment.invoiceId` di-SET NULL.
 
+Ubah tagihan menjadi CANCELLED memakai pembatalan yang sama dengan "Batalkan & Buat Tagihan Baru" (`cancelOutstandingInvoice`: saldo kredit yang dipakai kembali, jurnal dibalik atas nama admin) dan penjaganya (`findRepriceBlocker`): tagihan yang sudah menerima uang, punya VA/QRIS yang masih bisa dibayar, atau bukti transfer yang menunggu verifikasi ditolak 409 dengan alasannya. Hapus tagihan ditolak 409 selama ada bukti transfer yang menunggu verifikasi atau VA/QRIS yang masih bisa dibayar (`findInvoiceDeleteBlocker`). Keduanya berjalan di bawah kunci checkout pelanggan.
+
 Yang sudah membawa bukti tetap di antrean verifikasi; menyetujuinya untuk tagihan yang sudah lunas atau dibatalkan mengkreditkan atau mengalihkan uangnya.
 
 ### Event INVOICE_PAID
@@ -291,13 +293,13 @@ Handler (berurutan dalam satu job, masing-masing idempoten): billing (jatuh temp
 | Proses mati setelah payment PAID                                              | Retry callback, cek status berikutnya, atau `retryInterruptedSettlements`                            |
 | INVOICE_PAID tidak tercatat di outbox                                         | `replayMissingInvoicePaidEvents`                                                                     |
 | Persetujuan/penolakan bersamaan, atau pelanggan membatalkan di saat yang sama | Satu yang menang; yang lain 409                                                                      |
+| Admin membatalkan (ubah tagihan) atau menghapus tagihan yang sedang dibayar   | 409 dengan alasannya; tagihan dan payment-nya tidak berubah                                          |
 
 ### Celah yang diketahui
 
 - Kelebihan bayar yang gagal dikreditkan setelah `paidAmount` sudah terhitung tidak diulang rekonsiliasi; yang dicari hanya `paidAmount` yang tertinggal.
 - Pengalihan uang untuk tagihan batal yang gagal di tengah tidak diulang rekonsiliasi (tagihan CANCELLED dilewati); callback gateway yang di-retry tetap memulihkannya.
 - Biaya gateway dan pencatatan ulang kupon (langkah 5) tidak diulang bila proses mati tepat setelah payment dipindah ke PAID.
-- Menghapus tagihan yang bukti transfernya menunggu meninggalkan payment tanpa invoice; menyetujuinya tidak melunasi atau mengkreditkan apa pun.
 
 ### Testing
 

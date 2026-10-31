@@ -70,9 +70,12 @@ describe("cancelReplacedInvoice", () => {
     );
     expect(palsu.cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-1");
     // Dulu tagihan yang diganti tetap tercatat sebagai piutang dan pendapatan.
-    expect(palsu.reverseCancelledInvoiceJournals).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: "t1", invoiceId: "inv-1" }),
-    );
+    expect(palsu.reverseCancelledInvoiceJournals).toHaveBeenCalledWith({
+      tenantId: "t1",
+      invoiceId: "inv-1",
+      reason: "Tagihan diganti dengan tagihan baru",
+      reversedBy: "Sistem",
+    });
   });
 
   // Saldo yang sudah memotong tagihan lama hilang bila tidak dikembalikan:

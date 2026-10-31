@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logger";
 import type { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { InvoiceStatus } from "../types/invoice.enums";
+import type { Prisma } from "../lib/billing-prisma-boundary";
 import {
   findPayableCheckout,
   findRepriceBlocker,
@@ -18,6 +19,10 @@ const REPLACEABLE_STATUSES: readonly InvoiceStatus[] = [
   InvoiceStatus.SENT,
   InvoiceStatus.OVERDUE,
 ];
+
+const CANCELLED_BY_ADMIN_REASON = "Tagihan dibatalkan admin";
+const PENDING_PROOF_BLOCKS_DELETE =
+  "Tagihan punya bukti transfer yang belum diverifikasi; tolak atau setujui dulu.";
 
 const FORMAT_WAKTU = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
@@ -43,6 +48,8 @@ type ReplaceableInvoice = {
   tenantId: string | null;
   payment: ReplaceablePayment[];
 };
+
+type DescribeMethod = (code: string) => string | undefined;
 
 /** Tagihan yang tidak dibatalkan dan alasannya, untuk ditampilkan ke admin. */
 export type KeptInvoice = {
@@ -79,11 +86,14 @@ export async function replaceOutstandingInvoiceForCustomer(options: {
   invoiceRepo: InvoiceRepository;
   createInvoice: () => Promise<{ id: string } | null>;
   /** Nama metode untuk kode channel gateway (mis. "BC"). */
-  describeMethod?: (code: string) => string | undefined;
+  describeMethod?: DescribeMethod;
   now?: Date;
 }): Promise<ReplaceOutstandingInvoiceResult> {
   const now = options.now ?? new Date();
-  const invoices = await findReplaceableInvoices(options);
+  const invoices = await findInvoicesWithPaymentState(options.invoiceRepo, {
+    pelangganId: options.pelangganId,
+    status: { in: [...REPLACEABLE_STATUSES] },
+  });
   const blocked = findBlockedInvoices(invoices, now, options.describeMethod);
   if (blocked.length > 0) return keepAll(options.pelangganId, blocked, []);
 
@@ -109,23 +119,111 @@ export async function replaceOutstandingInvoiceForCustomer(options: {
 }
 
 /**
- * Membatalkan satu tagihan yang akan diganti tagihan baru: status, durable
- * schedule, saldo kredit yang dipakainya, jurnalnya, dan pilihan "Transfer
- * Manual" untuknya yang belum membawa bukti (pelanggan membayar tagihan
- * penggantinya). Dipakai "Batalkan & Buat Tagihan Baru" dan hitung ulang
- * paket siklus.
- *
- * Pembatalannya bersyarat (masih DRAFT/SENT/OVERDUE tanpa pembayaran): tagihan
- * yang baru saja dilunasi, misalnya oleh webhook yang datang bersamaan, tidak
- * pernah dibatalkan. Saldo kredit dikembalikan sebelum tagihan pengganti
- * dibuat sehingga pengganti memakainya lagi sesuai nominal barunya; potongan
- * lain (diskon admin, kupon) bukan saldo dan tidak dikembalikan.
+ * Membatalkan satu tagihan yang akan diganti tagihan baru ("Batalkan & Buat
+ * Tagihan Baru", hitung ulang paket siklus); pelanggan membayar tagihan
+ * penggantinya. Saldo kredit dikembalikan sebelum tagihan pengganti dibuat
+ * sehingga pengganti memakainya lagi sesuai nominal barunya.
  *
  * @returns false bila tagihan tidak lagi bisa dibatalkan.
  */
-export async function cancelReplacedInvoice(options: {
+export function cancelReplacedInvoice(options: {
   invoiceRepo: InvoiceRepository;
   invoice: { id: string; tenantId: string | null };
+}): Promise<boolean> {
+  return cancelUnpaidInvoice({
+    ...options,
+    reason: "Tagihan diganti dengan tagihan baru",
+    reversedBy: "Sistem",
+  });
+}
+
+/**
+ * Pembatalan satu tagihan oleh admin lewat ubah tagihan (mis. "Batalkan
+ * tagihan" di halaman perpanjangan), dengan penjaga dan efek yang sama dengan
+ * "Batalkan & Buat Tagihan Baru": tagihan yang sudah menerima uang, punya
+ * VA/QRIS yang masih bisa dibayar, atau bukti transfer yang menunggu
+ * verifikasi tidak dibatalkan. Pemanggil menjalankannya di bawah kunci
+ * checkout pelanggan, supaya pelanggan tidak membuat VA di antara pemeriksaan
+ * dan pembatalan.
+ *
+ * @returns null bila dibatalkan (atau tagihannya sudah tidak ada); selain itu
+ *   tagihan yang dibiarkan beserta pesan untuk admin.
+ */
+export async function cancelOutstandingInvoice(options: {
+  invoiceRepo: InvoiceRepository;
+  invoiceId: string;
+  /** Admin yang membatalkan; dicatat di jurnal pembalik. */
+  cancelledBy: string;
+  describeMethod?: DescribeMethod;
+  now?: Date;
+}): Promise<KeptInvoice | null> {
+  const [invoice] = await findInvoicesWithPaymentState(options.invoiceRepo, {
+    id: options.invoiceId,
+  });
+  if (!invoice) return null;
+
+  const [blocked] = findBlockedInvoices(
+    [invoice],
+    options.now ?? new Date(),
+    options.describeMethod,
+  );
+  if (blocked) return blocked;
+
+  const cancelled = await cancelUnpaidInvoice({
+    invoiceRepo: options.invoiceRepo,
+    invoice,
+    reason: CANCELLED_BY_ADMIN_REASON,
+    reversedBy: options.cancelledBy,
+  });
+  return cancelled ? null : keptBecauseJustPaid(invoice);
+}
+
+/**
+ * Alasan tagihan tidak boleh dihapus, atau null. Penghapusan melepas
+ * invoiceId payment-nya (SET NULL): bukti transfer yang menunggu verifikasi
+ * lalu disetujui tidak melunasi atau mengkreditkan apa pun, dan VA/QRIS yang
+ * masih bisa dibayar menerima uang tanpa tagihan. Pemanggil menjalankannya di
+ * bawah kunci checkout pelanggan bersama penghapusannya.
+ */
+export async function findInvoiceDeleteBlocker(options: {
+  invoiceRepo: InvoiceRepository;
+  invoiceId: string;
+  describeMethod?: DescribeMethod;
+  now?: Date;
+}): Promise<string | null> {
+  const [invoice] = await findInvoicesWithPaymentState(options.invoiceRepo, {
+    id: options.invoiceId,
+  });
+  if (!invoice) return null;
+  if (invoice.payment.some(isTransferAwaitingVerification)) {
+    return PENDING_PROOF_BLOCKS_DELETE;
+  }
+  const checkout = findPayableCheckout(
+    invoice.payment,
+    options.now ?? new Date(),
+  );
+  if (!checkout) return null;
+  return `Tagihan sedang dibayar pelanggan (${describeCheckout(checkout, options.describeMethod)}); tunggu sampai dibayar atau kedaluwarsa.`;
+}
+
+/**
+ * Membatalkan satu tagihan yang belum menerima pembayaran beserta efeknya:
+ * status, durable schedule, saldo kredit yang dipakainya, jurnalnya, dan
+ * pilihan "Transfer Manual" untuknya yang belum membawa bukti.
+ *
+ * Pembatalannya bersyarat (masih DRAFT/SENT/OVERDUE tanpa pembayaran): tagihan
+ * yang baru saja dilunasi, misalnya oleh webhook yang datang bersamaan, tidak
+ * pernah dibatalkan. Potongan selain saldo kredit (diskon admin, kupon) tidak
+ * dikembalikan.
+ *
+ * @returns false bila tagihan tidak lagi bisa dibatalkan.
+ */
+async function cancelUnpaidInvoice(options: {
+  invoiceRepo: InvoiceRepository;
+  invoice: { id: string; tenantId: string | null };
+  /** Alasan dan pelaku di jurnal pembalik. */
+  reason: string;
+  reversedBy: string;
 }): Promise<boolean> {
   const cancelled = await options.invoiceRepo.cancelIfUnpaid(
     options.invoice.id,
@@ -145,44 +243,39 @@ export async function cancelReplacedInvoice(options: {
   await reverseJournalsOfCancelledInvoice({
     invoiceId: options.invoice.id,
     tenantId: options.invoice.tenantId,
-    reason: "Tagihan diganti dengan tagihan baru",
-    reversedBy: "Sistem",
+    reason: options.reason,
+    reversedBy: options.reversedBy,
   });
   await closeAbandonedManualTransfers(cancelled.id);
   return true;
 }
 
-async function findReplaceableInvoices(options: {
-  pelangganId: string;
-  invoiceRepo: InvoiceRepository;
-}): Promise<ReplaceableInvoice[]> {
-  return (await options.invoiceRepo.findUnpaidInvoices(
-    {
-      pelangganId: options.pelangganId,
-      status: { in: [...REPLACEABLE_STATUSES] },
-    },
-    {
-      id: true,
-      invoiceNumber: true,
-      status: true,
-      paidAmount: true,
-      tenantId: true,
-      payment: {
-        select: {
-          gatewayStatus: true,
-          expiresAt: true,
-          receiptUrl: true,
-          gatewayProvider: true,
-        },
+/** Tagihan beserta jejak pembayaran yang menentukan boleh tidaknya diubah. */
+async function findInvoicesWithPaymentState(
+  invoiceRepo: InvoiceRepository,
+  where: Prisma.InvoiceWhereInput,
+): Promise<ReplaceableInvoice[]> {
+  return (await invoiceRepo.findUnpaidInvoices(where, {
+    id: true,
+    invoiceNumber: true,
+    status: true,
+    paidAmount: true,
+    tenantId: true,
+    payment: {
+      select: {
+        gatewayStatus: true,
+        expiresAt: true,
+        receiptUrl: true,
+        gatewayProvider: true,
       },
     },
-  )) as unknown as ReplaceableInvoice[];
+  })) as unknown as ReplaceableInvoice[];
 }
 
 function findBlockedInvoices(
   invoices: ReplaceableInvoice[],
   now: Date,
-  describeMethod: ((code: string) => string | undefined) | undefined,
+  describeMethod: DescribeMethod | undefined,
 ): KeptInvoice[] {
   return invoices.flatMap((invoice) => {
     const reason = findRepriceBlocker(invoice, now);
@@ -202,7 +295,7 @@ function describeBlocker(
   invoice: ReplaceableInvoice,
   reason: RepriceBlocker,
   now: Date,
-  describeMethod: ((code: string) => string | undefined) | undefined,
+  describeMethod: DescribeMethod | undefined,
 ) {
   const head = `Tagihan ${invoice.invoiceNumber} tidak dibatalkan karena`;
   const checkout =
@@ -210,16 +303,23 @@ function describeBlocker(
       ? findPayableCheckout(invoice.payment, now)
       : null;
   if (checkout?.expiresAt) {
-    const method =
-      (checkout.gatewayProvider &&
-        describeMethod?.(checkout.gatewayProvider)) ||
-      "pembayaran online";
-    return `${head} pelanggan sedang membayar (${method} aktif sampai ${FORMAT_WAKTU.format(checkout.expiresAt)} WIB).`;
+    return `${head} pelanggan sedang membayar (${describeCheckout(checkout, describeMethod)}).`;
   }
   if (invoice.payment.some(isTransferAwaitingVerification)) {
     return `${head} ada bukti transfer yang menunggu verifikasi; setujui atau tolak dulu di Verifikasi Pembayaran Manual.`;
   }
   return `${head} sudah menerima pembayaran.`;
+}
+
+/** Metode dan batas waktu checkout yang masih bisa dibayar, untuk admin. */
+function describeCheckout(
+  checkout: ReplaceablePayment,
+  describeMethod: DescribeMethod | undefined,
+) {
+  const method =
+    (checkout.gatewayProvider && describeMethod?.(checkout.gatewayProvider)) ||
+    "pembayaran online";
+  return `${method} aktif sampai ${FORMAT_WAKTU.format(checkout.expiresAt)} WIB`;
 }
 
 function keptBecauseJustPaid(invoice: ReplaceableInvoice): KeptInvoice {

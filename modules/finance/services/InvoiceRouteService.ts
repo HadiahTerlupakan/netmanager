@@ -1,9 +1,17 @@
+import { createRouteServiceError } from "@/lib/api/route-service-error";
 import type { Prisma } from "../lib/billing-prisma-boundary";
 import { InvoiceStatus } from "../types/invoice.enums";
 import { getPelangganServiceFromRegistry } from "../pelanggan-registry";
 import { UserLookupService } from "@/modules/users";
 import { InvoiceRepository } from "../repositories/InvoiceRepository";
 import { closeAbandonedManualTransfers } from "./abandoned-manual-transfer";
+import { runUnderCustomerCheckoutLockAsSystem } from "./customer-checkout-lock";
+import {
+  cancelOutstandingInvoice,
+  findInvoiceDeleteBlocker,
+} from "./outstanding-invoice.helpers";
+
+const HTTP_CONFLICT = 409;
 
 type RouteUser = {
   id: string;
@@ -107,7 +115,56 @@ export async function updateInvoiceForRoute(options: {
     return "forbidden-site" as const;
   }
 
+  if (isCancellation(existingInvoice, options.input)) {
+    await cancelForAdmin(existingInvoice, options.user.id);
+    const { status: _status, ...changes } = options.input;
+    return await performInvoiceUpdate(
+      { ...options, input: changes },
+      restrictedSiteId,
+    );
+  }
   return await performInvoiceUpdate(options, restrictedSiteId);
+}
+
+function isCancellation(
+  invoice: { status?: string | null },
+  input: InvoiceUpdateInput,
+) {
+  return (
+    input.status === InvoiceStatus.CANCELLED &&
+    invoice.status !== InvoiceStatus.CANCELLED
+  );
+}
+
+/**
+ * Pembatalan lewat ubah tagihan (tombol "Batalkan tagihan" di halaman
+ * perpanjangan) memakai penjaga dan langkah yang sama dengan "Batalkan & Buat
+ * Tagihan Baru": saldo kredit kembali, jurnal dibalik, transfer tanpa bukti
+ * ditutup. Tagihan yang sedang dibayar atau sudah menerima uang ditolak 409.
+ */
+async function cancelForAdmin(
+  invoice: { id: string; pelangganId: string | null },
+  cancelledBy: string,
+) {
+  const describeMethod = await loadPaymentMethodNames();
+  const kept = await runUnderCustomerCheckoutLockAsSystem(
+    invoice.pelangganId,
+    "cancel-invoice",
+    () =>
+      cancelOutstandingInvoice({
+        invoiceRepo: invoiceRepository,
+        invoiceId: invoice.id,
+        cancelledBy,
+        describeMethod,
+      }),
+  );
+  if (kept) throw createRouteServiceError(kept.message, HTTP_CONFLICT);
+}
+
+/** Nama metode gateway untuk kode kanal (mis. "BC") di pesan penolakan. */
+async function loadPaymentMethodNames() {
+  const { findPaymentMethodByCode } = await import("@/modules/payment-gateway");
+  return (code: string) => findPaymentMethodByCode(code)?.name;
 }
 
 async function performInvoiceUpdate(
@@ -122,11 +179,6 @@ async function performInvoiceUpdate(
   const { syncInvoiceBillingSchedules } =
     await import("./billingScheduleLifecycle");
   await syncInvoiceBillingSchedules(updatedInvoice);
-  // Tombol "Batalkan tagihan" di halaman perpanjangan membatalkan lewat ubah
-  // tagihan; pelanggan tidak bisa lagi mengunggah bukti untuk tagihan itu.
-  if (updatedInvoice.status === InvoiceStatus.CANCELLED) {
-    await closeAbandonedManualTransfers(updatedInvoice.id);
-  }
   return buildInvoiceWithPelanggan(updatedInvoice);
 }
 
@@ -235,14 +287,39 @@ export async function deleteInvoiceForRoute(options: {
     return false;
   }
 
+  const describeMethod = await loadPaymentMethodNames();
+  // Di bawah kunci checkout: pelanggan tidak bisa membuat VA untuk tagihan ini
+  // di antara pemeriksaan dan penghapusannya.
+  await runUnderCustomerCheckoutLockAsSystem(
+    existingInvoice.pelangganId,
+    "delete-invoice",
+    () => deleteUnlessBeingPaid(options.invoiceId, describeMethod),
+  );
+  return true;
+}
+
+/**
+ * Menghapus tagihan yang tidak sedang dibayar; yang punya bukti transfer
+ * menunggu verifikasi atau VA/QRIS yang masih bisa dibayar ditolak 409.
+ */
+async function deleteUnlessBeingPaid(
+  invoiceId: string,
+  describeMethod: (code: string) => string | undefined,
+) {
+  const blocker = await findInvoiceDeleteBlocker({
+    invoiceRepo: invoiceRepository,
+    invoiceId,
+    describeMethod,
+  });
+  if (blocker) throw createRouteServiceError(blocker, HTTP_CONFLICT);
+
   const { cancelInvoiceBillingSchedules } =
     await import("./billingScheduleLifecycle");
-  await cancelInvoiceBillingSchedules(options.invoiceId);
+  await cancelInvoiceBillingSchedules(invoiceId);
   // Sebelum dihapus: penghapusan melepas invoiceId payment-nya (SET NULL),
   // dan transfer tanpa bukti tidak lagi bisa ditemukan dari tagihannya.
-  await closeAbandonedManualTransfers(options.invoiceId);
-  await invoiceRepository.deleteById(options.invoiceId);
-  return true;
+  await closeAbandonedManualTransfers(invoiceId);
+  await invoiceRepository.deleteById(invoiceId);
 }
 
 async function findInvoiceByAccess(options: {
