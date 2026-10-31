@@ -5,36 +5,31 @@ import { MdContentCopy } from "react-icons/md";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/utils";
 import { ReceiptUploader } from "./ReceiptUploader";
-import type { PaymentMethod } from "./checkout";
+import type { BankAccountDetails, PaymentMethod } from "./checkout";
 import type { PaymentMethodsState } from "./usePaymentMethods";
 
 const CANCEL_FAILED_MESSAGE =
   "Transfer belum bisa dibatalkan. Coba lagi sebentar lagi.";
 
-type BankDetails = {
-  bankName: string;
-  accountName: string;
-  accountNumber: string;
-};
-
-/** Rekening tujuan checkout manual, dicari dari daftar metode pembayaran. */
+/** Rekening tujuan checkout manual yang bisa ditampilkan ke pelanggan. */
 export type BankAccountState =
-  | { status: "ready"; details: BankDetails }
+  | { status: "ready"; details: BankAccountDetails }
   | { status: "loading" }
   | { status: "error"; retry: () => void }
   | { status: "inactive" };
 
 /**
- * Rekening checkout manual dari daftar metode. Tidak ditemukan setelah
- * daftar termuat berarti admin sudah menonaktifkannya.
+ * Rekening checkout manual: dari daftar metode, atau dari `bankAccount`
+ * payment bila admin sudah menonaktifkannya (daftar hanya memuat rekening
+ * aktif). Pemberitahuan "tidak aktif" hanya bila keduanya kosong.
  */
 export function resolveBankAccount(
   methods: PaymentMethodsState,
   checkoutMethod?: PaymentMethod,
+  paymentAccount?: BankAccountDetails | null,
 ): BankAccountState {
-  if (checkoutMethod?.details) {
-    return { status: "ready", details: checkoutMethod.details };
-  }
+  const details = checkoutMethod?.details ?? paymentAccount;
+  if (details) return { status: "ready", details };
   if (methods.isLoading) return { status: "loading" };
   if (methods.error) return { status: "error", retry: methods.retry };
   return { status: "inactive" };
@@ -125,8 +120,8 @@ function BankAccountDetails({
     );
   }
   if (bank.status === "inactive") {
-    // Admin menonaktifkan rekening setelah checkout dibuat; server tidak
-    // menyimpan salinan nomornya di payment.
+    // Rekening tidak ada di daftar metode dan tidak dikirim bersama payment
+    // (server lama, atau rekeningnya sudah terhapus).
     return (
       <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
         <p className="text-sm font-semibold">

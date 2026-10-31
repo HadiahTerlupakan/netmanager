@@ -1,5 +1,12 @@
 import { isOutstandingInvoiceStatus } from "@/lib/constants/invoice-status";
 
+/** Rekening tujuan transfer manual. */
+export type BankAccountDetails = {
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+};
+
 export interface PaymentMethod {
   id: string;
   name: string;
@@ -7,11 +14,7 @@ export interface PaymentMethod {
   type: string;
   code: string;
   group: string;
-  details?: {
-    bankName: string;
-    accountName: string;
-    accountNumber: string;
-  };
+  details?: BankAccountDetails;
 }
 
 export interface LastPayment {
@@ -34,6 +37,8 @@ export interface LastPayment {
   checkoutInvoiceNumbers?: string[];
   isManual?: boolean;
   rejectionReason?: string | null;
+  /** Rekening tujuan transfer manual, tetap dikirim walau sudah dinonaktifkan. */
+  bankAccount?: BankAccountDetails | null;
 }
 
 export interface Invoice {

@@ -243,18 +243,58 @@ describe("halaman tagihan pelanggan: transfer manual", () => {
 
   // Rekening yang dinonaktifkan admin dulu membuat kartu transfer manual
   // berubah menjadi kartu gateway tanpa instruksi.
-  it("rekening tujuan yang sudah dinonaktifkan tidak berubah menjadi kartu gateway", async () => {
-    tagihanApi.invoices = [
-      buatInvoice({ lastPayment: transferManual({ accountId: "bank-lama" }) }),
-    ];
-    await render();
+  describe("rekening tujuan yang sudah dinonaktifkan", () => {
+    const REKENING_LAMA = {
+      bankName: "Mandiri",
+      accountName: "PT Radpro Lama",
+      accountNumber: "9876543210",
+    };
 
-    expect(teks()).toContain(
-      "Rekening tujuan pembayaran ini sudah tidak aktif",
-    );
-    expect(teks()).toContain("Rp 100.000");
-    expect(findButton("Ganti Metode Pembayaran")).toBeUndefined();
-    expect(findButton("Lanjutkan ke Halaman Pembayaran")).toBeUndefined();
-    expect(findButton("Batalkan / Ganti Metode")).toBeDefined();
+    function transferKeRekeningLama(bankAccount: typeof REKENING_LAMA | null) {
+      tagihanApi.invoices = [
+        buatInvoice({
+          lastPayment: transferManual({ accountId: "bank-lama", bankAccount }),
+        }),
+      ];
+    }
+
+    it("tanpa rekening tersimpan: pemberitahuan jelas, bukan kartu gateway", async () => {
+      transferKeRekeningLama(null);
+      await render();
+
+      expect(teks()).toContain(
+        "Rekening tujuan pembayaran ini sudah tidak aktif",
+      );
+      expect(teks()).toContain("Rp 100.000");
+      expect(findButton("Ganti Metode Pembayaran")).toBeUndefined();
+      expect(findButton("Lanjutkan ke Halaman Pembayaran")).toBeUndefined();
+      expect(findButton("Batalkan / Ganti Metode")).toBeDefined();
+    });
+
+    it("rekening yang tersimpan di pembayaran tetap ditampilkan dan bisa disalin", async () => {
+      const writeText = vi.fn(async () => undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      transferKeRekeningLama(REKENING_LAMA);
+      await render();
+
+      expect(teks()).toContain("Transfer Bank Manual (Mandiri)");
+      expect(teks()).toContain("9876543210");
+      expect(teks()).toContain("a.n PT Radpro Lama");
+      expect(teks()).not.toContain("sudah tidak aktif");
+      await click(getButton("Salin nomor rekening"));
+      expect(writeText).toHaveBeenCalledWith("9876543210");
+    });
+
+    it("rekening tersimpan tampil walau daftar metode gagal dimuat", async () => {
+      tagihanApi.methodsError = new Error("Gagal memuat metode pembayaran");
+      transferKeRekeningLama(REKENING_LAMA);
+      await render();
+
+      expect(teks()).toContain("9876543210");
+      expect(teks()).not.toContain("belum bisa dimuat");
+    });
   });
 });

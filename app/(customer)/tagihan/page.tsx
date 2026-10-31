@@ -234,7 +234,11 @@ export default function CustomerInvoicesPage() {
                   invoiceId={pendingInvoice.id}
                   amount={getCheckoutTotal(activePayment)}
                   hasReceipt={Boolean(activePayment.receiptUrl)}
-                  bank={resolveBankAccount(methods, checkoutMethod)}
+                  bank={resolveBankAccount(
+                    methods,
+                    checkoutMethod,
+                    activePayment.bankAccount,
+                  )}
                   onCopy={copyToClipboard}
                   refresh={refetchInvoices}
                   onCancelled={openMethodDialog}
