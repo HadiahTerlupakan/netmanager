@@ -5589,6 +5589,8 @@ export namespace Prisma {
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
+    rejectionReason: string | null
+    failureReason: string | null
     tenantId: string | null
   }
 
@@ -5621,6 +5623,8 @@ export namespace Prisma {
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
+    rejectionReason: string | null
+    failureReason: string | null
     tenantId: string | null
   }
 
@@ -5653,6 +5657,8 @@ export namespace Prisma {
     expiresAt: number
     unmatchedMutationId: number
     receiptUrl: number
+    rejectionReason: number
+    failureReason: number
     tenantId: number
     _all: number
   }
@@ -5701,6 +5707,8 @@ export namespace Prisma {
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
+    rejectionReason?: true
+    failureReason?: true
     tenantId?: true
   }
 
@@ -5733,6 +5741,8 @@ export namespace Prisma {
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
+    rejectionReason?: true
+    failureReason?: true
     tenantId?: true
   }
 
@@ -5765,6 +5775,8 @@ export namespace Prisma {
     expiresAt?: true
     unmatchedMutationId?: true
     receiptUrl?: true
+    rejectionReason?: true
+    failureReason?: true
     tenantId?: true
     _all?: true
   }
@@ -5884,6 +5896,8 @@ export namespace Prisma {
     expiresAt: Date | null
     unmatchedMutationId: string | null
     receiptUrl: string | null
+    rejectionReason: string | null
+    failureReason: string | null
     tenantId: string | null
     _count: PaymentCountAggregateOutputType | null
     _avg: PaymentAvgAggregateOutputType | null
@@ -5935,6 +5949,8 @@ export namespace Prisma {
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
+    rejectionReason?: boolean
+    failureReason?: boolean
     tenantId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -5969,6 +5985,8 @@ export namespace Prisma {
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
+    rejectionReason?: boolean
+    failureReason?: boolean
     tenantId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -6003,6 +6021,8 @@ export namespace Prisma {
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
+    rejectionReason?: boolean
+    failureReason?: boolean
     tenantId?: boolean
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -6037,10 +6057,12 @@ export namespace Prisma {
     expiresAt?: boolean
     unmatchedMutationId?: boolean
     receiptUrl?: boolean
+    rejectionReason?: boolean
+    failureReason?: boolean
     tenantId?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "discountAmount" | "checkoutId" | "couponUsageId" | "couponId" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "vaNumber" | "qrString" | "gatewayFee" | "kelebihanBayar" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "tenantId", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "invoiceId" | "pelangganId" | "amount" | "discountAmount" | "checkoutId" | "couponUsageId" | "couponId" | "paymentDate" | "paymentMethod" | "reference" | "notes" | "verifiedBy" | "verifiedAt" | "createdAt" | "updatedAt" | "accountId" | "gatewayStatus" | "gatewayProvider" | "transactionId" | "paymentUrl" | "vaNumber" | "qrString" | "gatewayFee" | "kelebihanBayar" | "expiresAt" | "unmatchedMutationId" | "receiptUrl" | "rejectionReason" | "failureReason" | "tenantId", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     invoice?: boolean | Payment$invoiceArgs<ExtArgs>
     unmatchedMutation?: boolean | Payment$unmatchedMutationArgs<ExtArgs>
@@ -6089,6 +6111,8 @@ export namespace Prisma {
       expiresAt: Date | null
       unmatchedMutationId: string | null
       receiptUrl: string | null
+      rejectionReason: string | null
+      failureReason: string | null
       tenantId: string | null
     }, ExtArgs["result"]["payment"]>
     composites: {}
@@ -6543,6 +6567,8 @@ export namespace Prisma {
     readonly expiresAt: FieldRef<"Payment", 'DateTime'>
     readonly unmatchedMutationId: FieldRef<"Payment", 'String'>
     readonly receiptUrl: FieldRef<"Payment", 'String'>
+    readonly rejectionReason: FieldRef<"Payment", 'String'>
+    readonly failureReason: FieldRef<"Payment", 'String'>
     readonly tenantId: FieldRef<"Payment", 'String'>
   }
     
@@ -10678,6 +10704,8 @@ export namespace Prisma {
     expiresAt: 'expiresAt',
     unmatchedMutationId: 'unmatchedMutationId',
     receiptUrl: 'receiptUrl',
+    rejectionReason: 'rejectionReason',
+    failureReason: 'failureReason',
     tenantId: 'tenantId'
   };
 
@@ -11423,6 +11451,8 @@ export namespace Prisma {
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
+    rejectionReason?: StringNullableFilter<"Payment"> | string | null
+    failureReason?: StringNullableFilter<"Payment"> | string | null
     tenantId?: StringNullableFilter<"Payment"> | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
     unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
@@ -11457,6 +11487,8 @@ export namespace Prisma {
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
     receiptUrl?: SortOrderInput | SortOrder
+    rejectionReason?: SortOrderInput | SortOrder
+    failureReason?: SortOrderInput | SortOrder
     tenantId?: SortOrderInput | SortOrder
     invoice?: InvoiceOrderByWithRelationInput
     unmatchedMutation?: UnmatchedMutationOrderByWithRelationInput
@@ -11494,6 +11526,8 @@ export namespace Prisma {
     kelebihanBayar?: BigIntNullableFilter<"Payment"> | bigint | number | null
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
+    rejectionReason?: StringNullableFilter<"Payment"> | string | null
+    failureReason?: StringNullableFilter<"Payment"> | string | null
     tenantId?: StringNullableFilter<"Payment"> | string | null
     invoice?: XOR<InvoiceNullableScalarRelationFilter, InvoiceWhereInput> | null
     unmatchedMutation?: XOR<UnmatchedMutationNullableScalarRelationFilter, UnmatchedMutationWhereInput> | null
@@ -11528,6 +11562,8 @@ export namespace Prisma {
     expiresAt?: SortOrderInput | SortOrder
     unmatchedMutationId?: SortOrderInput | SortOrder
     receiptUrl?: SortOrderInput | SortOrder
+    rejectionReason?: SortOrderInput | SortOrder
+    failureReason?: SortOrderInput | SortOrder
     tenantId?: SortOrderInput | SortOrder
     _count?: PaymentCountOrderByAggregateInput
     _avg?: PaymentAvgOrderByAggregateInput
@@ -11568,6 +11604,8 @@ export namespace Prisma {
     expiresAt?: DateTimeNullableWithAggregatesFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     receiptUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    rejectionReason?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    failureReason?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     tenantId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
   }
 
@@ -12355,6 +12393,8 @@ export namespace Prisma {
     kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
+    rejectionReason?: string | null
+    failureReason?: string | null
     tenantId?: string | null
     invoice?: InvoiceCreateNestedOneWithoutPaymentInput
     unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
@@ -12389,6 +12429,8 @@ export namespace Prisma {
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
+    rejectionReason?: string | null
+    failureReason?: string | null
     tenantId?: string | null
   }
 
@@ -12419,6 +12461,8 @@ export namespace Prisma {
     kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    failureReason?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
     unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
@@ -12453,6 +12497,8 @@ export namespace Prisma {
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    failureReason?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -12485,6 +12531,8 @@ export namespace Prisma {
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
+    rejectionReason?: string | null
+    failureReason?: string | null
     tenantId?: string | null
   }
 
@@ -12515,6 +12563,8 @@ export namespace Prisma {
     kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    failureReason?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -12547,6 +12597,8 @@ export namespace Prisma {
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    failureReason?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -13586,6 +13638,8 @@ export namespace Prisma {
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
+    rejectionReason?: SortOrder
+    failureReason?: SortOrder
     tenantId?: SortOrder
   }
 
@@ -13625,6 +13679,8 @@ export namespace Prisma {
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
+    rejectionReason?: SortOrder
+    failureReason?: SortOrder
     tenantId?: SortOrder
   }
 
@@ -13657,6 +13713,8 @@ export namespace Prisma {
     expiresAt?: SortOrder
     unmatchedMutationId?: SortOrder
     receiptUrl?: SortOrder
+    rejectionReason?: SortOrder
+    failureReason?: SortOrder
     tenantId?: SortOrder
   }
 
@@ -14850,6 +14908,8 @@ export namespace Prisma {
     kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
+    rejectionReason?: string | null
+    failureReason?: string | null
     tenantId?: string | null
     unmatchedMutation?: UnmatchedMutationCreateNestedOneWithoutPaymentInput
   }
@@ -14882,6 +14942,8 @@ export namespace Prisma {
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
+    rejectionReason?: string | null
+    failureReason?: string | null
     tenantId?: string | null
   }
 
@@ -15029,6 +15091,8 @@ export namespace Prisma {
     expiresAt?: DateTimeNullableFilter<"Payment"> | Date | string | null
     unmatchedMutationId?: StringNullableFilter<"Payment"> | string | null
     receiptUrl?: StringNullableFilter<"Payment"> | string | null
+    rejectionReason?: StringNullableFilter<"Payment"> | string | null
+    failureReason?: StringNullableFilter<"Payment"> | string | null
     tenantId?: StringNullableFilter<"Payment"> | string | null
   }
 
@@ -15554,6 +15618,8 @@ export namespace Prisma {
     kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
+    rejectionReason?: string | null
+    failureReason?: string | null
     tenantId?: string | null
     invoice?: InvoiceCreateNestedOneWithoutPaymentInput
   }
@@ -15586,6 +15652,8 @@ export namespace Prisma {
     kelebihanBayar?: bigint | number | null
     expiresAt?: Date | string | null
     receiptUrl?: string | null
+    rejectionReason?: string | null
+    failureReason?: string | null
     tenantId?: string | null
   }
 
@@ -15632,6 +15700,8 @@ export namespace Prisma {
     kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    failureReason?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     invoice?: InvoiceUpdateOneWithoutPaymentNestedInput
   }
@@ -15664,6 +15734,8 @@ export namespace Prisma {
     kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    failureReason?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -15705,6 +15777,8 @@ export namespace Prisma {
     expiresAt?: Date | string | null
     unmatchedMutationId?: string | null
     receiptUrl?: string | null
+    rejectionReason?: string | null
+    failureReason?: string | null
     tenantId?: string | null
   }
 
@@ -15788,6 +15862,8 @@ export namespace Prisma {
     kelebihanBayar?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    failureReason?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
     unmatchedMutation?: UnmatchedMutationUpdateOneWithoutPaymentNestedInput
   }
@@ -15820,6 +15896,8 @@ export namespace Prisma {
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    failureReason?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
@@ -15851,6 +15929,8 @@ export namespace Prisma {
     expiresAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     unmatchedMutationId?: NullableStringFieldUpdateOperationsInput | string | null
     receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    failureReason?: NullableStringFieldUpdateOperationsInput | string | null
     tenantId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 

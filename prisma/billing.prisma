@@ -137,6 +137,12 @@ model Payment {
   unmatchedMutationId String?            @unique
   unmatchedMutation   UnmatchedMutation? @relation(fields: [unmatchedMutationId], references: [id])
   receiptUrl          String?
+  // Alasan admin menolak bukti transfer manual; ditampilkan ke pelanggan.
+  // Terpisah dari `notes` supaya catatan verifikasi (OCR) tidak tertimpa.
+  rejectionReason     String?
+  // Pesan penolakan dari gateway saat checkout gagal dibuat (mis. kanal
+  // tidak aktif, masa berlaku melebihi batas), untuk ditelusuri admin.
+  failureReason       String?
   tenantId            String?
 
   @@index([invoiceId])

@@ -208,6 +208,8 @@ exports.Prisma.PaymentScalarFieldEnum = {
   expiresAt: 'expiresAt',
   unmatchedMutationId: 'unmatchedMutationId',
   receiptUrl: 'receiptUrl',
+  rejectionReason: 'rejectionReason',
+  failureReason: 'failureReason',
   tenantId: 'tenantId'
 };
 
