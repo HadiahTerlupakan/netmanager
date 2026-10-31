@@ -81,7 +81,7 @@ describe("pemberitahuan pembayaran yang perlu diperiksa", () => {
         priority: "HIGH",
         title: "Pembayaran perlu diperiksa",
         message:
-          "Callback DUITKU untuk PAY-1 menyebut Rp 60.000, padahal checkout-nya Rp 100.000. Tagihannya tidak dilunasi otomatis; periksa di Transaksi Payment Gateway.",
+          "Pembayaran DUITKU untuk PAY-1 menyebut Rp 60.000, padahal checkout-nya Rp 100.000. Tagihannya tidak dilunasi otomatis; periksa di Transaksi Payment Gateway.",
         link: "/admin/finance/payment-gateway",
         sourceType: "PaymentReview",
         sourceId: "PAY-1:AMOUNT_MISMATCH",
@@ -102,7 +102,7 @@ describe("pemberitahuan pembayaran yang perlu diperiksa", () => {
     expect(prismaMock.notifications.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         message:
-          "Callback DUITKU untuk PAY-1 membawa nomor transaksi DREF-BARU, berbeda dengan catatan DREF-LAMA. Tagihannya tidak dilunasi otomatis; periksa di Transaksi Payment Gateway.",
+          "Pembayaran DUITKU untuk PAY-1 membawa nomor transaksi DREF-BARU, berbeda dengan catatan DREF-LAMA. Tagihannya tidak dilunasi otomatis; periksa di Transaksi Payment Gateway.",
       }),
     });
   });

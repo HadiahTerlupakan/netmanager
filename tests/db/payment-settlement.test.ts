@@ -305,6 +305,23 @@ async function createManualTransfer(
   return payments;
 }
 
+/** Kupon potongan Rp 10.000 berkuota satu. */
+function createCoupon() {
+  return prismaAuth.coupon.create({
+    data: {
+      id: COUPON,
+      code: COUPON_CODE,
+      discountType: "FIXED",
+      discountValue: 10000,
+      startDate: new Date("2026-01-01"),
+      endDate: new Date("2027-01-01"),
+      quota: 1,
+      usedCount: 0,
+      tenantId: TENANT,
+    },
+  });
+}
+
 /** Callback Duitku bertanda tangan sesuai dokumentasi. */
 function duitkuCallback(input: {
   merchantOrderId: string;
@@ -590,6 +607,40 @@ describeDb("pelunasan pembayaran pelanggan", () => {
         creditStillWorkingForCustomer: 50000n,
       });
     });
+
+    // Pelanggan tidak bisa lagi mengunggah bukti untuk tagihan yang dibatalkan:
+    // pilihan "Transfer Manual" tanpa bukti dulu tertinggal menunggu tanpa jalan
+    // keluar. Kini ditutup, kuponnya kembali, dan penggantinya bisa dibayar.
+    it("menutup Transfer Manual tanpa bukti beserta kuponnya", async () => {
+      await seed();
+      await createCoupon();
+      const inv1 = await createInvoice("STL-5C", PRICE);
+      await payFromPortal([inv1.id], MANUAL_METHOD, COUPON_CODE);
+      const [manual] = await prismaBillingAuth.payment.findMany({
+        where: { invoiceId: inv1.id },
+      });
+
+      await voidAndCreateNew();
+
+      const replacement = (await invoices()).find((i) => i.id !== inv1.id)!;
+      const payReplacementWithSameCoupon = await payFromPortal(
+        [replacement.id],
+        MANUAL_METHOD,
+        COUPON_CODE,
+      ).then(
+        () => "accepted",
+        (error: Error) => error.message,
+      );
+      expect({
+        cancelledInvoice: (await invoice(inv1.id)).status,
+        manual: (await payment(manual.id)).gatewayStatus,
+        payReplacementWithSameCoupon,
+      }).toEqual({
+        cancelledInvoice: "CANCELLED",
+        manual: "CANCELLED",
+        payReplacementWithSameCoupon: "accepted",
+      });
+    });
   });
 
   describe("uang untuk tagihan yang sudah dibatalkan", () => {
@@ -718,21 +769,21 @@ describeDb("pelunasan pembayaran pelanggan", () => {
       );
       expect(dispatcher.onPaymentOverpaid).not.toHaveBeenCalled();
     });
-    it("bukti transfer yang disetujui setelah tagihannya diganti melunasi tagihan pengganti", async () => {
+    // Data dari sebelum penggantian menutup transfer tanpa bukti: transfer
+    // itu tetap menunggu di tagihan yang dibatalkan, lalu buktinya menyusul.
+    it("bukti transfer yang disetujui untuk tagihan yang sudah diganti melunasi tagihan pengganti", async () => {
       await seed();
       const inv1 = await createInvoice("STL-5", PRICE);
-      await payFromPortal([inv1.id], MANUAL_METHOD);
-      // Belum ada bukti saat admin mengganti tagihan; bukti menyusul.
       await voidAndCreateNew();
-      const statusAfterVoid = (await invoice(inv1.id)).status;
       const replacement = (await invoices()).find((i) => i.id !== inv1.id)!;
-      const manual = await attachProof(inv1.id);
+      const [manual] = await createManualTransfer([inv1.id], {
+        receiptUrl: "/receipts/settle-proof.webp",
+      });
 
       const result = await adminVerify(manual.id, "APPROVE");
 
       const after = await invoice(replacement.id);
       expect({
-        statusAfterVoid,
         cancelledInvoiceAfterApproval: (await invoice(inv1.id)).status,
         replacementStatus: after.status,
         moneyCreditedOrApplied: (await saldoKredit()) + after.paidAmount,
@@ -741,7 +792,6 @@ describeDb("pelunasan pembayaran pelanggan", () => {
           [replacement.id]: "pengganti",
         }),
       }).toEqual({
-        statusAfterVoid: "CANCELLED",
         cancelledInvoiceAfterApproval: "CANCELLED",
         replacementStatus: "PAID",
         moneyCreditedOrApplied: PRICE,
@@ -754,13 +804,14 @@ describeDb("pelunasan pembayaran pelanggan", () => {
     it("bukti transfer untuk tagihan yang sudah lunas lewat Duitku dikreditkan ke saldo", async () => {
       await seed();
       const inv = await createInvoice("STL-6", PRICE);
-      await payFromPortal([inv.id], MANUAL_METHOD);
-      const manual = await attachProof(inv.id);
-      // Bosan menunggu, pelanggan membayar lewat QRIS.
       await payFromPortal([inv.id], "SP");
       const qris = await prismaBillingAuth.payment.findFirstOrThrow({
         where: { invoiceId: inv.id, gatewayProvider: "SP" },
       });
+      // Pelanggan beralih ke transfer manual dan mengunggah bukti, tetapi QRIS
+      // yang sudah terbit tetap dibayar (Duitku tidak bisa menutupnya).
+      await payFromPortal([inv.id], MANUAL_METHOD);
+      const manual = await attachProof(inv.id);
       await duitkuCallback({
         merchantOrderId: qris.reference!,
         amount: PRICE,
@@ -907,19 +958,7 @@ describeDb("pelunasan pembayaran pelanggan", () => {
 
     it("menolak bukti transfer mengembalikan kupon agar bisa dipakai lagi", async () => {
       await seed();
-      await prismaAuth.coupon.create({
-        data: {
-          id: COUPON,
-          code: COUPON_CODE,
-          discountType: "FIXED",
-          discountValue: 10000,
-          startDate: new Date("2026-01-01"),
-          endDate: new Date("2027-01-01"),
-          quota: 1,
-          usedCount: 0,
-          tenantId: TENANT,
-        },
-      });
+      await createCoupon();
       const inv = await createInvoice("STL-11", PRICE);
       await payFromPortal([inv.id], MANUAL_METHOD, COUPON_CODE);
       const manual = await attachProof(inv.id);

@@ -11,6 +11,12 @@ vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
 vi.mock("@/modules/accounting", () => ({
   reverseCancelledInvoiceJournals: vi.fn().mockResolvedValue(0),
 }));
+const closeAbandonedManualTransfers = vi.hoisted(() =>
+  vi.fn().mockResolvedValue(1),
+);
+vi.mock("@/modules/finance/services/abandoned-manual-transfer", () => ({
+  closeAbandonedManualTransfers,
+}));
 
 import { replaceOutstandingInvoiceForCustomer } from "@/modules/finance/services/outstanding-invoice.helpers";
 
@@ -184,6 +190,7 @@ describe("replaceOutstandingInvoiceForCustomer", () => {
     ]);
   });
 
+  // Pilihan itu ditutup bersama tagihannya; pelanggan membayar penggantinya.
   it("pilihan transfer manual tanpa bukti tidak menahan penggantian", async () => {
     const invoiceRepo = createInvoiceRepo([
       tagihan("lama", [
@@ -200,6 +207,7 @@ describe("replaceOutstandingInvoiceForCustomer", () => {
 
     expect(result.cancelledInvoiceIds).toEqual(["lama"]);
     expect(result.invoice).toEqual({ id: "inv-baru" });
+    expect(closeAbandonedManualTransfers).toHaveBeenCalledWith("lama");
   });
 
   // Satu periode tidak boleh berakhir dengan dua tagihan.

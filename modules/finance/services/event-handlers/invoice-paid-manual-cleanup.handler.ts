@@ -2,10 +2,7 @@ import type { Job } from "bullmq";
 import { requirePayloadString } from "@/lib/event-bus";
 import type { EventJobData } from "@/lib/event-bus/queues";
 import { logger } from "@/lib/logger";
-import {
-  cancelAbandonedTransferCheckout,
-  findAbandonedTransferCheckouts,
-} from "../../repositories/abandonedManualTransfer.repository";
+import { closeAbandonedManualTransfers } from "../abandoned-manual-transfer";
 
 const SOURCE = "InvoicePaidManualPaymentCleanup";
 
@@ -25,16 +22,8 @@ export async function handleInvoicePaidManualPaymentCleanup(
     "invoiceId",
     SOURCE,
   );
-  const checkouts = await findAbandonedTransferCheckouts(invoiceId);
-  if (checkouts.length === 0) return;
-
-  const { releaseCheckoutCoupons } = await import("@/modules/payment-gateway");
-  let closed = 0;
-  for (const checkout of checkouts) {
-    if (!(await cancelAbandonedTransferCheckout(checkout))) continue;
-    closed += checkout.length;
-    await releaseCheckoutCoupons(checkout);
-  }
+  const closed = await closeAbandonedManualTransfers(invoiceId);
+  if (closed === 0) return;
   logger.info(
     `[${SOURCE}] ${closed} transfer manual tanpa bukti ditutup karena invoice ${invoiceId} lunas`,
   );

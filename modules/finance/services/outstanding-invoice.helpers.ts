@@ -7,6 +7,7 @@ import {
   isTransferAwaitingVerification,
   type RepriceBlocker,
 } from "./cycle-invoice-reprice";
+import { closeAbandonedManualTransfers } from "./abandoned-manual-transfer";
 import { FinanceRepositoryFacade } from "./FinanceRepositoryFacade";
 import { reverseJournalsOfCancelledInvoice } from "./invoice-cancellation-journals";
 import { readSaldoKreditUsed } from "./saldo-kredit-note";
@@ -109,8 +110,10 @@ export async function replaceOutstandingInvoiceForCustomer(options: {
 
 /**
  * Membatalkan satu tagihan yang akan diganti tagihan baru: status, durable
- * schedule, saldo kredit yang dipakainya, dan jurnalnya. Dipakai "Batalkan &
- * Buat Tagihan Baru" dan hitung ulang paket siklus.
+ * schedule, saldo kredit yang dipakainya, jurnalnya, dan pilihan "Transfer
+ * Manual" untuknya yang belum membawa bukti (pelanggan membayar tagihan
+ * penggantinya). Dipakai "Batalkan & Buat Tagihan Baru" dan hitung ulang
+ * paket siklus.
  *
  * Pembatalannya bersyarat (masih DRAFT/SENT/OVERDUE tanpa pembayaran): tagihan
  * yang baru saja dilunasi, misalnya oleh webhook yang datang bersamaan, tidak
@@ -145,6 +148,7 @@ export async function cancelReplacedInvoice(options: {
     reason: "Tagihan diganti dengan tagihan baru",
     reversedBy: "Sistem",
   });
+  await closeAbandonedManualTransfers(cancelled.id);
   return true;
 }
 

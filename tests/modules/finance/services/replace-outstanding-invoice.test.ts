@@ -10,6 +10,7 @@ const palsu = vi.hoisted(() => ({
   cancelInvoiceBillingSchedules: vi.fn().mockResolvedValue(undefined),
   reverseCancelledInvoiceJournals: vi.fn().mockResolvedValue(1),
   refundSaldoKredit: vi.fn().mockResolvedValue(undefined),
+  closeAbandonedManualTransfers: vi.fn().mockResolvedValue(0),
 }));
 vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
   cancelInvoiceBillingSchedules: palsu.cancelInvoiceBillingSchedules,
@@ -19,6 +20,9 @@ vi.mock("@/modules/accounting", () => ({
 }));
 vi.mock("@/modules/finance/services/FinanceRepositoryFacade", () => ({
   FinanceRepositoryFacade: { refundSaldoKredit: palsu.refundSaldoKredit },
+}));
+vi.mock("@/modules/finance/services/abandoned-manual-transfer", () => ({
+  closeAbandonedManualTransfers: palsu.closeAbandonedManualTransfers,
 }));
 
 import { cancelReplacedInvoice } from "@/modules/finance/services/outstanding-invoice.helpers";
@@ -95,6 +99,14 @@ describe("cancelReplacedInvoice", () => {
     expect(palsu.refundSaldoKredit).not.toHaveBeenCalled();
   });
 
+  // Pelanggan tidak bisa lagi mengunggah bukti untuk tagihan yang dibatalkan;
+  // payment yang dibiarkan menunggu tidak punya jalan keluar.
+  it("menutup Transfer Manual tanpa bukti untuk tagihan yang dibatalkan", async () => {
+    await batalkan(repoYangMembatalkan({}));
+
+    expect(palsu.closeAbandonedManualTransfers).toHaveBeenCalledWith("inv-1");
+  });
+
   // Webhook bisa melunasinya tepat di antara pemeriksaan dan pembatalan.
   it("tagihan yang sudah tidak bisa dibatalkan dibiarkan apa adanya", async () => {
     const repo = repoYangMembatalkan(null);
@@ -104,5 +116,6 @@ describe("cancelReplacedInvoice", () => {
     expect(palsu.cancelInvoiceBillingSchedules).not.toHaveBeenCalled();
     expect(palsu.refundSaldoKredit).not.toHaveBeenCalled();
     expect(palsu.reverseCancelledInvoiceJournals).not.toHaveBeenCalled();
+    expect(palsu.closeAbandonedManualTransfers).not.toHaveBeenCalled();
   });
 });

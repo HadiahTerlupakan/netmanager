@@ -384,7 +384,7 @@ function describePaymentReview(data: PaymentReviewNotificationData) {
     data.reason === "AMOUNT_MISMATCH"
       ? `menyebut ${formatNominal(data.received)}, padahal checkout-nya ${formatNominal(data.expected)}`
       : `membawa nomor transaksi ${data.received}, berbeda dengan catatan ${data.expected}`;
-  return `Callback ${data.provider} untuk ${data.orderId} ${mismatch}. Tagihannya tidak dilunasi otomatis; periksa di Transaksi Payment Gateway.`;
+  return `Pembayaran ${data.provider} untuk ${data.orderId} ${mismatch}. Tagihannya tidak dilunasi otomatis; periksa di Transaksi Payment Gateway.`;
 }
 
 /**

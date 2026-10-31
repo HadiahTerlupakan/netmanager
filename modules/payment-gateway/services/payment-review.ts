@@ -8,8 +8,10 @@ import { BillingEventDispatcher } from "@/modules/events";
  * dilunasi otomatis, jadi staf keuangan harus tahu. Dulu kejadian ini hanya
  * tersimpan di WebhookEvent dengan log warn dan tidak terlihat siapa pun.
  *
- * Dipakai webhook dan bisa dipakai cek status gateway untuk kasus yang sama.
- * Kegagalan mengirim pemberitahuan tidak menggagalkan pemanggilnya.
+ * Dipanggil jalur pelunasan bersama (callback, cek status, penyapu checkout).
+ * Penyapu menanyakan checkout yang sama tiap putaran; notifikasinya tetap
+ * sekali per staf per orderId dan alasan. Kegagalan mengirim pemberitahuan
+ * tidak menggagalkan pemanggilnya.
  */
 export async function flagPaymentForReview(
   input: Omit<PaymentReviewRequiredPayload, "tenantId"> & {

@@ -43,25 +43,14 @@ vi.mock(
   }),
 );
 
-vi.mock(
-  "@/modules/payment-gateway/services/webhook-checkout-settlement",
-  () => ({
-    findCheckoutPayments: async (id: string) => [
-      {
-        id,
-        amount: BigInt(100000),
-        invoiceId: "inv-1",
-        tenantId: null as string | null,
-      },
-    ],
-    sumCheckoutAmount: (payments: Array<{ amount: bigint }>) =>
-      payments.reduce((sum, p) => sum + p.amount, 0n),
-    settleCheckoutInvoices: vi.fn(),
-    settlePaidCheckout: vi.fn(),
-  }),
-);
+vi.mock("@/modules/finance/services/received-payment-settlement", () => ({
+  settleReceivedPayments: vi.fn(),
+}));
+vi.mock("@/modules/payment-gateway/services/gateway-fee", () => ({
+  recordGatewayFee: vi.fn(),
+}));
 
-// Pemberitahuan pemeriksaan diuji di webhookCheckoutSettlement.test.ts.
+// Pemberitahuan pemeriksaan diuji di gatewayStatusSettlement.test.ts.
 vi.mock("@/modules/payment-gateway/services/payment-review", () => ({
   flagPaymentForReview: vi.fn(),
 }));
@@ -77,6 +66,26 @@ vi.mock("@/modules/payment-gateway/services/PaymentGatewayMetrics", () => ({
 import { WebhookProcessingService } from "@/modules/payment-gateway/services/webhook-processing-service";
 import { DuitkuProvider } from "@/modules/payment-gateway/services/providers/duitku-provider";
 import { TripayProvider } from "@/modules/payment-gateway/services/providers/tripay-provider";
+
+/** Payment tersimpan tanpa checkoutId: checkout-nya hanya payment itu. */
+function storedPayment(payment: {
+  id: string;
+  tenantId: string | null;
+  transactionId?: string | null;
+}) {
+  const row = {
+    reference: "INV-1",
+    amount: BigInt(100000),
+    gatewayStatus: "PENDING",
+    invoiceId: "inv-1",
+    notes: null as string | null,
+    transactionId: null as string | null,
+    ...payment,
+  };
+  prismaMock.payment.findFirst.mockResolvedValue(row);
+  prismaMock.payment.findUnique.mockResolvedValue({ ...row, checkoutId: null });
+  prismaMock.payment.findMany.mockResolvedValue([row]);
+}
 
 describe("payment gateway hardening", () => {
   beforeEach(() => {
@@ -161,15 +170,7 @@ describe("payment gateway hardening", () => {
   it("rejects paid webhook when amount does not match stored payment", async () => {
     const service = new WebhookProcessingService();
 
-    prismaMock.payment.findFirst.mockResolvedValue({
-      id: "pay-1",
-      reference: "INV-1",
-      amount: BigInt(100000),
-      tenantId: null,
-      gatewayStatus: "PENDING",
-      invoiceId: "inv-1",
-      notes: null,
-    });
+    storedPayment({ id: "pay-1", tenantId: null });
     mockFns.processWebhook.mockResolvedValue({
       orderId: "INV-1",
       status: "PAID",
@@ -198,21 +199,7 @@ describe("payment gateway hardening", () => {
   it("rejects webhook when transaction identity differs from stored payment", async () => {
     const service = new WebhookProcessingService();
 
-    prismaMock.payment.findFirst.mockResolvedValue({
-      id: "pay-1",
-      reference: "INV-1",
-      amount: BigInt(100000),
-      tenantId: null,
-      transactionId: "tx-stored",
-      gatewayStatus: "PENDING",
-      invoiceId: "inv-1",
-      notes: null,
-    });
-    prismaMock.payment.findUnique.mockResolvedValue({
-      id: "pay-1",
-      transactionId: "tx-stored",
-      gatewayStatus: "PENDING",
-    });
+    storedPayment({ id: "pay-1", tenantId: null, transactionId: "tx-stored" });
     mockFns.processWebhook.mockResolvedValue({
       orderId: "INV-1",
       status: "PAID",
@@ -242,29 +229,7 @@ describe("payment gateway hardening", () => {
   it("keeps stored transaction identity when webhook omits transactionId", async () => {
     const service = new WebhookProcessingService();
 
-    prismaMock.payment.findFirst.mockResolvedValue({
-      id: "pay-1",
-      reference: "INV-1",
-      amount: BigInt(100000),
-      tenantId: null,
-      transactionId: "tx-stored",
-      gatewayStatus: "PENDING",
-      invoiceId: "inv-1",
-      notes: null,
-    });
-    prismaMock.payment.findUnique.mockResolvedValue({
-      id: "pay-1",
-      transactionId: "tx-stored",
-      gatewayStatus: "PENDING",
-    });
-    prismaMock.payment.update.mockResolvedValue({ id: "pay-1" });
-    prismaMock.invoice.findUnique.mockResolvedValue({
-      id: "inv-1",
-      totalAmount: BigInt(100000),
-      status: "PENDING",
-      payment: [{ amount: BigInt(100000), gatewayStatus: "PAID" }],
-    });
-    prismaMock.invoice.update.mockResolvedValue({ id: "inv-1" });
+    storedPayment({ id: "pay-1", tenantId: null, transactionId: "tx-stored" });
     mockFns.processWebhook.mockResolvedValue({
       orderId: "INV-1",
       status: "PAID",
@@ -279,7 +244,10 @@ describe("payment gateway hardening", () => {
     });
 
     expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["pay-1"] }, gatewayStatus: { not: "PAID" } },
+      where: {
+        id: { in: ["pay-1"] },
+        gatewayStatus: { in: ["PENDING", "EXPIRED", "CANCELLED"] },
+      },
       data: expect.not.objectContaining({ transactionId: expect.anything() }),
     });
     expect(prismaMock.payment.update).not.toHaveBeenCalled();
@@ -380,31 +348,12 @@ describe("payment gateway hardening", () => {
   it("looks up payment globally when tenant context is missing", async () => {
     const service = new WebhookProcessingService();
 
-    prismaMock.payment.findFirst.mockResolvedValue({
+    storedPayment({
       id: "pay-foreign",
-      reference: "INV-1",
-      amount: BigInt(100000),
       tenantId: "tenant-b",
       transactionId: "tx-foreign",
-      gatewayStatus: "PENDING",
-      invoiceId: "inv-foreign",
-      notes: null,
-    });
-    prismaMock.payment.findUnique.mockResolvedValue({
-      id: "pay-foreign",
-      transactionId: "tx-foreign",
-      gatewayStatus: "PENDING",
     });
     prismaMock.payment.update.mockResolvedValue({ id: "pay-foreign" });
-    prismaMock.invoice.findUnique.mockResolvedValue({
-      id: "inv-foreign",
-      pelangganId: "pel-1",
-      totalAmount: BigInt(100000),
-      status: "PENDING",
-      tenantId: "tenant-b",
-      payment: [{ amount: BigInt(100000), gatewayStatus: "PAID" }],
-    });
-    prismaMock.invoice.update.mockResolvedValue({ id: "inv-foreign" });
     mockFns.processWebhook.mockResolvedValue({
       orderId: "INV-1",
       status: "PAID",
@@ -424,7 +373,10 @@ describe("payment gateway hardening", () => {
       where: { reference: "INV-1" },
     });
     expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["pay-foreign"] }, gatewayStatus: { not: "PAID" } },
+      where: {
+        id: { in: ["pay-foreign"] },
+        gatewayStatus: { in: ["PENDING", "EXPIRED", "CANCELLED"] },
+      },
       data: expect.objectContaining({ gatewayStatus: "PAID" }),
     });
     // Kode metode dari portal (mis. "SP") tidak ditimpa nama gateway, agar

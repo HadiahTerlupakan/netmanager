@@ -38,7 +38,7 @@ const payment = (id: string, reference: string) => ({
 describe("rekonsiliasi checkout dengan gateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    palsu.settle.mockResolvedValue(true);
+    palsu.settle.mockResolvedValue({ outcome: "SETTLED" });
     prismaMock.payment.findMany.mockResolvedValue([]);
   });
 
@@ -84,7 +84,18 @@ describe("rekonsiliasi checkout dengan gateway", () => {
     });
     expect(palsu.settle).toHaveBeenCalledWith({
       paymentId: "p1",
+      provider: "DUITKU",
       status: paid,
+    });
+  });
+
+  // Callback atau cek status lain lebih dulu melunasinya.
+  it("checkout yang sudah lunas di catatan juga dianggap lunas", async () => {
+    palsu.checkStatus.mockResolvedValue({ status: "PAID", amount: 100000 });
+    palsu.settle.mockResolvedValue({ outcome: "ALREADY_PAID" });
+
+    await expect(reconcileCheckout([payment("p1", "PAY-a")])).resolves.toEqual({
+      outcome: "PAID",
     });
   });
 
@@ -149,7 +160,11 @@ describe("rekonsiliasi checkout dengan gateway", () => {
 
   it("pelunasan yang ditolak (nominal berbeda) tidak dianggap lunas maupun belum dibayar", async () => {
     palsu.checkStatus.mockResolvedValue({ status: "PAID", amount: 1 });
-    palsu.settle.mockResolvedValue(false);
+    palsu.settle.mockResolvedValue({
+      outcome: "AMOUNT_MISMATCH",
+      expected: "100000",
+      received: "1",
+    });
 
     await expect(reconcileCheckout([payment("p1", "PAY-a")])).resolves.toEqual({
       outcome: "UNKNOWN",

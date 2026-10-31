@@ -87,11 +87,12 @@ export async function reconcileCheckout(
   const { status } = answer.status;
   if (status !== "PAID") return { outcome: "UNPAID", gatewayStatus: status };
 
-  const isSettled = await settleCheckoutPaidAtGateway({
-    paymentId: answer.paymentId,
-    status: answer.status,
-  });
-  return isSettled ? { outcome: "PAID" } : { outcome: "UNKNOWN" };
+  const { outcome } = await settleCheckoutPaidAtGateway(answer);
+  // Nominal atau nomor transaksi yang tidak cocok sudah diteruskan ke staf;
+  // checkout-nya dibiarkan menunggu, tidak ditutup.
+  return outcome === "SETTLED" || outcome === "ALREADY_PAID"
+    ? { outcome: "PAID" }
+    : { outcome: "UNKNOWN" };
 }
 
 /**
@@ -158,7 +159,9 @@ async function queryCheckoutStatus(
   payments: CheckoutPaymentRef[],
   options: StatusCheckOptions,
 ): Promise<
-  { paymentId: string; status: TransactionStatus } | "NOT_FOUND" | "UNREADABLE"
+  | { paymentId: string; provider: string; status: TransactionStatus }
+  | "NOT_FOUND"
+  | "UNREADABLE"
 > {
   const gateway = new PaymentGatewayManager();
   let isAnswered = false;
@@ -172,7 +175,7 @@ async function queryCheckoutStatus(
         payment.tenantId ?? undefined,
         options,
       );
-      return { paymentId: payment.id, status };
+      return { paymentId: payment.id, provider, status };
     } catch (error) {
       // Hanya "tidak ditemukan" yang berarti salah reference; galat lain
       // berarti gateway tidak bisa ditanya sekarang.

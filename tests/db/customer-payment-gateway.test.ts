@@ -30,6 +30,7 @@ vi.mock("@/modules/events", () => ({
     onInvoicePartiallyPaid: vi.fn(async () => undefined),
     onPaymentOverpaid: vi.fn(async () => undefined),
     onPaymentFailed: vi.fn(async () => undefined),
+    onPaymentReviewRequired: vi.fn(async () => undefined),
     onPackageChanged: vi.fn(async () => undefined),
   },
 }));
@@ -364,6 +365,7 @@ function duitkuCallback(input: {
   paymentCode?: string;
   apiKey?: string;
   merchantCode?: string;
+  resultCode?: string;
 }) {
   const amount = input.amount.toString();
   const merchantCode = input.merchantCode ?? MERCHANT;
@@ -377,7 +379,7 @@ function duitkuCallback(input: {
     productDetail: "Pembayaran Tagihan NetManager",
     additionalParam: "",
     paymentCode: input.paymentCode ?? "BC",
-    resultCode: "00",
+    resultCode: input.resultCode ?? "00",
     merchantUserId: "",
     reference: input.reference,
     signature,
@@ -645,6 +647,59 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
       }).toEqual({ expired: 0, paymentStatus: "PENDING", notices: 0 });
     });
   });
+
+  // Cek status dan penyapu dulu hanya mencatat log saat nominal Duitku
+  // berbeda; staf keuangan tidak tahu ada uang yang tidak dilunasi.
+  it.each([
+    [
+      "cek status dari portal",
+      (invoiceId: string) =>
+        asTenant(() =>
+          checkCustomerPaymentStatus({ customerId: PELANGGAN, invoiceId }),
+        ),
+    ],
+    [
+      "penyapu checkout",
+      () =>
+        runAsSystemContext("tes: penyapu checkout", () =>
+          expireStaleGatewayPayments(new Date()),
+        ),
+    ],
+  ])(
+    "nominal Duitku yang berbeda tidak dilunasi oleh %s dan diteruskan ke staf keuangan",
+    async (_path, run) => {
+      const inv = await createInvoice("GWF-R1", PRICE);
+      const va = await createOpenVa(
+        inv.id,
+        "PAY-GWFIX-R1",
+        new Date(Date.now() - 2 * HOUR_MS),
+      );
+      http.paidOrders.add(va.reference!);
+      inquiryAmounts.set(va.reference!, 60_000);
+
+      await run(inv.id);
+
+      expect({
+        paymentStatus: (
+          await prismaBillingAuth.payment.findUniqueOrThrow({
+            where: { id: va.id },
+          })
+        ).gatewayStatus,
+        invoiceStatus: (await invoice(inv.id)).status,
+        review: dispatcher.onPaymentReviewRequired.mock.calls.map(([data]) => [
+          data.provider,
+          data.paymentId,
+          data.reason,
+          data.expected,
+          data.received,
+        ]),
+      }).toEqual({
+        paymentStatus: "PENDING",
+        invoiceStatus: "SENT",
+        review: [["DUITKU", va.id, "AMOUNT_MISMATCH", "100000", "60000"]],
+      });
+    },
+  );
 
   it("callback untuk VA yang sudah terbit tetap diterima setelah konfigurasi Duitku dimatikan (M5)", async () => {
     const inv = await createInvoice("GWF-M5", PRICE);
@@ -928,6 +983,33 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
       });
     });
 
+    // Callback gagal dulu mengembalikan kupon seluruh checkout, padahal
+    // invoice Rp 0 yang tertutup kupon itu sudah lunas memakainya.
+    it("callback gagal menutup payment yang menunggu tanpa melepas kupon invoice Rp 0", async () => {
+      await createCoupon(1);
+      const small = await createInvoice(
+        "GWF-Z4",
+        DISCOUNT,
+        new Date("2026-10-01T03:00:00.000Z"),
+      );
+      const big = await createInvoice("GWF-Z5", PRICE);
+      await payFromPortal([small.id, big.id], "BC", COUPON_CODE);
+      const [bigRow] = await paymentsOf(big.id);
+
+      await duitkuCallback({
+        merchantOrderId: bigRow.reference!,
+        amount: PRICE,
+        reference: bigRow.transactionId!,
+        resultCode: "01",
+      });
+
+      expect({
+        smallRow: (await paymentsOf(small.id))[0].gatewayStatus,
+        bigRow: (await paymentsOf(big.id))[0].gatewayStatus,
+        couponUsedCount: await couponUsedCount(),
+      }).toEqual({ smallRow: "PAID", bigRow: "FAILED", couponUsedCount: 1 });
+    });
+
     it("invoice Rp 0 dalam permintaan dilewati, dan permintaan yang hanya berisi Rp 0 ditolak", async () => {
       const zero = await createInvoice("GWF-Z3", 0n);
       const big = await createInvoice("GWF-Z4", PRICE);
@@ -957,7 +1039,8 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
 
     // Pelunasan dari cek status dulu memindahkan setiap payment checkout yang
     // belum PAID, termasuk yang REFUNDED atau FAILED (tidak pernah punya VA).
-    it("payment REFUNDED dan FAILED di checkout yang dilunasi tidak ikut berubah", async () => {
+    /** Checkout dengan satu payment menunggu, satu FAILED, satu REFUNDED. */
+    async function checkoutWithClosedPayments() {
       const paid = await createInvoice("GWF-S5A", PRICE);
       const failed = await createInvoice("GWF-S5B", 50_000n);
       const refunded = await createInvoice("GWF-S5C", 25_000n);
@@ -1000,6 +1083,21 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
       );
       http.paidOrders.add("PAY-GWFIX-S5A");
       inquiryAmounts.set("PAY-GWFIX-S5A", Number(PRICE));
+      const statusOf = async (id: string) =>
+        (await prismaBillingAuth.payment.findUniqueOrThrow({ where: { id } }))
+          .gatewayStatus;
+      return {
+        paid,
+        statuses: async () => ({
+          paidInvoice: (await invoice(paid.id)).status,
+          failedRow: await statusOf(failedRow.id),
+          refundedRow: await statusOf(refundedRow.id),
+        }),
+      };
+    }
+
+    it("payment REFUNDED dan FAILED di checkout yang dilunasi tidak ikut berubah", async () => {
+      const { paid, statuses } = await checkoutWithClosedPayments();
 
       const status = await asTenant(() =>
         checkCustomerPaymentStatus({
@@ -1007,17 +1105,28 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
           invoiceId: paid.id,
         }),
       );
-      const statusOf = async (id: string) =>
-        (await prismaBillingAuth.payment.findUniqueOrThrow({ where: { id } }))
-          .gatewayStatus;
 
-      expect({
-        status,
-        paidInvoice: (await invoice(paid.id)).status,
-        failedRow: await statusOf(failedRow.id),
-        refundedRow: await statusOf(refundedRow.id),
-      }).toEqual({
+      expect({ status, ...(await statuses()) }).toEqual({
         status: "PAID",
+        paidInvoice: "PAID",
+        failedRow: "FAILED",
+        refundedRow: "REFUNDED",
+      });
+    });
+
+    // Webhook dulu menjumlah seluruh payment checkout (nominalnya dianggap
+    // tidak cocok) dan memindahkan apa pun yang belum PAID.
+    it("callback untuk checkout itu juga hanya memindahkan payment yang menunggu", async () => {
+      const { statuses } = await checkoutWithClosedPayments();
+
+      const callback = await duitkuCallback({
+        merchantOrderId: "PAY-GWFIX-S5A",
+        amount: PRICE,
+        reference: "DREF-PAY-GWFIX-S5A",
+      });
+
+      expect({ callback: callback.body, ...(await statuses()) }).toEqual({
+        callback: { status: "ok" },
         paidInvoice: "PAID",
         failedRow: "FAILED",
         refundedRow: "REFUNDED",
@@ -1083,6 +1192,33 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
           pendingRow: "PAID",
           bigInvoice: "PAID",
           failedNotices: 0,
+        });
+      });
+
+      // Webhook dulu menjawab "Already processed": payment orderId-nya PAID.
+      it("callback melunasi payment lain checkout itu", async () => {
+        const { big, pending } = await legacyCheckout(
+          new Date(Date.now() + 23 * HOUR_MS),
+        );
+
+        const callback = await duitkuCallback({
+          merchantOrderId: "PAY-GWFIX-L0",
+          amount: PRICE,
+          reference: "DREF-PAY-GWFIX-L0",
+        });
+
+        expect({
+          callback: callback.body,
+          pendingRow: (
+            await prismaBillingAuth.payment.findUniqueOrThrow({
+              where: { id: pending.id },
+            })
+          ).gatewayStatus,
+          bigInvoice: (await invoice(big.id)).status,
+        }).toEqual({
+          callback: { status: "ok" },
+          pendingRow: "PAID",
+          bigInvoice: "PAID",
         });
       });
 
@@ -1396,21 +1532,20 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
       });
     });
 
-    // Admin menyetujui transfer per payment dari daftar verifikasi; uang
-    // transfernya untuk seluruh checkout. Sisa checkout yang dibatalkan setelah
-    // satu invoice disetujui tidak bisa lagi disetujui admin.
+    // Persetujuan per payment (sebelum persetujuan berlaku untuk seluruh
+    // checkout) meninggalkan checkout yang sebagian sudah disetujui, tanpa
+    // verifiedAt. Sisa checkout yang dibatalkan setelah satu invoice disetujui
+    // tidak bisa lagi disetujui admin.
     it("transfer manual yang sebagian invoicenya sudah disetujui admin tidak bisa dibatalkan", async () => {
       await createCoupon(1);
       const a = await createInvoice("GWF-T7A", PRICE);
       const b = await createInvoice("GWF-T7B", PRICE);
       await payFromPortal([a.id, b.id], MANUAL_METHOD, COUPON_CODE);
       const [rowA] = await paymentsOf(a.id);
-      await asTenant(() =>
-        new ManualPaymentAdminRouteService().verifyManualPayment({
-          paymentId: rowA.id,
-          action: "APPROVE",
-        }),
-      );
+      await prismaBillingAuth.payment.update({
+        where: { id: rowA.id },
+        data: { gatewayStatus: "PAID", paymentDate: new Date() },
+      });
 
       const cancel = await asTenant(() =>
         cancelCustomerManualCheckout({
@@ -1432,6 +1567,124 @@ describeDb("pembayaran pelanggan lewat gateway (DB nyata)", () => {
         rowA: "PAID",
         rowB: "PENDING",
         couponUsedCount: 1,
+      });
+    });
+
+    // Admin menyetujui satu baris dari daftar verifikasi; uang transfernya
+    // untuk seluruh checkout, jadi seluruhnya disetujui sekaligus.
+    it("persetujuan admin berlaku untuk seluruh checkout dan pembatalan sesudahnya ditolak", async () => {
+      await createCoupon(1);
+      const a = await createInvoice("GWF-T8A", PRICE);
+      const b = await createInvoice("GWF-T8B", PRICE);
+      await payFromPortal([a.id, b.id], MANUAL_METHOD, COUPON_CODE);
+      const [rowA] = await paymentsOf(a.id);
+
+      await asTenant(() =>
+        new ManualPaymentAdminRouteService().verifyManualPayment({
+          paymentId: rowA.id,
+          action: "APPROVE",
+          verifiedBy: "Admin Keuangan",
+        }),
+      );
+      const cancel = await asTenant(() =>
+        cancelCustomerManualCheckout({
+          customerId: PELANGGAN,
+          invoiceId: b.id,
+        }),
+      ).then(
+        () => 200,
+        (error: { status?: number }) => error.status,
+      );
+
+      const rows = await prismaBillingAuth.payment.findMany({
+        where: { pelangganId: PELANGGAN },
+        select: { gatewayStatus: true, verifiedAt: true, verifiedBy: true },
+      });
+      expect({
+        cancel,
+        rows: rows.map((p) => [
+          p.gatewayStatus,
+          p.verifiedAt !== null,
+          p.verifiedBy,
+        ]),
+        invoices: [(await invoice(a.id)).status, (await invoice(b.id)).status],
+        couponUsedCount: await couponUsedCount(),
+      }).toEqual({
+        cancel: 409,
+        rows: [
+          ["PAID", true, "Admin Keuangan"],
+          ["PAID", true, "Admin Keuangan"],
+        ],
+        invoices: ["PAID", "PAID"],
+        couponUsedCount: 1,
+      });
+    });
+
+    // Persetujuan dulu memindahkan payment satu per satu dan menerima hasil
+    // sebagian. Pembatalan pelanggan yang commit selagi persetujuan menunggu
+    // kunci barisnya kini membuat persetujuan gagal bersih.
+    it("persetujuan admin yang kalah dari pembatalan pelanggan gagal tanpa mengubah apa pun", async () => {
+      const a = await createInvoice("GWF-T9A", PRICE);
+      const b = await createInvoice("GWF-T9B", PRICE);
+      await payFromPortal([a.id, b.id], MANUAL_METHOD);
+      const ids = [
+        (await paymentsOf(a.id))[0].id,
+        (await paymentsOf(b.id))[0].id,
+      ];
+
+      let lockHeld!: () => void;
+      let releaseCustomer!: () => void;
+      const locked = new Promise<void>((resolve) => (lockHeld = resolve));
+      const customerMayCommit = new Promise<void>(
+        (resolve) => (releaseCustomer = resolve),
+      );
+      const customerCancel = prismaBillingAuth.$transaction(
+        async (tx) => {
+          await tx.payment.updateMany({
+            where: { id: { in: ids } },
+            data: { gatewayStatus: "CANCELLED" },
+          });
+          lockHeld();
+          await customerMayCommit;
+        },
+        { timeout: 30_000 },
+      );
+      await locked;
+
+      const approval = asTenant(() =>
+        new ManualPaymentAdminRouteService().verifyManualPayment({
+          paymentId: ids[0],
+          action: "APPROVE",
+        }),
+      ).then(
+        () => ({ status: 200, message: "" }),
+        (error: { status?: number; message: string }) => ({
+          status: error.status,
+          message: error.message,
+        }),
+      );
+      await waitForBlockedPaymentUpdate();
+      releaseCustomer();
+      await customerCancel;
+
+      const rows = await prismaBillingAuth.payment.findMany({
+        where: { id: { in: ids } },
+        select: { gatewayStatus: true, verifiedAt: true },
+      });
+      expect({
+        approval: await approval,
+        rows: rows.map((p) => [p.gatewayStatus, p.verifiedAt]),
+        invoices: [(await invoice(a.id)).status, (await invoice(b.id)).status],
+      }).toEqual({
+        approval: {
+          status: 409,
+          message: expect.stringMatching(/dibatalkan pelanggan/),
+        },
+        rows: [
+          ["CANCELLED", null],
+          ["CANCELLED", null],
+        ],
+        invoices: ["SENT", "SENT"],
       });
     });
 

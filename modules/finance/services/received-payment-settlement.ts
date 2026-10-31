@@ -29,23 +29,12 @@ export type ReceivedPayment = RedirectablePayment & {
  * yang mati di tengah jalan) hanya menyelesaikan langkah yang belum terjadi.
  */
 export async function settleReceivedPayments(payments: ReceivedPayment[]) {
-  await settleInvoicesOfReceivedPayments(payments);
-  await creditOverpaidPayments(payments);
-}
-
-/**
- * Langkah 1 dan 2 dari `settleReceivedPayments`: tagihan hidup dihitung ulang,
- * uang untuk tagihan batal dialihkan. Kelebihan bayar dikreditkan terpisah
- * oleh `creditOverpaidPayments`.
- */
-export async function settleInvoicesOfReceivedPayments(
-  payments: ReceivedPayment[],
-) {
   for (const [invoiceId, group] of groupByInvoice(payments)) {
     await inPaymentTenant(group[0].tenantId, () =>
       settleInvoicePayments(invoiceId, group),
     );
   }
+  await creditOverpaidPayments(payments);
 }
 
 async function settleInvoicePayments(

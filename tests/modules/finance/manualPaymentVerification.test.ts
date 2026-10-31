@@ -6,7 +6,7 @@ const palsu = vi.hoisted(() => ({
   releaseCoupons: vi.fn(),
   onPaymentRejected: vi.fn(),
   findPendingCheckoutPayments: vi.fn(),
-  claimPendingPayments: vi.fn(),
+  claimPendingCheckout: vi.fn(),
   findSettledPayments: vi.fn(),
 }));
 
@@ -15,7 +15,7 @@ vi.mock("@/modules/notification", () => ({
   sendCustomerPushNotification: palsu.push,
 }));
 vi.mock("@/modules/payment-gateway", () => ({
-  releaseCheckoutCoupons: palsu.releaseCoupons,
+  releaseUnusedCheckoutCoupons: palsu.releaseCoupons,
 }));
 vi.mock("@/modules/events", () => ({
   BillingEventDispatcher: { onPaymentRejected: palsu.onPaymentRejected },
@@ -27,7 +27,7 @@ vi.mock(
   "@/modules/finance/repositories/manualPaymentVerification.repository",
   () => ({
     findPendingCheckoutPayments: palsu.findPendingCheckoutPayments,
-    claimPendingPayments: palsu.claimPendingPayments,
+    claimPendingCheckout: palsu.claimPendingCheckout,
     findSettledPayments: palsu.findSettledPayments,
   }),
 );
@@ -85,7 +85,7 @@ describe("approveManualCheckout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     palsu.findPendingCheckoutPayments.mockResolvedValue([P1, P2]);
-    palsu.claimPendingPayments.mockResolvedValue(["p1", "p2"]);
+    palsu.claimPendingCheckout.mockResolvedValue(true);
     palsu.findSettledPayments.mockResolvedValue([
       settled("p1", "inv-1", { invoiceNumber: "INV-1", status: "PAID" }),
       settled("p2", "inv-2", { invoiceNumber: "INV-2", status: "PAID" }),
@@ -99,14 +99,16 @@ describe("approveManualCheckout", () => {
     });
 
     expect(palsu.findPendingCheckoutPayments).toHaveBeenCalledWith(P1);
-    const [claimed, buildData] = palsu.claimPendingPayments.mock.calls[0];
+    const [claimed, data, noteFor] = palsu.claimPendingCheckout.mock.calls[0];
     expect(claimed).toEqual([P1, P2]);
-    // Catatan admin ditambahkan; analisis OCR tidak tertimpa.
-    expect(buildData(P1)).toMatchObject({
+    expect(data).toEqual({
       gatewayStatus: "PAID",
+      paymentDate: expect.any(Date),
+      verifiedAt: expect.any(Date),
       verifiedBy: "Admin",
-      notes: "✅ [AI] cocok\nCatatan verifikasi: Dana masuk",
     });
+    // Catatan admin ditambahkan; analisis OCR tidak tertimpa.
+    expect(noteFor(P1)).toBe("✅ [AI] cocok\nCatatan verifikasi: Dana masuk");
     expect(palsu.settle).toHaveBeenCalledWith([P1, P2]);
     expect(result).toEqual({
       success: true,
@@ -115,14 +117,34 @@ describe("approveManualCheckout", () => {
     });
   });
 
-  // Dua admin bersamaan: yang kalah tidak menemukan PENDING lagi.
-  it("gagal bila tidak ada payment yang masih menunggu", async () => {
-    palsu.claimPendingPayments.mockResolvedValue([]);
+  it("tanpa catatan admin, catatan payment tidak ditulis ulang", async () => {
+    await approveManualCheckout(P1, { verifiedBy: "Admin" });
 
-    await expect(approveManualCheckout(P1, {})).rejects.toThrow(
-      "Payment not found or already processed",
-    );
+    expect(palsu.claimPendingCheckout.mock.calls[0][2]).toBeUndefined();
+  });
+
+  it("gagal bila tidak ada payment yang masih menunggu", async () => {
+    palsu.findPendingCheckoutPayments.mockResolvedValue([]);
+
+    await expect(approveManualCheckout(P1, {})).rejects.toMatchObject({
+      message: "Payment not found or already processed",
+      status: 404,
+    });
+    expect(palsu.claimPendingCheckout).not.toHaveBeenCalled();
     expect(palsu.settle).not.toHaveBeenCalled();
+  });
+
+  // Pembatalan pelanggan atau admin lain yang lebih dulu commit: klaim seluruh
+  // checkout gagal, tidak ada yang dilunasi sebagian.
+  it("gagal dengan 409 bila checkout berubah di tengah persetujuan", async () => {
+    palsu.claimPendingCheckout.mockResolvedValue(false);
+
+    await expect(approveManualCheckout(P1, {})).rejects.toMatchObject({
+      message: expect.stringMatching(/dibatalkan pelanggan/),
+      status: 409,
+    });
+    expect(palsu.settle).not.toHaveBeenCalled();
+    expect(palsu.push).not.toHaveBeenCalled();
   });
 
   /**
@@ -186,7 +208,7 @@ describe("rejectManualCheckout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     palsu.findPendingCheckoutPayments.mockResolvedValue([P1, P2]);
-    palsu.claimPendingPayments.mockResolvedValue(["p1", "p2"]);
+    palsu.claimPendingCheckout.mockResolvedValue(true);
   });
 
   // Dulu alasan admin menimpa `notes`, yang memuat analisis OCR bukti.
@@ -196,17 +218,19 @@ describe("rejectManualCheckout", () => {
       verifiedBy: "Admin",
     });
 
-    const [claimed, buildData] = palsu.claimPendingPayments.mock.calls[0];
+    const [claimed, data, noteFor] = palsu.claimPendingCheckout.mock.calls[0];
     expect(claimed).toEqual([P1, P2]);
-    const data = buildData(P1);
-    expect(data).toMatchObject({
+    expect(data).toEqual({
       gatewayStatus: "FAILED",
+      verifiedAt: expect.any(Date),
       verifiedBy: "Admin",
       rejectionReason: "Nominal tidak sesuai",
     });
-    expect(data).not.toHaveProperty("notes");
+    expect(noteFor).toBeUndefined();
   });
 
+  // Kupon dilepas sekali untuk seluruh checkout, kecuali yang masih dipegang
+  // payment lain yang hidup (mis. invoice Rp 0 yang tertutup kupon itu).
   it("mengembalikan kupon checkout dan memberi tahu pelanggan beserta alasannya", async () => {
     await rejectManualCheckout(P1, { reason: "Bukti buram" });
 
@@ -224,7 +248,7 @@ describe("rejectManualCheckout", () => {
   it("alasan kosong tetap memberi tahu pelanggan, tanpa alasan", async () => {
     await rejectManualCheckout(P1, { reason: "   " });
 
-    expect(palsu.claimPendingPayments.mock.calls[0][1](P1)).toMatchObject({
+    expect(palsu.claimPendingCheckout.mock.calls[0][1]).toMatchObject({
       rejectionReason: null,
     });
     expect(palsu.onPaymentRejected).toHaveBeenCalledWith(
@@ -248,11 +272,11 @@ describe("rejectManualCheckout", () => {
   });
 
   it("gagal tanpa efek samping bila bukti sudah diproses admin lain", async () => {
-    palsu.claimPendingPayments.mockResolvedValue([]);
+    palsu.claimPendingCheckout.mockResolvedValue(false);
 
-    await expect(rejectManualCheckout(P1, {})).rejects.toThrow(
-      "Payment not found or already processed",
-    );
+    await expect(rejectManualCheckout(P1, {})).rejects.toMatchObject({
+      status: 409,
+    });
     expect(palsu.releaseCoupons).not.toHaveBeenCalled();
     expect(palsu.onPaymentRejected).not.toHaveBeenCalled();
   });

@@ -40,6 +40,18 @@ describe("biaya gateway", () => {
     expect(prismaMock.payment.update).not.toHaveBeenCalled();
   });
 
+  // Cek status gateway (penyapu, portal) sudah membawa biayanya; bertanya
+  // lagi hanya menambah risiko Duitku memblokir merchant.
+  it("biaya yang sudah dilaporkan gateway disimpan tanpa cek status lagi", async () => {
+    await recordGatewayFee("DUITKU", PAYMENT, 4000);
+
+    expect(palsu.checkStatus).not.toHaveBeenCalled();
+    expect(prismaMock.payment.update).toHaveBeenCalledWith({
+      where: { id: "p1" },
+      data: { gatewayFee: 4000n },
+    });
+  });
+
   it("cek status yang gagal tidak menggagalkan pelunasan", async () => {
     palsu.checkStatus.mockRejectedValue(new Error("timeout"));
 

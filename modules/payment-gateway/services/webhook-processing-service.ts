@@ -1,19 +1,17 @@
 import { logger } from "@/lib/logger";
-import type { GatewayPaymentStatus, Prisma } from "@/modules/finance";
+import type { GatewayPaymentStatus } from "@/modules/finance";
 
 import { FinanceRepositoryFacade } from "@/modules/finance";
 import { prismaBillingAuth } from "@/lib/prisma-billing";
 import { PaymentGatewayManager } from "./PaymentGatewayService";
 import {
   isUnpaidTerminalStatus,
-  releaseCheckoutCoupons,
+  releaseUnusedCheckoutCoupons,
 } from "./abandoned-checkout";
-import { flagPaymentForReview } from "./payment-review";
 import {
   findCheckoutPayments,
-  settlePaidCheckout,
-  sumCheckoutAmount,
-} from "./webhook-checkout-settlement";
+  settleCheckoutPaidAtGateway,
+} from "./gateway-status-settlement";
 import { WebhookPaymentLookupService } from "./webhook-payment-lookup-service";
 import {
   WebhookPayloadParser,
@@ -26,12 +24,7 @@ import {
 import { WebhookIdempotencyService } from "./WebhookIdempotencyService";
 import { getPaymentGatewayMetrics } from "./PaymentGatewayMetrics";
 import type { WebhookResult } from "./provider-interface";
-import { recordGatewayFee } from "./gateway-fee";
-import {
-  hasAmountMismatch,
-  normalizePaymentMethod,
-  hasTransactionMismatch,
-} from "./webhook-utils";
+import { hasTransactionMismatch } from "./webhook-utils";
 
 type PaymentRepository = ReturnType<
   typeof FinanceRepositoryFacade.createPaymentRepository
@@ -47,12 +40,30 @@ type ProcessWebhookInput = {
   tenantId?: string | null;
 };
 
+type WebhookContext = {
+  provider: string;
+  webhookResult: WebhookResult;
+  webhookEventId: string;
+  startTime: number;
+};
+
 export type ProcessWebhookResult = {
   status: number;
   body: { status?: string; error?: string; message?: string };
 };
 
-const TRANSACTION_MISMATCH = "TRANSACTION_MISMATCH";
+// Tetap dijawab 200: retry gateway tidak mengubah nominal maupun nomor
+// transaksinya.
+const MISMATCH_RESPONSES = {
+  AMOUNT_MISMATCH: {
+    failure: "Amount mismatch",
+    message: "Payment amount mismatch - flagged for review",
+  },
+  TRANSACTION_MISMATCH: {
+    failure: "Transaction mismatch",
+    message: "Payment transaction mismatch - flagged for review",
+  },
+} as const;
 
 const GATEWAY_STATUS_MAP: Record<
   WebhookResult["status"],
@@ -197,36 +208,7 @@ export class WebhookProcessingService {
         });
       }
 
-      const checkout = payment ? await findCheckoutPayments(payment.id) : [];
-      const chargedAmount = sumCheckoutAmount(checkout);
-
-      // Step 8: Validate amount. Tetap dijawab 200 (retry tidak mengubah
-      // nominal), tetapi staf keuangan diberi tahu karena tidak dilunasi.
-      if (payment && hasAmountMismatch(chargedAmount, webhookResult.amount)) {
-        await flagPaymentForReview({
-          provider,
-          orderId: webhookResult.orderId,
-          paymentId: payment.id,
-          tenantId: payment.tenantId ?? null,
-          reason: "AMOUNT_MISMATCH",
-          expected: chargedAmount.toString(),
-          received: String(webhookResult.amount),
-        });
-        await this.idempotencyService.markAsFailed(
-          webhookEventId,
-          `Amount mismatch: expected ${chargedAmount}, received ${webhookResult.amount}`,
-        );
-        this.metrics.recordWebhookFailed(provider, "Amount mismatch");
-        return {
-          status: 200,
-          body: {
-            status: "ok",
-            message: "Payment amount mismatch - flagged for review",
-          },
-        };
-      }
-
-      // Step 9: Handle payment not found
+      // Step 8: Handle payment not found
       if (!payment) {
         await this.paymentLookupService.recordUnmatchedMutationForMoota(
           provider,
@@ -243,108 +225,14 @@ export class WebhookProcessingService {
         };
       }
 
-      // Step 10: Check if already processed. Invoice tetap dihitung ulang:
-      // proses yang mati setelah commit dipulihkan oleh retry gateway.
-      if (payment.gatewayStatus === "PAID") {
-        await settlePaidCheckout(checkout, { justMarkedPaid: false });
-        await this.idempotencyService.markAsProcessed(webhookEventId);
-        this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);
-        return {
-          status: 200,
-          body: { status: "ok", message: "Already processed" },
-        };
-      }
-
-      // Step 11: Update semua payment checkout dan tandai event dalam satu tx.
-      const outcome = await prismaBillingAuth.$transaction(async (tx) => {
-        // Re-check idempotency di dalam tx untuk mencegah race condition
-        const currentPayment = await tx.payment.findUnique({
-          where: { id: payment.id },
-        });
-
-        if (currentPayment?.gatewayStatus === "PAID") {
-          return null;
-        }
-
-        if (
-          hasTransactionMismatch(
-            currentPayment?.transactionId ?? null,
-            webhookResult.transactionId,
-          )
-        ) {
-          return TRANSACTION_MISMATCH;
-        }
-
-        // gatewayProvider tetap kode channel dari portal (mis. "SP"), agar
-        // admin tahu metode yang dipakai; gateway-nya bisa diturunkan darinya.
-        const paymentUpdate: Prisma.PaymentUpdateManyMutationInput = {
-          gatewayStatus,
-        };
-
-        const normalizedPaymentMethod = normalizePaymentMethod(
-          webhookResult.paymentMethod,
-        );
-        if (normalizedPaymentMethod) {
-          paymentUpdate.paymentMethod = normalizedPaymentMethod;
-        }
-
-        if (webhookResult.paidAt) {
-          paymentUpdate.paymentDate = webhookResult.paidAt;
-        }
-
-        // Webhook ganda yang berbarengan menunggu kunci baris di sini; yang
-        // kedua tidak lagi menemukan baris non-PAID dan tidak ikut melunasi.
-        const moved = await tx.payment.updateMany({
-          where: {
-            id: { in: checkout.map((p) => p.id) },
-            gatewayStatus: { not: "PAID" },
-          },
-          data: paymentUpdate,
-        });
-        if (webhookResult.transactionId) {
-          await tx.payment.update({
-            where: { id: payment.id },
-            data: { transactionId: webhookResult.transactionId },
-          });
-        }
-
-        if (webhookEventId) {
-          await tx.webhookEvent.update({
-            where: { id: webhookEventId },
-            data: { status: "PROCESSED", processedAt: new Date() },
-          });
-        }
-        return moved.count > 0 ? gatewayStatus : null;
-      });
-
-      if (outcome === TRANSACTION_MISMATCH) {
-        return this.flagTransactionMismatch({
-          provider,
-          payment,
-          webhookResult,
-          webhookEventId,
-          startTime,
-        });
-      }
-
-      // Step 12: Lunasi invoice, atau kembalikan kupon checkout yang tidak
-      // dibayar, setelah commit. Invoice dan kupon ada di database lain dari
-      // transaksi ini, jadi tidak bisa ikut di dalamnya.
-      if (outcome === "PAID") {
-        // Biaya dicatat sebelum pelunasan: jurnal penerimaan (worker
-        // INVOICE_PAID) membukukannya sebagai beban.
-        await recordGatewayFee(provider, payment);
-        await settlePaidCheckout(checkout, { justMarkedPaid: true });
-      } else if (outcome && isUnpaidTerminalStatus(outcome)) {
-        await releaseCheckoutCoupons(checkout);
-      }
-
-      this.metrics.recordWebhookProcessed(provider, Date.now() - startTime);
-
-      return {
-        status: 200,
-        body: { status: "ok" },
-      };
+      // Step 9: Lunasi lewat jalur yang sama dengan cek status gateway dan
+      // penyapu checkout, atau tutup checkout yang tidak dibayar. Event baru
+      // ditandai PROCESSED setelah semuanya selesai, jadi proses yang mati di
+      // tengahnya diulang oleh retry gateway.
+      const context = { provider, webhookResult, webhookEventId, startTime };
+      return webhookResult.status === "PAID"
+        ? await this.settlePaid(payment.id, context)
+        : await this.closeUnpaid(payment, gatewayStatus, context);
     } catch (error) {
       if (webhookEventId) {
         const errorMessage =
@@ -366,46 +254,104 @@ export class WebhookProcessingService {
     }
   }
 
-  /**
-   * Nomor transaksi gateway berbeda dari yang tercatat saat checkout dibuat:
-   * tidak dilunasi, tetapi dijawab 200 (retry tidak mengubah nomornya) dan
-   * staf keuangan diberi tahu. Dulu dijawab "ok" tanpa jejak apa pun selain
-   * baris WebhookEvent yang tertinggal PENDING.
-   */
-  private async flagTransactionMismatch(input: {
-    provider: string;
-    payment: {
-      id: string;
-      tenantId: string | null;
-      transactionId: string | null;
-    };
-    webhookResult: WebhookResult;
-    webhookEventId: string;
-    startTime: number;
-  }): Promise<ProcessWebhookResult> {
-    const expected = input.payment.transactionId ?? "-";
-    const received = input.webhookResult.transactionId ?? "-";
-    await flagPaymentForReview({
-      provider: input.provider,
-      orderId: input.webhookResult.orderId,
-      paymentId: input.payment.id,
-      tenantId: input.payment.tenantId,
-      reason: "TRANSACTION_MISMATCH",
-      expected,
-      received,
+  private async settlePaid(
+    paymentId: string,
+    context: WebhookContext,
+  ): Promise<ProcessWebhookResult> {
+    const settlement = await settleCheckoutPaidAtGateway({
+      paymentId,
+      provider: context.provider,
+      status: context.webhookResult,
     });
-    await this.idempotencyService.markAsFailed(
-      input.webhookEventId,
-      `Transaction mismatch: expected ${expected}, received ${received}`,
+    if (
+      settlement.outcome === "AMOUNT_MISMATCH" ||
+      settlement.outcome === "TRANSACTION_MISMATCH"
+    ) {
+      const response = MISMATCH_RESPONSES[settlement.outcome];
+      return this.rejectMismatch(
+        context,
+        `${response.failure}: expected ${settlement.expected}, received ${settlement.received}`,
+        response.failure,
+        response.message,
+      );
+    }
+
+    await this.idempotencyService.markAsProcessed(context.webhookEventId);
+    this.metrics.recordWebhookProcessed(
+      context.provider,
+      Date.now() - context.startTime,
     );
-    this.metrics.recordWebhookFailed(input.provider, "Transaction mismatch");
     return {
       status: 200,
-      body: {
-        status: "ok",
-        message: "Payment transaction mismatch - flagged for review",
-      },
+      body:
+        settlement.outcome === "ALREADY_PAID"
+          ? { status: "ok", message: "Already processed" }
+          : { status: "ok" },
     };
+  }
+
+  /**
+   * Notifikasi tanpa uang (menunggu, kedaluwarsa, batal, gagal). Hanya
+   * payment checkout yang masih menunggu yang ditutup, dan kupon hanya
+   * dikembalikan untuk payment yang benar-benar ditutup di sini dan tidak
+   * dipegang payment lain; payment yang sudah lunas, dikembalikan, atau
+   * ditutup lebih dulu tidak berubah. Nomor transaksinya tidak disimpan:
+   * percobaan bayar yang ditolak (mis. kartu di Midtrans) bernomor lain dari
+   * percobaan yang berhasil untuk orderId yang sama.
+   */
+  private async closeUnpaid(
+    payment: { id: string; transactionId: string | null },
+    gatewayStatus: GatewayPaymentStatus,
+    context: WebhookContext,
+  ): Promise<ProcessWebhookResult> {
+    const received = context.webhookResult.transactionId;
+    if (hasTransactionMismatch(payment.transactionId, received)) {
+      // Tidak ada uang yang dinyatakan masuk, jadi staf tidak diberi tahu.
+      const failure = MISMATCH_RESPONSES.TRANSACTION_MISMATCH.failure;
+      return this.rejectMismatch(
+        context,
+        `${failure}: expected ${payment.transactionId}, received ${received}`,
+        failure,
+        "Payment transaction mismatch - ignored",
+      );
+    }
+
+    if (isUnpaidTerminalStatus(gatewayStatus)) {
+      const checkout = await findCheckoutPayments(payment.id);
+      const closed = await prismaBillingAuth.payment.updateManyAndReturn({
+        where: {
+          id: { in: checkout.map((p) => p.id) },
+          gatewayStatus: "PENDING",
+        },
+        data: { gatewayStatus },
+        select: {
+          id: true,
+          couponUsageId: true,
+          couponId: true,
+          pelangganId: true,
+          tenantId: true,
+        },
+      });
+      await releaseUnusedCheckoutCoupons(closed);
+    }
+
+    await this.idempotencyService.markAsProcessed(context.webhookEventId);
+    this.metrics.recordWebhookProcessed(
+      context.provider,
+      Date.now() - context.startTime,
+    );
+    return { status: 200, body: { status: "ok" } };
+  }
+
+  private async rejectMismatch(
+    context: WebhookContext,
+    reason: string,
+    failure: string,
+    message: string,
+  ): Promise<ProcessWebhookResult> {
+    await this.idempotencyService.markAsFailed(context.webhookEventId, reason);
+    this.metrics.recordWebhookFailed(context.provider, failure);
+    return { status: 200, body: { status: "ok", message } };
   }
 
   private handleError(error: unknown): ProcessWebhookResult {

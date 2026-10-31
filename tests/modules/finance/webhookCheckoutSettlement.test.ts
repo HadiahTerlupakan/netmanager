@@ -1,13 +1,20 @@
 /**
- * Webhook gateway dulu menulis INVOICE_PAID ke tabel OutboxEvent lewat
- * transaksi database billing, padahal tabel itu hanya ada di database utama:
- * setiap webhook PAID gagal dan rollback, sehingga pelanggan yang membayar
- * lewat gateway tidak pernah lunas. Checkout beberapa invoice juga hanya
- * mencocokkan payment pertama dengan total seluruh checkout.
+ * Webhook gateway dulu punya aturan pelunasannya sendiri, berbeda dari cek
+ * status dan penyapu checkout: "sudah diproses" dibaca dari satu payment
+ * (payment Rp 0 yang PAID sejak dibuat membuat checkout lain tak pernah
+ * lunas), payment REFUNDED/FAILED ikut dipindah, dan kupon seluruh checkout
+ * dilepas walau sebagian payment-nya sudah ditutup lebih dulu. Kini PAID
+ * memakai `settleCheckoutPaidAtGateway` yang sama (aturannya diuji di
+ * gatewayStatusSettlement.test.ts); di sini yang diuji hanya peran webhook.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 import { prismaMock } from "../../setup";
+
+// Tidak terdaftar di tipe MockPrismaClient; dipasang per tes.
+const payments = prismaMock.payment as unknown as {
+  updateManyAndReturn: Mock;
+};
 
 const mockFns = vi.hoisted(() => ({
   processWebhook: vi.fn(),
@@ -17,21 +24,21 @@ const mockFns = vi.hoisted(() => ({
   markAsFailed: vi.fn(),
   generateIdempotencyKey: vi.fn(),
   findCheckoutPayments: vi.fn(),
-  settlePaidCheckout: vi.fn(),
-  releaseCheckoutCoupons: vi.fn(),
-  flagPaymentForReview: vi.fn(),
+  settleCheckoutPaidAtGateway: vi.fn(),
+  releaseUnusedCheckoutCoupons: vi.fn(),
 }));
 
 vi.mock(
   "@/modules/payment-gateway/services/abandoned-checkout",
   async (importOriginal) => ({
     ...(await importOriginal<object>()),
-    releaseCheckoutCoupons: mockFns.releaseCheckoutCoupons,
+    releaseUnusedCheckoutCoupons: mockFns.releaseUnusedCheckoutCoupons,
   }),
 );
 
-vi.mock("@/modules/payment-gateway/services/payment-review", () => ({
-  flagPaymentForReview: mockFns.flagPaymentForReview,
+vi.mock("@/modules/payment-gateway/services/gateway-status-settlement", () => ({
+  findCheckoutPayments: mockFns.findCheckoutPayments,
+  settleCheckoutPaidAtGateway: mockFns.settleCheckoutPaidAtGateway,
 }));
 
 vi.mock("@/modules/payment-gateway/services/PaymentGatewayService", () => ({
@@ -61,15 +68,6 @@ vi.mock(
   }),
 );
 
-vi.mock(
-  "@/modules/payment-gateway/services/webhook-checkout-settlement",
-  async (importOriginal) => ({
-    ...(await importOriginal<object>()),
-    findCheckoutPayments: mockFns.findCheckoutPayments,
-    settlePaidCheckout: mockFns.settlePaidCheckout,
-  }),
-);
-
 vi.mock("@/modules/payment-gateway/services/PaymentGatewayMetrics", () => ({
   getPaymentGatewayMetrics: () => ({
     recordWebhookReceived: vi.fn(),
@@ -92,188 +90,176 @@ const PAYMENT = {
 };
 
 const CHECKOUT = [
-  {
-    id: "pay-1",
-    amount: BigInt(60000),
-    invoiceId: "inv-1",
-    tenantId: "tenant-a",
-  },
-  {
-    id: "pay-2",
-    amount: BigInt(40000),
-    invoiceId: "inv-2",
-    tenantId: "tenant-a",
-  },
+  { id: "pay-1", amount: BigInt(60000), invoiceId: "inv-1" },
+  { id: "pay-2", amount: BigInt(40000), invoiceId: "inv-2" },
 ];
 
-function webhook(status: string, amount = 100000) {
-  mockFns.processWebhook.mockResolvedValue({
+function webhook(status: string) {
+  const result = {
     orderId: "PAY-1",
     status,
-    amount,
+    amount: 100000,
     transactionId: "tx-1",
-  });
-  return new WebhookProcessingService().process({
+  };
+  mockFns.processWebhook.mockResolvedValue(result);
+  const response = new WebhookProcessingService().process({
     providerType: "TRIPAY",
     rawBody: JSON.stringify({ merchant_ref: "PAY-1" }),
     headers: new Headers({ "x-callback-signature": "sig" }),
     tenantId: null,
   });
+  return { result, response };
 }
 
 describe("WebhookProcessingService — pelunasan checkout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.payment.updateMany.mockResolvedValue({ count: 2 });
-    prismaMock.$transaction.mockImplementation(async (callback: unknown) =>
-      typeof callback === "function" ? callback(prismaMock) : callback,
-    );
     prismaMock.payment.findFirst.mockResolvedValue(PAYMENT);
     prismaMock.payment.findUnique.mockResolvedValue(PAYMENT);
     mockFns.checkIdempotency.mockResolvedValue(null);
     mockFns.recordWebhookEvent.mockResolvedValue({ id: "event-1" });
     mockFns.generateIdempotencyKey.mockReturnValue("TRIPAY:tx-1:PAID");
     mockFns.findCheckoutPayments.mockResolvedValue(CHECKOUT);
+    mockFns.settleCheckoutPaidAtGateway.mockResolvedValue({
+      outcome: "SETTLED",
+    });
+    payments.updateManyAndReturn = vi.fn().mockResolvedValue([]);
   });
 
-  it("PAID melunasi semua payment checkout lalu menghitung ulang invoicenya", async () => {
-    const result = await webhook("PAID");
+  it("PAID dilunasi lewat jalur yang sama dengan cek status dan penyapu checkout", async () => {
+    const { result, response } = webhook("PAID");
 
-    expect(result).toEqual({ status: 200, body: { status: "ok" } });
-    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["pay-1", "pay-2"] }, gatewayStatus: { not: "PAID" } },
-      data: expect.objectContaining({ gatewayStatus: "PAID" }),
+    expect(await response).toEqual({ status: 200, body: { status: "ok" } });
+    expect(mockFns.settleCheckoutPaidAtGateway).toHaveBeenCalledWith({
+      paymentId: "pay-1",
+      provider: "TRIPAY",
+      status: result,
     });
-    expect(mockFns.settlePaidCheckout).toHaveBeenCalledWith(CHECKOUT, {
-      justMarkedPaid: true,
-    });
-    const { webhookEvent } = prismaMock as unknown as {
-      webhookEvent: { update: ReturnType<typeof vi.fn> };
-    };
-    expect(webhookEvent.update).toHaveBeenCalledWith({
-      where: { id: "event-1" },
-      data: expect.objectContaining({ status: "PROCESSED" }),
-    });
+    expect(mockFns.markAsProcessed).toHaveBeenCalledWith("event-1");
   });
 
-  // Checkout yang ditutup karena pelanggan ganti metode tetap bisa dibayar
-  // lewat VA lamanya (Duitku tidak bisa menutup VA lebih awal).
-  it("PAID untuk checkout yang dibatalkan saat ganti metode tetap melunasi", async () => {
-    const cancelled = { ...PAYMENT, gatewayStatus: "CANCELLED" };
-    prismaMock.payment.findFirst.mockResolvedValue(cancelled);
-    prismaMock.payment.findUnique.mockResolvedValue(cancelled);
+  it("callback untuk checkout yang sudah lunas dijawab sudah diproses", async () => {
+    mockFns.settleCheckoutPaidAtGateway.mockResolvedValue({
+      outcome: "ALREADY_PAID",
+    });
 
-    await webhook("PAID");
+    expect(await webhook("PAID").response).toEqual({
+      status: 200,
+      body: { status: "ok", message: "Already processed" },
+    });
+    expect(mockFns.markAsProcessed).toHaveBeenCalledWith("event-1");
+  });
 
-    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith(
+  // Tetap 200 (retry tidak mengubah datanya); staf diberi tahu oleh jalur
+  // pelunasan, event ditandai gagal beserta alasannya.
+  it.each([
+    [
+      "AMOUNT_MISMATCH",
+      "100000",
+      "60000",
+      "Amount mismatch: expected 100000, received 60000",
+      "Payment amount mismatch - flagged for review",
+    ],
+    [
+      "TRANSACTION_MISMATCH",
+      "tx-lain",
+      "tx-1",
+      "Transaction mismatch: expected tx-lain, received tx-1",
+      "Payment transaction mismatch - flagged for review",
+    ],
+  ])(
+    "%s tidak dilunasi dan event-nya ditandai gagal",
+    async (outcome, expected, received, failure, message) => {
+      mockFns.settleCheckoutPaidAtGateway.mockResolvedValue({
+        outcome,
+        expected,
+        received,
+      });
+
+      expect(await webhook("PAID").response).toEqual({
+        status: 200,
+        body: { status: "ok", message },
+      });
+      expect(mockFns.markAsFailed).toHaveBeenCalledWith("event-1", failure);
+      expect(mockFns.markAsProcessed).not.toHaveBeenCalled();
+    },
+  );
+
+  // Event dulu ditandai PROCESSED di transaksi payment, sebelum invoice
+  // dilunasi: retry gateway setelah proses mati dianggap duplikat.
+  it("pelunasan yang gagal di tengah jalan tidak menandai event selesai", async () => {
+    mockFns.settleCheckoutPaidAtGateway.mockRejectedValue(
+      new Error("billing db terputus"),
+    );
+
+    expect((await webhook("PAID").response).status).toBe(500);
+    expect(mockFns.markAsProcessed).not.toHaveBeenCalled();
+    expect(mockFns.markAsFailed).toHaveBeenCalledWith(
+      "event-1",
+      "billing db terputus",
+    );
+  });
+
+  it("EXPIRED menutup payment yang masih menunggu dan mengembalikan kupon yang benar-benar ditutup", async () => {
+    const closed = [
+      {
+        id: "pay-2",
+        couponUsageId: "use-1",
+        couponId: "kupon-1",
+        pelangganId: "cust-1",
+        tenantId: "tenant-a",
+      },
+    ];
+    payments.updateManyAndReturn.mockResolvedValue(closed);
+
+    expect(await webhook("EXPIRED").response).toEqual({
+      status: 200,
+      body: { status: "ok" },
+    });
+    expect(payments.updateManyAndReturn).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ gatewayStatus: "PAID" }),
+        where: { id: { in: ["pay-1", "pay-2"] }, gatewayStatus: "PENDING" },
+        data: { gatewayStatus: "EXPIRED" },
       }),
     );
-    // Invoice-nya bisa sudah lunas oleh metode pengganti: kelebihannya
-    // menjadi saldo, bukan diterima diam-diam (settlePaidCheckout).
-    expect(mockFns.settlePaidCheckout).toHaveBeenCalledWith(CHECKOUT, {
-      justMarkedPaid: true,
-    });
+    expect(mockFns.releaseUnusedCheckoutCoupons).toHaveBeenCalledWith(closed);
+    expect(mockFns.settleCheckoutPaidAtGateway).not.toHaveBeenCalled();
+    expect(mockFns.markAsProcessed).toHaveBeenCalledWith("event-1");
   });
 
-  it("nominal dicocokkan dengan total checkout, bukan payment pertama", async () => {
-    const result = await webhook("PAID", 60000);
+  // Dulu notifikasi pending memindahkan payment EXPIRED atau CANCELLED
+  // checkout itu kembali ke PENDING.
+  it("notifikasi PENDING tidak mengubah payment apa pun", async () => {
+    await webhook("PENDING").response;
 
-    expect(result.body.message).toContain("mismatch");
+    expect(payments.updateManyAndReturn).not.toHaveBeenCalled();
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
-    expect(mockFns.settlePaidCheckout).not.toHaveBeenCalled();
+    expect(mockFns.releaseUnusedCheckoutCoupons).not.toHaveBeenCalled();
   });
 
-  // Dulu hanya log warn dan baris WebhookEvent: tidak ada yang tahu ada
-  // uang yang tidak dilunasi.
-  it("nominal yang tidak cocok diteruskan ke staf keuangan untuk diperiksa", async () => {
-    const result = await webhook("PAID", 60000);
+  // Percobaan bayar yang ditolak bernomor transaksi lain dari percobaan yang
+  // berhasil; menyimpannya membuat callback lunas sesudahnya dianggap tidak
+  // cocok.
+  it("notifikasi tanpa uang tidak menyimpan nomor transaksinya", async () => {
+    await webhook("FAILED").response;
 
-    expect(result.status).toBe(200);
-    expect(mockFns.flagPaymentForReview).toHaveBeenCalledWith({
-      provider: "TRIPAY",
-      orderId: "PAY-1",
-      paymentId: "pay-1",
-      tenantId: "tenant-a",
-      reason: "AMOUNT_MISMATCH",
-      expected: "100000",
-      received: "60000",
-    });
+    expect(prismaMock.payment.update).not.toHaveBeenCalled();
   });
 
-  it("nomor transaksi yang tidak cocok tidak melunasi dan diteruskan untuk diperiksa", async () => {
-    prismaMock.payment.findUnique.mockResolvedValue({
-      ...PAYMENT,
-      transactionId: "tx-lain",
-    });
+  it("notifikasi gagal bernomor transaksi lain tidak menutup checkout", async () => {
     prismaMock.payment.findFirst.mockResolvedValue({
       ...PAYMENT,
       transactionId: "tx-lain",
     });
 
-    const result = await webhook("PAID");
-
-    expect(result).toEqual({
+    expect(await webhook("FAILED").response).toEqual({
       status: 200,
-      body: {
-        status: "ok",
-        message: "Payment transaction mismatch - flagged for review",
-      },
+      body: { status: "ok", message: "Payment transaction mismatch - ignored" },
     });
-    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
-    expect(mockFns.settlePaidCheckout).not.toHaveBeenCalled();
+    expect(payments.updateManyAndReturn).not.toHaveBeenCalled();
     expect(mockFns.markAsFailed).toHaveBeenCalledWith(
       "event-1",
       "Transaction mismatch: expected tx-lain, received tx-1",
     );
-    expect(mockFns.flagPaymentForReview).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reason: "TRANSACTION_MISMATCH",
-        expected: "tx-lain",
-        received: "tx-1",
-      }),
-    );
-  });
-
-  it("retry setelah payment PAID tetap menghitung ulang invoice", async () => {
-    prismaMock.payment.findFirst.mockResolvedValue({
-      ...PAYMENT,
-      gatewayStatus: "PAID",
-    });
-
-    await webhook("PAID");
-
-    expect(mockFns.settlePaidCheckout).toHaveBeenCalledWith(CHECKOUT, {
-      justMarkedPaid: false,
-    });
-    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
-  });
-
-  it("webhook ganda yang tidak lagi memindahkan payment tidak melunasi ulang", async () => {
-    prismaMock.payment.updateMany.mockResolvedValue({ count: 0 });
-
-    await webhook("PAID");
-
-    expect(mockFns.settlePaidCheckout).not.toHaveBeenCalled();
-  });
-
-  it("EXPIRED hanya mengubah status payment tanpa melunasi invoice", async () => {
-    await webhook("EXPIRED");
-
-    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ gatewayStatus: "EXPIRED" }),
-      }),
-    );
-    expect(mockFns.settlePaidCheckout).not.toHaveBeenCalled();
-    // Checkout yang tidak dibayar dulu menghabiskan kuota kupon pelanggan.
-    expect(mockFns.releaseCheckoutCoupons).toHaveBeenCalledWith(CHECKOUT);
-  });
-
-  it("PAID tidak mengembalikan kupon", async () => {
-    await webhook("PAID");
-
-    expect(mockFns.releaseCheckoutCoupons).not.toHaveBeenCalled();
   });
 });

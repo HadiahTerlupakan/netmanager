@@ -6,7 +6,7 @@ import {
   sendCustomerPushNotification,
 } from "@/modules/notification";
 import {
-  claimPendingPayments,
+  claimPendingCheckout,
   findPendingCheckoutPayments,
   findSettledPayments,
   type VerifiablePayment,
@@ -15,8 +15,11 @@ import { InvoiceStatus } from "../types/invoice.enums";
 import { settleReceivedPayments } from "./received-payment-settlement";
 
 const HTTP_NOT_FOUND = 404;
+const HTTP_CONFLICT = 409;
 export const PAYMENT_NOT_FOUND_MESSAGE =
   "Payment not found or already processed";
+const CHECKOUT_CHANGED_MESSAGE =
+  "Transfer ini baru saja dibatalkan pelanggan atau diproses admin lain. Muat ulang daftar verifikasi.";
 
 const formatRupiah = (amount: bigint) =>
   `Rp ${Number(amount).toLocaleString("id-ID")}`;
@@ -46,66 +49,82 @@ export function isManualTransferPayment(payment: {
  * Setujui bukti transfer untuk seluruh checkout-nya, lalu lunasi lewat jalur
  * yang sama dengan webhook gateway: tagihan yang sudah lunas atau dibatalkan
  * tidak dilunasi dua kali; uangnya ke tagihan pengganti atau saldo kredit, dan
- * admin menerima penjelasannya di `warnings`.
+ * admin menerima penjelasannya di `warnings`. Pembatalan pelanggan atau
+ * keputusan admin lain yang lebih dulu commit membuatnya gagal dengan 409.
  */
 export async function approveManualCheckout(
   payment: VerifiablePayment,
   options: { notes?: string | null; verifiedBy?: string | null },
 ): Promise<ManualVerificationResult> {
-  const checkout = await findPendingCheckoutPayments(payment);
+  const checkout = await findPendingCheckout(payment);
   const now = new Date();
-  const approvedIds = await claimPendingPayments(checkout, (pending) => ({
-    gatewayStatus: "PAID",
-    paymentDate: now,
-    verifiedAt: now,
-    verifiedBy: options.verifiedBy ?? null,
-    notes: appendNote(pending.notes, options.notes),
-  }));
-  if (approvedIds.length === 0) {
-    throw createRouteServiceError(PAYMENT_NOT_FOUND_MESSAGE, HTTP_NOT_FOUND);
-  }
+  await claimWholeCheckout(
+    checkout,
+    {
+      gatewayStatus: "PAID",
+      paymentDate: now,
+      verifiedAt: now,
+      verifiedBy: options.verifiedBy ?? null,
+    },
+    options.notes
+      ? (pending) => appendNote(pending.notes, options.notes)
+      : undefined,
+  );
 
-  const approved = checkout.filter((p) => approvedIds.includes(p.id));
-  await settleReceivedPayments(approved);
-  const settled = await findSettledPayments(approvedIds);
-  await notifyRemainingBalance(approved, settled);
+  await settleReceivedPayments(checkout);
+  const settled = await findSettledPayments(checkout.map((p) => p.id));
+  await notifyRemainingBalance(checkout, settled);
 
   return {
     success: true,
     message: "Payment approved",
-    warnings: describeSettlement(approved, settled),
+    warnings: describeSettlement(checkout, settled),
   };
 }
 
 /**
- * Tolak bukti transfer untuk seluruh checkout-nya; hanya yang masih PENDING.
- * Alasan admin disimpan di `rejectionReason`, terpisah dari `notes` yang
- * memuat analisis OCR, lalu dikirim ke pelanggan lewat notifikasi tagihan
- * (in-app, push, WhatsApp/email sesuai pengaturannya). Pemesanan kupon
- * checkout dikembalikan supaya pelanggan bisa memakainya lagi.
+ * Tolak bukti transfer untuk seluruh checkout-nya, atau gagal dengan 409 bila
+ * checkout itu berubah lebih dulu. Alasan admin disimpan di
+ * `rejectionReason`, terpisah dari `notes` yang memuat analisis OCR, lalu
+ * dikirim ke pelanggan lewat notifikasi tagihan (in-app, push, WhatsApp/email
+ * sesuai pengaturannya). Pemesanan kupon checkout dikembalikan sekali supaya
+ * pelanggan bisa memakainya lagi, kecuali yang masih dipegang payment lain
+ * yang hidup (mis. invoice Rp 0 yang tertutup kupon itu).
  */
 export async function rejectManualCheckout(
   payment: VerifiablePayment,
   options: { reason?: string | null; verifiedBy?: string | null },
 ): Promise<ManualVerificationResult> {
-  const checkout = await findPendingCheckoutPayments(payment);
-  const now = new Date();
+  const checkout = await findPendingCheckout(payment);
   const reason = options.reason?.trim() || null;
-  const rejectedIds = await claimPendingPayments(checkout, () => ({
+  await claimWholeCheckout(checkout, {
     gatewayStatus: "FAILED",
-    verifiedAt: now,
+    verifiedAt: new Date(),
     verifiedBy: options.verifiedBy ?? null,
     rejectionReason: reason,
-  }));
-  if (rejectedIds.length === 0) {
+  });
+
+  const { releaseUnusedCheckoutCoupons } =
+    await import("@/modules/payment-gateway");
+  await releaseUnusedCheckoutCoupons(checkout);
+  await notifyRejection(payment, checkout, reason);
+  return { success: true, message: "Payment rejected", warnings: [] };
+}
+
+async function findPendingCheckout(payment: VerifiablePayment) {
+  const checkout = await findPendingCheckoutPayments(payment);
+  if (checkout.length === 0) {
     throw createRouteServiceError(PAYMENT_NOT_FOUND_MESSAGE, HTTP_NOT_FOUND);
   }
+  return checkout;
+}
 
-  const rejected = checkout.filter((p) => rejectedIds.includes(p.id));
-  const { releaseCheckoutCoupons } = await import("@/modules/payment-gateway");
-  await releaseCheckoutCoupons(rejected);
-  await notifyRejection(payment, rejected, reason);
-  return { success: true, message: "Payment rejected", warnings: [] };
+async function claimWholeCheckout(
+  ...claim: Parameters<typeof claimPendingCheckout>
+) {
+  if (!(await claimPendingCheckout(...claim))) {
+    throw createRouteServiceError(CHECKOUT_CHANGED_MESSAGE, HTTP_CONFLICT);
+  }
 }
 
 /**

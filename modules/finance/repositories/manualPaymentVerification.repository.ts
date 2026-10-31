@@ -52,32 +52,60 @@ export async function findPendingCheckoutPayments(payment: {
   });
 }
 
+/** Checkout transfer berubah di tengah verifikasi. */
+class CheckoutChangedError extends Error {}
+
+// Galat Prisma untuk deadlock atau konflik tulis (40P01/40001) dengan
+// transaksi lain yang memindahkan payment checkout yang sama.
+const WRITE_CONFLICT_CODE = "P2034";
+
 /**
- * Pindahkan payment dari PENDING dalam satu transaksi, baris demi baris
- * dengan urutan id yang tetap. Hanya id yang benar-benar dipindah transaksi
- * ini yang dikembalikan: dua admin yang menyetujui dan menolak bersamaan
- * menunggu kunci baris yang sama, dan yang kedua tidak menemukan PENDING lagi.
+ * Pindahkan seluruh payment checkout dari PENDING dalam satu pernyataan, atau
+ * tidak sama sekali. Pernyataannya bersyarat (masih PENDING dan belum
+ * diverifikasi), jadi pembatalan pelanggan atau keputusan admin lain yang
+ * lebih dulu commit membuat klaim ini gagal bersih alih-alih ditimpa; yang
+ * datang sesudahnya menemukan checkout yang sudah diverifikasi. `noteFor`
+ * menulis catatan per payment di transaksi yang sama.
+ *
+ * @returns false bila ada payment checkout yang tidak lagi menunggu.
  */
-export async function claimPendingPayments(
+export async function claimPendingCheckout(
   payments: VerifiablePayment[],
-  buildData: (
-    payment: VerifiablePayment,
-  ) => Prisma.PaymentUpdateManyMutationInput,
-): Promise<string[]> {
-  const ordered = [...payments].sort((left, right) =>
-    left.id.localeCompare(right.id),
-  );
-  return prismaBilling.$transaction(async (tx) => {
-    const claimed: string[] = [];
-    for (const payment of ordered) {
-      const { count } = await tx.payment.updateMany({
-        where: { id: payment.id, gatewayStatus: "PENDING" },
-        data: buildData(payment),
+  data: Prisma.PaymentUpdateManyMutationInput,
+  noteFor?: (payment: VerifiablePayment) => string | null,
+): Promise<boolean> {
+  try {
+    await prismaBilling.$transaction(async (tx) => {
+      // updateManyAndReturn tidak disaring tenant oleh ekstensi Prisma; id
+      // payment berasal dari pembacaan yang sudah tersaring tenant.
+      const claimed = await tx.payment.updateManyAndReturn({
+        where: {
+          id: { in: payments.map((payment) => payment.id) },
+          gatewayStatus: "PENDING",
+          verifiedAt: null,
+        },
+        data,
+        select: { id: true },
       });
-      if (count > 0) claimed.push(payment.id);
+      if (claimed.length !== payments.length) throw new CheckoutChangedError();
+      if (!noteFor) return;
+      for (const payment of payments) {
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { notes: noteFor(payment) },
+        });
+      }
+    });
+    return true;
+  } catch (error) {
+    if (
+      error instanceof CheckoutChangedError ||
+      (error as { code?: string }).code === WRITE_CONFLICT_CODE
+    ) {
+      return false;
     }
-    return claimed;
-  });
+    throw error;
+  }
 }
 
 /** Ke tagihan mana payment berakhir dan berapa yang dikreditkan ke saldo. */
