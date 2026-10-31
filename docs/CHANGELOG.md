@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Alur pelunasan pembayaran di project memory diperbarui
+
+- **Tipe**: [DOCS]
+- **Scope**: `docs/`
+- **Author**: agent
+- **Deskripsi**: Flow 2 di `12-critical-flows.md` masih menggambarkan satu transaksi webhook yang memperbarui payment dan invoice sekaligus menulis INVOICE_PAID ke outbox. Payment dan outbox ada di database berbeda, dan pelunasan kini lewat satu jalur untuk callback, cek status, penyapu, dan persetujuan transfer, dipulihkan rekonsiliasi 15 menit. Bagian itu ditulis ulang lebih ringkas sesuai alur sekarang, termasuk penutupan transfer tanpa bukti, penanda ketidakcocokan, dan celah yang masih ada; rujukan alur pembayaran di Cross-Flow Dependencies dan Dual-Write ikut diperbaiki.
+- **Files**: `docs/project-memory/12-critical-flows.md`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Rekonsiliasi 15 menit mengulang pelunasan yang terhenti setelah PAID
 
 - **Tipe**: [FIXED]
