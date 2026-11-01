@@ -1,14 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
+import { withRequestLogging } from "@/lib/middleware/request-logger";
 import { requireInvestorMobileSession } from "@/lib/mobile-investor-auth";
 import { getInvestorPushService } from "@/modules/investor";
 import { fcmTokenRequestSchema } from "@/modules/notification";
 import { limitFcmTokenRequest } from "../../fcm-token-rate-limit";
 
 /** Daftarkan (`add`) atau lepas (`remove`) token FCM HP investor yang login. */
-export async function POST(request: Request) {
+export const POST = withRequestLogging(registerInvestorFcmToken);
+
+async function registerInvestorFcmToken(request: NextRequest) {
   const session = await requireInvestorMobileSession(request);
   if (session instanceof NextResponse) return session;
 

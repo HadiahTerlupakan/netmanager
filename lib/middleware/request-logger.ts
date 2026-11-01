@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readClientInfo } from "@/lib/activity-request-context";
 import { logger } from "@/lib/logger";
+import { ApiErrors } from "@/lib/api-response";
 
 const UNKNOWN_CLIENT_VALUE = "unknown";
 
@@ -350,10 +351,9 @@ export function withRequestLogging(
         duration: `${duration}ms`,
       });
 
-      // Return error response
-      const errorResponse = NextResponse.json(
-        { error: (error as Error).message || "Internal server error" },
-        { status: 500 },
+      // Detail galat sudah masuk log di atas; klien hanya menerima pesan generik.
+      const errorResponse = ApiErrors.internalError(
+        "Terjadi kesalahan pada server",
       );
 
       logResponseInternal(req, errorResponse, duration, options);

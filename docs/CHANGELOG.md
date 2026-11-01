@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-02] — Rute token FCM mobile tercatat di log pod
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/mobile`
+- **Author**: agent
+- **Deskripsi**: `/api/mobile/fcm-token`, `/api/mobile/mitra/fcm-token`, dan
+  `/api/mobile/investor/fcm-token` tidak memakai `createHandler`, karena
+  autentikasinya mencakup pelanggan dan investor. Akibatnya sinkron token yang
+  berhasil maupun yang ditolak (401/429/400) tidak meninggalkan jejak di log, dan
+  "tidak ada fcm-token di log" sempat disangka HP tidak pernah mengirim token. Kini
+  ketiganya dibungkus `withRequestLogging`, sehingga mencatat baris `→ POST`/`← POST <status>`
+  seperti rute lain. Body tetap tidak dicatat, jadi token tidak masuk log. Galat tak
+  terduga di wrapper kini dibalas pesan generik "Terjadi kesalahan pada server";
+  sebelumnya `error.message` mentah dikirim ke klien.
+- **Files**: `app/api/mobile/fcm-token/route.ts`, `app/api/mobile/mitra/fcm-token/route.ts`,
+  `app/api/mobile/investor/fcm-token/route.ts`, `lib/middleware/request-logger.ts`,
+  `tests/api/fcm-token-request-logging.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Barang masuk & keluar web: pesan error jelas, edit keluar tidak dobel
 
 - **Tipe**: [FIXED]

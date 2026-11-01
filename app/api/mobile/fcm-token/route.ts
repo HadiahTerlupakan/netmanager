@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { withRequestLogging } from "@/lib/middleware/request-logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileOrCustomerAuthPayload } from "@/lib/mobile-api-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
@@ -13,7 +14,9 @@ import {
 } from "../fcm-token-rate-limit";
 
 /** Daftarkan (`add`) atau lepas (`remove`) token FCM karyawan, mitra, atau pelanggan. */
-export async function POST(req: NextRequest) {
+export const POST = withRequestLogging(registerMobileFcmToken);
+
+async function registerMobileFcmToken(req: NextRequest) {
   try {
     const authResult = await getMobileOrCustomerAuthPayload(req);
     if (authResult instanceof NextResponse) {

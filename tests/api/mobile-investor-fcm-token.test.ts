@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockRequireSession = vi.hoisted(() => vi.fn());
@@ -18,7 +18,7 @@ const TOKEN_FCM = `${"c".repeat(22)}:APA91b${"3".repeat(134)}`;
 
 function kirim(body: unknown) {
   return POST(
-    new Request("http://localhost/api/mobile/investor/fcm-token", {
+    new NextRequest("http://localhost/api/mobile/investor/fcm-token", {
       method: "POST",
       body: JSON.stringify(body),
     }),

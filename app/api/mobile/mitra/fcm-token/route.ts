@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { withRequestLogging } from "@/lib/middleware/request-logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
@@ -7,8 +8,10 @@ import {
   MobileFcmTokenError,
 } from "@/modules/notification";
 
-// POST /api/mobile/mitra/fcm-token — Save or remove mitra FCM token
-export async function POST(req: NextRequest) {
+/** Simpan (`add`) atau hapus (`remove`) token FCM mitra yang login. */
+export const POST = withRequestLogging(registerMitraFcmToken);
+
+async function registerMitraFcmToken(req: NextRequest) {
   try {
     const authResult = await getMobileAuthPayload(req);
     if (authResult instanceof NextResponse) {
