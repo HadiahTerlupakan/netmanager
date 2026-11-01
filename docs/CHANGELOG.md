@@ -96,6 +96,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Migration**: `20261101090000_add_pelanggan_fcm_tokens` (`ALTER TABLE "Pelanggan" ADD COLUMN "fcmTokens" TEXT[] DEFAULT ARRAY[]::TEXT[]`)
 - **Breaking**: ❌ Tidak
 
+### [2026-11-01] — Token FCM hanya dipegang pemilik yang terakhir mendaftarkannya
+
+- **Tipe**: [SECURITY] [FIXED]
+- **Scope**: `modules/notification` | `modules/investor` | `lib/firebase` | `tests/db` | `scripts/`
+- **Author**: agent
+- **Deskripsi**: Satu token FCM menandai satu pemasangan aplikasi, tetapi pendaftarannya hanya menambahkan token ke pemilik baru. Perangkat yang berpindah tangan tanpa token dilepas — staf yang keluar paksa karena sesinya berakhir (aplikasi tidak melepas token pada logout paksa), pelanggan A lalu pelanggan B, pelanggan lalu mitra — tetap terdaftar pada pemilik lama, sehingga push pemilik lama (tagihan, work order, persetujuan) sampai ke orang yang sekarang memegang perangkat itu. Kini setiap pendaftaran token, untuk staf, pelanggan, mitra, maupun investor, melepas token yang sama dari setiap pemilik lain di User, Pelanggan, Investor, dan Mitra, serta mengosongkan `pushToken` lama yang sama nilainya: di database pemilik baru dalam transaksi pendaftarannya, di database lain (utama ↔ mitra) sebagai langkah sesudahnya yang aman diulang (`lib/firebase/fcm-token-ownership.ts`). Pelepasan berlaku lintas tenant karena token milik perangkat, bukan tenant, dan ditulis sebagai `array_remove` SQL mentah: satu pernyataan per tabel, tanpa baca-lalu-tulis. Sinkron token yang sudah dipegang pemiliknya tetap mengklaimnya, sehingga token ganda yang terdaftar sebelum perbaikan ini lepas pada sinkron berikutnya dan pelepasan di database lain yang sempat gagal diulang; token yang sudah dipegang tidak ditulis ulang. Pendaftaran investor memakai pelepasan yang sama (sebelumnya hanya melepas dari investor lain). Tes DB kini punya database mitra uji: `scripts/setup-test-db.sh` membuat `mitra_test`, dan `tests/db/setup.ts` mengarahkan `DATABASE_URL_MITRA` ke sana atau ke alamat yang tidak bisa dihubungi, sehingga tes DB tidak pernah menyentuh database mitra dev.
+- **Files**: `lib/firebase/fcm-token-ownership.ts` (baru), `modules/notification/repositories/PushTokenRepository.ts`, `modules/notification/services/MobileFcmTokenService.ts`, `modules/investor/repositories/InvestorRepository.ts`, `scripts/setup-test-db.sh`, `tests/db/setup.ts`, `tests/db/fcm-token-claim.test.ts` (baru), `tests/db/customer-fcm-tokens.test.ts`, `tests/modules/notification/PushTokenRepository.customer.test.ts`, `tests/modules/notification/MobileFcmTokenService.test.ts`, `tests/modules/investor/InvestorRepository.fcm.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

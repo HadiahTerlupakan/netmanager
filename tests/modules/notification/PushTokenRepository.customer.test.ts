@@ -17,6 +17,13 @@ const SESI_PELANGGAN = {
 };
 const DI_TENANT = { id: "cust-1", tenantId: "tenant-1" };
 
+/** Tabel yang dilepas dari token, menurut SQL mentah yang dijalankan. */
+function tabelDilepas(token: string) {
+  return prismaMock.$executeRaw.mock.calls
+    .filter(([, ...nilai]) => nilai.includes(token))
+    .map(([sql]) => /UPDATE "(\w+)"/.exec((sql as string[]).join(""))?.[1]);
+}
+
 describe("PushTokenRepository untuk sesi pelanggan", () => {
   const repository = new PushTokenRepository();
 
@@ -61,15 +68,18 @@ describe("PushTokenRepository untuk sesi pelanggan", () => {
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
-  it("tidak menggandakan token yang sudah tersimpan saat permintaan berlomba", async () => {
+  it("token yang sudah dipegang tidak ditulis ulang, tetapi tetap dilepas dari pemilik lain", async () => {
     prismaMock.pelanggan.findUnique.mockResolvedValue({ fcmTokens: ["fcm-a"] });
 
     await repository.appendOwnerToken(SESI_PELANGGAN, "cust-1", "fcm-a");
 
-    expect(prismaMock.pelanggan.update).toHaveBeenCalledWith({
-      where: DI_TENANT,
-      data: { fcmTokens: { set: ["fcm-a"] } },
-    });
+    expect(prismaMock.pelanggan.update).not.toHaveBeenCalled();
+    expect(tabelDilepas("fcm-a")).toEqual([
+      "User",
+      "Pelanggan",
+      "Investor",
+      "Mitra",
+    ]);
   });
 
   it("menulis ulang daftar token pelanggan saat logout", async () => {

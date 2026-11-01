@@ -16,7 +16,8 @@ import { updateMobileFcmToken } from "@/modules/notification/services/MobileFcmT
  * ganda dan tetap dalam tenant-nya, dilepas saat logout, push tagihan sampai
  * lewat FCM (dan lewat Expo ke token lama), dan token yang ditolak FCM dilepas
  * dari baris pelanggan. FCM dan Expo di-mock; tidak ada push sungguhan.
- * Dilewati tanpa `TEST_DATABASE_URL` (lihat ./scripts/setup-test-db.sh).
+ * Dilewati tanpa `TEST_DATABASE_URL` dan `TEST_DATABASE_URL_MITRA` (lihat
+ * ./scripts/setup-test-db.sh).
  */
 
 const sendEachForMulticast = vi.hoisted(() => vi.fn());
@@ -32,7 +33,10 @@ vi.mock("@/modules/settings", async (importOriginal) => ({
   }),
 }));
 
-const adaDbUji = Boolean(process.env.TEST_DATABASE_URL);
+// Pendaftaran token juga melepas token dari baris mitra di database mitra.
+const adaDbUji =
+  Boolean(process.env.TEST_DATABASE_URL) &&
+  Boolean(process.env.TEST_DATABASE_URL_MITRA);
 const describeDb = adaDbUji ? describe : describe.skip;
 
 const TENANT = "tenant-uji-fcm-pelanggan";
