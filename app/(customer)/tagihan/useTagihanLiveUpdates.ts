@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useToast } from "@/components/ui/Toast";
 import {
+  summarizeCheckout,
+  type LastPayment,
+  type PaymentMethod,
+} from "./checkout";
+import {
   gatewayReturnNotice,
   usePaymentLiveStatus,
 } from "./usePaymentLiveStatus";
@@ -14,6 +19,11 @@ const RETURN_REFETCH_DEDUPE_MS = 2000;
 const PAID_INVOICES_URL = "/api/customer/invoices?status=PAID&limit=20";
 const REPLACED_NOTICE =
   "Metode pembayaran diperbarui. Gunakan instruksi bayar yang tampil sekarang.";
+const EXPIRED_NOTICE =
+  "Waktu pembayaran habis. Silakan pilih metode dan bayar lagi.";
+const FAILED_NOTICE =
+  "Pembayaran tidak berhasil. Silakan coba lagi atau pilih metode lain.";
+const CANCELLED_NOTICE = "Pembayaran dibatalkan.";
 
 type WatchedInvoice = {
   id: string;
@@ -34,27 +44,47 @@ export type ShownCheckout = {
   summary: PaidSummary;
 };
 
+type PaidInvoice = {
+  id: string;
+  invoiceNumber: string;
+  lastPayment?: LastPayment | null;
+};
+
 type Options = {
   /** Invoice yang dipantau lewat SSE. */
   watchedInvoice?: WatchedInvoice;
   /** Kosong bila tidak ada checkout yang menunggu atau waktunya sudah habis. */
   shownCheckout?: ShownCheckout;
   outstandingInvoiceIds: string[];
+  /** Untuk menamai metode pembayaran yang melunasi. */
+  methods: PaymentMethod[];
   refetch: () => Promise<unknown>;
   onPaid: (summary: PaidSummary) => void;
 };
 
-async function isInvoicePaid(invoiceId: string) {
+/** Tagihan lunas beserta pembayaran yang melunasinya; null bila tidak terbaca. */
+async function findPaidInvoice(invoiceId: string) {
   try {
     const res = await fetch(PAID_INVOICES_URL);
-    if (!res.ok) return false;
+    if (!res.ok) return null;
     const body = (await res.json()) as {
-      data?: { invoices?: Array<{ id: string }> };
+      data?: { invoices?: PaidInvoice[] };
     };
-    return Boolean(body.data?.invoices?.some((inv) => inv.id === invoiceId));
+    return body.data?.invoices?.find((inv) => inv.id === invoiceId) ?? null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/**
+ * Checkout yang tampil berakhir tanpa diganti. Dibatalkan berarti pelanggan
+ * sendiri (transfer manual), perangkat lain, atau admin yang membatalkannya;
+ * itu bukan pembayaran yang gagal.
+ */
+function endedNotice(gatewayStatus: string): ["info" | "warning", string] {
+  if (gatewayStatus === "CANCELLED") return ["info", CANCELLED_NOTICE];
+  if (gatewayStatus === "EXPIRED") return ["warning", EXPIRED_NOTICE];
+  return ["warning", FAILED_NOTICE];
 }
 
 /**
@@ -81,14 +111,28 @@ export function useTagihanLiveUpdates(options: Options) {
   const announcedInvoiceIds = useRef(new Set<string>());
 
   const announcePaid = useCallback(
-    (invoiceId: string, fallback?: PaidSummary) => {
+    (invoiceId: string, fallback?: PaidSummary, paid?: PaidInvoice) => {
       if (announcedInvoiceIds.current.has(invoiceId)) return;
-      const tracked = trackedCheckout.current;
-      const summary =
-        tracked?.invoiceId === invoiceId ? tracked.summary : fallback;
-      if (!summary) return;
       announcedInvoiceIds.current.add(invoiceId);
-      latest.current.onPaid(summary);
+      const tracked = trackedCheckout.current;
+      const shown =
+        tracked?.invoiceId === invoiceId ? tracked.summary : fallback;
+      // Checkout yang tampil belum tentu yang membayar: VA/QR lama tetap bisa
+      // dibayar setelah ganti metode. Ringkasan diambil dari pembayaran yang
+      // dicatat server; yang tampil hanya cadangan bila server tak terbaca.
+      void (paid ? Promise.resolve(paid) : findPaidInvoice(invoiceId)).then(
+        (invoice) => {
+          const summary = invoice?.lastPayment
+            ? summarizeCheckout(
+                latest.current.methods,
+                invoice.invoiceNumber,
+                invoice.lastPayment,
+              )
+            : shown;
+          if (summary) latest.current.onPaid(summary);
+          else announcedInvoiceIds.current.delete(invoiceId);
+        },
+      );
     },
     [],
   );
@@ -119,12 +163,7 @@ export function useTagihanLiveUpdates(options: Options) {
         void latest.current.refetch();
       },
       onEnded: (gatewayStatus) => {
-        showToast(
-          "warning",
-          gatewayStatus === "EXPIRED"
-            ? "Waktu pembayaran habis. Silakan pilih metode dan bayar lagi."
-            : "Pembayaran tidak berhasil. Silakan coba lagi atau pilih metode lain.",
-        );
+        showToast(...endedNotice(gatewayStatus));
         void latest.current.refetch();
       },
     },
@@ -137,8 +176,8 @@ export function useTagihanLiveUpdates(options: Options) {
     if (isCheckoutShown || !tracked) return;
     if (outstandingKey.split(",").includes(tracked.invoiceId)) return;
     trackedCheckout.current = undefined;
-    void isInvoicePaid(tracked.invoiceId).then((isPaid) => {
-      if (isPaid) announcePaid(tracked.invoiceId, tracked.summary);
+    void findPaidInvoice(tracked.invoiceId).then((paid) => {
+      if (paid) announcePaid(tracked.invoiceId, tracked.summary, paid);
     });
   }, [isCheckoutShown, outstandingKey, announcePaid]);
 

@@ -4,13 +4,14 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { PaymentMethod } from "@/app/(customer)/tagihan/checkout";
 import {
   useTagihanLiveUpdates,
   type PaidSummary,
   type ShownCheckout,
 } from "@/app/(customer)/tagihan/useTagihanLiveUpdates";
 import { ToastProvider } from "@/components/ui/Toast";
-import { flushPromises, jsonResponse } from "../helpers/portal-dom";
+import { flushPromises, jsonResponse, waitUntil } from "../helpers/portal-dom";
 
 const sumber: EventSourcePalsu[] = [];
 class EventSourcePalsu {
@@ -46,6 +47,25 @@ const CHECKOUT: ShownCheckout = {
   },
 };
 
+const METHODS: PaymentMethod[] = [
+  {
+    id: "duitku_bca",
+    name: "BCA Virtual Account",
+    provider: "DUITKU",
+    type: "VA",
+    code: "BC",
+    group: "Virtual Account",
+  },
+  {
+    id: "duitku_qris",
+    name: "QRIS (Gopay, OVO, Dana, LinkAja)",
+    provider: "DUITKU",
+    type: "QRIS",
+    code: "SP",
+    group: "E-Wallet & QRIS",
+  },
+];
+
 type Props = {
   shownCheckout?: ShownCheckout;
   outstandingInvoiceIds: string[];
@@ -69,6 +89,7 @@ describe("useTagihanLiveUpdates", () => {
       watchedInvoice: props.watched,
       shownCheckout: props.shownCheckout,
       outstandingInvoiceIds: props.outstandingInvoiceIds,
+      methods: METHODS,
       refetch,
       onPaid,
     });
@@ -138,7 +159,7 @@ describe("useTagihanLiveUpdates", () => {
     });
   });
 
-  it("lunas lewat SSE memakai total checkout, bukan sisa tagihan pertama", () => {
+  it("lunas lewat SSE tanpa data server memakai total checkout yang tampil, bukan sisa tagihan pertama", async () => {
     pasang({
       watched: INVOICE,
       shownCheckout: CHECKOUT,
@@ -146,9 +167,53 @@ describe("useTagihanLiveUpdates", () => {
     });
 
     sumber[0].kirim({ status: "PAID", paymentId: "p1", gatewayStatus: "PAID" });
+    await waitUntil(() => onPaid.mock.calls.length > 0);
 
     expect(onPaid).toHaveBeenCalledWith(CHECKOUT.summary);
     expect(refetch).toHaveBeenCalled();
+  });
+
+  // Uji produksi 2026-11-01: QR lama dibayar setelah pelanggan pindah ke
+  // LinkAja, dan layar sukses menulis metode serta nominal checkout yang
+  // sedang tampil, bukan yang membayar.
+  it("layar sukses memakai pembayaran yang dicatat server, bukan checkout yang tampil", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        data: {
+          invoices: [
+            {
+              id: "inv-1",
+              invoiceNumber: "INV-1",
+              lastPayment: {
+                amount: 90000,
+                date: "2026-11-01T01:44:39.000Z",
+                method: "E_WALLET",
+                gatewayStatus: "PAID",
+                gatewayProvider: "SP",
+                checkoutTotal: 162000,
+                checkoutInvoiceNumbers: ["INV-1", "INV-2"],
+              },
+            },
+          ],
+        },
+      }),
+    );
+    pasang({
+      watched: INVOICE,
+      shownCheckout: CHECKOUT,
+      outstandingInvoiceIds: ["inv-1", "inv-2"],
+    });
+
+    sumber[0].kirim({ status: "PAID", paymentId: "p1", gatewayStatus: "PAID" });
+    await waitUntil(() => onPaid.mock.calls.length > 0);
+
+    expect(onPaid).toHaveBeenCalledTimes(1);
+    expect(onPaid).toHaveBeenCalledWith({
+      amount: 162000,
+      invoiceNumber: "INV-1, INV-2",
+      methodName: "QRIS (Gopay, OVO, Dana, LinkAja)",
+    });
   });
 
   it("checkout yang hilang dari daftar dan ternyata lunas menampilkan layar sukses", async () => {
@@ -192,6 +257,26 @@ describe("useTagihanLiveUpdates", () => {
     await flushPromises();
 
     expect(onPaid).toHaveBeenCalledTimes(1);
+  });
+
+  // Uji produksi 2026-11-01: pelanggan membatalkan transfer manualnya
+  // sendiri lalu membaca "Pembayaran tidak berhasil".
+  it("checkout yang dibatalkan tidak disebut gagal", () => {
+    pasang({
+      watched: INVOICE,
+      shownCheckout: CHECKOUT,
+      outstandingInvoiceIds: ["inv-1"],
+    });
+
+    sumber[0].kirim({
+      status: "SENT",
+      paymentId: "p1",
+      gatewayStatus: "CANCELLED",
+    });
+
+    expect(document.body.textContent).toContain("Pembayaran dibatalkan");
+    expect(document.body.textContent).not.toContain("tidak berhasil");
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   describe("checkout terbaru berbeda dari yang ditampilkan", () => {

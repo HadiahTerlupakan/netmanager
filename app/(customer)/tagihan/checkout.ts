@@ -106,6 +106,23 @@ export function findCheckoutMethod(
   return methods.find((method) => method.code === payment.gatewayProvider);
 }
 
+/** Ringkasan layar sukses: total, nomor tagihan, dan nama metode checkout ini. */
+export function summarizeCheckout(
+  methods: PaymentMethod[],
+  invoiceNumber: string,
+  payment: LastPayment,
+) {
+  const method = findCheckoutMethod(methods, payment);
+  return {
+    amount: getCheckoutTotal(payment),
+    invoiceNumber: getCheckoutInvoiceNumbers(payment, invoiceNumber).join(", "),
+    methodName:
+      method && isManualTransfer(payment)
+        ? `Transfer ${method.name}`
+        : method?.name,
+  };
+}
+
 /**
  * Ringkasan tagihan terbuka. Termasuk PARTIAL_PAID: sisanya masih harus
  * dibayar dan ringkasan dashboard sudah menghitungnya. Tagihan yang sudah

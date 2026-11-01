@@ -31,6 +31,7 @@ import {
   getCheckoutInvoiceNumbers,
   getCheckoutTotal,
   isManualTransfer,
+  summarizeCheckout,
   summarizeInvoices,
   type Invoice,
 } from "./checkout";
@@ -130,23 +131,16 @@ export default function CustomerInvoicesPage() {
   const checkoutMethod = activePayment
     ? findCheckoutMethod(methods.list, activePayment)
     : undefined;
-  const checkoutMethodName =
-    checkoutMethod && isManual
-      ? `Transfer ${checkoutMethod.name}`
-      : checkoutMethod?.name;
 
   const shownCheckout: ShownCheckout | undefined =
     pendingInvoice && activePayment && !isCheckoutExpired
       ? {
           invoiceId: pendingInvoice.id,
-          summary: {
-            amount: getCheckoutTotal(activePayment),
-            invoiceNumber: getCheckoutInvoiceNumbers(
-              activePayment,
-              pendingInvoice.invoiceNumber,
-            ).join(", "),
-            methodName: checkoutMethodName,
-          },
+          summary: summarizeCheckout(
+            methods.list,
+            pendingInvoice.invoiceNumber,
+            activePayment,
+          ),
         }
       : undefined;
 
@@ -156,6 +150,7 @@ export default function CustomerInvoicesPage() {
     watchedInvoice: pendingInvoice ?? bill.payable[0],
     shownCheckout,
     outstandingInvoiceIds: bill.outstanding.map((inv) => inv.id),
+    methods: methods.list,
     refetch: refetchInvoices,
     onPaid: (summary) => {
       setIsMethodDialogOpen(false);
