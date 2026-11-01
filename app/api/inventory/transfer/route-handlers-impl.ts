@@ -5,7 +5,9 @@ import {
   inventoryTransferRouteService,
   type InventoryTransferRouteResult,
   buildInventoryAccessSession,
+  describeGudangAccessDenial,
   validateGudangSiteAccess,
+  TRANSFER_MESSAGES,
 } from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { parsePaginationParams } from "@/lib/utils/pagination";
@@ -15,11 +17,24 @@ type InventoryTransferRouteFailure = Extract<
   { success: false }
 >;
 
+const FORBIDDEN_READ_MESSAGE =
+  "Akun Anda tidak punya izin melihat transfer barang. Minta admin menambahkan izinnya.";
+const FORBIDDEN_CREATE_MESSAGE =
+  "Akun Anda tidak punya izin memindah barang antar gudang. Minta admin menambahkan izinnya.";
+
 /** Check whether inventory transfer route service returned a failure. */
 function isInventoryTransferRouteFailure(
   result: InventoryTransferRouteResult<unknown>,
 ): result is InventoryTransferRouteFailure {
   return !result.success;
+}
+
+/** Ubah hasil gagal service menjadi respons API dengan status yang sesuai. */
+function toTransferRouteResponse(result: InventoryTransferRouteFailure) {
+  if (result.status === 404) return ApiErrors.notFound(result.error);
+  if (result.status === 403) return ApiErrors.forbidden(result.error);
+  if (result.status === 409) return ApiErrors.conflict(result.error);
+  return ApiErrors.badRequest(result.error);
 }
 
 /** Build transfer list input from request and user context. */
@@ -59,44 +74,28 @@ async function validateTransferAccess(
     dariGudangId,
   );
   if (!accessDari.allowed) {
-    return ApiErrors.forbidden(`Gudang Sumber: ${accessDari.error}`);
+    return ApiErrors.forbidden(
+      `Gudang asal: ${describeGudangAccessDenial(accessDari.error)}`,
+    );
   }
 
   const accessKe = await validateGudangSiteAccess(accessSession, keGudangId);
   if (!accessKe.allowed) {
-    return ApiErrors.forbidden(`Gudang Tujuan: ${accessKe.error}`);
+    return ApiErrors.forbidden(
+      `Gudang tujuan: ${describeGudangAccessDenial(accessKe.error)}`,
+    );
   }
 
   return null;
-}
-
-/** Map transfer create error into API response. */
-function mapCreateTransferError(error: Error) {
-  if (error.message === "Barang tidak ditemukan") {
-    return ApiErrors.notFound("Barang");
-  }
-  if (
-    error.message.includes("Gudang") &&
-    (error.message.includes("tidak ditemukan") ||
-      error.message.includes("tidak aktif") ||
-      error.message.includes("sama"))
-  ) {
-    return ApiErrors.badRequest(error.message);
-  }
-  if (
-    error.message.includes("Stok tidak mencukupi") ||
-    error.message.includes("tidak mencukupi")
-  ) {
-    return ApiErrors.badRequest(error.message);
-  }
-  return ApiErrors.internalError("Gagal melakukan transfer barang");
 }
 
 /** Handle transfer list request. */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
   const user = ctx.session!.user;
-  if (!(await hasPermission("transfer:read"))) return ApiErrors.forbidden();
+  if (!(await hasPermission("transfer:read"))) {
+    return ApiErrors.forbidden(FORBIDDEN_READ_MESSAGE);
+  }
 
   try {
     const input = await buildListInput(req, user.id, isSuperAdmin(user));
@@ -132,7 +131,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/transfer",
       method: "GET",
     });
-    throw error;
+    return ApiErrors.internalError(TRANSFER_MESSAGES.gagalMuatDaftar);
   }
 });
 
@@ -140,13 +139,27 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
   const user = ctx.session!.user;
-  if (!(await hasPermission("transfer:create"))) return ApiErrors.forbidden();
+  if (!(await hasPermission("transfer:create"))) {
+    return ApiErrors.forbidden(FORBIDDEN_CREATE_MESSAGE);
+  }
 
-  const body = await req.json();
+  const body = (await req.json().catch((): null => null)) as Record<
+    string,
+    unknown
+  > | null;
+  if (!body || typeof body !== "object") {
+    return ApiErrors.badRequest(TRANSFER_MESSAGES.dataTidakTerbaca);
+  }
+
+  // Isian diperiksa dulu agar gudang yang kosong tidak sampai ke cek akses.
+  const invalidBody =
+    inventoryTransferRouteService.validateCreateTransferBody(body);
+  if (invalidBody) return toTransferRouteResponse(invalidBody);
+
   const accessError = await validateTransferAccess(
     user,
-    body.dariGudangId,
-    body.keGudangId,
+    String(body.dariGudangId),
+    String(body.keGudangId),
   );
   if (accessError) return accessError;
 
@@ -156,8 +169,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       userId: user.id,
       body,
     });
-    if (isInventoryTransferRouteFailure(result))
-      return ApiErrors.badRequest(result.error);
+    if (isInventoryTransferRouteFailure(result)) {
+      return toTransferRouteResponse(result);
+    }
 
     const transferRecord = result.data as { id: string; kodeTransfer: string };
     logger.dbOperation(
@@ -207,6 +221,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/transfer",
       method: "POST",
     });
-    return mapCreateTransferError(err);
+    return ApiErrors.internalError(TRANSFER_MESSAGES.gagalSimpan);
   }
 });

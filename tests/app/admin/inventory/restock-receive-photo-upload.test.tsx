@@ -149,12 +149,12 @@ describe("Verifikasi Barang Sampai — kontrak ref PhotoUpload", () => {
     await act(async () => {
       selectPhoto(new File([], "photo_2026-10-15.jpg", { type: "image/jpeg" }));
     });
-    await waitFor(() => document.body.textContent?.includes("kosong (0 byte)"));
+    await waitFor(() =>
+      document.body.textContent?.includes("kosong, isinya tidak terbaca"),
+    );
 
     expect(document.body.textContent).not.toContain("Foto (1/3)");
     expect(photoUploadRef.current!.getPhotos()).toHaveLength(0);
-    expect(document.body.textContent).toContain(
-      "Unggah foto bukti terlebih dahulu",
-    );
+    expect(document.body.textContent).toContain("Foto barang yang datang dulu");
   });
 });

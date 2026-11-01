@@ -41,6 +41,87 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Barang masuk & keluar web: pesan error jelas, edit keluar tidak dobel
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory` | `app/api/inventory/masuk` | `app/api/inventory/keluar` | `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Repository stok kini melempar `InventoryUserError` (dengan status) berisi pesan yang menyebut nama barang, gudang, satuan, dan angka nyata. Contoh: "Stok Kabel Drop di Gudang Utama tinggal 3 roll, tapi Anda mau mengeluarkan 5 roll." Pesan itu diterjemahkan oleh `toInventoryMutationFailure`. Validasi isian melaporkan semua masalah sekaligus, dan layar memakai aturan yang sama lewat `@/modules/inventory/client`. Penolakan akses gudang diterjemahkan lewat `describeGudangAccessDenial`. Error tak terduga dicatat di log dan dijawab "belum tersimpan, stok tidak berubah". Bug: mode edit `KeluarForm` mengirim POST, sehingga setiap edit memotong stok lagi. Kini dikirim PUT dengan batas jumlah yang benar. Kesalahan pengguna yang dulu jatuh ke 500 kini 400 dengan pesan: gudang tidak ada, stok jadi minus saat ubah barang masuk, jumlah berkoma, kondisi asal, body bukan JSON. `FormAlert` dan `PhotoUpload` menampilkan error tanpa hilang sendiri.
+- **Files**: `modules/inventory/domain/inventory-user-error.ts`, `modules/inventory/services/inventory-mutation-errors.ts`, `modules/inventory/repositories/inventory-stock-*-helpers.ts`, `app/api/inventory/_lib/`, `components/inventory/{MasukForm,KeluarForm,PhotoUpload}.tsx`, `components/inventory/form-shared/`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — API & aplikasi mobile inventory: penolakan tidak lagi jadi 500
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/mobile/inventory` | `modules/inventory` | `mobile-netmanager`
+- **Author**: agent
+- **Deskripsi**: Route mobile memakai `return execute…()` tanpa `await` di dalam `try`. Akibatnya setiap penolakan (stok kurang, gudang tak ada, jumlah kosong) jatuh ke 500 "Terjadi kesalahan pada server", dan antrean offline terus mengulanginya karena 5xx dianggap boleh dicoba lagi. Keamanan: pola `{ actorId, tenantId, ...body }` membuat klien bisa menimpa identitas dan tenant dari sesi. Kini nilai dari sesi selalu menang. Error kalimat-pengguna dari `addStock`/`removeStock` diteruskan sebagai 400, sedangkan error Prisma tetap 500 dengan penyebab dicatat di log. Aplikasi mobile (`mobile-netmanager`, hanya JS, cukup lewat OTA, belum dipublish): layar masuk, keluar, riwayat, ambil-barang, dan kembalikan-barang memakai Alert, tidak lagi toast 4 detik yang terpotong. Internet putus dan data yang diantrekan dijelaskan terpisah. Tombol simpan tidak lagi macet tanpa pesan. Daftar gudang/barang/riwayat yang gagal dimuat menjelaskan sebabnya, tidak lagi tampil kosong.
+- **Files**: `app/api/mobile/inventory/**`, `modules/inventory/services/MobileInventoryService.ts`, `mobile-netmanager/src/utils/pesanGalatBarang.ts`, `mobile-netmanager/src/components/molecules/SpandukPesanBarang.tsx`, `mobile-netmanager/app/(app)/{barang,ambil-barang,kembalikan-barang}/**`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Transfer barang: pesan error jelas dan batal transfer tak lagi 500
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory` | `app/api/inventory/transfer` | `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Pesan transfer kini ada di `TRANSFER_MESSAGES` dan `TransferRejectedError` (`domain/transfer-errors.ts`), dipakai bersama oleh server dan layar lewat `@/modules/inventory/client`. Pesan stok kurang menyebut barang, kondisi, gudang, dan sisa stok. Bug: batal transfer saat stok gudang tujuan sudah berkurang selalu 500, karena route mencocokkan teks yang tidak pernah dilempar. Kini 409 dengan penjelasan. Jumlah berkoma dan kondisi tak dikenal kini 400, tidak lagi 500 dari Prisma. Isian divalidasi sebelum cek akses gudang. Form tidak lagi membulatkan 5,5 jadi 5 diam-diam. Foto bukti tidak dihapus saat koneksi putus (transfer mungkin sudah tersimpan). Penolakan akses gudang asal/tujuan diterjemahkan lewat `describeGudangAccessDenial`.
+- **Files**: `modules/inventory/domain/transfer-errors.ts`, `modules/inventory/services/InventoryTransferRouteService.ts`, `modules/inventory/repositories/inventory-repository-transfer-mutation-helpers.ts`, `app/api/inventory/transfer/**`, `components/inventory/{TransferForm,TransferTable}.tsx`, `components/inventory/transfer/**`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Master data inventory: pesan jelas dan izin penyusutan aset
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/inventory` | `app/api/inventory/{barang,gudang,jasa,assets}` | `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Keamanan: `POST /api/inventory/assets/[id]/depreciate` tidak memeriksa izin, sehingga semua user login bisa menyusutkan aset dan memicu pencatatan biaya. Kini wajib `asset:update`. Pesan barang, gudang, jasa, dan aset diterjemahkan lewat `inventory-master-data-errors.ts`, termasuk error Prisma P2002/P2003/P2025. Contoh: "Kode barang "BRG-2" sudah dipakai barang "Kabel Drop". Pakai kode lain." Konflik kode dan "gudang masih berisi" kini 409, tidak lagi 400/500. Form aset melaporkan semua masalah per baris (`assetValidator.ts`). Bug: kode jasa huruf kecil lolos cek duplikat lalu crash 500. Daftar aset selalu kosong karena membaca `data.assets`. Detail aset crash setelah penyusutan. Tanggal aset tidak valid jatuh ke 500 dari Prisma. Nama berisi spasi saja dan nilai sisa aset di atas harga beli kini ditolak.
+- **Files**: `modules/inventory/services/inventory-master-data-errors.ts`, `modules/inventory/validators/assetValidator.ts`, `app/api/inventory/master-data-response.ts`, `components/inventory/{BarangForm,GudangForm}.tsx`, `components/inventory/assets/**`, `lib/validations/jasa.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Restock: pesan error jelas di permintaan, persetujuan, penerimaan
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory` | `app/api/inventory/restock` | `app/admin/inventory/restock` | `lib/validations/restock.ts`
+- **Author**: agent
+- **Deskripsi**: Pesan restock dikumpulkan di `restock-messages.ts`. Status mentah seperti PENDING/ORDERED kini ditulis dalam kata biasa, dan validasi melaporkan semua masalah per baris (`describeRestockValidationError`). Contoh: "Pigtail datang 100, padahal sisa pesanannya cuma 70. Kelebihannya 30." Error 500 tidak lagi membocorkan `error.message`. Log `[RESTOCK_RECEIVE] Penerimaan ditolak` tetap ada, kini dengan `cause`. Bug: PO yang sudah dibatalkan baru ditolak setelah substitusi barang ditulis. Gagal membuat PO otomatis saat menyetujui tidak pernah diberitahukan, kini muncul peringatan. Gagal hapus pengajuan tidak memberi pesan. Body rusak, dan barang atau jasa yang terhapus, kini 400 (nomor bentrok 409), tidak lagi 500. Respons bukan JSON tidak lagi tampil sebagai `Unexpected token <`.
+- **Files**: `modules/inventory/services/restock-messages.ts`, `modules/inventory/domain/restock-setting-errors.ts`, `modules/inventory/services/Restock*.ts`, `app/api/inventory/restock/**`, `app/admin/inventory/restock/**`, `components/inventory/RestockSettingsForm.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Sisa opname dan jadwal SO memakai pesan yang jelas
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/api/inventory/opname` | `modules/inventory` | `components/inventory` | `lib/api/stock-opname-route.ts`
+- **Author**: agent
+- **Deskripsi**: Pesan opname di 10 route (izin, gudang belum dipilih, gagal memuat, akun tanpa perusahaan) kini memakai `OPNAME_PESAN` di `domain/opname-pesan.ts`, tidak lagi "Akses ditolak", "Tenant tidak ditemukan", atau "gudangId wajib diisi". Ubah/hapus catatan opname (`opname/[id]`) memakai pemetaan `mapOpnameError`. Pesan 500 hapus opname tidak lagi meneruskan `err.message` mentah. PUT kini memberi pesan per kolom, tidak lagi "Validasi gagal". Body bukan JSON di POST opname kini 400. Validasi jadwal SO memakai kalimat biasa ("Bulan yang dipilih tidak terbaca…"), tidak lagi "Periode harus berformat YYYY-MM". Pesan 404 barang terhapus pada batch opname dibetulkan: `ApiErrors.notFound` menambahkan " tidak ditemukan" pada pesan yang tidak memuat frasa itu. `OpnameForm` memeriksa per kolom.
+- **Files**: `modules/inventory/domain/opname-pesan.ts`, `modules/inventory/domain/jadwal-stock-opname.ts`, `modules/inventory/services/InventoryOpnameRouteService.ts`, `app/api/inventory/opname/**`, `components/inventory/OpnameForm.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Satu banner error dan satu pesan koneksi untuk layar inventory
+
+- **Tipe**: [REMOVED]
+- **Scope**: `components/inventory` | `lib/validations/jasa.ts`
+- **Author**: agent
+- **Deskripsi**: Tiga banner error yang hampir identik (`OpnameErrorBanner`, `TransferErrorAlert`, `MasterDataErrorBanner`) disatukan menjadi `form-shared/InventoryErrorBanner`: gulir otomatis ke layar, `role="alert"`, satu masalah per baris, dengan judul, aksi, dan tombol tutup opsional. Pesan "tidak bisa terhubung ke server" yang tersalin lima kali dalam tiga versi kalimat kini satu sumber: `form-shared/inventoryRequestMessages.ts`. Validasi layar transfer memakai `TRANSFER_MESSAGES` dari server, tidak lagi salinan teks. Schema `restockConfirmJasaSchema` dan `restockJasaItemSchema` di `lib/validations/jasa.ts` dihapus karena tidak dipakai (restock memakai `lib/validations/restock.ts`).
+- **Files**: `components/inventory/form-shared/InventoryErrorBanner.tsx`, `components/inventory/form-shared/inventoryRequestMessages.ts`, `components/inventory/transfer/transferFormValidation.ts`, `lib/validations/jasa.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Pesan error stock opname menjelaskan penyebab dan langkahnya
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/inventory` | `components/inventory` | `app/api/inventory/opname/batch`
+- **Author**: agent
+- **Deskripsi**: Error opname dulu tampil sebagai pesan bawaan Zod ("Too small: expected number to be >=0"), "Akses ditolak", atau "Gagal mencatat stock opname", tanpa menyebut barang mana atau apa yang harus dilakukan. Kini setiap pesan validator menyebut kolomnya, masalahnya, dan langkahnya (contoh: "Stok fisik tidak boleh minus. Isi 0 kalau barangnya tidak ada."). Batch melaporkan *semua* barang yang bermasalah sekaligus sebagai "Barang ke-N", dikunci di `details["items.<index>"]`, dan layar menggantinya dengan nama serta kode barang. Error service (beda site, akun tanpa site, gudang nonaktif, barang terhapus, beda tenant) diterjemahkan lewat tabel `OPNAME_ERROR_TRANSLATIONS`. "Gudang tidak ditemukan." dari pemeriksaan akses dan error beda-tenant dulu jatuh ke 500, kini mendapat status dan pesannya sendiri. Error 500 memberi tahu bahwa tidak ada angka yang berubah, dan penyebab aslinya kini dicatat di log, padahal dulu dibuang. Banner error menggulir sendiri ke layar, karena tombol simpan ada di bawah tabel yang panjang, dan memakai `role="alert"`. Tiga schema opname kini berbagi satu definisi field dan satu aturan kondisi≤stok fisik, tidak lagi tiga salinan.
+- **Files**: `modules/inventory/validators/opnameValidator.ts`, `modules/inventory/services/InventoryOpnameRouteService.ts`, `components/inventory/opname/opnameErrorMessage.ts`, `components/inventory/opname/useSubmitOpname.ts`, `components/inventory/StockOpnameRecorder.tsx`, `app/api/inventory/opname/batch/route.ts`, `tests/modules/inventory/opname-pesan-error.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Stock opname tidak lagi ditolak saat stok sistem negatif
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Di produksi, `POST /api/inventory/opname/batch` dua kali menolak dengan 400 "Too small: expected number to be >=0" (2026-11-01 11:14 UTC, gudang `30ace04a-…`). Penyebabnya: `GET /api/inventory/opname/calculate` menyalin stok sistem mentah sebagai stok fisik awal. Untuk barang dengan stok sistem negatif, baris yang dicentang "Dihitung" tanpa mengubah angka mengirim `stokFisik` negatif. Rincian kondisinya sudah dijepit ke nol, jadi `stokFisik` adalah satu-satunya angka yang bisa negatif, dan satu baris seperti itu menggagalkan seluruh batch. Stok fisik awal kini dijepit di nol, sedangkan stok sistem negatif tetap tampil sebagai selisih. Test sambungan kalkulasi→validator kini memanggil penghasil yang asli dengan stok negatif, tidak lagi menyalin aturannya.
+- **Files**: `modules/inventory/repositories/inventory-opname-api-calculation.helpers.ts`, `tests/modules/inventory/opname-kalkulasi-lolos-validator.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Panduan Dasar dan Script Generator router berfungsi
 
 - **Tipe**: [FIXED]

@@ -3,7 +3,13 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
-import { getInventoryRouteService } from "@/modules/inventory";
+import {
+  describeRestockStatus,
+  getInventoryRouteService,
+  RESTOCK_MESSAGES,
+  restockForbiddenMessage,
+  restockServerErrorMessage,
+} from "@/modules/inventory";
 
 const inventoryRouteService = getInventoryRouteService();
 
@@ -15,14 +21,14 @@ export async function PATCH(
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json(
-      { error: "Tidak terautentikasi" },
+      { error: RESTOCK_MESSAGES.sessionExpired },
       { status: 401 },
     );
   }
 
   if (!(await hasPermission("restock:approve"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin restock:approve" },
+      { error: restockForbiddenMessage("restock:approve") },
       { status: 403 },
     );
   }
@@ -36,14 +42,16 @@ export async function PATCH(
 
   if (!request) {
     return NextResponse.json(
-      { error: "Pengajuan tidak ditemukan" },
+      { error: RESTOCK_MESSAGES.requestNotFound },
       { status: 404 },
     );
   }
 
   if (request.status !== "DRAFT" && request.status !== "SUBMITTED") {
     return NextResponse.json(
-      { error: "Pengajuan sudah diproses" },
+      {
+        error: `Pengajuan ini ${describeRestockStatus(request.status)}, jadi tidak perlu disetujui lagi. Muat ulang halaman untuk melihat keadaan terbarunya.`,
+      },
       { status: 400 },
     );
   }
@@ -61,7 +69,7 @@ export async function PATCH(
   } catch (error) {
     logger.error("Error approving purchase request", error as Error);
     return NextResponse.json(
-      { error: "Gagal menyetujui pengajuan" },
+      { error: restockServerErrorMessage("Menyetujui pengajuan", false) },
       { status: 500 },
     );
   }

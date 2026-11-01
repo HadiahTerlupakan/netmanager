@@ -302,3 +302,41 @@ export function validateInventoryGudangAccess(input: {
 
   return { allowed: true };
 }
+
+/**
+ * Terjemahan alasan penolakan {@link validateGudangSiteAccess} untuk staf
+ * gudang. Teks asli fungsi itu dipertahankan karena dicocokkan oleh pemanggil
+ * lain (opname, transfer); layar memakai terjemahan ini.
+ */
+const GUDANG_ACCESS_DENIAL_MESSAGES: ReadonlyArray<{
+  matches: (error: string) => boolean;
+  message: string;
+}> = [
+  {
+    matches: (error) => error.includes("(Beda Site)"),
+    message:
+      "Gudang ini milik site lain, jadi Anda tidak bisa memakainya. Pilih gudang di site Anda, atau minta admin menambahkan site gudang ini ke akun Anda.",
+  },
+  {
+    matches: (error) => error.startsWith("User tidak memiliki Site"),
+    message:
+      "Akun Anda belum diberi site, jadi belum bisa memakai gudang mana pun. Minta admin mengatur site di akun Anda.",
+  },
+  {
+    matches: (error) => error.startsWith("Gudang tidak ditemukan"),
+    message:
+      "Gudang yang dipilih tidak ditemukan, mungkin sudah dihapus. Muat ulang halaman, lalu pilih gudang lagi.",
+  },
+];
+
+const GUDANG_ACCESS_DENIED_DEFAULT_MESSAGE =
+  "Anda tidak punya izin memakai gudang ini. Minta admin memeriksa hak akses akun Anda.";
+
+/** Ubah alasan penolakan akses gudang menjadi pesan yang dipahami staf. */
+export function describeGudangAccessDenial(error?: string): string {
+  if (!error) return GUDANG_ACCESS_DENIED_DEFAULT_MESSAGE;
+  const translation = GUDANG_ACCESS_DENIAL_MESSAGES.find((entry) =>
+    entry.matches(error),
+  );
+  return translation?.message ?? GUDANG_ACCESS_DENIED_DEFAULT_MESSAGE;
+}

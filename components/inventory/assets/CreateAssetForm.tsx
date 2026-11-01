@@ -6,6 +6,14 @@ import { FiSave, FiArrowLeft } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
 import { useApi } from "@/lib/hooks/useApi";
+import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
+import {
+  describeClientError,
+  readApiErrorMessage,
+} from "../master-data/masterDataErrorMessage";
+
+const PESAN_GAGAL_SIMPAN_ASET =
+  "Aset belum tersimpan. Coba sekali lagi. Kalau tetap gagal, laporkan ke admin.";
 
 // Default useful life in months based on category
 const USEFUL_LIFE_MAP: Record<string, number> = {
@@ -103,17 +111,16 @@ export function CreateAssetForm() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal membuat aset baru");
+      if (!res.ok) {
+        throw new Error(
+          await readApiErrorMessage(res, PESAN_GAGAL_SIMPAN_ASET),
+        );
+      }
 
       router.push("/admin/inventory");
       router.refresh();
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Terjadi kesalahan saat menyimpan aset",
-      );
+      setError(describeClientError(err, PESAN_GAGAL_SIMPAN_ASET));
       setLoading(false);
     }
   };
@@ -127,11 +134,11 @@ export function CreateAssetForm() {
           </h2>
         </div>
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-md border border-red-200">
-            {error}
-          </div>
-        )}
+        <InventoryErrorBanner
+          title="Aset belum tersimpan"
+          message={error}
+          className="mb-4"
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Barang Selection */}

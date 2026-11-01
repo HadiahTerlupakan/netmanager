@@ -34,6 +34,20 @@ import {
   type ResolvedOverReceipt,
   type RestockOverReceiptMap,
 } from "./restock-over-receipt";
+import {
+  RESTOCK_MESSAGES,
+  describeRestockStatus,
+  restockServerErrorMessage,
+} from "./restock-messages";
+
+const RECEIPT_PHOTO_MISSING_MESSAGE =
+  "Foto bukti barang datang belum diunggah. Foto barangnya dulu, lalu simpan.";
+const NOTHING_RECEIVED_MESSAGE =
+  "Belum ada barang yang diisi jumlah datangnya. Isi berapa barang yang datang. Kalau tidak ada barang yang datang sama sekali, batalkan pesanannya saja.";
+const PURCHASE_ORDER_NOT_GENERATED_MESSAGE =
+  "Pesanan pembelian (PO) untuk pengajuan ini belum bisa dibuat, jadi barang belum bisa diterima. Tidak ada stok yang berubah. Minta bagian pembelian membuat PO-nya, lalu coba lagi.";
+const RECEIPT_MISMATCH_MESSAGE =
+  "Data barang yang diterima tidak cocok dengan pesanan. Muat ulang halaman, lalu coba lagi. Kalau masih muncul, lapor ke admin.";
 
 export interface ReceiveRestockRequestInput {
   purchaseRequestId: string;
@@ -65,22 +79,22 @@ interface ReceivableItem {
 }
 
 export class RestockReceiptNotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "RestockReceiptNotFoundError";
   }
 }
 
 export class RestockReceiptInvalidError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "RestockReceiptInvalidError";
   }
 }
 
 export class RestockReceiptForbiddenError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "RestockReceiptForbiddenError";
   }
 }
@@ -89,8 +103,8 @@ export class RestockReceiptForbiddenError extends Error {
 const PURCHASE_ORDER_STATUSES_CLOSED_FOR_INCREASE = ["CANCELLED", "RECEIVED"];
 
 export class RestockReceiptFailedError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "RestockReceiptFailedError";
   }
 }
@@ -115,7 +129,7 @@ export class RestockGoodsReceiptService {
       input.tenantId,
     );
     if (!purchaseRequest) {
-      throw new RestockReceiptNotFoundError("Purchase Request not found");
+      throw new RestockReceiptNotFoundError(RESTOCK_MESSAGES.requestNotFound);
     }
 
     const purchaseOrderId = await this.ensurePurchaseOrderId(
@@ -125,15 +139,21 @@ export class RestockGoodsReceiptService {
     );
 
     if (input.fotoBukti.length === 0) {
-      throw new RestockReceiptInvalidError(
-        "Foto bukti penerimaan barang wajib diunggah",
-      );
+      throw new RestockReceiptInvalidError(RECEIPT_PHOTO_MISSING_MESSAGE);
     }
 
     const purchaseOrder =
       await this.repository.findPurchaseOrderWithItems(purchaseOrderId);
     if (!purchaseOrder) {
-      throw new RestockReceiptNotFoundError("Purchase Order not found");
+      throw new RestockReceiptNotFoundError(
+        RESTOCK_MESSAGES.purchaseOrderNotFound,
+      );
+    }
+    // Ditolak juga oleh GRN, tapi di sini sebelum substitusi sempat ditulis.
+    if (purchaseOrder.status === "CANCELLED") {
+      throw new RestockReceiptInvalidError(
+        "Pesanan untuk pengajuan ini sudah dibatalkan, jadi barangnya tidak bisa diterima. Kalau barangnya tetap datang, minta bagian pembelian membuat pesanan baru.",
+      );
     }
 
     const appliedSubstitutions = await this.applySubstitutions({
@@ -150,9 +170,7 @@ export class RestockGoodsReceiptService {
     );
     const grnItems = this.selectReceivedItems(receivableItems);
     if (grnItems.length === 0) {
-      throw new RestockReceiptInvalidError(
-        "Minimal satu barang harus diterima. Batalkan Purchase Order bila tidak ada barang yang datang sama sekali.",
-      );
+      throw new RestockReceiptInvalidError(NOTHING_RECEIVED_MESSAGE);
     }
 
     const cancellationRequest = this.buildCancellationRequest({
@@ -229,19 +247,21 @@ export class RestockGoodsReceiptService {
     if (existingPurchaseOrderId) return existingPurchaseOrderId;
 
     let generatedId: string | null = null;
+    let cause: unknown;
     try {
       const purchaseOrders = await this.procurementService.generatePOFromPRs(
         [purchaseRequestId],
         actorId,
       );
       generatedId = purchaseOrders?.[0]?.id ?? null;
-    } catch {
-      generatedId = null;
+    } catch (error) {
+      cause = error;
     }
 
     if (!generatedId) {
       throw new RestockReceiptFailedError(
-        "Gagal membuat Purchase Order. Coba lagi atau hubungi admin.",
+        PURCHASE_ORDER_NOT_GENERATED_MESSAGE,
+        { cause },
       );
     }
     return generatedId;
@@ -298,8 +318,12 @@ export class RestockGoodsReceiptService {
     if (overReceipts.length === 0) return { overReceipts, undo: null };
 
     if (!params.input.canIncreasePurchaseOrder) {
+      const barangNames = overReceipts
+        .map((item) => item.barangName)
+        .join(", ");
       throw new RestockReceiptForbiddenError(
-        "Kiriman melebihi pesanan menaikkan jumlah PO dan butuh izin purchase_orders:update. Minta atasan yang berwenang memverifikasi penerimaan ini.",
+        `${barangNames} datang lebih banyak dari pesanan. Menerima kelebihan berarti menambah jumlah di pesanan (PO), dan akun Anda tidak punya izin untuk itu. ` +
+          "Terima sesuai sisa pesanan saja, atau minta atasan yang boleh mengubah PO untuk menerima barang ini.",
       );
     }
     if (
@@ -308,7 +332,8 @@ export class RestockGoodsReceiptService {
       )
     ) {
       throw new RestockReceiptInvalidError(
-        "Purchase Order sudah ditutup atau dibatalkan, jumlahnya tidak bisa dinaikkan",
+        `Pesanan ini ${describeRestockStatus(params.purchaseOrderStatus)}, jadi jumlahnya tidak bisa ditambah. ` +
+          "Terima barang sesuai sisa pesanan saja, atau minta bagian pembelian membuat pesanan baru untuk kelebihannya.",
       );
     }
 
@@ -395,7 +420,7 @@ export class RestockGoodsReceiptService {
       const receivedQuantity = Number(quantity) || 0;
       if (!Number.isInteger(receivedQuantity) || receivedQuantity < 0) {
         throw new RestockReceiptInvalidError(
-          `Jumlah ${barangName} diterima harus bilangan bulat 0 atau lebih`,
+          `Jumlah ${barangName} yang datang harus angka bulat, 0 atau lebih.`,
         );
       }
 
@@ -458,14 +483,24 @@ export class RestockGoodsReceiptService {
       if (params.undo) {
         await this.repository.undoItemQuantityIncrease(params.undo);
       }
+      // Pesan modul pembelian ditulis untuk programmer; penyebab aslinya
+      // tetap ikut sebagai `cause` untuk log.
       if (error instanceof PurchaseOrderNotFoundError) {
-        throw new RestockReceiptNotFoundError(error.message);
+        throw new RestockReceiptNotFoundError(
+          RESTOCK_MESSAGES.purchaseOrderNotFound,
+          { cause: error },
+        );
       }
       if (error instanceof GoodsReceiptInvalidError) {
-        throw new RestockReceiptInvalidError(error.message);
+        throw new RestockReceiptInvalidError(RECEIPT_MISMATCH_MESSAGE, {
+          cause: error,
+        });
       }
+      // Substitusi barang sudah tertulis sebelum langkah ini, jadi jangan
+      // menjanjikan bahwa tidak ada yang berubah.
       throw new RestockReceiptFailedError(
-        error instanceof Error ? error.message : "Gagal memproses penerimaan",
+        restockServerErrorMessage("Menerima barang", false),
+        { cause: error },
       );
     }
   }

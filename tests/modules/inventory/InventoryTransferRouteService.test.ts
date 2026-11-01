@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { InventoryTransferRouteService } from "@/modules/inventory";
+import {
+  InventoryTransferRouteService,
+  TRANSFER_MESSAGES,
+  TransferRejectedError,
+} from "@/modules/inventory";
 
 const transfer = {
   id: "transfer-1",
@@ -103,7 +107,7 @@ describe("InventoryTransferRouteService", () => {
     expect(result).toEqual({
       success: false,
       status: 400,
-      error: "Gudang sumber dan tujuan tidak boleh sama",
+      error: TRANSFER_MESSAGES.gudangSama,
     });
     expect(repository.createTransfer).not.toHaveBeenCalled();
   });
@@ -169,7 +173,7 @@ describe("InventoryTransferRouteService", () => {
     expect(result).toEqual({
       success: false,
       status: 403,
-      error: "Anda tidak memiliki akses ke data ini",
+      error: TRANSFER_MESSAGES.transferBedaSite,
     });
   });
 
@@ -182,7 +186,7 @@ describe("InventoryTransferRouteService", () => {
     expect(result).toEqual({
       success: false,
       status: 404,
-      error: "Record transfer tidak ditemukan",
+      error: TRANSFER_MESSAGES.transferTidakAda,
     });
   });
 
@@ -224,5 +228,139 @@ describe("InventoryTransferRouteService", () => {
     });
 
     expect(result).toEqual({ success: true, data: { transfer } });
+  });
+
+  it("melaporkan semua isian yang salah sekaligus, satu per baris", async () => {
+    const { repository, service } = createService();
+
+    const result = await service.createTransfer({
+      userId: "user-1",
+      body: {
+        barangId: "",
+        dariGudangId: "gudang-1",
+        keGudangId: "",
+        jumlah: "",
+      },
+    });
+
+    expect(result).toEqual({
+      success: false,
+      status: 400,
+      error: [
+        TRANSFER_MESSAGES.barangKosong,
+        TRANSFER_MESSAGES.gudangTujuanKosong,
+        TRANSFER_MESSAGES.jumlahKosong,
+      ].join("\n"),
+    });
+    expect(repository.createTransfer).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [2.5, TRANSFER_MESSAGES.jumlahBerkoma],
+    [0, TRANSFER_MESSAGES.jumlahTidakPositif],
+    [-3, TRANSFER_MESSAGES.jumlahTidakPositif],
+    ["lima", TRANSFER_MESSAGES.jumlahBukanAngka],
+  ])("menolak jumlah %s dengan pesan yang jelas", async (jumlah, pesan) => {
+    const { repository, service } = createService();
+
+    const result = await service.createTransfer({
+      userId: "user-1",
+      body: { barangId: "b1", dariGudangId: "g1", keGudangId: "g2", jumlah },
+    });
+
+    expect(result).toEqual({ success: false, status: 400, error: pesan });
+    expect(repository.createTransfer).not.toHaveBeenCalled();
+  });
+
+  it("menolak kondisi yang tidak dikenal sebelum sampai ke database", async () => {
+    const { repository, service } = createService();
+
+    const result = await service.createTransfer({
+      userId: "user-1",
+      body: {
+        barangId: "b1",
+        dariGudangId: "g1",
+        keGudangId: "g2",
+        jumlah: 1,
+        kondisi: "HILANG",
+      },
+    });
+
+    expect(result).toEqual({
+      success: false,
+      status: 400,
+      error: TRANSFER_MESSAGES.kondisiTidakDikenal,
+    });
+    expect(repository.createTransfer).not.toHaveBeenCalled();
+  });
+
+  it("meneruskan penolakan dari repository dengan status dan pesannya", async () => {
+    const { repository, service } = createService();
+    repository.createTransfer.mockRejectedValue(
+      new TransferRejectedError(400, "Stok kurang"),
+    );
+
+    const result = await service.createTransfer({
+      userId: "user-1",
+      body: { barangId: "b1", dariGudangId: "g1", keGudangId: "g2", jumlah: 5 },
+    });
+
+    expect(result).toEqual({
+      success: false,
+      status: 400,
+      error: "Stok kurang",
+    });
+  });
+
+  it("melempar error tak terduga agar route mencatatnya sebagai 500", async () => {
+    const { repository, service } = createService();
+    repository.createTransfer.mockRejectedValue(new Error("connection reset"));
+
+    await expect(
+      service.createTransfer({
+        userId: "user-1",
+        body: {
+          barangId: "b1",
+          dariGudangId: "g1",
+          keGudangId: "g2",
+          jumlah: 5,
+        },
+      }),
+    ).rejects.toThrow("connection reset");
+  });
+
+  it("mengembalikan 409 bila transfer tidak bisa dibatalkan", async () => {
+    const { repository, service } = createService();
+    repository.deleteTransfer.mockRejectedValue(
+      new TransferRejectedError(409, "Barang di gudang tujuan sudah dipakai"),
+    );
+
+    const result = await service.deleteTransfer(defaultDetailInput);
+
+    expect(result).toEqual({
+      success: false,
+      status: 409,
+      error: "Barang di gudang tujuan sudah dipakai",
+    });
+  });
+
+  it("mengembalikan 404 bila transfer hilang saat keterangan diubah", async () => {
+    const { repository, service } = createService();
+    repository.updateTransfer.mockRejectedValue(
+      Object.assign(new Error("Record to update not found."), {
+        code: "P2025",
+      }),
+    );
+
+    const result = await service.updateTransfer({
+      ...defaultDetailInput,
+      body: { keterangan: "baru" },
+    });
+
+    expect(result).toEqual({
+      success: false,
+      status: 404,
+      error: TRANSFER_MESSAGES.transferTidakAda,
+    });
   });
 });

@@ -27,13 +27,16 @@ export class InventoryPhotoQueryService {
     transactionType: string | null;
   }): InventoryPhotoQueryResult {
     if (!input.transactionId) {
-      return this.createError(400, "ID Transaksi wajib disertakan");
+      return this.createError(
+        400,
+        "Foto belum bisa dibuka karena transaksinya tidak disebut. Muat ulang halaman, lalu buka fotonya lagi.",
+      );
     }
 
     if (!this.isReadableTransactionType(input.transactionType)) {
       return this.createError(
         400,
-        'Tipe transaksi harus "inventory-masuk" atau "inventory-keluar"',
+        "Foto hanya bisa dibuka untuk barang masuk atau barang keluar. Muat ulang halaman, lalu buka fotonya lagi.",
       );
     }
 

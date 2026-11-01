@@ -41,7 +41,10 @@ export async function requireMobileActorScope(
   });
 
   if (!scope) {
-    throw new MobileInventoryError("User tidak ditemukan", 404);
+    throw new MobileInventoryError(
+      "Akun Anda tidak ditemukan. Keluar dari aplikasi, lalu masuk lagi.",
+      404,
+    );
   }
 
   return scope;
@@ -51,7 +54,7 @@ export async function requireMobileActorScope(
 export function ensureMobileAssignedSite(scope: MobileScopeResult) {
   if (scope.isRestricted && scope.allowedSiteIds.length === 0) {
     throw new MobileInventoryError(
-      "Akses ditolak: Tidak ada site yang ditugaskan",
+      "Akun Anda belum diberi lokasi kerja (site), jadi belum bisa memakai gudang. Minta admin mengatur site di akun Anda.",
       403,
     );
   }
@@ -62,15 +65,77 @@ export function getMobileScopedSiteIds(scope: MobileScopeResult) {
   return scope.isRestricted ? scope.allowedSiteIds : undefined;
 }
 
-/** Parse jumlah transaksi mobile ke angka valid. */
+/**
+ * Parse jumlah transaksi mobile ke angka bulat positif. Pesannya dibaca staf
+ * lapangan, jadi tiap kemungkinan salah punya kalimat sendiri.
+ */
 export function parseMobileJumlah(jumlah: unknown) {
+  const isKosong = jumlah === undefined || jumlah === null || jumlah === "";
   const parsedJumlah = Number(jumlah);
 
-  if (!Number.isFinite(parsedJumlah) || parsedJumlah <= 0) {
-    throw new MobileInventoryError("Data tidak lengkap", 400);
+  if (isKosong || !Number.isFinite(parsedJumlah)) {
+    throw new MobileInventoryError(
+      "Jumlah belum diisi. Ketik berapa banyak barangnya, misalnya 5.",
+      400,
+    );
+  }
+  if (parsedJumlah <= 0) {
+    throw new MobileInventoryError(
+      "Jumlah harus lebih dari 0. Ketik berapa banyak barangnya, misalnya 5.",
+      400,
+    );
+  }
+  if (!Number.isInteger(parsedJumlah)) {
+    throw new MobileInventoryError(
+      "Jumlah harus angka bulat, tanpa koma. Contoh: 5.",
+      400,
+    );
   }
 
   return parsedJumlah;
+}
+
+const LABEL_KONDISI: Record<KondisiBarang, string> = {
+  BARU: "Baru",
+  BEKAS: "Bekas",
+  RUSAK: "Rusak",
+};
+
+function isKondisiBarang(kondisi: unknown): kondisi is KondisiBarang {
+  return typeof kondisi === "string" && kondisi in LABEL_KONDISI;
+}
+
+/**
+ * Pastikan barang, gudang, dan kondisi sudah dipilih dengan benar sebelum
+ * menyentuh database, agar salah isi tidak berakhir sebagai gangguan server.
+ */
+export function validateMobileCommandTarget(input: {
+  barangId?: unknown;
+  gudangId?: unknown;
+  kondisi?: unknown;
+}) {
+  if (typeof input.gudangId !== "string" || !input.gudangId) {
+    throw new MobileInventoryError(
+      "Gudang belum dipilih. Pilih gudangnya dulu.",
+      400,
+    );
+  }
+  if (typeof input.barangId !== "string" || !input.barangId) {
+    throw new MobileInventoryError(
+      "Barang belum dipilih. Pilih barangnya dulu.",
+      400,
+    );
+  }
+  if (
+    input.kondisi != null &&
+    input.kondisi !== "" &&
+    !isKondisiBarang(input.kondisi)
+  ) {
+    throw new MobileInventoryError(
+      "Kondisi barang tidak dikenal. Pilih Baru, Bekas, atau Rusak.",
+      400,
+    );
+  }
 }
 
 /** Validasi akses gudang berdasarkan scope site actor mobile. */
@@ -82,7 +147,10 @@ export async function ensureMobileGudangAccess(
   const gudang = await repository.findMobileGudangSites(input);
 
   if (!gudang) {
-    throw new MobileInventoryError("Gudang tidak ditemukan", 404);
+    throw new MobileInventoryError(
+      "Gudang tidak ditemukan, mungkin sudah dihapus. Tarik layar ke bawah untuk memuat ulang, lalu pilih gudang lagi.",
+      404,
+    );
   }
 
   const access = validateInventoryGudangAccess({
@@ -92,7 +160,11 @@ export async function ensureMobileGudangAccess(
   });
 
   if (!access.allowed) {
-    throw new MobileInventoryError(access.error || "Akses ditolak", 403);
+    throw new MobileInventoryError(
+      access.error ||
+        "Anda tidak boleh memakai gudang ini. Minta admin memeriksa akses akun Anda.",
+      403,
+    );
   }
 }
 
@@ -114,16 +186,42 @@ export async function requireMobileAvailableStock(
 ) {
   const stock = await repository.findMobileBarangGudangStock(input);
   const kondisi = input.kondisi || DEFAULT_KONDISI_BARANG;
-  const availableStock = stock ? getMobileStockByKondisi(stock, kondisi) : 0;
 
-  if (!stock || availableStock < jumlah) {
+  if (!stock) {
     throw new MobileInventoryError(
-      `Stok ${kondisi} tidak mencukupi. Tersedia: ${availableStock}`,
+      "Barang ini tidak ada di gudang yang dipilih. Pilih gudang lain yang punya barang ini.",
+      400,
+    );
+  }
+
+  const availableStock = getMobileStockByKondisi(stock, kondisi);
+  if (availableStock < jumlah) {
+    throw new MobileInventoryError(
+      describeStokKurang({
+        namaBarang: stock.barang?.nama,
+        kondisiLabel: LABEL_KONDISI[kondisi] ?? kondisi,
+        tersedia: availableStock,
+        diminta: jumlah,
+      }),
       400,
     );
   }
 
   return stock;
+}
+
+/** Kalimat stok kurang: sebut barang, kondisi, sisa stok, dan jalan keluarnya. */
+export function describeStokKurang(input: {
+  namaBarang?: string | null;
+  kondisiLabel: string;
+  tersedia: number;
+  diminta: number;
+}) {
+  const barang = input.namaBarang ? `"${input.namaBarang}"` : "Barang ini";
+  if (input.tersedia <= 0) {
+    return `Stok habis. ${barang} kondisi ${input.kondisiLabel} di gudang ini tinggal 0. Pilih kondisi lain atau gudang lain.`;
+  }
+  return `Stok kurang. ${barang} kondisi ${input.kondisiLabel} tinggal ${input.tersedia}, tapi Anda isi ${input.diminta}. Ubah jumlahnya jadi ${input.tersedia} atau kurang.`;
 }
 
 /** Emit side effect barang keluar mobile ke socket dan activity log. */

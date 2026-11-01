@@ -6,6 +6,11 @@ import type { StockOpnameFormData } from "@/lib/types/inventory";
 import { useApi } from "@/lib/hooks/useApi";
 import { fetchWithHandling } from "@/lib/utils/fetch-wrapper";
 import { clientLogger } from "@/lib/client-logger";
+import {
+  OPNAME_PESAN,
+  pesanKondisiMelebihiStokFisik,
+} from "@/modules/inventory/client";
+import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
 
 interface OpnameFormProps {
   initialData?: StockOpnameFormData;
@@ -110,7 +115,11 @@ export function OpnameForm({
       }, SUCCESS_REDIRECT_DELAY_MS);
     } catch (err) {
       clientLogger.error("Error saving stock opname", err);
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Opname belum tersimpan karena kesalahan yang tidak dikenal. Coba simpan sekali lagi; kalau tetap gagal, laporkan ke admin.",
+      );
     } finally {
       setLoading(false);
     }
@@ -123,8 +132,8 @@ export function OpnameForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Banner type="error" message={error} />
-      <Banner type="success" message={success} />
+      <InventoryErrorBanner title="Opname belum tersimpan" message={error} />
+      <SuccessBanner message={success} />
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <SelectField
@@ -335,19 +344,22 @@ function autoDistributeConditions(stokFisik: number) {
   };
 }
 
+/** Periksa form sebelum dikirim; pesan menyebut kolom yang salah dan cara membetulkannya. */
 function validateForm(form: FormState): string | null {
-  if (!form.barangId || !form.gudangId || !form.stokFisik) {
-    return "Barang, gudang, dan stok fisik harus diisi";
+  if (!form.barangId) return "Barang belum dipilih. Pilih barangnya dulu.";
+  if (!form.gudangId) return OPNAME_PESAN.gudangBelumDipilih;
+  if (!form.stokFisik) {
+    return "Stok fisik belum diisi. Hitung barangnya, lalu tulis jumlahnya.";
   }
 
   const stokFisik = parseInt(form.stokFisik);
   if (isNaN(stokFisik) || stokFisik < 0) {
-    return "Stok fisik harus berupa angka non-negatif";
+    return "Stok fisik harus angka 0 atau lebih, tanpa koma. Isi 0 kalau barangnya tidak ada.";
   }
 
   const totalKondisi = sumConditions(form);
   if (totalKondisi > stokFisik) {
-    return "Total kondisi (baik + rusak + expire) tidak boleh melebihi stok fisik";
+    return pesanKondisiMelebihiStokFisik(totalKondisi, stokFisik);
   }
 
   return null;
@@ -382,7 +394,7 @@ async function submitOpname(form: FormState, opnameId?: string) {
   });
 
   if (!res.success) {
-    throw new Error(res.error || "Gagal menyimpan stock opname");
+    throw new Error(res.error || OPNAME_PESAN.gagalSimpan);
   }
 }
 
@@ -402,19 +414,13 @@ function normalizeGudangs(
   return data.gudangs ?? [];
 }
 
-function Banner({
-  type,
-  message,
-}: {
-  type: "error" | "success";
-  message: string;
-}) {
+function SuccessBanner({ message }: { message: string }) {
   if (!message) return null;
-  const classes =
-    type === "error"
-      ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
-      : "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400";
-  return <div className={`px-4 py-3 rounded ${classes}`}>{message}</div>;
+  return (
+    <div className="px-4 py-3 rounded bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400">
+      {message}
+    </div>
+  );
 }
 
 interface SelectFieldProps {

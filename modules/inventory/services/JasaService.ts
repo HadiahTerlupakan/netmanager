@@ -6,10 +6,61 @@ import {
   type JasaRepository,
   type UpdateJasaInput,
 } from "../repositories/JasaRepository";
+import {
+  isPrismaError,
+  pesanGagalHapus,
+  pesanGagalSimpan,
+  pesanTidakDitemukan,
+  translateMasterDataError,
+  type MasterDataErrorTranslation,
+  type MasterDataFailure,
+} from "./inventory-master-data-errors";
 
 export type JasaServiceResult<T> =
   | { success: true; data: T; message?: string }
-  | { success: false; status: number; error: string };
+  | MasterDataFailure;
+
+const HTTP_BAD_REQUEST = 400;
+const HTTP_NOT_FOUND = 404;
+const HTTP_CONFLICT = 409;
+
+const PESAN_JASA_TIDAK_DITEMUKAN = pesanTidakDitemukan("Jasa");
+
+/** Kode jasa yang diminta sudah dipakai jasa lain. */
+export class JasaKodeDipakaiError extends Error {
+  constructor(kode: string, namaPemakai?: string) {
+    const pemakai = namaPemakai ? ` "${namaPemakai}"` : " lain";
+    super(
+      `Kode jasa "${kode}" sudah dipakai jasa${pemakai}. Pakai kode lain, atau kosongkan kolom kode supaya dibuat otomatis.`,
+    );
+    this.name = "JasaKodeDipakaiError";
+  }
+}
+
+/** Error simpan jasa yang dikenali dan diterjemahkan untuk staf. */
+const SIMPAN_JASA_ERRORS: readonly MasterDataErrorTranslation[] = [
+  {
+    matches: (error) => error instanceof JasaKodeDipakaiError,
+    status: HTTP_CONFLICT,
+    message: (error) => error.message,
+  },
+  {
+    matches: isPrismaError("P2002"),
+    status: HTTP_CONFLICT,
+    message: "Kode jasa itu sudah dipakai jasa lain. Pakai kode lain.",
+  },
+  {
+    matches: isPrismaError("P2003"),
+    status: HTTP_BAD_REQUEST,
+    message:
+      "Supplier yang dipilih tidak ditemukan. Mungkin sudah dihapus. Pilih supplier lain atau kosongkan kolom supplier.",
+  },
+  {
+    matches: isPrismaError("P2025"),
+    status: HTTP_NOT_FOUND,
+    message: PESAN_JASA_TIDAK_DITEMUKAN,
+  },
+];
 
 export interface CreateJasaServiceInput {
   userId: string;
@@ -48,8 +99,8 @@ export class JasaService {
     if (!jasa) {
       return {
         success: false as const,
-        status: 404,
-        error: "Jasa tidak ditemukan",
+        status: HTTP_NOT_FOUND,
+        error: PESAN_JASA_TIDAK_DITEMUKAN,
       };
     }
     return { success: true as const, data: jasa };
@@ -60,9 +111,29 @@ export class JasaService {
   ): Promise<JasaServiceResult<unknown>> {
     const { body, userId, tenantId } = input;
     if (!body.nama?.trim()) {
-      return { success: false, status: 400, error: "Nama jasa wajib diisi" };
+      return {
+        success: false,
+        status: HTTP_BAD_REQUEST,
+        error:
+          "Nama jasa belum diisi. Tulis nama jasanya, contoh: Pemasangan Tiang.",
+      };
     }
 
+    try {
+      return await this.createJasa(body, userId, tenantId);
+    } catch (error: unknown) {
+      return translateMasterDataError(error, SIMPAN_JASA_ERRORS, {
+        message: pesanGagalSimpan("Jasa"),
+        logContext: "Jasa gagal dibuat",
+      });
+    }
+  }
+
+  private async createJasa(
+    body: CreateJasaServiceInput["body"],
+    userId: string,
+    tenantId?: string | null,
+  ): Promise<JasaServiceResult<unknown>> {
     const kode = await this.resolveUniqueKode(body.kode, tenantId);
     const payload: CreateJasaInput = {
       kode,
@@ -102,19 +173,28 @@ export class JasaService {
       if (existing && existing.id !== input.id) {
         return {
           success: false,
-          status: 400,
-          error: `Kode jasa ${input.body.kode} sudah digunakan`,
+          status: HTTP_CONFLICT,
+          error: new JasaKodeDipakaiError(input.body.kode, existing.nama)
+            .message,
         };
       }
     }
 
-    const jasa = await this.repository.update(
-      input.id,
-      input.body,
-      input.tenantId,
-    );
+    let jasa: Awaited<ReturnType<JasaRepository["update"]>>;
+    try {
+      jasa = await this.repository.update(input.id, input.body, input.tenantId);
+    } catch (error: unknown) {
+      return translateMasterDataError(error, SIMPAN_JASA_ERRORS, {
+        message: pesanGagalSimpan("Perubahan jasa"),
+        logContext: "Jasa gagal diubah",
+      });
+    }
     if (!jasa) {
-      return { success: false, status: 404, error: "Jasa tidak ditemukan" };
+      return {
+        success: false,
+        status: HTTP_NOT_FOUND,
+        error: PESAN_JASA_TIDAK_DITEMUKAN,
+      };
     }
 
     await logger.logActivity({
@@ -136,9 +216,21 @@ export class JasaService {
     userId: string,
     tenantId?: string | null,
   ): Promise<JasaServiceResult<unknown>> {
-    const jasa = await this.repository.softDelete(id, tenantId);
+    let jasa: Awaited<ReturnType<JasaRepository["softDelete"]>>;
+    try {
+      jasa = await this.repository.softDelete(id, tenantId);
+    } catch (error: unknown) {
+      return translateMasterDataError(error, SIMPAN_JASA_ERRORS, {
+        message: pesanGagalHapus("Jasa"),
+        logContext: "Jasa gagal dinonaktifkan",
+      });
+    }
     if (!jasa) {
-      return { success: false, status: 404, error: "Jasa tidak ditemukan" };
+      return {
+        success: false,
+        status: HTTP_NOT_FOUND,
+        error: PESAN_JASA_TIDAK_DITEMUKAN,
+      };
     }
 
     await logger.logActivity({
@@ -160,14 +252,13 @@ export class JasaService {
     tenantId?: string | null,
   ): Promise<string> {
     if (requestedKode?.trim()) {
-      const existing = await this.repository.findByKode(
-        requestedKode.trim(),
-        tenantId,
-      );
-      if (existing) {
-        throw new Error(`Kode jasa ${requestedKode.trim()} sudah digunakan`);
-      }
-      return requestedKode.trim().toUpperCase();
+      // Kode disimpan dalam huruf besar, jadi cek bentrok dengan bentuk yang
+      // sama; tanpa ini "jsa-01" lolos cek lalu ditolak database karena
+      // "JSA-01" sudah ada.
+      const kode = requestedKode.trim().toUpperCase();
+      const existing = await this.repository.findByKode(kode, tenantId);
+      if (existing) throw new JasaKodeDipakaiError(kode, existing.nama);
+      return kode;
     }
 
     const dateKey = new Date().toISOString().slice(0, 10).replace(/-/g, "");

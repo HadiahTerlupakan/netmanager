@@ -101,7 +101,13 @@ describe("InventoryGudangRouteService", () => {
     expect(result).toEqual({
       success: false,
       status: 400,
-      error: "Nama gudang harus diisi",
+      error:
+        "Nama gudang belum diisi. Tulis nama gudangnya, contoh: Gudang Utama.",
+      details: {
+        nama: [
+          "Nama gudang belum diisi. Tulis nama gudangnya, contoh: Gudang Utama.",
+        ],
+      },
     });
     expect(repository.createGudang).not.toHaveBeenCalled();
   });
@@ -140,7 +146,10 @@ describe("InventoryGudangRouteService", () => {
 
   it("menolak update gudang ketika kode dipakai gudang lain", async () => {
     const { repository, service } = createService();
-    repository.findGudangByKode.mockResolvedValue({ id: "gudang-2" });
+    repository.findGudangByKode.mockResolvedValue({
+      id: "gudang-2",
+      nama: "Gudang Timur",
+    });
 
     const result = await service.updateGudang({
       id: "gudang-1",
@@ -149,8 +158,9 @@ describe("InventoryGudangRouteService", () => {
 
     expect(result).toEqual({
       success: false,
-      status: 400,
-      error: "Kode gudang sudah digunakan",
+      status: 409,
+      error:
+        'Kode gudang "GD002" sudah dipakai gudang "Gudang Timur". Pakai kode lain.',
     });
     expect(repository.updateGudang).not.toHaveBeenCalled();
   });
@@ -158,13 +168,19 @@ describe("InventoryGudangRouteService", () => {
   it("menolak hapus gudang yang masih memiliki stok", async () => {
     const { repository, service } = createService();
     repository.hasStockInGudang.mockResolvedValue(true);
+    repository.findGudangById.mockResolvedValue({
+      ...gudang,
+      isActive: true,
+      barangGudang: [{ stok: 10 }, { stok: 0 }, { stok: 35 }],
+    });
 
     const result = await service.deleteGudang("gudang-1");
 
     expect(result).toEqual({
       success: false,
-      status: 400,
-      error: "Tidak dapat menghapus gudang yang masih memiliki stok barang",
+      status: 409,
+      error:
+        'Gudang "Gudang Utama" tidak bisa dihapus karena masih ada 2 jenis barang di dalamnya (total stok 45). Keluarkan atau pindahkan semua barangnya ke gudang lain dulu, baru hapus gudangnya.',
     });
     expect(repository.deleteGudang).not.toHaveBeenCalled();
   });

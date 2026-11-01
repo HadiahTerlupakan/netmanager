@@ -14,7 +14,8 @@ vi.mock("next-auth", () => ({
 }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/rbac", () => ({ hasPermission: mocks.hasPermission }));
-vi.mock("@/modules/inventory", () => ({
+vi.mock("@/modules/inventory", async () => ({
+  ...(await import("@/modules/inventory/services/inventory-master-data-errors")),
   getJasaService: () => ({ list: mocks.list, create: mocks.create }),
 }));
 

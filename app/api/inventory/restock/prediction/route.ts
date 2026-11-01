@@ -2,7 +2,12 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { getInventoryRouteService } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  RESTOCK_MESSAGES,
+  restockForbiddenMessage,
+  restockServerErrorMessage,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 
@@ -21,13 +26,11 @@ export async function GET(req: NextRequest) {
       logger.warn(
         "Unauthorized access attempt to GET /api/inventory/restock/prediction",
       );
-      return ApiErrors.unauthorized("Session tidak valid");
+      return ApiErrors.unauthorized(RESTOCK_MESSAGES.sessionExpired);
     }
 
     if (!(await hasPermission("restock:read"))) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk melihat prediksi restock",
-      );
+      return ApiErrors.forbidden(restockForbiddenMessage("restock:read"));
     }
 
     const searchParams = req.nextUrl.searchParams;
@@ -67,6 +70,8 @@ export async function GET(req: NextRequest) {
       path: "/api/inventory/restock/prediction",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal membuat prediksi restock");
+    return ApiErrors.internalError(
+      restockServerErrorMessage("Menghitung perkiraan kebutuhan barang", false),
+    );
   }
 }

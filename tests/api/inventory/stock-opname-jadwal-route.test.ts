@@ -13,13 +13,18 @@ const service = vi.hoisted(() => ({
 
 vi.mock("@/lib/rbac", () => ({ hasPermission: mockHasPermission }));
 vi.mock("@/lib/auth", () => ({ isSuperAdmin: mockIsSuperAdmin }));
-vi.mock("@/modules/inventory", () => ({
+vi.mock("@/modules/inventory", async () => ({
   getStockOpnameJadwalService: () => service,
   periodeStockOpnameDari: () => "2026-10",
+  OPNAME_PESAN: (await import("@/modules/inventory/domain/opname-pesan"))
+    .OPNAME_PESAN,
 }));
 vi.mock("@/lib/api", () => ({
   createHandler:
-    (options: { schema?: { parse: (v: unknown) => unknown } }, handler: (req: NextRequest, ctx: unknown) => unknown) =>
+    (
+      options: { schema?: { parse: (v: unknown) => unknown } },
+      handler: (req: NextRequest, ctx: unknown) => unknown,
+    ) =>
     async (req: NextRequest, extra?: { params?: Record<string, string> }) => {
       const body = req.method === "GET" ? undefined : await req.json();
       return handler(req, {
@@ -33,7 +38,8 @@ vi.mock("@/lib/api", () => ({
     forbidden: (m: string) => NextResponse.json({ error: m }, { status: 403 }),
     badRequest: (m: string) => NextResponse.json({ error: m }, { status: 400 }),
     notFound: (m: string) => NextResponse.json({ error: m }, { status: 404 }),
-    internalError: (m: string) => NextResponse.json({ error: m }, { status: 500 }),
+    internalError: (m: string) =>
+      NextResponse.json({ error: m }, { status: 500 }),
   },
 }));
 
@@ -49,15 +55,24 @@ describe("API jadwal SO per site & laporan", () => {
   });
 
   it("laporan: pengguna site_only dibatasi ke site-nya; tanpa opname:read ditolak", async () => {
-    mockHasPermission.mockImplementation(async (izin: string) => ["opname:read", "opname:site_only"].includes(izin));
+    mockHasPermission.mockImplementation(async (izin: string) =>
+      ["opname:read", "opname:site_only"].includes(izin),
+    );
     service.getSiteIdsPengguna.mockResolvedValue(["s1"]);
-    const res = await getKepatuhan(new NextRequest("http://x/api/inventory/opname/kepatuhan?periode=2026-09"), {} as never);
+    const res = await getKepatuhan(
+      new NextRequest(
+        "http://x/api/inventory/opname/kepatuhan?periode=2026-09",
+      ),
+      {} as never,
+    );
     expect(res.status).toBe(200);
     expect(service.getSiteIdsPengguna).toHaveBeenCalledWith("t-1", "u-1");
     expect(service.getKepatuhan).toHaveBeenCalledWith("t-1", "2026-09", ["s1"]);
 
     mockHasPermission.mockResolvedValue(false);
-    expect((await getKepatuhan(new NextRequest("http://x/k"), {} as never)).status).toBe(403);
+    expect(
+      (await getKepatuhan(new NextRequest("http://x/k"), {} as never)).status,
+    ).toBe(403);
   });
 
   it("jadwal site hanya bisa diubah pemegang site:update", async () => {
@@ -65,23 +80,36 @@ describe("API jadwal SO per site & laporan", () => {
       putAturanSite(
         new NextRequest("http://x/api/admin/sites/s1/jadwal-so", {
           method: "PUT",
-          body: JSON.stringify({ isAktif: true, tanggalMulai: 25, tanggalSelesai: 30 }),
+          body: JSON.stringify({
+            isAktif: true,
+            tanggalMulai: 25,
+            tanggalSelesai: 30,
+          }),
         }),
         { params: { id: "s1" } } as never,
       );
-    mockHasPermission.mockImplementation(async (izin: string) => izin === "site:read");
+    mockHasPermission.mockImplementation(
+      async (izin: string) => izin === "site:read",
+    );
     expect((await kirim()).status).toBe(403);
     expect(service.simpanAturanSite).not.toHaveBeenCalled();
 
     mockHasPermission.mockResolvedValue(true);
     expect((await kirim()).status).toBe(200);
-    expect(service.simpanAturanSite).toHaveBeenCalledWith("t-1", "s1", { isAktif: true, tanggalMulai: 25, tanggalSelesai: 30 });
+    expect(service.simpanAturanSite).toHaveBeenCalledWith("t-1", "s1", {
+      isAktif: true,
+      tanggalMulai: 25,
+      tanggalSelesai: 30,
+    });
   });
 
   it("jadwal khusus: site tidak ditemukan → 404 dari service diteruskan", async () => {
     mockHasPermission.mockResolvedValue(true);
-    const { createRouteServiceError } = await import("@/lib/api/route-service-error");
-    service.simpanJadwalKhususSite.mockRejectedValue(createRouteServiceError("Site tidak ditemukan", 404));
+    const { createRouteServiceError } =
+      await import("@/lib/api/route-service-error");
+    service.simpanJadwalKhususSite.mockRejectedValue(
+      createRouteServiceError("Site tidak ditemukan", 404),
+    );
 
     const res = await putJadwalKhusus(
       new NextRequest("http://x/api/admin/sites/sx/jadwal-so/2026-10", {
@@ -93,7 +121,11 @@ describe("API jadwal SO per site & laporan", () => {
 
     expect(res.status).toBe(404);
     expect(service.simpanJadwalKhususSite).toHaveBeenCalledWith(
-      "t-1", "sx", "2026-10", { mulai: "2026-10-01", selesai: "2026-10-05" }, "u-1",
+      "t-1",
+      "sx",
+      "2026-10",
+      { mulai: "2026-10-01", selesai: "2026-10-05" },
+      "u-1",
     );
   });
 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
-import { getInventoryRouteService } from "@/modules/inventory";
+import { getInventoryRouteService, pesanGagalMuat } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 
@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
     const gudangId = searchParams.get("gudangId");
 
     if (!barangId || !gudangId) {
-      return ApiErrors.badRequest("Barang ID dan Gudang ID harus diisi");
+      return ApiErrors.badRequest(
+        "Pilih barang dan gudangnya dulu, baru stoknya bisa dilihat.",
+      );
     }
 
     const dbStart = Date.now();
@@ -59,8 +61,6 @@ export async function GET(req: NextRequest) {
       path: "/api/inventory/barang/stock/by-kondisi",
       method: "GET",
     });
-    return ApiErrors.internalError(
-      "Gagal mengambil informasi stok per kondisi",
-    );
+    return ApiErrors.internalError(pesanGagalMuat("stok per kondisi"));
   }
 }

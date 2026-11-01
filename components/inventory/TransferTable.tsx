@@ -16,6 +16,11 @@ import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { useToast } from "@/hooks/use-toast";
 import { clientLogger } from "@/lib/client-logger";
+import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
+import { requestTransferApi } from "./transfer/transferRequest";
+
+const BATAL_GAGAL_MESSAGE =
+  "Transfer belum dibatalkan. Coba sekali lagi. Kalau masih gagal, lapor ke admin.";
 
 interface Transfer {
   id: string;
@@ -71,21 +76,22 @@ export function TransferTable({
   const { showToast } = useToast();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmTransfer, setConfirmTransfer] = useState<Transfer | null>(null);
+  const [cancelError, setCancelError] = useState<{
+    kodeTransfer: string;
+    message: string;
+  } | null>(null);
 
   const handleConfirmDelete = async () => {
     if (!confirmTransfer) return;
     const transfer = confirmTransfer;
     setDeletingId(transfer.id);
+    setCancelError(null);
 
     try {
-      const response = await deleteWithAuth(
-        `/api/inventory/transfer/${transfer.id}`,
+      await requestTransferApi(
+        () => deleteWithAuth(`/api/inventory/transfer/${transfer.id}`),
+        BATAL_GAGAL_MESSAGE,
       );
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Gagal membatalkan transfer");
-      }
 
       showToast(
         "success",
@@ -95,9 +101,16 @@ export function TransferTable({
       setConfirmTransfer(null);
     } catch (error) {
       clientLogger.error("Error deleting transfer:", error);
+      // Pesan pembatalan bisa panjang; toast cepat hilang, jadi pesan lengkap
+      // tampil di kotak merah di atas tabel.
+      setCancelError({
+        kodeTransfer: transfer.kodeTransfer,
+        message: error instanceof Error ? error.message : BATAL_GAGAL_MESSAGE,
+      });
+      setConfirmTransfer(null);
       showToast(
         "error",
-        error instanceof Error ? error.message : "Gagal membatalkan transfer",
+        `Transfer ${transfer.kodeTransfer} belum dibatalkan. Baca penjelasannya di kotak merah.`,
       );
     } finally {
       setDeletingId(null);
@@ -217,6 +230,15 @@ export function TransferTable({
 
   return (
     <>
+      {cancelError && (
+        <div className="mb-4">
+          <InventoryErrorBanner
+            title={`Transfer ${cancelError.kodeTransfer} belum dibatalkan`}
+            message={cancelError.message}
+            onClose={() => setCancelError(null)}
+          />
+        </div>
+      )}
       <ResponsiveTable
         data={transfers}
         columns={columns}

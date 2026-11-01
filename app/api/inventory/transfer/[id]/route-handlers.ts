@@ -2,14 +2,10 @@ import { NextRequest } from "next/server";
 import {
   inventoryTransferRouteService,
   type InventoryTransferRouteResult,
+  TRANSFER_MESSAGES,
 } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
-import {
-  apiSuccess,
-  ApiErrors,
-  apiError,
-  ErrorCodes,
-} from "@/lib/api-response";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { authOptions } from "@/lib/auth";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { getServerSession } from "next-auth";
@@ -19,6 +15,16 @@ type InventoryTransferRouteFailure = Extract<
   InventoryTransferRouteResult<unknown>,
   { success: false }
 >;
+
+const SESSION_EXPIRED_MESSAGE =
+  "Waktu login Anda sudah habis. Silakan masuk (login) lagi.";
+const FORBIDDEN_MESSAGES = {
+  read: "Akun Anda tidak punya izin melihat transfer barang. Minta admin menambahkan izinnya.",
+  update:
+    "Akun Anda tidak punya izin mengubah keterangan transfer. Minta admin menambahkan izinnya.",
+  delete:
+    "Akun Anda tidak punya izin membatalkan transfer. Minta admin menambahkan izinnya.",
+} as const;
 
 /** Check whether inventory transfer route service returned a failure. */
 function isInventoryTransferRouteFailure(
@@ -34,39 +40,12 @@ async function requireSession() {
   return session;
 }
 
-/** Map service failure result into API response. */
+/** Ubah hasil gagal service menjadi respons API dengan status yang sesuai. */
 function toTransferRouteResponse(result: InventoryTransferRouteFailure) {
   if (result.status === 404) return ApiErrors.notFound(result.error);
   if (result.status === 403) return ApiErrors.forbidden(result.error);
-  if (result.status === 400) {
-    return apiError(result.error, ErrorCodes.VALIDATION_ERROR, { status: 400 });
-  }
-  return ApiErrors.internalError(result.error);
-}
-
-/** Map update transfer error into API response. */
-function mapUpdateTransferError(error: Error) {
-  if ((error as Error & { code?: string }).code === "P2025") {
-    return ApiErrors.notFound("Record transfer");
-  }
-
-  return ApiErrors.internalError("Gagal memperbarui record transfer");
-}
-
-/** Map delete transfer error into API response. */
-function mapDeleteTransferError(error: Error) {
-  if (error.message === "Record transfer tidak ditemukan") {
-    return ApiErrors.notFound("Record transfer");
-  }
-
-  if (
-    error.message.includes("tidak mencukupi untuk pembatalan transfer") ||
-    error.message.includes("tidak ditemukan di gudang tujuan")
-  ) {
-    return ApiErrors.badRequest(error.message);
-  }
-
-  return ApiErrors.internalError("Gagal membatalkan transfer");
+  if (result.status === 409) return ApiErrors.conflict(result.error);
+  return ApiErrors.badRequest(result.error);
 }
 
 /** Handle transfer detail request. */
@@ -76,8 +55,10 @@ export async function GET(
 ) {
   try {
     const session = await requireSession();
-    if (!session) return ApiErrors.unauthorized();
-    if (!(await hasPermission("transfer:read"))) return ApiErrors.forbidden();
+    if (!session) return ApiErrors.unauthorized(SESSION_EXPIRED_MESSAGE);
+    if (!(await hasPermission("transfer:read"))) {
+      return ApiErrors.forbidden(FORBIDDEN_MESSAGES.read);
+    }
 
     const { id } = await params;
     const permissions = await getUserPermissions(session.user.id);
@@ -96,7 +77,7 @@ export async function GET(
       path: "/api/inventory/transfer/[id]",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal memuat data transfer");
+    return ApiErrors.internalError(TRANSFER_MESSAGES.gagalMuatDetail);
   }
 }
 
@@ -107,11 +88,19 @@ export async function PUT(
 ) {
   try {
     const session = await requireSession();
-    if (!session) return ApiErrors.unauthorized();
-    if (!(await hasPermission("transfer:update"))) return ApiErrors.forbidden();
+    if (!session) return ApiErrors.unauthorized(SESSION_EXPIRED_MESSAGE);
+    if (!(await hasPermission("transfer:update"))) {
+      return ApiErrors.forbidden(FORBIDDEN_MESSAGES.update);
+    }
 
     const { id } = await params;
-    const body = await req.json();
+    const body = (await req.json().catch((): null => null)) as Record<
+      string,
+      unknown
+    > | null;
+    if (!body || typeof body !== "object") {
+      return ApiErrors.badRequest(TRANSFER_MESSAGES.dataTidakTerbaca);
+    }
     const permissions = await getUserPermissions(session.user.id);
     const result = await inventoryTransferRouteService.updateTransfer({
       id,
@@ -126,7 +115,7 @@ export async function PUT(
     }
 
     return apiSuccess({
-      message: "Transfer record berhasil diperbarui",
+      message: "Keterangan transfer berhasil disimpan",
       transfer: result.data,
     });
   } catch (error: unknown) {
@@ -135,7 +124,7 @@ export async function PUT(
       path: "/api/inventory/transfer/[id]",
       method: "PUT",
     });
-    return mapUpdateTransferError(err);
+    return ApiErrors.internalError(TRANSFER_MESSAGES.gagalUbahKeterangan);
   }
 }
 
@@ -146,8 +135,10 @@ export async function DELETE(
 ) {
   try {
     const session = await requireSession();
-    if (!session) return ApiErrors.unauthorized();
-    if (!(await hasPermission("transfer:delete"))) return ApiErrors.forbidden();
+    if (!session) return ApiErrors.unauthorized(SESSION_EXPIRED_MESSAGE);
+    if (!(await hasPermission("transfer:delete"))) {
+      return ApiErrors.forbidden(FORBIDDEN_MESSAGES.delete);
+    }
 
     const { id } = await params;
     const permissions = await getUserPermissions(session.user.id);
@@ -161,7 +152,7 @@ export async function DELETE(
     if (result.success === false) return toTransferRouteResponse(result);
 
     return apiSuccess({
-      message: "Transfer berhasil dibatalkan and stok dikembalikan",
+      message: "Transfer berhasil dibatalkan dan stok sudah dikembalikan",
     });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
@@ -169,6 +160,6 @@ export async function DELETE(
       path: "/api/inventory/transfer/[id]",
       method: "DELETE",
     });
-    return mapDeleteTransferError(err);
+    return ApiErrors.internalError(TRANSFER_MESSAGES.gagalBatal);
   }
 }

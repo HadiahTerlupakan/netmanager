@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { logger } from "@/lib/logger";
+import {
+  isPrismaForeignKeyError,
+  isPrismaUniqueConstraintError,
+} from "@/lib/prisma-errors";
 import { prisma } from "@/modules/database";
 import { RestockPurchaseOrderStatusService } from "./RestockPurchaseOrderStatusService";
 import { RestockRequestLifecycleService } from "./RestockRequestLifecycleService";
@@ -9,6 +13,12 @@ import {
   INVENTORY_ACTIVITY_SUBJECTS,
   recordInventoryActivity,
 } from "./inventory-activity-log";
+import {
+  RESTOCK_MESSAGES,
+  restockServerErrorMessage,
+} from "./restock-messages";
+
+export * from "./restock-messages";
 
 const REQUEST_NUMBER_PAD_LENGTH = 4;
 const ONE_DAY_OFFSET = 1;
@@ -109,15 +119,30 @@ function logSuccessfulRequestCreation(
 }
 
 function handleRequestCreationError(error: unknown, apiPath: string) {
+  if (isPrismaUniqueConstraintError(error)) {
+    return NextResponse.json(
+      { error: RESTOCK_MESSAGES.duplicateRequestNumber },
+      { status: 409 },
+    );
+  }
+  if (isPrismaForeignKeyError(error)) {
+    return NextResponse.json(
+      { error: RESTOCK_MESSAGES.missingReference },
+      { status: 400 },
+    );
+  }
+
   const applicationError =
-    error instanceof Error ? error : new Error("Terjadi kesalahan");
+    error instanceof Error ? error : new Error(String(error));
   logger.error("Error creating purchase request", applicationError, {
     path: apiPath,
     method: "POST",
   });
 
+  // Nomor pengajuan dibuat tanpa menulis apa pun dan pengajuan beserta
+  // itemnya disimpan dalam satu transaksi, jadi kegagalan tidak meninggalkan data.
   return NextResponse.json(
-    { error: "Gagal membuat Purchase Request" },
+    { error: restockServerErrorMessage("Menyimpan pengajuan", true) },
     { status: 500 },
   );
 }
@@ -132,16 +157,22 @@ export async function getRestockRequestDetail(id: string, tenantId: string) {
 
     if (!purchaseRequest) {
       return NextResponse.json(
-        { error: "Purchase Request not found" },
+        { error: RESTOCK_MESSAGES.requestNotFound },
         { status: 404 },
       );
     }
 
     return NextResponse.json(purchaseRequest);
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Terjadi kesalahan server";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    logger.error(
+      "Error fetching purchase request detail",
+      error instanceof Error ? error : new Error(String(error)),
+      { purchaseRequestId: id },
+    );
+    return NextResponse.json(
+      { error: restockServerErrorMessage("Membuka pengajuan", false) },
+      { status: 500 },
+    );
   }
 }
 
@@ -209,7 +240,7 @@ function validateRestockRequestInput(input: CreateRestockRequestInput) {
 
   if (!hasBarang && !hasJasa) {
     return NextResponse.json(
-      { error: "Daftar item wajib diisi (minimal 1 barang atau jasa)" },
+      { error: RESTOCK_MESSAGES.nothingRequested },
       { status: 400 },
     );
   }
@@ -218,7 +249,7 @@ function validateRestockRequestInput(input: CreateRestockRequestInput) {
   // UI mengisi gudang default/site gudang.
   if (!input.gudangId) {
     return NextResponse.json(
-      { error: "Gudang tujuan wajib dipilih" },
+      { error: RESTOCK_MESSAGES.gudangMissing },
       { status: 400 },
     );
   }

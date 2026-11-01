@@ -1,6 +1,7 @@
 import type { RefObject } from "react";
 
 import type { PhotoUploadRef } from "@/components/inventory/PhotoUpload";
+import { OFFLINE_MESSAGE } from "@/components/inventory/form-shared/inventoryRequestMessages";
 
 import type {
   Barang,
@@ -274,36 +275,117 @@ export function canReceivePurchaseRequest(
   return canVerify && (status === "APPROVED" || status === "ORDERED");
 }
 
+interface RestockFormProblemsInput {
+  formGudang: string;
+  formNotes: string;
+  formItems: RestockFormItem[];
+  /** Nama barang per id, agar barang dobel disebut namanya. */
+  barangNamaById?: ReadonlyMap<string, string>;
+}
+
+/**
+ * Daftar hal yang masih kurang di form pengajuan, dalam kalimat untuk petugas.
+ * Daftar kosong berarti form siap disimpan. Tombol simpan mati selama daftar
+ * ini berisi, jadi daftar ini juga yang ditampilkan di samping tombol.
+ */
+export function getRestockFormProblems({
+  formGudang,
+  formNotes,
+  formItems,
+  barangNamaById,
+}: RestockFormProblemsInput): string[] {
+  const problems: string[] = [];
+  if (!formGudang) problems.push("Gudang tujuan belum dipilih.");
+  if (!formNotes.trim()) {
+    problems.push("Catatan belum diisi. Tulis untuk apa barang ini dibeli.");
+  }
+  if (formItems.length === 0) {
+    problems.push(
+      "Belum ada barang atau jasa. Tekan Tambah Barang atau Tambah Jasa.",
+    );
+  }
+
+  formItems.forEach((item, index) => {
+    const row = `Baris ke-${index + 1}`;
+    const isJasa = item.tipe === "JASA";
+    if (isJasa ? !item.jasaId : !item.barangId) {
+      problems.push(`${row}: ${isJasa ? "jasa" : "barang"}nya belum dipilih.`);
+    }
+    if (!(item.quantity > 0)) {
+      problems.push(`${row}: jumlahnya harus 1 atau lebih.`);
+    }
+  });
+
+  problems.push(...describeDuplicateBarangRows(formItems, barangNamaById));
+  return problems;
+}
+
+/** Barang yang dipilih di lebih dari satu baris (jasa boleh dobel). */
+function describeDuplicateBarangRows(
+  formItems: RestockFormItem[],
+  barangNamaById?: ReadonlyMap<string, string>,
+): string[] {
+  const rowsByBarang = new Map<string, number[]>();
+  formItems.forEach((item, index) => {
+    if (item.tipe !== "BARANG" || !item.barangId) return;
+    rowsByBarang.set(item.barangId, [
+      ...(rowsByBarang.get(item.barangId) ?? []),
+      index + 1,
+    ]);
+  });
+
+  return [...rowsByBarang.entries()]
+    .filter(([, rows]) => rows.length > 1)
+    .map(([barangId, rows]) => {
+      const nama = barangNamaById?.get(barangId) ?? "Barang yang sama";
+      return `${nama} dipilih lebih dari sekali (baris ${rows.join(", ")}). Hapus salah satu barisnya, lalu jumlahkan di satu baris saja.`;
+    });
+}
+
 export function canSubmitRestockForm({
   formGudang,
   formNotes,
   formItems,
   isSubmitting,
 }: CanSubmitRestockFormInput): boolean {
-  if (
-    isSubmitting ||
-    !formGudang ||
-    !formNotes.trim() ||
-    formItems.length === 0
-  ) {
-    return false;
-  }
+  if (isSubmitting) return false;
+  return (
+    getRestockFormProblems({ formGudang, formNotes, formItems }).length === 0
+  );
+}
 
-  const allItemsValid = formItems.every((item) => {
-    if (item.tipe === "JASA") {
-      return !!item.jasaId && item.quantity > 0;
-    }
-    return !!item.barangId && item.quantity > 0;
-  });
-  if (!allItemsValid) return false;
+const SERVER_UNREADABLE_MESSAGE =
+  "Server sedang bermasalah dan tidak memberi jawaban yang bisa dibaca. Tunggu sebentar, lalu coba lagi. Kalau tetap gagal, lapor ke admin.";
 
-  const barangIds = formItems
-    .filter((item) => item.tipe === "BARANG")
-    .map((item) => item.barangId)
-    .filter(Boolean);
-  const hasDuplicateBarang = new Set(barangIds).size !== barangIds.length;
+/**
+ * Ambil pesan error dari respons API yang gagal. Respons yang bukan JSON
+ * (misalnya halaman error dari server) tidak boleh berubah jadi pesan
+ * "Unexpected token <" di layar petugas.
+ */
+export async function readRestockErrorMessage(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  const body: unknown = await response.json().catch((): null => null);
+  if (!body || typeof body !== "object") return SERVER_UNREADABLE_MESSAGE;
+  const { error, message } = body as { error?: unknown; message?: unknown };
+  if (typeof error === "string" && error) return error;
+  if (typeof message === "string" && message) return message;
+  return fallback;
+}
 
-  return !hasDuplicateBarang;
+/** Pesan untuk kegagalan yang terjadi sebelum server menjawab. */
+export const RESTOCK_NETWORK_ERROR_MESSAGE = OFFLINE_MESSAGE;
+
+/**
+ * Pesan untuk error yang tertangkap di layar. `fetch` yang gagal tersambung
+ * melempar TypeError berbahasa Inggris ("Failed to fetch"); itu diganti
+ * kalimat yang dimengerti petugas.
+ */
+export function describeRestockClientError(error: unknown): string {
+  if (error instanceof TypeError) return RESTOCK_NETWORK_ERROR_MESSAGE;
+  if (error instanceof Error && error.message) return error.message;
+  return "Terjadi masalah yang tidak dikenal. Coba sekali lagi. Kalau tetap gagal, lapor ke admin.";
 }
 
 export function canRemoveRestockFormItem(totalItems: number): boolean {

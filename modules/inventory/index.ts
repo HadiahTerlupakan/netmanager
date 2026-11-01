@@ -4,6 +4,7 @@ export * from "./services/DepreciationCronService";
 export * from "./services/InventoryBarangService";
 export * from "./services/InventoryBarangRouteService";
 export * from "./services/InventoryGudangRouteService";
+export * from "./services/inventory-master-data-errors";
 export * from "./services/InventoryTransferRouteService";
 export * from "./services/InventoryMasukRouteService";
 export * from "./services/InventoryKeluarRouteService";
@@ -65,6 +66,15 @@ export {
   type BarangFormOutput,
 } from "./validators/barangValidator";
 
+export {
+  ASSET_STATUSES,
+  LABEL_STATUS_ASET,
+  createAssetSchema,
+  updateAssetSchema,
+  depreciateAssetSchema,
+  type AssetStatusValue,
+} from "./validators/assetValidator";
+
 // Event handlers
 export { handleGoodsReceiptCreatedInventory } from "./services/event-handlers/goods-receipt-inventory.handler";
 export { handleGoodsReturnSentInventory } from "./services/event-handlers/goods-return-inventory.handler";
@@ -87,4 +97,5 @@ export {
   runStockOpnameReminderCron,
 } from "./services/StockOpnamePengingatService";
 export { periodeDari as periodeStockOpnameDari } from "./domain/jadwal-stock-opname";
+export { OPNAME_PESAN, pesanGagalMuatOpname } from "./domain/opname-pesan";
 export { bolehAksesGudang } from "./services/lingkup-gudang";

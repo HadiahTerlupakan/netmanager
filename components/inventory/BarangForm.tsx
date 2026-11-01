@@ -10,6 +10,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { usePermission } from "@/hooks/use-permission";
 import { clientLogger } from "@/lib/client-logger";
+import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
+import {
+  describeClientError,
+  readApiErrorMessage,
+} from "./master-data/masterDataErrorMessage";
 
 interface BarangFormProps {
   initialData?: {
@@ -46,6 +51,9 @@ const SATUAN_OPTIONS = [
   "buah",
   "unit",
 ];
+
+const PESAN_GAGAL_SIMPAN_BARANG =
+  "Barang belum tersimpan. Coba sekali lagi. Kalau tetap gagal, laporkan ke admin.";
 
 export function BarangForm({
   initialData,
@@ -109,7 +117,7 @@ export function BarangForm({
 
     if (!validation.valid) {
       setErrors(validation.errors);
-      setError("Mohon perbaiki kesalahan pada form");
+      setError("Ada isian yang belum benar. Perbaiki dulu yang di bawah ini:");
       return;
     }
 
@@ -143,8 +151,9 @@ export function BarangForm({
         );
 
         if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Gagal mengupdate barang");
+          throw new Error(
+            await readApiErrorMessage(response, PESAN_GAGAL_SIMPAN_BARANG),
+          );
         }
 
         showToast("success", "Barang berhasil diupdate");
@@ -159,8 +168,9 @@ export function BarangForm({
         });
 
         if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Gagal menambah barang");
+          throw new Error(
+            await readApiErrorMessage(response, PESAN_GAGAL_SIMPAN_BARANG),
+          );
         }
 
         showToast("success", "Barang berhasil ditambahkan");
@@ -169,7 +179,7 @@ export function BarangForm({
       onSubmit(sanitizedData);
     } catch (error) {
       clientLogger.error("Error submitting barang:", error);
-      setError(error instanceof Error ? error.message : "Terjadi kesalahan");
+      setError(describeClientError(error, PESAN_GAGAL_SIMPAN_BARANG));
     } finally {
       setLoading(false);
     }
@@ -177,18 +187,15 @@ export function BarangForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
-          {Object.keys(errors).length > 0 && (
-            <ul className="mt-2 ml-4 list-disc text-sm">
-              {Object.entries(errors).map(([field, message]) => (
-                <li key={field}>{message}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      <InventoryErrorBanner title="Barang belum tersimpan" message={error}>
+        {Object.keys(errors).length > 0 && (
+          <ul className="mt-2 ml-4 list-disc text-sm">
+            {Object.entries(errors).map(([field, message]) => (
+              <li key={field}>{message}</li>
+            ))}
+          </ul>
+        )}
+      </InventoryErrorBanner>
 
       {/* Show kode field only for editing */}
       {initialData?.id && (

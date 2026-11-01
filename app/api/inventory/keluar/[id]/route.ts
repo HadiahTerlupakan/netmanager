@@ -2,13 +2,17 @@ import { NextRequest } from "next/server";
 import { getServerSession, type Session } from "next-auth";
 import { authConfig, getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { inventoryKeluarRouteService } from "@/modules/inventory";
-import {
-  apiError,
-  apiSuccess,
-  ApiErrors,
-  ErrorCodes,
-} from "@/lib/api-response";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
+import {
+  INVENTORY_UNEXPECTED_ERROR_MESSAGE,
+  inventoryFailureResponse,
+} from "../../_lib/inventory-failure-response";
+import { parseInventoryMutationBody } from "../../_lib/inventory-mutation-request";
+
+const SESSION_EXPIRED_MESSAGE =
+  "Sesi login Anda sudah habis. Silakan login lagi, lalu ulangi.";
 
 interface UserSession {
   id: string;
@@ -21,12 +25,14 @@ async function requireAdmin(): Promise<UserSession | null> {
   return session?.user ? (session.user as UserSession) : null;
 }
 
-function routeFailure(result: { status: number; error: string }) {
-  if (result.status === 404) return ApiErrors.notFound(result.error);
-  if (result.status === 403) return ApiErrors.forbidden(result.error);
-  return apiError(result.error, ErrorCodes.VALIDATION_ERROR, {
-    status: result.status,
-  });
+/** Gangguan tak terduga: catat penyebabnya, beri staf langkah yang aman. */
+function unexpectedFailure(error: unknown, method: string) {
+  logger.error(
+    "Error mutating barang keluar",
+    error instanceof Error ? error : new Error(String(error)),
+    { path: "/api/inventory/keluar/[id]", method },
+  );
+  return ApiErrors.internalError(INVENTORY_UNEXPECTED_ERROR_MESSAGE);
 }
 
 async function buildAccessInput(id: string, user: UserSession) {
@@ -43,20 +49,31 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await requireAdmin();
-  if (!user) return ApiErrors.unauthorized("Session tidak valid");
+  if (!user) return ApiErrors.unauthorized(SESSION_EXPIRED_MESSAGE);
   if (!(await hasPermission("keluar:read", user))) {
     return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat data barang keluar",
+      "Akun Anda tidak punya izin melihat barang keluar. Minta admin menambahkan izin ini ke peran Anda.",
     );
   }
 
-  const { id } = await params;
-  const result = await inventoryKeluarRouteService.getKeluarDetail(
-    await buildAccessInput(id, user),
-  );
-  return result.success === true
-    ? apiSuccess(result.data)
-    : routeFailure(result);
+  try {
+    const { id } = await params;
+    const result = await inventoryKeluarRouteService.getKeluarDetail(
+      await buildAccessInput(id, user),
+    );
+    return result.success === true
+      ? apiSuccess(result.data)
+      : inventoryFailureResponse(result);
+  } catch (error) {
+    logger.error(
+      "Error fetching barang keluar",
+      error instanceof Error ? error : new Error(String(error)),
+      { path: "/api/inventory/keluar/[id]", method: "GET" },
+    );
+    return ApiErrors.internalError(
+      "Data barang keluar gagal dimuat karena ada gangguan di server. Muat ulang halaman. Kalau tetap gagal, laporkan ke admin.",
+    );
+  }
 }
 
 export async function PUT(
@@ -64,31 +81,27 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await requireAdmin();
-  if (!user) return ApiErrors.unauthorized("Session tidak valid");
+  if (!user) return ApiErrors.unauthorized(SESSION_EXPIRED_MESSAGE);
   if (!(await hasPermission("keluar:update", user))) {
     return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk mengubah data barang keluar",
+      "Akun Anda tidak punya izin mengubah barang keluar. Minta admin menambahkan izin ini ke peran Anda.",
     );
   }
+
+  const parsed = await parseInventoryMutationBody(req);
+  if (parsed.ok === false) return parsed.response;
 
   try {
     const { id } = await params;
     const result = await inventoryKeluarRouteService.updateKeluar({
       ...(await buildAccessInput(id, user)),
-      body: await req.json(),
+      body: parsed.body,
     });
     return result.success === true
       ? apiSuccess(null, { message: "Barang keluar berhasil diperbarui" })
-      : routeFailure(result);
+      : inventoryFailureResponse(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    if (message === "Record barang keluar tidak ditemukan") {
-      return ApiErrors.notFound("Record barang keluar");
-    }
-    if (message === "Stok tidak mencukupi untuk perubahan ini") {
-      return apiError(message, ErrorCodes.VALIDATION_ERROR, { status: 400 });
-    }
-    return ApiErrors.internalError("Gagal memperbarui barang keluar");
+    return unexpectedFailure(error, "PUT");
   }
 }
 
@@ -97,10 +110,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await requireAdmin();
-  if (!user) return ApiErrors.unauthorized("Session tidak valid");
+  if (!user) return ApiErrors.unauthorized(SESSION_EXPIRED_MESSAGE);
   if (!(await hasPermission("keluar:delete", user))) {
     return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk menghapus data barang keluar",
+      "Akun Anda tidak punya izin menghapus barang keluar. Minta admin menambahkan izin ini ke peran Anda.",
     );
   }
 
@@ -112,16 +125,10 @@ export async function DELETE(
     return result.success === true
       ? apiSuccess(null, {
           message:
-            "Record barang keluar berhasil dihapus dan stok dikembalikan",
+            "Catatan barang keluar sudah dihapus, dan stoknya sudah dikembalikan ke gudang.",
         })
-      : routeFailure(result);
+      : inventoryFailureResponse(result);
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "Record barang keluar tidak ditemukan"
-    ) {
-      return ApiErrors.notFound("Record barang keluar");
-    }
-    return ApiErrors.internalError("Gagal menghapus record barang keluar");
+    return unexpectedFailure(error, "DELETE");
   }
 }

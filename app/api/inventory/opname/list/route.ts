@@ -1,7 +1,9 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import {
   getInventoryOpnameService,
+  OPNAME_PESAN,
   OPNAME_REASON_CODES,
+  pesanGagalMuatOpname,
 } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
@@ -23,7 +25,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("opname:read"))) {
-    return ApiErrors.forbidden("Akses ditolak");
+    return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinLihat);
   }
 
   try {
@@ -94,6 +96,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/opname/list",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal memuat data stock opname");
+    return ApiErrors.internalError(pesanGagalMuatOpname("Daftar stock opname"));
   }
 });

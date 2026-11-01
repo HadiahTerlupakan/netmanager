@@ -6,6 +6,8 @@ import { hasPermission } from "@/lib/rbac";
 import {
   getInventoryOpnameService,
   inventoryOpnameRouteService,
+  OPNAME_PESAN,
+  pesanGagalMuatOpname,
 } from "@/modules/inventory";
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -13,7 +15,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("opname:read"))) {
-    return ApiErrors.forbidden();
+    return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinLihat);
   }
 
   const { searchParams } = req.nextUrl;
@@ -64,7 +66,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/opname",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal memuat data stock opname");
+    return ApiErrors.internalError(pesanGagalMuatOpname("Daftar stock opname"));
   }
 });
 
@@ -73,10 +75,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("opname:create"))) {
-    return ApiErrors.forbidden();
+    return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinCatat);
   }
 
-  const body = await req.json();
+  const body = await req.json().catch((): null => null);
+  if (!body) return ApiErrors.badRequest(OPNAME_PESAN.dataTidakTerbaca);
   const routeResult = await inventoryOpnameRouteService.createOpname({
     user: {
       id: user.id,
@@ -104,14 +107,14 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     }
 
     if (routeResult.status === 400) {
-      return ApiErrors.badRequest(routeResult.error);
+      return ApiErrors.badRequest(routeResult.error, routeResult.details);
     }
 
     return ApiErrors.internalError(routeResult.error);
   }
 
   if (!("data" in routeResult)) {
-    return ApiErrors.internalError("Gagal mencatat stock opname");
+    return ApiErrors.internalError(OPNAME_PESAN.gagalSimpan);
   }
 
   const result = routeResult.data;

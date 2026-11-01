@@ -5,6 +5,14 @@ import { FiInfo } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { usePermission } from "@/hooks/use-permission";
 import { clientLogger } from "@/lib/client-logger";
+import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
+import {
+  describeClientError,
+  readApiErrorMessage,
+} from "./master-data/masterDataErrorMessage";
+
+const PESAN_GAGAL_SIMPAN_GUDANG =
+  "Gudang belum tersimpan. Coba sekali lagi. Kalau tetap gagal, laporkan ke admin.";
 
 interface GudangFormData {
   nama: string;
@@ -47,7 +55,9 @@ export function GudangForm({
     e.preventDefault();
 
     if (!formData.nama.trim()) {
-      setError("Nama gudang harus diisi");
+      setError(
+        "Nama gudang belum diisi. Tulis nama gudangnya, contoh: Gudang Utama.",
+      );
       return;
     }
 
@@ -71,8 +81,9 @@ export function GudangForm({
         );
 
         if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Gagal mengupdate gudang");
+          throw new Error(
+            await readApiErrorMessage(response, PESAN_GAGAL_SIMPAN_GUDANG),
+          );
         }
       } else {
         const response = await fetch("/api/inventory/gudang", {
@@ -82,15 +93,16 @@ export function GudangForm({
         });
 
         if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || "Gagal menambah gudang");
+          throw new Error(
+            await readApiErrorMessage(response, PESAN_GAGAL_SIMPAN_GUDANG),
+          );
         }
       }
 
       onSubmit(formData);
     } catch (error) {
       clientLogger.error("Error submitting gudang:", error);
-      setError(error instanceof Error ? error.message : "Terjadi kesalahan");
+      setError(describeClientError(error, PESAN_GAGAL_SIMPAN_GUDANG));
     } finally {
       setLoading(false);
     }
@@ -98,11 +110,7 @@ export function GudangForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
-        </div>
-      )}
+      <InventoryErrorBanner title="Gudang belum tersimpan" message={error} />
 
       {!initialData?.id && (
         <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">

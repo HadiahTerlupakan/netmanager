@@ -155,7 +155,7 @@ export function RestockConfirmJasaModal({
                     </div>
                     {(state?.buktiSelesai?.length ?? 0) === 0 && (
                       <p className="text-[10px] font-bold text-red-500 ml-1">
-                        Upload minimal 1 foto/bukti
+                        Unggah paling sedikit 1 foto bukti jasa selesai
                       </p>
                     )}
                   </div>
@@ -180,6 +180,8 @@ export function RestockConfirmJasaModal({
           >
             {submitting ? (
               "Menyimpan..."
+            ) : readyCount === 0 ? (
+              "Centang jasa yang selesai, lalu unggah fotonya dulu"
             ) : (
               <>
                 <FiCheck /> Konfirmasi {readyCount} Jasa Selesai

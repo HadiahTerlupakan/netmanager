@@ -100,17 +100,17 @@ export class RestockItemSubstitutionService {
       );
       if (!purchaseOrderItem) {
         throw new RestockSubstitutionInvalidError(
-          "Barang yang ingin diganti tidak ada di Purchase Order",
+          "Barang yang mau diganti tidak ada di pesanan ini. Muat ulang halaman, lalu coba lagi.",
         );
       }
       if (purchaseOrderItem.receivedQuantity > 0) {
         throw new RestockSubstitutionInvalidError(
-          `${this.describeItem(purchaseOrderItem)} sudah pernah diterima sebagian, tidak bisa diganti`,
+          `${this.describeItem(purchaseOrderItem)} sudah pernah diterima sebagian, jadi tidak bisa diganti dengan barang lain. Terima sisanya dengan barang yang sama.`,
         );
       }
       if (usedBarangIds.has(substitution.toBarangId)) {
         throw new RestockSubstitutionInvalidError(
-          "Barang pengganti sudah ada di pesanan ini. Sesuaikan jumlahnya, jangan diganti",
+          "Barang pengganti sudah ada di pesanan ini. Jangan diganti — ubah saja jumlah barang itu.",
         );
       }
 
@@ -139,7 +139,7 @@ export class RestockItemSubstitutionService {
     const missing = replacementIds.find((id) => !foundIds.has(id));
     if (missing) {
       throw new RestockSubstitutionInvalidError(
-        "Barang pengganti tidak ditemukan pada master barang",
+        "Barang pengganti tidak ditemukan di daftar barang. Mungkin sudah dihapus. Pilih barang pengganti lain.",
       );
     }
   }

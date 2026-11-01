@@ -5,7 +5,14 @@ import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import {
   getInventoryRouteService,
   inventoryBarangRouteService,
+  PESAN_DATA_TIDAK_TERBACA,
+  pesanGagalHapus,
+  pesanGagalMuat,
+  pesanGagalSimpan,
+  pesanTanpaIzin,
+  pesanTidakDitemukan,
 } from "@/modules/inventory";
+import { masterDataFailureResponse } from "../../master-data-response";
 import type { InventoryBarangRouteResult } from "@/modules/inventory";
 
 type InventoryBarangRouteFailure = Extract<
@@ -38,37 +45,6 @@ async function resolveRestrictedSiteId(user: {
   });
 }
 
-/** Map route failure into API response. */
-function mapBarangRouteFailure(result: InventoryBarangRouteFailure) {
-  if (result.status === 403) return ApiErrors.forbidden(result.error);
-  if (result.status === 404) return ApiErrors.notFound("Barang");
-  return ApiErrors.badRequest(result.error);
-}
-
-/** Map update error into API response. */
-function mapUpdateBarangError(error: Error) {
-  if (
-    error.message === "Barang tidak ditemukan" ||
-    error.message ===
-      "Satuan barang tidak boleh diubah saat stok masih tersedia"
-  ) {
-    return ApiErrors.badRequest(error.message);
-  }
-
-  return ApiErrors.internalError("Gagal mengupdate barang");
-}
-
-/** Map delete error into API response. */
-function mapDeleteBarangError(error: Error & { code?: string }) {
-  if (error.code === "P2003" || error.message?.includes("P2003")) {
-    return ApiErrors.badRequest(
-      "Barang tidak bisa dihapus karena masih terkait dengan data transaksi (Work Order, Pesanan, atau Aset). Pastikan semua relasi data terkait sudah dibersihkan.",
-    );
-  }
-
-  return ApiErrors.internalError("Gagal menghapus barang");
-}
-
 /** Log successful barang request. */
 function logBarangRequest(
   method: string,
@@ -86,9 +62,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const { id } = ctx.params;
 
   if (!(await hasPermission("barang:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat detail barang",
-    );
+    return ApiErrors.forbidden(pesanTanpaIzin("melihat detail barang"));
   }
 
   try {
@@ -100,7 +74,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     });
 
     if (!result.found) {
-      return ApiErrors.notFound("Barang");
+      return ApiErrors.notFound(pesanTidakDitemukan("Barang"));
     }
 
     logger.dbOperation("findUnique", "Barang+Relations", Date.now() - dbStart);
@@ -117,7 +91,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
       method: "GET",
       id: "unknown",
     });
-    return ApiErrors.internalError("Gagal memuat data barang");
+    return ApiErrors.internalError(pesanGagalMuat("barang"));
   }
 });
 
@@ -128,13 +102,15 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
 
   if (!(await hasPermission("barang:update"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk mengubah barang",
-    );
+    return ApiErrors.forbidden(pesanTanpaIzin("mengubah barang"));
+  }
+
+  const body = await req.json().catch((): null => null);
+  if (!body || typeof body !== "object") {
+    return ApiErrors.badRequest(PESAN_DATA_TIDAK_TERBACA);
   }
 
   try {
-    const body = await req.json();
     const siteId = await resolveRestrictedSiteId(user);
     const dbStart = Date.now();
     const result = await inventoryBarangRouteService.updateBarang({
@@ -144,7 +120,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     });
 
     if (isInventoryBarangRouteFailure(result)) {
-      return mapBarangRouteFailure(result);
+      return masterDataFailureResponse(result);
     }
 
     const updatedBarang = result.data as { id: string };
@@ -176,7 +152,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
       method: "PUT",
       id: "unknown",
     });
-    return mapUpdateBarangError(err);
+    return ApiErrors.internalError(pesanGagalSimpan("Perubahan barang"));
   }
 });
 
@@ -187,9 +163,7 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   const { id } = ctx.params;
 
   if (!(await hasPermission("barang:delete"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk menghapus barang",
-    );
+    return ApiErrors.forbidden(pesanTanpaIzin("menghapus barang"));
   }
 
   try {
@@ -201,7 +175,7 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
     });
 
     if (isInventoryBarangRouteFailure(result)) {
-      return mapBarangRouteFailure(result);
+      return masterDataFailureResponse(result);
     }
 
     logger.dbOperation("delete", "Barang", Date.now() - dbStart);
@@ -219,12 +193,12 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
 
     return apiSuccess(null, { message: result.message });
   } catch (error) {
-    const err = error as Error & { code?: string };
+    const err = error as Error;
     logger.error("Error deleting barang", err, {
       path: "/api/inventory/barang/[id]",
       method: "DELETE",
       id: "unknown",
     });
-    return mapDeleteBarangError(err);
+    return ApiErrors.internalError(pesanGagalHapus("Barang"));
   }
 });

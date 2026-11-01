@@ -3,7 +3,16 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { getJasaService } from "@/modules/inventory";
+import {
+  describeZodIssues,
+  getJasaService,
+  PESAN_BELUM_MASUK,
+  PESAN_DATA_TIDAK_TERBACA,
+  pesanGagalMuat,
+  pesanTanpaIzin,
+} from "@/modules/inventory";
+import { logger } from "@/lib/logger";
+import { masterDataFailureResponse } from "../master-data-response";
 import { jasaCreateSchema } from "@/lib/validations/jasa";
 import { parsePaginationParams } from "@/lib/constants/pagination";
 
@@ -11,15 +20,12 @@ import { parsePaginationParams } from "@/lib/constants/pagination";
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
-    return NextResponse.json(
-      { error: "Tidak terautentikasi" },
-      { status: 401 },
-    );
+    return NextResponse.json({ error: PESAN_BELUM_MASUK }, { status: 401 });
   }
 
   if (!(await hasPermission("jasa:read"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin jasa:read" },
+      { error: pesanTanpaIzin("melihat daftar jasa") },
       { status: 403 },
     );
   }
@@ -33,44 +39,52 @@ export async function GET(req: NextRequest) {
     limit: 50,
   });
 
-  const result = await getJasaService().list({
-    tenantId: (session.user.tenantId as string) ?? null,
-    search,
-    status,
-    supplierId,
-    page,
-    limit,
-  });
+  try {
+    const result = await getJasaService().list({
+      tenantId: (session.user.tenantId as string) ?? null,
+      search,
+      status,
+      supplierId,
+      page,
+      limit,
+    });
 
-  return NextResponse.json({
-    data: { items: result.items, pagination: result },
-  });
+    return NextResponse.json({
+      data: { items: result.items, pagination: result },
+    });
+  } catch (error: unknown) {
+    logger.error("Daftar jasa gagal dimuat", error as Error);
+    return NextResponse.json(
+      { error: pesanGagalMuat("jasa") },
+      { status: 500 },
+    );
+  }
 }
 
 /** Buat master jasa baru. */
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
-    return NextResponse.json(
-      { error: "Tidak terautentikasi" },
-      { status: 401 },
-    );
+    return NextResponse.json({ error: PESAN_BELUM_MASUK }, { status: 401 });
   }
 
   if (!(await hasPermission("jasa:create"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin jasa:create" },
+      { error: pesanTanpaIzin("menambah jasa") },
       { status: 403 },
     );
   }
 
-  const body = await req.json();
-  const parsed = jasaCreateSchema.safeParse(body);
-  if (!parsed.success) {
+  const body = await req.json().catch((): null => null);
+  if (!body || typeof body !== "object") {
     return NextResponse.json(
-      { error: parsed.error.issues[0].message },
+      { error: PESAN_DATA_TIDAK_TERBACA },
       { status: 400 },
     );
+  }
+  const parsed = jasaCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return masterDataFailureResponse(describeZodIssues(parsed.error));
   }
 
   const result = await getJasaService().create({
@@ -80,10 +94,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (result.success === false) {
-    return NextResponse.json(
-      { error: result.error },
-      { status: result.status },
-    );
+    return masterDataFailureResponse(result);
   }
 
   return NextResponse.json(result.data, { status: 201 });

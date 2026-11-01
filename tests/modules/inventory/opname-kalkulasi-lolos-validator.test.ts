@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { adjustStockCalculation } from "@/modules/inventory/repositories/inventory-api-repository-helpers";
+import { calculateInitialOpnameItems } from "@/modules/inventory/repositories/inventory-opname-api-calculation.helpers";
 import { opnameBatchSchema } from "@/modules/inventory/validators/opnameValidator";
 
 /**
@@ -70,6 +71,53 @@ describe("baris kalkulasi opname lolos validator batch", () => {
     expect(
       hasil.success,
       hasil.success ? "" : JSON.stringify(hasil.error.issues.slice(0, 3)),
+    ).toBe(true);
+  });
+
+  it("menerima baris barang yang stok sistemnya negatif", async () => {
+    // Insiden produksi 2026-11-01: stok sistem negatif disalin mentah menjadi
+    // stok fisik awal, lalu batch ditolak "Too small: expected number to be >=0".
+    const db = {
+      barangGudang: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            stok: -3,
+            barang: {
+              id: "brg-neg",
+              kode: "B-NEG",
+              nama: "Konektor",
+              satuan: "pcs",
+            },
+            gudang: { id: "gd-1", nama: "Gudang Utama" },
+          },
+        ]),
+      },
+      barangMasuk: { findMany: vi.fn().mockResolvedValue([]) },
+      barangKeluar: { findMany: vi.fn().mockResolvedValue([]) },
+      stockOpname: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+
+    const [baris] = await calculateInitialOpnameItems({
+      db: db as never,
+      gudangId: "gd-1",
+    });
+
+    expect(baris.stokSistem).toBe(-3);
+    const hasil = opnameBatchSchema.safeParse({
+      gudangId: "gd-1",
+      items: [
+        {
+          barangId: baris.barangId,
+          stokFisik: baris.stokFisik,
+          kondisiBaik: baris.kondisiBaik,
+          kondisiRusak: baris.kondisiRusak,
+          kondisiExpire: baris.kondisiExpire,
+        },
+      ],
+    });
+    expect(
+      hasil.success,
+      hasil.success ? "" : JSON.stringify(hasil.error.issues),
     ).toBe(true);
   });
 

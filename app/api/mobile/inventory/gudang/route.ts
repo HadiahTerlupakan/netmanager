@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { createHandler } from "@/lib/api";
 import { hasAnyMobilePermission } from "@/lib/mobile-auth";
-import { apiError, ErrorCodes } from "@/lib/api-response";
 import { getMobileInventoryService } from "@/modules/inventory";
-import { createMobileInventoryErrorResponse } from "../route-utils";
+import {
+  createMobileInventoryErrorResponse,
+  MOBILE_INVENTORY_MESSAGES,
+  rejectMobileInventoryAccess,
+} from "../route-utils";
 
 const service = getMobileInventoryService();
 
@@ -16,9 +19,7 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
         "m_barang_keluar:create",
       ])
     ) {
-      return apiError("Akses inventory ditolak", ErrorCodes.FORBIDDEN, {
-        status: 403,
-      });
+      return rejectMobileInventoryAccess(MOBILE_INVENTORY_MESSAGES.noAccess);
     }
 
     const gudangList = await service.getGudangs({

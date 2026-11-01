@@ -6,6 +6,15 @@ import { FiEye, FiSearch } from "react-icons/fi";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { formatCurrency } from "@/lib/utils"; // Assuming utility exists
 import { clientLogger } from "@/lib/client-logger";
+import { unwrapApiData } from "@/lib/utils/fetch-wrapper";
+import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
+import {
+  describeClientError,
+  readApiErrorMessage,
+} from "../master-data/masterDataErrorMessage";
+
+const PESAN_GAGAL_MUAT_ASET =
+  "Daftar aset belum bisa dimuat. Muat ulang halaman. Kalau tetap gagal, laporkan ke admin.";
 
 interface Asset {
   id: string;
@@ -27,20 +36,28 @@ export function AssetTable() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   const fetchAssets = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const params = new URLSearchParams();
       if (search) params.append("search", search);
       if (statusFilter) params.append("status", statusFilter);
 
       const res = await fetch(`/api/inventory/assets?${params}`);
-      const data = await res.json();
-
-      setAssets(data.assets || []);
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, PESAN_GAGAL_MUAT_ASET));
+      }
+      // Respons dibungkus `{ data: { assets } }`; membaca `.assets` langsung
+      // dulu selalu menghasilkan daftar kosong.
+      const payload = unwrapApiData<{ assets?: Asset[] }>(await res.json());
+      setAssets(payload.assets ?? []);
     } catch (err: unknown) {
       clientLogger.error("Failed to fetch assets", err);
+      setAssets([]);
+      setLoadError(describeClientError(err, PESAN_GAGAL_MUAT_ASET));
     } finally {
       setLoading(false);
     }
@@ -154,6 +171,12 @@ export function AssetTable() {
           <option value="REPAIR">Repair</option>
         </select>
       </div>
+
+      <InventoryErrorBanner
+        title="Daftar aset belum bisa dimuat"
+        message={loadError}
+        className="mb-4"
+      />
 
       <ResponsiveTable
         data={assets}

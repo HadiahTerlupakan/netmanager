@@ -39,7 +39,9 @@ describe("InventoryBarangRouteService", () => {
   it("menolak update barang ketika kode sudah dipakai barang lain", async () => {
     const repository = {
       findBarangById: vi.fn().mockResolvedValue(barang),
-      findBarangByKode: vi.fn().mockResolvedValue({ id: "barang-2" }),
+      findBarangByKode: vi
+        .fn()
+        .mockResolvedValue({ id: "barang-2", nama: "Kabel Drop" }),
       updateBarang: vi.fn(),
     };
     const service = new InventoryBarangRouteService(repository as never);
@@ -52,8 +54,9 @@ describe("InventoryBarangRouteService", () => {
 
     expect(result).toEqual({
       success: false,
-      status: 400,
-      error: "Kode barang sudah digunakan",
+      status: 409,
+      error:
+        'Kode barang "BRG-2" sudah dipakai barang "Kabel Drop". Pakai kode lain.',
     });
     expect(repository.updateBarang).not.toHaveBeenCalled();
   });
@@ -116,7 +119,13 @@ describe("InventoryBarangRouteService", () => {
     expect(result).toEqual({
       success: false,
       status: 400,
-      error: "Nama dan satuan barang harus diisi",
+      error:
+        "Nama barang belum diisi. Tulis nama barangnya, contoh: Kabel Drop 1 Core.",
+      details: {
+        nama: [
+          "Nama barang belum diisi. Tulis nama barangnya, contoh: Kabel Drop 1 Core.",
+        ],
+      },
     });
     expect(inventoryBarangService.createBarang).not.toHaveBeenCalled();
   });

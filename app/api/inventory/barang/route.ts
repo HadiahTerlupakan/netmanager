@@ -2,8 +2,13 @@ import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
   inventoryBarangRouteService,
+  PESAN_DATA_TIDAK_TERBACA,
+  pesanGagalMuat,
+  pesanGagalSimpan,
+  pesanTanpaIzin,
   type InventoryBarangRouteResult,
 } from "@/modules/inventory";
+import { masterDataFailureResponse } from "../master-data-response";
 import { logger } from "@/lib/logger";
 import { parsePaginationParams } from "@/lib/constants/pagination";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
@@ -24,9 +29,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("barang:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat barang",
-    );
+    return ApiErrors.forbidden(pesanTanpaIzin("melihat daftar barang"));
   }
 
   const searchParams = req.nextUrl.searchParams;
@@ -76,7 +79,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/barang",
       method: "GET",
     });
-    throw error; // Let createHandler handle it
+    return ApiErrors.internalError(pesanGagalMuat("barang"));
   }
 });
 
@@ -89,12 +92,13 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("barang:create"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk membuat barang",
-    );
+    return ApiErrors.forbidden(pesanTanpaIzin("menambah barang"));
   }
 
-  const body = await req.json();
+  const body = await req.json().catch((): null => null);
+  if (!body || typeof body !== "object") {
+    return ApiErrors.badRequest(PESAN_DATA_TIDAK_TERBACA);
+  }
 
   try {
     const dbStart = Date.now();
@@ -104,7 +108,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
 
     if (isInventoryBarangRouteFailure(result)) {
-      return ApiErrors.badRequest(result.error);
+      return masterDataFailureResponse(result);
     }
 
     logger.dbOperation("create", "Barang", Date.now() - dbStart);
@@ -131,8 +135,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/barang",
       method: "POST",
     });
-    const message =
-      error instanceof Error ? error.message : "Gagal membuat barang";
-    return ApiErrors.internalError(message);
+    return ApiErrors.internalError(pesanGagalSimpan("Barang"));
   }
 });

@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        error: "Terjadi kesalahan server",
-        message: "Gagal memproses unggahan foto",
+        error:
+          "Foto belum terunggah karena ada gangguan di server. Coba unggah sekali lagi. Kalau tetap gagal, laporkan ke admin.",
       },
       { status: 500 },
     );
@@ -139,7 +139,10 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(
-      { error: "Terjadi kesalahan server saat mengambil data foto" },
+      {
+        error:
+          "Foto gagal dimuat karena ada gangguan di server. Muat ulang halaman. Kalau tetap gagal, laporkan ke admin.",
+      },
       { status: 500 },
     );
   }

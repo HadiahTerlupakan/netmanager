@@ -75,7 +75,8 @@ async function findSoBulanIni(input: {
   });
   const terbaru = new Map<string, SoBulanIni>();
   for (const row of rows) {
-    if (!terbaru.has(row.barangId)) terbaru.set(row.barangId, { tanggal: row.tanggal, pic: row.pic });
+    if (!terbaru.has(row.barangId))
+      terbaru.set(row.barangId, { tanggal: row.tanggal, pic: row.pic });
   }
   return terbaru;
 }
@@ -140,7 +141,9 @@ function mapCalculatedOpnameItem(
     gudangId: barangGudang.gudang.id,
     gudangNama: barangGudang.gudang.nama,
     stokSistem: barangGudang.stok,
-    stokFisik: barangGudang.stok,
+    // Stok fisik tak mungkin negatif dan validator batch menolaknya; stok
+    // sistem yang negatif tetap tampil apa adanya sebagai selisih.
+    stokFisik: Math.max(0, barangGudang.stok),
     kondisiBaik: adjusted.kondisiBaik,
     kondisiRusak: adjusted.kondisiRusak,
     kondisiExpire: adjusted.kondisiExpire,

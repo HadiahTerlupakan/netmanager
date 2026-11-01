@@ -11,6 +11,46 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
 
+import {
+  describeInventoryError,
+  InventoryRequestError,
+  OFFLINE_MESSAGE,
+} from "./form-shared/sendInventoryRequest";
+
+const PHOTO_UPLOAD_FAILED_MESSAGE =
+  "Foto belum terunggah. Coba unggah sekali lagi; kalau tetap gagal, laporkan ke admin.";
+
+/**
+ * Kirim foto ke server dan kembalikan jawabannya. Gagal → lempar
+ * {@link InventoryRequestError} berisi pesan server (sudah ditulis untuk staf)
+ * atau pesan internet putus.
+ */
+async function postPhotos(
+  formData: FormData,
+): Promise<{ data: { urls: string[] } }> {
+  let response: Response;
+  try {
+    response = await fetch("/api/inventory/upload-photo", {
+      method: "POST",
+      body: formData,
+    });
+  } catch {
+    throw new InventoryRequestError(OFFLINE_MESSAGE, 0);
+  }
+
+  const reply = (await response.json().catch((): null => null)) as {
+    error?: string;
+    data?: { urls: string[] };
+  } | null;
+  if (!response.ok || !reply?.data) {
+    throw new InventoryRequestError(
+      reply?.error || PHOTO_UPLOAD_FAILED_MESSAGE,
+      response.status,
+    );
+  }
+  return { data: reply.data };
+}
+
 interface PhotoUploadProps {
   transactionId?: string;
   transactionType:
@@ -76,7 +116,9 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
         files.forEach((file, _index) => {
           // Check if it's an image
           if (!file.type.startsWith("image/")) {
-            errors.push(`File "${file.name}" bukan gambar yang valid`);
+            errors.push(
+              `"${file.name}" bukan foto. Pilih file foto (JPG atau PNG).`,
+            );
             return;
           }
 
@@ -84,7 +126,7 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
           // akan dibuang server dan memicu "Minimal 1 foto harus diunggah".
           if (file.size === 0) {
             errors.push(
-              `File "${file.name}" kosong (0 byte). Simpan foto ke perangkat terlebih dahulu, lalu pilih ulang.`,
+              `"${file.name}" kosong, isinya tidak terbaca. Simpan fotonya ke HP atau komputer dulu, lalu pilih lagi.`,
             );
             return;
           }
@@ -93,7 +135,7 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
           const maxSizeBytes = maxSizeMB * 1024 * 1024;
           if (file.size > maxSizeBytes) {
             errors.push(
-              `File "${file.name}" terlalu besar. Maksimal ${maxSizeMB}MB`,
+              `"${file.name}" terlalu besar. Ukuran foto paling besar ${maxSizeMB} MB. Kecilkan fotonya, atau ambil foto baru.`,
             );
             return;
           }
@@ -123,18 +165,18 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
 
         const { validFiles, errors } = validateFiles(files);
 
+        // Pesan tidak hilang sendiri: staf butuh waktu membacanya. Pesan
+        // dibersihkan saat foto berikutnya berhasil ditambahkan.
         if (errors.length > 0) {
-          setUploadError(errors.join("; "));
-          setTimeout(() => setUploadError(null), 5000);
+          setUploadError(errors.join("\n"));
           return;
         }
 
         // Check if adding these files would exceed the max limit
         if (photos.length + validFiles.length > maxPhotos) {
           setUploadError(
-            `Maksimal ${maxPhotos} foto yang diizinkan. Anda sudah memiliki ${photos.length} foto.`,
+            `Paling banyak ${maxPhotos} foto. Anda sudah memilih ${photos.length} foto. Hapus salah satu dulu kalau mau menambah.`,
           );
-          setTimeout(() => setUploadError(null), 5000);
           return;
         }
 
@@ -221,19 +263,9 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
           );
         }, 200);
 
-        const response = await fetch("/api/inventory/upload-photo", {
-          method: "POST",
-          body: formData,
-        });
-
-        clearInterval(progressInterval);
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Upload gagal");
-        }
-
-        const result = await response.json();
+        const result = await postPhotos(formData).finally(() =>
+          clearInterval(progressInterval),
+        );
 
         // Update photos with success status and URLs
         const successPhotos = uploadingPhotos.map((photo, index) => ({
@@ -249,10 +281,10 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
         return result.data.urls;
       } catch (error) {
         clientLogger.error("Upload error:", error);
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Terjadi kesalahan saat upload";
+        const errorMessage = describeInventoryError(
+          error,
+          PHOTO_UPLOAD_FAILED_MESSAGE,
+        );
 
         // Update all photos with error status
         const errorPhotos = uploadingPhotos.map((photo) => ({
@@ -444,7 +476,10 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
 
         {/* Upload Error */}
         {uploadError && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">
+          <div
+            role="alert"
+            className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
+          >
             <div className="flex">
               <svg
                 className="h-5 w-5 mr-2 shrink-0"
@@ -457,7 +492,7 @@ export const PhotoUpload = forwardRef<PhotoUploadRef, PhotoUploadProps>(
                   clipRule="evenodd"
                 />
               </svg>
-              <span className="text-sm">{uploadError}</span>
+              <span className="text-sm whitespace-pre-line">{uploadError}</span>
             </div>
           </div>
         )}

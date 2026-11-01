@@ -8,6 +8,15 @@ import { deleteWithAuth, getWithAuth } from "@/lib/api-client";
 import { usePermission } from "@/hooks/use-permission";
 import type { Jasa } from "../restock/types";
 import JasaFormModal from "./JasaFormModal";
+import {
+  describeClientError,
+  readApiErrorMessage,
+} from "@/components/inventory/master-data/masterDataErrorMessage";
+
+const PESAN_GAGAL_MUAT_JASA =
+  "Daftar jasa belum bisa dimuat. Muat ulang halaman. Kalau tetap gagal, laporkan ke admin.";
+const PESAN_GAGAL_HAPUS_JASA =
+  "Jasa belum terhapus. Coba sekali lagi. Kalau tetap gagal, laporkan ke admin.";
 
 function formatRupiah(value: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -35,11 +44,12 @@ export default function JasaList() {
       const params = new URLSearchParams({ limit: "100" });
       if (search.trim()) params.set("search", search.trim());
       const res = await getWithAuth(`/api/inventory/jasa?${params}`);
-      if (!res.ok) throw new Error("Gagal memuat data jasa");
+      if (!res.ok)
+        throw new Error(await readApiErrorMessage(res, PESAN_GAGAL_MUAT_JASA));
       const json = await res.json();
       setJasaList(json.data?.items ?? []);
-    } catch {
-      toast.error("Gagal memuat daftar jasa");
+    } catch (err) {
+      toast.error(describeClientError(err, PESAN_GAGAL_MUAT_JASA));
     } finally {
       setLoading(false);
     }
@@ -55,13 +65,12 @@ export default function JasaList() {
     try {
       const res = await deleteWithAuth(`/api/inventory/jasa/${id}`);
       if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error ?? "Gagal menghapus jasa");
+        throw new Error(await readApiErrorMessage(res, PESAN_GAGAL_HAPUS_JASA));
       }
       toast.success("Jasa berhasil dihapus");
       fetchJasa();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menghapus jasa");
+      toast.error(describeClientError(err, PESAN_GAGAL_HAPUS_JASA));
     }
   };
 

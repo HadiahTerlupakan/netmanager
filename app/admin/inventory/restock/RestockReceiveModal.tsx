@@ -24,6 +24,9 @@ import {
   hasMissingOverReceiptReason,
 } from "./utils";
 
+const NOTHING_RECEIVED_HINT =
+  "Isi jumlah barang yang datang, paling sedikit satu";
+
 interface RestockReceiveModalProps {
   request: PurchaseRequest | null;
   receivedItems: Record<string, number>;
@@ -116,14 +119,14 @@ export function RestockReceiveModal({
     hasCancelWithoutRemainder ||
     hasMissingExcessReason;
   const disabledReason = hasIncompleteReason
-    ? "Lengkapi alasan anulir terlebih dahulu"
+    ? "Tulis alasan barang yang tidak jadi dibeli"
     : hasCancelWithoutRemainder
-      ? "Batalkan anulir barang yang sudah diterima penuh"
+      ? "Hapus tanda batal pada barang yang sudah datang semua"
       : hasMissingExcessReason
-        ? "Isi alasan kelebihan kiriman"
+        ? "Tulis alasan barang yang datang lebih banyak"
         : receivedPhotos.length === 0
-          ? "Unggah foto bukti terlebih dahulu"
-          : "Minimal satu barang harus diterima";
+          ? "Foto barang yang datang dulu"
+          : NOTHING_RECEIVED_HINT;
 
   return (
     <Modal
@@ -213,7 +216,8 @@ export function RestockReceiveModal({
 
         {!hasReceivedItem && (
           <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-            Minimal satu barang harus diterima.
+            {NOTHING_RECEIVED_HINT}. Kalau tidak ada barang yang datang sama
+            sekali, batalkan pesanannya saja.
           </div>
         )}
 

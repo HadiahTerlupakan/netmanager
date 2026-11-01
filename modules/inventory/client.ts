@@ -3,6 +3,11 @@
 // (firebase-admin, prisma, websocket emitter, dll) ke client bundle.
 
 export {
+  OPNAME_PESAN,
+  pesanKondisiMelebihiStokFisik,
+} from "./domain/opname-pesan";
+
+export {
   STOCK_THRESHOLD,
   getStockStatus,
   getStockLabel,
@@ -21,3 +26,11 @@ export {
   type BarangFormInput,
   type BarangFormOutput,
 } from "./validators/barangValidator";
+
+export {
+  labelKondisiTransfer,
+  TRANSFER_MESSAGES,
+} from "./domain/transfer-errors";
+
+export { describeInventoryMutationProblems } from "./services/inventory-route-validation.helpers";
+export { labelKondisiBarang } from "./domain/inventory-user-error";

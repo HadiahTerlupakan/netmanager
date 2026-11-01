@@ -11,30 +11,44 @@ interface InventoryBarangStockRecord {
   };
 }
 
+/** Pesan untuk kolom wajib barang yang masih kosong. */
+export const PESAN_KOLOM_BARANG_KOSONG = {
+  kode: "Kode barang belum diisi. Tulis kode barangnya.",
+  nama: "Nama barang belum diisi. Tulis nama barangnya, contoh: Kabel Drop 1 Core.",
+  satuan:
+    "Satuan barang belum diisi. Tulis satuannya, contoh: pcs, meter, roll.",
+} as const;
+
+type KolomWajibBarang = keyof typeof PESAN_KOLOM_BARANG_KOSONG;
+
 /** Validasi payload create barang dari route inventory. */
 export function validateBarangCreateBody(body: Record<string, unknown>) {
-  if (!body.nama || !body.satuan) {
-    return {
-      success: false as const,
-      status: 400,
-      error: "Nama dan satuan barang harus diisi",
-    };
-  }
-
-  return null;
+  return findKolomBarangKosong(body, ["nama", "satuan"]);
 }
 
 /** Validasi payload update barang dari route inventory. */
 export function validateBarangUpdateBody(body: Record<string, unknown>) {
-  if (!body.kode || !body.nama || !body.satuan) {
-    return {
-      success: false as const,
-      status: 400,
-      error: "Kode, nama, dan satuan barang harus diisi",
-    };
-  }
+  return findKolomBarangKosong(body, ["kode", "nama", "satuan"]);
+}
 
-  return null;
+/** Laporkan semua kolom wajib yang kosong sekaligus, satu baris per kolom. */
+function findKolomBarangKosong(
+  body: Record<string, unknown>,
+  kolomWajib: readonly KolomWajibBarang[],
+) {
+  const kosong = kolomWajib.filter(
+    (kolom) => !String(body[kolom] ?? "").trim(),
+  );
+  if (kosong.length === 0) return null;
+
+  return {
+    success: false as const,
+    status: 400,
+    error: kosong.map((kolom) => PESAN_KOLOM_BARANG_KOSONG[kolom]).join("\n"),
+    details: Object.fromEntries(
+      kosong.map((kolom) => [kolom, [PESAN_KOLOM_BARANG_KOSONG[kolom]]]),
+    ),
+  };
 }
 
 /** Bentuk data update barang dari body route. */

@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/rbac";
 import {
   getStockOpnameJadwalService,
   periodeStockOpnameDari,
+  OPNAME_PESAN,
 } from "@/modules/inventory";
 
 /**
@@ -14,12 +15,13 @@ import {
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   if (!(await hasPermission("opname:read")))
-    return ApiErrors.forbidden("Akses ditolak");
+    return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinLihat);
   const user = ctx.session!.user;
-  if (!user.tenantId) return ApiErrors.badRequest("Tenant tidak ditemukan");
+  if (!user.tenantId)
+    return ApiErrors.badRequest(OPNAME_PESAN.akunTanpaPerusahaan);
 
   const gudangId = req.nextUrl.searchParams.get("gudangId");
-  if (!gudangId) return ApiErrors.badRequest("gudangId wajib diisi");
+  if (!gudangId) return ApiErrors.badRequest(OPNAME_PESAN.gudangBelumDipilih);
   const periode =
     req.nextUrl.searchParams.get("periode") ??
     periodeStockOpnameDari(new Date());

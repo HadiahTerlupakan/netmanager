@@ -125,7 +125,7 @@ describe("RestockItemSubstitutionService", () => {
         ...baseInput,
         substitutions: { "barang-404": "barang-9" },
       }),
-    ).rejects.toThrow("tidak ada di Purchase Order");
+    ).rejects.toThrow("tidak ada di pesanan ini");
   });
 
   it("menolak barang pengganti yang sudah ada di pesanan yang sama", async () => {
@@ -147,6 +147,6 @@ describe("RestockItemSubstitutionService", () => {
         ...baseInput,
         substitutions: { "barang-1": "barang-9" },
       }),
-    ).rejects.toThrow("tidak ditemukan pada master barang");
+    ).rejects.toThrow("tidak ditemukan di daftar barang");
   });
 });

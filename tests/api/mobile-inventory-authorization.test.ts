@@ -231,6 +231,7 @@ import { GET as getBarang } from "@/app/api/mobile/inventory/barang/route";
 import { GET as getRiwayat } from "@/app/api/mobile/inventory/riwayat/route";
 import { POST as postMasuk } from "@/app/api/mobile/inventory/masuk/route";
 import { POST as postKeluar } from "@/app/api/mobile/inventory/keluar/route";
+import { MOBILE_INVENTORY_MESSAGES } from "@/app/api/mobile/inventory/route-utils";
 
 describe("mobile inventory authorization", () => {
   beforeEach(() => {
@@ -250,7 +251,7 @@ describe("mobile inventory authorization", () => {
     const json = await response.json();
 
     expect(response.status).toBe(403);
-    expect(json.error).toBe("Akses inventory ditolak");
+    expect(json.error).toBe(MOBILE_INVENTORY_MESSAGES.noAccess);
     expect(mockFns.userFindFirst).not.toHaveBeenCalled();
   });
 
@@ -269,7 +270,7 @@ describe("mobile inventory authorization", () => {
     const json = await response.json();
 
     expect(response.status).toBe(403);
-    expect(json.error).toBe("Akses inventory ditolak");
+    expect(json.error).toBe(MOBILE_INVENTORY_MESSAGES.noAccess);
     expect(mockFns.userFindFirst).not.toHaveBeenCalled();
   });
 
@@ -286,7 +287,7 @@ describe("mobile inventory authorization", () => {
     const json = await response.json();
 
     expect(response.status).toBe(403);
-    expect(json.error).toBe("Akses inventory ditolak");
+    expect(json.error).toBe(MOBILE_INVENTORY_MESSAGES.noAccess);
     expect(mockFns.userFindFirst).not.toHaveBeenCalled();
   });
 
@@ -307,7 +308,7 @@ describe("mobile inventory authorization", () => {
     const json = await response.json();
 
     expect(response.status).toBe(403);
-    expect(json.error).toBe("Akses inventory masuk ditolak");
+    expect(json.error).toBe(MOBILE_INVENTORY_MESSAGES.noMasukAccess);
     expect(mockFns.userFindFirst).not.toHaveBeenCalled();
   });
 
@@ -328,7 +329,7 @@ describe("mobile inventory authorization", () => {
     const json = await response.json();
 
     expect(response.status).toBe(403);
-    expect(json.error).toBe("Akses inventory keluar ditolak");
+    expect(json.error).toBe(MOBILE_INVENTORY_MESSAGES.noKeluarAccess);
     expect(mockFns.userFindFirst).not.toHaveBeenCalled();
   });
 
@@ -658,5 +659,195 @@ describe("mobile inventory authorization", () => {
         }),
       }),
     );
+  });
+});
+
+describe("mobile inventory — pesan error untuk staf lapangan", () => {
+  const ctxKeluar = {
+    session: { user: { id: "mitra-1", tenantId: "tenant-1" } },
+    permissions: ["m_barang_keluar:create"],
+  };
+  const ctxMasuk = {
+    session: { user: { id: "mitra-1", tenantId: "tenant-1" } },
+    permissions: ["m_barang_masuk:create"],
+  };
+
+  function kirim(url: string, body: string) {
+    return new NextRequest(`http://localhost${url}`, {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  function siapkanMitraDenganStok(stokBaru: number) {
+    mockFns.userFindFirst.mockResolvedValue(null);
+    mockFns.mitraFindUnique.mockResolvedValue({
+      id: "mitra-1",
+      siteId: "site-1",
+    });
+    mockFns.gudangFindFirst.mockResolvedValue({
+      id: "g-1",
+      sites: [{ id: "site-1" }],
+    });
+    mockFns.barangGudangFindFirst.mockResolvedValue({
+      stokBaru,
+      stokBekas: 0,
+      stokRusak: 0,
+      barang: { nama: "ONU" },
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("stok kurang dibalas 400 dengan nama barang dan sisa stok, bukan 500", async () => {
+    // Dulu `return` tanpa `await` membuat penolakan ini lolos dari catch route
+    // dan sampai ke HP sebagai "Gangguan Server".
+    siapkanMitraDenganStok(3);
+
+    const response = await postKeluar(
+      kirim(
+        "/api/mobile/inventory/keluar",
+        JSON.stringify({ barangId: "b-1", gudangId: "g-1", jumlah: 5 }),
+      ),
+      ctxKeluar as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe(
+      'Stok kurang. "ONU" kondisi Baru tinggal 3, tapi Anda isi 5. Ubah jumlahnya jadi 3 atau kurang.',
+    );
+    expect(mockFns.inventoryRemoveStock).not.toHaveBeenCalled();
+  });
+
+  it("badan permintaan tidak bisa menimpa actorId dan tenantId dari sesi", async () => {
+    siapkanMitraDenganStok(3);
+    mockFns.inventoryRemoveStock.mockResolvedValue({ id: "keluar-1" });
+    mockFns.inventoryGetStockLevel.mockResolvedValue(2);
+
+    await postKeluar(
+      kirim(
+        "/api/mobile/inventory/keluar",
+        JSON.stringify({
+          barangId: "b-1",
+          gudangId: "g-1",
+          jumlah: 1,
+          actorId: "orang-lain",
+          tenantId: "tenant-lain",
+        }),
+      ),
+      ctxKeluar as never,
+    );
+
+    expect(mockFns.userFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "mitra-1", tenantId: "tenant-1" },
+      }),
+    );
+    expect(mockFns.inventoryRemoveStock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant-1",
+        actor: { type: "mitra", id: "mitra-1" },
+      }),
+    );
+  });
+
+  it("JSON rusak dibalas 400 yang menyuruh isi ulang", async () => {
+    const response = await postMasuk(
+      kirim("/api/mobile/inventory/masuk", "{bukan json"),
+      ctxMasuk as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe(
+      MOBILE_INVENTORY_MESSAGES.brokenBody,
+    );
+  });
+
+  it.each([
+    [
+      { barangId: "b-1", jumlah: 2 },
+      "Gudang belum dipilih. Pilih gudangnya dulu.",
+    ],
+    [
+      { gudangId: "g-1", jumlah: 2 },
+      "Barang belum dipilih. Pilih barangnya dulu.",
+    ],
+    [
+      { barangId: "b-1", gudangId: "g-1" },
+      "Jumlah belum diisi. Ketik berapa banyak barangnya, misalnya 5.",
+    ],
+    [
+      { barangId: "b-1", gudangId: "g-1", jumlah: 0 },
+      "Jumlah harus lebih dari 0. Ketik berapa banyak barangnya, misalnya 5.",
+    ],
+    [
+      { barangId: "b-1", gudangId: "g-1", jumlah: 2.5 },
+      "Jumlah harus angka bulat, tanpa koma. Contoh: 5.",
+    ],
+    [
+      { barangId: "b-1", gudangId: "g-1", jumlah: 2, kondisi: "BAGUS" },
+      "Kondisi barang tidak dikenal. Pilih Baru, Bekas, atau Rusak.",
+    ],
+  ])("isian salah %j dibalas 400: %s", async (badan, pesan) => {
+    siapkanMitraDenganStok(10);
+
+    const response = await postMasuk(
+      kirim("/api/mobile/inventory/masuk", JSON.stringify(badan)),
+      ctxMasuk as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe(pesan);
+    expect(mockFns.inventoryAddStock).not.toHaveBeenCalled();
+  });
+
+  it("penolakan aturan stok dari penyimpanan diteruskan apa adanya sebagai 400", async () => {
+    siapkanMitraDenganStok(3);
+    mockFns.inventoryRemoveStock.mockRejectedValue(
+      new Error(
+        "Stok barang ini baru saja berkurang. Muat ulang lalu coba lagi.",
+      ),
+    );
+
+    const response = await postKeluar(
+      kirim(
+        "/api/mobile/inventory/keluar",
+        JSON.stringify({ barangId: "b-1", gudangId: "g-1", jumlah: 1 }),
+      ),
+      ctxKeluar as never,
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe(
+      "Stok barang ini baru saja berkurang. Muat ulang lalu coba lagi.",
+    );
+  });
+
+  it("galat teknis menjadi 500 dengan pesan pendek yang aman dan dicatat di log", async () => {
+    class GalatDatabase extends Error {}
+    siapkanMitraDenganStok(3);
+    mockFns.inventoryRemoveStock.mockRejectedValue(
+      new GalatDatabase("Invalid `prisma.barangKeluar.create()` invocation"),
+    );
+
+    const response = await postKeluar(
+      kirim(
+        "/api/mobile/inventory/keluar",
+        JSON.stringify({ barangId: "b-1", gudangId: "g-1", jumlah: 1 }),
+      ),
+      ctxKeluar as never,
+    );
+    const { error } = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(error).toBe(MOBILE_INVENTORY_MESSAGES.saveServerError);
+    // Aplikasi mobile membuang pesan 5xx yang lebih dari 160 karakter.
+    expect(error.length).toBeLessThanOrEqual(160);
+    expect(
+      MOBILE_INVENTORY_MESSAGES.loadServerError.length,
+    ).toBeLessThanOrEqual(160);
   });
 });

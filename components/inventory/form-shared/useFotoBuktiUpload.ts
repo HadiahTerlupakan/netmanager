@@ -3,11 +3,32 @@
 import { useRef, useState } from "react";
 
 import type { PhotoUploadRef } from "../PhotoUpload";
+import { InventoryRequestError } from "./sendInventoryRequest";
 
 export interface UploadedPhotoState {
   status: string;
   file?: File;
   error?: string;
+}
+
+/**
+ * Jelaskan foto yang gagal diunggah beserta alasannya, satu per baris; null
+ * bila semua foto berhasil.
+ */
+export function describeFailedPhotoUploads(
+  photos: readonly UploadedPhotoState[],
+): string | null {
+  const failed = photos.filter((photo) => photo.status === "error");
+  if (failed.length === 0) return null;
+
+  const reasons = failed
+    .map((photo) => photo.error)
+    .filter((reason): reason is string => Boolean(reason));
+  return [
+    `${failed.length} foto gagal diunggah.`,
+    ...reasons,
+    "Hapus foto yang gagal (bertanda merah), lalu pilih ulang fotonya.",
+  ].join("\n");
 }
 
 /**
@@ -28,7 +49,8 @@ export function useFotoBuktiUpload() {
   );
 
   /**
-   * Upload foto yang sudah dipilih user. Throw kalau ada foto error.
+   * Upload foto yang sudah dipilih user. Throw {@link InventoryRequestError}
+   * berpesan jelas kalau ada foto yang gagal.
    * Mengembalikan list URL hasil upload + metadata untuk dikirim ke API.
    */
   const uploadPendingPhotos = async (): Promise<{
@@ -44,13 +66,11 @@ export function useFotoBuktiUpload() {
     }
     const urls = await photoUploadRef.current.uploadPhotos();
     const photos = photoUploadRef.current.getPhotos();
-    const failed = photos.filter((p) => p.status === "error");
-    if (failed.length > 0) {
-      throw new Error(
-        `Beberapa foto gagal diunggah: ${failed
-          .map((p) => p.error)
-          .filter(Boolean)
-          .join(", ")}`,
+    const failedPhotos = describeFailedPhotoUploads(photos);
+    if (failedPhotos) {
+      throw new InventoryRequestError(
+        `Data belum disimpan karena ada foto yang gagal.\n${failedPhotos}`,
+        0,
       );
     }
     return { urls, photos };

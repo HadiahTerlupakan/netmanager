@@ -125,7 +125,7 @@ describe("RestockItemCancellationService", () => {
         ...baseInput,
         cancellations: { "barang-2": "Tidak dibelikan" },
       }),
-    ).rejects.toThrow("tidak punya sisa pesanan untuk dianulir");
+    ).rejects.toThrow("sudah tidak punya sisa pesanan");
   });
 
   it("menolak barang yang tidak ada di purchase order", async () => {
@@ -147,6 +147,6 @@ describe("RestockItemCancellationService", () => {
         ...baseInput,
         cancellations: { "barang-1": "x".repeat(MAX_CANCEL_REASON_LENGTH + 1) },
       }),
-    ).rejects.toThrow("maksimal 255 karakter");
+    ).rejects.toThrow("Paling banyak 255 huruf");
   });
 });

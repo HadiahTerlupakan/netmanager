@@ -6,6 +6,12 @@ import type {
   UpdateTransferInput,
 } from "../domain/ports/IInventoryOperationRepository";
 import {
+  buildBatalStokTujuanKurangMessage,
+  buildStokAsalKurangMessage,
+  TRANSFER_MESSAGES,
+  TransferRejectedError,
+} from "../domain/transfer-errors";
+import {
   mapTransferRecord,
   TRANSFER_LIST_INCLUDE,
 } from "./inventory-repository-transfer-helpers";
@@ -35,7 +41,13 @@ type TransferRecord = {
   jumlah: number;
   kondisi: string;
   tenantId: string | null;
+  barang: { nama: string };
+  gudangDari: { nama: string };
+  gudangKe: { nama: string };
 };
+
+/** Penyusun pesan saat stok tidak cukup, menerima jumlah yang benar-benar tersedia. */
+type StokKurangMessageBuilder = (tersedia: number) => string;
 
 const TRANSFER_CODE_PREFIX = "TRF";
 
@@ -45,7 +57,7 @@ export async function createTransfer(
   data: CreateTransferInput,
 ): Promise<InventoryTransferRecord> {
   return db.$transaction(async (tx) => {
-    await assertBarangExists(tx, data.barangId);
+    const barang = await findTransferBarang(tx, data.barangId);
     const gudang = await getTransferGudangs(tx, data);
     const sourceStock = buildTransferStockMutation({
       barangId: data.barangId,
@@ -55,10 +67,14 @@ export async function createTransfer(
       tenantId: data.tenantId,
     });
 
-    await decrementTransferStock(
-      tx,
-      sourceStock,
-      `Stok ${sourceStock.kondisi.toLowerCase()} tidak mencukupi`,
+    await decrementTransferStock(tx, sourceStock, (tersedia) =>
+      buildStokAsalKurangMessage({
+        barangNama: barang.nama,
+        gudangNama: gudang.dari.nama,
+        kondisi: sourceStock.kondisi,
+        tersedia,
+        diminta: data.jumlah,
+      }),
     );
 
     const transfer = await createTransferRecord(tx, data);
@@ -100,8 +116,15 @@ export async function deleteTransfer(
   await db.$transaction(async (tx) => {
     const transfer = (await tx.transferAntarGudang.findUnique({
       where: { id },
+      include: {
+        barang: { select: { nama: true } },
+        gudangDari: { select: { nama: true } },
+        gudangKe: { select: { nama: true } },
+      },
     })) as TransferRecord | null;
-    if (!transfer) throw new Error("Record transfer tidak ditemukan");
+    if (!transfer) {
+      throw new TransferRejectedError(404, TRANSFER_MESSAGES.transferTidakAda);
+    }
 
     await decrementTransferStock(
       tx,
@@ -112,7 +135,16 @@ export async function deleteTransfer(
         kondisi: transfer.kondisi,
         tenantId: transfer.tenantId,
       }),
-      "Stok di gudang tujuan tidak mencukupi",
+      (tersedia) =>
+        buildBatalStokTujuanKurangMessage({
+          barangNama: transfer.barang.nama,
+          gudangAsalNama: transfer.gudangDari.nama,
+          gudangTujuanNama: transfer.gudangKe.nama,
+          kondisi: transfer.kondisi,
+          tersedia,
+          harusKembali: transfer.jumlah,
+        }),
+      409,
     );
     await upsertTransferStock(tx, {
       ...buildTransferStockMutation({
@@ -130,12 +162,18 @@ export async function deleteTransfer(
   });
 }
 
-async function assertBarangExists(
+async function findTransferBarang(
   tx: Prisma.TransactionClient,
   barangId: string,
-): Promise<void> {
-  const barang = await tx.barang.findUnique({ where: { id: barangId } });
-  if (!barang) throw new Error("Barang tidak ditemukan");
+): Promise<{ nama: string }> {
+  const barang = await tx.barang.findUnique({
+    where: { id: barangId },
+    select: { nama: true },
+  });
+  if (!barang) {
+    throw new TransferRejectedError(404, TRANSFER_MESSAGES.barangTidakAda);
+  }
+  return barang;
 }
 
 function buildTransferStockMutation(input: {
@@ -166,8 +204,18 @@ async function getTransferGudangs(
     tx.gudang.findUnique({ where: { id: data.keGudangId, isActive: true } }),
   ]);
 
-  if (!dari) throw new Error("Gudang sumber tidak ditemukan atau tidak aktif");
-  if (!ke) throw new Error("Gudang tujuan tidak ditemukan atau tidak aktif");
+  if (!dari) {
+    throw new TransferRejectedError(
+      400,
+      TRANSFER_MESSAGES.gudangAsalTidakAktif,
+    );
+  }
+  if (!ke) {
+    throw new TransferRejectedError(
+      400,
+      TRANSFER_MESSAGES.gudangTujuanTidakAktif,
+    );
+  }
 
   return { dari, ke };
 }
@@ -175,7 +223,8 @@ async function getTransferGudangs(
 async function decrementTransferStock(
   tx: Prisma.TransactionClient,
   input: TransferStockMutation,
-  message: string,
+  buildMessage: StokKurangMessageBuilder,
+  status: 400 | 409 = 400,
 ): Promise<void> {
   const updated = await tx.barangGudang.updateMany({
     where: {
@@ -194,8 +243,24 @@ async function decrementTransferStock(
   });
 
   if (updated.count === 0) {
-    throw new Error(message);
+    const tersedia = await findAvailableStock(tx, input);
+    throw new TransferRejectedError(status, buildMessage(tersedia));
   }
+}
+
+/** Stok yang benar-benar bisa diambil: dibatasi stok total dan stok kondisinya. */
+async function findAvailableStock(
+  tx: Prisma.TransactionClient,
+  input: TransferStockMutation,
+): Promise<number> {
+  const record = await tx.barangGudang.findUnique({
+    where: {
+      barangId_gudangId: { barangId: input.barangId, gudangId: input.gudangId },
+    },
+  });
+  if (!record) return 0;
+  const stokKondisi = Number(record[input.stockField] ?? 0);
+  return Math.max(0, Math.min(record.stok, stokKondisi));
 }
 
 async function upsertTransferStock(

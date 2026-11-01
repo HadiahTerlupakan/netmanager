@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { DEFAULT_KONDISI, STOCK_FIELD_MAP } from "@/lib/constants/inventory";
-
-const DEFAULT_POSITIVE_STOCK_ERROR = "Jumlah harus angka bulat positif";
+import { InventoryUserError } from "../domain/inventory-user-error";
 
 type InventoryCondition = keyof typeof STOCK_FIELD_MAP;
 export type InventoryStockField = (typeof STOCK_FIELD_MAP)[InventoryCondition];
@@ -25,12 +24,14 @@ export function getStockFieldByCondition(
 
 /** Pastikan jumlah stok keluar berupa bilangan bulat positif. */
 export function assertPositiveIntegerQuantity(quantity: number): void {
-  if (Math.floor(quantity) !== quantity) {
-    throw new Error("Jumlah tidak boleh angka desimal");
+  if (!Number.isInteger(quantity)) {
+    throw new InventoryUserError(
+      "Jumlah harus angka bulat, tanpa koma atau titik. Contoh: 1, 2, atau 10.",
+    );
   }
 
   if (quantity <= 0) {
-    throw new Error(DEFAULT_POSITIVE_STOCK_ERROR);
+    throw new InventoryUserError("Jumlah harus lebih dari 0.");
   }
 }
 

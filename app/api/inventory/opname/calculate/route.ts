@@ -1,5 +1,9 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getInventoryRouteService } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  OPNAME_PESAN,
+  pesanGagalMuatOpname,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 
@@ -12,14 +16,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("opname:create"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk menghitung opname",
-    );
+    return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinCatat);
   }
 
   const gudangId = req.nextUrl.searchParams.get("gudangId");
   if (!gudangId) {
-    return ApiErrors.badRequest("Gudang ID harus diisi");
+    return ApiErrors.badRequest(OPNAME_PESAN.gudangBelumDipilih);
   }
 
   try {
@@ -51,6 +53,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/opname/calculate",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal mengambil data stock opname");
+    return ApiErrors.internalError(
+      pesanGagalMuatOpname("Daftar barang di gudang ini"),
+    );
   }
 });

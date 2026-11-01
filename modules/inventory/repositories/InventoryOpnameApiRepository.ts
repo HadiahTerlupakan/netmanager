@@ -1,9 +1,45 @@
 import { Prisma } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { STOCK_FIELD_MAP } from "@/lib/constants/inventory";
+import {
+  INVENTORY_USER_ERROR_STATUS,
+  InventoryUserError,
+  labelKondisiBarang,
+  MUTASI_STOK_PESAN,
+} from "../domain/inventory-user-error";
 import { calculateInitialOpnameItems } from "./inventory-opname-api-calculation.helpers";
 
 type PrismaClientLike = Prisma.TransactionClient;
+
+type KeluarRecordLabels = {
+  jumlah: number;
+  kondisi: string;
+  barang: { nama: string; satuan: string };
+  gudang: { nama: string };
+};
+
+function keluarNotFoundError() {
+  return new InventoryUserError(
+    MUTASI_STOK_PESAN.keluarTidakDitemukan,
+    INVENTORY_USER_ERROR_STATUS.NOT_FOUND,
+  );
+}
+
+/**
+ * Jumlah barang keluar dinaikkan melebihi stok yang masih ada.
+ * Batas atas = jumlah lama + stok tersisa (total maupun kondisi catatan ini).
+ */
+function keluarJumlahTooLargeError(
+  record: KeluarRecordLabels,
+  sisaStok: number,
+) {
+  const { nama, satuan } = record.barang;
+  const kondisi = labelKondisiBarang(record.kondisi);
+  return new InventoryUserError(
+    `Jumlah ${nama} tidak bisa dinaikkan sebanyak itu. Stok ${nama} kondisi ${kondisi} di ${record.gudang.nama} tinggal ${sisaStok} ${satuan}. ` +
+      `Isi jumlah paling banyak ${record.jumlah + sisaStok}.`,
+  );
+}
 
 export class InventoryOpnameApiRepository {
   constructor(private readonly db: PrismaClientLike) {}
@@ -165,16 +201,18 @@ export class InventoryOpnameApiRepository {
         where: { id: input.id },
         include: { barang: true, gudang: true },
       });
-      if (!currentRecord)
-        throw new Error("Record barang keluar tidak ditemukan");
+      if (!currentRecord) throw keluarNotFoundError();
       const currentStock = await this.requireCurrentStock(tx, currentRecord);
       const stockField = this.getStockField(currentRecord.kondisi);
       const stockDifference = currentRecord.jumlah - input.jumlah;
+      const conditionStock = Number(currentStock[stockField] || 0);
       const newStock = currentStock.stok + stockDifference;
-      const newConditionStock =
-        Number(currentStock[stockField] || 0) + stockDifference;
+      const newConditionStock = conditionStock + stockDifference;
       if (newStock < 0 || newConditionStock < 0) {
-        throw new Error("Stok tidak mencukupi untuk perubahan ini");
+        throw keluarJumlahTooLargeError(
+          currentRecord,
+          Math.min(currentStock.stok, conditionStock),
+        );
       }
       await tx.barangKeluar.update({
         where: { id: input.id },
@@ -203,8 +241,7 @@ export class InventoryOpnameApiRepository {
         where: { id },
         include: { barang: true, gudang: true },
       });
-      if (!keluarRecord)
-        throw new Error("Record barang keluar tidak ditemukan");
+      if (!keluarRecord) throw keluarNotFoundError();
       await this.restoreKeluarStock(tx, keluarRecord);
       await tx.barangKeluar.delete({ where: { id } });
       return {
@@ -237,13 +274,22 @@ export class InventoryOpnameApiRepository {
 
   private async requireCurrentStock(
     tx: Prisma.TransactionClient,
-    currentRecord: { barangId: string; gudangId: string },
+    currentRecord: KeluarRecordLabels & { barangId: string; gudangId: string },
   ) {
     const currentStock = await tx.barangGudang.findUnique({
-      where: { barangId_gudangId: currentRecord },
+      where: {
+        barangId_gudangId: {
+          barangId: currentRecord.barangId,
+          gudangId: currentRecord.gudangId,
+        },
+      },
     });
-    if (!currentStock)
-      throw new Error("Stok tidak ditemukan untuk barang dan gudang ini");
+    if (!currentStock) {
+      throw new InventoryUserError(
+        `Jumlah ${currentRecord.barang.nama} tidak bisa dinaikkan, karena stoknya di ${currentRecord.gudang.nama} sudah habis. ` +
+          `Isi jumlah paling banyak ${currentRecord.jumlah}.`,
+      );
+    }
     return currentStock;
   }
 

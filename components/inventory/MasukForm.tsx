@@ -7,6 +7,9 @@ import { clientLogger } from "@/lib/client-logger";
 
 import {
   BarangSelector,
+  describeFailedPhotoUploads,
+  describeInventoryError,
+  describeMutasiFormProblems,
   FormAlert,
   FotoBuktiSection,
   GudangSelector,
@@ -15,6 +18,7 @@ import {
   SelectionSummary,
   TextAreaField,
   TextField,
+  sendInventoryRequest,
   useBarangOptions,
   useFotoBuktiUpload,
   useGudangOptions,
@@ -22,6 +26,9 @@ import {
   type Kondisi,
   type UploadedPhotoState,
 } from "./form-shared";
+
+const SAVE_FAILED_MESSAGE =
+  "Barang masuk belum tersimpan. Coba simpan sekali lagi; kalau tetap gagal, laporkan ke admin.";
 
 interface MasukInitialData {
   id?: string;
@@ -108,8 +115,12 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
     if (photos.every((p) => p.status === "success")) {
       setSuccess("Foto berhasil diunggah.");
       setTimeout(() => resetForm(), 2000);
-    } else if (photos.some((p) => p.status === "error")) {
-      setSuccess("Beberapa foto gagal diunggah.");
+      return;
+    }
+    const failedPhotos = describeFailedPhotoUploads(photos);
+    if (failedPhotos) {
+      setSuccess("");
+      setError(failedPhotos);
     }
   };
 
@@ -124,17 +135,6 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
     if (item) setPersistedBarang(item);
   };
 
-  const validateCreatePayload = () => {
-    if (!formData.barangId || !formData.gudangId || !formData.jumlah) {
-      return "Barang, gudang, dan jumlah harus diisi";
-    }
-    const jumlah = parseInt(formData.jumlah);
-    if (isNaN(jumlah) || jumlah <= 0) {
-      return "Jumlah harus berupa angka positif";
-    }
-    return null;
-  };
-
   const handleSubmit = async (event: React.SubmitEvent) => {
     event.preventDefault();
     setError("");
@@ -147,7 +147,7 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       return;
     }
 
-    const validationError = validateCreatePayload();
+    const validationError = describeMutasiFormProblems(formData);
     if (validationError) {
       setError(validationError);
       return;
@@ -159,34 +159,31 @@ export function MasukForm({ initialData, onClose }: MasukFormProps) {
       const { urls, photos } = await uploadPendingPhotos();
       setSuccess("");
 
-      const response = await fetch("/api/inventory/masuk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          barangId: String(formData.barangId),
-          gudangId: String(formData.gudangId),
-          jumlah: Number(parseInt(formData.jumlah)),
-          hargaBeliSatuan: Number(formData.hargaBeliSatuan || 0),
-          kondisi: String(formData.kondisi),
-          keterangan: String(formData.keterangan || ""),
-          tanggal: String(formData.tanggal),
-          fotoBukti: urls,
-          fotoMetadata: buildFotoMetadata(photos),
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Gagal mencatat barang masuk");
-      }
-
-      const result = data.data || data;
+      const result = await sendInventoryRequest<{ masukId?: string }>(
+        "/api/inventory/masuk",
+        {
+          method: "POST",
+          body: {
+            barangId: String(formData.barangId),
+            gudangId: String(formData.gudangId),
+            jumlah: Number(formData.jumlah.trim()),
+            hargaBeliSatuan: Number(formData.hargaBeliSatuan || 0),
+            kondisi: String(formData.kondisi),
+            keterangan: String(formData.keterangan || ""),
+            tanggal: String(formData.tanggal),
+            fotoBukti: urls,
+            fotoMetadata: buildFotoMetadata(photos),
+          },
+        },
+        SAVE_FAILED_MESSAGE,
+      );
       if (result.masukId) setTransactionId(result.masukId);
       setSuccess("Barang masuk berhasil dicatat!");
       setTimeout(() => resetForm(), 1500);
     } catch (err) {
       clientLogger.error("Error submitting barang masuk:", err);
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan");
+      setSuccess("");
+      setError(describeInventoryError(err, SAVE_FAILED_MESSAGE));
     } finally {
       setLoading(false);
     }

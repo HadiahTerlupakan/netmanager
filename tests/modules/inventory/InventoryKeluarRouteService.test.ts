@@ -77,7 +77,7 @@ describe("InventoryKeluarRouteService", () => {
     expect(result).toEqual({
       success: false,
       status: 400,
-      error: "Barang, gudang, dan jumlah harus diisi dengan benar",
+      error: "Jumlah harus lebih dari 0.",
     });
     expect(repository.removeStock).not.toHaveBeenCalled();
   });

@@ -7,8 +7,13 @@ import { hasPermission } from "@/lib/rbac";
 import {
   createRestockRequest,
   getInventoryRouteService,
+  RESTOCK_MESSAGES,
+  restockForbiddenMessage,
 } from "@/modules/inventory";
-import { restockCreateSchema } from "@/lib/validations/restock";
+import {
+  describeRestockValidationError,
+  restockCreateSchema,
+} from "@/lib/validations/restock";
 
 interface RestockItemInput {
   barangId: string;
@@ -31,14 +36,14 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json(
-      { error: "Tidak terautentikasi" },
+      { error: RESTOCK_MESSAGES.sessionExpired },
       { status: 401 },
     );
   }
 
   if (!(await hasPermission("restock:read"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin restock:read" },
+      { error: restockForbiddenMessage("restock:read") },
       { status: 403 },
     );
   }
@@ -60,23 +65,29 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json(
-      { error: "Tidak terautentikasi" },
+      { error: RESTOCK_MESSAGES.sessionExpired },
       { status: 401 },
     );
   }
 
   if (!(await hasPermission("restock:create"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin restock:create" },
+      { error: restockForbiddenMessage("restock:create") },
       { status: 403 },
     );
   }
 
-  const body = await req.json();
+  const body = await req.json().catch((): null => null);
+  if (!body) {
+    return NextResponse.json(
+      { error: RESTOCK_MESSAGES.unreadableBody },
+      { status: 400 },
+    );
+  }
   const parsed = restockCreateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0].message },
+      { error: describeRestockValidationError(parsed.error) },
       { status: 400 },
     );
   }

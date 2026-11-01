@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { fetchWithHandling } from "@/lib/utils/fetch-wrapper";
+import { fetchWithHandling, isFetchError } from "@/lib/utils/fetch-wrapper";
+import { describeOpnameFailure } from "./opnameErrorMessage";
 import type { OpnameCalculationItem } from "./useOpnameCalculation";
 
 interface SubmitOpnameInput {
@@ -56,8 +57,7 @@ export function useSubmitOpname(): UseSubmitOpnameResult {
 
       return res.data;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Terjadi kesalahan";
-      setError(message);
+      setError(describeSubmitError(err, input.items));
       throw err;
     } finally {
       setIsSubmitting(false);
@@ -70,6 +70,15 @@ export function useSubmitOpname(): UseSubmitOpnameResult {
     error,
     clearError: () => setError(null),
   };
+}
+
+function describeSubmitError(
+  err: unknown,
+  items: readonly OpnameCalculationItem[],
+): string {
+  if (isFetchError(err)) return describeOpnameFailure(err, items);
+  if (err instanceof Error) return err.message;
+  return "Opname belum tersimpan karena kesalahan yang tidak dikenal. Coba simpan sekali lagi; kalau tetap gagal, laporkan ke admin.";
 }
 
 function buildOpnameBatchItem(item: OpnameCalculationItem) {

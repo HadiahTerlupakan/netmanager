@@ -2,13 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  FiPackage,
-  FiMapPin,
-  FiCheck,
-  FiAlertTriangle,
-  FiBarChart2,
-} from "react-icons/fi";
+import { FiPackage, FiMapPin, FiCheck, FiBarChart2 } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
 import {
@@ -22,6 +16,7 @@ import {
   labelStatusSoGudang,
   statusSoPerGudang,
 } from "./opname/jadwal/statusSoGudang";
+import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
 import { OpnameItemsTable } from "./opname/OpnameItemsTable";
 import { OpnameSummaryCards } from "./opname/OpnameSummaryCards";
 import {
@@ -53,7 +48,9 @@ export function StockOpnameRecorder({
   const router = useRouter();
   const [gudangId, setGudangId] = useState("");
   const [editsByBarang, setEditsByBarang] = useState<ItemPatchMap>({});
-  const [dihitungIds, setDihitungIds] = useState<ReadonlySet<string>>(new Set());
+  const [dihitungIds, setDihitungIds] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
   const [isHanyaBelumSo, setIsHanyaBelumSo] = useState(false);
   const [success, setSuccess] = useState("");
   const [recordingError, setRecordingError] = useState("");
@@ -94,11 +91,12 @@ export function StockOpnameRecorder({
     [items],
   );
 
-  const displayError =
-    recordingError ||
-    submitOpname.error ||
+  const saveError = recordingError || submitOpname.error;
+  const loadError =
     calculation.error ||
-    (gudangError ? "Gagal memuat data gudang" : "");
+    (gudangError
+      ? "Daftar gudang gagal dimuat. Periksa koneksi internet, lalu muat ulang halaman."
+      : "");
 
   const isSubmitDisabled =
     submitOpname.isSubmitting || itemsToRecord.length === 0;
@@ -152,7 +150,10 @@ export function StockOpnameRecorder({
     try {
       // Hanya barang yang ditandai sudah dihitung; yang cocok tersimpan dengan
       // selisih 0 sebagai bukti SO (tanpa mutasi stok).
-      const result = await submitOpname.submit({ gudangId, items: itemsToRecord });
+      const result = await submitOpname.submit({
+        gudangId,
+        items: itemsToRecord,
+      });
 
       setSuccess(
         `Stock opname berhasil dicatat untuk ${result.totalItems} item`,
@@ -178,7 +179,17 @@ export function StockOpnameRecorder({
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="space-y-6">
-        <ErrorBanner message={displayError} />
+        {saveError ? (
+          <InventoryErrorBanner
+            title="Opname belum tersimpan"
+            message={saveError}
+          />
+        ) : (
+          <InventoryErrorBanner
+            title="Data belum bisa dimuat"
+            message={loadError}
+          />
+        )}
         <SuccessBanner message={success} />
 
         <GudangSelector
@@ -229,16 +240,6 @@ export function StockOpnameRecorder({
           />
         )}
       </form>
-    </div>
-  );
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  if (!message) return null;
-  return (
-    <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400 flex items-start">
-      <FiAlertTriangle className="mt-0.5 mr-2 shrink-0" />
-      <div>{message}</div>
     </div>
   );
 }
@@ -324,9 +325,10 @@ function GudangSelector({
             {selectedGudangNama}
           </p>
           <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
-            Centang &quot;Dihitung&quot; untuk barang yang sudah dihitung (otomatis
-            tercentang bila angkanya diubah). Barang yang cocok cukup dicentang dan
-            tercatat dengan selisih 0. Hanya barang yang dicentang yang disimpan.
+            Centang &quot;Dihitung&quot; untuk barang yang sudah dihitung
+            (otomatis tercentang bila angkanya diubah). Barang yang cocok cukup
+            dicentang dan tercatat dengan selisih 0. Hanya barang yang dicentang
+            yang disimpan.
           </p>
         </div>
       )}

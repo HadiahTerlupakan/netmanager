@@ -1,4 +1,9 @@
-import { validateInventoryMutationCreateBody } from "./inventory-route-validation.helpers";
+import {
+  validateInventoryMutationCreateBody,
+  validateInventoryMutationJumlah,
+} from "./inventory-route-validation.helpers";
+import { toInventoryMutationFailure } from "./inventory-mutation-errors";
+import { MUTASI_STOK_PESAN } from "../domain/inventory-user-error";
 import type { KondisiBarang } from "../types/asset.enums";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
@@ -171,20 +176,20 @@ export class InventoryKeluarRouteService {
     const accessCheck = await this.validateKeluarAccess(input);
     if (accessCheck.success === false) return accessCheck;
 
-    const jumlah = Number(input.body.jumlah);
-    if (!Number.isFinite(jumlah) || jumlah <= 0) {
-      return {
-        success: false as const,
-        status: 400,
-        error: "Jumlah harus diisi dengan angka positif",
-      };
-    }
+    const invalidJumlah = validateInventoryMutationJumlah(input.body.jumlah);
+    if (invalidJumlah) return invalidJumlah;
 
-    const result = await this.inventoryRouteService.updateKeluarRecord({
-      id: input.id,
-      jumlah,
-      keterangan: input.body.keterangan as string | undefined,
-    });
+    const jumlah = Number(input.body.jumlah);
+    let result: KeluarMutationResult;
+    try {
+      result = await this.inventoryRouteService.updateKeluarRecord({
+        id: input.id,
+        jumlah,
+        keterangan: input.body.keterangan as string | undefined,
+      });
+    } catch (error) {
+      return toInventoryMutationFailure(error, "Perubahan barang keluar");
+    }
     recordInventoryActivity({
       action: INVENTORY_ACTIVITY_ACTIONS.UPDATE,
       subject: INVENTORY_ACTIVITY_SUBJECTS.BARANG_KELUAR,
@@ -207,9 +212,12 @@ export class InventoryKeluarRouteService {
     const accessCheck = await this.validateKeluarAccess(input);
     if (accessCheck.success === false) return accessCheck;
 
-    const result = await this.inventoryRouteService.deleteKeluarRecord(
-      input.id,
-    );
+    let result: KeluarMutationResult;
+    try {
+      result = await this.inventoryRouteService.deleteKeluarRecord(input.id);
+    } catch (error) {
+      return toInventoryMutationFailure(error, "Penghapusan barang keluar");
+    }
     recordInventoryActivity({
       action: INVENTORY_ACTIVITY_ACTIONS.DELETE,
       subject: INVENTORY_ACTIVITY_SUBJECTS.BARANG_KELUAR,
@@ -234,24 +242,29 @@ export class InventoryKeluarRouteService {
     const parsedJumlah = Number(input.body.jumlah);
     const barangId = String(input.body.barangId);
     const gudangId = String(input.body.gudangId);
-    const keluarRecord = await this.repository.removeStock({
-      barangId,
-      gudangId,
-      jumlah: parsedJumlah,
-      kondisi:
-        (input.body.kondisi as KondisiBarang | undefined) ||
-        DEFAULT_KONDISI_BARANG,
-      tujuanPenggunaan: input.body.tujuanPenggunaan as string | undefined,
-      keterangan: input.body.keterangan as string | undefined,
-      isHilang: Boolean(input.body.isHilang),
-      fotoBukti: (input.body.fotoBukti as string[] | undefined) || [],
-      fotoMetadata:
-        (input.body.fotoMetadata as Record<string, unknown> | undefined) ||
-        null,
-      tanggal: new Date(),
-      userId: input.userId,
-      tenantId: input.tenantId,
-    });
+    let keluarRecord: unknown;
+    try {
+      keluarRecord = await this.repository.removeStock({
+        barangId,
+        gudangId,
+        jumlah: parsedJumlah,
+        kondisi:
+          (input.body.kondisi as KondisiBarang | undefined) ||
+          DEFAULT_KONDISI_BARANG,
+        tujuanPenggunaan: input.body.tujuanPenggunaan as string | undefined,
+        keterangan: input.body.keterangan as string | undefined,
+        isHilang: Boolean(input.body.isHilang),
+        fotoBukti: (input.body.fotoBukti as string[] | undefined) || [],
+        fotoMetadata:
+          (input.body.fotoMetadata as Record<string, unknown> | undefined) ||
+          null,
+        tanggal: new Date(),
+        userId: input.userId,
+        tenantId: input.tenantId,
+      });
+    } catch (error) {
+      return toInventoryMutationFailure(error, "Barang keluar");
+    }
     const finalStock = await this.repository.getStockLevel(barangId, gudangId);
 
     return {
@@ -287,7 +300,7 @@ export class InventoryKeluarRouteService {
       return {
         success: false as const,
         status: 404,
-        error: "Record barang keluar",
+        error: MUTASI_STOK_PESAN.keluarTidakDitemukan,
       };
     }
 
@@ -301,7 +314,7 @@ export class InventoryKeluarRouteService {
       return {
         success: false as const,
         status: 403,
-        error: "Anda tidak memiliki akses ke data ini",
+        error: MUTASI_STOK_PESAN.catatanBedaSite,
       };
     }
 

@@ -2,6 +2,11 @@ import { Prisma } from "@prisma/client";
 import type { BarangKeluar } from "@prisma/client";
 
 import { DEFAULT_KONDISI } from "@/lib/constants/inventory";
+import {
+  INVENTORY_USER_ERROR_STATUS,
+  InventoryUserError,
+  labelKondisiBarang,
+} from "../domain/inventory-user-error";
 import type { CreateBarangKeluarInput } from "../domain/ports/IInventoryOperationRepository";
 import { resolveInventoryActor } from "./inventory-repository-core-helpers";
 import {
@@ -11,9 +16,21 @@ import {
   getStockFieldByCondition,
 } from "./inventory-stock-helpers";
 
+/** Nama barang & gudang untuk pesan yang dibaca staf. */
+type StockOutLabels = { barang: string; satuan: string; gudang: string };
+
+type StockRecordWithLabels = { id: string; stok: number } & Record<
+  string,
+  unknown
+> & {
+    barang: { nama: string; satuan: string };
+    gudang: { nama: string };
+  };
+
 type StockOutContext = {
   actor: ReturnType<typeof resolveInventoryActor>;
-  currentStock: { id: string; stok: number } & Record<string, unknown>;
+  currentStock: StockRecordWithLabels;
+  labels: StockOutLabels;
   quantity: number;
   kondisi: string;
   stockField: string;
@@ -45,6 +62,11 @@ async function buildStockOutContext(
   const actor = resolveInventoryActor(data);
   assertPositiveIntegerQuantity(data.jumlah);
   const currentStock = await findRequiredStock(tx, data);
+  const labels: StockOutLabels = {
+    barang: currentStock.barang.nama,
+    satuan: currentStock.barang.satuan,
+    gudang: currentStock.gudang.nama,
+  };
   const kondisi = data.kondisi || DEFAULT_KONDISI;
   const stockField = getStockFieldByCondition(kondisi);
   const conditionStock = getConditionStockAmount(currentStock, stockField);
@@ -54,10 +76,12 @@ async function buildStockOutContext(
     conditionStock,
     kondisi,
     quantity: data.jumlah,
+    labels,
   });
   return {
     actor,
     currentStock,
+    labels,
     quantity: data.jumlah,
     kondisi,
     stockField,
@@ -73,9 +97,39 @@ async function findRequiredStock(
     where: {
       barangId_gudangId: { barangId: data.barangId, gudangId: data.gudangId },
     },
+    include: {
+      barang: { select: { nama: true, satuan: true } },
+      gudang: { select: { nama: true } },
+    },
   });
-  if (!currentStock) throw new Error("Stok tidak ditemukan di gudang ini");
-  return currentStock as { id: string; stok: number } & Record<string, unknown>;
+  if (!currentStock) throw await buildMissingStockError(tx, data);
+  return currentStock as unknown as StockRecordWithLabels;
+}
+
+/** Jelaskan kenapa barang belum punya stok di gudang yang dipilih. */
+async function buildMissingStockError(
+  tx: Prisma.TransactionClient,
+  data: CreateBarangKeluarInput,
+): Promise<InventoryUserError> {
+  const [barang, gudang] = await Promise.all([
+    tx.barang.findUnique({
+      where: { id: data.barangId },
+      select: { nama: true },
+    }),
+    tx.gudang.findUnique({
+      where: { id: data.gudangId },
+      select: { nama: true },
+    }),
+  ]);
+  if (!barang || !gudang) {
+    return new InventoryUserError(
+      `${barang ? "Gudang" : "Barang"} yang dipilih tidak ditemukan, mungkin sudah dihapus. Muat ulang halaman, lalu pilih lagi.`,
+      INVENTORY_USER_ERROR_STATUS.NOT_FOUND,
+    );
+  }
+  return new InventoryUserError(
+    `${barang.nama} tidak ada di ${gudang.nama}, jadi tidak bisa dikeluarkan dari sana. Pilih gudang yang memang menyimpan barang ini.`,
+  );
 }
 
 function validateAvailableStock(input: {
@@ -83,18 +137,24 @@ function validateAvailableStock(input: {
   conditionStock: number;
   kondisi: string;
   quantity: number;
+  labels: StockOutLabels;
 }) {
+  const { barang, satuan, gudang } = input.labels;
   if (input.currentStock.stok < input.quantity) {
-    throw new Error(
-      `Total stok tidak mencukupi (Tersedia: ${input.currentStock.stok})`,
+    throw new InventoryUserError(
+      `Stok ${barang} di ${gudang} tinggal ${input.currentStock.stok} ${satuan}, tapi Anda mau mengeluarkan ${input.quantity} ${satuan}. ` +
+        `Kurangi jumlahnya, paling banyak ${input.currentStock.stok}.`,
     );
   }
   if (Number.isNaN(input.conditionStock)) {
+    // Data stok rusak di database: bukan kesalahan staf, biarkan jadi error server.
     throw new Error(`Data stok tidak valid untuk kondisi ${input.kondisi}`);
   }
   if (input.conditionStock < input.quantity) {
-    throw new Error(
-      `Stok ${input.kondisi} tidak mencukupi (Tersedia: ${input.conditionStock})`,
+    const kondisi = labelKondisiBarang(input.kondisi);
+    throw new InventoryUserError(
+      `Stok ${barang} kondisi ${kondisi} di ${gudang} tinggal ${input.conditionStock} ${satuan}, tapi Anda mau mengeluarkan ${input.quantity} ${satuan}. ` +
+        `Kurangi jumlahnya, atau pilih kondisi lain yang stoknya cukup.`,
     );
   }
 }
@@ -116,8 +176,10 @@ async function decrementWarehouseStock(
   });
 
   if (updated.count === 0) {
-    throw new Error(
-      `Stok ${context.kondisi} tidak mencukupi atau telah berubah (Tersedia: ${context.conditionStock})`,
+    throw new InventoryUserError(
+      `Stok ${context.labels.barang} di ${context.labels.gudang} baru saja berubah, karena ada orang lain yang mencatat di waktu yang sama. ` +
+        "Muat ulang halaman untuk melihat stok terbaru, lalu coba lagi.",
+      INVENTORY_USER_ERROR_STATUS.CONFLICT,
     );
   }
 }

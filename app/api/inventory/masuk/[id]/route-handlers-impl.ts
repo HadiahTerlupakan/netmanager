@@ -2,16 +2,16 @@ import { NextRequest } from "next/server";
 import { getServerSession, type Session } from "next-auth";
 import { authConfig, getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { inventoryMasukRouteService } from "@/modules/inventory";
 import {
-  apiSuccess,
-  ApiErrors,
-  apiError,
-  ErrorCodes,
-} from "@/lib/api-response";
-import {
-  inventoryMasukRouteService,
-  type InventoryMasukRouteError,
-} from "@/modules/inventory";
+  INVENTORY_UNEXPECTED_ERROR_MESSAGE,
+  inventoryFailureResponse,
+} from "../../_lib/inventory-failure-response";
+import { parseInventoryMutationBody } from "../../_lib/inventory-mutation-request";
+
+const SESSION_EXPIRED_MESSAGE =
+  "Sesi login Anda sudah habis. Silakan login lagi, lalu ulangi.";
 
 interface UserSession {
   id: string;
@@ -30,16 +30,6 @@ async function requireAdmin(): Promise<{
   return { session, user: session.user as UserSession };
 }
 
-/** Map route service result into API response. */
-function toMasukRouteResponse(result: InventoryMasukRouteError) {
-  if (result.status === 404) return ApiErrors.notFound("Record barang masuk");
-  if (result.status === 403) return ApiErrors.forbidden(result.error);
-  if (result.status === 400) {
-    return apiError(result.error, ErrorCodes.VALIDATION_ERROR, { status: 400 });
-  }
-  return ApiErrors.internalError(result.error);
-}
-
 /** Handle get barang masuk detail request. */
 export async function GET(
   _req: NextRequest,
@@ -48,10 +38,10 @@ export async function GET(
   const startTime = Date.now();
   try {
     const auth = await requireAdmin();
-    if (!auth) return ApiErrors.unauthorized("Session tidak valid");
+    if (!auth) return ApiErrors.unauthorized(SESSION_EXPIRED_MESSAGE);
     if (!(await import("@/lib/rbac")).hasPermission("masuk:read", auth.user)) {
       return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk melihat data barang masuk",
+        "Akun Anda tidak punya izin melihat barang masuk. Minta admin menambahkan izin ini ke peran Anda.",
       );
     }
 
@@ -63,7 +53,7 @@ export async function GET(
       permissions,
       isSuperAdmin: isSuperAdmin(auth.user),
     });
-    if (result.success === false) return toMasukRouteResponse(result);
+    if (result.success === false) return inventoryFailureResponse(result);
 
     logger.apiRequest(
       "GET",
@@ -82,7 +72,9 @@ export async function GET(
       path: "/api/inventory/masuk/[id]",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal memuat data barang masuk");
+    return ApiErrors.internalError(
+      "Data barang masuk gagal dimuat karena ada gangguan di server. Muat ulang halaman. Kalau tetap gagal, laporkan ke admin.",
+    );
   }
 }
 
@@ -94,27 +86,28 @@ export async function PUT(
   const startTime = Date.now();
   try {
     const auth = await requireAdmin();
-    if (!auth) return ApiErrors.unauthorized("Session tidak valid");
+    if (!auth) return ApiErrors.unauthorized(SESSION_EXPIRED_MESSAGE);
     if (
       !(await import("@/lib/rbac")).hasPermission("masuk:update", auth.user)
     ) {
       return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk mengubah data barang masuk",
+        "Akun Anda tidak punya izin mengubah barang masuk. Minta admin menambahkan izin ini ke peran Anda.",
       );
     }
 
     const { id } = await params;
-    const body = await req.json();
+    const parsed = await parseInventoryMutationBody(req);
+    if (parsed.ok === false) return parsed.response;
     const permissions = await getUserPermissions(auth.user.id);
     const dbStart = Date.now();
     const result = await inventoryMasukRouteService.updateMasuk({
       id,
-      body,
+      body: parsed.body,
       userId: auth.user.id,
       permissions,
       isSuperAdmin: isSuperAdmin(auth.user),
     });
-    if (result.success === false) return toMasukRouteResponse(result);
+    if (result.success === false) return inventoryFailureResponse(result);
 
     logger.dbOperation(
       "transaction",
@@ -139,7 +132,7 @@ export async function PUT(
       path: "/api/inventory/masuk/[id]",
       method: "PUT",
     });
-    return ApiErrors.internalError("Gagal memperbarui barang masuk");
+    return ApiErrors.internalError(INVENTORY_UNEXPECTED_ERROR_MESSAGE);
   }
 }
 
@@ -151,12 +144,12 @@ export async function DELETE(
   const startTime = Date.now();
   try {
     const auth = await requireAdmin();
-    if (!auth) return ApiErrors.unauthorized("Session tidak valid");
+    if (!auth) return ApiErrors.unauthorized(SESSION_EXPIRED_MESSAGE);
     if (
       !(await import("@/lib/rbac")).hasPermission("masuk:delete", auth.user)
     ) {
       return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk menghapus data barang masuk",
+        "Akun Anda tidak punya izin menghapus barang masuk. Minta admin menambahkan izin ini ke peran Anda.",
       );
     }
 
@@ -169,7 +162,7 @@ export async function DELETE(
       permissions,
       isSuperAdmin: isSuperAdmin(auth.user),
     });
-    if (result.success === false) return toMasukRouteResponse(result);
+    if (result.success === false) return inventoryFailureResponse(result);
 
     logger.dbOperation(
       "transaction",
@@ -187,7 +180,8 @@ export async function DELETE(
       },
     );
     return apiSuccess(null, {
-      message: "Record barang masuk berhasil dihapus dan stok dikurangi",
+      message:
+        "Catatan barang masuk sudah dihapus, dan stoknya sudah dikurangi.",
     });
   } catch (error) {
     const err = error as Error;
@@ -195,6 +189,6 @@ export async function DELETE(
       path: "/api/inventory/masuk/[id]",
       method: "DELETE",
     });
-    return ApiErrors.internalError("Gagal menghapus record barang masuk");
+    return ApiErrors.internalError(INVENTORY_UNEXPECTED_ERROR_MESSAGE);
   }
 }

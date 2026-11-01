@@ -141,7 +141,7 @@ describe("inventory restock request lifecycle routes", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: "Catatan / Keterangan wajib diisi",
+      error: "Catatan belum diisi. Tulis untuk apa barang ini dibeli.",
     });
     expect(mockFns.createRestockRequest).not.toHaveBeenCalled();
   });
@@ -573,7 +573,8 @@ describe("inventory restock request lifecycle routes", () => {
     const json = await response.json();
     expect(response.status).toBe(500);
     expect(json).toMatchObject({
-      error: "Gagal membuat Purchase Order. Coba lagi atau hubungi admin.",
+      error:
+        "Pesanan pembelian (PO) untuk pengajuan ini belum bisa dibuat, jadi barang belum bisa diterima. Tidak ada stok yang berubah. Minta bagian pembelian membuat PO-nya, lalu coba lagi.",
     });
     expect(mockGrnCreate).not.toHaveBeenCalled();
   });
@@ -597,7 +598,8 @@ describe("inventory restock request lifecycle routes", () => {
     const json = await response.json();
     expect(response.status).toBe(400);
     expect(json).toMatchObject({
-      error: "Purchase Request belum memiliki Purchase Order untuk diproses",
+      error:
+        "Pengajuan ini belum punya pesanan pembelian (PO). Setujui pengajuannya dulu, nanti PO dibuat otomatis.",
     });
     expect(mockFns.patchRestockRequestStatus).not.toHaveBeenCalled();
   });
@@ -725,7 +727,7 @@ describe("inventory restock request lifecycle routes", () => {
       expect(response.status).toBe(400);
       expect(await response.json()).toMatchObject({
         error:
-          "Jumlah Pigtail (100) melebihi sisa pesanan (70). Isi alasan kelebihan kiriman agar jumlah PO dinaikkan.",
+          "Pigtail datang 100, padahal sisa pesanannya cuma 70. Kelebihannya 30. Tulis alasan kenapa barang datang lebih, supaya jumlah di pesanan ikut ditambah.",
       });
       expect(mockGrnCreate).not.toHaveBeenCalled();
       expect(prismaMock.purchaseOrderItem.update).not.toHaveBeenCalled();
@@ -905,9 +907,116 @@ describe("inventory restock request lifecycle routes", () => {
         expect.objectContaining({
           purchaseRequestId: "pr-1",
           status: 400,
-          reason: expect.stringContaining("melebihi sisa pesanan"),
+          reason: expect.stringContaining("padahal sisa pesanannya cuma 70"),
         }),
       );
     });
+
+    it("names the barang when a verifier may not raise the PO", async () => {
+      mockOrder([pigtail]);
+      mockFns.rbacHasPermission.mockImplementation(
+        async (permission: string) => permission !== "purchase_orders:update",
+      );
+
+      const response = await receive({
+        items: { "barang-1": 90 },
+        overReceipts: { "barang-1": "Supplier kirim lebih" },
+        closePO: false,
+      });
+
+      const json = await response.json();
+      expect(json.error).toContain("Pigtail datang lebih banyak dari pesanan");
+      expect(json.error).not.toContain("purchase_orders:update");
+    });
+
+    it("refuses a cancelled order before any substitution is written", async () => {
+      mockOrder([pigtail]);
+      prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+        id: "po-1",
+        poNumber: "PO/2026/10/0008",
+        status: "CANCELLED",
+        items: [pigtail],
+      });
+
+      const response = await receive({
+        items: { "barang-1": 10 },
+        substitutions: { "barang-1": "barang-9" },
+        closePO: false,
+      });
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toContain("sudah dibatalkan");
+      expect(prismaMock.purchaseOrderItem.update).not.toHaveBeenCalled();
+      expect(mockGrnCreate).not.toHaveBeenCalled();
+    });
+
+    it("hides a procurement error behind a plain message but logs its cause", async () => {
+      mockOrder([pigtail]);
+      const { GoodsReceiptInvalidError } =
+        await import("@/modules/procurement");
+      mockGrnCreate.mockRejectedValue(
+        new GoodsReceiptInvalidError(
+          "Barang GRN tidak cocok dengan barang di item PO",
+        ),
+      );
+      const warn = vi.spyOn(logger, "warn");
+
+      const response = await receive({
+        items: { "barang-1": 10 },
+        closePO: false,
+      });
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe(
+        "Data barang yang diterima tidak cocok dengan pesanan. Muat ulang halaman, lalu coba lagi. Kalau masih muncul, lapor ke admin.",
+      );
+      expect(warn).toHaveBeenCalledWith(
+        "[RESTOCK_RECEIVE] Penerimaan ditolak",
+        expect.objectContaining({
+          cause: "Barang GRN tidak cocok dengan barang di item PO",
+        }),
+      );
+    });
+
+    it("answers an unreadable body with a plain 400", async () => {
+      const response = await patchRestockRequestReceive(
+        new NextRequest(
+          "http://localhost/api/inventory/restock/requests/pr-1/receive",
+          { method: "PATCH", body: "bukan json" },
+        ),
+        { params: Promise.resolve({ id: "pr-1" }) },
+      );
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe(
+        "Data yang dikirim tidak terbaca. Muat ulang halaman, lalu coba lagi.",
+      );
+    });
+  });
+
+  it("reports every invalid row of a new request at once", async () => {
+    const response = await postRestockRequests(
+      new NextRequest("http://localhost/api/inventory/restock/requests", {
+        method: "POST",
+        body: JSON.stringify({
+          gudangId: "gudang-1",
+          keterangan: "",
+          items: [
+            { barangId: "barang-1", quantity: 2 },
+            { barangId: "", quantity: 0 },
+          ],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe(
+      [
+        "Catatan belum diisi. Tulis untuk apa barang ini dibeli.",
+        "Barang ke-2: Barangnya belum dipilih. Pilih barangnya dulu.",
+        "Barang ke-2: Jumlah barang paling sedikit 1.",
+      ].join("\n"),
+    );
+    expect(mockFns.createRestockRequest).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,14 @@ import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 
+import {
+  RESTOCK_MESSAGES,
+  describeRestockStatus,
+  restockServerErrorMessage,
+} from "./restock-messages";
+
+const JASA_CONFIRMABLE_STATUSES = ["APPROVED", "ORDERED", "RECEIVED"];
+
 export interface ConfirmJasaItemInput {
   jasaItemId: string;
   tanggalSelesai?: string | null;
@@ -21,7 +29,10 @@ export async function confirmRestockJasaItems(input: ConfirmRestockJasaInput) {
   try {
     if (!Array.isArray(input.items) || input.items.length === 0) {
       return NextResponse.json(
-        { error: "Minimal 1 item jasa harus dikonfirmasi" },
+        {
+          error:
+            "Belum ada jasa yang dicentang. Centang jasa yang sudah selesai, lalu simpan.",
+        },
         { status: 400 },
       );
     }
@@ -29,44 +40,33 @@ export async function confirmRestockJasaItems(input: ConfirmRestockJasaInput) {
     const purchaseRequest = await prisma.purchaseRequest.findFirst({
       where: { id: input.purchaseRequestId, tenantId: input.tenantId },
       include: {
-        jasaItems: true,
+        jasaItems: { include: { jasa: { select: { nama: true } } } },
         items: true,
       },
     });
 
     if (!purchaseRequest) {
       return NextResponse.json(
-        { error: "Purchase Request tidak ditemukan" },
+        { error: RESTOCK_MESSAGES.requestNotFound },
         { status: 404 },
       );
     }
 
-    if (!["APPROVED", "ORDERED", "RECEIVED"].includes(purchaseRequest.status)) {
+    if (!JASA_CONFIRMABLE_STATUSES.includes(purchaseRequest.status)) {
       return NextResponse.json(
         {
-          error:
-            "Jasa hanya bisa dikonfirmasi setelah pengajuan di-approve / di-order",
+          error: `Pengajuan ini ${describeRestockStatus(purchaseRequest.status)}. Jasa baru bisa ditandai selesai setelah pengajuannya disetujui.`,
         },
         { status: 400 },
       );
     }
 
-    const allowedIds = new Set(
-      purchaseRequest.jasaItems.map((item) => item.id),
+    const problem = findJasaConfirmationProblem(
+      input.items,
+      purchaseRequest.jasaItems,
     );
-    for (const item of input.items) {
-      if (!allowedIds.has(item.jasaItemId)) {
-        return NextResponse.json(
-          { error: `Item jasa ${item.jasaItemId} tidak valid` },
-          { status: 400 },
-        );
-      }
-      if (!item.buktiSelesai || item.buktiSelesai.length === 0) {
-        return NextResponse.json(
-          { error: "Bukti penyelesaian wajib diunggah untuk setiap item jasa" },
-          { status: 400 },
-        );
-      }
+    if (problem) {
+      return NextResponse.json({ error: problem }, { status: 400 });
     }
 
     const now = new Date();
@@ -150,9 +150,42 @@ export async function confirmRestockJasaItems(input: ConfirmRestockJasaInput) {
     logger.error("Error confirming restock jasa", err, {
       purchaseRequestId: input.purchaseRequestId,
     });
+    // Semua tanda selesai ditulis dalam satu transaksi.
     return NextResponse.json(
-      { error: "Gagal mengonfirmasi penyelesaian jasa" },
+      { error: restockServerErrorMessage("Menandai jasa selesai", true) },
       { status: 500 },
     );
   }
+}
+
+/**
+ * Periksa jasa yang mau ditandai selesai. Semua masalah dilaporkan sekaligus,
+ * menyebut nama jasanya, satu masalah per baris.
+ */
+function findJasaConfirmationProblem(
+  items: ConfirmJasaItemInput[],
+  requestJasaItems: Array<{ id: string; jasa?: { nama: string } | null }>,
+): string | null {
+  const jasaNameById = new Map(
+    requestJasaItems.map((item) => [item.id, item.jasa?.nama ?? "Jasa ini"]),
+  );
+  const problems: string[] = [];
+
+  for (const item of items) {
+    const jasaName = jasaNameById.get(item.jasaItemId);
+    if (!jasaName) {
+      problems.push(
+        "Ada jasa yang tidak termasuk pengajuan ini. Muat ulang halaman, lalu coba lagi.",
+      );
+      continue;
+    }
+    if (!item.buktiSelesai || item.buktiSelesai.length === 0) {
+      problems.push(
+        `${jasaName}: foto bukti jasa selesai belum diunggah. Unggah fotonya dulu.`,
+      );
+    }
+  }
+
+  const uniqueProblems = [...new Set(problems)];
+  return uniqueProblems.length > 0 ? uniqueProblems.join("\n") : null;
 }

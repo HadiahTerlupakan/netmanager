@@ -1,6 +1,13 @@
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
-import { getInventoryRouteService } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  RESTOCK_MESSAGES,
+  RestockSettingReferenceError,
+  restockForbiddenMessage,
+  restockServerErrorMessage,
+} from "@/modules/inventory";
+import { findRestockSettingsProblems } from "@/lib/validations/restock";
 import { logActivitySafe } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
@@ -15,9 +22,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("restock:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat pengaturan restock",
-    );
+    return ApiErrors.forbidden(restockForbiddenMessage("restock:read"));
   }
 
   const { searchParams } = req.nextUrl;
@@ -65,7 +70,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/restock/settings",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal memuat pengaturan restock");
+    return ApiErrors.internalError(
+      restockServerErrorMessage("Memuat pengaturan restock", false),
+    );
   }
 });
 
@@ -78,27 +85,16 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("restock:update"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk mengubah pengaturan restock",
-    );
+    return ApiErrors.forbidden(restockForbiddenMessage("restock:update"));
   }
 
-  const body = await req.json();
+  const body = await req.json().catch((): null => null);
+  if (!body) return ApiErrors.badRequest(RESTOCK_MESSAGES.unreadableBody);
   const { barangId, gudangId, minStok, maxStok, safetyStok, leadTimeDays } =
     body;
 
-  // Validation
-  if (!barangId || !gudangId || !minStok || !maxStok) {
-    return ApiErrors.badRequest(
-      "Barang, gudang, minimal stok, dan maksimal stok harus diisi",
-    );
-  }
-
-  if (minStok >= maxStok) {
-    return ApiErrors.badRequest(
-      "Minimal stok harus lebih kecil dari maksimal stok",
-    );
-  }
+  const problems = findRestockSettingsProblems(body);
+  if (problems) return ApiErrors.badRequest(problems);
 
   try {
     const dbStart = Date.now();
@@ -148,19 +144,19 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       { status: 201 },
     );
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
+    if (error instanceof RestockSettingReferenceError) {
+      return error.reference === "barang"
+        ? ApiErrors.notFound(error.message)
+        : ApiErrors.badRequest(error.message);
+    }
+
+    const err = error instanceof Error ? error : new Error(String(error));
     logger.error("Error saving restock settings", err, {
       path: "/api/inventory/restock/settings",
       method: "POST",
     });
-
-    if (err.message === "Barang tidak ditemukan") {
-      return ApiErrors.notFound("Barang");
-    }
-    if (err.message === "Gudang tidak ditemukan atau tidak aktif") {
-      return ApiErrors.badRequest("Gudang tidak ditemukan atau tidak aktif");
-    }
-
-    return ApiErrors.internalError("Gagal menyimpan pengaturan restock");
+    return ApiErrors.internalError(
+      restockServerErrorMessage("Menyimpan pengaturan restock", false),
+    );
   }
 });

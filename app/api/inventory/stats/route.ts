@@ -1,7 +1,12 @@
 import { NextRequest } from "next/server";
 import { verifyAuth, getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { getInventoryRouteService } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  PESAN_BELUM_MASUK,
+  pesanGagalMuat,
+  pesanTanpaIzin,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { toStartOfDay } from "@/lib/utils/server-datetime";
@@ -14,14 +19,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const session = await verifyAuth(req);
   if (!session) {
-    return ApiErrors.unauthorized("Session tidak valid");
+    return ApiErrors.unauthorized(PESAN_BELUM_MASUK);
   }
 
   // Permission check
   if (!(await hasPermission("barang:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat statistik inventori",
-    );
+    return ApiErrors.forbidden(pesanTanpaIzin("melihat statistik gudang"));
   }
 
   try {
@@ -44,6 +47,6 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     const err = error as Error;
     logger.error("Error fetching inventory stats:", err);
-    return ApiErrors.internalError("Gagal memuat statistik inventori");
+    return ApiErrors.internalError(pesanGagalMuat("statistik gudang"));
   }
 }

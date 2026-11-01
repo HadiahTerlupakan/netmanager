@@ -1,6 +1,10 @@
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
-import { getInventoryRouteService } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  restockForbiddenMessage,
+  restockServerErrorMessage,
+} from "@/modules/inventory";
 import { logActivitySafe } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
@@ -15,9 +19,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("restock:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat restock alerts",
-    );
+    return ApiErrors.forbidden(restockForbiddenMessage("restock:read"));
   }
 
   const { searchParams } = req.nextUrl;
@@ -75,7 +77,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/restock/alerts",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal memuat notifikasi restock");
+    return ApiErrors.internalError(
+      restockServerErrorMessage("Memuat peringatan stok menipis", false),
+    );
   }
 });
 
@@ -88,12 +92,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("restock:create"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk membuat restock alerts",
-    );
+    return ApiErrors.forbidden(restockForbiddenMessage("restock:create"));
   }
 
-  const body = await req.json();
+  const body = (await req.json().catch((): null => null)) ?? {};
   const { type = "AUTO_CHECK" } = body;
 
   try {
@@ -138,6 +140,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       method: "POST",
     });
 
-    return ApiErrors.internalError("Gagal memproses notifikasi restock");
+    return ApiErrors.internalError(
+      restockServerErrorMessage("Memeriksa stok menipis", false),
+    );
   }
 });

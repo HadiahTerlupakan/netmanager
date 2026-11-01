@@ -9,6 +9,26 @@ type InventoryBarang = Awaited<
   ReturnType<IInventoryRepository["findAllBarang"]>
 >["items"][number];
 
+/** Kode barang yang diminta sudah dipakai barang lain. */
+export class BarangKodeDipakaiError extends Error {
+  constructor(readonly kode: string) {
+    super(
+      `Kode barang "${kode}" sudah dipakai barang lain. Pakai kode lain, atau kosongkan kolom kode supaya dibuat otomatis.`,
+    );
+    this.name = "BarangKodeDipakaiError";
+  }
+}
+
+/** Kode barang otomatis tidak berhasil dibuat setelah beberapa percobaan. */
+export class BarangKodeOtomatisGagalError extends Error {
+  constructor() {
+    super(
+      "Kode barang otomatis belum berhasil dibuat. Coba simpan sekali lagi.",
+    );
+    this.name = "BarangKodeOtomatisGagalError";
+  }
+}
+
 export function mapBarangListItem(input: {
   barang: InventoryBarang;
   gudangId?: string | null;
@@ -70,9 +90,7 @@ async function assertBarangCodeAvailable(
   const isExists = await repository.existsBarangByKode(kode);
   if (!isExists) return;
 
-  throw new Error(
-    `Kode barang "${kode}" sudah digunakan. Silakan gunakan kode lain atau kosongkan field kode.`,
-  );
+  throw new BarangKodeDipakaiError(kode);
 }
 
 async function generateUniqueBarangCode(repository: IInventoryRepository) {
@@ -82,7 +100,7 @@ async function generateUniqueBarangCode(repository: IInventoryRepository) {
     if (!isExists) return kode;
   }
 
-  throw new Error("Gagal generate kode unik");
+  throw new BarangKodeOtomatisGagalError();
 }
 
 function generateBarangCode() {

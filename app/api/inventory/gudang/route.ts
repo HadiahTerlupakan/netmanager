@@ -3,8 +3,13 @@ import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import {
   inventoryGudangRouteService,
+  PESAN_DATA_TIDAK_TERBACA,
+  pesanGagalMuat,
+  pesanGagalSimpan,
+  pesanTanpaIzin,
   type InventoryGudangRouteResult,
 } from "@/modules/inventory";
+import { masterDataFailureResponse } from "../master-data-response";
 import { logActivitySafe } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 
@@ -24,7 +29,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("gudang:read"))) {
-    return ApiErrors.forbidden("Akses ditolak");
+    return ApiErrors.forbidden(pesanTanpaIzin("melihat daftar gudang"));
   }
 
   const { searchParams } = req.nextUrl;
@@ -64,7 +69,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/gudang",
       method: "GET",
     });
-    throw error; // Let createHandler handle it
+    return ApiErrors.internalError(pesanGagalMuat("gudang"));
   }
 });
 
@@ -73,10 +78,13 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("gudang:create"))) {
-    return ApiErrors.forbidden("Akses ditolak");
+    return ApiErrors.forbidden(pesanTanpaIzin("menambah gudang"));
   }
 
-  const body = await req.json();
+  const body = await req.json().catch((): null => null);
+  if (!body || typeof body !== "object") {
+    return ApiErrors.badRequest(PESAN_DATA_TIDAK_TERBACA);
+  }
   const permissions = await getUserPermissions(user.id);
 
   try {
@@ -89,7 +97,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
 
     if (isInventoryGudangRouteFailure(result)) {
-      return ApiErrors.badRequest(result.error);
+      return masterDataFailureResponse(result);
     }
 
     const gudang = result.data as { id: string; kode: string; nama: string };
@@ -123,6 +131,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/gudang",
       method: "POST",
     });
-    return ApiErrors.internalError("Gagal membuat gudang");
+    return ApiErrors.internalError(pesanGagalSimpan("Gudang"));
   }
 });

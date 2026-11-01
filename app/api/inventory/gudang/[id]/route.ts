@@ -1,8 +1,15 @@
 import { logger } from "@/lib/logger";
 import {
   inventoryGudangRouteService,
+  PESAN_DATA_TIDAK_TERBACA,
+  pesanGagalHapus,
+  pesanGagalMuat,
+  pesanGagalSimpan,
+  pesanTanpaIzin,
+  pesanTidakDitemukan,
   type InventoryGudangRouteResult,
 } from "@/modules/inventory";
+import { masterDataFailureResponse } from "../../master-data-response";
 import { logActivitySafe } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
@@ -27,7 +34,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
 
   if (!(await hasPermission("gudang:read"))) {
-    return ApiErrors.forbidden();
+    return ApiErrors.forbidden(pesanTanpaIzin("melihat data gudang"));
   }
 
   try {
@@ -35,7 +42,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const result = await inventoryGudangRouteService.getGudangDetail(id);
 
     if (!result.found) {
-      return ApiErrors.notFound("Gudang");
+      return ApiErrors.notFound(pesanTidakDitemukan("Gudang"));
     }
 
     const gudang = result.gudang;
@@ -61,7 +68,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       method: "GET",
       id: "unknown",
     });
-    return ApiErrors.internalError("Gagal memuat data gudang");
+    return ApiErrors.internalError(pesanGagalMuat("gudang"));
   }
 });
 
@@ -74,9 +81,12 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
 
   if (!(await hasPermission("gudang:update"))) {
-    return ApiErrors.forbidden();
+    return ApiErrors.forbidden(pesanTanpaIzin("mengubah gudang"));
   }
-  const body = await req.json();
+  const body = await req.json().catch((): null => null);
+  if (!body || typeof body !== "object") {
+    return ApiErrors.badRequest(PESAN_DATA_TIDAK_TERBACA);
+  }
   const { kode, nama, lokasi, isActive } = body;
 
   try {
@@ -84,8 +94,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
     const result = await inventoryGudangRouteService.updateGudang({ id, body });
 
     if (isInventoryGudangRouteFailure(result)) {
-      if (result.status === 404) return ApiErrors.notFound("Gudang");
-      return ApiErrors.badRequest(result.error);
+      return masterDataFailureResponse(result);
     }
 
     const updatedGudang = result.data as { id: string };
@@ -122,7 +131,7 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
       method: "PUT",
       id: "unknown",
     });
-    return ApiErrors.internalError("Gagal mengupdate gudang");
+    return ApiErrors.internalError(pesanGagalSimpan("Perubahan gudang"));
   }
 });
 
@@ -135,7 +144,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   const startTime = Date.now();
 
   if (!(await hasPermission("gudang:delete"))) {
-    return ApiErrors.forbidden();
+    return ApiErrors.forbidden(pesanTanpaIzin("menghapus gudang"));
   }
 
   try {
@@ -143,8 +152,7 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     const result = await inventoryGudangRouteService.deleteGudang(id);
 
     if (isInventoryGudangRouteFailure(result)) {
-      if (result.status === 404) return ApiErrors.notFound("Gudang");
-      return ApiErrors.badRequest(result.error);
+      return masterDataFailureResponse(result);
     }
 
     logger.dbOperation("update", "Gudang", Date.now() - dbStart);
@@ -171,22 +179,11 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     return apiSuccess({ message: "Gudang berhasil dihapus" });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
-
-    // Check for Prisma Foreign Key Constraint error (P2003)
-    if (
-      (error as { code?: string }).code === "P2003" ||
-      err.message?.includes("P2003")
-    ) {
-      return ApiErrors.badRequest(
-        "Gudang tidak dapat dihapus karena masih terelasi dengan data Transaksi (Barang Masuk/Keluar, Transfer, dsb). Pastikan gudang tersebut kosong dan tidak ada riwayat transaksi yang mengikat.",
-      );
-    }
-
     logger.error("Error deleting gudang", err, {
       path: "/api/inventory/gudang/[id]",
       method: "DELETE",
       id: id ?? "unknown",
     });
-    return ApiErrors.internalError("Gagal menghapus gudang");
+    return ApiErrors.internalError(pesanGagalHapus("Gudang"));
   }
 });

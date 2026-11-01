@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+
+import { logger } from "@/lib/logger";
 import { Prisma } from "../repositories/prisma-boundary";
 import { PurchaseOrderStatus } from "../types/asset.enums";
 import { prisma } from "@/modules/database";
@@ -8,8 +10,16 @@ import {
   INVENTORY_ACTIVITY_SUBJECTS,
   recordInventoryActivity,
 } from "./inventory-activity-log";
+import {
+  RESTOCK_MESSAGES,
+  describeRestockStatus,
+  restockServerErrorMessage,
+} from "./restock-messages";
 
 type TransactionClient = Prisma.TransactionClient;
+
+const RESTOCK_RECEIPT_PHOTO_MISSING_MESSAGE =
+  "Foto bukti barang datang belum diunggah. Foto barangnya dulu, lalu simpan.";
 
 interface RestockRequestStatusInput {
   purchaseOrderId: string;
@@ -30,7 +40,7 @@ export class RestockPurchaseOrderStatusService {
       );
       if (!purchaseOrder) {
         return NextResponse.json(
-          { error: "Purchase Order not found" },
+          { error: RESTOCK_MESSAGES.purchaseOrderNotFound },
           { status: 404 },
         );
       }
@@ -45,9 +55,18 @@ export class RestockPurchaseOrderStatusService {
       const result = await this.receivePurchaseOrder(input);
       return NextResponse.json(result);
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Terjadi kesalahan server";
-      return NextResponse.json({ error: message }, { status: 500 });
+      logger.error(
+        "Error updating restock purchase order status",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          purchaseOrderId: input.purchaseOrderId,
+          action: String(input.action),
+        },
+      );
+      return NextResponse.json(
+        { error: restockServerErrorMessage("Memproses pesanan", false) },
+        { status: 500 },
+      );
     }
   }
 
@@ -69,7 +88,9 @@ export class RestockPurchaseOrderStatusService {
   ) {
     if (purchaseOrder.status !== "DRAFT") {
       return NextResponse.json(
-        { error: "Hanya PO Draft yang bisa mulai diproses" },
+        {
+          error: `Pesanan ${purchaseOrder.poNumber} ${describeRestockStatus(purchaseOrder.status)}, jadi tidak bisa mulai dibelanjakan lagi. Muat ulang halaman untuk melihat keadaan terbarunya.`,
+        },
         { status: 400 },
       );
     }
@@ -101,17 +122,25 @@ export class RestockPurchaseOrderStatusService {
     status: PurchaseOrderStatus,
   ) {
     if (input.action !== "RECEIVE") {
-      return NextResponse.json({ error: "Aksi tidak valid" }, { status: 400 });
+      return NextResponse.json(
+        {
+          error:
+            "Tindakan ini tidak dikenal. Muat ulang halaman, lalu coba lagi.",
+        },
+        { status: 400 },
+      );
     }
     if (!this.canReceivePurchaseOrder(status)) {
       return NextResponse.json(
-        { error: "Hanya PO dalam proses yang bisa diterima" },
+        {
+          error: `Pesanan ini ${describeRestockStatus(status)}, jadi barangnya tidak bisa diterima lagi.`,
+        },
         { status: 400 },
       );
     }
     if (!input.fotoBukti?.length) {
       return NextResponse.json(
-        { error: "Foto bukti penerimaan barang wajib diunggah" },
+        { error: RESTOCK_RECEIPT_PHOTO_MISSING_MESSAGE },
         { status: 400 },
       );
     }

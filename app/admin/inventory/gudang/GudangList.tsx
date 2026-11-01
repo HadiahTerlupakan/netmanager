@@ -9,6 +9,13 @@ import { usePermission } from "@/hooks/use-permission";
 import { useApi } from "@/lib/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import {
+  describeClientError,
+  readApiErrorMessage,
+} from "@/components/inventory/master-data/masterDataErrorMessage";
+
+const PESAN_GAGAL_HAPUS_GUDANG =
+  "Gudang belum terhapus. Coba sekali lagi. Kalau tetap gagal, laporkan ke admin.";
 
 interface Gudang {
   id: string;
@@ -64,8 +71,9 @@ export default function GudangPage() {
       });
 
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Gagal menghapus gudang");
+        throw new Error(
+          await readApiErrorMessage(response, PESAN_GAGAL_HAPUS_GUDANG),
+        );
       }
 
       showToast("success", `Gudang ${nama} berhasil dihapus`);
@@ -73,10 +81,7 @@ export default function GudangPage() {
       setConfirmDelete(null);
     } catch (err: unknown) {
       clientLogger.error("Failed to delete gudang:", err);
-      showToast(
-        "error",
-        err instanceof Error ? err.message : "Gagal menghapus gudang",
-      );
+      showToast("error", describeClientError(err, PESAN_GAGAL_HAPUS_GUDANG));
     } finally {
       setDeleting(false);
     }

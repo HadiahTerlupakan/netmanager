@@ -40,7 +40,10 @@ export default function GudangSelector({
     error: fetchError,
   } = useApi<{ gudangs?: Gudang[] }>("/api/inventory/gudang?view=all");
   const gudangs = useMemo<Gudang[]>(() => data?.gudangs ?? [], [data?.gudangs]);
-  const error = fetchError ? "Gagal memuat daftar gudang" : null;
+  const error = fetchError
+    ? fetchError.message ||
+      "Daftar gudang belum bisa dimuat. Muat ulang halaman. Kalau tetap gagal, laporkan ke admin."
+    : null;
 
   const filteredGudangs = useMemo(() => {
     return gudangs.filter((g) => {

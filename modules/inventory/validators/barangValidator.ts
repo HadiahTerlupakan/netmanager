@@ -30,30 +30,41 @@ export function sanitizeBarangInput(input: string): string {
 }
 
 const namaSchema = z
-  .string({ message: "Nama barang harus diisi" })
+  .string({
+    message:
+      "Nama barang belum diisi. Tulis nama barangnya, contoh: Kabel Drop 1 Core.",
+  })
   .transform(sanitizeBarangInput)
   .pipe(
     z
       .string()
+      .min(1, {
+        message:
+          "Nama barang belum diisi. Tulis nama barangnya, contoh: Kabel Drop 1 Core.",
+      })
       .min(BARANG_VALIDATION.NAMA.MIN, {
-        message: `Nama barang minimal ${BARANG_VALIDATION.NAMA.MIN} karakter`,
+        message: `Nama barang terlalu pendek. Tulis paling sedikit ${BARANG_VALIDATION.NAMA.MIN} huruf.`,
       })
       .max(BARANG_VALIDATION.NAMA.MAX, {
-        message: `Nama barang maksimal ${BARANG_VALIDATION.NAMA.MAX} karakter`,
+        message: `Nama barang terlalu panjang. Paling banyak ${BARANG_VALIDATION.NAMA.MAX} huruf.`,
       }),
   );
 
 const satuanSchema = z
-  .string({ message: "Satuan barang harus diisi" })
+  .string({
+    message:
+      "Satuan barang belum diisi. Tulis satuannya, contoh: pcs, meter, roll.",
+  })
   .transform(sanitizeBarangInput)
   .pipe(
     z
       .string()
       .min(BARANG_VALIDATION.SATUAN.MIN, {
-        message: `Satuan minimal ${BARANG_VALIDATION.SATUAN.MIN} karakter`,
+        message:
+          "Satuan barang belum diisi. Tulis satuannya, contoh: pcs, meter, roll.",
       })
       .max(BARANG_VALIDATION.SATUAN.MAX, {
-        message: `Satuan maksimal ${BARANG_VALIDATION.SATUAN.MAX} karakter`,
+        message: `Satuan terlalu panjang. Paling banyak ${BARANG_VALIDATION.SATUAN.MAX} huruf.`,
       }),
   );
 
@@ -61,10 +72,23 @@ export const barangFormSchema = z
   .object({
     nama: namaSchema,
     satuan: satuanSchema,
-    jenis: z.enum(BARANG_JENIS).default("HABIS_PAKAI"),
+    jenis: z
+      .enum(BARANG_JENIS, {
+        message: "Jenis barang tidak dikenal. Pilih Habis Pakai atau Aset.",
+      })
+      .default("HABIS_PAKAI"),
     kategoriAset: z.string().nullable().optional(),
     isWorkOrderMaterial: z.boolean().optional().default(false),
-    minStokDefault: z.number().int().min(0).optional().default(0),
+    minStokDefault: z
+      .number({
+        message: "Stok minimum harus diisi angka. Isi 0 kalau tidak ada.",
+      })
+      .int({ message: "Stok minimum harus angka bulat, tanpa koma." })
+      .min(0, {
+        message: "Stok minimum tidak boleh minus. Isi 0 kalau tidak ada.",
+      })
+      .optional()
+      .default(0),
   })
   .superRefine((data, ctx) => {
     if (data.jenis === "ASET") {
@@ -73,7 +97,8 @@ export const barangFormSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["kategoriAset"],
-          message: "Kategori aset harus dipilih untuk barang jenis ASET",
+          message:
+            "Barang jenis Aset harus punya kategori. Pilih kategori asetnya dulu, contoh: Elektronik.",
         });
       }
     }

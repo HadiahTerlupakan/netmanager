@@ -112,7 +112,7 @@ describe("PUT /api/inventory/barang/[id]", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       success: false,
       error: "Satuan barang tidak boleh diubah saat stok masih tersedia",
     });

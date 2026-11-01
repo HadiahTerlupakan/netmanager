@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
+import { RestockSettingReferenceError } from "../domain/restock-setting-errors";
+
 const DEFAULT_RESTOCK_LEAD_DAYS = 7;
 const THIRTY_DAYS = 30;
 
@@ -24,8 +26,8 @@ export async function getRestockSettingContext(
     findRecentUsage(tx, input),
   ]);
 
-  if (!barang) throw new Error("Barang tidak ditemukan");
-  if (!gudang) throw new Error("Gudang tidak ditemukan atau tidak aktif");
+  if (!barang) throw new RestockSettingReferenceError("barang");
+  if (!gudang) throw new RestockSettingReferenceError("gudang");
 
   return {
     barang,

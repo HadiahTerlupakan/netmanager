@@ -2,14 +2,20 @@ import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import {
-  buildInventoryAccessSession,
   inventoryMasukRouteService,
   logInventoryStockInEffects,
   type InventoryMasukRouteResult,
-  validateGudangSiteAccess,
 } from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { parsePaginationParams } from "@/lib/utils/pagination";
+import {
+  INVENTORY_UNEXPECTED_ERROR_MESSAGE,
+  inventoryFailureResponse,
+} from "../_lib/inventory-failure-response";
+import {
+  ensureCreateGudangAccess,
+  parseInventoryMutationBody,
+} from "../_lib/inventory-mutation-request";
 
 type CreatedMasukPayload = {
   masukRecord: { id: string } & Record<string, unknown>;
@@ -25,14 +31,14 @@ function isInventoryMasukRouteFailure(
 async function ensureReadPermission() {
   if (await hasPermission("masuk:read")) return null;
   return ApiErrors.forbidden(
-    "Anda tidak memiliki akses untuk melihat barang masuk",
+    "Akun Anda tidak punya izin melihat barang masuk. Minta admin menambahkan izin ini ke peran Anda.",
   );
 }
 
 async function ensureCreatePermission() {
   if (await hasPermission("masuk:create")) return null;
   return ApiErrors.forbidden(
-    "Anda tidak memiliki akses untuk membuat barang masuk",
+    "Akun Anda tidak punya izin mencatat barang masuk. Minta admin menambahkan izin ini ke peran Anda.",
   );
 }
 
@@ -59,11 +65,6 @@ async function buildListInput(
   };
 }
 
-async function validateCreateAccess(user: { id: string }, gudangId: string) {
-  const accessSession = await buildInventoryAccessSession(user);
-  return validateGudangSiteAccess(accessSession, gudangId);
-}
-
 function toCreatedMasukPayload(
   result: Extract<InventoryMasukRouteResult<unknown>, { success: true }>,
 ) {
@@ -74,17 +75,13 @@ function getError(error: unknown) {
   return error instanceof Error ? error : new Error("Terjadi kesalahan");
 }
 
+/** Gangguan di luar transaksi stok (pencatatan stok sendiri sudah diterjemahkan service). */
 function handleCreateMasukError(error: Error) {
   logger.error("Error creating barang masuk", error, {
     path: "/api/inventory/masuk",
     method: "POST",
   });
-  if (error.message === "Barang tidak ditemukan")
-    return ApiErrors.notFound("Barang");
-  if (error.message === "Gudang tidak ditemukan atau tidak aktif") {
-    return ApiErrors.badRequest("Gudang tidak ditemukan atau tidak aktif");
-  }
-  return ApiErrors.internalError("Gagal mencatat barang masuk");
+  return ApiErrors.internalError(INVENTORY_UNEXPECTED_ERROR_MESSAGE);
 }
 
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -125,7 +122,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/masuk",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal memuat data barang masuk");
+    return ApiErrors.internalError(
+      "Daftar barang masuk gagal dimuat karena ada gangguan di server. Muat ulang halaman. Kalau tetap gagal, laporkan ke admin.",
+    );
   }
 });
 
@@ -135,13 +134,12 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const denied = await ensureCreatePermission();
   if (denied) return denied;
 
-  const body = await req.json();
-  const access = await validateCreateAccess(user, body.gudangId);
-  if (!access.allowed) {
-    return ApiErrors.forbidden(
-      access.error || "Anda tidak memiliki akses ke gudang ini",
-    );
-  }
+  const parsed = await parseInventoryMutationBody(req);
+  if (parsed.ok === false) return parsed.response;
+  const body = parsed.body;
+
+  const gudangDenied = await ensureCreateGudangAccess(user, body.gudangId);
+  if (gudangDenied) return gudangDenied;
 
   try {
     const dbStart = Date.now();
@@ -152,7 +150,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     });
 
     if (isInventoryMasukRouteFailure(result)) {
-      return ApiErrors.badRequest(result.error);
+      return inventoryFailureResponse(result);
     }
 
     const payload = toCreatedMasukPayload(result);
@@ -177,8 +175,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
     await logInventoryStockInEffects({
       userId: user.id,
-      barangId: body.barangId,
-      gudangId: body.gudangId,
+      barangId: String(body.barangId),
+      gudangId: String(body.gudangId),
       parsedJumlah: payload.parsedJumlah,
       finalStock: payload.finalStock,
       masukRecord: payload.masukRecord,

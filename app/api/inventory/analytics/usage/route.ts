@@ -3,6 +3,8 @@ import { hasPermission } from "@/lib/rbac";
 import {
   bolehAksesGudang,
   getInventoryRouteService,
+  pesanGagalMuat,
+  pesanTanpaIzin,
 } from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import {
@@ -28,9 +30,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("barang:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat analitik pemakaian",
-    );
+    return ApiErrors.forbidden(pesanTanpaIzin("melihat data pemakaian barang"));
   }
 
   const searchParams = req.nextUrl.searchParams;
@@ -40,7 +40,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   if (!barangId || !gudangId) {
     return apiError(
-      "Barang ID dan Gudang ID harus diisi",
+      "Pilih barang dan gudangnya dulu, baru data pemakaiannya bisa dilihat.",
       ErrorCodes.VALIDATION_ERROR,
       { status: 400 },
     );
@@ -54,7 +54,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     izinPembatas: ["barang:site_only", "gudang:site_only"],
   });
   if (!boleh) {
-    return ApiErrors.forbidden("Gudang ini di luar site Anda");
+    return ApiErrors.forbidden(
+      "Gudang ini milik site lain, jadi datanya tidak bisa Anda lihat. Pilih gudang di site Anda.",
+    );
   }
 
   try {
@@ -76,6 +78,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/analytics/usage",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal mengambil analitik pemakaian");
+    return ApiErrors.internalError(pesanGagalMuat("pemakaian barang"));
   }
 });

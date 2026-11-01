@@ -4,6 +4,8 @@ import {
   getInventoryRouteService,
   getRestockRequestDetail,
   patchRestockRequestLifecycle,
+  RESTOCK_MESSAGES,
+  restockForbiddenMessage,
 } from "@/modules/inventory";
 import {
   getPurchaseOrderService,
@@ -12,10 +14,16 @@ import {
 } from "@/modules/procurement";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { restockLifecycleSchema } from "@/lib/validations/restock";
+import {
+  describeRestockValidationError,
+  restockLifecycleSchema,
+} from "@/lib/validations/restock";
 import { handleRestockPutRequest } from "./restock-put.handler";
 
 const inventoryRouteService = getInventoryRouteService();
+
+const PURCHASE_ORDER_LOCKED_MESSAGE =
+  "Pengajuan ini tidak bisa dihapus karena barang di pesanan pembelian (PO)-nya sudah diterima dan sudah masuk stok.";
 
 /** Ambil detail purchase request restock. */
 export async function GET(
@@ -25,14 +33,14 @@ export async function GET(
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json(
-      { error: "Tidak terautentikasi" },
+      { error: RESTOCK_MESSAGES.sessionExpired },
       { status: 401 },
     );
   }
 
   if (!(await hasPermission("restock:read"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin restock:read" },
+      { error: restockForbiddenMessage("restock:read") },
       { status: 403 },
     );
   }
@@ -50,24 +58,30 @@ export async function PATCH(
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json(
-      { error: "Tidak terautentikasi" },
+      { error: RESTOCK_MESSAGES.sessionExpired },
       { status: 401 },
     );
   }
 
   if (!(await hasPermission("restock:update"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin restock:update" },
+      { error: restockForbiddenMessage("restock:update") },
       { status: 403 },
     );
   }
 
   const { id } = await params;
-  const body = await req.json();
+  const body = await req.json().catch((): null => null);
+  if (!body) {
+    return NextResponse.json(
+      { error: RESTOCK_MESSAGES.unreadableBody },
+      { status: 400 },
+    );
+  }
   const parsed = restockLifecycleSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0].message },
+      { error: describeRestockValidationError(parsed.error) },
       { status: 400 },
     );
   }
@@ -98,14 +112,14 @@ export async function DELETE(
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json(
-      { error: "Tidak terautentikasi" },
+      { error: RESTOCK_MESSAGES.sessionExpired },
       { status: 401 },
     );
   }
 
   if (!(await hasPermission("restock:delete"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin restock:delete" },
+      { error: restockForbiddenMessage("restock:delete") },
       { status: 403 },
     );
   }
@@ -119,14 +133,14 @@ export async function DELETE(
 
   if (!existing) {
     return NextResponse.json(
-      { error: "Pengajuan tidak ditemukan" },
+      { error: RESTOCK_MESSAGES.requestNotFound },
       { status: 404 },
     );
   }
 
   if (existing.status === "RECEIVED") {
     return NextResponse.json(
-      { error: "Pengajuan sudah diterima (RECEIVED) tidak dapat dihapus" },
+      { error: RESTOCK_MESSAGES.cannotDeleteReceived },
       { status: 409 },
     );
   }
@@ -136,7 +150,10 @@ export async function DELETE(
       await getPurchaseOrderService().delete(existing.purchaseOrderId);
     } catch (err) {
       if (err instanceof PurchaseOrderNotEditableError) {
-        return NextResponse.json({ error: err.message }, { status: 409 });
+        return NextResponse.json(
+          { error: PURCHASE_ORDER_LOCKED_MESSAGE },
+          { status: 409 },
+        );
       }
       if (!(err instanceof PurchaseOrderNotFoundError)) {
         throw err;

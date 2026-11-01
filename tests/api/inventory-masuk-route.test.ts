@@ -115,7 +115,9 @@ describe("POST /api/inventory/masuk", () => {
     mockFns.validateGudangSiteAccess.mockResolvedValue({ allowed: true });
     mockFns.createMasuk.mockResolvedValue({
       success: false,
-      error: "Kondisi tidak valid. Pilih: BARU, BEKAS, atau RUSAK",
+      status: 400,
+      error:
+        "Kondisi barang tidak dikenal. Pilih salah satu: Baru, Bekas, atau Rusak.",
     });
     mockFns.addStock.mockResolvedValue({
       id: "masuk-1",
@@ -152,9 +154,10 @@ describe("POST /api/inventory/masuk", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       success: false,
-      error: "Kondisi tidak valid. Pilih: BARU, BEKAS, atau RUSAK",
+      error:
+        "Kondisi barang tidak dikenal. Pilih salah satu: Baru, Bekas, atau Rusak.",
     });
     expect(mockFns.addStock).not.toHaveBeenCalled();
     expect(mockFns.createMasuk).toHaveBeenCalledWith({

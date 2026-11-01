@@ -3,6 +3,7 @@ import { createRouteServiceError } from "@/lib/api/route-service-error";
 import {
   ATURAN_JADWAL_AWAL,
   isPeriodeSah,
+  PESAN_PERIODE_TIDAK_TERBACA,
   jendelaDariAturan,
   jendelaSebulanPenuh,
   keadaanJendela,
@@ -118,7 +119,7 @@ function tolak(pesan: string | null, status = HTTP_BAD_REQUEST): void {
 }
 
 function tolakPeriode(periode: string): void {
-  tolak(isPeriodeSah(periode) ? null : "Periode harus berformat YYYY-MM");
+  tolak(isPeriodeSah(periode) ? null : PESAN_PERIODE_TIDAK_TERBACA);
 }
 
 /** Jadwal stock opname per site dan laporan gudang yang sudah/belum di-SO. */
@@ -346,7 +347,10 @@ export class StockOpnameJadwalService {
       input.siteIds,
     );
     if (!gudangTerjangkau.some((gudang) => gudang.id === input.gudangId)) {
-      throw createRouteServiceError("Gudang tidak ditemukan", HTTP_NOT_FOUND);
+      throw createRouteServiceError(
+        "Gudang tidak ditemukan, mungkin sudah dihapus. Muat ulang halaman.",
+        HTTP_NOT_FOUND,
+      );
     }
 
     const bulan = rentangWaktuPeriode(input.periode);
@@ -371,7 +375,10 @@ export class StockOpnameJadwalService {
   private async pastikanSite(tenantId: string, siteId: string) {
     const site = await this.repository.findSite(tenantId, siteId);
     if (!site)
-      throw createRouteServiceError("Site tidak ditemukan", HTTP_NOT_FOUND);
+      throw createRouteServiceError(
+        "Site tidak ditemukan, mungkin sudah dihapus. Muat ulang halaman.",
+        HTTP_NOT_FOUND,
+      );
     return site;
   }
 }

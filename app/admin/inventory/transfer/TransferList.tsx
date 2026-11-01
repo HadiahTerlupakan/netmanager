@@ -5,6 +5,7 @@ import { useState } from "react";
 import { TransferForm } from "@/components/inventory/TransferForm";
 import { TransferTable } from "@/components/inventory/TransferTable";
 import { TransferDetailModal } from "@/components/inventory/transfer/TransferDetailModal";
+import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
 import { TransferPagination } from "@/components/inventory/transfer/TransferPagination";
 import {
   fetchTransferDetail,
@@ -20,6 +21,9 @@ import { clientLogger } from "@/lib/client-logger";
 // Re-export untuk kompatibilitas test eksternal yang import dari path ini.
 export { fetchTransferDetail };
 export type { Transfer };
+
+const DETAIL_GAGAL_MESSAGE =
+  "Detail transfer gagal dimuat. Muat ulang halaman, lalu coba lagi.";
 
 export default function TransferPage() {
   const { hasPermission } = usePermission();
@@ -54,7 +58,7 @@ export default function TransferPage() {
       clientLogger.error("Error fetching transfer detail:", err);
       showToast(
         "error",
-        err instanceof Error ? err.message : "Gagal memuat detail transfer",
+        err instanceof Error ? err.message : DETAIL_GAGAL_MESSAGE,
       );
     }
   };
@@ -97,15 +101,20 @@ export default function TransferPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error}
-          <button
-            type="button"
-            onClick={() => refresh()}
-            className="ml-2 text-red-600 underline hover:text-red-800"
-          >
-            Coba lagi
-          </button>
+        <div className="mb-6">
+          <InventoryErrorBanner
+            title="Daftar transfer belum bisa dimuat"
+            message={error}
+            action={
+              <button
+                type="button"
+                onClick={() => refresh()}
+                className="text-sm font-medium text-red-700 underline hover:text-red-900 dark:text-red-300"
+              >
+                Coba lagi
+              </button>
+            }
+          />
         </div>
       )}
 

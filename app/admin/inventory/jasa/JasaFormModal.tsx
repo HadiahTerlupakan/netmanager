@@ -6,6 +6,13 @@ import toast from "react-hot-toast";
 import { Modal } from "@/components/ui/Modal";
 import { getWithAuth, postWithAuth, putWithAuth } from "@/lib/api-client";
 import type { Jasa } from "../restock/types";
+import {
+  describeClientError,
+  readApiErrorMessage,
+} from "@/components/inventory/master-data/masterDataErrorMessage";
+
+const PESAN_GAGAL_SIMPAN_JASA =
+  "Jasa belum tersimpan. Coba sekali lagi. Kalau tetap gagal, laporkan ke admin.";
 
 const SATUAN_OPTIONS = [
   "job",
@@ -107,11 +114,13 @@ export default function JasaFormModal({
 
   const handleSubmit = async () => {
     if (!form.nama.trim()) {
-      toast.error("Nama jasa wajib diisi");
+      toast.error(
+        "Nama jasa belum diisi. Tulis nama jasanya, contoh: Pemasangan Tiang.",
+      );
       return;
     }
     if (!form.kode.trim()) {
-      toast.error("Kode jasa wajib diisi");
+      toast.error("Kode jasa belum diisi. Tulis kode jasanya.");
       return;
     }
 
@@ -133,8 +142,9 @@ export default function JasaFormModal({
         : await postWithAuth("/api/inventory/jasa", payload);
 
       if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error ?? "Gagal menyimpan jasa");
+        throw new Error(
+          await readApiErrorMessage(res, PESAN_GAGAL_SIMPAN_JASA),
+        );
       }
 
       toast.success(
@@ -142,7 +152,7 @@ export default function JasaFormModal({
       );
       onSuccess();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan jasa");
+      toast.error(describeClientError(err, PESAN_GAGAL_SIMPAN_JASA));
     } finally {
       setSubmitting(false);
     }

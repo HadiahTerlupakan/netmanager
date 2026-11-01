@@ -1,13 +1,15 @@
+import type { NextResponse } from "next/server";
+
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import {
   getInventoryOpnameService,
-  opnameUpdateSchema,
+  inventoryOpnameRouteService,
+  mapOpnameError,
+  OPNAME_PESAN,
+  pesanGagalMuatOpname,
 } from "@/modules/inventory";
-
-const NOT_FOUND_MESSAGE = "Record stock opname tidak ditemukan";
-const FORBIDDEN_MESSAGE_PREFIX = "Akses ditolak";
 
 function toUserContext(user: {
   id: string;
@@ -28,12 +30,21 @@ function toUserContext(user: {
   };
 }
 
-function isNotFoundError(message: string) {
-  return message.includes("tidak ditemukan");
+/** Ubah error service menjadi respons dengan pesan yang dibaca petugas. */
+function respondOpnameError(
+  error: unknown,
+  serverErrorMessage: string,
+): NextResponse {
+  const failure = mapOpnameError(error, serverErrorMessage);
+  if (failure.status === 404) return ApiErrors.notFound(failure.error);
+  if (failure.status === 403) return ApiErrors.forbidden(failure.error);
+  if (failure.status === 400) return ApiErrors.badRequest(failure.error);
+  return ApiErrors.internalError(failure.error);
 }
 
-function isForbiddenError(message: string) {
-  return message.startsWith(FORBIDDEN_MESSAGE_PREFIX);
+function readOpnameId(params: Record<string, string> | undefined) {
+  const id = params?.id?.trim();
+  return id ? id : null;
 }
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
@@ -41,21 +52,21 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("opname:read"))) {
-    return ApiErrors.forbidden("Akses ditolak");
+    return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinLihat);
   }
 
-  const { id } = ctx.params;
-  if (!id || id.trim() === "") return ApiErrors.badRequest("ID tidak valid");
+  const id = readOpnameId(ctx.params);
+  if (!id) return ApiErrors.badRequest(OPNAME_PESAN.catatanTidakLengkap);
 
   try {
     const opnameService = getInventoryOpnameService();
     const dbStart = Date.now();
     const record = await opnameService.getOpnameRecord({
-      id: id.trim(),
+      id,
       user: toUserContext(user),
     });
 
-    if (!record) return ApiErrors.notFound(NOT_FOUND_MESSAGE);
+    if (!record) return ApiErrors.notFound(OPNAME_PESAN.catatanTidakDitemukan);
 
     logger.dbOperation(
       "findUnique",
@@ -72,107 +83,81 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
 
     return apiSuccess(record);
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
-    logger.error("Error fetching stock opname record", err, {
-      path: "/api/inventory/opname/[id]",
-      method: "GET",
-      id,
-    });
-    if (isNotFoundError(err.message)) return ApiErrors.notFound(err.message);
-    if (isForbiddenError(err.message)) return ApiErrors.forbidden(err.message);
-    return ApiErrors.internalError("Gagal memuat data stock opname");
+    return respondOpnameError(error, pesanGagalMuatOpname("Catatan opname"));
   }
 });
 
-export const PUT = createHandler(
-  { auth: true, schema: opnameUpdateSchema },
-  async (_req, ctx) => {
-    const startTime = Date.now();
-    const user = ctx.session!.user;
+export const PUT = createHandler({ auth: true }, async (req, ctx) => {
+  const startTime = Date.now();
+  const user = ctx.session!.user;
 
-    if (!(await hasPermission("opname:update"))) {
-      return ApiErrors.forbidden("Akses ditolak");
-    }
+  if (!(await hasPermission("opname:update"))) {
+    return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinUbah);
+  }
 
-    const { id } = ctx.params;
-    if (!id || id.trim() === "") return ApiErrors.badRequest("ID tidak valid");
+  const id = readOpnameId(ctx.params);
+  if (!id) return ApiErrors.badRequest(OPNAME_PESAN.catatanTidakLengkap);
 
-    try {
-      const opnameService = getInventoryOpnameService();
-      const dbStart = Date.now();
-      const result = await opnameService.updateOpname({
-        id: id.trim(),
-        ...ctx.validated,
-        user: toUserContext(user),
-      });
+  const body = await req.json().catch((): null => null);
+  if (!body) return ApiErrors.badRequest(OPNAME_PESAN.dataTidakTerbaca);
 
-      logger.dbOperation(
-        "transaction",
-        "StockOpname+BarangGudang",
-        Date.now() - dbStart,
-      );
-      logger.apiRequest(
-        "PUT",
-        "/api/inventory/opname/[id]",
-        200,
-        Date.now() - startTime,
-        {
-          userId: user.id,
-          opnameId: id,
-          stokFisik: ctx.validated.stokFisik,
-          stokSistem: result.stokSistem,
-          selisih: result.selisih,
-        },
-      );
+  const parsed = inventoryOpnameRouteService.parseOpnameUpdate(body);
+  if (parsed.ok === false) {
+    return ApiErrors.badRequest(parsed.failure.error, parsed.failure.details);
+  }
 
-      return apiSuccess({
-        message: "Stock opname berhasil diperbarui",
-        record: result.record,
-      });
-    } catch (error: unknown) {
-      const err =
-        error instanceof Error ? error : new Error("Terjadi kesalahan");
-      logger.error("Error updating stock opname", err, {
-        path: "/api/inventory/opname/[id]",
-        method: "PUT",
-        id,
-      });
-      if (isNotFoundError(err.message)) return ApiErrors.notFound(err.message);
-      if (isForbiddenError(err.message))
-        return ApiErrors.forbidden(err.message);
-      return ApiErrors.internalError("Gagal memperbarui stock opname");
-    }
-  },
-);
+  try {
+    const opnameService = getInventoryOpnameService();
+    const dbStart = Date.now();
+    const result = await opnameService.updateOpname({
+      id,
+      ...parsed.data,
+      user: toUserContext(user),
+    });
+
+    logger.dbOperation(
+      "transaction",
+      "StockOpname+BarangGudang",
+      Date.now() - dbStart,
+    );
+    logger.apiRequest(
+      "PUT",
+      "/api/inventory/opname/[id]",
+      200,
+      Date.now() - startTime,
+      {
+        userId: user.id,
+        opnameId: id,
+        stokFisik: parsed.data.stokFisik,
+        stokSistem: result.stokSistem,
+        selisih: result.selisih,
+      },
+    );
+
+    return apiSuccess({
+      message: "Stock opname berhasil diperbarui",
+      record: result.record,
+    });
+  } catch (error: unknown) {
+    return respondOpnameError(error, OPNAME_PESAN.gagalSimpan);
+  }
+});
 
 export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("opname:delete"))) {
-    return ApiErrors.forbidden("Akses ditolak");
+    return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinHapus);
   }
 
-  const { id } = ctx.params;
-  if (!id || id.trim() === "") return ApiErrors.badRequest("ID tidak valid");
+  const id = readOpnameId(ctx.params);
+  if (!id) return ApiErrors.badRequest(OPNAME_PESAN.catatanTidakLengkap);
 
   try {
     const opnameService = getInventoryOpnameService();
-    await opnameService.deleteOpname({
-      id: id.trim(),
-      user: toUserContext(user),
-    });
+    await opnameService.deleteOpname({ id, user: toUserContext(user) });
     return apiSuccess({ message: "Stock opname berhasil dihapus" });
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error("Terjadi kesalahan");
-    logger.error("Error deleting stock opname", err, {
-      path: "/api/inventory/opname/[id]",
-      method: "DELETE",
-      id,
-    });
-    if (isNotFoundError(err.message)) return ApiErrors.notFound(err.message);
-    if (isForbiddenError(err.message)) return ApiErrors.forbidden(err.message);
-    return ApiErrors.internalError(
-      err.message || "Gagal menghapus stock opname",
-    );
+    return respondOpnameError(error, OPNAME_PESAN.gagalHapus);
   }
 });

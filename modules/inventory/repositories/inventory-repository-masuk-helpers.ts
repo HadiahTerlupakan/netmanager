@@ -1,10 +1,23 @@
 import { randomUUID } from "crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { STOCK_FIELD_MAP } from "@/lib/constants/inventory";
+import {
+  INVENTORY_USER_ERROR_STATUS,
+  InventoryUserError,
+  labelKondisiBarang,
+  MUTASI_STOK_PESAN,
+} from "../domain/inventory-user-error";
 import type {
   InventoryMasukRecord,
   UpdateBarangMasukInput,
 } from "../domain/ports/IInventoryOperationRepository";
+
+function masukNotFoundError() {
+  return new InventoryUserError(
+    MUTASI_STOK_PESAN.masukTidakDitemukan,
+    INVENTORY_USER_ERROR_STATUS.NOT_FOUND,
+  );
+}
 
 /** Ambil detail record barang masuk. */
 export async function getMasukRecord(
@@ -37,7 +50,7 @@ export async function updateMasuk(
       where: { id: input.id },
       include: { barang: true, gudang: true },
     });
-    if (!currentRecord) throw new Error("Record barang masuk tidak ditemukan");
+    if (!currentRecord) throw masukNotFoundError();
     const stockDifference = input.jumlah - currentRecord.jumlah;
     const kondisiBaru = (input.kondisi ||
       currentRecord.kondisi) as keyof typeof STOCK_FIELD_MAP;
@@ -85,7 +98,7 @@ export async function deleteMasuk(db: PrismaClient, id: string): Promise<void> {
       where: { id },
       include: { barang: true, gudang: true },
     });
-    if (!masukRecord) throw new Error("Record barang masuk tidak ditemukan");
+    if (!masukRecord) throw masukNotFoundError();
     const currentStock = await tx.barangGudang.findUnique({
       where: {
         barangId_gudangId: {
@@ -131,6 +144,8 @@ async function updateExistingMasukStock(
       gudangId: string;
       jumlah: number;
       kondisi: string;
+      barang: { nama: string; satuan: string };
+      gudang: { nama: string };
     };
     updateData?: never;
     input: UpdateBarangMasukInput;
@@ -139,7 +154,11 @@ async function updateExistingMasukStock(
   },
 ) {
   const newTotalStock = input.currentStock.stok + input.stockDifference;
-  if (newTotalStock < 0) throw new Error("Stok tidak bisa negatif");
+  if (newTotalStock < 0) {
+    throw jumlahTooSmallError(input.currentRecord, {
+      sisaStok: input.currentStock.stok,
+    });
+  }
   const oldKondisi = input.currentRecord
     .kondisi as keyof typeof STOCK_FIELD_MAP;
   const oldStockField = STOCK_FIELD_MAP[oldKondisi] || "stokBaru";
@@ -150,14 +169,18 @@ async function updateExistingMasukStock(
       input.currentStock,
       oldStockField,
       input.stockDifference,
-      input.kondisiBaru,
+      () =>
+        jumlahTooSmallError(input.currentRecord, {
+          sisaStok: Number(input.currentStock[oldStockField] || 0),
+          isPerKondisi: true,
+        }),
     );
   } else {
     updateData[oldStockField] = getNonNegativeConditionStock(
       input.currentStock,
       oldStockField,
       -input.currentRecord.jumlah,
-      oldKondisi,
+      () => kondisiLockedError(input.currentRecord),
     );
     updateData[newStockField] =
       Number(input.currentStock[newStockField] || 0) + input.input.jumlah;
@@ -177,11 +200,48 @@ function getNonNegativeConditionStock(
   stock: Record<string, unknown>,
   field: string,
   delta: number,
-  kondisi: string,
+  buildError: () => InventoryUserError,
 ) {
   const result = Number(stock[field] || 0) + delta;
-  if (result < 0) throw new Error(`Stok ${kondisi} tidak bisa negatif`);
+  if (result < 0) throw buildError();
   return result;
+}
+
+type MasukRecordLabels = {
+  jumlah: number;
+  kondisi: string;
+  barang: { nama: string; satuan: string };
+  gudang: { nama: string };
+};
+
+/**
+ * Jumlah barang masuk diturunkan di bawah yang sudah terlanjur keluar.
+ * `sisaStok` = stok yang tersisa di gudang, total atau (bila `isPerKondisi`)
+ * khusus kondisi catatan ini.
+ */
+function jumlahTooSmallError(
+  record: MasukRecordLabels,
+  stock: { sisaStok: number; isPerKondisi?: boolean },
+) {
+  const { nama, satuan } = record.barang;
+  const minimum = Math.max(0, record.jumlah - stock.sisaStok);
+  const stokLabel = stock.isPerKondisi
+    ? `stok ${nama} kondisi ${labelKondisiBarang(record.kondisi)}`
+    : `stok ${nama}`;
+  return new InventoryUserError(
+    `Jumlah ${nama} tidak bisa dikurangi sebanyak itu. Sebagian barang dari catatan ini sudah dipakai atau dikeluarkan, ` +
+      `${stokLabel} di ${record.gudang.nama} tinggal ${stock.sisaStok} ${satuan}. ` +
+      `Isi jumlah paling sedikit ${minimum}.`,
+  );
+}
+
+/** Kondisi tidak bisa diganti karena barang dengan kondisi lama sudah ada yang keluar. */
+function kondisiLockedError(record: MasukRecordLabels) {
+  const kondisiLama = labelKondisiBarang(record.kondisi);
+  return new InventoryUserError(
+    `Kondisi ${record.barang.nama} tidak bisa diganti dari ${kondisiLama}. Sebagian barang ${kondisiLama} dari catatan ini ` +
+      `sudah dipakai atau dikeluarkan dari ${record.gudang.nama}. Biarkan kondisinya ${kondisiLama}, atau minta admin memeriksa stoknya.`,
+  );
 }
 
 async function rollbackMasukStock(

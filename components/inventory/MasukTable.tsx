@@ -20,6 +20,12 @@ import { useApi } from "@/lib/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { clientLogger } from "@/lib/client-logger";
+import { describeInventoryError, sendInventoryRequest } from "./form-shared";
+
+const DELETE_FAILED_MESSAGE =
+  "Catatan barang masuk belum terhapus. Coba hapus sekali lagi; kalau tetap gagal, laporkan ke admin.";
+const LOAD_FAILED_MESSAGE =
+  "Daftar barang masuk gagal dimuat. Periksa internet Anda, lalu muat ulang halaman.";
 
 interface BarangMasuk {
   id: string;
@@ -136,28 +142,18 @@ export function MasukTable({
     setDeleting(true);
 
     try {
-      const response = await fetch(`/api/inventory/masuk/${id}`, {
-        method: "DELETE",
-      });
+      await sendInventoryRequest(
+        `/api/inventory/masuk/${id}`,
+        { method: "DELETE" },
+        DELETE_FAILED_MESSAGE,
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error || "Gagal menghapus record barang masuk",
-        );
-      }
-
-      showToast("success", `Record barang masuk ${kode} berhasil dihapus`);
+      showToast("success", `Catatan barang masuk ${kode} sudah dihapus`);
       await mutate();
       setConfirmDelete(null);
     } catch (err) {
       clientLogger.error("Failed to delete barang masuk:", err);
-      showToast(
-        "error",
-        err instanceof Error
-          ? err.message
-          : "Gagal menghapus record barang masuk",
-      );
+      showToast("error", describeInventoryError(err, DELETE_FAILED_MESSAGE));
     } finally {
       setDeleting(false);
     }
@@ -336,8 +332,11 @@ export function MasukTable({
   return (
     <div>
       {error && (
-        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
-          {error.message || "Gagal memuat data"}
+        <div
+          role="alert"
+          className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400"
+        >
+          {error.message || LOAD_FAILED_MESSAGE}
         </div>
       )}
 

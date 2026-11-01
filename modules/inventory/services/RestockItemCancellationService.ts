@@ -141,7 +141,7 @@ export class RestockItemCancellationService {
     for (const cancellation of requested) {
       if (cancellation.reason.length > MAX_CANCEL_REASON_LENGTH) {
         throw new RestockCancellationInvalidError(
-          `Alasan anulir maksimal ${MAX_CANCEL_REASON_LENGTH} karakter`,
+          `Alasan barang tidak jadi dibeli terlalu panjang. Paling banyak ${MAX_CANCEL_REASON_LENGTH} huruf.`,
         );
       }
 
@@ -150,7 +150,7 @@ export class RestockItemCancellationService {
       );
       if (!purchaseOrderItem) {
         throw new RestockCancellationInvalidError(
-          "Barang yang ingin dianulir tidak ada di Purchase Order",
+          "Barang yang mau dibatalkan tidak ada di pesanan ini. Muat ulang halaman, lalu coba lagi.",
         );
       }
 
@@ -160,7 +160,7 @@ export class RestockItemCancellationService {
       );
       if (remaining <= 0) {
         throw new RestockCancellationInvalidError(
-          `${purchaseOrderItem.barang?.nama ?? "Barang"} tidak punya sisa pesanan untuk dianulir`,
+          `${purchaseOrderItem.barang?.nama ?? "Barang ini"} sudah tidak punya sisa pesanan, jadi tidak ada yang bisa dibatalkan. Hapus alasan batalnya.`,
         );
       }
 

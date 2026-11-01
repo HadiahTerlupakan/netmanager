@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 interface FormAlertProps {
   tone: "error" | "success" | "warning" | "info";
   children: React.ReactNode;
@@ -15,8 +17,35 @@ const TONE_CLASS: Record<FormAlertProps["tone"], string> = {
   info: "p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md text-blue-800 dark:text-blue-400",
 };
 
+const ATTENTION_TONES: ReadonlySet<FormAlertProps["tone"]> = new Set([
+  "error",
+  "warning",
+]);
+
+/**
+ * Kotak pesan form. Pesan error/peringatan dibacakan pembaca layar dan
+ * menggulir dirinya ke layar setiap isinya berubah — tombol simpan ada di
+ * bawah form, jadi tanpa itu staf mengira tombolnya diam saja. Pesan banyak
+ * baris (satu masalah per baris) ditampilkan per baris.
+ */
 export function FormAlert({ tone, children }: FormAlertProps) {
-  return <div className={TONE_CLASS[tone]}>{children}</div>;
+  const alertRef = useRef<HTMLDivElement>(null);
+  const isAttention = ATTENTION_TONES.has(tone);
+
+  useEffect(() => {
+    if (!isAttention) return;
+    alertRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [isAttention, children]);
+
+  return (
+    <div
+      ref={alertRef}
+      role={isAttention ? "alert" : "status"}
+      className={`${TONE_CLASS[tone]} whitespace-pre-line`}
+    >
+      {children}
+    </div>
+  );
 }
 
 interface TextFieldProps {

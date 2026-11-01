@@ -12,6 +12,15 @@ import { useInvalidateInventoryRelated } from "@/lib/hooks/useInvalidate";
 import { getStockStatusColor } from "@/lib/utils/inventory-helpers";
 import { STOCK_THRESHOLD } from "@/modules/inventory/client";
 
+import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
+import {
+  parseTransferJumlah,
+  validateTransferForm,
+} from "./transfer/transferFormValidation";
+import {
+  requestTransferApi,
+  TransferRequestError,
+} from "./transfer/transferRequest";
 import {
   BarangSelector,
   FormAlert,
@@ -27,6 +36,11 @@ import {
   type StockByCondition,
   type UploadedPhotoState,
 } from "./form-shared";
+
+const TRANSFER_GAGAL_MESSAGE =
+  "Transfer belum tersimpan. Coba kirim sekali lagi. Kalau masih gagal, lapor ke admin.";
+const FOTO_GAGAL_MESSAGE =
+  "Foto bukti gagal diunggah, jadi transfer belum dikirim. Periksa internet Anda, lalu tekan kirim lagi. Kalau masih gagal, coba pakai foto yang lebih kecil.";
 
 interface TransferFormProps {
   initialData?: unknown;
@@ -101,18 +115,26 @@ export function TransferForm({
     { jumlah: number; urls: string[]; photos: UploadedPhotoState[] }
   >({
     mutationFn: async ({ jumlah, urls, photos }) => {
-      const response = await postWithAuth("/api/inventory/transfer", {
-        ...formData,
-        jumlah,
-        fotoBukti: urls,
-        fotoMetadata: buildFotoMetadata(photos),
-      });
-      const data = await response.json();
-      if (!data.success) {
-        await cleanupPhotosOnError(urls);
-        throw new Error(data.error || "Gagal melakukan transfer");
+      let result: { kodeTransfer?: string };
+      try {
+        result = await requestTransferApi<{ kodeTransfer?: string }>(
+          () =>
+            postWithAuth("/api/inventory/transfer", {
+              ...formData,
+              jumlah,
+              fotoBukti: urls,
+              fotoMetadata: buildFotoMetadata(photos),
+            }),
+          TRANSFER_GAGAL_MESSAGE,
+        );
+      } catch (err) {
+        // Foto hanya dibersihkan bila server pasti menolak; saat koneksi putus
+        // transfernya mungkin sudah tersimpan bersama foto-foto itu.
+        if (err instanceof TransferRequestError && err.isServerRejection) {
+          await cleanupPhotosOnError(urls);
+        }
+        throw err;
       }
-      const result = data.data || data;
       setSuccess(`Transfer berhasil! Kode transfer: ${result.kodeTransfer}`);
       setFormData(INITIAL_FORM_STATE);
       resetFotoState();
@@ -124,7 +146,7 @@ export function TransferForm({
     },
     onError: (err) => {
       clientLogger.error("Error submitting transfer:", err);
-      setError(err.message || "Terjadi kesalahan");
+      setError(err.message || TRANSFER_GAGAL_MESSAGE);
     },
     onSettled: () => {
       invalidateInventoryRelated();
@@ -139,34 +161,16 @@ export function TransferForm({
     setError("");
   };
 
-  const validatePayload = () => {
-    if (
-      !formData.barangId ||
-      !formData.dariGudangId ||
-      !formData.keGudangId ||
-      !formData.jumlah
-    ) {
-      return "Barang, gudang sumber, gudang tujuan, dan jumlah harus diisi";
-    }
-    if (formData.dariGudangId === formData.keGudangId) {
-      return "Gudang sumber dan tujuan tidak boleh sama";
-    }
-    const jumlah = parseInt(formData.jumlah);
-    if (isNaN(jumlah) || jumlah <= 0) {
-      return "Jumlah harus berupa angka positif";
-    }
-    if (jumlah > stokKondisi) {
-      return `Jumlah ${formData.kondisi.toLowerCase()} tidak boleh melebihi stok tersedia (${stokKondisi})`;
-    }
-    return null;
-  };
-
   const handleSubmit = async (event: React.SubmitEvent) => {
     event.preventDefault();
     setError("");
     setSuccess("");
 
-    const validationError = validatePayload();
+    const validationError = validateTransferForm(formData, {
+      barangNama: selectedBarang?.nama,
+      gudangAsalNama: selectedGudangSumber?.nama,
+      stokKondisi,
+    });
     if (validationError) {
       setError(validationError);
       return;
@@ -177,12 +181,14 @@ export function TransferForm({
       const { urls, photos } = await uploadPendingPhotos();
       setSuccess("");
       submitTransferMutation.mutate({
-        jumlah: parseInt(formData.jumlah),
+        jumlah: parseTransferJumlah(formData.jumlah),
         urls,
         photos,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengunggah foto");
+      clientLogger.error("Error uploading transfer photos:", err);
+      setSuccess("");
+      setError(FOTO_GAGAL_MESSAGE);
     }
   };
 
@@ -195,7 +201,7 @@ export function TransferForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && <FormAlert tone="error">{error}</FormAlert>}
+      <InventoryErrorBanner title="Transfer belum dikirim" message={error} />
       {success && <FormAlert tone="success">{success}</FormAlert>}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">

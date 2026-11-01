@@ -1,6 +1,13 @@
 import type { KondisiBarang } from "../types/asset.enums";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
-import { validateInventoryMutationCreateBody } from "./inventory-route-validation.helpers";
+import {
+  isValidKondisi,
+  KONDISI_TIDAK_DIKENAL_MESSAGE,
+  validateInventoryMutationCreateBody,
+  validateInventoryMutationJumlah,
+} from "./inventory-route-validation.helpers";
+import { toInventoryMutationFailure } from "./inventory-mutation-errors";
+import { MUTASI_STOK_PESAN } from "../domain/inventory-user-error";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import type { InventoryMasukRecord } from "../domain/ports/IInventoryOperationRepository";
 import {
@@ -20,8 +27,6 @@ const MASUK_RESTRICTED_PERMISSIONS = [
   ...PEMBATASAN_SITE_GUDANG,
 ];
 const DEFAULT_KONDISI_BARANG = "BARU" as KondisiBarang;
-const MASUK_NOT_FOUND_ERROR = "Record barang masuk tidak ditemukan";
-const NEGATIVE_STOCK_ERROR = "Stok tidak bisa negatif";
 
 interface InventoryMasukRepositoryPort {
   getHistoryMasuk(params?: {
@@ -151,22 +156,27 @@ export class InventoryMasukRouteService {
     const parsedJumlah = Number(input.body.jumlah);
     const barangId = String(input.body.barangId);
     const gudangId = String(input.body.gudangId);
-    const masukRecord = await this.repository.addStock({
-      barangId,
-      gudangId,
-      jumlah: parsedJumlah,
-      kondisi:
-        (input.body.kondisi as KondisiBarang | undefined) ||
-        DEFAULT_KONDISI_BARANG,
-      keterangan: input.body.keterangan as string | undefined,
-      userId: input.userId,
-      tenantId: input.tenantId,
-      fotoBukti: (input.body.fotoBukti as string[] | undefined) || [],
-      fotoMetadata:
-        (input.body.fotoMetadata as Record<string, unknown> | undefined) ||
-        null,
-      tanggal: new Date(),
-    });
+    let masukRecord: unknown;
+    try {
+      masukRecord = await this.repository.addStock({
+        barangId,
+        gudangId,
+        jumlah: parsedJumlah,
+        kondisi:
+          (input.body.kondisi as KondisiBarang | undefined) ||
+          DEFAULT_KONDISI_BARANG,
+        keterangan: input.body.keterangan as string | undefined,
+        userId: input.userId,
+        tenantId: input.tenantId,
+        fotoBukti: (input.body.fotoBukti as string[] | undefined) || [],
+        fotoMetadata:
+          (input.body.fotoMetadata as Record<string, unknown> | undefined) ||
+          null,
+        tanggal: new Date(),
+      });
+    } catch (error) {
+      return toInventoryMutationFailure(error, "Barang masuk");
+    }
     const finalStock = await this.repository.getStockLevel(barangId, gudangId);
 
     return {
@@ -203,7 +213,7 @@ export class InventoryMasukRouteService {
         keterangan: payload.data.keterangan,
       });
     } catch (error) {
-      return this.mapMutationError(error, "Gagal memperbarui barang masuk");
+      return toInventoryMutationFailure(error, "Perubahan barang masuk");
     }
 
     recordInventoryActivity({
@@ -232,10 +242,7 @@ export class InventoryMasukRouteService {
     try {
       await this.stockMovementService.deleteMasuk(input.id);
     } catch (error) {
-      return this.mapMutationError(
-        error,
-        "Gagal menghapus record barang masuk",
-      );
+      return toInventoryMutationFailure(error, "Penghapusan barang masuk");
     }
 
     recordInventoryActivity({
@@ -255,11 +262,12 @@ export class InventoryMasukRouteService {
     input: MasukDetailRouteInput,
   ): Promise<InventoryMasukRouteResult<InventoryMasukRecord>> {
     const masuk = await this.stockMovementService.getMasukRecord(input.id);
-    if (!masuk) return this.routeError(404, MASUK_NOT_FOUND_ERROR);
+    if (!masuk)
+      return this.routeError(404, MUTASI_STOK_PESAN.masukTidakDitemukan);
 
     const restrictedSiteId = await this.resolveMasukSiteId(input);
     if (!this.canAccessMasukSite(masuk, restrictedSiteId)) {
-      return this.routeError(403, "Anda tidak memiliki akses ke data ini");
+      return this.routeError(403, MUTASI_STOK_PESAN.catatanBedaSite);
     }
 
     return { success: true, data: masuk };
@@ -289,31 +297,20 @@ export class InventoryMasukRouteService {
   private parseUpdateBody(
     body: Record<string, unknown>,
   ): InventoryMasukRouteResult<UpdateMasukPayload> {
-    const jumlah = Number(body.jumlah);
-    if (!Number.isFinite(jumlah) || jumlah <= 0) {
-      return this.routeError(400, "Jumlah harus diisi dengan angka positif");
+    const invalidJumlah = validateInventoryMutationJumlah(body.jumlah);
+    if (invalidJumlah) return invalidJumlah;
+    if (body.kondisi && !isValidKondisi(body.kondisi)) {
+      return this.routeError(400, KONDISI_TIDAK_DIKENAL_MESSAGE);
     }
 
     return {
       success: true,
       data: {
-        jumlah,
+        jumlah: Number(body.jumlah),
         kondisi: body.kondisi as string | null | undefined,
         keterangan: body.keterangan as string | null | undefined,
       },
     };
-  }
-
-  private mapMutationError(error: unknown, fallback: string) {
-    const message = error instanceof Error ? error.message : fallback;
-    if (message === MASUK_NOT_FOUND_ERROR) {
-      return this.routeError(404, MASUK_NOT_FOUND_ERROR);
-    }
-    if (message === NEGATIVE_STOCK_ERROR) {
-      return this.routeError(400, NEGATIVE_STOCK_ERROR);
-    }
-
-    return this.routeError(500, fallback);
   }
 
   private routeError(status: number, error: string): InventoryMasukRouteError {

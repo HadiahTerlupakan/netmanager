@@ -9,6 +9,17 @@ import { InventoryRepository } from "../repositories/InventoryRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
 import { PEMBATASAN_SITE_GUDANG } from "../utils/validation";
 import {
+  isTransferRejectedError,
+  TRANSFER_MESSAGES,
+} from "../domain/transfer-errors";
+import { isValidKondisi } from "./inventory-route-validation.helpers";
+
+export {
+  TRANSFER_MESSAGES,
+  TransferRejectedError,
+  isTransferRejectedError,
+} from "../domain/transfer-errors";
+import {
   INVENTORY_ACTIVITY_ACTIONS,
   INVENTORY_ACTIVITY_SUBJECTS,
   recordInventoryActivity,
@@ -19,8 +30,7 @@ const TRANSFER_RESTRICTED_PERMISSIONS = [
   ...PEMBATASAN_SITE_GUDANG,
 ];
 
-const TRANSFER_NOT_FOUND_ERROR = "Record transfer tidak ditemukan";
-const TRANSFER_ACCESS_DENIED_ERROR = "Anda tidak memiliki akses ke data ini";
+const PRISMA_RECORD_NOT_FOUND = "P2025";
 
 interface InventoryTransferRepositoryPort {
   findAllTransfers(params?: {
@@ -90,6 +100,8 @@ export type InventoryTransferRouteResult<T> =
   | { success: true; data: T }
   | { success: false; status: number; error: string };
 
+type TransferRouteFailure = { success: false; status: number; error: string };
+
 export class InventoryTransferRouteService {
   constructor(
     private readonly repository: InventoryTransferRepositoryPort = new InventoryRepository(),
@@ -119,14 +131,41 @@ export class InventoryTransferRouteService {
     };
   }
 
+  /**
+   * Periksa isian formulir transfer. Semua masalah dilaporkan sekaligus,
+   * satu per baris, agar petugas tidak membetulkan satu lalu gagal lagi.
+   * Dipanggil route sebelum cek akses gudang, agar gudang kosong tidak
+   * sampai ke database.
+   */
+  validateCreateTransferBody(
+    body: Record<string, unknown>,
+  ): TransferRouteFailure | null {
+    const problems = [
+      ...collectRequiredFieldProblems(body),
+      ...collectJumlahProblems(body.jumlah),
+      ...collectOptionalFieldProblems(body),
+    ];
+    if (problems.length === 0) return null;
+    return this.routeError(400, problems.join("\n"));
+  }
+
   /** Buat transfer setelah validasi payload. */
   async createTransfer(
     input: CreateTransferRouteInput,
   ): Promise<InventoryTransferRouteResult<InventoryTransferRecord>> {
-    const invalidBody = this.validateCreateBody(input.body);
+    const invalidBody = this.validateCreateTransferBody(input.body);
     if (invalidBody) return invalidBody;
 
-    const transfer = await this.repository.createTransfer({
+    try {
+      const transfer = await this.createTransferRecord(input);
+      return { success: true, data: transfer };
+    } catch (error: unknown) {
+      return this.toRejectionOrThrow(error);
+    }
+  }
+
+  private createTransferRecord(input: CreateTransferRouteInput) {
+    return this.repository.createTransfer({
       barangId: String(input.body.barangId),
       dariGudangId: String(input.body.dariGudangId),
       keGudangId: String(input.body.keGudangId),
@@ -139,8 +178,6 @@ export class InventoryTransferRouteService {
         | Record<string, unknown>
         | undefined,
     });
-
-    return { success: true, data: transfer };
   }
 
   /** Ambil detail transfer setelah akses site tervalidasi. */
@@ -159,12 +196,27 @@ export class InventoryTransferRouteService {
   async updateTransfer(
     input: UpdateTransferRouteInput,
   ): Promise<InventoryTransferRouteResult<InventoryTransferRecord>> {
+    const rawKeterangan = input.body.keterangan;
+    if (rawKeterangan != null && typeof rawKeterangan !== "string") {
+      return this.routeError(400, TRANSFER_MESSAGES.keteranganBukanTulisan);
+    }
+    const keterangan =
+      typeof rawKeterangan === "string" ? rawKeterangan : undefined;
+
     const accessible = await this.getAccessibleTransfer(input);
     if (accessible.success === false) return accessible;
 
-    const transfer = await this.repository.updateTransfer(input.id, {
-      keterangan: input.body.keterangan as string | undefined,
-    });
+    let transfer: InventoryTransferRecord;
+    try {
+      transfer = await this.repository.updateTransfer(input.id, {
+        keterangan,
+      });
+    } catch (error: unknown) {
+      if (isPrismaRecordNotFound(error)) {
+        return this.routeError(404, TRANSFER_MESSAGES.transferTidakAda);
+      }
+      throw error;
+    }
 
     recordInventoryActivity({
       action: INVENTORY_ACTIVITY_ACTIONS.UPDATE,
@@ -188,7 +240,11 @@ export class InventoryTransferRouteService {
     const accessible = await this.getAccessibleTransfer(input);
     if (accessible.success === false) return accessible;
 
-    await this.repository.deleteTransfer(input.id);
+    try {
+      await this.repository.deleteTransfer(input.id);
+    } catch (error: unknown) {
+      return this.toRejectionOrThrow(error);
+    }
     const deleted = accessible.data;
     recordInventoryActivity({
       action: INVENTORY_ACTIVITY_ACTIONS.DELETE,
@@ -213,11 +269,13 @@ export class InventoryTransferRouteService {
     input: TransferDetailRouteInput,
   ): Promise<InventoryTransferRouteResult<InventoryTransferRecord>> {
     const transfer = await this.repository.findTransferById(input.id);
-    if (!transfer) return this.routeError(404, TRANSFER_NOT_FOUND_ERROR);
+    if (!transfer) {
+      return this.routeError(404, TRANSFER_MESSAGES.transferTidakAda);
+    }
 
     const restrictedSiteId = await this.resolveTransferSiteId(input);
     if (!this.canAccessTransferSite(transfer, restrictedSiteId)) {
-      return this.routeError(403, TRANSFER_ACCESS_DENIED_ERROR);
+      return this.routeError(403, TRANSFER_MESSAGES.transferBedaSite);
     }
 
     return { success: true, data: transfer };
@@ -256,41 +314,12 @@ export class InventoryTransferRouteService {
     );
   }
 
-  private validateCreateBody(body: Record<string, unknown>) {
-    const jumlah = Number(body.jumlah);
-
-    if (
-      !body.barangId ||
-      !body.dariGudangId ||
-      !body.keGudangId ||
-      !Number.isFinite(jumlah) ||
-      jumlah <= 0
-    ) {
-      return {
-        success: false as const,
-        status: 400,
-        error:
-          "Barang, gudang sumber, gudang tujuan, dan jumlah harus diisi dengan benar",
-      };
+  /** Penolakan transfer menjadi hasil gagal; error lain dilempar ke route (500). */
+  private toRejectionOrThrow(error: unknown): TransferRouteFailure {
+    if (isTransferRejectedError(error)) {
+      return this.routeError(error.status, error.message);
     }
-
-    if (body.dariGudangId === body.keGudangId) {
-      return {
-        success: false as const,
-        status: 400,
-        error: "Gudang sumber dan tujuan tidak boleh sama",
-      };
-    }
-
-    if (body.fotoBukti && !Array.isArray(body.fotoBukti)) {
-      return {
-        success: false as const,
-        status: 400,
-        error: "fotoBukti harus berupa array URL foto",
-      };
-    }
-
-    return null;
+    throw error;
   }
 
   private routeError(
@@ -299,6 +328,56 @@ export class InventoryTransferRouteService {
   ): { success: false; status: number; error: string } {
     return { success: false, status, error };
   }
+}
+
+function isBlank(value: unknown): boolean {
+  return value == null || (typeof value === "string" && value.trim() === "");
+}
+
+function collectRequiredFieldProblems(body: Record<string, unknown>): string[] {
+  const problems: string[] = [];
+  if (isBlank(body.barangId)) problems.push(TRANSFER_MESSAGES.barangKosong);
+  if (isBlank(body.dariGudangId)) {
+    problems.push(TRANSFER_MESSAGES.gudangAsalKosong);
+  }
+  if (isBlank(body.keGudangId)) {
+    problems.push(TRANSFER_MESSAGES.gudangTujuanKosong);
+  }
+  if (!isBlank(body.dariGudangId) && body.dariGudangId === body.keGudangId) {
+    problems.push(TRANSFER_MESSAGES.gudangSama);
+  }
+  return problems;
+}
+
+function collectJumlahProblems(rawJumlah: unknown): string[] {
+  if (isBlank(rawJumlah)) return [TRANSFER_MESSAGES.jumlahKosong];
+  const jumlah = Number(rawJumlah);
+  if (!Number.isFinite(jumlah)) return [TRANSFER_MESSAGES.jumlahBukanAngka];
+  if (jumlah <= 0) return [TRANSFER_MESSAGES.jumlahTidakPositif];
+  if (!Number.isInteger(jumlah)) return [TRANSFER_MESSAGES.jumlahBerkoma];
+  return [];
+}
+
+function collectOptionalFieldProblems(body: Record<string, unknown>): string[] {
+  const problems: string[] = [];
+  if (body.kondisi && !isValidKondisi(body.kondisi)) {
+    problems.push(TRANSFER_MESSAGES.kondisiTidakDikenal);
+  }
+  if (body.fotoBukti && !Array.isArray(body.fotoBukti)) {
+    problems.push(TRANSFER_MESSAGES.fotoTidakTerbaca);
+  }
+  if (body.keterangan != null && typeof body.keterangan !== "string") {
+    problems.push(TRANSFER_MESSAGES.keteranganBukanTulisan);
+  }
+  return problems;
+}
+
+function isPrismaRecordNotFound(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === PRISMA_RECORD_NOT_FOUND
+  );
 }
 
 export const inventoryTransferRouteService =

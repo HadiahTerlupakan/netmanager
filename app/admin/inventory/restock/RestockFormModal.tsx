@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import {
+  FiAlertTriangle,
   FiCheck,
   FiFilter,
   FiPackage,
@@ -15,8 +16,8 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 import {
   canRemoveRestockFormItem,
-  canSubmitRestockForm,
   getMinStockForBarang,
+  getRestockFormProblems,
   getRestockToggleHint,
   getRestockToggleLabel,
   getStockSnapshot,
@@ -135,12 +136,19 @@ export function RestockFormModal({
     onFormItemsChange(formItems.filter((_, itemIndex) => itemIndex !== index));
   };
 
-  const isSubmitDisabled = !canSubmitRestockForm({
-    formGudang,
-    formNotes,
-    formItems,
-    isSubmitting: submitting,
-  });
+  const formProblems = useMemo(
+    () =>
+      getRestockFormProblems({
+        formGudang,
+        formNotes,
+        formItems,
+        barangNamaById: new Map(
+          barangs.map((barang) => [barang.id, barang.nama]),
+        ),
+      }),
+    [barangs, formGudang, formItems, formNotes],
+  );
+  const isSubmitDisabled = submitting || formProblems.length > 0;
 
   const isNotesEmpty = formNotes.trim().length === 0;
   const barangOptions = useMemo(
@@ -523,6 +531,9 @@ export function RestockFormModal({
         </div>
 
         <div className="p-8 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 rounded-b-[3rem]">
+          {!submitting && formProblems.length > 0 && (
+            <RestockFormProblemList problems={formProblems} />
+          )}
           <div className="flex gap-4">
             <button
               onClick={onClose}
@@ -547,5 +558,27 @@ export function RestockFormModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * Alasan tombol simpan mati. Tanpa daftar ini petugas hanya melihat tombol
+ * pudar tanpa tahu apa yang kurang.
+ */
+function RestockFormProblemList({ problems }: { problems: string[] }) {
+  return (
+    <div
+      role="status"
+      className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300"
+    >
+      <p className="flex items-center gap-2 font-bold">
+        <FiAlertTriangle aria-hidden="true" /> Belum bisa disimpan:
+      </p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-6">
+        {problems.map((problem) => (
+          <li key={problem}>{problem}</li>
+        ))}
+      </ul>
+    </div>
   );
 }

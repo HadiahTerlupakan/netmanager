@@ -1,33 +1,24 @@
 import { NextRequest } from "next/server";
-import { AssetService } from "@/modules/inventory";
+import {
+  AssetService,
+  describeZodIssues,
+  PESAN_BELUM_MASUK,
+  PESAN_DATA_TIDAK_TERBACA,
+  pesanGagalMuat,
+  pesanGagalSimpan,
+  pesanTanpaIzin,
+  pesanTidakDitemukan,
+  translateAssetError,
+  updateAssetSchema,
+} from "@/modules/inventory";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
-import { z, ZodError } from "zod";
-import {
-  apiSuccess,
-  ApiErrors,
-  ErrorCodes,
-  apiError,
-} from "@/lib/api-response";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { masterDataFailureResponse } from "../../master-data-response";
 
 const assetService = new AssetService();
-const ASSET_STATUSES = [
-  "ACTIVE",
-  "INSTALLED",
-  "SOLD",
-  "DISPOSED",
-  "LOST",
-  "REPAIR",
-] as const;
-
-// Validation schema for updates
-const updateAssetSchema = z.object({
-  kodeAsset: z.string().optional(),
-  status: z.enum(ASSET_STATUSES).optional(),
-  location: z.string().optional(),
-  assignedTo: z.string().optional(),
-});
 
 export async function GET(
   _req: NextRequest,
@@ -36,27 +27,23 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return ApiErrors.unauthorized("Session tidak valid");
+      return ApiErrors.unauthorized(PESAN_BELUM_MASUK);
     }
 
-    // Permission check
     if (!(await hasPermission("asset:read"))) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk melihat data aset",
-      );
+      return ApiErrors.forbidden(pesanTanpaIzin("melihat data aset"));
     }
 
     const { id } = await params;
     const asset = await assetService.getAsset(id);
     if (!asset) {
-      return ApiErrors.notFound("Asset");
+      return ApiErrors.notFound(pesanTidakDitemukan("Aset"));
     }
 
     return apiSuccess({ asset });
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Gagal memuat data aset";
-    return ApiErrors.internalError(message);
+    logger.error("Detail aset gagal dimuat", error);
+    return ApiErrors.internalError(pesanGagalMuat("aset"));
   }
 }
 
@@ -64,24 +51,28 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return ApiErrors.unauthorized(PESAN_BELUM_MASUK);
+  }
+
+  if (!(await hasPermission("asset:update"))) {
+    return ApiErrors.forbidden(pesanTanpaIzin("mengubah data aset"));
+  }
+
+  const body = await req.json().catch((): null => null);
+  if (!body || typeof body !== "object") {
+    return ApiErrors.badRequest(PESAN_DATA_TIDAK_TERBACA);
+  }
+
+  const parsed = updateAssetSchema.safeParse(body);
+  if (!parsed.success) {
+    return masterDataFailureResponse(describeZodIssues(parsed.error));
+  }
+
+  const { kodeAsset, status, location, assignedTo } = parsed.data;
+  const { id } = await params;
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return ApiErrors.unauthorized("Session tidak valid");
-    }
-
-    // Permission check
-    if (!(await hasPermission("asset:update"))) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk mengubah data aset",
-      );
-    }
-
-    const body = await req.json();
-    const { kodeAsset, status, location, assignedTo } =
-      updateAssetSchema.parse(body);
-
-    const { id } = await params;
     const updated = await assetService.updateAsset(id, {
       ...(kodeAsset ? { kodeAsset } : {}),
       ...(status ? { status } : {}),
@@ -94,14 +85,11 @@ export async function PATCH(
       { message: "Aset berhasil diperbarui" },
     );
   } catch (error: unknown) {
-    if (error instanceof ZodError) {
-      return apiError("Validasi gagal", ErrorCodes.VALIDATION_ERROR, {
-        status: 400,
-        details: { errors: error.issues },
-      });
-    }
-    const message =
-      error instanceof Error ? error.message : "Gagal memperbarui aset";
-    return ApiErrors.internalError(message);
+    return masterDataFailureResponse(
+      translateAssetError(error, {
+        message: pesanGagalSimpan("Perubahan aset"),
+        logContext: "Aset gagal diubah",
+      }),
+    );
   }
 }

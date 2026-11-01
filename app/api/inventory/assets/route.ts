@@ -1,56 +1,34 @@
 import { logger } from "@/lib/logger";
 import { NextRequest } from "next/server";
-import { AssetService } from "@/modules/inventory";
-import { z, ZodError } from "zod";
+import {
+  AssetService,
+  createAssetSchema,
+  describeZodIssues,
+  PESAN_BELUM_MASUK,
+  PESAN_DATA_TIDAK_TERBACA,
+  pesanGagalMuat,
+  pesanGagalSimpan,
+  pesanTanpaIzin,
+  translateAssetError,
+  type AssetStatusValue,
+} from "@/modules/inventory";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import {
-  apiSuccess,
-  ApiErrors,
-  ErrorCodes,
-  apiError,
-} from "@/lib/api-response";
+import { apiSuccess, ApiErrors } from "@/lib/api-response";
+import { masterDataFailureResponse } from "../master-data-response";
 
 const assetService = new AssetService();
-const ASSET_STATUSES = [
-  "ACTIVE",
-  "INSTALLED",
-  "SOLD",
-  "DISPOSED",
-  "LOST",
-  "REPAIR",
-] as const;
-type AssetStatusValue = (typeof ASSET_STATUSES)[number];
-
-// Schema for creating asset
-const createAssetSchema = z.object({
-  barangId: z.string().min(1, "Barang wajib dipilih"),
-  kodeAsset: z.string().min(1, "Kode Asset wajib diisi"),
-  purchaseDate: z
-    .string()
-    .or(z.date())
-    .transform((val) => new Date(val)),
-  purchasePrice: z.number().min(0),
-  usefulLife: z.number().int().min(1),
-  residualValue: z.number().min(0).optional().default(0),
-  status: z.enum(ASSET_STATUSES).optional(),
-  location: z.string().optional(),
-  assignedTo: z.string().optional(),
-});
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.id) {
-      return ApiErrors.unauthorized("Session tidak valid");
+      return ApiErrors.unauthorized(PESAN_BELUM_MASUK);
     }
 
-    // Permission check
     if (!(await hasPermission("asset:read"))) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk melihat data aset",
-      );
+      return ApiErrors.forbidden(pesanTanpaIzin("melihat data aset"));
     }
 
     const { searchParams } = new URL(req.url);
@@ -74,42 +52,38 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: unknown) {
     logger.error("Failed to fetch assets:", error);
-    const message =
-      error instanceof Error ? error.message : "Gagal memuat data aset";
-    return ApiErrors.internalError(message);
+    return ApiErrors.internalError(pesanGagalMuat("aset"));
   }
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user?.id) {
+    return ApiErrors.unauthorized(PESAN_BELUM_MASUK);
+  }
+
+  if (!(await hasPermission("asset:create"))) {
+    return ApiErrors.forbidden(pesanTanpaIzin("menambah aset"));
+  }
+
+  const body = await req.json().catch((): null => null);
+  if (!body || typeof body !== "object") {
+    return ApiErrors.badRequest(PESAN_DATA_TIDAK_TERBACA);
+  }
+
+  const parsed = createAssetSchema.safeParse(body);
+  if (!parsed.success) {
+    return masterDataFailureResponse(describeZodIssues(parsed.error));
+  }
+
+  const { residualValue, status, location, assignedTo, purchaseDate, ...rest } =
+    parsed.data;
+
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user?.id) {
-      return ApiErrors.unauthorized("Session tidak valid");
-    }
-
-    // Permission check
-    if (!(await hasPermission("asset:create"))) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk membuat aset",
-      );
-    }
-
-    const body = await req.json();
-    const validated = createAssetSchema.parse(body);
-
-    const {
-      residualValue,
-      status,
-      location,
-      assignedTo,
-      purchaseDate,
-      ...rest
-    } = validated;
-
     const asset = await assetService.createAsset(
       {
         ...rest,
-        purchaseDate: purchaseDate ?? new Date(),
+        purchaseDate,
         ...(residualValue !== undefined ? { residualValue } : {}),
         ...(status ? { status } : {}),
         ...(location ? { location } : {}),
@@ -123,15 +97,11 @@ export async function POST(req: NextRequest) {
       { status: 201, message: "Aset berhasil dibuat" },
     );
   } catch (error: unknown) {
-    logger.error("Failed to create asset:", error);
-    if (error instanceof ZodError) {
-      return apiError("Validasi gagal", ErrorCodes.VALIDATION_ERROR, {
-        status: 400,
-        details: { errors: error.issues },
-      });
-    }
-    const message =
-      error instanceof Error ? error.message : "Gagal membuat aset";
-    return ApiErrors.internalError(message);
+    return masterDataFailureResponse(
+      translateAssetError(error, {
+        message: pesanGagalSimpan("Aset"),
+        logContext: "Aset gagal dibuat",
+      }),
+    );
   }
 }

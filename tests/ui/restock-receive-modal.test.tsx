@@ -99,14 +99,16 @@ describe("RestockReceiveModal", () => {
   it("explains why submit is disabled when proof photo is missing", () => {
     const markup = renderReceiveModal({ receivedPhotos: [] });
 
-    expect(markup).toContain("Unggah foto bukti terlebih dahulu");
+    expect(markup).toContain("Foto barang yang datang dulu");
     expect(markup).toContain('aria-disabled="true"');
   });
 
   it("warns when all item quantities are zero", () => {
     const markup = renderReceiveModal({ receivedItems: { "barang-1": 0 } });
 
-    expect(markup).toContain("Minimal satu barang harus diterima");
+    expect(markup).toContain(
+      "Isi jumlah barang yang datang, paling sedikit satu",
+    );
   });
 
   it("offers replacing an item whose goods arrived different", () => {
@@ -136,7 +138,7 @@ describe("RestockReceiveModal", () => {
     const markup = renderReceiveModal({ cancellations: { "barang-1": "" } });
 
     expect(markup).toContain("Alasan anulir wajib diisi");
-    expect(markup).toContain("Lengkapi alasan anulir terlebih dahulu");
+    expect(markup).toContain("Tulis alasan barang yang tidak jadi dibeli");
     expect(markup).toContain('aria-disabled="true"');
   });
 
@@ -201,7 +203,7 @@ describe("RestockReceiveModal", () => {
 
     expect(markup).toContain('aria-label="Alasan kelebihan Kabel Fiber"');
     expect(markup).toContain("Datang 10 roll lebih banyak dari");
-    expect(markup).toContain("Isi alasan kelebihan kiriman");
+    expect(markup).toContain("Tulis alasan barang yang datang lebih banyak");
   });
 
   it("allows submitting a larger delivery once its reason is filled", () => {

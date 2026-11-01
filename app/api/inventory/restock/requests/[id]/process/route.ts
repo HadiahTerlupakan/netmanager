@@ -3,6 +3,8 @@ import { createHandler, ApiErrors } from "@/lib/api";
 import {
   getInventoryRouteService,
   patchRestockRequestStatus,
+  RESTOCK_MESSAGES,
+  restockForbiddenMessage,
 } from "@/modules/inventory";
 
 const inventoryRouteService = getInventoryRouteService();
@@ -12,7 +14,7 @@ export const PATCH = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("restock:verify"))) {
-    return ApiErrors.forbidden("Akses ditolak. Butuh izin restock:verify");
+    return ApiErrors.forbidden(restockForbiddenMessage("restock:verify"));
   }
 
   const { id } = ctx.params;
@@ -21,13 +23,11 @@ export const PATCH = createHandler({ auth: true }, async (_req, ctx) => {
     await inventoryRouteService.getPurchaseRequestProcessInfo(id, tenantId);
 
   if (!requestRecord) {
-    return ApiErrors.notFound("Purchase Request");
+    return ApiErrors.notFound(RESTOCK_MESSAGES.requestNotFound);
   }
 
   if (!requestRecord.purchaseOrderId) {
-    return ApiErrors.badRequest(
-      "Purchase Request belum memiliki Purchase Order untuk diproses",
-    );
+    return ApiErrors.badRequest(RESTOCK_MESSAGES.noPurchaseOrderYet);
   }
 
   return patchRestockRequestStatus({

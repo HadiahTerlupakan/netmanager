@@ -43,13 +43,15 @@ export function resolveOverReceipts(
 
     const reason = (reasons[item.originalBarangId] ?? "").trim();
     if (reason.length === 0) {
+      const remaining = Math.max(item.remaining, 0);
       throw new RestockOverReceiptInvalidError(
-        `Jumlah ${item.barangName} (${item.quantity}) melebihi sisa pesanan (${Math.max(item.remaining, 0)}). Isi alasan kelebihan kiriman agar jumlah PO dinaikkan.`,
+        `${item.barangName} datang ${item.quantity}, padahal sisa pesanannya cuma ${remaining}. ` +
+          `Kelebihannya ${extraQuantity}. Tulis alasan kenapa barang datang lebih, supaya jumlah di pesanan ikut ditambah.`,
       );
     }
     if (reason.length > MAX_OVER_RECEIPT_REASON_LENGTH) {
       throw new RestockOverReceiptInvalidError(
-        `Alasan kelebihan kiriman maksimal ${MAX_OVER_RECEIPT_REASON_LENGTH} karakter`,
+        `Alasan kelebihan ${item.barangName} terlalu panjang. Paling banyak ${MAX_OVER_RECEIPT_REASON_LENGTH} huruf.`,
       );
     }
 

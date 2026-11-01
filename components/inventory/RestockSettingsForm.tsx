@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { FiActivity } from "react-icons/fi";
 import { Button } from "@/components/ui/Button";
+import { OFFLINE_MESSAGE } from "@/components/inventory/form-shared/inventoryRequestMessages";
 import { clientLogger } from "@/lib/client-logger";
 import { useApi } from "@/lib/hooks/useApi";
+import { findRestockSettingsProblems } from "@/lib/validations/restock";
 
 interface Barang {
   id: string;
@@ -66,7 +68,9 @@ export function RestockSettingsForm({
   const gudangs = gudangData?.gudangs ?? [];
 
   const fetchInitialError =
-    barangError || gudangError ? "Gagal memuat data awal" : null;
+    barangError || gudangError
+      ? "Daftar barang atau gudang gagal dimuat. Periksa koneksi internet, lalu muat ulang halaman."
+      : null;
   const displayError = error || fetchInitialError || "";
 
   useEffect(() => {
@@ -89,39 +93,26 @@ export function RestockSettingsForm({
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
 
-    // Validation
-    if (
-      !formData.barangId ||
-      !formData.gudangId ||
-      !formData.minStok ||
-      !formData.maxStok
-    ) {
-      setError("Barang, gudang, minimal stok, dan maksimal stok harus diisi");
-      return;
-    }
-
     const minStok = parseInt(formData.minStok);
     const maxStok = parseInt(formData.maxStok);
     const safetyStok = parseInt(formData.safetyStok) || 0;
     const leadTimeDays = parseInt(formData.leadTimeDays) || 7;
 
-    if (minStok <= 0 || maxStok <= 0) {
-      setError("Stok harus bernilai positif");
-      return;
-    }
-
-    if (minStok >= maxStok) {
-      setError("Minimal stok harus lebih kecil dari maksimal stok");
-      return;
-    }
-
-    if (safetyStok < 0) {
-      setError("Safety stok tidak boleh negatif");
-      return;
-    }
-
-    if (leadTimeDays < 1) {
-      setError("Lead time minimal 1 hari");
+    const problems = [
+      findRestockSettingsProblems({
+        barangId: formData.barangId,
+        gudangId: formData.gudangId,
+        minStok: formData.minStok && minStok,
+        maxStok: formData.maxStok && maxStok,
+      }),
+      minStok < 0 || maxStok < 0
+        ? "Stok minimum dan stok maksimum tidak boleh minus."
+        : null,
+      safetyStok < 0 ? "Safety stock (stok cadangan) tidak boleh minus." : null,
+      leadTimeDays < 1 ? "Lama pengiriman paling sedikit 1 hari." : null,
+    ].filter((problem): problem is string => Boolean(problem));
+    if (problems.length > 0) {
+      setError(problems.join("\n"));
       return;
     }
 
@@ -144,10 +135,15 @@ export function RestockSettingsForm({
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || "Gagal menyimpan pengaturan restock");
+        const data: { error?: unknown } | null = await response
+          .json()
+          .catch((): null => null);
+        throw new Error(
+          typeof data?.error === "string" && data.error
+            ? data.error
+            : "Pengaturan restock belum tersimpan. Coba sekali lagi. Kalau tetap gagal, lapor ke admin.",
+        );
       }
 
       setSuccess("Pengaturan restock berhasil disimpan!");
@@ -158,7 +154,13 @@ export function RestockSettingsForm({
       }, 1500);
     } catch (error) {
       clientLogger.error("Error saving restock settings:", error);
-      setError(error instanceof Error ? error.message : "Terjadi kesalahan");
+      setError(
+        error instanceof TypeError
+          ? OFFLINE_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : "Terjadi masalah yang tidak dikenal. Coba sekali lagi.",
+      );
     } finally {
       setLoading(false);
     }
@@ -192,7 +194,10 @@ export function RestockSettingsForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {displayError && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400">
+        <div
+          role="alert"
+          className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-800 dark:text-red-400 whitespace-pre-line"
+        >
           {displayError}
         </div>
       )}

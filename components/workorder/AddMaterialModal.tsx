@@ -8,6 +8,13 @@ import { toast } from "react-hot-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { clientLogger } from "@/lib/client-logger";
 import { useApi } from "@/lib/hooks/useApi";
+import {
+  describeInventoryError,
+  sendInventoryRequest,
+} from "@/components/inventory/form-shared";
+
+const ADD_MATERIAL_FAILED_MESSAGE =
+  "Material belum ditambahkan. Coba sekali lagi; kalau tetap gagal, laporkan ke admin.";
 
 interface AddMaterialModalProps {
   isOpen: boolean;
@@ -71,7 +78,9 @@ export default function AddMaterialModal({
 
   const handleSelect = (item: Barang) => {
     if (item.totalStock <= 0) {
-      toast.error("Stok barang habis");
+      toast.error(
+        `Stok ${item.nama} habis, jadi belum bisa dipakai. Pilih barang lain.`,
+      );
       return;
     }
     setSelectedItem(item);
@@ -80,43 +89,33 @@ export default function AddMaterialModal({
 
   const handleSubmit = async () => {
     if (!selectedItem) return;
-    if (quantity <= 0) {
-      toast.error("Jumlah harus lebih dari 0");
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      toast.error("Jumlah harus angka bulat dan lebih dari 0.");
       return;
     }
     if (quantity > selectedItem.totalStock) {
       toast.error(
-        `Stok tidak mencukupi (Tersedia: ${selectedItem.totalStock})`,
+        `Stok ${selectedItem.nama} tinggal ${selectedItem.totalStock} ${selectedItem.satuan}. Kurangi jumlahnya, paling banyak ${selectedItem.totalStock}.`,
       );
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(
+      await sendInventoryRequest(
         `/api/admin/workorders/${workOrderId}/materials`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            barangId: selectedItem.id,
-            quantity: quantity,
-            notes: notes,
-          }),
+          body: { barangId: selectedItem.id, quantity, notes },
         },
+        ADD_MATERIAL_FAILED_MESSAGE,
       );
-
-      if (res.ok) {
-        toast.success("Material berhasil ditambahkan");
-        onSuccess();
-        onClose();
-      } else {
-        const err = (await res.json()) as { error?: string };
-        toast.error(err.error || "Gagal menambahkan material");
-      }
+      toast.success("Material berhasil ditambahkan");
+      onSuccess();
+      onClose();
     } catch (error: unknown) {
       clientLogger.error("Error adding material:", error);
-      toast.error("Terjadi kesalahan");
+      toast.error(describeInventoryError(error, ADD_MATERIAL_FAILED_MESSAGE));
     } finally {
       setLoading(false);
     }

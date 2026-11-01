@@ -8,7 +8,7 @@ import { getInventoryRouteService } from "./InventoryRouteService";
 const MAX_PHOTO_COUNT = 5;
 const MAX_PHOTO_SIZE_MB = 5;
 const EMPTY_PHOTO_FILE_MESSAGE =
-  "File foto kosong (0 byte). Simpan foto ke perangkat terlebih dahulu, lalu pilih ulang.";
+  "Foto yang dipilih kosong, isinya tidak terbaca. Simpan fotonya ke HP atau komputer dulu, lalu pilih lagi.";
 const VALID_TRANSACTION_TYPES = [
   "inventory-masuk",
   "inventory-keluar",
@@ -117,7 +117,10 @@ export class InventoryPhotoUploadService {
 
   private validateInput(input: InventoryPhotoUploadInput) {
     if (!input.transactionId) {
-      return this.createError(400, "ID Transaksi wajib disertakan");
+      return this.createError(
+        400,
+        "Foto belum bisa diunggah karena catatannya belum tersimpan. Simpan catatannya dulu, lalu unggah fotonya.",
+      );
     }
 
     if (
@@ -125,9 +128,10 @@ export class InventoryPhotoUploadService {
         input.transactionType as InventoryPhotoTransactionType,
       )
     ) {
+      // Hanya terjadi bila halaman mengirim jenis yang salah, bukan ulah staf.
       return this.createError(
         400,
-        "Tipe transaksi tidak valid. Gunakan: inventory-masuk, inventory-keluar, inventory-transfer, atau finance-transaction",
+        "Foto belum bisa diunggah dari halaman ini. Muat ulang halaman, lalu coba lagi. Kalau tetap gagal, laporkan ke admin.",
       );
     }
 
@@ -158,7 +162,10 @@ export class InventoryPhotoUploadService {
 
   private validatePhotoFiles(photos: File[]) {
     if (photos.length === 0) {
-      return this.createError(400, "Minimal 1 foto harus diunggah");
+      return this.createError(
+        400,
+        "Belum ada foto yang dipilih. Pilih paling sedikit 1 foto.",
+      );
     }
 
     const validation = this.validatePhotos(
@@ -172,7 +179,7 @@ export class InventoryPhotoUploadService {
       ok: false as const,
       status: 400,
       body: {
-        error: `Validasi foto gagal: ${validation.errors.join(", ")}`,
+        error: `Foto belum bisa diunggah:\n${validation.errors.join("\n")}`,
         details: validation.errors,
       },
     };
@@ -200,12 +207,15 @@ export class InventoryPhotoUploadService {
     const errorByType: Partial<
       Record<UploadableInventoryPhotoTransactionType, string>
     > = {
-      "inventory-masuk": "Transaksi barang masuk tidak ditemukan",
-      "inventory-keluar": "Transaksi barang keluar tidak ditemukan",
-      "inventory-transfer": "Transaksi transfer tidak ditemukan",
+      "inventory-masuk": "Catatan barang masuk untuk foto ini tidak ditemukan",
+      "inventory-keluar":
+        "Catatan barang keluar untuk foto ini tidak ditemukan",
+      "inventory-transfer": "Catatan transfer untuk foto ini tidak ditemukan",
     };
 
-    return errorByType[transactionType] || "Transaksi tidak ditemukan";
+    const catatan =
+      errorByType[transactionType] || "Catatan untuk foto ini tidak ditemukan";
+    return `${catatan}, mungkin sudah dihapus. Muat ulang halaman, lalu coba lagi.`;
   }
 
   private buildUploadDirectory(
@@ -233,7 +243,7 @@ export class InventoryPhotoUploadService {
       ok: true,
       body: {
         success: true,
-        message: `${urls.length} photo(s) uploaded successfully`,
+        message: `${urls.length} foto berhasil diunggah`,
         data: { urls, transactionId, transactionType, count: urls.length },
       },
     };

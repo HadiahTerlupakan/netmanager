@@ -14,6 +14,13 @@ import { clientLogger } from "@/lib/client-logger";
 import { useApi } from "@/lib/hooks/useApi";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { STOCK_THRESHOLD } from "@/modules/inventory/client";
+import {
+  describeClientError,
+  readApiErrorMessage,
+} from "@/components/inventory/master-data/masterDataErrorMessage";
+
+const PESAN_GAGAL_HAPUS_BARANG =
+  "Barang belum terhapus. Coba sekali lagi. Kalau tetap gagal, laporkan ke admin.";
 
 interface Barang {
   id: string;
@@ -129,8 +136,9 @@ export function BarangTable() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Gagal menghapus barang");
+        throw new Error(
+          await readApiErrorMessage(response, PESAN_GAGAL_HAPUS_BARANG),
+        );
       }
 
       showToast("success", `Barang ${kode} berhasil dihapus`);
@@ -140,9 +148,7 @@ export function BarangTable() {
       clientLogger.error("Failed to delete barang:", deleteError);
       showToast(
         "error",
-        deleteError instanceof Error
-          ? deleteError.message
-          : "Gagal menghapus barang",
+        describeClientError(deleteError, PESAN_GAGAL_HAPUS_BARANG),
       );
     } finally {
       setDeleting(false);

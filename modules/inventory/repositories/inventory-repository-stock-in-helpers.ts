@@ -2,8 +2,15 @@ import { randomUUID } from "crypto";
 import { Prisma, type BarangMasuk } from "@prisma/client";
 import { USEFUL_LIFE_MONTHS } from "@/lib/constants/inventory";
 import type { CreateBarangMasukInput } from "../domain/ports/IInventoryOperationRepository";
+import {
+  INVENTORY_USER_ERROR_STATUS,
+  InventoryUserError,
+} from "../domain/inventory-user-error";
 import { resolveInventoryActor } from "./inventory-repository-core-helpers";
-import { buildIncrementBarangGudangPayload } from "./inventory-stock-helpers";
+import {
+  assertPositiveIntegerQuantity,
+  buildIncrementBarangGudangPayload,
+} from "./inventory-stock-helpers";
 
 type InventoryMasukWithRelations = Prisma.BarangMasukGetPayload<{
   include: {
@@ -19,6 +26,7 @@ export async function addInventoryStockInTransaction(
   data: CreateBarangMasukInput,
 ): Promise<BarangMasuk> {
   const actor = resolveInventoryActor(data);
+  assertPositiveIntegerQuantity(data.jumlah);
   await validateInventoryTenantScope(tx, data);
 
   const masuk = await tx.barangMasuk.create({
@@ -71,8 +79,16 @@ async function validateInventoryTenantScope(
     }),
   ]);
 
-  if (!barang) throw new Error("Barang tidak ditemukan");
-  if (!gudang) throw new Error("Gudang tidak ditemukan");
+  if (!barang) throw missingSelectionError("Barang");
+  if (!gudang) throw missingSelectionError("Gudang");
+}
+
+/** Barang/gudang yang dipilih sudah tidak ada (dihapus, atau bukan milik perusahaan ini). */
+function missingSelectionError(label: "Barang" | "Gudang") {
+  return new InventoryUserError(
+    `${label} yang dipilih tidak ditemukan, mungkin sudah dihapus. Muat ulang halaman, lalu pilih lagi.`,
+    INVENTORY_USER_ERROR_STATUS.NOT_FOUND,
+  );
 }
 
 async function createAssetsForIncomingStock(

@@ -3,8 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { getInventoryRouteService } from "@/modules/inventory";
-import { restockUpdateSchema } from "@/lib/validations/restock";
+import { logger } from "@/lib/logger";
+import {
+  getInventoryRouteService,
+  isRestockMissingReferenceError,
+  RESTOCK_MESSAGES,
+  restockCannotEditMessage,
+  restockForbiddenMessage,
+  restockServerErrorMessage,
+} from "@/modules/inventory";
+import {
+  describeRestockValidationError,
+  restockUpdateSchema,
+} from "@/lib/validations/restock";
 
 const inventoryRouteService = getInventoryRouteService();
 
@@ -26,23 +37,29 @@ export async function handleRestockPutRequest(req: NextRequest, id: string) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json(
-      { error: "Tidak terautentikasi" },
+      { error: RESTOCK_MESSAGES.sessionExpired },
       { status: 401 },
     );
   }
 
   if (!(await hasPermission("restock:update"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin restock:update" },
+      { error: restockForbiddenMessage("restock:update") },
       { status: 403 },
     );
   }
 
-  const body = await req.json();
+  const body = await req.json().catch((): null => null);
+  if (!body) {
+    return NextResponse.json(
+      { error: RESTOCK_MESSAGES.unreadableBody },
+      { status: 400 },
+    );
+  }
   const parsed = restockUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0].message },
+      { error: describeRestockValidationError(parsed.error) },
       { status: 400 },
     );
   }
@@ -56,14 +73,14 @@ export async function handleRestockPutRequest(req: NextRequest, id: string) {
 
   if (!existing) {
     return NextResponse.json(
-      { error: "Pengajuan tidak ditemukan" },
+      { error: RESTOCK_MESSAGES.requestNotFound },
       { status: 404 },
     );
   }
 
   if (existing.status !== "DRAFT" && existing.status !== "SUBMITTED") {
     return NextResponse.json(
-      { error: "Hanya pengajuan Draft/Submitted yang bisa diubah" },
+      { error: restockCannotEditMessage(existing.status) },
       { status: 400 },
     );
   }
@@ -93,8 +110,23 @@ export async function handleRestockPutRequest(req: NextRequest, id: string) {
       message: "Pengajuan berhasil diperbarui",
     });
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Terjadi kesalahan";
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (isRestockMissingReferenceError(error)) {
+      return NextResponse.json(
+        { error: RESTOCK_MESSAGES.missingReference },
+        { status: 400 },
+      );
+    }
+    logger.error(
+      "Error updating purchase request",
+      error instanceof Error ? error : new Error(String(error)),
+      { purchaseRequestId: id },
+    );
+    return NextResponse.json(
+      // Item lama dihapus dan item baru ditulis dalam satu transaksi.
+      {
+        error: restockServerErrorMessage("Menyimpan perubahan pengajuan", true),
+      },
+      { status: 500 },
+    );
   }
 }

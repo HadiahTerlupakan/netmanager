@@ -22,7 +22,10 @@ describe("InventoryPhotoUploadService", () => {
     expect(result).toEqual({
       ok: false,
       status: 400,
-      body: { error: "ID Transaksi wajib disertakan" },
+      body: {
+        error:
+          "Foto belum bisa diunggah karena catatannya belum tersimpan. Simpan catatannya dulu, lalu unggah fotonya.",
+      },
     });
   });
 
@@ -40,7 +43,7 @@ describe("InventoryPhotoUploadService", () => {
       status: 400,
       body: {
         error:
-          "File foto kosong (0 byte). Simpan foto ke perangkat terlebih dahulu, lalu pilih ulang.",
+          "Foto yang dipilih kosong, isinya tidak terbaca. Simpan fotonya ke HP atau komputer dulu, lalu pilih lagi.",
       },
     });
   });
@@ -64,7 +67,10 @@ describe("InventoryPhotoUploadService", () => {
     expect(result).toEqual({
       ok: false,
       status: 404,
-      body: { error: "Transaksi barang keluar tidak ditemukan" },
+      body: {
+        error:
+          "Catatan barang keluar untuk foto ini tidak ditemukan, mungkin sudah dihapus. Muat ulang halaman, lalu coba lagi.",
+      },
     });
   });
 
@@ -99,7 +105,7 @@ describe("InventoryPhotoUploadService", () => {
       ok: true,
       body: {
         success: true,
-        message: "1 photo(s) uploaded successfully",
+        message: "1 foto berhasil diunggah",
         data: {
           urls: ["/uploads/inventory-masuk/2026/04/trx_photo_1.webp"],
           transactionId: "trx-1",

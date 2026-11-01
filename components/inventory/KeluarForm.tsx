@@ -11,8 +11,13 @@ import {
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
 
+import { labelKondisiBarang } from "@/modules/inventory/client";
+
 import {
   BarangSelector,
+  describeFailedPhotoUploads,
+  describeInventoryError,
+  describeMutasiFormProblems,
   FormAlert,
   FotoBuktiSection,
   GudangSelector,
@@ -21,6 +26,7 @@ import {
   StockByConditionPanel,
   TextAreaField,
   TextField,
+  sendInventoryRequest,
   useBarangOptions,
   useFotoBuktiUpload,
   useGudangOptions,
@@ -30,6 +36,33 @@ import {
   type StockByCondition,
   type UploadedPhotoState,
 } from "./form-shared";
+
+const SAVE_FAILED_MESSAGE =
+  "Barang keluar belum tersimpan. Coba simpan sekali lagi; kalau tetap gagal, laporkan ke admin.";
+
+/**
+ * Pesan bila jumlah yang mau dikeluarkan melebihi stok kondisi terpilih;
+ * null bila stoknya cukup.
+ */
+function describeStokKurang(input: {
+  jumlah: number;
+  stokKondisi: number;
+  kondisi: Kondisi;
+  barangNama?: string;
+  satuan?: string;
+  gudangNama?: string;
+}): string | null {
+  if (input.jumlah <= input.stokKondisi) return null;
+
+  const barang = input.barangNama ?? "barang ini";
+  const gudang = input.gudangNama ?? "gudang ini";
+  const kondisi = labelKondisiBarang(input.kondisi);
+  if (input.stokKondisi === 0) {
+    return `Tidak ada stok ${barang} kondisi ${kondisi} di ${gudang}. Pilih kondisi lain, atau pilih gudang lain.`;
+  }
+  const satuan = input.satuan ? ` ${input.satuan}` : "";
+  return `Stok ${barang} kondisi ${kondisi} di ${gudang} tinggal ${input.stokKondisi}${satuan}. Kurangi jumlahnya, paling banyak ${input.stokKondisi}.`;
+}
 
 interface KeluarInitialData {
   id?: string;
@@ -110,6 +143,13 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     stockByCondition,
     formData.kondisi,
   );
+  // Saat mengubah catatan lama, barang dari catatan itu sudah terpotong dari
+  // stok; jumlahnya boleh naik sampai stok tersisa + jumlah lama.
+  const batasJumlah =
+    stokTersediaKondisi + (isEditMode ? (initialData?.jumlah ?? 0) : 0);
+  const lockedNote = isEditMode
+    ? "Tidak bisa diubah. Kalau salah pilih, hapus catatan ini lalu catat ulang."
+    : "";
 
   const handlePhotosChange = (photos: UploadedPhotoState[]) => {
     setUploadedPhotos(photos);
@@ -117,10 +157,12 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
     if (photos.every((p) => p.status === "success")) {
       setSuccess("Barang keluar berhasil dicatat. Foto berhasil diunggah.");
       setTimeout(() => resetForm(), 2000);
-    } else if (photos.some((p) => p.status === "error")) {
-      setSuccess(
-        "Barang keluar berhasil dicatat, namun beberapa foto gagal diunggah.",
-      );
+      return;
+    }
+    const failedPhotos = describeFailedPhotoUploads(photos);
+    if (failedPhotos) {
+      setSuccess("Barang keluar sudah tercatat.");
+      setError(failedPhotos);
     }
   };
 
@@ -153,25 +195,48 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
   };
 
   const handleJumlahChange = (value: string) => {
-    if (parseInt(value) > stokTersediaKondisi) {
-      updateField("jumlah", stokTersediaKondisi.toString());
+    if (parseInt(value) > batasJumlah) {
+      updateField("jumlah", batasJumlah.toString());
     } else {
       updateField("jumlah", value);
     }
   };
 
-  const validatePayload = () => {
-    if (!formData.barangId || !formData.gudangId || !formData.jumlah) {
-      return "Barang, gudang, dan jumlah harus diisi";
+  const validatePayload = () =>
+    describeMutasiFormProblems(formData) ??
+    describeStokKurang({
+      jumlah: Number(formData.jumlah),
+      stokKondisi: batasJumlah,
+      kondisi: formData.kondisi,
+      barangNama: selectedBarang?.nama,
+      satuan: selectedBarang?.satuan,
+      gudangNama: selectedGudang?.nama,
+    });
+
+  /**
+   * Simpan perubahan catatan lama lewat PUT. Dulu mode edit ikut mengirim POST,
+   * sehingga setiap "Update" mencatat barang keluar BARU dan stok terpotong dua kali.
+   */
+  const saveEditedKeluar = async () => {
+    if (!initialData?.id) {
+      setError(
+        "Catatan yang mau diubah tidak dikenali. Tutup form ini, lalu buka lagi dari daftar.",
+      );
+      return;
     }
-    const jumlah = parseInt(formData.jumlah);
-    if (isNaN(jumlah) || jumlah <= 0) {
-      return "Jumlah harus berupa angka positif";
-    }
-    if (jumlah > stokTersediaKondisi) {
-      return `Jumlah tidak boleh melebihi stok tersedia untuk kondisi ${formData.kondisi} (${stokTersediaKondisi})`;
-    }
-    return null;
+    await sendInventoryRequest(
+      `/api/inventory/keluar/${initialData.id}`,
+      {
+        method: "PUT",
+        body: {
+          jumlah: Number(formData.jumlah.trim()),
+          keterangan: formData.keterangan || undefined,
+        },
+      },
+      SAVE_FAILED_MESSAGE,
+    );
+    setSuccess("Perubahan barang keluar sudah disimpan.");
+    setTimeout(() => resetForm(), 1500);
   };
 
   const handleSubmit = async (event: React.SubmitEvent) => {
@@ -191,40 +256,38 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
       const { urls, photos } = await uploadPendingPhotos();
       setSuccess("");
 
-      const response = await fetch("/api/inventory/keluar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          barangId: formData.barangId,
-          gudangId: formData.gudangId,
-          jumlah: parseInt(formData.jumlah),
-          kondisi: formData.kondisi,
-          isHilang: formData.isHilang,
-          tujuanPenggunaan: formData.tujuanPenggunaan || null,
-          keterangan: formData.keterangan || null,
-          tanggal: formData.tanggal || new Date().toISOString(),
-          fotoBukti: urls,
-          fotoMetadata: buildFotoMetadata(photos),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Gagal menyimpan barang keluar");
+      if (isEditMode) {
+        await saveEditedKeluar();
+        return;
       }
 
-      const data = await response.json();
-      const result = data.data || data;
+      const result = await sendInventoryRequest<{ keluarId?: string }>(
+        "/api/inventory/keluar",
+        {
+          method: "POST",
+          body: {
+            barangId: formData.barangId,
+            gudangId: formData.gudangId,
+            jumlah: Number(formData.jumlah.trim()),
+            kondisi: formData.kondisi,
+            isHilang: formData.isHilang,
+            tujuanPenggunaan: formData.tujuanPenggunaan || null,
+            keterangan: formData.keterangan || null,
+            tanggal: formData.tanggal || new Date().toISOString(),
+            fotoBukti: urls,
+            fotoMetadata: buildFotoMetadata(photos),
+          },
+        },
+        SAVE_FAILED_MESSAGE,
+      );
       if (result.keluarId) setTransactionId(result.keluarId);
 
       setSuccess("Barang keluar berhasil disimpan!");
       setTimeout(() => resetForm(), 1500);
     } catch (err) {
       clientLogger.error("Error submitting barang keluar:", err);
-      setError(
-        err instanceof Error ? err.message : "Gagal menyimpan barang keluar",
-      );
       setSuccess("");
+      setError(describeInventoryError(err, SAVE_FAILED_MESSAGE));
     } finally {
       setLoading(false);
     }
@@ -247,13 +310,15 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
           options={buildOptions()}
           onSearch={fetchBarangs}
           loading={isSearching}
-          disabled={loading}
+          disabled={loading || isEditMode}
+          lockedNote={lockedNote}
         />
         <GudangSelector
           value={formData.gudangId}
           onChange={(value) => updateField("gudangId", value)}
           gudangs={gudangs}
-          disabled={loading}
+          disabled={loading || isEditMode}
+          lockedNote={lockedNote}
         />
       </div>
 
@@ -274,7 +339,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
           onChange={handleJumlahChange}
           satuan={selectedBarang?.satuan}
           stockByCondition={stockByCondition}
-          stokKondisi={stokTersediaKondisi}
+          stokKondisi={batasJumlah}
           kondisi={formData.kondisi}
           loading={loading}
         />
@@ -283,7 +348,7 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
           isHilang={formData.isHilang}
           onKondisiChange={(value) => updateField("kondisi", value)}
           onIsHilangChange={(value) => updateField("isHilang", value)}
-          loading={loading}
+          loading={loading || isEditMode}
         />
       </div>
 
@@ -313,7 +378,8 @@ export function KeluarForm({ initialData, onClose }: KeluarFormProps) {
         value={formData.tujuanPenggunaan}
         onChange={(value) => updateField("tujuanPenggunaan", value)}
         placeholder="Contoh: Instalasi pelanggan, maintenance, dll"
-        disabled={loading}
+        disabled={loading || isEditMode}
+        lockedNote={lockedNote}
       />
 
       <TextAreaField
@@ -427,18 +493,19 @@ function JumlahFieldKeluar({
       {stockByCondition.totalStok > 0 && (
         <div className="mt-1 space-y-1">
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Maks: {stokKondisi} {satuan || "pcs"} (kondisi: {kondisi})
+            Paling banyak {stokKondisi} {satuan || "pcs"} (kondisi{" "}
+            {labelKondisiBarang(kondisi)})
           </p>
           {overLimit && (
             <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
-              <FiAlertTriangle className="w-3 h-3" /> Jumlah disesuaikan ke
-              maksimal stock tersedia
+              <FiAlertTriangle className="w-3 h-3" /> Jumlah diturunkan ke{" "}
+              {stokKondisi}, karena stoknya hanya segitu.
             </p>
           )}
           {stokKondisi === 0 && (
             <p className="flex items-center gap-1 text-xs text-red-600 font-medium">
-              <FiXCircle className="w-3 h-3" /> Stock kondisi {kondisi} = 0,
-              input dinonaktifkan
+              <FiXCircle className="w-3 h-3" /> Stok kondisi{" "}
+              {labelKondisiBarang(kondisi)} habis. Pilih kondisi lain.
             </p>
           )}
         </div>

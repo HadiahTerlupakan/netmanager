@@ -1,5 +1,9 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { getInventoryRouteService } from "@/modules/inventory";
+import {
+  getInventoryRouteService,
+  OPNAME_PESAN,
+  pesanGagalMuatOpname,
+} from "@/modules/inventory";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 
@@ -13,9 +17,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
 
   if (!(await hasPermission("opname:read"))) {
-    return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat laporan opname",
-    );
+    return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinLihat);
   }
 
   try {
@@ -43,6 +45,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     return apiSuccess(result);
   } catch (error) {
     logger.error("Error generating stock report", error as Error);
-    return ApiErrors.internalError("Gagal menghasilkan laporan stok");
+    return ApiErrors.internalError(pesanGagalMuatOpname("Laporan stok"));
   }
 });

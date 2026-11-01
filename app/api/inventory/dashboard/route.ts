@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { inventoryDashboardService } from "@/modules/inventory";
+import {
+  inventoryDashboardService,
+  PESAN_BELUM_MASUK,
+  pesanGagalMuat,
+  pesanTanpaIzin,
+} from "@/modules/inventory";
+import { logger } from "@/lib/logger";
 import { apiSuccess } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -9,14 +15,14 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const session = await verifyAuth(req);
   if (!session) {
-    return NextResponse.json(
-      { error: "Tidak terautentikasi" },
-      { status: 401 },
-    );
+    return NextResponse.json({ error: PESAN_BELUM_MASUK }, { status: 401 });
   }
 
   if (!(await hasPermission("barang:read"))) {
-    return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
+    return NextResponse.json(
+      { error: pesanTanpaIzin("melihat ringkasan gudang") },
+      { status: 403 },
+    );
   }
 
   try {
@@ -28,9 +34,10 @@ export async function GET(req: NextRequest) {
     });
 
     return apiSuccess(data);
-  } catch {
+  } catch (error: unknown) {
+    logger.error("Dashboard inventaris gagal dimuat", error);
     return NextResponse.json(
-      { error: "Gagal memuat data dashboard inventaris" },
+      { error: pesanGagalMuat("ringkasan gudang") },
       { status: 500 },
     );
   }

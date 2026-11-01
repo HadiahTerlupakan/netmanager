@@ -3,7 +3,16 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
-import { getJasaService } from "@/modules/inventory";
+import {
+  describeZodIssues,
+  getJasaService,
+  PESAN_BELUM_MASUK,
+  PESAN_DATA_TIDAK_TERBACA,
+  pesanGagalMuat,
+  pesanTanpaIzin,
+} from "@/modules/inventory";
+import { logger } from "@/lib/logger";
+import { masterDataFailureResponse } from "../../master-data-response";
 import { jasaUpdateSchema } from "@/lib/validations/jasa";
 
 /** Ambil detail jasa. */
@@ -13,30 +22,33 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
-    return NextResponse.json(
-      { error: "Tidak terautentikasi" },
-      { status: 401 },
-    );
+    return NextResponse.json({ error: PESAN_BELUM_MASUK }, { status: 401 });
   }
 
   if (!(await hasPermission("jasa:read"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin jasa:read" },
+      { error: pesanTanpaIzin("melihat daftar jasa") },
       { status: 403 },
     );
   }
 
   const { id } = await params;
-  const result = await getJasaService().getById(
-    id,
-    (session.user.tenantId as string) ?? null,
-  );
+  let result: Awaited<ReturnType<ReturnType<typeof getJasaService>["getById"]>>;
+  try {
+    result = await getJasaService().getById(
+      id,
+      (session.user.tenantId as string) ?? null,
+    );
+  } catch (error: unknown) {
+    logger.error("Detail jasa gagal dimuat", error as Error);
+    return NextResponse.json(
+      { error: pesanGagalMuat("jasa") },
+      { status: 500 },
+    );
+  }
 
   if (result.success === false) {
-    return NextResponse.json(
-      { error: result.error },
-      { status: result.status },
-    );
+    return masterDataFailureResponse(result);
   }
 
   return NextResponse.json({ data: result.data });
@@ -49,27 +61,27 @@ export async function PUT(
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
-    return NextResponse.json(
-      { error: "Tidak terautentikasi" },
-      { status: 401 },
-    );
+    return NextResponse.json({ error: PESAN_BELUM_MASUK }, { status: 401 });
   }
 
   if (!(await hasPermission("jasa:update"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin jasa:update" },
+      { error: pesanTanpaIzin("mengubah jasa") },
       { status: 403 },
     );
   }
 
   const { id } = await params;
-  const body = await req.json();
-  const parsed = jasaUpdateSchema.safeParse(body);
-  if (!parsed.success) {
+  const body = await req.json().catch((): null => null);
+  if (!body || typeof body !== "object") {
     return NextResponse.json(
-      { error: parsed.error.issues[0].message },
+      { error: PESAN_DATA_TIDAK_TERBACA },
       { status: 400 },
     );
+  }
+  const parsed = jasaUpdateSchema.safeParse(body);
+  if (!parsed.success) {
+    return masterDataFailureResponse(describeZodIssues(parsed.error));
   }
 
   const result = await getJasaService().update({
@@ -80,10 +92,7 @@ export async function PUT(
   });
 
   if (result.success === false) {
-    return NextResponse.json(
-      { error: result.error },
-      { status: result.status },
-    );
+    return masterDataFailureResponse(result);
   }
 
   return NextResponse.json(result.data);
@@ -96,15 +105,12 @@ export async function DELETE(
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
-    return NextResponse.json(
-      { error: "Tidak terautentikasi" },
-      { status: 401 },
-    );
+    return NextResponse.json({ error: PESAN_BELUM_MASUK }, { status: 401 });
   }
 
   if (!(await hasPermission("jasa:delete"))) {
     return NextResponse.json(
-      { error: "Akses ditolak. Butuh izin jasa:delete" },
+      { error: pesanTanpaIzin("menonaktifkan jasa") },
       { status: 403 },
     );
   }
@@ -117,10 +123,7 @@ export async function DELETE(
   );
 
   if (result.success === false) {
-    return NextResponse.json(
-      { error: result.error },
-      { status: result.status },
-    );
+    return masterDataFailureResponse(result);
   }
 
   return NextResponse.json(result.data);

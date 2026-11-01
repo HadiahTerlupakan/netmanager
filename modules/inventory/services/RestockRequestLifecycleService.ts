@@ -1,9 +1,27 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/modules/database";
-import { ProcurementService } from "@/modules/procurement";
+import {
+  ProcurementService,
+  SupplierNotActiveError,
+} from "@/modules/procurement";
 
-type RestockAction = "APPROVE" | "REJECT" | "START_SHOPPING" | "RECEIVE";
+import {
+  RESTOCK_MESSAGES,
+  restockAlreadyDecidedMessage,
+  restockServerErrorMessage,
+} from "./restock-messages";
+
+/** Penjelasan untuk penyetuju bila PO tidak bisa dibuat otomatis setelah disetujui. */
+const PO_SUPPLIER_INACTIVE_MESSAGE =
+  "Pengajuan sudah disetujui, tapi pesanan pembelian (PO) belum bisa dibuat karena pemasok barangnya sedang tidak aktif. Minta bagian pembelian mengganti pemasoknya atau membuat PO sendiri.";
+const PO_NOT_GENERATED_MESSAGE =
+  "Pengajuan sudah disetujui, tapi pesanan pembelian (PO) belum bisa dibuat otomatis. Minta bagian pembelian membuat PO-nya.";
+
+const LIFECYCLE_DECISION_WORDS = {
+  APPROVE: "disetujui",
+  REJECT: "ditolak",
+} as const;
 
 interface RestockRequestLifecycleInput {
   id: string;
@@ -24,7 +42,7 @@ export class RestockRequestLifecycleService {
       const normalizedAction = this.parseLifecycleAction(input.action);
       if (!normalizedAction) {
         return NextResponse.json(
-          { error: "Aksi tidak valid. Harus APPROVE atau REJECT" },
+          { error: RESTOCK_MESSAGES.unknownLifecycleAction },
           { status: 400 },
         );
       }
@@ -34,14 +52,17 @@ export class RestockRequestLifecycleService {
       );
       if (!existingRequest) {
         return NextResponse.json(
-          { error: "Purchase Request not found" },
+          { error: RESTOCK_MESSAGES.requestNotFound },
           { status: 404 },
         );
       }
       if (existingRequest.status !== "DRAFT") {
         return NextResponse.json(
           {
-            error: `Cannot ${normalizedAction.toLowerCase()} PR with status ${existingRequest.status}`,
+            error: restockAlreadyDecidedMessage(
+              existingRequest.status,
+              LIFECYCLE_DECISION_WORDS[normalizedAction],
+            ),
           },
           { status: 400 },
         );
@@ -51,18 +72,23 @@ export class RestockRequestLifecycleService {
       }
       return this.approvePurchaseRequest(existingRequest, input, startTime);
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Terjadi kesalahan server";
       logger.error(
         "Error updating purchase request",
-        error instanceof Error ? error : new Error(errorMessage),
+        error instanceof Error ? error : new Error(String(error)),
         { path: "/api/inventory/restock/requests/[id]", method: "PATCH" },
       );
-      return NextResponse.json({ error: errorMessage }, { status: 500 });
+      // Persetujuan mengubah status lalu membuat PO dalam langkah terpisah,
+      // jadi jangan menjanjikan bahwa tidak ada yang berubah.
+      return NextResponse.json(
+        { error: restockServerErrorMessage("Memproses pengajuan", false) },
+        { status: 500 },
+      );
     }
   }
 
-  private parseLifecycleAction(action: unknown): RestockAction | null {
+  private parseLifecycleAction(
+    action: unknown,
+  ): keyof typeof LIFECYCLE_DECISION_WORDS | null {
     if (action === "APPROVE" || action === "REJECT") return action;
     return null;
   }
@@ -177,10 +203,16 @@ export class RestockRequestLifecycleService {
         poError: null,
       };
     } catch (error: unknown) {
+      logger.warn("[RESTOCK_APPROVE] PO otomatis gagal dibuat", {
+        purchaseRequestId: id,
+        reason: error instanceof Error ? error.message : String(error),
+      });
       return {
         generatedPO: null,
         poError:
-          error instanceof Error ? error.message : "Gagal auto-generate PO",
+          error instanceof SupplierNotActiveError
+            ? PO_SUPPLIER_INACTIVE_MESSAGE
+            : PO_NOT_GENERATED_MESSAGE,
       };
     }
   }

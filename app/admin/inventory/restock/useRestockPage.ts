@@ -26,11 +26,13 @@ import {
   buildOverReceiptPayload,
   buildInitialReceivedItems,
   buildSubstitutionPayload,
-  canSubmitRestockForm,
+  describeRestockClientError,
   getFilteredBarangs,
   getPaginatedRestockRequests,
   getRestockFilterOptions,
+  getRestockFormProblems,
   getVisibleRestockRequests,
+  readRestockErrorMessage,
   uploadProofPhotos,
 } from "./utils";
 import type {
@@ -45,6 +47,17 @@ import type {
   RestockSubstitutionMap,
 } from "./types";
 import type { JasaConfirmState } from "./RestockConfirmJasaModal";
+
+/** Pesan error bisa beberapa baris; beri waktu cukup untuk dibaca. */
+const RESTOCK_ERROR_TOAST_MS = 10_000;
+const RESTOCK_WARNING_TOAST_MS = 12_000;
+
+function showRestockError(message: string) {
+  toast.error(message, {
+    duration: RESTOCK_ERROR_TOAST_MS,
+    style: { whiteSpace: "pre-line" },
+  });
+}
 
 const INITIAL_FORM_ITEM: RestockFormItem = {
   tipe: "BARANG",
@@ -145,7 +158,9 @@ export function useRestockPage() {
         setAllJasaSource(Array.isArray(items) ? items : []);
       }
     } catch (_error) {
-      toast.error("Gagal memuat data");
+      showRestockError(
+        "Data pengajuan restock gagal dimuat. Periksa koneksi internet, lalu muat ulang halaman.",
+      );
     } finally {
       setLoading(false);
     }
@@ -258,15 +273,19 @@ export function useRestockPage() {
   }, []);
 
   const saveRequest = useCallback(async () => {
-    if (
-      !canSubmitRestockForm({
-        formGudang,
-        formNotes,
-        formItems,
-        isSubmitting: submitting,
-      })
-    ) {
-      toast.error("Harap lengkapi data barang dan gudang");
+    if (submitting) return;
+    const problems = getRestockFormProblems({
+      formGudang,
+      formNotes,
+      formItems,
+      barangNamaById: new Map(
+        allBarangsSource.map((barang) => [barang.id, barang.nama]),
+      ),
+    });
+    if (problems.length > 0) {
+      showRestockError(
+        `Pengajuan belum bisa disimpan:\n${problems.join("\n")}`,
+      );
       return;
     }
 
@@ -298,8 +317,12 @@ export function useRestockPage() {
         : await postWithAuth("/api/inventory/restock/requests", payload);
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Gagal menyimpan data");
+        throw new Error(
+          await readRestockErrorMessage(
+            response,
+            "Pengajuan belum tersimpan. Coba sekali lagi.",
+          ),
+        );
       }
 
       toast.success(
@@ -308,11 +331,19 @@ export function useRestockPage() {
       setShowForm(false);
       await fetchData();
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Terjadi kesalahan");
+      showRestockError(describeRestockClientError(error));
     } finally {
       setSubmitting(false);
     }
-  }, [editingPR, fetchData, formGudang, formItems, formNotes, submitting]);
+  }, [
+    allBarangsSource,
+    editingPR,
+    fetchData,
+    formGudang,
+    formItems,
+    formNotes,
+    submitting,
+  ]);
 
   const deleteRequest = useCallback(
     async (id: string) => {
@@ -322,12 +353,19 @@ export function useRestockPage() {
         const response = await deleteWithAuth(
           `/api/inventory/restock/requests/${id}`,
         );
-        if (response.ok) {
-          toast.success("Pengajuan dihapus");
-          await fetchData();
+        if (!response.ok) {
+          showRestockError(
+            await readRestockErrorMessage(
+              response,
+              "Pengajuan belum terhapus. Coba sekali lagi.",
+            ),
+          );
+          return;
         }
-      } catch (_error) {
-        toast.error("Gagal menghapus");
+        toast.success("Pengajuan dihapus");
+        await fetchData();
+      } catch (error: unknown) {
+        showRestockError(describeRestockClientError(error));
       }
     },
     [fetchData],
@@ -341,15 +379,30 @@ export function useRestockPage() {
           { action: "APPROVE" },
         );
         if (!response.ok) {
-          const data = await response.json();
-          toast.error(data.error || "Gagal menyetujui");
+          showRestockError(
+            await readRestockErrorMessage(
+              response,
+              "Pengajuan belum disetujui. Coba sekali lagi.",
+            ),
+          );
           return;
         }
 
-        toast.success("Pengajuan disetujui");
+        const approved: { _poError?: string | null } | null = await response
+          .json()
+          .catch((): null => null);
+        if (approved?._poError) {
+          // Persetujuan tetap tersimpan; yang gagal hanya pembuatan PO otomatis.
+          toast(approved._poError, {
+            icon: "⚠️",
+            duration: RESTOCK_WARNING_TOAST_MS,
+          });
+        } else {
+          toast.success("Pengajuan disetujui");
+        }
         await fetchData();
-      } catch (_error) {
-        toast.error("Terjadi kesalahan");
+      } catch (error: unknown) {
+        showRestockError(describeRestockClientError(error));
       }
     },
     [fetchData],
@@ -376,7 +429,7 @@ export function useRestockPage() {
       (item) => item.statusKonfirmasi === "PENDING",
     );
     if (pending.length === 0) {
-      toast.error("Tidak ada item jasa yang perlu dikonfirmasi");
+      showRestockError("Semua jasa di pengajuan ini sudah ditandai selesai.");
       return;
     }
     setConfirmJasaPR(request);
@@ -437,7 +490,9 @@ export function useRestockPage() {
     });
 
     if (ready.length === 0) {
-      toast.error("Tidak ada jasa yang siap dikonfirmasi");
+      showRestockError(
+        "Belum ada jasa yang siap. Centang jasa yang sudah selesai, lalu unggah fotonya dulu.",
+      );
       return;
     }
 
@@ -460,15 +515,19 @@ export function useRestockPage() {
       );
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Gagal mengonfirmasi jasa");
+        throw new Error(
+          await readRestockErrorMessage(
+            response,
+            "Jasa belum ditandai selesai. Coba sekali lagi.",
+          ),
+        );
       }
 
       toast.success("Jasa berhasil dikonfirmasi selesai");
       closeConfirmJasa();
       await fetchData();
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Terjadi kesalahan");
+      showRestockError(describeRestockClientError(error));
     } finally {
       setSubmitting(false);
     }
@@ -483,7 +542,9 @@ export function useRestockPage() {
   const submitReceipt = useCallback(async () => {
     if (!receivingPR) return;
     if (receivedPhotos.length === 0) {
-      toast.error("Foto bukti penerimaan barang wajib diunggah");
+      showRestockError(
+        "Foto bukti barang datang belum diunggah. Foto barangnya dulu, lalu simpan.",
+      );
       return;
     }
 
@@ -514,15 +575,19 @@ export function useRestockPage() {
       );
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Gagal memproses");
+        throw new Error(
+          await readRestockErrorMessage(
+            response,
+            "Penerimaan barang belum tersimpan. Coba sekali lagi.",
+          ),
+        );
       }
 
       toast.success("Barang berhasil diterima & stok bertambah");
       setReceivingPR(null);
       await fetchData();
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Terjadi kesalahan");
+      showRestockError(describeRestockClientError(error));
     } finally {
       setSubmitting(false);
     }

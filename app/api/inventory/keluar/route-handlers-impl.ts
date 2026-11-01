@@ -5,11 +5,17 @@ import {
   inventoryKeluarRouteService,
   type InventoryKeluarRouteResult,
   logInventoryStockOutEffects,
-  buildInventoryAccessSession,
-  validateGudangSiteAccess,
 } from "@/modules/inventory";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { parsePaginationParams } from "@/lib/utils/pagination";
+import {
+  INVENTORY_UNEXPECTED_ERROR_MESSAGE,
+  inventoryFailureResponse,
+} from "../_lib/inventory-failure-response";
+import {
+  ensureCreateGudangAccess,
+  parseInventoryMutationBody,
+} from "../_lib/inventory-mutation-request";
 
 type InventoryKeluarRouteFailure = Extract<
   InventoryKeluarRouteResult<unknown>,
@@ -54,35 +60,11 @@ async function buildListInput(
   };
 }
 
-/** Validate warehouse access for stock-out create flow. */
-async function validateCreateAccess(user: { id: string }, gudangId: string) {
-  const accessSession = await buildInventoryAccessSession(user);
-  return validateGudangSiteAccess(accessSession, gudangId);
-}
-
 /** Map create keluar payload from route service result. */
 function toCreatedKeluarPayload(
   result: Extract<InventoryKeluarRouteResult<unknown>, { success: true }>,
 ) {
   return result.data as CreatedKeluarPayload;
-}
-
-/** Map route create errors into API responses. */
-function mapCreateKeluarError(error: Error) {
-  if (error.message === "Barang tidak ditemukan")
-    return ApiErrors.notFound("Barang");
-  if (error.message === "Gudang tidak ditemukan atau tidak aktif") {
-    return ApiErrors.badRequest("Gudang tidak ditemukan atau tidak aktif");
-  }
-  if (
-    error.message.includes("Stok tidak mencukupi") ||
-    error.message.includes("tersedia")
-  ) {
-    return ApiErrors.badRequest(error.message);
-  }
-  return ApiErrors.internalError(
-    error.message || "Gagal mencatat barang keluar",
-  );
 }
 
 /** Handle stock breakdown request when requested by query flag. */
@@ -95,8 +77,15 @@ async function handleStockBreakdown(searchParams: URLSearchParams) {
     return apiSuccess(
       await inventoryKeluarRouteService.getStockBreakdown(barangId, gudangId),
     );
-  } catch {
-    return ApiErrors.internalError("Gagal mengecek stok");
+  } catch (error: unknown) {
+    logger.error(
+      "Error checking stock breakdown",
+      error instanceof Error ? error : new Error(String(error)),
+      { path: "/api/inventory/keluar", method: "GET" },
+    );
+    return ApiErrors.internalError(
+      "Sisa stok barang ini gagal dicek karena ada gangguan di server. Pilih barangnya lagi. Kalau tetap gagal, laporkan ke admin.",
+    );
   }
 }
 
@@ -106,7 +95,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   if (!(await hasPermission("keluar:read"))) {
     return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk melihat barang keluar",
+      "Akun Anda tidak punya izin melihat barang keluar. Minta admin menambahkan izin ini ke peran Anda.",
     );
   }
 
@@ -148,7 +137,9 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/keluar",
       method: "GET",
     });
-    return ApiErrors.internalError("Gagal memuat data barang keluar");
+    return ApiErrors.internalError(
+      "Daftar barang keluar gagal dimuat karena ada gangguan di server. Muat ulang halaman. Kalau tetap gagal, laporkan ke admin.",
+    );
   }
 });
 
@@ -158,17 +149,16 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   if (!(await hasPermission("keluar:create"))) {
     return ApiErrors.forbidden(
-      "Anda tidak memiliki akses untuk membuat barang keluar",
+      "Akun Anda tidak punya izin mencatat barang keluar. Minta admin menambahkan izin ini ke peran Anda.",
     );
   }
 
-  const body = await req.json();
-  const access = await validateCreateAccess(user, body.gudangId);
-  if (!access.allowed) {
-    return ApiErrors.forbidden(
-      access.error || "Anda tidak memiliki akses ke gudang ini",
-    );
-  }
+  const parsed = await parseInventoryMutationBody(req);
+  if (parsed.ok === false) return parsed.response;
+  const body = parsed.body;
+
+  const gudangDenied = await ensureCreateGudangAccess(user, body.gudangId);
+  if (gudangDenied) return gudangDenied;
 
   try {
     const dbStart = Date.now();
@@ -177,8 +167,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       tenantId: user.tenantId,
       body,
     });
-    if (isInventoryKeluarRouteFailure(result))
-      return ApiErrors.badRequest(result.error);
+    if (isInventoryKeluarRouteFailure(result)) {
+      return inventoryFailureResponse(result);
+    }
 
     const payload = toCreatedKeluarPayload(result);
     logger.dbOperation(
@@ -203,8 +194,8 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
     await logInventoryStockOutEffects({
       userId: user.id,
-      barangId: body.barangId,
-      gudangId: body.gudangId,
+      barangId: String(body.barangId),
+      gudangId: String(body.gudangId),
       parsedJumlah: payload.parsedJumlah,
       finalStock: payload.finalStock,
       keluarRecord: payload.keluarRecord,
@@ -224,6 +215,6 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       path: "/api/inventory/keluar",
       method: "POST",
     });
-    return mapCreateKeluarError(err);
+    return ApiErrors.internalError(INVENTORY_UNEXPECTED_ERROR_MESSAGE);
   }
 });

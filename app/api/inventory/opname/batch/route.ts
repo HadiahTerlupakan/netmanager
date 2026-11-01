@@ -2,7 +2,7 @@ import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { getUserPermissions } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
-import { inventoryOpnameRouteService } from "@/modules/inventory";
+import { inventoryOpnameRouteService, OPNAME_PESAN } from "@/modules/inventory";
 import type { NextResponse } from "next/server";
 
 /**
@@ -18,11 +18,13 @@ export const POST = createHandler(
     const user = ctx.session!.user;
 
     if (!(await hasPermission("opname:create"))) {
-      return ApiErrors.forbidden();
+      return ApiErrors.forbidden(OPNAME_PESAN.tanpaIzinCatat);
     }
 
     const body = await req.json().catch((): null => null);
-    if (!body) return ApiErrors.badRequest("Body request tidak valid");
+    if (!body) {
+      return ApiErrors.badRequest(OPNAME_PESAN.dataTidakTerbaca);
+    }
 
     const result = await inventoryOpnameRouteService.createOpnameBatch({
       user: {
