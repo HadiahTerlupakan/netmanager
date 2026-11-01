@@ -71,8 +71,8 @@ Add RADIUS server in MikroTik:
 /radius
 add address=<RADIUS_SERVER_IP> secret=<SECRET_FROM_DB> service=ppp
 
-/ppp profile
-set default use-radius=yes
+/ppp aaa
+set use-radius=yes
 ```
 
 **Note**: Use the `secretRadius` value from `MikroTikRouter` table in database.

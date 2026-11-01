@@ -63,8 +63,8 @@ docker exec netmanager-postgres psql -U netmgr -d netmanager \
   secret=testing123 \
   service=ppp
 
-# Enable RADIUS on PPP profile
-/ppp profile set default use-radius=yes
+# Enable RADIUS for PPP (use-radius lives in /ppp aaa, not /ppp profile)
+/ppp aaa set use-radius=yes
 ```
 
 **Step 2: Create Test Customer**
