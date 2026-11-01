@@ -181,6 +181,44 @@ describe("CustomerPaymentRouteService", () => {
     );
   });
 
+  // Uji produksi 2026-11-01: Duitku gagal membuat link atau kode kanal ini,
+  // dan pelanggan membaca "Gagal menghubungi payment gateway" padahal
+  // gateway-nya menjawab.
+  it.each([
+    ["DA", "Duitku HTTP 200: Failed to generate Payment URL Dana"],
+    ["SA", "Duitku HTTP 500: Failed to Generate Request Payment Link Shopee"],
+    ["FT", "Duitku HTTP 500: Failed to generate payment number Retail"],
+  ])(
+    "kanal %s yang gagal dibuat Duitku disebut tidak tersedia",
+    async (paymentMethod, gatewayError) => {
+      mockFns.findPelangganById.mockResolvedValue({
+        id: "cust-1",
+        nama: "Budi",
+      });
+      mockFns.createGatewayPayment.mockResolvedValue({
+        success: false,
+        error: gatewayError,
+      });
+
+      await expect(
+        createCustomerPaymentForRoute({
+          customerId: "cust-1",
+          tenantId: "tenant-1",
+          invoiceIds: ["inv-1"],
+          paymentMethod,
+        }),
+      ).rejects.toMatchObject({
+        status: 502,
+        message:
+          "Metode pembayaran ini sedang tidak tersedia. Silakan pilih metode lain.",
+      });
+      expect(mockFns.markPaymentsAsFailed).toHaveBeenCalledWith(
+        ["pay-1"],
+        gatewayError,
+      );
+    },
+  );
+
   // Invoice Rp 0 dulu dibuatkan payment Rp 0 yang langsung PAID dan bisa
   // menjadi orderId gateway.
   it("invoice Rp 0 dilewati dan permintaan yang hanya berisi Rp 0 ditolak", async () => {

@@ -61,6 +61,10 @@ const BELOW_MINIMUM_REJECTION = /minimum payment/i;
 // belum diaktifkan merchant; produksi 2026-10-31: DANA, ShopeePay, dan FT.
 const CHANNEL_UNAVAILABLE_REJECTION =
   /\b(channel|method)\b[^.]*\b(not (available|active|enabled)|inactive|disabled)\b/i;
+// Duitku gagal membuat link atau kode kanalnya sendiri ("Failed to generate
+// Payment URL Dana", "... Payment Link Shopee", "... payment number Retail";
+// produksi 2026-11-01): gateway menjawab, kanal itulah yang tidak bisa dipakai.
+const CHANNEL_GENERATION_REJECTION = /\bfailed to generate\b/i;
 
 const customerPortalService = new CustomerPortalService();
 const pelangganRepository = new PelangganRepository();
@@ -340,7 +344,10 @@ function toCustomerGatewayError(error: unknown) {
         HTTP_BAD_REQUEST,
       );
     }
-    if (CHANNEL_UNAVAILABLE_REJECTION.test(error.message)) {
+    if (
+      CHANNEL_UNAVAILABLE_REJECTION.test(error.message) ||
+      CHANNEL_GENERATION_REJECTION.test(error.message)
+    ) {
       return createRouteServiceError(
         CHANNEL_UNAVAILABLE_MESSAGE,
         HTTP_BAD_GATEWAY,

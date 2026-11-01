@@ -197,6 +197,32 @@ describe("customer upload receipt route", () => {
     });
   });
 
+  // Uji produksi 2026-11-01: tiap ganti bukti menambah analisis AI baru di
+  // bawah analisis bukti lama, jadi admin membaca dua analisis untuk satu
+  // gambar.
+  it("ganti bukti mengganti analisis bukti lama, catatan pelanggan tetap", async () => {
+    prismaMock.payment.findMany.mockResolvedValue([
+      {
+        ...manualPayment("payment-1", 125000n),
+        receiptUrl: "/uploads/tenants/tenant-1/payment-proofs/lama.webp",
+        notes:
+          "Payment via Customer Portal\n---\n⚠️ [AI Peringatan] Nominal tidak terbaca. [Sistem OCR Gagal: kunci API tidak dikonfigurasi] Pembayaran tidak diverifikasi otomatis.",
+      },
+    ]);
+
+    const response = await POST(uploadRequest(imageFile(PNG)));
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { id: "payment-1", gatewayStatus: "PENDING", verifiedAt: null },
+      data: {
+        receiptUrl: RECEIPT_URL,
+        notes:
+          "Payment via Customer Portal\n---\n✅ [AI Validasi] Nominal sesuai (Rp125.000). Struk valid",
+      },
+    });
+  });
+
   it("menyimpan bukti di direktori privat milik tenant, bukan public/receipts", async () => {
     await POST(uploadRequest(imageFile(PNG)));
 

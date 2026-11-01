@@ -44,6 +44,9 @@ const INVALID_IMAGE_MESSAGE = "File harus berupa gambar JPG, PNG, atau WebP";
 const OVERSIZED_IMAGE_MESSAGE = "Ukuran file maksimal 5MB";
 const MISSING_TENANT_MESSAGE =
   "Pembayaran tanpa tenant tidak bisa menyimpan bukti transfer";
+const NOTE_SEPARATOR = "\n---\n";
+const AI_WARNING_PREFIX = "⚠️ [AI Peringatan]";
+const AI_VALID_PREFIX = "✅ [AI Validasi]";
 
 // Jenis gambar ditentukan dari isi berkas, bukan MIME kiriman klien.
 const RECEIPT_IMAGE_TYPES: Array<[AllowedFileType, string]> = [
@@ -90,7 +93,7 @@ export async function uploadCustomerPaymentReceipt(
     receiptUrl,
     payments: checkout.map((payment) => ({
       id: payment.id,
-      notes: appendNote(payment.notes, analysis),
+      notes: replaceAnalysisNote(payment.notes, analysis),
     })),
   });
   // Admin menyetujui atau pelanggan membatalkan di antara kedua langkah.
@@ -134,8 +137,20 @@ function saveReceiptImage(
   );
 }
 
-function appendNote(existingNotes: string | null, note: string) {
-  return existingNotes ? `${existingNotes}\n---\n${note}` : note;
+/**
+ * Analisis OCR menggambarkan satu bukti. Bukti yang diganti membawa
+ * analisisnya sendiri, jadi analisis bukti lama dibuang, bukan ditumpuk di
+ * bawah catatan pelanggan.
+ */
+function replaceAnalysisNote(existingNotes: string | null, analysis: string) {
+  const kept = (existingNotes ?? "")
+    .split(NOTE_SEPARATOR)
+    .filter((note) => note && !isAnalysisNote(note));
+  return [...kept, analysis].join(NOTE_SEPARATOR);
+}
+
+function isAnalysisNote(note: string) {
+  return note.startsWith(AI_WARNING_PREFIX) || note.startsWith(AI_VALID_PREFIX);
 }
 
 async function publishReceiptUploadSideEffects(
@@ -162,18 +177,18 @@ async function analyzeReceipt(
   );
 
   if (ocrResult.is_potentially_fake) {
-    return `⚠️ [AI Peringatan] Terindikasi palsu/editan. ${ocrResult.catatan_analisis}`.trim();
+    return `${AI_WARNING_PREFIX} Terindikasi palsu/editan. ${ocrResult.catatan_analisis}`.trim();
   }
 
   if (!ocrResult.is_valid_receipt) {
-    return `⚠️ [AI Peringatan] Bukan gambar struk transfer/E-Wallet yang valid. ${ocrResult.catatan_analisis}`.trim();
+    return `${AI_WARNING_PREFIX} Bukan gambar struk transfer/E-Wallet yang valid. ${ocrResult.catatan_analisis}`.trim();
   }
 
   const warnings = buildAmountWarnings(ocrResult.nominal, expectedAmount);
   const statusText =
     warnings.length > 0
-      ? `⚠️ [AI Peringatan] ${warnings.join(", ")}.`
-      : `✅ [AI Validasi] Nominal sesuai (Rp${expectedAmount.toLocaleString("id-ID")}).`;
+      ? `${AI_WARNING_PREFIX} ${warnings.join(", ")}.`
+      : `${AI_VALID_PREFIX} Nominal sesuai (Rp${expectedAmount.toLocaleString("id-ID")}).`;
 
   return `${statusText} ${ocrResult.catatan_analisis}`.trim();
 }
