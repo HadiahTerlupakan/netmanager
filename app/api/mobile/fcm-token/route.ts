@@ -1,6 +1,6 @@
 import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
-import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import { getMobileOrCustomerAuthPayload } from "@/lib/mobile-api-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import {
   MobileFcmTokenError,
@@ -9,7 +9,7 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
-    const authResult = await getMobileAuthPayload(req);
+    const authResult = await getMobileOrCustomerAuthPayload(req);
     if (authResult instanceof NextResponse) {
       return authResult;
     }

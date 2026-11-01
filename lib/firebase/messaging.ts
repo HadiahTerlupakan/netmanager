@@ -1,3 +1,4 @@
+import type { BatchResponse } from "firebase-admin/messaging";
 import { logger } from "@/lib/logger";
 import { messaging } from "@/lib/firebase/admin";
 import { getPushCollapseKey } from "@/lib/firebase/push-collapse";
@@ -7,6 +8,25 @@ import { prismaMitra } from "@/lib/prisma-mitra";
 import { clearStaleFcmTokens } from "@/modules/notification";
 
 const STALE_TOKEN_THRESHOLD_DAYS = 30;
+
+/**
+ * Channel Android bernada gelembung. Aplikasi membuatnya setiap kali dibuka dan
+ * menjadikannya channel bawaan FCM di manifest; perangkat yang belum punya
+ * channel ini jatuh ke channel bawaan manifest itu, menurut dokumentasi FCM.
+ * Push Expo sengaja tidak memakainya (lihat `createExpoPushMessage`).
+ */
+const ANDROID_NOTIFICATION_CHANNEL_ID = "high-priority-bubble";
+
+/**
+ * Galat FCM yang berarti token itu sendiri mati: aplikasi dicopot, token
+ * diganti, atau token rusak. `messaging/invalid-argument` tidak termasuk:
+ * FCM juga memakainya untuk payload yang salah, dan menganggapnya token mati
+ * akan mengosongkan token semua penerima karena satu bug payload.
+ */
+const STALE_TOKEN_ERROR_CODES = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+]);
 
 /**
  * Mendapatkan semua token FCM dari pengguna dengan role Admin (Backend).
@@ -78,17 +98,18 @@ export async function getMitraTokens(mitraId: string): Promise<string[]> {
 }
 
 /**
- * Mengirim notifikasi multicast FCM ke daftar token. Token yang ditolak FCM
- * dengan kode `messaging/registration-token-not-registered` akan dibersihkan
- * dari DB agar tidak terus consume quota di multicast berikutnya.
+ * Mengirim notifikasi multicast FCM ke daftar token dan mengembalikan jumlah
+ * pesan yang diterima FCM. Token yang ditolak sebagai tidak terdaftar atau
+ * tidak sah dibersihkan dari DB agar tidak terus consume quota di multicast
+ * berikutnya.
  */
 export async function sendFCMNotification(
   tokens: string[],
   title: string,
   body: string,
   data?: Record<string, string>,
-) {
-  if (!tokens || tokens.length === 0) return;
+): Promise<number> {
+  if (!tokens || tokens.length === 0) return 0;
 
   // Guard env tanpa Firebase Admin (dev/CI tanpa secret) — caller umumnya
   // fire-and-forget, tanpa null check ini setiap notifikasi log noisy stack.
@@ -96,7 +117,7 @@ export async function sendFCMNotification(
     logger.warn(
       "[FCM] Skip multicast — Firebase Admin SDK tidak ter-init (env tanpa FIREBASE_PRIVATE_KEY?)",
     );
-    return;
+    return 0;
   }
 
   // Dipakai sebagai collapse key, tag baki, dan apns-collapse-id: push
@@ -125,9 +146,12 @@ export async function sendFCMNotification(
         collapseKey,
         // Android merujuk berkas di res/raw tanpa ekstensi. Nilai ini hanya
         // berlaku pada perangkat pra-Android 8 — sejak Android 8 suara
-        // ditentukan channel, dan aplikasi mengarahkan notifikasi latar
-        // belakang ke channel bernada lembut lewat penunjuk di manifest.
-        notification: { sound: PUSH_SOUND_ANDROID, tag: collapseKey },
+        // ditentukan channel, yaitu `channelId` bernada lembut ini.
+        notification: {
+          channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
+          sound: PUSH_SOUND_ANDROID,
+          tag: collapseKey,
+        },
       },
       webpush: {
         notification: {
@@ -144,39 +168,47 @@ export async function sendFCMNotification(
     // tidak lagi aktif. Tanpa cleanup, array `fcmTokens[]` membengkak dan
     // multicast berikutnya buang quota ke endpoint mati.
     if (response.failureCount > 0) {
-      const stale: string[] = [];
-      const transientErrors: Array<{ index: number; code: string }> = [];
-
-      for (let i = 0; i < response.responses.length; i++) {
-        const r = response.responses[i];
-        if (r.success) continue;
-        const errorCode = r.error?.code || "unknown";
-        if (errorCode === "messaging/registration-token-not-registered") {
-          stale.push(tokens[i]);
-        } else {
-          transientErrors.push({ index: i, code: errorCode });
-        }
-      }
-
-      if (transientErrors.length > 0) {
-        logger.warn(
-          `[FCM] ${transientErrors.length} transient error(s): ${transientErrors.map((e) => e.code).join(", ")}`,
-        );
-      }
-
-      if (stale.length > 0) {
-        try {
-          await clearStaleFcmTokens(stale);
-          logger.info(`[FCM] Cleaned ${stale.length} stale token(s) from DB`);
-        } catch (cleanupError) {
-          logger.warn(
-            "[FCM] Failed to clean stale tokens (non-fatal):",
-            cleanupError,
-          );
-        }
-      }
+      await reapRejectedTokens(response.responses, tokens);
     }
+    return response.successCount;
   } catch (error) {
     logger.error("[FCM] Error sending Multicast:", error);
+    return 0;
+  }
+}
+
+/** Bersihkan token yang ditolak FCM sebagai mati; galat lain hanya dicatat. */
+async function reapRejectedTokens(
+  responses: BatchResponse["responses"],
+  tokens: string[],
+): Promise<void> {
+  const stale: string[] = [];
+  const transientErrorCodes: string[] = [];
+
+  responses.forEach((result, index) => {
+    if (result.success) return;
+    const errorCode = result.error?.code || "unknown";
+    if (STALE_TOKEN_ERROR_CODES.has(errorCode)) {
+      stale.push(tokens[index]);
+    } else {
+      transientErrorCodes.push(errorCode);
+    }
+  });
+
+  if (transientErrorCodes.length > 0) {
+    logger.warn(
+      `[FCM] ${transientErrorCodes.length} transient error(s): ${transientErrorCodes.join(", ")}`,
+    );
+  }
+  if (stale.length === 0) return;
+
+  try {
+    await clearStaleFcmTokens(stale);
+    logger.info(`[FCM] Cleaned ${stale.length} stale token(s) from DB`);
+  } catch (cleanupError) {
+    logger.warn(
+      "[FCM] Failed to clean stale tokens (non-fatal):",
+      cleanupError,
+    );
   }
 }

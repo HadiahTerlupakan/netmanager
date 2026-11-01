@@ -5,7 +5,8 @@ import { prismaMock } from "../setup";
 const mockGetMobileAuthPayload = vi.fn();
 
 vi.mock("@/lib/mobile-api-auth", () => ({
-  getMobileAuthPayload: (request: Request) => mockGetMobileAuthPayload(request),
+  getMobileOrCustomerAuthPayload: (request: Request) =>
+    mockGetMobileAuthPayload(request),
 }));
 
 import { POST } from "@/app/api/mobile/fcm-token/route";

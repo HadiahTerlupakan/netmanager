@@ -139,6 +139,25 @@ async function sendExpoPush(
   }
 }
 
+/**
+ * Kirim satu push Expo ke satu token; token yang ditolak Expo dibersihkan
+ * atau diantrekan ulang seperti push Expo lainnya.
+ */
+export async function sendExpoPushToToken(
+  pushToken: string,
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+): Promise<boolean> {
+  const messages: ExpoPushMessage[] = [
+    createExpoPushMessage({ token: pushToken, title, body, data }),
+  ];
+  const { success, failedTokens } = await sendExpoPush(messages);
+  if (!success && failedTokens.length > 0)
+    await handleFailedTokens(failedTokens, messages);
+  return success;
+}
+
 export async function sendPushNotification(
   userId: string,
   title: string,
@@ -154,48 +173,9 @@ export async function sendPushNotification(
       pushToken = mitra?.pushToken || null;
     }
     if (!pushToken) return false;
-    const messages: ExpoPushMessage[] = [
-      createExpoPushMessage({ token: pushToken, title, body, data }),
-    ];
-    const { success, failedTokens } = await sendExpoPush(messages);
-    if (!success && failedTokens.length > 0)
-      await handleFailedTokens(failedTokens, messages);
-    return success;
+    return await sendExpoPushToToken(pushToken, title, body, data);
   } catch (error) {
     logger.error("[Push] Error sending notification:", error);
-    return false;
-  }
-}
-
-export async function sendCustomerPushNotification(
-  pelangganId: string,
-  title: string,
-  body: string,
-  data?: Record<string, unknown>,
-): Promise<boolean> {
-  try {
-    const pelanggan =
-      await getPelangganPushTokenService().findByIdWithPushToken(pelangganId);
-    if (!pelanggan?.pushToken) return false;
-
-    // Preferensi ditegakkan di sini, bukan di tiap pemanggil: jalur push
-    // langsung (pembayaran ditolak/dibatalkan) sebelumnya melewatinya sehingga
-    // pelanggan yang sudah mematikan notifikasi tagihan tetap menerima push.
-    if (pelanggan.isBillNotifEnabled === false) {
-      logger.info(
-        `[Push] Skip — pelanggan ${pelangganId} menonaktifkan notifikasi tagihan`,
-      );
-      return false;
-    }
-    const messages: ExpoPushMessage[] = [
-      createExpoPushMessage({ token: pelanggan.pushToken, title, body, data }),
-    ];
-    const { success, failedTokens } = await sendExpoPush(messages);
-    if (!success && failedTokens.length > 0)
-      await handleFailedTokens(failedTokens, messages);
-    return success;
-  } catch (error) {
-    logger.error("[Push] Error sending customer notification:", error);
     return false;
   }
 }

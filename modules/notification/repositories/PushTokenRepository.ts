@@ -24,6 +24,31 @@ function mergeFcmTokenSet(existing: string[], next: string): string[] {
   return Array.from(new Set([...existing, next]));
 }
 
+const CUSTOMER_ROLE = "CUSTOMER";
+
+/** Baris pelanggan pemilik sesi: id-nya, dibatasi tenant sesi itu. */
+function customerOwnerWhere(session: IMobileFcmSession, pelangganId: string) {
+  return { id: pelangganId, tenantId: session.tenantId ?? undefined };
+}
+
+/** Read-merge-write token pelanggan dalam satu transaksi, seperti token user. */
+async function appendCustomerFcmToken(
+  where: ReturnType<typeof customerOwnerWhere>,
+  fcmToken: string,
+) {
+  await prisma.$transaction(async (tx) => {
+    const owner = await tx.pelanggan.findUnique({
+      where,
+      select: { fcmTokens: true },
+    });
+    const next = mergeFcmTokenSet(owner?.fcmTokens ?? [], fcmToken);
+    await tx.pelanggan.update({
+      where,
+      data: { fcmTokens: { set: next } },
+    });
+  });
+}
+
 export class PushTokenRepository implements IPushTokenRepository {
   async findUserPushToken(userId: string): Promise<string | null> {
     const user = await prisma.user.findUnique({
@@ -120,7 +145,7 @@ export class PushTokenRepository implements IPushTokenRepository {
   }
 
   /**
-   * Hapus token dari array fcmTokens[] di User, Mitra, dan Investor.
+   * Hapus token dari array fcmTokens[] di User, Mitra, Investor, dan Pelanggan.
    * Ini adalah ROOT CAUSE fix — sebelumnya cleanup hanya bersihkan
    * legacy `pushToken` tapi tidak menyentuh array `fcmTokens[]`
    * sehingga stale token terus menumpuk dan gagal di setiap multicast.
@@ -130,7 +155,7 @@ export class PushTokenRepository implements IPushTokenRepository {
     const tokenSet = new Set(tokens);
     let removedCount = 0;
 
-    const [users, mitras, investors] = await Promise.all([
+    const [users, mitras, investors, pelanggans] = await Promise.all([
       prisma.user.findMany({
         where: { fcmTokens: { hasSome: tokens } },
         select: { id: true, fcmTokens: true },
@@ -140,6 +165,10 @@ export class PushTokenRepository implements IPushTokenRepository {
         select: { id: true, fcmTokens: true },
       }),
       findInvestorFcmTokenOwners(tokens),
+      prisma.pelanggan.findMany({
+        where: { fcmTokens: { hasSome: tokens } },
+        select: { id: true, fcmTokens: true },
+      }),
     ]);
 
     const pemilik = [
@@ -162,6 +191,14 @@ export class PushTokenRepository implements IPushTokenRepository {
       ...investors.map((investor) => ({
         fcmTokens: investor.fcmTokens,
         simpan: (sisa: string[]) => replaceInvestorFcmTokens(investor.id, sisa),
+      })),
+      ...pelanggans.map((pelanggan) => ({
+        fcmTokens: pelanggan.fcmTokens,
+        simpan: (sisa: string[]) =>
+          prisma.pelanggan.update({
+            where: { id: pelanggan.id },
+            data: { fcmTokens: { set: sisa } },
+          }),
       })),
     ];
 
@@ -204,11 +241,15 @@ export class PushTokenRepository implements IPushTokenRepository {
     });
   }
 
-  async findOwnerTokens(
-    session: { role?: string; tenantId?: string | null },
-    userId: string,
-  ) {
+  async findOwnerTokens(session: IMobileFcmSession, userId: string) {
     const where = { id: userId, tenantId: session.tenantId ?? undefined };
+
+    if (session.role === CUSTOMER_ROLE) {
+      return prisma.pelanggan.findFirst({
+        where,
+        select: { id: true, fcmTokens: true },
+      });
+    }
 
     if (session.role === "MITRA") {
       return prismaMitra.mitra.findFirst({
@@ -224,7 +265,7 @@ export class PushTokenRepository implements IPushTokenRepository {
   }
 
   async appendOwnerToken(
-    session: { role?: string },
+    session: IMobileFcmSession,
     userId: string,
     fcmToken: string,
   ) {
@@ -232,6 +273,14 @@ export class PushTokenRepository implements IPushTokenRepository {
     // (login + tokenRefresh listener firing bersamaan) tidak menghasilkan
     // duplikat di array `fcmTokens`. Tanpa transaksi, race window membuka
     // celah multicast push notifikasi yang sama berkali-kali ke 1 device.
+    if (session.role === CUSTOMER_ROLE) {
+      await appendCustomerFcmToken(
+        customerOwnerWhere(session, userId),
+        fcmToken,
+      );
+      return;
+    }
+
     if (session.role === "MITRA") {
       await prismaMitra.$transaction(async (tx) => {
         const owner = await tx.mitra.findUnique({
@@ -261,10 +310,18 @@ export class PushTokenRepository implements IPushTokenRepository {
   }
 
   async replaceOwnerTokens(
-    session: { role?: string },
+    session: IMobileFcmSession,
     userId: string,
     fcmTokens: string[],
   ) {
+    if (session.role === CUSTOMER_ROLE) {
+      await prisma.pelanggan.update({
+        where: customerOwnerWhere(session, userId),
+        data: { fcmTokens: { set: fcmTokens } },
+      });
+      return;
+    }
+
     if (session.role === "MITRA") {
       await prismaMitra.mitra.update({
         where: { id: userId },

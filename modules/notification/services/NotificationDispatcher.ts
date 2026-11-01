@@ -9,7 +9,7 @@ import {
   type BillingTemplateParams,
 } from "../templates/billing-templates";
 import { createCustomerNotification } from "./CustomerInAppNotificationService";
-import { sendCustomerPushNotification } from "./ExpoPushService";
+import { sendCustomerPushNotification } from "./CustomerPushService";
 import { WhatsAppSenderService } from "./whatsapp-sender.service";
 import { isWhatsAppNotConfigured } from "./whatsapp/whatsapp-send-result";
 import { EmailService } from "./email-service";

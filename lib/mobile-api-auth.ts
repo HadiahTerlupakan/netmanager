@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { apiError, ErrorCodes } from "@/lib/api-response";
+import { authenticateBearerCustomer } from "@/lib/customer-auth";
 import { getMobileTokenDetails, verifyMobileToken } from "@/lib/mobile-auth";
 import type { MobileTokenPayload } from "@/lib/mobile-auth";
+
+/** Peran sesi pelanggan, sama dengan yang dipakai token mobile pelanggan. */
+const CUSTOMER_ROLE = "CUSTOMER";
 
 interface MobileAuthSuccess {
   payload: MobileTokenPayload;
@@ -109,4 +113,28 @@ export async function getMobileAuthPayload(
   }
 
   return result.payload;
+}
+
+/**
+ * Payload mobile untuk endpoint yang dipakai karyawan, mitra, dan pelanggan.
+ *
+ * Aplikasi memakai token akses portal untuk pelanggan. `getMobileAuthPayload`
+ * menolaknya (token itu tanpa klaim `role` dan `tokenVersion`), dan 401 itu
+ * membuat aplikasi menyegarkan token, mencoba lagi, lalu mengeluarkan
+ * pelanggan. Token pelanggan dinilai lebih dulu; selebihnya oleh verifikator
+ * mobile karyawan seperti biasa.
+ */
+export async function getMobileOrCustomerAuthPayload(
+  request: Request,
+): Promise<MobileTokenPayload | NextResponse> {
+  const customerAuth = authenticateBearerCustomer(request);
+  if (!customerAuth) {
+    return getMobileAuthPayload(request);
+  }
+  if (customerAuth.response) {
+    return customerAuth.response;
+  }
+
+  const { id, tenantId } = customerAuth.session;
+  return { sub: id, userId: id, id, role: CUSTOMER_ROLE, tenantId };
 }

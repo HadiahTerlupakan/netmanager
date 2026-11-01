@@ -103,8 +103,8 @@ export {
   type EmailErrorCategory,
   type ClassifiedEmailError,
 } from "./services/email-error-classifier";
+export { sendCustomerPushNotification } from "./services/CustomerPushService";
 export {
-  sendCustomerPushNotification,
   sendPushNotification,
   sendPushToUsers,
   sendPushToDepartment,

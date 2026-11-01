@@ -15,7 +15,7 @@ vi.mock(
 );
 
 const mockSendPush = vi.fn();
-vi.mock("@/modules/notification/services/ExpoPushService", () => ({
+vi.mock("@/modules/notification/services/CustomerPushService", () => ({
   sendCustomerPushNotification: (...args: unknown[]) => mockSendPush(...args),
 }));
 

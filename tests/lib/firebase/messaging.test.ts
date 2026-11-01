@@ -19,6 +19,6 @@ describe("sendFCMNotification fallback", () => {
 
     await expect(
       sendFCMNotification(["token-1"], "Title", "Body"),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(0);
   });
 });

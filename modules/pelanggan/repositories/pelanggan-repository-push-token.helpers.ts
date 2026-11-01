@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * Get customer push token by id.
+ * Get customer push tokens by id: token FCM aplikasi sekarang dan token Expo
+ * aplikasi lama.
  *
  * Preferensi ikut diambil karena pengirim push wajib menghormatinya; tanpa itu
  * pelanggan yang mematikan notifikasi tagihan tetap menerima push.
@@ -9,7 +10,12 @@ import { prisma } from "@/lib/prisma";
 export function findByIdWithPushToken(pelangganId: string) {
   return prisma.pelanggan.findUnique({
     where: { id: pelangganId },
-    select: { id: true, pushToken: true, isBillNotifEnabled: true },
+    select: {
+      id: true,
+      pushToken: true,
+      fcmTokens: true,
+      isBillNotifEnabled: true,
+    },
   });
 }
 
