@@ -3,6 +3,7 @@ import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { HiArrowPath } from "react-icons/hi2";
+import RouterGuideModal from "@/components/mikrotik/RouterGuideModal";
 import ScriptGeneratorModal from "@/components/mikrotik/ScriptGeneratorModal";
 import TestConnectionModal from "@/components/mikrotik/TestConnectionModal";
 import { Button } from "@/components/ui/Button";
@@ -29,6 +30,7 @@ export function ClientComponent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showScriptModal, setShowScriptModal] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const [isVpnRouter, setIsVpnRouter] = useState(false);
   const [savedRosVersion, setSavedRosVersion] = useState<RouterOsVersion>("V6");
   const [publicIpAddress, setPublicIpAddress] = useState<string | null>(null);
@@ -167,8 +169,24 @@ export function ClientComponent() {
           Edit Router {pppConnectionMode === "RADIUS" && "[NAS]"}
         </h1>
         <div className="flex items-center gap-2">
-          <Button variant="success">Panduan Dasar</Button>
-          <Button type="button" onClick={() => setShowScriptModal(true)}>
+          <Button
+            type="button"
+            variant="success"
+            onClick={() => setShowGuideModal(true)}
+          >
+            Panduan Dasar
+          </Button>
+          <Button
+            type="button"
+            onClick={() => setShowScriptModal(true)}
+            // Script ini untuk router publik; router VPN memakai script VPN-nya.
+            disabled={isVpnRouter}
+            title={
+              isVpnRouter
+                ? "Router VPN dipasang lewat script VPN, bukan script ini"
+                : undefined
+            }
+          >
             &lt;/&gt; SCRIPT GENERATOR
           </Button>
         </div>
@@ -237,6 +255,13 @@ export function ClientComponent() {
       <ScriptGeneratorModal
         open={showScriptModal}
         onClose={() => setShowScriptModal(false)}
+        formData={formData}
+        pppConnectionMode={pppConnectionMode}
+      />
+
+      <RouterGuideModal
+        open={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
       />
     </div>
   );

@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Panduan Dasar dan Script Generator router berfungsi
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/network/mikrotik` | `components/mikrotik` | `modules/network`
+- **Author**: agent
+- **Deskripsi**: Tombol "Panduan Dasar" di halaman tambah dan edit router tidak punya aksi; kini membuka panduan langkah menambah router publik dan router VPN. "SCRIPT GENERATOR" untuk router publik dulu meminta IP aplikasi diketik dan mengeluarkan `/radius add` dengan `secret=<SECRET_RADIUS>` yang tidak bisa dipakai, padahal entri RADIUS dan CoA sudah dipasang otomatis saat router disimpan. Kini script dibuat dari isi form, yaitu yang memang harus disiapkan operator sebelum Tes Koneksi: service API di Port API, dan user API (`group=full`) yang hanya dibuat bila namanya belum ada, sehingga akun yang sudah ada seperti admin tidak pernah diubah. Untuk mode PPP RADIUS ditambah `/ppp aaa set use-radius=yes`, karena provisioning tidak menyentuh `/ppp aaa`. Tanpa username dan password, modal meminta form diisi dulu. Di halaman edit, tombol dimatikan untuk router VPN. `quoteRouterOs` dibuka untuk UI lewat sub-entrypoint `@/modules/network/routeros`.
+- **Files**: `app/admin/network/mikrotik/routerPrepScript.ts`, `components/mikrotik/ScriptGeneratorModal.tsx`, `components/mikrotik/RouterGuideModal.tsx`, `app/admin/network/mikrotik/new/MikrotikNewClient.tsx`, `app/admin/network/mikrotik/[id]/edit/MikrotikEditClient.tsx`, `modules/network/routeros.ts`, `tests/app/mikrotik-router-prep-script.test.ts`, `tests/app/mikrotik-panduan-script.test.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Kanal di bawah nominal minimumnya tidak ditawarkan
 
 - **Tipe**: [CHANGED]

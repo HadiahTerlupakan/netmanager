@@ -2,6 +2,7 @@
 import { clientLogger } from "@/lib/client-logger";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import RouterGuideModal from "@/components/mikrotik/RouterGuideModal";
 import ScriptGeneratorModal from "@/components/mikrotik/ScriptGeneratorModal";
 import TestConnectionModal from "@/components/mikrotik/TestConnectionModal";
 import VpnScriptModal from "@/components/mikrotik/VpnScriptModal";
@@ -22,6 +23,7 @@ export function ClientComponent() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showScriptModal, setShowScriptModal] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const [testPassed, setTestPassed] = useState(false);
   const [formData, setFormData] = useState<
     MikrotikRouterFormData & { autoConfigure: boolean }
@@ -150,7 +152,13 @@ export function ClientComponent() {
           Tambah Router {pppConnectionMode === "RADIUS" && "[NAS]"}
         </h1>
         <div className="flex items-center gap-2">
-          <Button variant="success">Panduan Dasar</Button>
+          <Button
+            type="button"
+            variant="success"
+            onClick={() => setShowGuideModal(true)}
+          >
+            Panduan Dasar
+          </Button>
           <Button
             type="button"
             onClick={openScriptModal}
@@ -232,6 +240,13 @@ export function ClientComponent() {
       <ScriptGeneratorModal
         open={showScriptModal && !vpn.isVpnMode}
         onClose={() => setShowScriptModal(false)}
+        formData={formData}
+        pppConnectionMode={pppConnectionMode}
+      />
+
+      <RouterGuideModal
+        open={showGuideModal}
+        onClose={() => setShowGuideModal(false)}
       />
     </div>
   );
