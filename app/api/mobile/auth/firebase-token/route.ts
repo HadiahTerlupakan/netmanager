@@ -1,10 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
+import type { MobileTokenPayload } from "@/lib/mobile-auth";
 import { auth as firebaseAdminAuth } from "@/lib/firebase/admin";
 import { isSuperAdminRole } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { advancedRateLimit } from "@/lib/middleware/advanced-rate-limit";
+import {
+  CUSTOMER_REALTIME_ROLE,
+  buildCustomerRealtimeClaims,
+} from "@/lib/realtime/firebase-claims";
+
+/** Klaim staf dan mitra di aplikasi mobile. */
+function buildMobileStaffClaims(session: MobileTokenPayload) {
+  const isSuperAdmin =
+    Boolean(session.isSuperAdmin) || isSuperAdminRole(session.role || "USER");
+  const primarySiteId =
+    (session.primarySiteId as string | undefined) ??
+    session.siteId ??
+    undefined;
+
+  return {
+    role: isSuperAdmin ? "SUPER_ADMIN" : (session.role ?? "USER"),
+    tenantId: session.tenantId ?? null,
+    departmentId: session.departmentId ?? null,
+    siteId: session.siteId ?? primarySiteId ?? null,
+    primarySiteId: primarySiteId ?? null,
+    accessAdminPanel: Boolean(session.accessAdminPanel),
+    accessEmployeePanel: true,
+    isSuperAdmin,
+  };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,28 +56,20 @@ export async function POST(req: NextRequest) {
     }
 
     const session = authResult;
-    const isSuperAdmin =
-      Boolean(session.isSuperAdmin) || isSuperAdminRole(session.role || "USER");
-    const primarySiteId =
-      (session.primarySiteId as string | undefined) ??
-      session.siteId ??
-      undefined;
-
-    const claims = {
-      role: isSuperAdmin ? "SUPER_ADMIN" : (session.role ?? "USER"),
-      tenantId: session.tenantId ?? null,
-      departmentId: session.departmentId ?? null,
-      siteId: session.siteId ?? primarySiteId ?? null,
-      primarySiteId: primarySiteId ?? null,
-      accessAdminPanel: Boolean(session.accessAdminPanel),
-      accessEmployeePanel: true,
-      isSuperAdmin,
-    };
+    // Pelanggan hanya membaca kanalnya sendiri. Klaim berbentuk staf
+    // (ber-tenant, `accessEmployeePanel`) membuka event tiket dan work order
+    // se-tenant lewat aturan `seTenant()`.
+    const claims =
+      session.role === CUSTOMER_REALTIME_ROLE
+        ? buildCustomerRealtimeClaims()
+        : buildMobileStaffClaims(session);
 
     // Persist ke Firebase Auth user record agar Firestore rules melihat
     // claim yang fresh tanpa harus tunggu user logout-login. Tanpa ini,
     // role demosi (mis. ADMIN → OPERATOR) tidak efektif sampai user
     // sign-in ulang ke mobile — ada window privilege escalation berhari.
+    // setCustomUserClaims menimpa seluruh klaim tersimpan, jadi pelanggan
+    // yang dulu menerima klaim ber-tenant kini kembali ke klaim pelanggan.
     //
     // Catatan: ID token client tetap memuat claim lama sampai mereka
     // panggil getIdToken(true). Mobile (RealtimeService) sudah handle

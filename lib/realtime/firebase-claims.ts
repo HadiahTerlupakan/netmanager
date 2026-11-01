@@ -3,6 +3,9 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 /** Staf masuk lewat sesi NextAuth; pelanggan lewat cookie portal pelanggan. */
 export type RealtimeAudience = "staff" | "customer";
 
+/** Peran yang dibawa sesi pelanggan dan diklaim token realtime pelanggan. */
+export const CUSTOMER_REALTIME_ROLE = "CUSTOMER";
+
 /** Rute pencetak token custom Firebase untuk tiap jenis pengguna realtime. */
 export const REALTIME_TOKEN_PATHS: Record<RealtimeAudience, string> = {
   staff: "/api/auth/firebase-token",
@@ -66,7 +69,7 @@ export function buildRealtimeClaims(
  */
 export function buildCustomerRealtimeClaims(): RealtimeClaims {
   return {
-    role: "CUSTOMER",
+    role: CUSTOMER_REALTIME_ROLE,
     tenantId: null,
     departmentId: null,
     siteId: null,

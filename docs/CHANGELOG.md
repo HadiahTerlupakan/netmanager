@@ -104,6 +104,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `app/api/customer/firebase-token/route.ts` (baru), `lib/realtime/firebase-claims.ts`, `lib/realtime/RealtimeContext.tsx`, `components/providers/CustomerRealtimeProviderWrapper.tsx`, `lib/websocket/emitter.ts`, `lib/websocket/hooks/useRealtimeTicketChat.ts`, `lib/websocket/hooks/useCustomerNotifications.ts`, `modules/pelanggan/services/admin-support-ticket-reply.helpers.ts`, `modules/pelanggan/services/AdminSupportTicketService.ts`, `modules/pelanggan/services/support-ticket-customer.helpers.ts`, `tests/api/customer-firebase-token-route.test.ts`, `tests/lib/realtime/realtime-customer-auth.test.tsx`, `tests/lib/realtime/firestore-channel-fake.ts`, `tests/lib/realtime/socket-emitter-adapter.test.ts`, `tests/lib/realtime/realtime-core-hooks.test.ts`, `tests/lib/websocket/useCustomerNotifications-sound.test.tsx`
 - **Breaking**: ❌ Tidak
 
+### [2026-11-01] — Rute token mobile memberi pelanggan klaim pelanggan saja
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/mobile/auth/firebase-token` | `lib/realtime`
+- **Author**: agent
+- **Deskripsi**: Untuk sesi CUSTOMER, `POST /api/mobile/auth/firebase-token` dulu mencetak klaim berbentuk staf (`tenantId` pelanggan, `accessEmployeePanel: true`) dan menyimpannya dengan `setCustomUserClaims`. Dengan aturan Firestore `seTenant()`, token itu membuka event tiket dan work order seluruh tenant bagi pelanggan yang tahu id-nya. Kini sesi pelanggan mendapat `buildCustomerRealtimeClaims()` (role CUSTOMER, tanpa tenant, tanpa akses staf), dan klaim itu pula yang disimpan, sehingga klaim lama tertimpa saat aplikasi mencetak ulang token. Staf, mitra, dan investor tidak berubah. Aplikasi tidak kehilangan apa pun: layar pelanggan tidak berlangganan kanal Firestore (tiket, tagihan, dan notifikasi dimuat lewat REST; presence ditulis ke Realtime Database). Aplikasi baru mencetak ulang token saat token Firebase-nya tidak bisa diperbarui, jadi klaim lama bisa bertahan; patch aturan Firestore untuk repo mobile (`seTenant()`, `canAccessAdminPanel()`, kanal departemen, dan presence mengecualikan role CUSTOMER) menutup jalurnya sekarang juga dan perlu di-deploy terpisah.
+- **Files**: `app/api/mobile/auth/firebase-token/route.ts`, `lib/realtime/firebase-claims.ts`, `tests/api/mobile-firebase-token-route.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]
