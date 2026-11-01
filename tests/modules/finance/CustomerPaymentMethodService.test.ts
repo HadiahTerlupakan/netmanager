@@ -84,6 +84,30 @@ describe("CustomerPaymentMethodService", () => {
       );
     });
 
+    // Uji produksi 2026-11-01: VA BCA, Mandiri, BRI, dan Indomaret ditolak
+    // Duitku di Rp 9.990 ("Minimum Payment 10000 IDR"), sedangkan QRIS, OVO,
+    // dan LinkAja menerimanya; dulu keempatnya tetap ditawarkan.
+    it("kanal yang menolak nominal di bawah minimumnya tidak ditawarkan", async () => {
+      const codes = duitkuCodes(
+        await service().getCustomerPaymentMethods("tenant-1", 9990),
+      );
+
+      expect(codes).toEqual(expect.arrayContaining(["SP", "OV", "LA"]));
+      for (const code of ["BC", "M2", "BR", "IR"]) {
+        expect(codes).not.toContain(code);
+      }
+    });
+
+    it("kanal bernominal minimum ditawarkan lagi tepat di minimumnya", async () => {
+      const codes = duitkuCodes(
+        await service().getCustomerPaymentMethods("tenant-1", 10000),
+      );
+
+      expect(codes).toEqual(
+        expect.arrayContaining(["BC", "M2", "BR", "IR", "SP"]),
+      );
+    });
+
     it("Duitku yang tidak terjangkau tidak mengosongkan pilihan: katalog statis dipakai", async () => {
       findActiveChannels.mockResolvedValue(null);
 

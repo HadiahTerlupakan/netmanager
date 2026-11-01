@@ -5,12 +5,21 @@ export type PaymentMethodCatalogItem = {
   type: string;
   code: string;
   group: string;
+  /** Nominal terkecil yang diterima kanal; di bawahnya gateway menolak. */
+  minAmount?: number;
   details?: {
     bankName: string;
     accountName: string;
     accountNumber: string;
   };
 };
+
+// Duitku menolak kanal bertanda ini di bawah Rp 10.000 dengan "Minimum
+// Payment 10000 IDR" (uji produksi 2026-11-01 di Rp 9.990: BC, M2, BR, IR);
+// QRIS, OVO, dan LinkAja menerima nominal yang sama. Dokumentasinya tidak
+// memuat batas per kanal, jadi FT, DANA, dan ShopeePay, yang gagal oleh
+// sebab lain, belum diketahui batasnya.
+const DUITKU_MIN_PAYMENT_AMOUNT = 10_000;
 
 const DUITKU_PAYMENT_METHODS: PaymentMethodCatalogItem[] = [
   {
@@ -20,6 +29,7 @@ const DUITKU_PAYMENT_METHODS: PaymentMethodCatalogItem[] = [
     type: "VA",
     code: "BC",
     group: "Virtual Account",
+    minAmount: DUITKU_MIN_PAYMENT_AMOUNT,
   },
   {
     id: "duitku_mandiri",
@@ -28,6 +38,7 @@ const DUITKU_PAYMENT_METHODS: PaymentMethodCatalogItem[] = [
     type: "VA",
     code: "M2",
     group: "Virtual Account",
+    minAmount: DUITKU_MIN_PAYMENT_AMOUNT,
   },
   {
     id: "duitku_bri",
@@ -36,6 +47,7 @@ const DUITKU_PAYMENT_METHODS: PaymentMethodCatalogItem[] = [
     type: "VA",
     code: "BR",
     group: "Virtual Account",
+    minAmount: DUITKU_MIN_PAYMENT_AMOUNT,
   },
   {
     id: "duitku_qris",
@@ -80,6 +92,7 @@ const DUITKU_PAYMENT_METHODS: PaymentMethodCatalogItem[] = [
     type: "RETAIL",
     code: "IR",
     group: "Minimarket",
+    minAmount: DUITKU_MIN_PAYMENT_AMOUNT,
   },
 ];
 

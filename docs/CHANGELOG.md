@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-01] — Kanal di bawah nominal minimumnya tidak ditawarkan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/payment-gateway` | `modules/finance`
+- **Author**: agent
+- **Deskripsi**: Daftar metode pelanggan menawarkan VA untuk Rp 9.990 (tagihan berkupon), lalu Duitku menolaknya dengan "Minimum Payment 10000 IDR". Uji produksi di Rp 9.990 menunjukkan BC, M2, BR, dan IR menolak, sedangkan QRIS, OVO, dan LinkAja menerima. Katalog kini mencatat `minAmount` Rp 10.000 untuk keempat kanal itu, dan `CustomerPaymentMethodService` tidak menawarkan kanal di bawah minimumnya untuk nominal yang dikirim portal dan aplikasi lewat `?amount=` (sudah setelah kupon). FT, DANA, dan ShopeePay belum diberi batas karena di sandbox gagal oleh sebab lain.
+- **Files**: `modules/payment-gateway/services/payment-method-catalog.ts`, `modules/finance/services/CustomerPaymentMethodService.ts`, `tests/modules/finance/CustomerPaymentMethodService.test.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-01] — Layar sukses, pembatalan, catatan bukti, dan pesan kanal Duitku
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/(customer)/tagihan` | `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: Temuan uji ulang produksi. (1) Layar "Pembayaran Berhasil" memakai checkout yang sedang tampil, jadi QR lama yang dibayar setelah ganti ke LinkAja tertulis "LinkAja" dengan nominal checkout yang tampil; kini ringkasannya diambil dari pembayaran yang dicatat server untuk tagihan lunas itu, dan checkout yang tampil hanya cadangan. (2) Pelanggan yang membatalkan transfer manualnya sendiri membaca "Pembayaran tidak berhasil"; status CANCELLED kini diberi tahu sebagai "Pembayaran dibatalkan.". (3) Setiap ganti bukti transfer menambah analisis AI baru di bawah analisis bukti lama; analisis lama kini dibuang dan catatan pelanggan tetap. (4) Jawaban Duitku "Failed to generate …" (DANA, ShopeePay, Retail) kini menjadi "Metode pembayaran ini sedang tidak tersedia", bukan "Gagal menghubungi payment gateway".
+- **Files**: `app/(customer)/tagihan/useTagihanLiveUpdates.ts`, `app/(customer)/tagihan/checkout.ts`, `app/(customer)/tagihan/page.tsx`, `modules/pelanggan/services/CustomerPaymentReceiptService.ts`, `modules/pelanggan/services/CustomerPaymentRouteService.ts`, `tests/app/customer-tagihan-live-refresh.test.tsx`, `tests/api/customer-payments-upload-receipt-route.test.ts`, `tests/modules/pelanggan/CustomerPaymentRouteService.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Index Payment.receiptUrl untuk penjaga bukti transfer lama
 
 - **Tipe**: [MIGRATION]

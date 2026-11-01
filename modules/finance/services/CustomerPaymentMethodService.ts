@@ -79,13 +79,18 @@ export class CustomerPaymentMethodService {
    * Metode katalog gateway ini yang dilaporkan aktif untuk merchant; kanal
    * yang belum diaktifkan selalu ditolak saat checkout. Daftar kanal yang
    * tidak terbaca tidak mengosongkan pilihan: seluruh katalog ditawarkan.
+   * Kanal yang nominal minimumnya di atas `amount` tidak ditawarkan: daftar
+   * kanal aktif tidak menyaringnya (produksi 2026-11-01 menawarkan VA untuk
+   * Rp 9.990, lalu Duitku menolaknya).
    */
   private async findOfferedMethods(
     provider: string,
     tenantId: string | undefined,
     amount: number,
   ) {
-    const catalog = getCustomerPaymentMethodsByProvider(provider);
+    const catalog = getCustomerPaymentMethodsByProvider(provider).filter(
+      (method) => amount >= (method.minAmount ?? 0),
+    );
     const active = await this.findActiveChannels({
       provider,
       tenantId,
