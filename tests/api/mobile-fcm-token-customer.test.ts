@@ -21,6 +21,10 @@ import { POST } from "@/app/api/mobile/fcm-token/route";
 
 const DI_TENANT = { id: "cust-1", tenantId: "tenant-1" };
 
+/** Bentuk token FCM: id instans, titik dua, lalu muatan base64url. */
+const TOKEN_FCM_1 = `${"a".repeat(22)}:APA91b${"1".repeat(134)}`;
+const TOKEN_FCM_2 = `${"b".repeat(22)}:APA91b${"2".repeat(134)}`;
+
 function tokenPortalPelanggan(status = "AKTIF") {
   return generatePelangganAccessToken({
     id: "cust-1",
@@ -49,6 +53,8 @@ describe("POST /api/mobile/fcm-token dengan token pelanggan", () => {
       isSupported: true,
       minimum: null,
     });
+    // Klaim token melepasnya dari pemilik lain; di sini tidak ada pemilik lain.
+    prismaMock.$queryRaw.mockResolvedValue([]);
     prismaMock.$transaction.mockImplementation(
       async (callback: (tx: typeof prismaMock) => unknown) =>
         callback(prismaMock),
@@ -72,7 +78,7 @@ describe("POST /api/mobile/fcm-token dengan token pelanggan", () => {
     });
 
     const response = await kirim(tokenPortalPelanggan(), {
-      fcmToken: "fcm-cust",
+      fcmToken: TOKEN_FCM_1,
       action: "add",
     });
 
@@ -83,7 +89,7 @@ describe("POST /api/mobile/fcm-token dengan token pelanggan", () => {
     });
     expect(prismaMock.pelanggan.update).toHaveBeenCalledWith({
       where: DI_TENANT,
-      data: { fcmTokens: { set: ["fcm-cust"] } },
+      data: { fcmTokens: { set: [TOKEN_FCM_1] } },
     });
     expect(prismaMock.user.findFirst).not.toHaveBeenCalled();
   });
@@ -91,24 +97,24 @@ describe("POST /api/mobile/fcm-token dengan token pelanggan", () => {
   it("melepas token pelanggan saat logout", async () => {
     prismaMock.pelanggan.findFirst.mockResolvedValue({
       id: "cust-1",
-      fcmTokens: ["fcm-cust", "fcm-lain"],
+      fcmTokens: [TOKEN_FCM_1, TOKEN_FCM_2],
     });
 
     const response = await kirim(tokenPortalPelanggan(), {
-      fcmToken: "fcm-cust",
+      fcmToken: TOKEN_FCM_1,
       action: "remove",
     });
 
     expect(response.status).toBe(200);
     expect(prismaMock.pelanggan.update).toHaveBeenCalledWith({
       where: DI_TENANT,
-      data: { fcmTokens: { set: ["fcm-lain"] } },
+      data: { fcmTokens: { set: [TOKEN_FCM_2] } },
     });
   });
 
   it("pelanggan yang sudah dismantle dijawab 403, bukan 401 yang mengeluarkannya", async () => {
     const response = await kirim(tokenPortalPelanggan("DISMANTLE"), {
-      fcmToken: "fcm-cust",
+      fcmToken: TOKEN_FCM_1,
     });
 
     expect(response.status).toBe(403);
@@ -119,7 +125,7 @@ describe("POST /api/mobile/fcm-token dengan token pelanggan", () => {
     const [header, payload] = tokenPortalPelanggan().split(".");
 
     const response = await kirim(`${header}.${payload}.tanda-tangan-palsu`, {
-      fcmToken: "fcm-cust",
+      fcmToken: TOKEN_FCM_1,
     });
 
     expect(response.status).toBe(401);

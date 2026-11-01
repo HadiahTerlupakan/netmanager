@@ -178,3 +178,7 @@ export {
   type UpdateAnnouncementInput,
   type AnnouncementTarget,
 } from "./validators/announcementValidator";
+export {
+  fcmTokenRequestSchema,
+  type FcmTokenRequest,
+} from "./validators/fcmTokenValidator";

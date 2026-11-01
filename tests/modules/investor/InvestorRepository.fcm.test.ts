@@ -13,15 +13,15 @@ const tx = {
     findMany: vi.fn(),
     update: vi.fn(),
   },
-  $executeRaw: vi.fn(),
+  $queryRaw: vi.fn(),
 };
 
 /** Tabel yang dilepas dari token, menurut SQL mentah yang dijalankan. */
 function tabelDilepas(
-  executeRaw: { mock: { calls: unknown[][] } },
+  queryRaw: { mock: { calls: unknown[][] } },
   token: string,
 ) {
-  return executeRaw.mock.calls
+  return queryRaw.mock.calls
     .filter(([, ...nilai]) => nilai.includes(token))
     .map(([sql]) => /UPDATE "(\w+)"/.exec((sql as string[]).join(""))?.[1]);
 }
@@ -32,7 +32,12 @@ const client = {
 const repo = new InvestorRepository(client as never);
 
 describe("InvestorRepository — token FCM", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Klaim token melepasnya dari pemilik lain; di sini tidak ada pemilik lain.
+    tx.$queryRaw.mockResolvedValue([]);
+    prismaMock.$queryRaw.mockResolvedValue([]);
+  });
 
   it("token baru ditambahkan di akhir, maksimal 5 terbaru, dan dilepas dari pemilik lain", async () => {
     tx.investor.findUnique.mockResolvedValue({
@@ -49,12 +54,12 @@ describe("InvestorRepository — token FCM", () => {
       },
     });
     // Database utama di transaksi pendaftaran, database mitra sesudahnya.
-    expect(tabelDilepas(tx.$executeRaw, "baru")).toEqual([
+    expect(tabelDilepas(tx.$queryRaw, "baru")).toEqual([
       "User",
       "Pelanggan",
       "Investor",
     ]);
-    expect(tabelDilepas(prismaMock.$executeRaw, "baru")).toEqual(["Mitra"]);
+    expect(tabelDilepas(prismaMock.$queryRaw, "baru")).toEqual(["Mitra"]);
   });
 
   it("token yang sudah ada tidak digandakan; investor tidak ada → false tanpa melepas apa pun", async () => {
@@ -66,11 +71,12 @@ describe("InvestorRepository — token FCM", () => {
       }),
     );
 
-    vi.clearAllMocks();
+    tx.$queryRaw.mockClear();
+    prismaMock.$queryRaw.mockClear();
     tx.investor.findUnique.mockResolvedValueOnce(null);
     await expect(repo.addFcmToken("tidak-ada", "a")).resolves.toBe(false);
-    expect(tx.$executeRaw).not.toHaveBeenCalled();
-    expect(prismaMock.$executeRaw).not.toHaveBeenCalled();
+    expect(tx.$queryRaw).not.toHaveBeenCalled();
+    expect(prismaMock.$queryRaw).not.toHaveBeenCalled();
   });
 
   it("investor nonaktif tidak menerima push", async () => {
