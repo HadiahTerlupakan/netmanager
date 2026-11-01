@@ -2,9 +2,9 @@
  * Setup tes integrasi DB nyata.
  *
  * Tidak ada mock di sini — itu intinya. Satu-satunya tugasnya adalah
- * mengarahkan `DATABASE_URL` (dan `DATABASE_URL_BILLING`) ke database UJI
- * sebelum klien Prisma pertama kali dipakai, supaya tidak ada tes yang bisa
- * menyentuh database dev.
+ * mengarahkan `DATABASE_URL` (serta `DATABASE_URL_BILLING` dan
+ * `DATABASE_URL_MITRA`) ke database UJI sebelum klien Prisma pertama kali
+ * dipakai, supaya tidak ada tes yang bisa menyentuh database dev.
  *
  * Klien di `lib/prisma.ts` dibangun lazy (`createLazyPrismaClient`), jadi
  * penugasan di berkas setup ini terjadi jauh sebelum koneksi pertama dibuat.
@@ -27,6 +27,7 @@ function arahkanKeDbUji(variabelUji: string, variabelDev: string) {
 
 arahkanKeDbUji("TEST_DATABASE_URL", "DATABASE_URL");
 arahkanKeDbUji("TEST_DATABASE_URL_BILLING", "DATABASE_URL_BILLING");
+arahkanKeDbUji("TEST_DATABASE_URL_MITRA", "DATABASE_URL_MITRA");
 
 // Tanpa database billing uji, `dotenv` akan mengisi DATABASE_URL_BILLING dari
 // .env, yaitu database billing dev. Alamat yang tidak bisa dihubungi membuat
@@ -34,4 +35,11 @@ arahkanKeDbUji("TEST_DATABASE_URL_BILLING", "DATABASE_URL_BILLING");
 if (!process.env.TEST_DATABASE_URL_BILLING) {
   process.env.DATABASE_URL_BILLING =
     "postgresql://tanpa-db-billing-uji.invalid:5432/billing";
+}
+
+// Sama untuk database mitra: pendaftaran token FCM ikut melepas token dari
+// baris mitra, jadi tanpa database mitra uji tes itu akan menulis ke mitra dev.
+if (!process.env.TEST_DATABASE_URL_MITRA) {
+  process.env.DATABASE_URL_MITRA =
+    "postgresql://tanpa-db-mitra-uji.invalid:5432/mitra";
 }

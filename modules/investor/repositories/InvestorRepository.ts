@@ -1,4 +1,9 @@
+import {
+  releaseFcmTokenInMainDb,
+  releaseFcmTokenInMitraDb,
+} from "@/lib/firebase/fcm-token-ownership";
 import { prisma } from "@/lib/prisma";
+import { prismaMitra } from "@/lib/prisma-mitra";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 /** Batas perangkat per investor; token tertua dibuang lebih dulu. */
@@ -93,31 +98,21 @@ export class InvestorRepository {
   }
 
   /**
-   * Daftarkan token FCM ke investor. Token yang sama dilepas dari investor
-   * lain (HP dipakai bergantian), dan hanya `MAKS_FCM_TOKEN_INVESTOR` token
+   * Daftarkan token FCM ke investor. Token yang sama dilepas dari setiap
+   * pemilik lain (HP dipakai bergantian): investor, staf, dan pelanggan dalam
+   * transaksi ini, mitra sesudahnya. Hanya `MAKS_FCM_TOKEN_INVESTOR` token
    * terbaru yang disimpan. Mengembalikan false bila investor tidak ada.
    */
   async addFcmToken(id: string, token: string): Promise<boolean> {
-    return this.client.$transaction(async (tx) => {
+    const claimant = { kind: "investor", id } as const;
+    const isAdded = await this.client.$transaction(async (tx) => {
       const investor = await tx.investor.findUnique({
         where: { id },
         select: { fcmTokens: true },
       });
       if (!investor) return false;
 
-      const pemilikLain = await tx.investor.findMany({
-        where: { id: { not: id }, fcmTokens: { has: token } },
-        select: { id: true, fcmTokens: true },
-      });
-      for (const lain of pemilikLain) {
-        await tx.investor.update({
-          where: { id: lain.id },
-          data: {
-            fcmTokens: { set: lain.fcmTokens.filter((t) => t !== token) },
-          },
-        });
-      }
-
+      await releaseFcmTokenInMainDb(tx, token, claimant);
       const tokens = [...investor.fcmTokens.filter((t) => t !== token), token];
       await tx.investor.update({
         where: { id },
@@ -128,6 +123,8 @@ export class InvestorRepository {
       });
       return true;
     });
+    if (isAdded) await releaseFcmTokenInMitraDb(prismaMitra, token, claimant);
+    return isAdded;
   }
 
   /** Lepas token FCM dari investor (logout di HP itu). */

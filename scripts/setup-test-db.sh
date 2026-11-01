@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # Menyiapkan database uji untuk tes integrasi DB nyata (`npm run test:db`):
-# `netmanager_test` di kontainer app dan `billing_test` di kontainer billing.
+# `netmanager_test` di kontainer app, `billing_test` di kontainer billing, dan
+# `mitra_test` di kontainer mitra.
 #
 # Tes-tes itu menyentuh Postgres sungguhan karena ada perilaku yang TIDAK bisa
 # dibuktikan dengan prisma yang di-mock: arti `notIn: []`, apakah sebuah unique
@@ -9,10 +10,10 @@
 # melepas FK. Tiruan hanya mengulang asumsi penulisnya.
 #
 # Database uji SELALU terpisah dari database dev. Skrip ini tidak pernah
-# menyentuh `netmanager` maupun `billing`.
+# menyentuh `netmanager`, `billing`, maupun `mitra`.
 #
 # Pakai:
-#   ./scripts/setup-test-db.sh            # buat/migrasikan kedua database uji
+#   ./scripts/setup-test-db.sh            # buat/migrasikan ketiga database uji
 #   ./scripts/setup-test-db.sh --recreate # buang dulu, lalu buat ulang
 #
 # Lalu:
@@ -23,9 +24,11 @@ NAMA_DB="${TEST_DB_NAME:-netmanager_test}"
 KONTAINER="${TEST_DB_CONTAINER:-netmanager-postgres-app}"
 NAMA_DB_BILLING="${TEST_DB_BILLING_NAME:-billing_test}"
 KONTAINER_BILLING="${TEST_DB_BILLING_CONTAINER:-netmanager-postgres-billing}"
+NAMA_DB_MITRA="${TEST_DB_MITRA_NAME:-mitra_test}"
+KONTAINER_MITRA="${TEST_DB_MITRA_CONTAINER:-netmanager-postgres-mitra}"
 PENGGUNA="${TEST_DB_USER:-netmgr}"
 
-for kontainer in "$KONTAINER" "$KONTAINER_BILLING"; do
+for kontainer in "$KONTAINER" "$KONTAINER_BILLING" "$KONTAINER_MITRA"; do
   if ! docker ps --format '{{.Names}}' | grep -qx "$kontainer"; then
     echo "Kontainer '$kontainer' tidak berjalan. Jalankan 'npm run db:up' lebih dulu." >&2
     exit 1
@@ -60,6 +63,7 @@ siapkan_db() {
 
 siapkan_db "$KONTAINER" "$NAMA_DB" "${1:-}"
 siapkan_db "$KONTAINER_BILLING" "$NAMA_DB_BILLING" "${1:-}"
+siapkan_db "$KONTAINER_MITRA" "$NAMA_DB_MITRA" "${1:-}"
 
 # Port dan sandi dibaca dari URL dev supaya skrip ini ikut benar bila
 # docker-compose dipetakan ke port lain.
@@ -71,10 +75,12 @@ sandi_dari() {
 }
 URL_UJI="postgresql://${PENGGUNA}:$(sandi_dari DATABASE_URL)@localhost:$(port_dari DATABASE_URL)/${NAMA_DB}?schema=public"
 URL_UJI_BILLING="postgresql://${PENGGUNA}:$(sandi_dari DATABASE_URL_BILLING)@localhost:$(port_dari DATABASE_URL_BILLING)/${NAMA_DB_BILLING}?schema=public"
+URL_UJI_MITRA="postgresql://${PENGGUNA}:$(sandi_dari DATABASE_URL_MITRA)@localhost:$(port_dari DATABASE_URL_MITRA)/${NAMA_DB_MITRA}?schema=public"
 
 echo "Menerapkan migration ke database uji..."
 DATABASE_URL="$URL_UJI" npx prisma migrate deploy
 DATABASE_URL_BILLING="$URL_UJI_BILLING" npx prisma migrate deploy --config=prisma.billing.config.ts
+DATABASE_URL_MITRA="$URL_UJI_MITRA" npx prisma migrate deploy --config=prisma.mitra.config.ts
 
 cat <<PESAN
 
@@ -82,12 +88,15 @@ Database uji siap.
 
   TEST_DATABASE_URL="$URL_UJI"
   TEST_DATABASE_URL_BILLING="$URL_UJI_BILLING"
+  TEST_DATABASE_URL_MITRA="$URL_UJI_MITRA"
 
 Jalankan tesnya:
 
-  TEST_DATABASE_URL="$URL_UJI" TEST_DATABASE_URL_BILLING="$URL_UJI_BILLING" npm run test:db
+  TEST_DATABASE_URL="$URL_UJI" TEST_DATABASE_URL_BILLING="$URL_UJI_BILLING" TEST_DATABASE_URL_MITRA="$URL_UJI_MITRA" npm run test:db
 
 Tanpa TEST_DATABASE_URL, tes di tests/db/ dilewati — itu memang disengaja,
 supaya 'npm test' dan CI (yang tidak punya Postgres) tetap hijau. Tes yang
-menyentuh invoice juga dilewati tanpa TEST_DATABASE_URL_BILLING.
+menyentuh invoice juga dilewati tanpa TEST_DATABASE_URL_BILLING. Tanpa
+TEST_DATABASE_URL_MITRA, akses ke database mitra gagal keras, tidak pernah
+jatuh ke database mitra dev.
 PESAN

@@ -40,6 +40,33 @@ describe("updateMobileFcmToken", () => {
     );
   });
 
+  // Token yang sama bisa tertinggal di pemilik lain sejak sebelum klaim token
+  // ada; sinkron berikutnya dari pemegang perangkat tetap melepasnya dari mereka.
+  it("still claims a token the owner already holds", async () => {
+    vi.mocked(repository.findOwnerTokens).mockResolvedValue({
+      id: "cust-1",
+      fcmTokens: ["fcm-token-1"],
+    });
+    const session = {
+      userId: "cust-1",
+      tenantId: "tenant-1",
+      role: "CUSTOMER",
+    };
+
+    await updateMobileFcmToken({
+      session,
+      fcmToken: "fcm-token-1",
+      action: "add",
+      repository,
+    });
+
+    expect(repository.appendOwnerToken).toHaveBeenCalledWith(
+      session,
+      "cust-1",
+      "fcm-token-1",
+    );
+  });
+
   it("removes a token from mitra records", async () => {
     vi.mocked(repository.findOwnerTokens).mockResolvedValue({
       id: "mitra-1",

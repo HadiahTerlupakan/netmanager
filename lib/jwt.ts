@@ -204,6 +204,21 @@ export function verifyPelangganAccessToken(
 }
 
 /**
+ * Apakah token membawa audience token akses pelanggan, tanpa memverifikasinya.
+ * Endpoint yang melayani karyawan dan pelanggan memakainya untuk memilih
+ * verifikator: `verifyPelangganAccessToken` mencatat galat untuk setiap token
+ * yang bukan milik pelanggan.
+ */
+export function isPelangganAccessToken(token: string): boolean {
+  const decoded = jwt.decode(token);
+  return (
+    typeof decoded === "object" &&
+    decoded !== null &&
+    decoded.aud === JWT_AUDIENCE
+  );
+}
+
+/**
  * Hasil `verifyPelangganRefreshToken`. `reason` hanya diisi untuk sesi yang
  * selain itu sah, supaya pemegang token mati tidak bisa membaca status
  * pelanggan.

@@ -980,6 +980,8 @@ model Pelanggan {
   lastVersionUpdate             DateTime?
   pushToken                     String?
   pushTokenUpdatedAt            DateTime?
+  /// Token FCM perangkat tempat pelanggan login di aplikasi mobile; `pushToken` hanya token Expo lama.
+  fcmTokens                     String[]            @default([])
   tenantId                      String?
   resellerId                    String?
   resellerOutletId              String?

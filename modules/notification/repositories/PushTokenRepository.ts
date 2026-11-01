@@ -1,3 +1,7 @@
+import {
+  releaseFcmTokenInMainDb,
+  releaseFcmTokenInMitraDb,
+} from "@/lib/firebase/fcm-token-ownership";
 import { prisma, prismaMitra } from "@/modules/database";
 import {
   findInvestorFcmTokenOwners,
@@ -22,6 +26,90 @@ function buildLegacyPushTokenPayload(pushToken: string | null) {
  */
 function mergeFcmTokenSet(existing: string[], next: string): string[] {
   return Array.from(new Set([...existing, next]));
+}
+
+/** Token pemilik setelah token baru masuk; null bila ia sudah memegangnya. */
+function addedFcmTokens(
+  existing: string[] | undefined,
+  fcmToken: string,
+): string[] | null {
+  const tokens = existing ?? [];
+  return tokens.includes(fcmToken) ? null : mergeFcmTokenSet(tokens, fcmToken);
+}
+
+const CUSTOMER_ROLE = "CUSTOMER";
+
+/** Baris pelanggan pemilik sesi: id-nya, dibatasi tenant sesi itu. */
+function customerOwnerWhere(session: IMobileFcmSession, pelangganId: string) {
+  return { id: pelangganId, tenantId: session.tenantId ?? undefined };
+}
+
+/**
+ * Klaim token untuk staf: simpan bila belum ada, lepas dari pemilik lain di
+ * database utama dalam transaksi itu, lalu dari mitra sesudahnya. Read-merge-
+ * write di dalam transaksi supaya login dan penyegaran token yang tiba
+ * bersamaan tidak menggandakan token.
+ */
+async function claimUserFcmToken(userId: string, fcmToken: string) {
+  const claimant = { kind: "user", id: userId } as const;
+  await prisma.$transaction(async (tx) => {
+    const owner = await tx.user.findUnique({
+      where: { id: userId },
+      select: { fcmTokens: true },
+    });
+    const next = addedFcmTokens(owner?.fcmTokens, fcmToken);
+    if (next) {
+      await tx.user.update({
+        where: { id: userId },
+        data: { fcmTokens: { set: next } },
+      });
+    }
+    await releaseFcmTokenInMainDb(tx, fcmToken, claimant);
+  });
+  await releaseFcmTokenInMitraDb(prismaMitra, fcmToken, claimant);
+}
+
+/** Seperti `claimUserFcmToken`, untuk pelanggan dalam tenant sesinya. */
+async function claimCustomerFcmToken(
+  where: ReturnType<typeof customerOwnerWhere>,
+  fcmToken: string,
+) {
+  const claimant = { kind: "pelanggan", id: where.id } as const;
+  await prisma.$transaction(async (tx) => {
+    const owner = await tx.pelanggan.findUnique({
+      where,
+      select: { fcmTokens: true },
+    });
+    const next = addedFcmTokens(owner?.fcmTokens, fcmToken);
+    if (next) {
+      await tx.pelanggan.update({
+        where,
+        data: { fcmTokens: { set: next } },
+      });
+    }
+    await releaseFcmTokenInMainDb(tx, fcmToken, claimant);
+  });
+  await releaseFcmTokenInMitraDb(prismaMitra, fcmToken, claimant);
+}
+
+/** Seperti `claimUserFcmToken`; transaksinya di database mitra, database utama sesudahnya. */
+async function claimMitraFcmToken(mitraId: string, fcmToken: string) {
+  const claimant = { kind: "mitra", id: mitraId } as const;
+  await prismaMitra.$transaction(async (tx) => {
+    const owner = await tx.mitra.findUnique({
+      where: { id: mitraId },
+      select: { fcmTokens: true },
+    });
+    const next = addedFcmTokens(owner?.fcmTokens, fcmToken);
+    if (next) {
+      await tx.mitra.update({
+        where: { id: mitraId },
+        data: { fcmTokens: { set: next } },
+      });
+    }
+    await releaseFcmTokenInMitraDb(tx, fcmToken, claimant);
+  });
+  await releaseFcmTokenInMainDb(prisma, fcmToken, claimant);
 }
 
 export class PushTokenRepository implements IPushTokenRepository {
@@ -120,7 +208,7 @@ export class PushTokenRepository implements IPushTokenRepository {
   }
 
   /**
-   * Hapus token dari array fcmTokens[] di User, Mitra, dan Investor.
+   * Hapus token dari array fcmTokens[] di User, Mitra, Investor, dan Pelanggan.
    * Ini adalah ROOT CAUSE fix — sebelumnya cleanup hanya bersihkan
    * legacy `pushToken` tapi tidak menyentuh array `fcmTokens[]`
    * sehingga stale token terus menumpuk dan gagal di setiap multicast.
@@ -130,7 +218,7 @@ export class PushTokenRepository implements IPushTokenRepository {
     const tokenSet = new Set(tokens);
     let removedCount = 0;
 
-    const [users, mitras, investors] = await Promise.all([
+    const [users, mitras, investors, pelanggans] = await Promise.all([
       prisma.user.findMany({
         where: { fcmTokens: { hasSome: tokens } },
         select: { id: true, fcmTokens: true },
@@ -140,6 +228,10 @@ export class PushTokenRepository implements IPushTokenRepository {
         select: { id: true, fcmTokens: true },
       }),
       findInvestorFcmTokenOwners(tokens),
+      prisma.pelanggan.findMany({
+        where: { fcmTokens: { hasSome: tokens } },
+        select: { id: true, fcmTokens: true },
+      }),
     ]);
 
     const pemilik = [
@@ -162,6 +254,14 @@ export class PushTokenRepository implements IPushTokenRepository {
       ...investors.map((investor) => ({
         fcmTokens: investor.fcmTokens,
         simpan: (sisa: string[]) => replaceInvestorFcmTokens(investor.id, sisa),
+      })),
+      ...pelanggans.map((pelanggan) => ({
+        fcmTokens: pelanggan.fcmTokens,
+        simpan: (sisa: string[]) =>
+          prisma.pelanggan.update({
+            where: { id: pelanggan.id },
+            data: { fcmTokens: { set: sisa } },
+          }),
       })),
     ];
 
@@ -204,11 +304,15 @@ export class PushTokenRepository implements IPushTokenRepository {
     });
   }
 
-  async findOwnerTokens(
-    session: { role?: string; tenantId?: string | null },
-    userId: string,
-  ) {
+  async findOwnerTokens(session: IMobileFcmSession, userId: string) {
     const where = { id: userId, tenantId: session.tenantId ?? undefined };
+
+    if (session.role === CUSTOMER_ROLE) {
+      return prisma.pelanggan.findFirst({
+        where,
+        select: { id: true, fcmTokens: true },
+      });
+    }
 
     if (session.role === "MITRA") {
       return prismaMitra.mitra.findFirst({
@@ -223,48 +327,43 @@ export class PushTokenRepository implements IPushTokenRepository {
     });
   }
 
+  /**
+   * Simpan token untuk pemilik sesi dan lepas dari setiap pemilik lain, di
+   * database mana pun, supaya perangkat yang berpindah tangan tidak menerima
+   * push pemilik lamanya.
+   */
   async appendOwnerToken(
-    session: { role?: string },
+    session: IMobileFcmSession,
     userId: string,
     fcmToken: string,
   ) {
-    // Atomic dedup: read-merge-write dalam transaksi agar 2 request paralel
-    // (login + tokenRefresh listener firing bersamaan) tidak menghasilkan
-    // duplikat di array `fcmTokens`. Tanpa transaksi, race window membuka
-    // celah multicast push notifikasi yang sama berkali-kali ke 1 device.
+    if (session.role === CUSTOMER_ROLE) {
+      await claimCustomerFcmToken(
+        customerOwnerWhere(session, userId),
+        fcmToken,
+      );
+      return;
+    }
     if (session.role === "MITRA") {
-      await prismaMitra.$transaction(async (tx) => {
-        const owner = await tx.mitra.findUnique({
-          where: { id: userId },
-          select: { fcmTokens: true },
-        });
-        const next = mergeFcmTokenSet(owner?.fcmTokens ?? [], fcmToken);
-        await tx.mitra.update({
-          where: { id: userId },
-          data: { fcmTokens: { set: next } },
-        });
+      await claimMitraFcmToken(userId, fcmToken);
+      return;
+    }
+    await claimUserFcmToken(userId, fcmToken);
+  }
+
+  async replaceOwnerTokens(
+    session: IMobileFcmSession,
+    userId: string,
+    fcmTokens: string[],
+  ) {
+    if (session.role === CUSTOMER_ROLE) {
+      await prisma.pelanggan.update({
+        where: customerOwnerWhere(session, userId),
+        data: { fcmTokens: { set: fcmTokens } },
       });
       return;
     }
 
-    await prisma.$transaction(async (tx) => {
-      const owner = await tx.user.findUnique({
-        where: { id: userId },
-        select: { fcmTokens: true },
-      });
-      const next = mergeFcmTokenSet(owner?.fcmTokens ?? [], fcmToken);
-      await tx.user.update({
-        where: { id: userId },
-        data: { fcmTokens: { set: next } },
-      });
-    });
-  }
-
-  async replaceOwnerTokens(
-    session: { role?: string },
-    userId: string,
-    fcmTokens: string[],
-  ) {
     if (session.role === "MITRA") {
       await prismaMitra.mitra.update({
         where: { id: userId },

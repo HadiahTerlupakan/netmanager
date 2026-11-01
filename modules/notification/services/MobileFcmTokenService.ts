@@ -99,9 +99,9 @@ function persistTokenChange(options: {
   if (options.action === "remove") {
     return removeMobileFcmToken(options);
   }
-  if (options.tokens.includes(options.fcmToken)) {
-    return Promise.resolve();
-  }
+  // Tetap diklaim walau pemilik sudah memegangnya: token yang sama bisa
+  // tertinggal di pemilik lain (perangkat berpindah tangan sebelum klaim ada,
+  // atau pelepasan di database lain gagal), dan sinkron inilah yang melepasnya.
   return appendMobileFcmToken(options);
 }
 

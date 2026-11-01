@@ -13,8 +13,14 @@ vi.mock("@/lib/mobile-auth", () => ({
   ) => mockVerifyMobileToken(token, versionCodeOverride, preloadedDetails),
 }));
 
+import jwt from "jsonwebtoken";
+
 import { ErrorCodes } from "@/lib/api-response";
-import { authenticateMobileRequest } from "@/lib/mobile-api-auth";
+import { generatePelangganAccessToken } from "@/lib/jwt";
+import {
+  authenticateMobileRequest,
+  getMobileOrCustomerAuthPayload,
+} from "@/lib/mobile-api-auth";
 
 function createRequest(headers?: Record<string, string>) {
   return new NextRequest("http://localhost/api/test", {
@@ -202,5 +208,63 @@ describe("Mobile API auth helper", () => {
       versionCode: 100,
       versionAccess,
     });
+  });
+});
+
+/**
+ * Endpoint mobile bersama (token FCM) dipakai pelanggan dengan token akses
+ * portal, yang ditolak verifikator mobile karyawan. Token pelanggan dinilai
+ * lebih dulu; token karyawan tetap lewat verifikator mobile seperti biasa.
+ */
+describe("getMobileOrCustomerAuthPayload", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("token karyawan tetap diverifikasi verifikator mobile", async () => {
+    const tokenKaryawan = jwt.sign(
+      { sub: "user-1", role: "TEKNISI" },
+      process.env.NEXTAUTH_SECRET as string,
+      { issuer: "netmanager", audience: "netmanager-mobile" },
+    );
+    const payload = { sub: "user-1", userId: "user-1", role: "TEKNISI" };
+    mockGetMobileTokenDetails.mockResolvedValueOnce({
+      payload,
+      versionCode: 100,
+      versionAccess: { isSupported: true },
+    });
+    mockVerifyMobileToken.mockResolvedValueOnce(payload);
+
+    const result = await getMobileOrCustomerAuthPayload(
+      createRequest({ Authorization: `Bearer ${tokenKaryawan}` }),
+    );
+
+    expect(result).toEqual(payload);
+    expect(mockVerifyMobileToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("token portal pelanggan menjadi sesi CUSTOMER dalam tenant-nya", async () => {
+    const tokenPelanggan = generatePelangganAccessToken({
+      id: "cust-1",
+      idPelanggan: "P-001",
+      nama: "Budi",
+      username: "budi",
+      status: "AKTIF",
+      tenantId: "tenant-1",
+    });
+
+    const result = await getMobileOrCustomerAuthPayload(
+      createRequest({ Authorization: `Bearer ${tokenPelanggan}` }),
+    );
+
+    expect(result).toEqual({
+      sub: "cust-1",
+      userId: "cust-1",
+      id: "cust-1",
+      role: "CUSTOMER",
+      tenantId: "tenant-1",
+    });
+    expect(mockGetMobileTokenDetails).not.toHaveBeenCalled();
+    expect(mockVerifyMobileToken).not.toHaveBeenCalled();
   });
 });

@@ -22,6 +22,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextRequest, NextResponse } from "next/server";
 import {
+  isPelangganAccessToken,
   verifyPelangganAccessToken,
   generatePelangganAccessToken,
   generatePelangganRefreshToken,
@@ -159,31 +160,67 @@ export async function requireCustomerAuth(request: NextRequest): Promise<
   const session = await getCustomerSession(request);
 
   if (!session) {
-    return {
-      response: NextResponse.json(
-        {
-          error: "Tidak terautentikasi",
-          message: "Silakan login terlebih dahulu",
-        },
-        { status: 401 },
-      ),
-    };
+    return { response: buildCustomerUnauthenticatedResponse() };
   }
 
   // Pelanggan dismantle tidak lagi punya akses portal
   if (!canUseCustomerPortal(session.status)) {
-    return {
-      response: NextResponse.json(
-        {
-          error: "Akses ditolak",
-          message: "Akun Anda tidak aktif. Hubungi customer service.",
-        },
-        { status: 403 },
-      ),
-    };
+    return { response: buildCustomerInactiveResponse() };
   }
 
   return { session };
+}
+
+/** Pelanggan pemilik Bearer token aplikasi mobile, beserta tenant-nya. */
+export interface BearerCustomerSession {
+  id: string;
+  tenantId: string | null;
+}
+
+/**
+ * Autentikasi Bearer token pelanggan untuk endpoint mobile yang juga melayani
+ * karyawan. `null` bila tokennya bukan token akses pelanggan: verifikator
+ * mobile karyawan yang menilainya, tanpa verifikasi pelanggan yang mencatat
+ * galat untuk setiap token karyawan.
+ */
+export function authenticateBearerCustomer(
+  request: Request,
+):
+  | { session: BearerCustomerSession; response?: never }
+  | { session?: never; response: NextResponse }
+  | null {
+  const authHeader = request.headers.get("Authorization");
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.substring(7)
+    : null;
+  if (!token || !isPelangganAccessToken(token)) return null;
+
+  const decoded = verifyPelangganAccessToken(token);
+  if (!decoded) return { response: buildCustomerUnauthenticatedResponse() };
+  if (!canUseCustomerPortal(decoded.status)) {
+    return { response: buildCustomerInactiveResponse() };
+  }
+  return { session: { id: decoded.id, tenantId: decoded.tenantId ?? null } };
+}
+
+function buildCustomerUnauthenticatedResponse() {
+  return NextResponse.json(
+    {
+      error: "Tidak terautentikasi",
+      message: "Silakan login terlebih dahulu",
+    },
+    { status: 401 },
+  );
+}
+
+function buildCustomerInactiveResponse() {
+  return NextResponse.json(
+    {
+      error: "Akses ditolak",
+      message: "Akun Anda tidak aktif. Hubungi customer service.",
+    },
+    { status: 403 },
+  );
 }
 
 /**
