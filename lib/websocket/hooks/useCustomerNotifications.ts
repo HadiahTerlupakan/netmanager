@@ -5,7 +5,15 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeResync } from "@/lib/realtime/hooks/useRealtimeResync";
 import { playCustomerNotificationSound } from "@/lib/notification-sound";
+
+/**
+ * Cadangan bila realtime tidak tersedia: hitungan dimuat ulang tiap menit
+ * selama tab terlihat. Aturan nadanya sama: hanya kenaikan setelah muat
+ * pertama yang berbunyi, lewat gerbang jeda tenang dan throttle.
+ */
+const UNREAD_POLL_INTERVAL_MS = 60_000;
 
 export interface CustomerNotification {
   id: string;
@@ -110,6 +118,14 @@ export function useCustomerNotifications(
     void fetchNotifications();
   }, [autoFetch, fetchNotifications]);
 
+  useEffect(() => {
+    if (!autoFetch) return undefined;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void fetchNotifications();
+    }, UNREAD_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [autoFetch, fetchNotifications]);
+
   // Handle new notification from WebSocket
   const handleNewNotification = useCallback(
     (payload: NotificationPayload) => {
@@ -126,6 +142,7 @@ export function useCustomerNotifications(
   useRealtimeEvent("announcement.new", handleNewNotification);
   useRealtimeEvent("ticket.message", handleNewNotification);
   useRealtimeEvent("ticket.reply", handleNewNotification);
+  useRealtimeResync(fetchNotifications);
 
   return {
     notifications,

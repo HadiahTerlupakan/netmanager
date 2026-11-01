@@ -12,17 +12,25 @@ interface AdminTicketReplyInput {
   attachments?: string[];
 }
 
-/** Emit event websocket untuk balasan tiket baru. */
-export function emitReplyEvent(ticketId: string, reply: unknown) {
+/** Emit event websocket untuk balasan tiket baru, juga ke pelanggan pemiliknya. */
+export function emitReplyEvent(
+  ticketId: string,
+  reply: unknown,
+  ownerCustomerId: string,
+) {
   const replyPayload = buildReplyPayload(reply);
-  socketEmitter.ticketMessage(ticketId, {
-    id: replyPayload.id,
-    message: replyPayload.message,
-    isFromAdmin: true,
-    createdAt: replyPayload.createdAt.toISOString(),
-    sender: replyPayload.sender,
-    attachments: replyPayload.attachments,
-  });
+  socketEmitter.ticketMessage(
+    ticketId,
+    {
+      id: replyPayload.id,
+      message: replyPayload.message,
+      isFromAdmin: true,
+      createdAt: replyPayload.createdAt.toISOString(),
+      sender: replyPayload.sender,
+      attachments: replyPayload.attachments,
+    },
+    ownerCustomerId,
+  );
 }
 
 /** Kirim notifikasi WhatsApp ke pelanggan bila diaktifkan. */

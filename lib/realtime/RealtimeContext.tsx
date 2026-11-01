@@ -1,6 +1,7 @@
 "use client";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { clientLogger } from "@/lib/client-logger";
+import { holdNotificationSounds } from "@/lib/notification-sound";
 
 import {
   createContext,
@@ -29,7 +30,15 @@ import {
   buildScopeChannel,
   getEventSubscriptionNames,
 } from "@/lib/realtime/channel-map";
+import { createChannelSnapshotListener } from "@/lib/realtime/channel-snapshot";
 import { getRealtimeClientServices } from "@/lib/realtime/client";
+import {
+  REALTIME_TOKEN_PATHS,
+  getExpectedRealtimeClaims,
+  hasRealtimeClaims,
+  type RealtimeAudience,
+  type RealtimeClaimsSource,
+} from "@/lib/realtime/firebase-claims";
 import type {
   PresenceSnapshot,
   RealtimeEnvelope,
@@ -68,12 +77,21 @@ export interface RealtimeConnectionState {
   lastError: string | null;
   reconnect: () => void;
   subscribeScope?: (scope: RealtimeScope) => () => void;
+  /** Naik setiap kali realtime tersinkron ulang; lihat `useRealtimeResync`. */
+  connectionEpoch: number;
 }
 
 interface RealtimeContextValue extends RealtimeConnectionState {
   firestore: ReturnType<typeof getRealtimeClientServices>["firestore"];
   scopes: RealtimeScope[];
+  noteRealtimeResync: () => void;
 }
+
+/**
+ * Listener di beberapa channel tersinkron ulang hampir bersamaan; satu jeda
+ * singkat menggabungkannya menjadi satu kali muat ulang hitungan.
+ */
+const RESYNC_SETTLE_MS = 1_000;
 
 type FirebaseTokenResponse = {
   token?: string;
@@ -105,6 +123,8 @@ interface RealtimeProviderProps {
   children: ReactNode;
   userOverride?: SessionUser | null;
   statusOverride?: "authenticated" | "unauthenticated" | "loading";
+  /** Menentukan rute token dan klaim yang diharapkan; bawaannya staf. */
+  audience?: RealtimeAudience;
 }
 
 function resolveAuthStatus(
@@ -197,6 +217,61 @@ function getSessionFingerprint(user?: SessionUser): string {
   });
 }
 
+/**
+ * Membuka halaman, membangunkan tab yang dibekukan, kembali ke tab, dan
+ * jaringan yang pulih diperlakukan sama: badge tetap diperbarui, nada ditahan
+ * selama jeda tenang. Event yang tertahan di tab beku tiba sekaligus saat ia
+ * bangun, sebelum SDK sempat menyadari koneksinya pernah putus.
+ */
+function useHoldNotificationSoundsWhileSettling() {
+  useEffect(() => {
+    holdNotificationSounds();
+
+    const holdWhenVisible = () => {
+      if (document.visibilityState === "visible") holdNotificationSounds();
+    };
+    document.addEventListener("visibilitychange", holdWhenVisible);
+    document.addEventListener("resume", holdNotificationSounds);
+    window.addEventListener("online", holdNotificationSounds);
+
+    return () => {
+      document.removeEventListener("visibilitychange", holdWhenVisible);
+      document.removeEventListener("resume", holdNotificationSounds);
+      window.removeEventListener("online", holdNotificationSounds);
+    };
+  }, []);
+}
+
+/**
+ * Naikkan epoch sekali setelah listener tersinkron ulang (koneksi kembali,
+ * atau server menyusul setelah SDK melayani dari cache). Event yang tiba di
+ * sela pemasangan ulang listener tidak pernah datang sebagai event, jadi hook
+ * memuat ulang hitungannya; muat ulang itu bagian dari menata diri, maka nada
+ * ikut ditahan.
+ */
+function useConnectionEpoch() {
+  const [connectionEpoch, setConnectionEpoch] = useState(0);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const noteRealtimeResync = useCallback(() => {
+    if (settleTimerRef.current) return;
+    settleTimerRef.current = setTimeout(() => {
+      settleTimerRef.current = null;
+      holdNotificationSounds();
+      setConnectionEpoch((epoch) => epoch + 1);
+    }, RESYNC_SETTLE_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (settleTimerRef.current) clearTimeout(settleTimerRef.current);
+    },
+    [],
+  );
+
+  return { connectionEpoch, noteRealtimeResync };
+}
+
 function getDefaultScopes(user: SessionUser): RealtimeScope[] {
   if (!user.id) {
     return [];
@@ -220,6 +295,7 @@ export function RealtimeProvider({
   children,
   userOverride,
   statusOverride,
+  audience = "staff",
 }: RealtimeProviderProps) {
   const { data: session, status: sessionStatus } = useSession();
   const [dynamicScopes, setDynamicScopes] = useState<RealtimeScope[]>([]);
@@ -237,11 +313,19 @@ export function RealtimeProvider({
     userOverride,
   );
   const sessionFingerprint = getSessionFingerprint(user);
+  useHoldNotificationSoundsWhileSettling();
+  const { connectionEpoch, noteRealtimeResync } = useConnectionEpoch();
 
+  // Sesi yang dimuat ulang NextAuth saat tab kembali fokus, `userOverride`
+  // yang dibuat ulang tiap render, atau scope yang didaftarkan kedua kalinya
+  // adalah objek baru dengan isi yang sama. Listener hanya dipasang ulang bila
+  // daftar scope-nya sendiri berubah.
+  const scopeListKey = JSON.stringify(
+    dedupeScopes([...(user ? getDefaultScopes(user) : []), ...dynamicScopes]),
+  );
   const scopes = useMemo(
-    () =>
-      dedupeScopes([...(user ? getDefaultScopes(user) : []), ...dynamicScopes]),
-    [dynamicScopes, user],
+    () => JSON.parse(scopeListKey) as RealtimeScope[],
+    [scopeListKey],
   );
 
   const syncDynamicScopes = useCallback(() => {
@@ -327,23 +411,39 @@ export function RealtimeProvider({
       try {
         setFirebaseError(null);
 
+        // Aturan Firestore membaca klaim token (role, tenant, site). Sesi
+        // yang berpindah site, role, atau tenant tanpa berganti pengguna
+        // masih memegang token lama, begitu pula sesi Firebase yang diingat
+        // browser sejak kunjungan sebelumnya: token baru dicetak bila klaimnya
+        // tidak lagi sama.
+        const sessionClaims = JSON.parse(
+          sessionFingerprint,
+        ) as RealtimeClaimsSource & { id: string | null };
         const currentUser = services.auth.currentUser;
-        if (currentUser?.uid === user?.id) {
-          if (active) {
-            setIsFirebaseReady(true);
+        const isSameUser = currentUser?.uid === sessionClaims.id;
+        if (isSameUser) {
+          const { claims } = await currentUser.getIdTokenResult();
+          const expectedClaims = getExpectedRealtimeClaims(
+            audience,
+            sessionClaims,
+          );
+          if (hasRealtimeClaims(claims, expectedClaims)) {
+            if (active) {
+              setIsFirebaseReady(true);
+            }
+            return;
           }
-          return;
         }
 
         if (active) {
           setIsFirebaseReady(false);
         }
 
-        if (currentUser) {
+        if (currentUser && !isSameUser) {
           await signOut(services.auth);
         }
 
-        const response = await fetch("/api/auth/firebase-token", {
+        const response = await fetch(REALTIME_TOKEN_PATHS[audience], {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -379,7 +479,15 @@ export function RealtimeProvider({
     return () => {
       active = false;
     };
-  }, [services.auth, isAuthValid, user?.id, reconnectVersion]);
+    // Berjalan ulang bila sidik jari sesi berubah (klaim atau scope), bukan
+    // setiap kali objek sesinya dibuat ulang.
+  }, [
+    services.auth,
+    isAuthValid,
+    sessionFingerprint,
+    audience,
+    reconnectVersion,
+  ]);
 
   const isConnected =
     status === "authenticated" &&
@@ -445,6 +553,8 @@ export function RealtimeProvider({
       lastError,
       reconnect,
       subscribeScope,
+      connectionEpoch,
+      noteRealtimeResync,
     }),
     [
       services.firestore,
@@ -453,6 +563,8 @@ export function RealtimeProvider({
       lastError,
       reconnect,
       subscribeScope,
+      connectionEpoch,
+      noteRealtimeResync,
     ],
   );
 
@@ -477,8 +589,11 @@ export function useRealtimeSubscription<TPayload>(
   event: string,
   handler: (payload: TPayload) => void,
 ) {
-  const { firestore, scopes, isConnected } = useRealtime();
+  const { firestore, scopes, isConnected, noteRealtimeResync } = useRealtime();
   const handlerRef = useRef(handler);
+  // Bertahan melewati pemasangan ulang listener: sinkronisasi kedua sebuah
+  // channel berarti ada sela tempat event bisa terlewat.
+  const syncedChannelsRef = useRef(new Set<string>());
 
   useEffect(() => {
     handlerRef.current = handler;
@@ -511,43 +626,36 @@ export function useRealtimeSubscription<TPayload>(
       isEventAllowedForScope(canonicalEvent, scope),
     );
 
+    const deliverEvent = (envelope: Partial<RealtimeEnvelope<unknown>>) => {
+      if (!envelope.type || !subscriptionEvents.has(envelope.type)) {
+        return;
+      }
+
+      handlerRef.current((envelope.payload ?? envelope) as TPayload);
+    };
+
     const unsubscribes = allowedScopes.map((scope) => {
-      const seenDocumentIds = new Set<string>();
-      let hydrated = false;
+      const channel = buildScopeChannel(scope);
       const channelQuery = query(
-        collection(firestore, buildScopeChannel(scope)),
+        collection(firestore, channel),
         orderBy("createdAt", "desc"),
         limit(20),
       );
+      // Listener baru — halaman dibuka, koneksi kembali, scope berubah —
+      // diperlakukan seperti halaman yang baru dibuka.
+      holdNotificationSounds();
 
       return onSnapshot(
         channelQuery,
-        (snapshot) => {
-          if (!hydrated) {
-            snapshot.docs.forEach((document) => {
-              seenDocumentIds.add(document.id);
-            });
-            hydrated = true;
-            return;
-          }
-
-          snapshot.docChanges().forEach((change) => {
-            if (change.type !== "added" || seenDocumentIds.has(change.doc.id)) {
-              return;
-            }
-
-            seenDocumentIds.add(change.doc.id);
-            const data = change.doc.data() as Partial<
-              RealtimeEnvelope<TPayload>
-            >;
-
-            if (!data.type || !subscriptionEvents.has(data.type)) {
-              return;
-            }
-
-            handlerRef.current((data.payload ?? data) as TPayload);
-          });
-        },
+        { includeMetadataChanges: true },
+        createChannelSnapshotListener({
+          onNewEvent: deliverEvent,
+          onCatchUp: holdNotificationSounds,
+          onServerSync: () => {
+            if (syncedChannelsRef.current.has(channel)) noteRealtimeResync();
+            syncedChannelsRef.current.add(channel);
+          },
+        }),
         (error) => {
           clientLogger.error("Realtime Firestore subscription failed", {
             scope: serializeScope(scope),
@@ -570,6 +678,7 @@ export function useRealtimeSubscription<TPayload>(
     event,
     firestore,
     isConnected,
+    noteRealtimeResync,
     scopes,
     subscriptionEvents,
   ]);

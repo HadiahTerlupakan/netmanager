@@ -2,8 +2,9 @@ import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
-import { authOptions, isSuperAdmin } from "@/lib/auth";
+import { authOptions } from "@/lib/auth";
 import { auth as firebaseAdminAuth } from "@/lib/firebase/admin";
+import { buildRealtimeClaims } from "@/lib/realtime/firebase-claims";
 
 export async function POST() {
   try {
@@ -24,19 +25,10 @@ export async function POST() {
       );
     }
 
-    const isUserSuperAdmin = isSuperAdmin(user);
-    const legacySiteId = (user as { siteId?: string | null }).siteId ?? null;
-    const primarySiteId = user.primarySiteId ?? legacySiteId;
-    const customToken = await firebaseAdminAuth.createCustomToken(user.id, {
-      role: isUserSuperAdmin ? "SUPER_ADMIN" : (user.role ?? "USER"),
-      tenantId: user.tenantId ?? null,
-      departmentId: user.departmentId ?? null,
-      siteId: primarySiteId,
-      primarySiteId,
-      accessAdminPanel: user.accessAdminPanel ?? false,
-      accessEmployeePanel: user.accessEmployeePanel ?? false,
-      isSuperAdmin: isUserSuperAdmin,
-    });
+    const customToken = await firebaseAdminAuth.createCustomToken(
+      user.id,
+      buildRealtimeClaims(user),
+    );
 
     return NextResponse.json({ token: customToken });
   } catch (error) {

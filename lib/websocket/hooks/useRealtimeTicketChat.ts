@@ -4,7 +4,6 @@ import { clientLogger } from "@/lib/client-logger";
 import { useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
-import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 import { type TicketMessagePayload } from "../types";
 
 export interface ChatReply {
@@ -44,16 +43,18 @@ export function useRealtimeTicketChat(
 
   const [replies, setReplies] = useState<ChatReply[]>(initialReplies);
 
-  // Update replies when initial data changes (pattern C: render-time prev comparator)
+  // Update replies when initial data changes (pattern C: render-time prev
+  // comparator). Array kosong diabaikan: halaman mengirim `ticket?.replies ||
+  // []` selama tiket dimuat, array baru tiap render, dan menyimpannya sebagai
+  // "sebelumnya" membuat komponen merender ulang tanpa henti.
   const [prevInitialReplies, setPrevInitialReplies] = useState(initialReplies);
   if (initialReplies !== prevInitialReplies && initialReplies.length > 0) {
     setPrevInitialReplies(initialReplies);
     setReplies(initialReplies);
-  } else if (initialReplies !== prevInitialReplies) {
-    setPrevInitialReplies(initialReplies);
   }
 
-  useRealtimeScope(ticketId ? { kind: "ticket", id: ticketId } : null);
+  // Tanpa scope tiket: token pelanggan tidak membuka kanal tiket, dan pesan
+  // tiket miliknya dikirim juga ke kanal pelanggan itu sendiri.
 
   // Handle new message from WebSocket
   const handleNewMessage = useCallback(

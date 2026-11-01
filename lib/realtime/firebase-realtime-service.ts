@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 
 import { db, realtimeDb, messaging } from "@/lib/firebase/admin";
+import { getPushCollapseKey } from "@/lib/firebase/push-collapse";
 import { logger } from "@/lib/logger";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 
@@ -246,6 +247,7 @@ class FirebaseRealtimeService {
       return null;
     }
 
+    const collapseKey = getPushCollapseKey(input.data);
     return messaging.sendEachForMulticast({
       tokens: input.tokens,
       notification: {
@@ -253,6 +255,8 @@ class FirebaseRealtimeService {
         body: input.body,
       },
       data: input.data,
+      android: { collapseKey, notification: { tag: collapseKey } },
+      apns: { headers: { "apns-collapse-id": collapseKey } },
     });
   }
 

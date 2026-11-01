@@ -1,6 +1,6 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
-import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
+import { playStaffNotificationSound } from "@/lib/notification-sound";
 import { unwrapApiData } from "@/lib/utils/fetch-wrapper";
 
 import { useState, useCallback } from "react";
@@ -9,6 +9,7 @@ import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { type NotificationPayload } from "../types";
 import { usePermission } from "@/hooks/use-permission";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeResync } from "@/lib/realtime/hooks/useRealtimeResync";
 import { useRealtimeScope } from "@/lib/realtime/hooks/useRealtimeScope";
 
 export interface WorkOrderNotification {
@@ -119,17 +120,6 @@ export function useRealtimeWorkOrders(
     }
   }
 
-  const playSound = () => {
-    try {
-      const audio = new Audio(NOTIFICATION_SOUND_SRC);
-      audio
-        .play()
-        .catch((_err) => clientLogger.info("Audio play failed:", _err));
-    } catch (_error) {
-      // Ignore audio errors
-    }
-  };
-
   // Handle new notification from WebSocket
   const handleNewNotification = useCallback(
     (payload: NotificationPayload) => {
@@ -140,7 +130,7 @@ export function useRealtimeWorkOrders(
         "[WorkOrders] New notification received:",
         payload.title,
       );
-      playSound();
+      playStaffNotificationSound();
 
       // Add to beginning of list
       setNotifications((prev) => {
@@ -167,7 +157,7 @@ export function useRealtimeWorkOrders(
   const handleWorkOrderActivity = useCallback(
     (_payload: unknown) => {
       clientLogger.info("[WorkOrders] Activity received, refreshing...");
-      playSound();
+      playStaffNotificationSound();
       fetchNotifications();
     },
     [fetchNotifications],
@@ -186,6 +176,7 @@ export function useRealtimeWorkOrders(
   useRealtimeEvent("workorder.activity", handleWorkOrderActivity);
   useRealtimeEvent("workorder.update", handleWorkOrderActivity);
   useRealtimeEvent("workorder.new", handleWorkOrderActivity);
+  useRealtimeResync(fetchNotifications);
 
   // Mark single notification as read
   const markAsRead = useCallback(async (notificationId: string) => {

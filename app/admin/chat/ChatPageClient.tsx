@@ -1,6 +1,9 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
-import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
+import {
+  playStaffNotificationSound,
+  previewStaffNotificationSound,
+} from "@/lib/notification-sound";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -197,85 +200,6 @@ export default function ChatPageClient() {
     }
   }, []);
 
-  const playNotificationSound = useCallback(
-    async (type: "default" | "chat" = "default") => {
-      try {
-        // Check global enable setting
-        const soundEnabled = localStorage.getItem("chat_sound_enabled");
-        if (soundEnabled === "false") return;
-
-        // Check preferred sound source
-        const soundType = localStorage.getItem("chat_sound_type");
-        const customData = localStorage.getItem("chat_custom_sound_data");
-
-        let src = NOTIFICATION_SOUND_SRC; // Absolute fallback
-
-        // Priority: LocalStorage Custom -> LocalStorage Default -> Chat Argument -> Default
-        if (soundType === "custom" && customData) {
-          src = customData;
-        } else if (soundType === "default") {
-          src = NOTIFICATION_SOUND_SRC;
-        } else if (type === "chat") {
-          src = NOTIFICATION_SOUND_SRC;
-        }
-
-        let audioSrc = src;
-        // Use Blob for large Data URIs to prevent playback errors
-        if (src.startsWith("data:")) {
-          try {
-            const base64ToBlob = (dataURI: string) => {
-              const split = dataURI.split(",");
-              const base64 = split[1] ?? "";
-              const byteString = atob(base64);
-              const mimeString =
-                split[0]?.split(":")[1]?.split(";")[0] ??
-                "application/octet-stream";
-              const ab = new ArrayBuffer(byteString.length);
-              const ia = new Uint8Array(ab);
-              for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-              }
-              return new Blob([ab], { type: mimeString });
-            };
-
-            const blob = base64ToBlob(src);
-            audioSrc = URL.createObjectURL(blob);
-          } catch (e) {
-            clientLogger.error("Failed to convert data URI to blob:", e);
-            // Fallback to original src if blob fails
-          }
-        }
-
-        const audio = new Audio(audioSrc);
-
-        audio.onended = () => {
-          if (src.startsWith("data:") && audioSrc !== src) {
-            URL.revokeObjectURL(audioSrc);
-          }
-        };
-
-        // Fallback for file paths (not data URIs)
-        if (!src.startsWith("data:")) {
-          audio.onerror = () => {
-            if (src === "/sounds/chat.mp3") {
-              clientLogger.info(
-                "[Chat] chat.mp3 not found, falling back to default",
-              );
-              new Audio(NOTIFICATION_SOUND_SRC)
-                .play()
-                .catch((e) => clientLogger.error("Fallback audio failed:", e));
-            }
-          };
-        }
-
-        await audio.play();
-      } catch (e) {
-        clientLogger.error("Audio init/play failed:", e);
-      }
-    },
-    [],
-  );
-
   const showBrowserNotification = (sender: string, content: string) => {
     if (
       typeof window !== "undefined" &&
@@ -317,7 +241,7 @@ export default function ChatPageClient() {
             // Verify correct condition: new ID, not own message, and different from last tracked
             if (latestMsg.id !== lastMessageIdRef.current && !latestMsg.isOwn) {
               clientLogger.info("[Chat] TRIGGERING NOTIFICATION");
-              playNotificationSound("chat");
+              playStaffNotificationSound();
               showBrowserNotification(
                 latestMsg.senderName || "User",
                 latestMsg.content || "Mengirim gambar",
@@ -338,7 +262,7 @@ export default function ChatPageClient() {
         if (!silent) setLoadingMessages(false);
       }
     },
-    [playNotificationSound],
+    [],
   );
 
   // Send message
@@ -494,7 +418,7 @@ export default function ChatPageClient() {
           incomingConversationId: payload.conversationId,
         })
       ) {
-        playNotificationSound("chat");
+        playStaffNotificationSound();
         showBrowserNotification(
           payload.senderName || "User",
           payload.content || "Gambar",
@@ -545,7 +469,7 @@ export default function ChatPageClient() {
         { revalidate: false },
       );
     },
-    [selectedConversation, refetchConversations, playNotificationSound],
+    [selectedConversation, refetchConversations],
   );
 
   useRealtimeEvent<ChatMessage & { conversationId: string }>(
@@ -761,7 +685,7 @@ export default function ChatPageClient() {
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                      playNotificationSound("chat");
+                      previewStaffNotificationSound();
                       showBrowserNotification(
                         "Test System",
                         "Ini adalah tes notifikasi suara dan visual.",

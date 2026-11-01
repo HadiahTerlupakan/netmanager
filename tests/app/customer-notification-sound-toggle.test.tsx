@@ -10,7 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const play = vi.fn<() => Promise<void>>();
 
 import { NotificationSoundToggle } from "@/app/(customer)/profil/NotificationSoundToggle";
-import { isCustomerNotificationSoundEnabled } from "@/lib/notification-sound";
+import {
+  holdNotificationSounds,
+  isCustomerNotificationSoundEnabled,
+} from "@/lib/notification-sound";
 
 describe("NotificationSoundToggle", () => {
   let container: HTMLDivElement;
@@ -58,6 +61,18 @@ describe("NotificationSoundToggle", () => {
     act(() => toggle().click());
 
     expect(isCustomerNotificationSoundEnabled()).toBe(true);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("plays the preview even while notification sounds are held", () => {
+    // Pelanggan yang menyalakan bunyi sesaat setelah halaman dibuka tetap
+    // perlu mendengar pratinjaunya; jeda tenang hanya untuk notifikasi.
+    localStorage.setItem("customer_notification_sound", "false");
+    holdNotificationSounds();
+    act(() => root.render(<NotificationSoundToggle />));
+
+    act(() => toggle().click());
+
     expect(play).toHaveBeenCalledTimes(1);
   });
 });

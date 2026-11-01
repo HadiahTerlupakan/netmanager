@@ -1,6 +1,8 @@
 import { logger } from "@/lib/logger";
 import { messaging } from "@/lib/firebase/admin";
+import { getPushCollapseKey } from "@/lib/firebase/push-collapse";
 import { prisma } from "@/lib/prisma";
+import { PUSH_SOUND_ANDROID, PUSH_SOUND_IOS } from "@/lib/push-sound";
 import { prismaMitra } from "@/lib/prisma-mitra";
 import { clearStaleFcmTokens } from "@/modules/notification";
 
@@ -15,14 +17,6 @@ const STALE_TOKEN_THRESHOLD_DAYS = 30;
  * 30 hari — kemungkinan token sudah stale (user ganti HP, uninstall, dll).
  * Ini mengurangi wasted API calls ke Firebase.
  */
-/**
- * Nada notifikasi yang dikirim bersama aplikasi mobile, menggantikan bunyi
- * bawaan perangkat. Asetnya ada di repo mobile pada
- * `assets/sounds/notif_soft.wav` dan disalin ke kedua platform saat prebuild.
- */
-const NOTIFICATION_SOUND_IOS = "notif_soft.wav";
-const NOTIFICATION_SOUND_ANDROID = "notif_soft";
-
 export async function getAdminTokens(tenantId: string): Promise<string[]> {
   if (!tenantId) {
     logger.error(
@@ -105,6 +99,10 @@ export async function sendFCMNotification(
     return;
   }
 
+  // Dipakai sebagai collapse key, tag baki, dan apns-collapse-id: push
+  // kategori yang sama saling menggantikan selama ponsel offline.
+  const collapseKey = getPushCollapseKey(data);
+
   try {
     const response = await messaging.sendEachForMulticast({
       tokens,
@@ -114,20 +112,22 @@ export async function sendFCMNotification(
       },
       data: data || {},
       apns: {
+        headers: { "apns-collapse-id": collapseKey },
         payload: {
           // iOS menyebut nada di payload, lengkap dengan ekstensinya. Berkasnya
           // dikirim bersama aplikasi; pemasangan lama yang belum memilikinya
           // jatuh kembali ke bunyi bawaan, tidak ada notifikasi yang hilang.
-          aps: { sound: NOTIFICATION_SOUND_IOS },
+          aps: { sound: PUSH_SOUND_IOS },
         },
       },
       android: {
         priority: "high",
+        collapseKey,
         // Android merujuk berkas di res/raw tanpa ekstensi. Nilai ini hanya
         // berlaku pada perangkat pra-Android 8 — sejak Android 8 suara
         // ditentukan channel, dan aplikasi mengarahkan notifikasi latar
         // belakang ke channel bernada lembut lewat penunjuk di manifest.
-        notification: { sound: NOTIFICATION_SOUND_ANDROID },
+        notification: { sound: PUSH_SOUND_ANDROID, tag: collapseKey },
       },
       webpush: {
         notification: {

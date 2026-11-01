@@ -186,6 +186,9 @@ describe("FirebaseRealtimeService", () => {
         body: "World",
       },
       data: { notificationId: "notif-1" },
+      // Push yang tertunda saat perangkat offline digabung per kategori.
+      android: { collapseKey: "general", notification: { tag: "general" } },
+      apns: { headers: { "apns-collapse-id": "general" } },
     });
   });
 });

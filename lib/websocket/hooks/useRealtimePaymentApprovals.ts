@@ -1,11 +1,12 @@
 "use client";
 import { clientLogger } from "@/lib/client-logger";
-import { NOTIFICATION_SOUND_SRC } from "@/lib/notification-sound";
+import { playStaffNotificationSound } from "@/lib/notification-sound";
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRealtime } from "@/lib/realtime/RealtimeContext";
 import { useSession } from "next-auth/react";
 import { useRealtimeEvent } from "@/lib/realtime/hooks/useRealtimeEvent";
+import { useRealtimeResync } from "@/lib/realtime/hooks/useRealtimeResync";
 
 export interface PendingPayment {
   id: string;
@@ -70,14 +71,7 @@ export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn
       clientLogger.info("[WS] New payment pending:", payload);
       // Refetch to get consistent latest data
       fetchPendingPayments();
-
-      // Play notification sound
-      try {
-        const audio = new Audio(NOTIFICATION_SOUND_SRC);
-        audio.play().catch((e) => clientLogger.error("Audio play failed:", e));
-      } catch (e) {
-        clientLogger.error("Audio initialization failed:", e);
-      }
+      playStaffNotificationSound();
     },
     [fetchPendingPayments],
   );
@@ -92,6 +86,7 @@ export function useRealtimePaymentApprovals(): UseRealtimePaymentApprovalsReturn
       handlePaymentNew(payload);
     }
   });
+  useRealtimeResync(fetchPendingPayments);
 
   return {
     payments,

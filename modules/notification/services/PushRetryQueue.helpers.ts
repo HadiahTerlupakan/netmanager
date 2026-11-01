@@ -1,9 +1,9 @@
 import { logger } from "@/lib/logger";
 import { redis } from "@/lib/redis";
+import { createExpoPushMessage } from "./ExpoPushService.helpers";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const ONE_HOUR_MS = 3_600_000;
-const EXPO_SOUND = "default";
 
 export const RETRY_QUEUE_KEY = "push:retry:queue";
 export const RETRY_PROCESSING_KEY = "push:retry:processing";
@@ -128,17 +128,14 @@ function buildExpoRetryRequest(item: PushRetryItem): RequestInit {
       "Accept-Encoding": "gzip, deflate",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify([buildExpoRetryMessage(item)]),
-  };
-}
-
-function buildExpoRetryMessage(item: PushRetryItem) {
-  return {
-    to: item.pushToken,
-    title: item.title,
-    body: item.body,
-    data: item.data || {},
-    sound: EXPO_SOUND,
+    body: JSON.stringify([
+      createExpoPushMessage({
+        token: item.pushToken,
+        title: item.title,
+        body: item.body,
+        data: item.data,
+      }),
+    ]),
   };
 }
 
