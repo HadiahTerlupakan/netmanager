@@ -270,6 +270,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `lib/firebase/fcm-token-ownership.ts` (baru), `modules/notification/repositories/PushTokenRepository.ts`, `modules/notification/services/MobileFcmTokenService.ts`, `modules/investor/repositories/InvestorRepository.ts`, `scripts/setup-test-db.sh`, `tests/db/setup.ts`, `tests/db/fcm-token-claim.test.ts` (baru), `tests/db/customer-fcm-tokens.test.ts`, `tests/modules/notification/PushTokenRepository.customer.test.ts`, `tests/modules/notification/MobileFcmTokenService.test.ts`, `tests/modules/investor/InvestorRepository.fcm.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-11-01] — Rute token FCM: bentuk token ketat, batas per pemilik, jejak audit pelepasan
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/mobile/fcm-token` | `app/api/mobile/investor/fcm-token` | `modules/notification` | `lib/firebase`
+- **Author**: agent
+- **Deskripsi**: Mendaftarkan token FCM kini melepasnya dari setiap pemilik lain, lintas tenant, sehingga orang yang entah bagaimana mengetahui token perangkat lain bisa mendaftarkannya dan diam-diam memutus push korban. Pelepasan lintas tenant dipertahankan (pemetaan basi lintas tenant risiko privasi yang lebih besar, dan token FCM tidak bisa ditebak) dengan tiga penjagaan. (1) Kedua rute token, `/api/mobile/fcm-token` (karyawan, mitra, pelanggan) dan `/api/mobile/investor/fcm-token`, memakai `fcmTokenRequestSchema` yang sama: token 64–4096 karakter base64url dan titik dua, `action` hanya `add` atau `remove`; selain itu dijawab 400, termasuk token Expo (yang bisa mengosongkan `pushToken` lama orang lain) dan body yang bukan JSON (dulu 500 di rute karyawan). (2) Setiap token yang dilepas dari pemilik lain dicatat `logger.warn` "[FCM] Token dilepas dari pemilik lain" dengan pemilik baru dan lama (jenis, id, tenant), sidik 12 karakter SHA-256 token (tokennya sendiri tidak pernah dicatat), serta `crossesTenant` dan `crossesRole`, yang juga ditandai di pesannya ("lintas tenant", "lintas peran"); pernyataan pelepasan kini `UPDATE ... RETURNING`. (3) Paling banyak 10 permintaan token per pemilik per menit, memakai pembatas rute pembayaran pelanggan yang dikunci per pemilik, bukan IP; selebihnya 429.
+- **Files**: `modules/notification/validators/fcmTokenValidator.ts` (baru), `app/api/mobile/fcm-token-rate-limit.ts` (baru), `app/api/mobile/fcm-token/route.ts`, `app/api/mobile/investor/fcm-token/route.ts`, `lib/firebase/fcm-token-ownership.ts`, `modules/notification/repositories/PushTokenRepository.ts`, `modules/investor/repositories/InvestorRepository.ts`, `modules/notification/index.ts`, `tests/api/fcm-token-request-guard.test.ts` (baru), `tests/db/fcm-token-claim.test.ts`, `tests/api/mobile-fcm-token-route.test.ts`, `tests/api/mobile-fcm-token-customer.test.ts`, `tests/api/mobile-investor-fcm-token.test.ts`, `tests/modules/notification/PushTokenRepository.customer.test.ts`, `tests/modules/investor/InvestorRepository.fcm.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-01] — Satu jalur pelunasan gateway; verifikasi transfer manual utuh per checkout
 
 - **Tipe**: [FIXED]

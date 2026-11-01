@@ -1,5 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createHash } from "node:crypto";
+
+import { logger } from "@/lib/logger";
 import { prismaAuth } from "@/lib/prisma";
 import { prismaMitraAuth } from "@/lib/prisma-mitra";
 import { runWithRequestTenantContext } from "@/lib/tenant-context";
@@ -52,6 +55,20 @@ const MITRA = "mitra-uji-klaim-fcm";
 const INVESTOR = "investor-uji-klaim-fcm";
 
 const TOKEN_PINDAH = "fcm-uji-klaim-perangkat-berpindah";
+const SIDIK_TOKEN_PINDAH = createHash("sha256")
+  .update(TOKEN_PINDAH)
+  .digest("hex")
+  .slice(0, 12);
+const PESAN_AUDIT = "[FCM] Token dilepas dari pemilik lain";
+
+const logWarn = vi.spyOn(logger, "warn");
+
+/** Jejak audit pelepasan token dari pemilik lain sejak mock dikosongkan. */
+function jejakAudit() {
+  return logWarn.mock.calls
+    .filter(([pesan]) => String(pesan).startsWith(PESAN_AUDIT))
+    .map(([pesan, konteks]) => ({ pesan: String(pesan), konteks }));
+}
 
 const sesi = (role: string, id: string) => ({
   userId: id,
@@ -233,6 +250,7 @@ function pushUntukStaf() {
 
 describeDb("token FCM berpindah pemilik", () => {
   beforeEach(async () => {
+    logWarn.mockClear();
     sendEachForMulticast
       .mockReset()
       .mockImplementation(async (pesan: { tokens: string[] }) => ({
@@ -351,6 +369,57 @@ describeDb("token FCM berpindah pemilik", () => {
 
     expect(await tokenPelanggan(PELANGGAN_B)).toEqual([]);
     expect(await tokenPelanggan(PELANGGAN_A)).toEqual([TOKEN_PINDAH]);
+  });
+
+  it("mencatat jejak audit setiap kali token dilepas dari pemilik lain, tanpa menyebut tokennya", async () => {
+    await daftarkan("CUSTOMER", PELANGGAN_A, TOKEN_PINDAH);
+    expect(jejakAudit()).toEqual([]);
+
+    await daftarkan("CUSTOMER", PELANGGAN_B, TOKEN_PINDAH);
+
+    expect(jejakAudit()).toEqual([
+      {
+        pesan: PESAN_AUDIT,
+        konteks: {
+          tokenRef: SIDIK_TOKEN_PINDAH,
+          claimant: { kind: "pelanggan", id: PELANGGAN_B, tenantId: TENANT },
+          previousOwner: {
+            kind: "pelanggan",
+            id: PELANGGAN_A,
+            tenantId: TENANT,
+          },
+          crossesTenant: false,
+          crossesRole: false,
+        },
+      },
+    ]);
+    expect(JSON.stringify(logWarn.mock.calls)).not.toContain(TOKEN_PINDAH);
+  });
+
+  it("menandai jejak audit yang melintasi peran atau tenant", async () => {
+    await prismaAuth.tenant.upsert({
+      where: { id: TENANT_LAIN },
+      update: {},
+      create: { id: TENANT_LAIN, name: TENANT_LAIN },
+    });
+    await prismaAuth.user.update({
+      where: { id: STAF },
+      data: { tenantId: TENANT_LAIN, fcmTokens: [TOKEN_PINDAH] },
+    });
+
+    await daftarkan("MITRA", MITRA, TOKEN_PINDAH);
+
+    expect(jejakAudit()).toEqual([
+      {
+        pesan: `${PESAN_AUDIT} (lintas tenant, lintas peran)`,
+        konteks: expect.objectContaining({
+          claimant: { kind: "mitra", id: MITRA, tenantId: TENANT },
+          previousOwner: { kind: "user", id: STAF, tenantId: TENANT_LAIN },
+          crossesTenant: true,
+          crossesRole: true,
+        }),
+      },
+    ]);
   });
 
   it("dari investor ke staf: investor tidak lagi memegangnya", async () => {

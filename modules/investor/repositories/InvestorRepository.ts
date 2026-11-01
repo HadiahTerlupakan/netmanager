@@ -1,6 +1,7 @@
 import {
   releaseFcmTokenInMainDb,
   releaseFcmTokenInMitraDb,
+  type FcmTokenClaimant,
 } from "@/lib/firebase/fcm-token-ownership";
 import { prisma } from "@/lib/prisma";
 import { prismaMitra } from "@/lib/prisma-mitra";
@@ -104,15 +105,19 @@ export class InvestorRepository {
    * terbaru yang disimpan. Mengembalikan false bila investor tidak ada.
    */
   async addFcmToken(id: string, token: string): Promise<boolean> {
-    const claimant = { kind: "investor", id } as const;
-    const isAdded = await this.client.$transaction(async (tx) => {
+    const claimant = await this.client.$transaction(async (tx) => {
       const investor = await tx.investor.findUnique({
         where: { id },
-        select: { fcmTokens: true },
+        select: { fcmTokens: true, tenantId: true },
       });
-      if (!investor) return false;
+      if (!investor) return null;
 
-      await releaseFcmTokenInMainDb(tx, token, claimant);
+      const investorClaimant: FcmTokenClaimant = {
+        kind: "investor",
+        id,
+        tenantId: investor.tenantId,
+      };
+      await releaseFcmTokenInMainDb(tx, token, investorClaimant);
       const tokens = [...investor.fcmTokens.filter((t) => t !== token), token];
       await tx.investor.update({
         where: { id },
@@ -121,10 +126,11 @@ export class InvestorRepository {
           pushTokenUpdatedAt: new Date(),
         },
       });
-      return true;
+      return investorClaimant;
     });
-    if (isAdded) await releaseFcmTokenInMitraDb(prismaMitra, token, claimant);
-    return isAdded;
+    if (!claimant) return false;
+    await releaseFcmTokenInMitraDb(prismaMitra, token, claimant);
+    return true;
   }
 
   /** Lepas token FCM dari investor (logout di HP itu). */

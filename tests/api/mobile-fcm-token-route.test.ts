@@ -11,9 +11,15 @@ vi.mock("@/lib/mobile-api-auth", () => ({
 
 import { POST } from "@/app/api/mobile/fcm-token/route";
 
+/** Bentuk token FCM: id instans, titik dua, lalu muatan base64url. */
+const TOKEN_FCM_1 = `${"a".repeat(22)}:APA91b${"1".repeat(134)}`;
+const TOKEN_FCM_2 = `${"b".repeat(22)}:APA91b${"2".repeat(134)}`;
+
 describe("POST /api/mobile/fcm-token", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Klaim token melepasnya dari pemilik lain; di sini tidak ada pemilik lain.
+    prismaMock.$queryRaw.mockResolvedValue([]);
   });
 
   it("stores an FCM token for authenticated mobile users using userId payload field", async () => {
@@ -37,7 +43,7 @@ describe("POST /api/mobile/fcm-token", () => {
 
     const request = new NextRequest("http://localhost/api/mobile/fcm-token", {
       method: "POST",
-      body: JSON.stringify({ fcmToken: "fcm-token-1", action: "add" }),
+      body: JSON.stringify({ fcmToken: TOKEN_FCM_1, action: "add" }),
     });
 
     const response = await POST(request);
@@ -57,7 +63,7 @@ describe("POST /api/mobile/fcm-token", () => {
       where: { id: "user-1" },
       data: {
         fcmTokens: {
-          set: ["fcm-token-1"],
+          set: [TOKEN_FCM_1],
         },
       },
     });
@@ -72,13 +78,13 @@ describe("POST /api/mobile/fcm-token", () => {
     prismaMock.mitra.findFirst.mockResolvedValueOnce({
       id: "mitra-1",
       tenantId: "tenant-1",
-      fcmTokens: ["fcm-token-1", "fcm-token-2"],
+      fcmTokens: [TOKEN_FCM_1, TOKEN_FCM_2],
     });
     prismaMock.mitra.update.mockResolvedValueOnce({ id: "mitra-1" });
 
     const request = new NextRequest("http://localhost/api/mobile/fcm-token", {
       method: "POST",
-      body: JSON.stringify({ fcmToken: "fcm-token-1", action: "remove" }),
+      body: JSON.stringify({ fcmToken: TOKEN_FCM_1, action: "remove" }),
     });
 
     const response = await POST(request);
@@ -98,7 +104,7 @@ describe("POST /api/mobile/fcm-token", () => {
       where: { id: "mitra-1" },
       data: {
         fcmTokens: {
-          set: ["fcm-token-2"],
+          set: [TOKEN_FCM_2],
         },
       },
     });
@@ -122,7 +128,7 @@ describe("POST /api/mobile/fcm-token", () => {
     expect(response.status).toBe(400);
     expect(body).toEqual({
       success: false,
-      error: "fcmToken wajib diisi",
+      error: "fcmToken tidak valid",
       code: "VALIDATION_ERROR",
     });
     expect(prismaMock.user.findFirst).not.toHaveBeenCalled();

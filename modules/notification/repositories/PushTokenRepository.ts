@@ -1,6 +1,7 @@
 import {
   releaseFcmTokenInMainDb,
   releaseFcmTokenInMitraDb,
+  type FcmTokenClaimant,
 } from "@/lib/firebase/fcm-token-ownership";
 import { prisma, prismaMitra } from "@/modules/database";
 import {
@@ -51,11 +52,10 @@ function customerOwnerWhere(session: IMobileFcmSession, pelangganId: string) {
  * bersamaan tidak menggandakan token.
  */
 async function claimUserFcmToken(userId: string, fcmToken: string) {
-  const claimant = { kind: "user", id: userId } as const;
-  await prisma.$transaction(async (tx) => {
+  const claimant = await prisma.$transaction(async (tx) => {
     const owner = await tx.user.findUnique({
       where: { id: userId },
-      select: { fcmTokens: true },
+      select: { fcmTokens: true, tenantId: true },
     });
     const next = addedFcmTokens(owner?.fcmTokens, fcmToken);
     if (next) {
@@ -64,7 +64,13 @@ async function claimUserFcmToken(userId: string, fcmToken: string) {
         data: { fcmTokens: { set: next } },
       });
     }
-    await releaseFcmTokenInMainDb(tx, fcmToken, claimant);
+    const userClaimant: FcmTokenClaimant = {
+      kind: "user",
+      id: userId,
+      tenantId: owner?.tenantId ?? null,
+    };
+    await releaseFcmTokenInMainDb(tx, fcmToken, userClaimant);
+    return userClaimant;
   });
   await releaseFcmTokenInMitraDb(prismaMitra, fcmToken, claimant);
 }
@@ -74,11 +80,10 @@ async function claimCustomerFcmToken(
   where: ReturnType<typeof customerOwnerWhere>,
   fcmToken: string,
 ) {
-  const claimant = { kind: "pelanggan", id: where.id } as const;
-  await prisma.$transaction(async (tx) => {
+  const claimant = await prisma.$transaction(async (tx) => {
     const owner = await tx.pelanggan.findUnique({
       where,
-      select: { fcmTokens: true },
+      select: { fcmTokens: true, tenantId: true },
     });
     const next = addedFcmTokens(owner?.fcmTokens, fcmToken);
     if (next) {
@@ -87,18 +92,23 @@ async function claimCustomerFcmToken(
         data: { fcmTokens: { set: next } },
       });
     }
-    await releaseFcmTokenInMainDb(tx, fcmToken, claimant);
+    const customerClaimant: FcmTokenClaimant = {
+      kind: "pelanggan",
+      id: where.id,
+      tenantId: owner?.tenantId ?? null,
+    };
+    await releaseFcmTokenInMainDb(tx, fcmToken, customerClaimant);
+    return customerClaimant;
   });
   await releaseFcmTokenInMitraDb(prismaMitra, fcmToken, claimant);
 }
 
 /** Seperti `claimUserFcmToken`; transaksinya di database mitra, database utama sesudahnya. */
 async function claimMitraFcmToken(mitraId: string, fcmToken: string) {
-  const claimant = { kind: "mitra", id: mitraId } as const;
-  await prismaMitra.$transaction(async (tx) => {
+  const claimant = await prismaMitra.$transaction(async (tx) => {
     const owner = await tx.mitra.findUnique({
       where: { id: mitraId },
-      select: { fcmTokens: true },
+      select: { fcmTokens: true, tenantId: true },
     });
     const next = addedFcmTokens(owner?.fcmTokens, fcmToken);
     if (next) {
@@ -107,7 +117,13 @@ async function claimMitraFcmToken(mitraId: string, fcmToken: string) {
         data: { fcmTokens: { set: next } },
       });
     }
-    await releaseFcmTokenInMitraDb(tx, fcmToken, claimant);
+    const mitraClaimant: FcmTokenClaimant = {
+      kind: "mitra",
+      id: mitraId,
+      tenantId: owner?.tenantId ?? null,
+    };
+    await releaseFcmTokenInMitraDb(tx, fcmToken, mitraClaimant);
+    return mitraClaimant;
   });
   await releaseFcmTokenInMainDb(prisma, fcmToken, claimant);
 }

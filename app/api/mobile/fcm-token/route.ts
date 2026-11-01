@@ -3,10 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMobileOrCustomerAuthPayload } from "@/lib/mobile-api-auth";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import {
+  fcmTokenRequestSchema,
   MobileFcmTokenError,
   updateMobileFcmToken,
 } from "@/modules/notification";
+import {
+  limitFcmTokenRequest,
+  mobileFcmTokenPrincipal,
+} from "../fcm-token-rate-limit";
 
+/** Daftarkan (`add`) atau lepas (`remove`) token FCM karyawan, mitra, atau pelanggan. */
 export async function POST(req: NextRequest) {
   try {
     const authResult = await getMobileOrCustomerAuthPayload(req);
@@ -14,15 +20,19 @@ export async function POST(req: NextRequest) {
       return authResult;
     }
 
-    const { fcmToken, action = "add" } = await req.json();
-    if (!fcmToken) {
-      return ApiErrors.badRequest("fcmToken wajib diisi");
+    const limited = limitFcmTokenRequest(mobileFcmTokenPrincipal(authResult));
+    if (limited) return limited;
+
+    const body: unknown = await req.json().catch((): null => null);
+    const parsed = fcmTokenRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return ApiErrors.badRequest("fcmToken tidak valid");
     }
 
     const result = await updateMobileFcmToken({
       session: authResult,
-      fcmToken,
-      action,
+      fcmToken: parsed.data.fcmToken,
+      action: parsed.data.action,
     });
 
     return apiSuccess(null, { message: result.message });

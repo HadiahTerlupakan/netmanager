@@ -19,7 +19,7 @@ const DI_TENANT = { id: "cust-1", tenantId: "tenant-1" };
 
 /** Tabel yang dilepas dari token, menurut SQL mentah yang dijalankan. */
 function tabelDilepas(token: string) {
-  return prismaMock.$executeRaw.mock.calls
+  return prismaMock.$queryRaw.mock.calls
     .filter(([, ...nilai]) => nilai.includes(token))
     .map(([sql]) => /UPDATE "(\w+)"/.exec((sql as string[]).join(""))?.[1]);
 }
@@ -28,6 +28,7 @@ describe("PushTokenRepository untuk sesi pelanggan", () => {
   const repository = new PushTokenRepository();
 
   beforeEach(() => {
+    prismaMock.$queryRaw.mockResolvedValue([]);
     prismaMock.$transaction.mockImplementation(
       async (callback: (tx: typeof prismaMock) => unknown) =>
         callback(prismaMock),
@@ -59,7 +60,7 @@ describe("PushTokenRepository untuk sesi pelanggan", () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(prismaMock.pelanggan.findUnique).toHaveBeenCalledWith({
       where: DI_TENANT,
-      select: { fcmTokens: true },
+      select: { fcmTokens: true, tenantId: true },
     });
     expect(prismaMock.pelanggan.update).toHaveBeenCalledWith({
       where: DI_TENANT,
