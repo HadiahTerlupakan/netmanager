@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import type {
   OvertimeCreateInput,
   OvertimeQueryFilters,
+  OvertimeSiteFilter,
   OvertimeStatusCountFilters,
   OvertimeUpdateInput,
 } from "../domain/ports/IOvertimeRepository";
@@ -85,7 +86,7 @@ export function buildStatusCountWhere(
 export function buildReportWhere(input: {
   startDate: Date;
   endDate: Date;
-  siteId?: string;
+  siteId?: OvertimeSiteFilter;
   departmentId?: string;
   tenantId?: string;
 }): Prisma.OvertimeWhereInput {
@@ -104,7 +105,7 @@ export function buildReportWhere(input: {
 export function buildPaidOvertimeWhere(input: {
   startDate: Date;
   endDate: Date;
-  siteId?: string;
+  siteId?: OvertimeSiteFilter;
   departmentId?: string;
 }): Prisma.OvertimeWhereInput {
   const where: Prisma.OvertimeWhereInput = {
@@ -171,7 +172,7 @@ export function toUpdateData(
 }
 
 function buildUserScopeFilter(
-  siteId?: string,
+  siteId?: OvertimeSiteFilter,
   departmentId?: string,
 ): Prisma.UserWhereInput {
   return {

@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { prisma } from "@/lib/prisma";
 import { Prisma, type AttendanceStatus } from "@prisma/client";
 import {
@@ -7,7 +8,10 @@ import {
 } from "./attendance-repository-helpers";
 
 /** Pembatas site/departemen pegawai untuk agregasi laporan. */
-export type ReportUserScope = { siteId?: string; departmentId?: string };
+export type ReportUserScope = {
+  siteId?: ReportSiteFilter;
+  departmentId?: string;
+};
 
 export class AttendanceReportRankingRepository {
   /**
@@ -70,7 +74,7 @@ export class AttendanceReportRankingRepository {
     startDate: Date,
     endDate: Date,
     limit = 5,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     const userIds = await this.findScopedUserIds(siteId, departmentId, false);
@@ -89,7 +93,7 @@ export class AttendanceReportRankingRepository {
     startDate: Date,
     endDate: Date,
     limit = 5,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     const userIds = await this.findScopedUserIds(siteId, departmentId, true);
@@ -149,7 +153,7 @@ export class AttendanceReportRankingRepository {
   }
 
   private async findScopedUserIds(
-    siteId: string | undefined,
+    siteId: ReportSiteFilter | undefined,
     departmentId: string | undefined,
     fixedHourOnly: boolean,
   ) {

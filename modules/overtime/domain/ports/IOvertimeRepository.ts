@@ -10,12 +10,20 @@ import type {
   OvertimeUserStatsEntity,
 } from "../entities/OvertimeEntity";
 
+/**
+ * Filter site pemilik lembur: satu site atau daftar site (`{ in }`). Sama
+ * dengan `FilterKolomSite` di `modules/roles` (dijaga
+ * `tests/modules/attendance/report-site-filter-type.test.ts`).
+ */
+export type OvertimeSiteFilter = string | { in: string[] };
+
 export interface OvertimeQueryFilters {
   userId?: string;
   status?: OvertimeStatusValue;
   startDate?: Date;
   endDate?: Date;
-  siteId?: string;
+  /** Satu site, atau `{ in }` untuk lingkup admin multi-site. */
+  siteId?: OvertimeSiteFilter;
   departmentId?: string;
   holidayType?: string;
   skip?: number;
@@ -27,7 +35,7 @@ export interface OvertimeStatusCountFilters {
   userId?: string;
   startDate?: Date;
   endDate?: Date;
-  siteId?: string;
+  siteId?: OvertimeSiteFilter;
   departmentId?: string;
   tenantId?: string;
 }
@@ -125,7 +133,7 @@ export interface IOvertimeRepository {
   getStatsByDateRange(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ): Promise<OvertimeRangeStatsEntity>;
@@ -134,7 +142,7 @@ export interface IOvertimeRepository {
   getDailyStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ): Promise<OvertimeDateStatsEntity[]>;
 
@@ -143,7 +151,7 @@ export interface IOvertimeRepository {
     startDate: Date,
     endDate: Date,
     groupBy: "department" | "site",
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ): Promise<OvertimeGroupedStatsEntity[]>;
 
@@ -152,7 +160,7 @@ export interface IOvertimeRepository {
     startDate: Date,
     endDate: Date,
     limit?: number,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ): Promise<OvertimeTopEmployeeEntity[]>;
 
@@ -160,7 +168,7 @@ export interface IOvertimeRepository {
   getUserOvertimeStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ): Promise<OvertimeUserStatsEntity[]>;
 

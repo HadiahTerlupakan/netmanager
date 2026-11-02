@@ -3,30 +3,19 @@ import { join, relative } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { RESOURCE_CAPABILITIES } from "@/lib/resource-capabilities";
-
 /**
- * Konsistensi pembatasan data per site, dijaga dari dua arah.
+ * Konsistensi pembatasan data per site: pola gagal-terbuka tidak boleh muncul
+ * lagi. Ketiganya menuliskan "tanpa site" sebagai "tanpa filter", sehingga
+ * pengguna yang DIBATASI justru melihat seluruh tenant. Kontrak penggantinya ada
+ * di `modules/roles/domain/lingkup-site.ts`, yang membuat bentuk itu tidak bisa
+ * ditulis.
  *
- * 1. Pola gagal-terbuka tidak boleh muncul lagi. Ketiganya menuliskan
- *    "tanpa site" sebagai "tanpa filter", sehingga pengguna yang DIBATASI
- *    justru melihat seluruh tenant. Kontrak penggantinya ada di
- *    `modules/roles/domain/lingkup-site.ts`, yang membuat bentuk itu tidak bisa
- *    ditulis.
- *
- * 2. Setiap toggle di halaman Hak Akses harus benar-benar ditegakkan. Test
- *    pasangannya (`site-restriction-capability-catalog`) sudah menjaga arah
- *    sebaliknya — setiap pembatasan yang ditegakkan wajib punya toggle — tetapi
- *    arah ini tidak dijaga siapa pun, dan 23 toggle lolos tanpa efek apa pun.
- *    Pemilik role menyalakannya, yakin datanya terbatas, padahal tidak terjadi
- *    apa-apa.
- *
- * Daftar `BELUM_DITEGAKKAN` adalah utang yang diakui, bukan izin. Ia boleh
- * menyusut, tidak boleh bertambah: toggle baru tanpa penegakan akan menggagalkan
- * test ini.
+ * Arah "setiap toggle di halaman Hak Akses benar-benar ditegakkan" dulu dijaga
+ * di sini dengan daftar utang `BELUM_DITEGAKKAN`. Sejak 2026-11-03 penjaganya
+ * pindah ke `katalog-toggle-pembatasan.test.ts`, yang juga mencakup toggle dari
+ * default katalog dan tanpa daftar utang: toggle tanpa pembaca dibuang dari
+ * katalog.
  */
-
-const SCOPE_ACTIONS = ["site_only", "department_only"] as const;
 
 /** Berkas yang hanya MENDEKLARASIKAN nama permission, bukan menegakkannya. */
 const BERKAS_DEKLARASI = [
@@ -78,140 +67,6 @@ function berkasServer(): string[] {
       !jalur.startsWith("app/admin/"),
   );
 }
-
-/** Argumen ke-`indeks` tiap pemanggilan `nama(...)`, dengan kurung berimbang. */
-function argumenLiteral(
-  sumber: string,
-  nama: string,
-  indeks: number,
-): string[] {
-  const penanda = `${nama}(`;
-  const hasil: string[] = [];
-
-  for (
-    let i = sumber.indexOf(penanda);
-    i !== -1;
-    i = sumber.indexOf(penanda, i + penanda.length)
-  ) {
-    let kedalaman = 1;
-    let argumen = 0;
-    let kini = "";
-
-    for (let c = i + penanda.length; c < sumber.length; c += 1) {
-      const karakter = sumber[c]!;
-      if (karakter === "(") kedalaman += 1;
-      if (karakter === ")") kedalaman -= 1;
-      if (kedalaman === 0) break;
-      if (karakter === "," && kedalaman === 1) {
-        argumen += 1;
-        if (argumen > indeks) break;
-        kini = "";
-        continue;
-      }
-      if (argumen === indeks) kini += karakter;
-    }
-
-    const literal = kini.trim().match(/^"([a-z_0-9]+)"$/);
-    if (literal) hasil.push(literal[1]!);
-  }
-
-  return hasil;
-}
-
-const PEMANGGIL_LINGKUP = [
-  "checkSiteRestriction",
-  "canAccessSite",
-  "getSiteFilters",
-  "buildMultiSiteWhereClause",
-  "validateSiteAccess",
-];
-
-function pembatasanDitegakkan(): Set<string> {
-  const ditegakkan = new Set<string>();
-
-  for (const jalur of berkasSumber()) {
-    const sumber = readFileSync(join(process.cwd(), jalur), "utf8");
-
-    for (const aksi of SCOPE_ACTIONS) {
-      for (const cocok of sumber.matchAll(
-        new RegExp(`"([a-z_0-9]+):${aksi}"`, "g"),
-      )) {
-        ditegakkan.add(`${cocok[1]}:${aksi}`);
-      }
-    }
-
-    for (const nama of PEMANGGIL_LINGKUP) {
-      for (const resource of argumenLiteral(sumber, nama, 1)) {
-        ditegakkan.add(`${resource}:site_only`);
-      }
-    }
-  }
-
-  return ditegakkan;
-}
-
-function toggleDiKatalog(): Set<string> {
-  const toggle = new Set<string>();
-  for (const [resource, kemampuan] of Object.entries(RESOURCE_CAPABILITIES)) {
-    for (const aksi of SCOPE_ACTIONS) {
-      if ((kemampuan.actions as readonly string[]).includes(aksi)) {
-        toggle.add(`${resource}:${aksi}`);
-      }
-    }
-  }
-  return toggle;
-}
-
-/**
- * Toggle yang ada di halaman Hak Akses tetapi belum ditegakkan kode mana pun.
- * Snapshot 2026-10-07. Boleh menyusut, tidak boleh bertambah.
- *
- * Yang tersisa di sini BISA ditegakkan — modelnya punya sumbu site atau
- * departemen — hanya belum ada kodenya. Tujuh yang mustahil ditegakkan sudah
- * dibuang dari katalog, bukan didaftarkan di sini.
- */
-const BELUM_DITEGAKKAN = [
-  "acs_dashboard:site_only",
-  "acs_devices:site_only",
-  "acs_mapping:site_only",
-  "activity:site_only",
-  "daily_income:site_only",
-  "list:department_only",
-  "list:site_only",
-  "login:site_only",
-  "map:site_only",
-  "network:site_only",
-  "period_income:site_only",
-  "procurement:site_only",
-  "profit_loss:site_only",
-  "salary:department_only",
-  "salary:site_only",
-  "salary_users:site_only",
-];
-
-describe("setiap toggle pembatasan benar-benar ditegakkan", () => {
-  it("tidak ada toggle baru tanpa penegakan", () => {
-    const ditegakkan = pembatasanDitegakkan();
-    const tanpaPenegakan = [...toggleDiKatalog()]
-      .filter((kunci) => !ditegakkan.has(kunci))
-      .sort();
-
-    const baru = tanpaPenegakan.filter(
-      (kunci) => !BELUM_DITEGAKKAN.includes(kunci),
-    );
-
-    expect(baru).toEqual([]);
-  });
-
-  it("daftar utang tidak menyimpan entri yang sudah lunas", () => {
-    const ditegakkan = pembatasanDitegakkan();
-    const sudahDitegakkan = BELUM_DITEGAKKAN.filter((kunci) =>
-      ditegakkan.has(kunci),
-    );
-
-    expect(sudahDitegakkan).toEqual([]);
-  });
-});
 
 describe("pola gagal-terbuka tidak boleh muncul lagi", () => {
   /**

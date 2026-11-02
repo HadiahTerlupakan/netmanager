@@ -88,10 +88,10 @@ describe("UserRepository", () => {
       expect(prismaMock.$transaction).toHaveBeenCalled();
     });
 
-    it("harus filter by siteId termasuk relasi userSites", async () => {
+    it("harus filter ke SEMUA site admin termasuk relasi userSites", async () => {
       vi.mocked(prismaMock.$transaction).mockResolvedValue([[], 0, 0, 0]);
 
-      await repository.findAll({ siteId: "site-1" });
+      await repository.findAll({ siteIds: ["site-1", "site-2"] });
 
       expect(prismaMock.user.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -99,8 +99,12 @@ describe("UserRepository", () => {
             AND: [
               {
                 OR: [
-                  { siteId: "site-1" },
-                  { userSites: { some: { siteId: "site-1" } } },
+                  { siteId: { in: ["site-1", "site-2"] } },
+                  {
+                    userSites: {
+                      some: { siteId: { in: ["site-1", "site-2"] } },
+                    },
+                  },
                 ],
               },
             ],

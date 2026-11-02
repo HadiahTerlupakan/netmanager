@@ -7,6 +7,7 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
+import { lingkupKelolaSitePemanggil } from "@/lib/api/lingkup-kelola-site";
 import { siteUpdateSchema } from "@/lib/validations/site";
 
 const siteService = new SiteService();
@@ -20,7 +21,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const { id } = ctx.params;
-  const result = await siteService.getSiteById(id);
+  const result = await siteService.getSiteById(
+    id,
+    lingkupKelolaSitePemanggil(ctx),
+  );
 
   if (!result.success) {
     if (result.code === "NOT_FOUND") {
@@ -55,6 +59,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     id,
     parsed.data,
     ctx.session!.user.id,
+    lingkupKelolaSitePemanggil(ctx),
   );
 
   if (!result.success) {
@@ -81,7 +86,11 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const { id } = ctx.params;
-  const result = await siteService.deleteSite(id, ctx.session!.user.id);
+  const result = await siteService.deleteSite(
+    id,
+    ctx.session!.user.id,
+    lingkupKelolaSitePemanggil(ctx),
+  );
 
   if (!result.success) {
     if (result.code === "NOT_FOUND") {

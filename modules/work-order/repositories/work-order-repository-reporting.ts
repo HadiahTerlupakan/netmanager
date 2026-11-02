@@ -9,6 +9,7 @@ import type {
   WorkOrderWithRelations,
 } from "../domain/ports/IWorkOrderRepository";
 import { getWorkOrderStatisticsCore } from "./work-order-repository-statistics-core";
+import type { WorkOrderSiteScope } from "./work-order-site-scope";
 import {
   getAdminKPIStats,
   getAdminResponseStats,
@@ -50,7 +51,7 @@ export function getWorkOrderTopPerformers(input: {
   dateFrom?: Date;
   dateTo?: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }): Promise<TopPerformer[]> {
   return getTopPerformers(
     input.prisma,
@@ -58,7 +59,7 @@ export function getWorkOrderTopPerformers(input: {
     input.dateFrom,
     input.dateTo,
     input.departmentId,
-    input.siteId,
+    input.siteIds,
   );
 }
 
@@ -68,7 +69,7 @@ export function getWorkOrderTopAssists(input: {
   dateFrom?: Date;
   dateTo?: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }): Promise<TopPerformer[]> {
   return getTopAssists(
     input.prisma,
@@ -76,7 +77,7 @@ export function getWorkOrderTopAssists(input: {
     input.dateFrom,
     input.dateTo,
     input.departmentId,
-    input.siteId,
+    input.siteIds,
   );
 }
 
@@ -125,9 +126,9 @@ export function getWorkOrderRecentItems(input: {
 export function getWorkOrderDepartmentWorkload(input: {
   prisma: PrismaInstance;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
-  return getDepartmentWorkload(input.prisma, input.departmentId, input.siteId);
+  return getDepartmentWorkload(input.prisma, input.departmentId, input.siteIds);
 }
 
 export function getEmployeeWorkOrdersByDepartment(input: {
@@ -154,7 +155,7 @@ export function getWorkOrderIssueStats(input: {
   dateFrom?: Date;
   dateTo?: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }): Promise<IssueStatistic[]> {
   return getIssueStatistics(
     input.prisma,
@@ -162,7 +163,7 @@ export function getWorkOrderIssueStats(input: {
     input.dateFrom,
     input.dateTo,
     input.departmentId,
-    input.siteId,
+    input.siteIds,
   );
 }
 
@@ -172,7 +173,7 @@ export function getWorkOrderSiteStatistics(input: {
   dateFrom?: Date;
   dateTo?: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
   return getSiteStatistics(
     input.prisma,
@@ -180,7 +181,7 @@ export function getWorkOrderSiteStatistics(input: {
     input.dateFrom,
     input.dateTo,
     input.departmentId,
-    input.siteId,
+    input.siteIds,
   );
 }
 
@@ -189,14 +190,14 @@ export function getWorkOrderDisconnectionStatistics(input: {
   dateFrom?: Date;
   dateTo?: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
   return getDisconnectionStatistics(
     input.prisma,
     input.dateFrom,
     input.dateTo,
     input.departmentId,
-    input.siteId,
+    input.siteIds,
   );
 }
 
@@ -205,20 +206,20 @@ export function getWorkOrderAdminResponseStats(input: {
   dateFrom: Date;
   dateTo: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
   return getAdminResponseStats(input.prisma, input.dateFrom, input.dateTo, {
     departmentId: input.departmentId,
-    siteId: input.siteId,
+    siteIds: input.siteIds,
   });
 }
 
 export function getWorkOrderAdminKpiStats(input: {
   prisma: PrismaInstance;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
-  return getAdminKPIStats(input.prisma, input.departmentId, input.siteId);
+  return getAdminKPIStats(input.prisma, input.departmentId, input.siteIds);
 }
 
 export function getWorkOrderVolumeTrend(input: {
@@ -226,14 +227,14 @@ export function getWorkOrderVolumeTrend(input: {
   startDate: Date;
   endDate: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
   return getVolumeTrend(
     input.prisma,
     input.startDate,
     input.endDate,
     input.departmentId,
-    input.siteId,
+    input.siteIds,
   );
 }
 
@@ -242,14 +243,14 @@ export function getWorkOrderIssueTrend(input: {
   startDate: Date;
   endDate: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
   return getIssueTrend(
     input.prisma,
     input.startDate,
     input.endDate,
     input.departmentId,
-    input.siteId,
+    input.siteIds,
   );
 }
 
@@ -258,14 +259,14 @@ export function getWorkOrderPerformanceTrend(input: {
   startDate: Date;
   endDate: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
   return getPerformanceTrend(
     input.prisma,
     input.startDate,
     input.endDate,
     input.departmentId,
-    input.siteId,
+    input.siteIds,
   );
 }
 
@@ -274,13 +275,13 @@ export function getWorkOrderTypeTrend(input: {
   startDate: Date;
   endDate: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
   return getTypeTrend(
     input.prisma,
     input.startDate,
     input.endDate,
     input.departmentId,
-    input.siteId,
+    input.siteIds,
   );
 }

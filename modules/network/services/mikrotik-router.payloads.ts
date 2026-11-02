@@ -8,8 +8,8 @@ import {
   getRadiusSecret,
 } from "./radius-runtime.helpers";
 import {
-  resolveRestrictedSiteId,
-  RouterAccessDeniedError,
+  ensureRestrictedUpdateSiteId,
+  resolveRestrictedCreateSiteId,
 } from "./mikrotik-router.access";
 
 type RadiusConfig = {
@@ -27,16 +27,6 @@ export async function getForcedRadiusConfig(
   return { secretRadius, authPort, accountingPort };
 }
 
-function requireCreateSiteId(userSiteId: string | null): string {
-  if (userSiteId) {
-    return userSiteId;
-  }
-
-  throw new RouterAccessDeniedError(
-    "User tidak memiliki akses site untuk membuat router",
-  );
-}
-
 /** Tentukan site router baru sesuai pembatasan akses user. */
 export async function resolveCreateSiteId(params: {
   userId: string;
@@ -48,12 +38,18 @@ export async function resolveCreateSiteId(params: {
     return params.siteId ?? null;
   }
 
-  return requireCreateSiteId(
-    await resolveRestrictedSiteId(params.networkRepository, params.userId),
-  );
+  return resolveRestrictedCreateSiteId({
+    networkRepository: params.networkRepository,
+    userId: params.userId,
+    requestedSiteId: params.siteId,
+  });
 }
 
-/** Tentukan site target update tanpa melanggar pembatasan akses user. */
+/**
+ * Tentukan site target update tanpa melanggar pembatasan akses user. Pengguna
+ * terbatas hanya boleh memindah router ke salah satu site-nya; tanpa `siteId`
+ * site router tidak diubah.
+ */
 export async function resolveUpdateSiteId(params: {
   userId: string;
   siteId?: string | null;
@@ -61,7 +57,11 @@ export async function resolveUpdateSiteId(params: {
   networkRepository: Pick<IRouterAccessRepository, "findUserSite">;
 }): Promise<string | null | undefined> {
   if (params.restrictedToOwnSite) {
-    return resolveRestrictedSiteId(params.networkRepository, params.userId);
+    await ensureRestrictedUpdateSiteId({
+      networkRepository: params.networkRepository,
+      userId: params.userId,
+      requestedSiteId: params.siteId,
+    });
   }
 
   return params.siteId;

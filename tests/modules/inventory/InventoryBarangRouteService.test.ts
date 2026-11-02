@@ -54,7 +54,11 @@ describe("InventoryBarangRouteService", () => {
       pengguna: PENGGUNA,
     });
 
-    expect(repository.findBarangDetail).toHaveBeenCalledWith("barang-1");
+    expect(repository.findBarangDetail).toHaveBeenCalledWith("barang-1", {
+      masuk: ["site-1"],
+      keluar: ["site-1"],
+      opname: ["site-1"],
+    });
     expect(result).toEqual({
       found: true,
       barang: {
@@ -62,6 +66,66 @@ describe("InventoryBarangRouteService", () => {
         barangGudang: [barang.barangGudang[0]],
         totalStock: 3,
       },
+    });
+  });
+
+  it("menyaring mutasi terbaru per sumbu daftarnya masing-masing", async () => {
+    const repository = {
+      findBarangDetail: vi.fn().mockResolvedValue(barang),
+    };
+    // Hanya `masuk:site_only` yang menyala: stok & mutasi lain tetap terbuka.
+    const inventoryRouteService = {
+      resolveLingkupSite: vi.fn(
+        async (input: { restrictedPermissions: readonly string[] }) =>
+          input.restrictedPermissions.includes("masuk:site_only")
+            ? { dibatasi: true, siteIds: ["site-2"] }
+            : { dibatasi: false },
+      ),
+    };
+    const service = new InventoryBarangRouteService(
+      repository as never,
+      {} as never,
+      inventoryRouteService as never,
+    );
+
+    await service.getBarangDetail({
+      id: "barang-1",
+      pengguna: { ...PENGGUNA, permissions: ["masuk:site_only"] },
+    });
+
+    const sumbu = inventoryRouteService.resolveLingkupSite.mock.calls.map(
+      ([input]) => input.restrictedPermissions,
+    );
+    expect(sumbu).toEqual(
+      expect.arrayContaining([
+        ["barang:site_only", "gudang:site_only"],
+        ["masuk:site_only", "barang:site_only", "gudang:site_only"],
+        ["keluar:site_only", "barang:site_only", "gudang:site_only"],
+        ["opname:site_only", "barang:site_only", "gudang:site_only"],
+      ]),
+    );
+    expect(repository.findBarangDetail).toHaveBeenCalledWith("barang-1", {
+      masuk: ["site-2"],
+      keluar: undefined,
+      opname: undefined,
+    });
+  });
+
+  it("pengguna dibatasi tanpa site tidak melihat mutasi terbaru apa pun", async () => {
+    const repository = {
+      findBarangDetail: vi.fn().mockResolvedValue(barang),
+    };
+    const service = createServiceWithRepository(repository, {
+      dibatasi: true,
+      siteIds: [],
+    });
+
+    await service.getBarangDetail({ id: "barang-1", pengguna: PENGGUNA });
+
+    expect(repository.findBarangDetail).toHaveBeenCalledWith("barang-1", {
+      masuk: [],
+      keluar: [],
+      opname: [],
     });
   });
 

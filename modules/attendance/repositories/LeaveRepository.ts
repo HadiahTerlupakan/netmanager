@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import type { LeaveStatus, Prisma } from "@prisma/client";
 import type { ILeaveRepository } from "../domain/ports/ILeaveRepository";
 import { LeaveLookupRepository } from "./LeaveLookupRepository";
@@ -51,7 +52,7 @@ export class LeaveRepository implements ILeaveRepository {
     startDate?: Date;
     endDate?: Date;
     departmentId?: string;
-    siteId?: string;
+    siteIds?: readonly string[];
     skip?: number;
     take?: number;
     tenantId?: string;
@@ -64,7 +65,7 @@ export class LeaveRepository implements ILeaveRepository {
     userId?: string;
     status?: LeaveStatus;
     departmentId?: string;
-    siteId?: string;
+    siteIds?: readonly string[];
     tenantId?: string;
   }) {
     return this.request.count(filters);
@@ -74,7 +75,7 @@ export class LeaveRepository implements ILeaveRepository {
   getUserLeaveStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {

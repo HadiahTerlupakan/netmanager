@@ -61,3 +61,18 @@ export const IZIN_PEMBATAS_OPNAME: readonly string[] = [
  * membaca `restock:site_only`; detail dan aksi per pengajuan mengikutinya.
  */
 export const IZIN_PEMBATAS_RESTOCK: readonly string[] = ["restock:site_only"];
+
+const PEMISAH_IZIN = ":";
+
+/**
+ * Pasangan `{ resource, action }` dari `IZIN_PEMBATAS_OPNAME`, untuk menyaring
+ * baris permission role di query. Diturunkan dari daftar yang sama dengan
+ * daftar/CRUD opname supaya pengingat tidak bisa berbeda sumbu lagi.
+ */
+export const PASANGAN_PEMBATAS_OPNAME: ReadonlyArray<{
+  resource: string;
+  action: string;
+}> = IZIN_PEMBATAS_OPNAME.map((izin) => {
+  const [resource, action] = izin.split(PEMISAH_IZIN);
+  return { resource, action };
+});

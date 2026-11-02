@@ -5,13 +5,13 @@ import { getUserPermissions, isSuperAdminUser } from "@/lib/auth";
 import { ensureAdminAccess } from "@/lib/server-auth";
 import {
   ManualPaymentAdminRouteService,
-  isManualPaymentSiteRestricted,
+  resolveManualPaymentAllowedSiteIds,
 } from "@/modules/finance";
 
 type AdminSessionUser = Awaited<ReturnType<typeof ensureAdminAccess>> & {
   id: string;
   siteId?: string | null;
-  primarySiteId?: string | null;
+  siteIds?: string[];
 };
 
 const manualPaymentAdminRouteService = new ManualPaymentAdminRouteService();
@@ -32,14 +32,12 @@ export async function GET(request: Request) {
       );
     }
     const { searchParams } = new URL(request.url);
-    const userSiteId = user.primarySiteId ?? user.siteId ?? null;
-    const isSiteOnly = isManualPaymentSiteRestricted(user, permissions);
     const data = await manualPaymentAdminRouteService.getPendingManualPayments({
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),
-      siteId: isSiteOnly ? userSiteId : searchParams.get("siteId"),
+      siteId: searchParams.get("siteId"),
       status: searchParams.get("status"),
-      isSiteOnly,
+      allowedSiteIds: resolveManualPaymentAllowedSiteIds(user, permissions),
     });
     return NextResponse.json({ success: true, data });
   } catch (e) {

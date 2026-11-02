@@ -18,13 +18,13 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 type DashboardAccess = {
   departmentId?: string;
-  siteId?: string;
+  siteIds?: string[];
   emptyResponse: boolean;
 };
 
 type DashboardCacheOptions = {
   departmentId?: string;
-  siteId?: string;
+  siteIds?: string[];
 };
 
 export interface AdminWorkOrderUserContext {
@@ -126,20 +126,20 @@ export class AdminWorkOrderDashboardService {
         dateFrom,
         dateTo,
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
       this.workOrderRepo.getSiteStatistics(
         ANALYTICS_LIMIT,
         dateFrom,
         dateTo,
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
       this.workOrderRepo.getDisconnectionStatistics(
         dateFrom,
         dateTo,
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
     ]);
 
@@ -162,13 +162,14 @@ export class AdminWorkOrderDashboardService {
       permissions: options.permissions ?? [],
       departmentId: profile.departmentId,
       siteId: profile.siteId,
+      siteIds: profile.siteIds,
     });
   }
 
   private createCacheOptions(access: DashboardAccess): DashboardCacheOptions {
     return {
       ...(access.departmentId ? { departmentId: access.departmentId } : {}),
-      ...(access.siteId ? { siteId: access.siteId } : {}),
+      ...(access.siteIds ? { siteIds: access.siteIds } : {}),
     };
   }
 
@@ -185,49 +186,49 @@ export class AdminWorkOrderDashboardService {
       ),
       this.workOrderRepo.getDepartmentWorkload(
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
       this.workOrderRepo.getTopPerformers(
         ANALYTICS_LIMIT,
         dateRange.dateFrom,
         dateRange.dateTo,
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
       this.workOrderRepo.getTopAssists(
         ANALYTICS_LIMIT,
         dateRange.dateFrom,
         dateRange.dateTo,
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
       this.workOrderRepo.getIssueStatistics(
         ANALYTICS_LIMIT,
         dateRange.dateFrom,
         dateRange.dateTo,
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
       this.workOrderRepo.getSiteStatistics(
         ANALYTICS_LIMIT,
         dateRange.dateFrom,
         dateRange.dateTo,
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
       this.workOrderRepo.getDisconnectionStatistics(
         dateRange.dateFrom,
         dateRange.dateTo,
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
       this.workOrderRepo.getAdminResponseStats(
         responseRange.dateFrom,
         responseRange.dateTo,
         access.departmentId,
-        access.siteId,
+        access.siteIds,
       ),
-      this.workOrderRepo.getAdminKPIStats(access.departmentId, access.siteId),
+      this.workOrderRepo.getAdminKPIStats(access.departmentId, access.siteIds),
     ]).then(
       ([
         stats,

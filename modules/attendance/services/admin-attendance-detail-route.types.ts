@@ -17,11 +17,4 @@ export type DetailResult<T> =
   | { type: "notFound"; message: string }
   | { type: "badRequest"; message: string };
 
-export type RestrictedScope = {
-  siteId: string | null | undefined;
-  departmentId: string | null | undefined;
-  /** Dibatasi tetapi tanpa site/departemen: seluruh data di luar lingkup. */
-  tanpaData: boolean;
-} | null;
-
 export type AttendanceUpdateInput = Prisma.AttendanceUpdateInput;

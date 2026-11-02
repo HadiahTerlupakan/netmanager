@@ -24,7 +24,7 @@ export class AdminWorkOrderAnalyticsRouteService {
       unauthorized: boolean;
       emptyResponse?: boolean;
       departmentId?: string;
-      siteId?: string;
+      siteIds?: string[];
     }>,
   ) {}
 
@@ -46,7 +46,7 @@ export class AdminWorkOrderAnalyticsRouteService {
     const stats = await this.repository.getAdminResponseStats(
       range.dateFrom,
       range.dateTo,
-      { departmentId: access.departmentId, siteId: access.siteId },
+      { departmentId: access.departmentId, siteIds: access.siteIds },
     );
     return { success: true as const, data: stats };
   }
@@ -65,7 +65,7 @@ export class AdminWorkOrderAnalyticsRouteService {
       input.limit || DEFAULT_RECENT_LIMIT,
       {
         ...(access.departmentId ? { departmentId: access.departmentId } : {}),
-        ...(access.siteId ? { siteId: access.siteId } : {}),
+        ...(access.siteIds ? { siteIds: access.siteIds } : {}),
       },
     );
   }
@@ -83,7 +83,7 @@ export class AdminWorkOrderAnalyticsRouteService {
     const repository = new dynamicImport.WorkOrderRepository();
     const data = await repository.getDepartmentWorkload(
       access.departmentId,
-      access.siteId,
+      access.siteIds,
     );
     return { success: true as const, data };
   }
@@ -101,7 +101,7 @@ export class AdminWorkOrderAnalyticsRouteService {
     if (access.emptyResponse)
       return { success: true as const, data: this.getEmptyStats() };
     if (access.departmentId) filters.departmentId = access.departmentId;
-    if (access.siteId) Object.assign(filters, { siteId: access.siteId });
+    if (access.siteIds) Object.assign(filters, { siteIds: access.siteIds });
     return this.workOrderService.getStatistics(filters);
   }
 
@@ -126,7 +126,7 @@ export class AdminWorkOrderAnalyticsRouteService {
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
       departmentId: access.departmentId,
-      siteId: access.siteId,
+      siteIds: access.siteIds,
     });
     return { success: true as const, data };
   }
@@ -161,32 +161,32 @@ export class AdminWorkOrderAnalyticsRouteService {
     }
     const dynamicImport = await import("../repositories/WorkOrderRepository");
     const repository = new dynamicImport.WorkOrderRepository();
-    const { departmentId, siteId } = access;
+    const { departmentId, siteIds } = access;
     const [volumeTrend, issueTrend, performanceTrend, typeTrend] =
       await Promise.all([
         repository.getVolumeTrend(
           input.startDate,
           input.endDate,
           departmentId,
-          siteId,
+          siteIds,
         ),
         repository.getIssueTrend(
           input.startDate,
           input.endDate,
           departmentId,
-          siteId,
+          siteIds,
         ),
         repository.getPerformanceTrend(
           input.startDate,
           input.endDate,
           departmentId,
-          siteId,
+          siteIds,
         ),
         repository.getTypeTrend(
           input.startDate,
           input.endDate,
           departmentId,
-          siteId,
+          siteIds,
         ),
       ]);
     return {

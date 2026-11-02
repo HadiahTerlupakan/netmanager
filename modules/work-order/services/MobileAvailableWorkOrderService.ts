@@ -5,6 +5,7 @@ import { mobileAvailableWorkOrderRepository } from "../repositories/MobileAvaila
 import {
   buildEmployeeWhereClause,
   buildMitraWhereClause,
+  buildWarrantyClaimableWhere,
   canEmployeeClaimWorkOrder,
   canMitraClaimWorkOrder,
   extractUserSiteIds,
@@ -15,6 +16,9 @@ import {
   recordWorkOrderActivity,
   WORK_ORDER_ACTIVITY_ACTIONS,
 } from "./work-order-activity-log";
+
+/** Alasan penolakan klaim WO garansi yang masih milik teknisi lain. */
+const WARRANTY_CLAIM_DENIED_REASON = "WO garansi milik teknisi lain";
 
 export interface MobileAvailableSessionUser {
   id: string;
@@ -112,6 +116,7 @@ export class MobileAvailableWorkOrderService {
       userSiteIds,
       workOrder,
     });
+    await this.ensureWarrantyClaimAllowed(workOrderId, tenantId, user.id);
 
     const claimTime = new Date();
     const triggeredByName = await this.resolveTriggeredByName(
@@ -205,6 +210,33 @@ export class MobileAvailableWorkOrderService {
         userSiteIds: extractUserSiteIds(dbUser),
         workOrder,
       }),
+    );
+  }
+
+  /**
+   * Tolak klaim WO garansi yang masih eksklusif milik teknisi lain. Aturannya
+   * sama persis dengan penyaring daftar WO tersedia
+   * (`buildWarrantyClaimableWhere`); dulu hanya daftar yang menerapkannya,
+   * sehingga ID WO garansi orang lain tetap bisa diklaim langsung.
+   */
+  async ensureWarrantyClaimAllowed(
+    workOrderId: string,
+    tenantId: string,
+    actorId: string,
+  ): Promise<void> {
+    const isClaimable = await this.repository.isWorkOrderMatchingFilter(
+      workOrderId,
+      tenantId,
+      buildWarrantyClaimableWhere(actorId),
+    );
+    if (isClaimable) return;
+
+    throw WorkOrderErrors.accessDenied(
+      workOrderId,
+      WARRANTY_CLAIM_DENIED_REASON,
+      {
+        userId: actorId,
+      },
     );
   }
 

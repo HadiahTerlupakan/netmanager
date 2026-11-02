@@ -54,6 +54,10 @@ export {
 export * from "./services/CustomerPaymentMethodService";
 export * from "./services/FinanceExpenseBridgeService";
 export * from "./services/ExpenseRouteService";
+export {
+  resolveExpenseCreateSiteId,
+  resolveExpenseSiteScope,
+} from "./services/expense-site-scope";
 export * from "./services/ExpenseCategoryRouteService";
 export * from "./services/ReceivablesPageService";
 export * from "./dto/ReceivableDTO";

@@ -92,7 +92,7 @@ describe("route analitik work order menegakkan lingkup site", () => {
   it("/trends meneruskan site dan departemen ke setiap query tren", async () => {
     const { service } = analyticsWith({
       emptyResponse: false,
-      siteId: "site-1",
+      siteIds: ["site-1"],
       departmentId: "dept-1",
     });
 
@@ -102,14 +102,14 @@ describe("route analitik work order menegakkan lingkup site", () => {
       RANGE.startDate,
       RANGE.endDate,
       "dept-1",
-      "site-1",
+      ["site-1"],
     );
   });
 
   it("/response-stats, /top-performers, /department-workload, /recent ikut disaring site", async () => {
     const { service, repository } = analyticsWith({
       emptyResponse: false,
-      siteId: "site-1",
+      siteIds: ["site-1"],
     });
 
     await service.getResponseStats({ user: USER });
@@ -120,17 +120,16 @@ describe("route analitik work order menegakkan lingkup site", () => {
     expect(repository.getAdminResponseStats).toHaveBeenCalledWith(
       expect.any(Date),
       expect.any(Date),
-      { departmentId: undefined, siteId: "site-1" },
+      { departmentId: undefined, siteIds: ["site-1"] },
     );
     expect(repository.getTopPerformanceSummary).toHaveBeenCalledWith(
-      expect.objectContaining({ siteId: "site-1" }),
+      expect.objectContaining({ siteIds: ["site-1"] }),
     );
-    expect(mocks.getDepartmentWorkload).toHaveBeenCalledWith(
-      undefined,
+    expect(mocks.getDepartmentWorkload).toHaveBeenCalledWith(undefined, [
       "site-1",
-    );
+    ]);
     expect(mocks.getRecentWorkOrders).toHaveBeenCalledWith(5, {
-      siteId: "site-1",
+      siteIds: ["site-1"],
     });
   });
 });
@@ -143,6 +142,7 @@ describe("buildDashboardAccessFilters route analitik membaca permission dashboar
       role: "Admin",
       departmentId: "dept-1",
       siteId: "site-1",
+      siteIds: [],
     });
   });
 
@@ -155,8 +155,25 @@ describe("buildDashboardAccessFilters route analitik membaca permission dashboar
     expect(filters).toMatchObject({
       unauthorized: false,
       emptyResponse: false,
-      siteId: "site-1",
+      siteIds: ["site-1"],
     });
+  });
+
+  it("karyawan multi-site dibatasi ke SELURUH site-nya, bukan site utama saja", async () => {
+    mocks.findUserProfile.mockResolvedValue({
+      id: USER.id,
+      role: "Admin",
+      departmentId: "dept-1",
+      siteId: "site-1",
+      siteIds: ["site-1", "site-2"],
+    });
+
+    const filters =
+      await new AdminWorkOrderRouteService().buildDashboardAccessFilters(USER, [
+        "work_order_dashboard:site_only",
+      ]);
+
+    expect(filters).toMatchObject({ siteIds: ["site-1", "site-2"] });
   });
 
   it("membatasi departemen lewat work_order_dashboard:department_only", async () => {
@@ -174,7 +191,7 @@ describe("buildDashboardAccessFilters route analitik membaca permission dashboar
         "workorders:site_only",
       ]);
 
-    expect(filters).toMatchObject({ siteId: "site-1" });
+    expect(filters).toMatchObject({ siteIds: ["site-1"] });
   });
 
   it("gagal tertutup bila role terbatas tanpa site", async () => {
@@ -183,6 +200,7 @@ describe("buildDashboardAccessFilters route analitik membaca permission dashboar
       role: "Admin",
       departmentId: null,
       siteId: null,
+      siteIds: [],
     });
 
     const filters =
@@ -201,6 +219,6 @@ describe("buildDashboardAccessFilters route analitik membaca permission dashboar
       );
 
     expect(filters).toMatchObject({ emptyResponse: false });
-    expect(filters).not.toHaveProperty("siteId");
+    expect(filters).not.toHaveProperty("siteIds");
   });
 });

@@ -1,3 +1,4 @@
+import type { LiveMapUserFilter } from "../domain/entities/LocationTrackingEntity";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getInactiveSessionStatuses } from "./attendance-repository-helpers";
@@ -133,7 +134,7 @@ export class AttendanceSessionRepository {
   async findOpenSessionsForLiveMap(input: {
     since: Date;
     tenantId?: string;
-    userFilter?: { siteId?: string; departmentId?: string };
+    userFilter?: LiveMapUserFilter;
   }) {
     const hasUserFilter =
       input.userFilter && Object.keys(input.userFilter).length > 0;

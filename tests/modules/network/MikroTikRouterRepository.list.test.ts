@@ -86,3 +86,22 @@ describe("MikroTikRouterRepository.findWithFilters vpnOnBackup", () => {
     expect(result.routers.map((r) => r.vpnProtocol)).toEqual(["L2TP", null]);
   });
 });
+
+// Regresi: filter site dulu hanya satu `siteId`; lingkup multi-site butuh
+// `siteId IN (...)` agar router di site tambahan pengguna ikut tampil.
+describe("MikroTikRouterRepository.findWithFilters siteIds", () => {
+  it("menyaring ke seluruh site yang diberikan", async () => {
+    const { repository, findMany } = listRepository([]);
+
+    await repository.findWithFilters(
+      { siteIds: ["site-a", "site-b"] },
+      { page: 1, limit: 10 },
+      "t1",
+    );
+
+    expect(findMany.mock.calls[0][0].where).toEqual({
+      tenantId: "t1",
+      siteId: { in: ["site-a", "site-b"] },
+    });
+  });
+});

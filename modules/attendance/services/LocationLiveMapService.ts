@@ -1,5 +1,8 @@
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import type { EmployeeLocationEntity } from "../domain/entities/LocationTrackingEntity";
+import type {
+  EmployeeLocationEntity,
+  LiveMapUserFilter,
+} from "../domain/entities/LocationTrackingEntity";
 import type { ILocationTrackingRepository } from "../domain/ports/ILocationTrackingRepository";
 import type { ActiveAttendanceSessionService } from "./ActiveAttendanceSessionService";
 import {
@@ -26,7 +29,7 @@ export class LocationLiveMapService {
   ) {}
 
   /** Karyawan yang sedang bekerja, dengan lokasi terakhir sesi berjalannya. */
-  async getLiveLocations(filters?: { siteId?: string; departmentId?: string }) {
+  async getLiveLocations(filters?: LiveMapUserFilter) {
     const { tenantId, isSuperAdmin } = await getTenantIdFromContext();
     if (!isSuperAdmin && !tenantId) return [];
     return this.getLiveLocationsForTenant({ tenantId, isSuperAdmin, filters });
@@ -40,7 +43,7 @@ export class LocationLiveMapService {
   }: {
     tenantId: string | null;
     isSuperAdmin: boolean;
-    filters?: { siteId?: string; departmentId?: string };
+    filters?: LiveMapUserFilter;
   }) {
     const sessions = await this.sessionService.findActiveSessions({
       timezoneTenantId: tenantId || undefined,

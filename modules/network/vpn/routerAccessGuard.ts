@@ -7,6 +7,7 @@ import {
   RouterAccessDeniedError,
   RouterNotFoundError,
 } from "../services/MikroTikRouterService";
+import { isRestrictedToOwnRouterSite } from "../services/mikrotik-router.access";
 
 type SessionUser = Parameters<typeof isSuperAdmin>[0] & {
   id: string;
@@ -15,19 +16,22 @@ type SessionUser = Parameters<typeof isSuperAdmin>[0] & {
 
 /**
  * Pemeriksaan awal route VPN sebuah router: izin `permission`, router ada di
- * tenant pengguna, dan (dengan izin `mikrotik:site_only`) berada di site-nya.
- * Mengembalikan respons penolakan atau null.
+ * tenant pengguna, dan (dengan izin `mikrotik:site_only` di `grantedPermissions`,
+ * dicocokkan persis) berada di site-nya. Mengembalikan respons penolakan atau null.
  */
 export async function routerVpnAccessGuard(
   routerId: string,
   user: SessionUser,
   permission: "mikrotik:read" | "mikrotik:update",
+  grantedPermissions: readonly string[],
 ): Promise<NextResponse | null> {
   if (!(await hasPermission(permission))) {
     return ApiErrors.forbidden("Akses ditolak");
   }
-  const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
+  const restrictedToOwnSite = isRestrictedToOwnRouterSite({
+    isSuperAdmin: isSuperAdmin(user),
+    permissions: grantedPermissions,
+  });
   try {
     await new MikroTikRouterService().getRouterById({
       id: routerId,

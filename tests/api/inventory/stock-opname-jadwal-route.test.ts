@@ -8,7 +8,15 @@ const service = vi.hoisted(() => ({
   simpanAturanSite: vi.fn(),
   simpanJadwalKhususSite: vi.fn(),
   getKepatuhan: vi.fn(),
-  getSiteIdsPengguna: vi.fn(),
+  getSiteIdsLingkupOpname: vi.fn(),
+  getRiwayatGudang: vi.fn(),
+}));
+const sesi = vi.hoisted(() => ({
+  user: { id: "u-1", tenantId: "t-1", role: "Staff" } as Record<
+    string,
+    unknown
+  >,
+  permissions: [] as string[],
 }));
 
 vi.mock("@/lib/rbac", () => ({ hasPermission: mockHasPermission }));
@@ -29,7 +37,8 @@ vi.mock("@/lib/api", () => ({
       const body = req.method === "GET" ? undefined : await req.json();
       return handler(req, {
         params: extra?.params ?? {},
-        session: { user: { id: "u-1", tenantId: "t-1", role: "Staff" } },
+        session: { user: sesi.user },
+        permissions: sesi.permissions,
         validated: options.schema ? options.schema.parse(body) : body,
       });
     },
@@ -44,6 +53,7 @@ vi.mock("@/lib/api", () => ({
 }));
 
 import { GET as getKepatuhan } from "@/app/api/inventory/opname/kepatuhan/route";
+import { GET as getRiwayat } from "@/app/api/inventory/opname/riwayat/route";
 import { PUT as putAturanSite } from "@/app/api/admin/sites/[id]/jadwal-so/route";
 import { PUT as putJadwalKhusus } from "@/app/api/admin/sites/[id]/jadwal-so/[periode]/route";
 
@@ -51,6 +61,8 @@ describe("API jadwal SO per site & laporan", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsSuperAdmin.mockReturnValue(false);
+    sesi.user = { id: "u-1", tenantId: "t-1", role: "Staff" };
+    sesi.permissions = [];
     service.getKepatuhan.mockResolvedValue({ site: [] });
   });
 
@@ -58,7 +70,8 @@ describe("API jadwal SO per site & laporan", () => {
     mockHasPermission.mockImplementation(async (izin: string) =>
       ["opname:read", "opname:site_only"].includes(izin),
     );
-    service.getSiteIdsPengguna.mockResolvedValue(["s1"]);
+    sesi.permissions = ["opname:read", "opname:site_only"];
+    service.getSiteIdsLingkupOpname.mockResolvedValue(["s1"]);
     const res = await getKepatuhan(
       new NextRequest(
         "http://x/api/inventory/opname/kepatuhan?periode=2026-09",
@@ -66,13 +79,43 @@ describe("API jadwal SO per site & laporan", () => {
       {} as never,
     );
     expect(res.status).toBe(200);
-    expect(service.getSiteIdsPengguna).toHaveBeenCalledWith("t-1", "u-1");
+    expect(service.getSiteIdsLingkupOpname).toHaveBeenCalledWith({
+      tenantId: "t-1",
+      userId: "u-1",
+      permissions: ["opname:read", "opname:site_only"],
+      isSuperAdmin: false,
+    });
     expect(service.getKepatuhan).toHaveBeenCalledWith("t-1", "2026-09", ["s1"]);
 
     mockHasPermission.mockResolvedValue(false);
     expect(
       (await getKepatuhan(new NextRequest("http://x/k"), {} as never)).status,
     ).toBe(403);
+  });
+
+  it("riwayat: role wildcard tidak dibatasi; site dari lingkup opname diteruskan", async () => {
+    mockHasPermission.mockResolvedValue(true);
+    sesi.permissions = ["*"];
+    service.getSiteIdsLingkupOpname.mockResolvedValue(null);
+    service.getRiwayatGudang.mockResolvedValue([]);
+
+    const res = await getRiwayat(
+      new NextRequest(
+        "http://x/api/inventory/opname/riwayat?gudangId=g1&periode=2026-10",
+      ),
+      {} as never,
+    );
+
+    expect(res.status).toBe(200);
+    expect(service.getSiteIdsLingkupOpname).toHaveBeenCalledWith(
+      expect.objectContaining({ permissions: ["*"] }),
+    );
+    expect(service.getRiwayatGudang).toHaveBeenCalledWith({
+      tenantId: "t-1",
+      gudangId: "g1",
+      periode: "2026-10",
+      siteIds: null,
+    });
   });
 
   it("jadwal site hanya bisa diubah pemegang site:update", async () => {
@@ -96,11 +139,12 @@ describe("API jadwal SO per site & laporan", () => {
 
     mockHasPermission.mockResolvedValue(true);
     expect((await kirim()).status).toBe(200);
-    expect(service.simpanAturanSite).toHaveBeenCalledWith("t-1", "s1", {
-      isAktif: true,
-      tanggalMulai: 25,
-      tanggalSelesai: 30,
-    });
+    expect(service.simpanAturanSite).toHaveBeenCalledWith(
+      "t-1",
+      "s1",
+      { isAktif: true, tanggalMulai: 25, tanggalSelesai: 30 },
+      { dibatasi: false },
+    );
   });
 
   it("jadwal khusus: site tidak ditemukan → 404 dari service diteruskan", async () => {
@@ -126,6 +170,33 @@ describe("API jadwal SO per site & laporan", () => {
       "2026-10",
       { mulai: "2026-10-01", selesai: "2026-10-05" },
       "u-1",
+      { dibatasi: false },
+    );
+  });
+
+  it("jadwal site: lingkup site:site_only pemanggil diteruskan ke service", async () => {
+    mockHasPermission.mockResolvedValue(true);
+    sesi.user = { id: "u-1", tenantId: "t-1", role: "Staff", siteIds: ["s1"] };
+    sesi.permissions = ["site:update", "site:site_only"];
+    service.simpanAturanSite.mockResolvedValue({});
+
+    await putAturanSite(
+      new NextRequest("http://x/api/admin/sites/s2/jadwal-so", {
+        method: "PUT",
+        body: JSON.stringify({
+          isAktif: true,
+          tanggalMulai: 1,
+          tanggalSelesai: 5,
+        }),
+      }),
+      { params: { id: "s2" } } as never,
+    );
+
+    expect(service.simpanAturanSite).toHaveBeenCalledWith(
+      "t-1",
+      "s2",
+      { isAktif: true, tanggalMulai: 1, tanggalSelesai: 5 },
+      { dibatasi: true, siteIds: ["s1"] },
     );
   });
 });

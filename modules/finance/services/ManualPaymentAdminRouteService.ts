@@ -40,7 +40,7 @@ export class ManualPaymentAdminRouteService {
     const pelangganIds = await getScopedPelangganIds(
       this.pelangganRepository,
       input.siteId,
-      Boolean(input.isSiteOnly),
+      input.allowedSiteIds,
     );
 
     if (pelangganIds) {

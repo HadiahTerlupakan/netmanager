@@ -2,10 +2,13 @@ import { logger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { hasPermission } from "@/lib/rbac";
-import { AdminSalesRouteService } from "@/modules/marketing";
+import {
+  AdminSalesRouteService,
+  resolveSalesAllowedSiteIds,
+  SALES_SITE_SCOPE_RESOURCE,
+} from "@/modules/marketing";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
-import { isSuperAdmin } from "@/lib/auth";
-import { resolveAllowedSiteIds } from "@/lib/authorization/allowed-site-ids";
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { getFeatureFlagService } from "@/modules/feature-flags";
 
 const adminSalesRouteService = new AdminSalesRouteService();
@@ -33,20 +36,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Site restriction only applies if user has sales_dashboard:site_only permission
-  const user = session.user as {
-    id: string;
-    siteId?: string | null;
-    siteIds?: string[];
-    isSuperAdmin?: boolean;
-  };
-  // Pengguna DIBATASI tanpa site sama sekali mendapat daftar kosong (bukan
-  // `undefined`, yang terbaca "tanpa batas"). `siteIds: []` dengan `siteId`
-  // legacy tetap memakai site legacy itu.
-  const allowedSiteIds =
-    !isSuperAdmin(user) && (await hasPermission("sales_dashboard:site_only"))
-      ? resolveAllowedSiteIds(user)
-      : undefined;
+  // Dibatasi hanya bila role memegang `sales_dashboard:site_only` (persis);
+  // dibatasi tanpa site = daftar kosong, bukan tanpa batas.
+  const allowedSiteIds = resolveSalesAllowedSiteIds({
+    user: session.user,
+    permissions: await getUserPermissions(session.user.id),
+    resource: SALES_SITE_SCOPE_RESOURCE.dashboard,
+  });
 
   const { searchParams } = new URL(request.url);
   const period = (searchParams.get("period") || "month") as

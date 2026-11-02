@@ -243,7 +243,7 @@ describe("AttendanceSessionRepository", () => {
       await repository.findOpenSessionsForLiveMap({
         since,
         tenantId: "tenant-1",
-        userFilter: { siteId: "site-1" },
+        userFilter: { siteId: { in: ["site-1"] } },
       });
 
       const { where } = vi.mocked(prisma.attendance.findMany).mock
@@ -254,7 +254,7 @@ describe("AttendanceSessionRepository", () => {
         status: { notIn: ["ALPHA", "ABSENT", "DAY_OFF", "PERMIT", "SICK"] },
         checkIn: { gte: since },
         tenantId: "tenant-1",
-        user: { siteId: "site-1" },
+        user: { siteId: { in: ["site-1"] } },
       });
     });
   });

@@ -6,6 +6,7 @@ const mockFns = vi.hoisted(() => ({
   getUserPermissions: vi.fn(),
   hasPermission: vi.fn(),
   deleteSite: vi.fn(),
+  getSiteById: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({
@@ -24,10 +25,11 @@ vi.mock("@/lib/rbac", () => ({
 vi.mock("@/modules/roles/services/SiteService", () => ({
   SiteService: class {
     deleteSite = mockFns.deleteSite;
+    getSiteById = mockFns.getSiteById;
   },
 }));
 
-import { DELETE } from "@/app/api/admin/sites/[id]/route";
+import { DELETE, GET } from "@/app/api/admin/sites/[id]/route";
 
 describe("admin site id route", () => {
   beforeEach(() => {
@@ -61,5 +63,49 @@ describe("admin site id route", () => {
     );
 
     expect(response.status).toBe(404);
+  });
+
+  it("meneruskan lingkup site:site_only pengguna ke service saat membaca & menghapus", async () => {
+    const izin = ["site:read", "site:delete", "site:site_only"];
+    mockFns.getServerSession.mockResolvedValue({
+      user: {
+        id: "kepala-1",
+        email: "kepala@example.com",
+        siteIds: ["site-1"],
+        permissions: izin,
+      },
+    });
+    mockFns.getUserPermissions.mockResolvedValue(izin);
+    mockFns.getSiteById.mockResolvedValue({
+      success: false,
+      code: "NOT_FOUND",
+      error: "Site tidak ditemukan",
+    });
+    mockFns.deleteSite.mockResolvedValue({
+      success: false,
+      code: "NOT_FOUND",
+      error: "Site tidak ditemukan",
+    });
+    const lingkup = { dibatasi: true, siteIds: ["site-1"] };
+
+    const dibaca = await GET(
+      new NextRequest("http://localhost/api/admin/sites/site-2"),
+      { params: Promise.resolve({ id: "site-2" }) },
+    );
+    const dihapus = await DELETE(
+      new NextRequest("http://localhost/api/admin/sites/site-2", {
+        method: "DELETE",
+      }),
+      { params: Promise.resolve({ id: "site-2" }) },
+    );
+
+    expect(dibaca.status).toBe(404);
+    expect(dihapus.status).toBe(404);
+    expect(mockFns.getSiteById).toHaveBeenCalledWith("site-2", lingkup);
+    expect(mockFns.deleteSite).toHaveBeenCalledWith(
+      "site-2",
+      "kepala-1",
+      lingkup,
+    );
   });
 });

@@ -76,7 +76,6 @@ describe("admin location history route", () => {
       userId: "user-1",
       startDate: "2026-04-01T00:00:00.000Z",
       endDate: "2026-04-03T23:59:59.999Z",
-      permissions: [],
       session: { user: { id: "admin-1", tenantId: "tenant-1" } },
     });
   });
@@ -102,7 +101,6 @@ describe("admin location history route", () => {
       userId: "user-2",
       startDate: null,
       endDate: null,
-      permissions: ["live_tracking:site_only"],
       session: { user: { id: "admin-1", tenantId: "tenant-1" } },
     });
   });

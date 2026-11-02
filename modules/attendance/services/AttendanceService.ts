@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import {
   ATTENDANCE_ACTIVITY_ACTIONS,
   ATTENDANCE_ACTIVITY_SUBJECTS,
@@ -99,7 +100,7 @@ export class AttendanceService {
   async getReportData(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.reportService.getReportData({

@@ -378,6 +378,7 @@ describe("admin attendance bulk delete route", { timeout: 60000 }, () => {
     prismaMock.user.findUnique.mockResolvedValue({
       siteId: "site-1",
       departmentId: null,
+      userSites: [],
     } as never);
     prismaMock.attendance.findMany.mockResolvedValue([
       { id: "550e8400-e29b-41d4-a716-446655440000" },
@@ -424,7 +425,7 @@ describe("admin attendance bulk delete route", { timeout: 60000 }, () => {
             ],
           },
           user: {
-            siteId: "site-1",
+            siteId: { in: ["site-1"] },
           },
         }),
       }),
@@ -456,6 +457,7 @@ describe("admin attendance bulk delete route", { timeout: 60000 }, () => {
     prismaMock.user.findUnique.mockResolvedValue({
       siteId: null,
       departmentId: "department-1",
+      userSites: [],
     } as never);
     prismaMock.attendance.findMany.mockResolvedValue([
       { id: "550e8400-e29b-41d4-a716-446655440100" },
@@ -521,6 +523,7 @@ describe("admin attendance bulk delete route", { timeout: 60000 }, () => {
     prismaMock.user.findUnique.mockResolvedValue({
       siteId: null,
       departmentId: null,
+      userSites: [],
     } as never);
 
     const { DELETE } = await import("@/app/api/admin/attendance/route");
@@ -572,6 +575,7 @@ describe("admin attendance bulk delete route", { timeout: 60000 }, () => {
     prismaMock.user.findUnique.mockResolvedValue({
       siteId: "site-1",
       departmentId: null,
+      userSites: [],
     } as never);
 
     const { DELETE } = await import("@/app/api/admin/attendance/route");

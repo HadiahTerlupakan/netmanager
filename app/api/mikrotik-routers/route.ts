@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import {
   isVpnError,
+  isRestrictedToOwnRouterSite,
   MikroTikRouterService,
   RouterAccessDeniedError,
   RouterIpConflictError,
@@ -30,8 +31,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
-  const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
+  const restrictedToOwnSite = isRestrictedToOwnRouterSite({
+    isSuperAdmin: isSuperAdmin(user),
+    permissions: ctx.permissions,
+  });
 
   const result = await routerService.listRouters({
     userId: user.id,
@@ -66,8 +69,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
 
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
-  const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
+  const restrictedToOwnSite = isRestrictedToOwnRouterSite({
+    isSuperAdmin: isSuperAdmin(user),
+    permissions: ctx.permissions,
+  });
 
   try {
     const router = await routerService.createRouter({

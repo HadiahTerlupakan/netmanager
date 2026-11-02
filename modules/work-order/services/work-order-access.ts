@@ -1,6 +1,9 @@
+import { isSuperAdmin } from "@/lib/auth/super-admin";
+import { siteBolehDiakses } from "@/modules/roles/client";
 import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import type { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import type { UserContext } from "./WorkOrderService";
+import { resolveWorkOrderSiteScope } from "./work-order-site-access";
 
 type MobileWorkOrderMaterialAccessWorkOrder = WorkOrderWithRelations & {
   assignments?: Array<{
@@ -164,18 +167,19 @@ function validateWorkOrderStatus(
 
 /**
  * Pesan pelanggaran lingkup `workorders:department_only|site_only`, atau `null`
- * bila work order berada dalam lingkup pengguna. Pengguna terbatas tanpa
+ * bila work order berada dalam lingkup pengguna. Lingkup site mencakup SELURUH
+ * site pengguna (`siteIds`, jatuh ke `siteId` legacy). Pengguna terbatas tanpa
  * site/departemen tidak cocok dengan work order mana pun (fail closed).
+ * Super admin tidak dilepas di sini; pemanggil yang memutuskan.
  */
 export function getWorkOrderScopeViolation(
   workOrder: Pick<WorkOrderWithRelations, "departmentId" | "siteId">,
-  userContext: Pick<UserContext, "permissions" | "departmentId" | "siteId">,
+  userContext: Pick<
+    UserContext,
+    "permissions" | "departmentId" | "siteId" | "siteIds"
+  >,
 ): string | null {
-  const {
-    permissions = [],
-    departmentId: userDeptId,
-    siteId: userSiteId,
-  } = userContext;
+  const { permissions = [], departmentId: userDeptId } = userContext;
 
   if (
     permissions.includes("workorders:department_only") &&
@@ -184,10 +188,12 @@ export function getWorkOrderScopeViolation(
     return "Akses ditolak: Departemen berbeda";
   }
 
-  if (
-    permissions.includes("workorders:site_only") &&
-    (!userSiteId || workOrder.siteId !== userSiteId)
-  ) {
+  const lingkupSite = resolveWorkOrderSiteScope({
+    permissions,
+    owner: userContext,
+    isSuperAdmin: false,
+  });
+  if (!siteBolehDiakses(lingkupSite, workOrder.siteId)) {
     return "Akses ditolak: Site berbeda";
   }
 
@@ -229,12 +235,22 @@ export async function validateMobileWorkOrderMaterialReturnAccess(params: {
   });
 }
 
+/**
+ * Super admin menurut flag `isSuperAdmin` saja. Dipakai pemeriksaan tenant
+ * dan WO yang belum diambil, yang sengaja tidak mempercayai nama role.
+ */
 export function isSuperAdminContext(
   userContext: Pick<UserContext, "role" | "isSuperAdmin">,
 ): boolean {
   return Boolean(userContext.isSuperAdmin);
 }
 
+/**
+ * Ambil WO lalu tegakkan lingkup site/departemen. Super admin dilepas menurut
+ * `isSuperAdmin()` (flag ATAU nama role "SUPER_ADMIN"/"Super Admin"); dulu
+ * hanya flag yang dibaca, sehingga super admin yang dikenali lewat nama role
+ * ditolak oleh toggle `workorders:*_only` milik role-nya.
+ */
 export async function validateWorkOrderAccess(params: {
   repository: Pick<WorkOrderRepository, "findById">;
   workOrderId: string;
@@ -243,7 +259,7 @@ export async function validateWorkOrderAccess(params: {
   const { repository, workOrderId, userContext } = params;
   const workOrder = await repository.findById(workOrderId);
   if (!workOrder) return null;
-  if (isSuperAdminContext(userContext)) return workOrder;
+  if (isSuperAdmin(userContext)) return workOrder;
 
   validateScopedWorkOrderAccess(workOrder, userContext);
   return workOrder;

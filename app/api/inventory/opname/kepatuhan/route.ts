@@ -10,7 +10,7 @@ import {
 
 /**
  * GET ?periode=YYYY-MM — gudang per site yang sudah/belum di-SO bulan itu.
- * Pengguna `opname:site_only` hanya melihat gudang di site-nya.
+ * Pengguna yang dibatasi per site (`IZIN_PEMBATAS_OPNAME`) hanya melihat gudang di site-nya.
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   if (!(await hasPermission("opname:read")))
@@ -23,11 +23,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     periodeStockOpnameDari(new Date());
   try {
     const service = getStockOpnameJadwalService();
-    const isSiteOnly =
-      !isSuperAdmin(user) && (await hasPermission("opname:site_only"));
-    const siteIds = isSiteOnly
-      ? await service.getSiteIdsPengguna(user.tenantId, user.id)
-      : null;
+    const siteIds = await service.getSiteIdsLingkupOpname({
+      tenantId: user.tenantId,
+      userId: user.id,
+      permissions: ctx.permissions,
+      isSuperAdmin: isSuperAdmin(user),
+    });
     return apiSuccess(
       await service.getKepatuhan(user.tenantId, periode, siteIds),
     );

@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/modules/roles", () => ({
+vi.mock("@/modules/roles", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/roles")>()),
   checkSiteRestriction: vi.fn(() => ({
     isRestricted: false,
     primarySiteId: null,
     siteIds: [],
   })),
-  canAccessSite: vi.fn(() => true),
 }));
 
 import { PESAN_KEPALA_SALES_DIRI_SENDIRI } from "@/modules/users/validation";

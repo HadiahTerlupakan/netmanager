@@ -1,4 +1,7 @@
-import type { OvertimeQueryFilters } from "../domain/ports/IOvertimeRepository";
+import type {
+  OvertimeQueryFilters,
+  OvertimeSiteFilter,
+} from "../domain/ports/IOvertimeRepository";
 import type { IOvertimeRepository } from "../domain/ports/IOvertimeRepository";
 import { OvertimeMapper } from "../mappers/OvertimeMapper";
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
@@ -101,6 +104,6 @@ export class OvertimeQueryReportService {
 type OvertimeReportInput = {
   startDate: Date;
   endDate: Date;
-  siteId?: string;
+  siteId?: OvertimeSiteFilter;
   departmentId?: string;
 };

@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma, WorkOrderStatus } from "@prisma/client";
 import { findWorkOrderMaterialDetail } from "./admin-work-order-material-detail.helpers";
+import {
+  buildSiteScopeWhere,
+  type WorkOrderSiteScope,
+} from "./work-order-site-scope";
 
 const DEFAULT_LIMIT = 5;
 const LAST_30_DAYS = 30;
@@ -11,7 +15,10 @@ export interface AdminWorkOrderUserProfile {
   id: string;
   role: string | null;
   departmentId: string | null;
+  /** Site utama (kolom legacy `User.siteId`). */
   siteId: string | null;
+  /** Seluruh site yang ditugaskan lewat `userSites`. */
+  siteIds: string[];
 }
 
 export interface ReminderWorkOrderData {
@@ -39,6 +46,7 @@ export class AdminWorkOrderRouteRepository {
         id: true,
         departmentId: true,
         siteId: true,
+        userSites: { select: { siteId: true } },
         role: { select: { name: true } },
       },
     });
@@ -52,6 +60,7 @@ export class AdminWorkOrderRouteRepository {
       role: user.role?.name || null,
       departmentId: user.departmentId,
       siteId: user.siteId,
+      siteIds: user.userSites.map((userSite) => userSite.siteId),
     };
   }
 
@@ -194,7 +203,7 @@ export class AdminWorkOrderRouteRepository {
   /** Hitung total work order customer vs internal. */
   async countWorkOrderTypes(filters: {
     departmentId?: string;
-    siteId?: string;
+    siteIds?: WorkOrderSiteScope;
   }) {
     const where = this.buildWorkOrderWhere(filters);
     const [customer, internal] = await Promise.all([
@@ -209,14 +218,14 @@ export class AdminWorkOrderRouteRepository {
   async getAdminResponseStats(
     dateFrom: Date,
     dateTo: Date,
-    scope: { departmentId?: string; siteId?: string } = {},
+    scope: { departmentId?: string; siteIds?: WorkOrderSiteScope } = {},
   ) {
     const workOrderRepo = await import("./WorkOrderRepository");
     return new workOrderRepo.WorkOrderRepository(prisma).getAdminResponseStats(
       dateFrom,
       dateTo,
       scope.departmentId,
-      scope.siteId,
+      scope.siteIds,
     );
   }
 
@@ -226,7 +235,7 @@ export class AdminWorkOrderRouteRepository {
     dateFrom?: Date;
     dateTo?: Date;
     departmentId?: string;
-    siteId?: string;
+    siteIds?: WorkOrderSiteScope;
   }) {
     const limit = options.limit ?? DEFAULT_LIMIT;
     const workOrderRepo = await import("./WorkOrderRepository");
@@ -237,14 +246,14 @@ export class AdminWorkOrderRouteRepository {
         options.dateFrom,
         options.dateTo,
         options.departmentId,
-        options.siteId,
+        options.siteIds,
       ),
       repository.getTopAssists(
         limit,
         options.dateFrom,
         options.dateTo,
         options.departmentId,
-        options.siteId,
+        options.siteIds,
       ),
     ]);
 
@@ -253,18 +262,11 @@ export class AdminWorkOrderRouteRepository {
 
   private buildWorkOrderWhere(filters: {
     departmentId?: string;
-    siteId?: string;
-  }) {
-    const where: Prisma.WorkOrdersWhereInput = {};
-
-    if (filters.departmentId) {
-      where.departmentId = filters.departmentId;
-    }
-
-    if (filters.siteId) {
-      where.siteId = filters.siteId;
-    }
-
-    return where;
+    siteIds?: WorkOrderSiteScope;
+  }): Prisma.WorkOrdersWhereInput {
+    return {
+      ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
+      ...buildSiteScopeWhere(filters.siteIds),
+    };
   }
 }

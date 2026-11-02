@@ -6,9 +6,8 @@ import {
   ErrorCodes,
   apiError,
   createHandler,
-  buildSessionWithPermissions,
 } from "@/lib/api";
-import { checkSiteRestriction } from "@/modules/roles";
+import { lingkupKelolaSitePemanggil } from "@/lib/api/lingkup-kelola-site";
 import { siteCreateSchema } from "@/lib/validations/site";
 
 const siteService = new SiteService();
@@ -32,17 +31,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   // Apply scope restriction even for activeOnly (dropdown)
-  const { isRestricted, siteIds } = checkSiteRestriction(
-    buildSessionWithPermissions(ctx.session!, ctx.permissions),
-    "site",
+  const result = await siteService.getSites(
+    { ...(search ? { search } : {}), activeOnly },
+    lingkupKelolaSitePemanggil(ctx),
   );
-  const allowedSiteIds = isRestricted ? siteIds : undefined;
-
-  const result = await siteService.getSites({
-    ...(search ? { search } : {}),
-    activeOnly,
-    allowedSiteIds,
-  });
 
   if (!result.success) {
     return ApiErrors.internalError(result.error);

@@ -46,6 +46,13 @@ export interface IWorkOrderAvailabilityRepository {
     tenantId: string,
   ): Promise<AvailableWorkOrderEntity | null>;
 
+  /** Apakah work order di tenant ini memenuhi filter ketersediaan. */
+  isWorkOrderMatchingFilter(
+    workOrderId: string,
+    tenantId: string,
+    where: AvailableWorkOrderFilter,
+  ): Promise<boolean>;
+
   /** Claim a work order atomically. */
   claimWorkOrder(input: ClaimAvailableWorkOrderData): Promise<boolean>;
 

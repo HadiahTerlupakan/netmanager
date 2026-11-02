@@ -1,17 +1,22 @@
 import { Prisma } from "../repositories/prisma-boundary";
 import { hasCapability } from "@/lib/permission-aliases";
-import { checkSiteRestriction } from "@/modules/roles";
+import { filterSitePrisma, tanpaDataSamaSekali } from "@/modules/roles";
 import type { IUserRepository } from "../domain/ports/IUserRepository";
 import { createUserRepository } from "../factories/RepositoryFactory";
 import { UserMapper } from "../mappers/UserMapper";
 import { UserService } from "./UserService";
-import { canAccessUserSite, fail } from "./AdminUserRouteService.helpers";
+import {
+  canAccessUserSite,
+  fail,
+  lingkupSiteAdminUser,
+} from "./AdminUserRouteService.helpers";
 import { AdminUserRouteCreateService } from "./admin-user-route.create";
 import { AdminUserRouteUpdateService } from "./admin-user-route.update";
 import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 import { logger } from "@/lib/logger";
 import type {
   AdminSession,
+  AdminSessionUser,
   AdminUserListQuery,
   CreateAdminUserInput,
   UpdateUserPayload,
@@ -19,7 +24,7 @@ import type {
 } from "./AdminUserRouteService.types";
 
 const USER_NOT_FOUND = "User tidak ditemukan";
-const NO_SCOPE_MATCH = "__NO_SCOPE_MATCH__";
+const USER_READ_SITE_FORBIDDEN = "Anda hanya dapat melihat user di site Anda";
 
 export class AdminUserRouteService {
   private readonly userRepository: IUserRepository;
@@ -40,22 +45,21 @@ export class AdminUserRouteService {
     query: AdminUserListQuery,
     permissions: string[],
   ) {
-    const { isRestricted, primarySiteId } = checkSiteRestriction(
-      { ...session, user: { ...session.user, permissions } },
-      "users",
-    );
+    const lingkup = lingkupSiteAdminUser({
+      ...session,
+      user: { ...session.user, permissions },
+    });
     const tenantId = this.resolveListTenantId(
       session,
       query.tenantId || undefined,
     );
-    // Dibatasi tanpa site → daftar kosong. Dulu `primarySiteId || undefined`
-    // menjatuhkan filter sehingga admin itu melihat seluruh user tenant.
-    if (isRestricted && !primarySiteId) {
+    // Dibatasi tanpa site → daftar kosong (gagal tertutup).
+    if (tanpaDataSamaSekali(lingkup)) {
       return this.buildEmptyUserList(query);
     }
     const [result, latestAppVersionCode] = await Promise.all([
       new UserService(this.userRepository).getAllUsers({
-        siteId: isRestricted ? (primarySiteId ?? undefined) : undefined,
+        siteIds: filterSitePrisma(lingkup)?.in,
         tenantId,
         roleName: query.roleName || undefined,
         page: query.page ? parseInt(query.page) : undefined,
@@ -133,8 +137,8 @@ export class AdminUserRouteService {
       return fail(403, "Anda tidak memiliki izin untuk melihat detail user");
     }
 
-    if (!isOwnProfile && !canAccessUserSite(session, user.siteId)) {
-      return fail(403, "Anda hanya dapat melihat user di site Anda");
+    if (!isOwnProfile && !canAccessUserSite(session, user)) {
+      return fail(403, USER_READ_SITE_FORBIDDEN);
     }
 
     return {
@@ -151,7 +155,8 @@ export class AdminUserRouteService {
     userId: string,
     payload: UpdateUserPayload,
   ) {
-    const currentUser = await this.userRepository.findById(userId);
+    // Dengan relasi: lingkup site membaca userSites target, bukan site utama saja.
+    const currentUser = await this.userRepository.findByIdWithRelations(userId);
     if (!currentUser) return fail(404, USER_NOT_FOUND);
 
     const validation = this.updateService.validateUpdate(
@@ -170,15 +175,11 @@ export class AdminUserRouteService {
     );
     if (!data.ok) return data;
 
-    const { isRestricted, siteIds } = checkSiteRestriction(session, "users");
-    const allowedSiteIds = isRestricted ? siteIds : undefined;
-
     try {
       await this.updateService.persistUpdate(
         userId,
         data.data,
         payload.userSites,
-        allowedSiteIds,
       );
     } catch (error) {
       if (
@@ -212,19 +213,15 @@ export class AdminUserRouteService {
       return fail(400, "Tidak dapat force logout diri sendiri");
     }
 
-    const targetUser = await this.userRepository.findById(targetUserId);
+    const targetUser =
+      await this.userRepository.findByIdWithRelations(targetUserId);
     if (!targetUser) return fail(404, USER_NOT_FOUND);
 
-    if (
-      session.user.tenantId &&
-      targetUser.tenantId &&
-      session.user.tenantId !== targetUser.tenantId
-    ) {
+    if (this.isOtherTenant(session, targetUser)) {
       return fail(403, "Anda tidak memiliki akses ke user tenant lain");
     }
 
-    const { isRestricted } = checkSiteRestriction(session, "users");
-    if (isRestricted && !canAccessUserSite(session, targetUser.siteId)) {
+    if (!canAccessUserSite(session, targetUser)) {
       return fail(403, "Anda hanya dapat force logout user di site Anda");
     }
 
@@ -238,15 +235,61 @@ export class AdminUserRouteService {
     };
   }
 
+  /**
+   * Memastikan admin boleh membaca data per-user turunan (mis. performa) milik
+   * `targetUserId`: akun sendiri selalu boleh; selain itu wajib `users:read`,
+   * tenant yang sama, dan target berada di lingkup site admin (gagal
+   * tertutup untuk target tanpa site) — sama dengan detail user. `session`
+   * boleh `ctx.session` apa adanya; `permissions` digabungkan di sini.
+   */
+  async checkUserReadAccess(
+    session: AdminSessionUser,
+    targetUserId: string,
+    permissions: string[],
+  ): Promise<UserRouteResult<null>> {
+    if (session.user.id === targetUserId) return { ok: true, data: null };
+    if (!hasCapability(permissions, "users:read")) {
+      return fail(403, "Anda tidak memiliki akses untuk melihat data user ini");
+    }
+    const targetUser =
+      await this.userRepository.findByIdWithRelations(targetUserId);
+    if (!targetUser) return fail(404, USER_NOT_FOUND);
+    if (this.isOtherTenant(session, targetUser)) {
+      return fail(404, USER_NOT_FOUND);
+    }
+    // `checkSiteRestriction` hanya membaca `user`; `expires` sekadar pengisi
+    // bentuk `Session` bila sesi berasal dari `createHandler`.
+    const sessionWithPermissions: AdminSession = {
+      expires: "",
+      ...session,
+      user: { ...session.user, permissions },
+    };
+    if (!canAccessUserSite(sessionWithPermissions, targetUser)) {
+      return fail(403, USER_READ_SITE_FORBIDDEN);
+    }
+    return { ok: true, data: null };
+  }
+
+  /** Admin dan target sama-sama bertenant, tetapi tenant-nya berbeda. */
+  private isOtherTenant(
+    session: AdminSessionUser,
+    target: { tenantId: string | null },
+  ): boolean {
+    return Boolean(
+      session.user.tenantId &&
+      target.tenantId &&
+      session.user.tenantId !== target.tenantId,
+    );
+  }
+
   /** Delete user from admin route with scoped access enforcement. */
   async deleteAdminUser(session: AdminSession, userId: string) {
     if (session.user.id === userId) {
       return fail(400, "Tidak dapat menghapus akun sendiri");
     }
-    const targetUser = await this.userRepository.findById(userId);
+    const targetUser = await this.userRepository.findByIdWithRelations(userId);
     if (!targetUser) return fail(404, USER_NOT_FOUND);
-    const { isRestricted } = checkSiteRestriction(session, "users");
-    if (isRestricted && !canAccessUserSite(session, targetUser.siteId)) {
+    if (!canAccessUserSite(session, targetUser)) {
       return fail(403, "Anda hanya dapat menghapus user di site Anda");
     }
     const deletedUser = await this.userRepository.delete(userId);
@@ -254,24 +297,6 @@ export class AdminUserRouteService {
       ok: true,
       data: { ok: true, deletedUserName: deletedUser.name },
     } satisfies UserRouteResult<{ ok: true; deletedUserName: string | null }>;
-  }
-
-  /** Build scoped where clause for attendance deletion by user permissions. */
-  buildAttendanceUserScope(
-    permissions: string[],
-    siteId: string | null | undefined,
-    departmentId: string | null | undefined,
-  ): Prisma.UserWhereInput {
-    const scope: Prisma.UserWhereInput = {};
-    const hasSiteOnlyScope = permissions.includes("attendance:site_only");
-    const hasDepartmentOnlyScope = permissions.includes(
-      "attendance:department_only",
-    );
-    if (hasSiteOnlyScope && !siteId) return { id: NO_SCOPE_MATCH };
-    if (hasDepartmentOnlyScope && !departmentId) return { id: NO_SCOPE_MATCH };
-    if (hasSiteOnlyScope) scope.siteId = siteId;
-    if (hasDepartmentOnlyScope) scope.departmentId = departmentId;
-    return scope;
   }
 
   /** Tentukan tenant filter daftar user admin. */

@@ -39,6 +39,7 @@ import type { ServiceResult, UserContext } from "./work-order.shared.types";
 import {
   validateMobileWorkOrderMaterialAccess,
   validateMobileWorkOrderMaterialReturnAccess,
+  validateWorkOrderAccess,
 } from "./work-order-access";
 import { ensureMobileMaterialGudangsAccessible } from "./work-order-material-gudang-scope";
 
@@ -63,7 +64,7 @@ export class WorkOrderMaterialService {
     preferredGudangId?: string,
   ): Promise<ServiceResult<unknown>> {
     try {
-      await this.validateWorkOrderAccess(workOrderId, userContext);
+      await this.validateAdminMaterialAccess(workOrderId, userContext);
       const material =
         await this.dependencies.materialRepository.addMaterialWithStockDeduction(
           workOrderId,
@@ -195,20 +196,24 @@ export class WorkOrderMaterialService {
     }
   }
 
-  /** Validasi akses mutasi material work order. */
-  async validateWorkOrderAccess(workOrderId: string, userContext: UserContext) {
-    return this.dependencies.repository
-      .findById(workOrderId)
-      .then((workOrder) => {
-        if (!workOrder) {
-          throw new Error("Work order tidak ditemukan");
-        }
-        return validateMobileWorkOrderMaterialAccess({
-          repository: this.dependencies.repository,
-          workOrderId,
-          userContext,
-        });
-      });
+  /**
+   * Validasi akses material jalur admin: lingkup `workorders:site_only|
+   * department_only` (super admin dilepas), BUKAN syarat pemegang/partner milik
+   * jalur mobile. Refactor 0fbe85503 tanpa sengaja menukarnya ke validasi
+   * mobile, sehingga admin ber-`workorders:update` selalu ditolak saat menambah
+   * material lewat panel web.
+   */
+  private async validateAdminMaterialAccess(
+    workOrderId: string,
+    userContext: UserContext,
+  ) {
+    const workOrder = await validateWorkOrderAccess({
+      repository: this.dependencies.repository,
+      workOrderId,
+      userContext,
+    });
+    if (!workOrder) throw new Error("Work order tidak ditemukan");
+    return workOrder;
   }
 
   private toMaterialWorkOrder(workOrder: {

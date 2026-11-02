@@ -1,6 +1,12 @@
 import { logger, logActivitySafe } from "@/lib/logger";
 import { isPrismaRecordNotFoundError } from "@/lib/prisma-errors";
 import type { SiteDetailDTO, SiteListItemDTO } from "../dto/SiteDTO";
+import {
+  siteBolehDiakses,
+  TANPA_BATAS,
+  tanpaDataSamaSekali,
+  type LingkupSite,
+} from "../domain/lingkup-site";
 import type { SiteEntity } from "../domain/entities/SiteEntity";
 import type {
   ISiteRepository,
@@ -39,6 +45,23 @@ interface SiteUpdateInput {
   gudangIds?: string[];
 }
 
+/**
+ * Site di luar lingkup dijawab persis seperti site yang tidak ada, supaya
+ * keberadaan site lain tidak bocor lewat beda galat.
+ */
+const SITE_TIDAK_DITEMUKAN = {
+  success: false as const,
+  error: "Site tidak ditemukan",
+  code: "NOT_FOUND",
+};
+
+/** Gudang di luar tenant atau di luar lingkup dijawab dengan galat yang sama. */
+const GUDANG_TIDAK_DITEMUKAN = {
+  success: false as const,
+  error: "Gudang yang dipilih tidak ditemukan",
+  code: "VALIDATION_ERROR",
+};
+
 interface SiteDeleteResult {
   softDeleted: boolean;
   message: string;
@@ -54,12 +77,20 @@ export class SiteService {
     this.repository = repository;
   }
 
-  /** Get all sites as list DTOs. */
+  /**
+   * Get all sites as list DTOs, limited to `lingkup` (pengguna `site:site_only`
+   * tanpa site mendapat daftar kosong).
+   */
   async getSites(
-    options?: SiteFilterOptions,
+    options?: Omit<SiteFilterOptions, "allowedSiteIds">,
+    lingkup: LingkupSite = TANPA_BATAS,
   ): Promise<ServiceResult<SiteListItemDTO[]>> {
+    if (tanpaDataSamaSekali(lingkup)) return { success: true, data: [] };
     try {
-      const sites = await this.repository.findAll(options);
+      const sites = await this.repository.findAll({
+        ...options,
+        allowedSiteIds: lingkup.dibatasi ? [...lingkup.siteIds] : undefined,
+      });
       return { success: true, data: SiteMapper.toListItemDTOs(sites) };
     } catch (error) {
       logger.error(
@@ -74,17 +105,15 @@ export class SiteService {
     }
   }
 
-  /** Get site detail DTO by ID. */
-  async getSiteById(id: string): Promise<ServiceResult<SiteDetailDTO>> {
+  /** Get site detail DTO by ID; site di luar `lingkup` dianggap tidak ada. */
+  async getSiteById(
+    id: string,
+    lingkup: LingkupSite = TANPA_BATAS,
+  ): Promise<ServiceResult<SiteDetailDTO>> {
+    if (!siteBolehDiakses(lingkup, id)) return SITE_TIDAK_DITEMUKAN;
     try {
       const site = await this.repository.findById(id);
-      if (!site) {
-        return {
-          success: false,
-          error: "Site tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
+      if (!site) return SITE_TIDAK_DITEMUKAN;
 
       return { success: true, data: SiteMapper.toDetailDTO(site) };
     } catch (error) {
@@ -122,11 +151,28 @@ export class SiteService {
     const diizinkan = await this.repository.findGudangIdsInTenant(gudangIds);
     if (diizinkan.length === new Set(gudangIds).size) return null;
 
-    return {
-      success: false,
-      error: "Gudang yang dipilih tidak ditemukan",
-      code: "VALIDATION_ERROR",
-    };
+    return GUDANG_TIDAK_DITEMUKAN;
+  }
+
+  /**
+   * Tolak gudang yang belum tertaut ke salah satu site di lingkup pemanggil.
+   *
+   * Semua saringan inventory memakai `gudang.sites`, jadi menautkan gudang
+   * site lain ke site sendiri sama dengan melebarkan lingkup `site:site_only`.
+   * Gudang yang sudah tertaut ke site ini lolos karena site ini ada di lingkup.
+   */
+  private async validasiGudangDalamLingkup(
+    gudangIds: string[] | undefined,
+    lingkup: LingkupSite,
+  ): Promise<ServiceResult<null> | null> {
+    if (!lingkup.dibatasi || !gudangIds || gudangIds.length === 0) return null;
+
+    const dalamLingkup = await this.repository.findGudangIdsDiSites(gudangIds, [
+      ...lingkup.siteIds,
+    ]);
+    if (dalamLingkup.length === new Set(gudangIds).size) return null;
+
+    return GUDANG_TIDAK_DITEMUKAN;
   }
 
   /** Create new site and return detail DTO. */
@@ -171,21 +217,17 @@ export class SiteService {
     }
   }
 
-  /** Update site and return detail DTO. */
+  /** Update site and return detail DTO; site di luar `lingkup` dianggap tidak ada. */
   async updateSite(
     id: string,
     data: SiteUpdateInput,
     userId: string,
+    lingkup: LingkupSite = TANPA_BATAS,
   ): Promise<ServiceResult<SiteDetailDTO>> {
+    if (!siteBolehDiakses(lingkup, id)) return SITE_TIDAK_DITEMUKAN;
     try {
       const existing = await this.repository.findById(id);
-      if (!existing) {
-        return {
-          success: false,
-          error: "Site tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
+      if (!existing) return SITE_TIDAK_DITEMUKAN;
 
       if (data.code && data.code.toUpperCase() !== existing.code) {
         const duplicate = await this.repository.findByCode(data.code);
@@ -198,7 +240,9 @@ export class SiteService {
         }
       }
 
-      const gudangTidakSah = await this.validasiGudangSetenant(data.gudangIds);
+      const gudangTidakSah =
+        (await this.validasiGudangSetenant(data.gudangIds)) ??
+        (await this.validasiGudangDalamLingkup(data.gudangIds, lingkup));
       if (gudangTidakSah) return gudangTidakSah;
 
       const site = await this.repository.update(
@@ -220,20 +264,19 @@ export class SiteService {
     }
   }
 
-  /** Delete site using soft or hard delete rules. */
+  /**
+   * Delete site using soft or hard delete rules; site di luar `lingkup`
+   * dianggap tidak ada.
+   */
   async deleteSite(
     id: string,
     userId: string,
+    lingkup: LingkupSite = TANPA_BATAS,
   ): Promise<ServiceResult<SiteDeleteResult>> {
+    if (!siteBolehDiakses(lingkup, id)) return SITE_TIDAK_DITEMUKAN;
     try {
       const site = await this.repository.findWithCounts(id);
-      if (!site) {
-        return {
-          success: false,
-          error: "Site tidak ditemukan",
-          code: "NOT_FOUND",
-        };
-      }
+      if (!site) return SITE_TIDAK_DITEMUKAN;
 
       if (this.hasAssociations(site)) {
         await this.repository.deactivate(id);

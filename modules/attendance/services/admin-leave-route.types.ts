@@ -1,4 +1,5 @@
 import type { Session } from "next-auth";
+import type { AdminScope } from "./AdminScopeResolver";
 
 export type LeaveStatusValue = string;
 export type LeaveTypeValue = string;
@@ -9,11 +10,8 @@ export type LeaveScopeTarget = {
 };
 
 export type AccessContext = {
-  permissions: string[];
-  currentUser: {
-    siteId?: string | null;
-    departmentId?: string | null;
-  };
+  /** Lingkup admin; site-nya mencakup SELURUH site admin, bukan site utama. */
+  scope: AdminScope;
   /** Dibatasi tetapi tanpa site/departemen: seluruh data di luar lingkup. */
   tanpaData: boolean;
 };

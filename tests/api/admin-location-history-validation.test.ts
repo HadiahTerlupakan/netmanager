@@ -81,7 +81,6 @@ describe("admin location history validation", () => {
       userId: "user-1",
       startDate: "invalid-date",
       endDate: null,
-      permissions: [],
       session: { user: { id: "admin-1", tenantId: "tenant-1" } },
     });
   });

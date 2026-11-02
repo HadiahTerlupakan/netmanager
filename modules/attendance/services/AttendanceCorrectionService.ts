@@ -13,7 +13,11 @@ import type {
   CorrectMissedCheckInInput,
 } from "./AttendanceCorrectionTypes";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
-import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
+import {
+  resolveAdminScope,
+  scopeTanpaData,
+  siteDalamScope,
+} from "./AdminScopeResolver";
 
 const ATTENDANCE_SCOPE_PERMISSIONS = {
   siteOnly: "attendance:site_only",
@@ -132,7 +136,7 @@ export class AttendanceCorrectionService {
     const scope = await resolveAdminScope(actor, ATTENDANCE_SCOPE_PERMISSIONS);
     const isOutside =
       scopeTanpaData(scope) ||
-      (scope.siteId !== undefined && owner.siteId !== scope.siteId) ||
+      !siteDalamScope(scope, owner.siteId) ||
       (scope.departmentId !== undefined &&
         owner.departmentId !== scope.departmentId);
     if (isOutside) {

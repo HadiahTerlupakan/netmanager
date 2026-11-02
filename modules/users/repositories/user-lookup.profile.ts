@@ -8,6 +8,18 @@ export function findByIdWithSite(id: string, tenantId?: string | null) {
   });
 }
 
+/** Ambil penugasan site (utama + userSites) dan departemen user. */
+export function findSiteAndDepartmentAssignmentById(userId: string) {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      siteId: true,
+      departmentId: true,
+      userSites: { select: { siteId: true } },
+    },
+  });
+}
+
 /** Ambil konteks departemen user. */
 export function findByIdWithDepartment(userId: string) {
   return prisma.user.findUnique({

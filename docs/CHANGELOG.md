@@ -41,6 +41,143 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-03] — Wajibkan izin aksi pada detail router MikroTik
+
+- **Tipe**: [SECURITY]
+- **Scope**: `app/api/mikrotik-routers`, `modules/network`
+- **Author**: agent
+- **Deskripsi**: `GET/PATCH/DELETE /api/mikrotik-routers/[id]` tidak mengecek
+  izin sama sekali — pengguna login mana pun bisa membaca, mengubah, dan
+  menghapus router tenant-nya. Kini wajib `mikrotik:read`/`update`/`delete`.
+  Lingkup `mikrotik:site_only` memakai semua site pengguna (daftar, buat, detail,
+  aksi, VPN, cek status) dan gagal tertutup; ubah router tidak lagi memindahkan
+  router diam-diam ke site legacy pengguna.
+- **Breaking**: ✅ Ya — pengguna tanpa izin `mikrotik:*` kini mendapat 403.
+
+### [2026-11-03] — Lingkup site pengeluaran: cek persis & multi-site
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/finance`, `app/api/finance/expenses`
+- **Author**: agent
+- **Deskripsi**: Rute pengeluaran memakai `hasPermission("expense:site_only")`
+  (role `*` keliru dianggap terbatas) dan hanya site utama. Kini satu helper
+  `resolveExpenseSiteScope` (cek persis, semua site, gagal tertutup) dipakai
+  daftar, buat, batch, ubah, hapus. Site di luar lingkup ditolak 403 (dulu
+  dipaksa diam-diam ke site utama); pengguna satu site otomatis memakai site-nya.
+- **Breaking**: ✅ Ya — pengguna terbatas yang memilih site lain/"Umum" kini 403.
+
+### [2026-11-03] — Kunci tambah material admin pada WO final
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/work-order`, `app/admin/workorders`
+- **Author**: agent
+- **Deskripsi**: Admin bisa menambah material (dan memotong stok) ke WO
+  VERIFIED/CLOSED/CANCELLED. Kini ditolak 400; COMPLETED tetap boleh untuk
+  koreksi sebelum verifikasi. UI dan server memakai satu aturan
+  `isAdminMaterialLocked` (`domain/work-order-material-status.ts`).
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Laporan kehadiran & lembur multi-site
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/attendance`, `modules/overtime`, `app/api/admin/reports/presence`
+- **Author**: agent
+- **Deskripsi**: Laporan presence (kehadiran, ranking, cuti, lembur) kini memakai
+  semua site admin lewat `resolveAdminScope`; `siteId` permintaan hanya
+  mempersempit, terbatas tanpa site/departemen → kosong. Raw SQL lembur memakai
+  `IN (Prisma.join)` / `AND FALSE`. Tipe bersama `FilterKolomSite` di
+  `modules/roles`; `getUserRestrictionContext` (mati) dihapus.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Penerima pengingat SO ikut pembatas opname
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Penerima pengingat stock opname hanya dibatasi lewat
+  `opname:site_only`; kini mengikuti `IZIN_PEMBATAS_OPNAME`
+  (`opname:`/`barang:`/`gudang:site_only`, cek persis), super admin tidak
+  dibatasi, terbatas tanpa site tidak dikabari, tenant kosong tidak di-query.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Lingkup multi-site & sisa celah pembatasan Work Order
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/work-order`, `app/api/admin/workorders`, `app/api/mobile`
+- **Author**: agent
+- **Deskripsi**:
+  - Lingkup `workorders:site_only` di web (daftar, permintaan, detail/aksi,
+    dashboard, analitik, KPI, statistik) kini memakai semua site pengguna
+    (`resolveAllowedSiteIds`), bukan hanya site utama; filter `siteId` dari
+    query hanya bisa mempersempit. Pengguna multi-site boleh membuat WO di site
+    mana pun miliknya.
+  - Reminder dari pengirim `workorders:department_only` ke departemen lain → 403.
+  - Aturan klaim WO garansi (`buildWarrantyClaimableWhere`) kini dicek ulang saat
+    klaim di kedua jalur mobile, bukan hanya di daftar WO tersedia.
+  - `validateWorkOrderAccess` melepas super admin yang dikenali dari nama role.
+  - Tambah material dari admin kembali memakai cek lingkup site/departemen
+    (regresi refactor 0fbe85503 membatasinya ke teknisi/partner WO).
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Lingkup multi-site pengguna, SDM, dan pembayaran manual
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/users`, `modules/attendance`, `modules/overtime`, `modules/finance`
+- **Author**: agent
+- **Deskripsi**:
+  - Daftar & aksi pengguna, absensi, izin/cuti, saldo cuti, lokasi live &
+    riwayat, lembur, dan pembayaran manual tertunda kini memakai semua site
+    admin (`LingkupSite`), bukan hanya site utama.
+  - `canAccessUserSite` gagal tertutup: admin `users:site_only` tidak bisa
+    mengakses user tanpa site / di luar site-nya, tidak bisa mencabut site di
+    luar lingkupnya (termasuk site utama), dan user baru wajib di site-nya.
+  - `GET /api/admin/users/[id]/performance` dan `/sales-performance` kini
+    mengecek tenant + lingkup site (sebelumnya user mana pun bisa dibaca).
+  - Riwayat lokasi memakai `resolveAdminScope` yang sama dengan daftar live.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Lingkup site detail barang, modul Site, jadwal SO
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/inventory`, `modules/roles`, `app/api/admin/sites`, `app/api/inventory/opname`
+- **Author**: agent
+- **Deskripsi**:
+  - Detail barang: 10 mutasi masuk/keluar/opname terbaru kini disaring di query
+    sesuai lingkup masing-masing sumbu, bukan dari semua gudang.
+  - `site:site_only` kini ditegakkan di daftar, detail, ubah, hapus site dan
+    jadwal SO per site (404 di luar lingkup); daftar site untuk pengguna
+    terbatas tanpa site kini kosong. PATCH site menolak menautkan gudang di luar
+    lingkup (mencegah pelebaran lingkup sendiri).
+  - Laporan kepatuhan & riwayat opname mencocokkan izin persis (role `*` tidak
+    lagi dianggap terbatas) dan ikut membaca `barang:`/`gudang:site_only`.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Cek lingkup persis di proyek, sales, dan MikroTik
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/proyek/dashboard`, `app/api/admin/marketing`, `app/api/mikrotik-routers`, `modules/network`, `modules/marketing`
+- **Author**: agent
+- **Deskripsi**: `hasPermission("x:site_only")` mengembangkan `*`, sehingga role
+  wildcard non-super keliru dianggap terbatas. Sales dashboard, daftar sales, dan
+  semua rute MikroTik/VPN kini mencocokkan izin persis (`isRestrictedToOwnRouterSite`,
+  `resolveSalesAllowedSiteIds`). Dashboard proyek tidak lagi menganggap `*`
+  sebagai super admin; super admin tanpa `expense:read` tidak lagi 403.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Sembunyikan toggle pembatasan yang tidak dibaca backend
+
+- **Tipe**: [CHANGED]
+- **Scope**: `lib/resource-capabilities.ts`, `app/admin/settings/roles`
+- **Author**: agent
+- **Deskripsi**: Matriks peran menawarkan "Batasi ke Site/Departemen Sendiri"
+  untuk resource yang tidak pernah membacanya (mis. salary, login, activity,
+  laporan pendapatan, procurement, map, network, `list`, kartu Notifikasi).
+  Default katalog kini tanpa aksi pembatasan; aksi itu hanya tampil bila
+  dideklarasikan bersama penegakannya. Baris izin di DB tidak dihapus. Tes
+  arsitektur `katalog-toggle-pembatasan.test.ts` menggagalkan build bila katalog
+  menawarkan toggle yang tidak dibaca kode mana pun.
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-02] — Tutup celah pembatasan site Inventory
 
 - **Tipe**: [SECURITY]

@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { AttendanceDailyStatsRepository } from "./AttendanceDailyStatsRepository";
 import {
   AttendanceReportRankingRepository,
@@ -16,7 +17,7 @@ export class AttendanceReportRepository {
   getStatsByDateRange(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.summary.getStatsByDateRange(
@@ -31,7 +32,7 @@ export class AttendanceReportRepository {
   getEvaluationStatsByDateRange(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.summary.getEvaluationStatsByDateRange(
@@ -46,7 +47,7 @@ export class AttendanceReportRepository {
   getDailyStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {
@@ -81,7 +82,7 @@ export class AttendanceReportRepository {
     startDate: Date,
     endDate: Date,
     limit = 5,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.ranking.getTopEmployees(
@@ -98,7 +99,7 @@ export class AttendanceReportRepository {
     startDate: Date,
     endDate: Date,
     limit = 5,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.ranking.getTopAbsentees(
@@ -114,7 +115,7 @@ export class AttendanceReportRepository {
   getUserAttendanceStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {
@@ -131,7 +132,7 @@ export class AttendanceReportRepository {
   getUserAbsenceStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.userReport.getUserAbsenceStats(
@@ -146,7 +147,7 @@ export class AttendanceReportRepository {
   getUserAttendanceRecords(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.userReport.getUserAttendanceRecords(
@@ -161,7 +162,7 @@ export class AttendanceReportRepository {
   getUserTotalDuration(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.userReport.getUserTotalDuration(
@@ -176,7 +177,7 @@ export class AttendanceReportRepository {
   getUserLateStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.userReport.getUserLateStats(

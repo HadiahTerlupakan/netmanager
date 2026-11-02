@@ -16,7 +16,12 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
   const denied =
     vpnConfiguredGuard() ??
-    (await routerVpnAccessGuard(ctx.params.id, user, "mikrotik:read"));
+    (await routerVpnAccessGuard(
+      ctx.params.id,
+      user,
+      "mikrotik:read",
+      ctx.permissions,
+    ));
   if (denied) return denied;
   try {
     const detail = await createVpnRouterService().getRouterVpn(
@@ -34,7 +39,12 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const denied =
     vpnConfiguredGuard() ??
-    (await routerVpnAccessGuard(ctx.params.id, user, "mikrotik:update"));
+    (await routerVpnAccessGuard(
+      ctx.params.id,
+      user,
+      "mikrotik:update",
+      ctx.permissions,
+    ));
   if (denied) return denied;
   const parsed = routerVpnServersSchema.safeParse(await req.json());
   if (!parsed.success) {

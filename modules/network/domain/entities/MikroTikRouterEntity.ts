@@ -91,7 +91,8 @@ export interface MikroTikRouterStatistics {
 
 export interface RouterFilters {
   search?: string;
-  siteId?: string;
+  /** Batasi ke router di salah satu site ini; kosong/undefined = tanpa batas. */
+  siteIds?: string[];
 }
 
 export interface PaginationOptions {

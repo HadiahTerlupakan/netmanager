@@ -116,6 +116,18 @@ export class MobileAvailableWorkOrderRepository implements IWorkOrderAvailabilit
     return workOrder ? WorkOrderAvailabilityMapper.toDomain(workOrder) : null;
   }
 
+  /** Apakah work order di tenant ini memenuhi filter ketersediaan. */
+  async isWorkOrderMatchingFilter(
+    workOrderId: string,
+    tenantId: string,
+    where: Prisma.WorkOrdersWhereInput,
+  ) {
+    const matchCount = await prisma.workOrders.count({
+      where: { AND: [{ id: workOrderId, tenantId }, where] },
+    });
+    return matchCount > 0;
+  }
+
   /** Claim a pending work order atomically for one actor. */
   async claimWorkOrder(input: ClaimAvailableWorkOrderData) {
     try {

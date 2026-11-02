@@ -180,7 +180,9 @@ export class SiteRepository implements ISiteRepository {
       where.isActive = true;
     }
 
-    if (filter?.allowedSiteIds && filter.allowedSiteIds.length > 0) {
+    // `allowedSiteIds: []` sengaja tidak cocok dengan site mana pun: pengguna
+    // dibatasi tanpa site tidak boleh jatuh ke "semua site".
+    if (filter?.allowedSiteIds) {
       where.id = { in: filter.allowedSiteIds };
     }
 
@@ -205,6 +207,23 @@ export class SiteRepository implements ISiteRepository {
 
     const gudang = await prisma.gudang.findMany({
       where: { id: { in: gudangIds } },
+      select: { id: true },
+    });
+    return gudang.map((item) => item.id);
+  }
+
+  /** Return the subset of `gudangIds` already linked to at least one of `siteIds`. */
+  async findGudangIdsDiSites(
+    gudangIds: string[],
+    siteIds: string[],
+  ): Promise<string[]> {
+    if (gudangIds.length === 0 || siteIds.length === 0) return [];
+
+    const gudang = await prisma.gudang.findMany({
+      where: {
+        id: { in: gudangIds },
+        sites: { some: { id: { in: siteIds } } },
+      },
       select: { id: true },
     });
     return gudang.map((item) => item.id);

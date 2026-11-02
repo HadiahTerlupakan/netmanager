@@ -1,4 +1,8 @@
 import { toStartOfDay } from "@/lib/utils/server-datetime";
+import {
+  buildSiteScopeWhere,
+  type WorkOrderSiteScope,
+} from "./work-order-site-scope";
 
 const MINUTES_PER_MILLISECOND = 1000 * 60;
 const HOURS_BACK_FOR_ADMIN_KPI = 30;
@@ -36,11 +40,11 @@ type UserKPIStats = {
 /** Build base filter object for optional department/site analytics queries. */
 export function buildAnalyticsWhere(params: {
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 }) {
   return {
     ...(params.departmentId ? { departmentId: params.departmentId } : {}),
-    ...(params.siteId ? { siteId: params.siteId } : {}),
+    ...buildSiteScopeWhere(params.siteIds),
   };
 }
 

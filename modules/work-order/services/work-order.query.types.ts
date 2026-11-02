@@ -8,5 +8,7 @@ export interface WorkOrderListOptions {
   userPermissions?: string[];
   userDepartmentId?: string;
   userSiteId?: string;
+  /** Seluruh site pengguna (`userSites`); dipakai lingkup `site_only`. */
+  userSiteIds?: string[];
   userRole?: string;
 }

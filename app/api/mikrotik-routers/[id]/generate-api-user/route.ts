@@ -4,6 +4,7 @@ import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
 import { isSuperAdmin } from "@/lib/auth";
 import {
+  isRestrictedToOwnRouterSite,
   MikroTikRouterService,
   RouterAccessDeniedError,
   RouterNotFoundError,
@@ -17,8 +18,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const { id } = ctx.params;
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
-  const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
+  const restrictedToOwnSite = isRestrictedToOwnRouterSite({
+    isSuperAdmin: isSuperAdmin(user),
+    permissions: ctx.permissions,
+  });
 
   try {
     const result = await routerService.generateApiUser({

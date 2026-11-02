@@ -1,5 +1,9 @@
 import { logger } from "@/lib/logger";
-import type { WorkOrderListSummary } from "../domain/entities/WorkOrderRepositoryTypes";
+import type {
+  WorkOrderFilters,
+  WorkOrderListSummary,
+  WorkOrderRequestFilters,
+} from "../domain/entities/WorkOrderRepositoryTypes";
 import type { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import {
   applyWorkOrderListRestrictions,
@@ -32,6 +36,7 @@ export class WorkOrderReadService {
         userPermissions: options.userPermissions,
         userDepartmentId: options.userDepartmentId,
         userSiteId: options.userSiteId,
+        userSiteIds: options.userSiteIds,
         userRole: options.userRole,
       });
 
@@ -56,7 +61,7 @@ export class WorkOrderReadService {
 
   /** Ambil daftar request work order. */
   async getWorkOrderRequests(
-    filters: { departmentId?: string; siteId?: string; search?: string },
+    filters: WorkOrderRequestFilters,
     page = 1,
     limit = 20,
   ): Promise<
@@ -87,6 +92,7 @@ export class WorkOrderReadService {
   async getStatistics(filters: {
     departmentId?: string;
     siteId?: string;
+    siteIds?: readonly string[];
     assignedToId?: string;
   }): Promise<ServiceResult<unknown>> {
     try {
@@ -106,7 +112,7 @@ export class WorkOrderReadService {
   /** Ambil daftar work order terbaru. */
   async getRecentWorkOrders(
     limit = 5,
-    filters: { departmentId?: string; siteId?: string },
+    filters: Pick<WorkOrderFilters, "departmentId" | "siteIds">,
   ): Promise<ServiceResult<unknown[]>> {
     try {
       const workOrders = await this.repository.getRecentWorkOrders(

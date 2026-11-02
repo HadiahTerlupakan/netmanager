@@ -1,6 +1,8 @@
-import { AttendanceService } from "@/modules/attendance";
+import {
+  AttendanceService,
+  resolvePresenceReportScopeForUser,
+} from "@/modules/attendance";
 import { OvertimeService } from "@/modules/overtime";
-import { AdminUserPerformanceRouteService } from "@/modules/users";
 import {
   apiSuccess,
   ErrorCodes,
@@ -9,8 +11,6 @@ import {
   ApiErrors,
 } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
-import { isSuperAdmin } from "@/lib/auth";
-import { resolvePresenceReportScope } from "@/modules/attendance";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 
 // Disable Next.js caching for this route
@@ -29,28 +29,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const startDateStr = searchParams.get("startDate");
   const endDateStr = searchParams.get("endDate");
 
-  // RBAC filtering params
-  const user = ctx.session!.user;
-  const isSuper = isSuperAdmin(user);
-
-  let siteId = searchParams.get("siteId");
-  let departmentId = searchParams.get("departmentId");
-
-  if (!isSuper) {
-    const userRouteService = new AdminUserPerformanceRouteService();
-    const dbUser = await userRouteService.getUserRestrictionContext(user.id);
-    const scope = resolvePresenceReportScope({
-      permissions: ctx.permissions || [],
-      userSiteId: dbUser?.siteId,
-      userDepartmentId: dbUser?.departmentId,
-      requestedSiteId: siteId,
-      requestedDepartmentId: departmentId,
-    });
-
-    if (scope.isEmpty) return apiSuccess({ attendance: [], overtime: [] });
-    siteId = scope.siteId;
-    departmentId = scope.departmentId;
-  }
+  // Seluruh site lingkup admin; siteId/departmentId query hanya mempersempit.
+  const scope = await resolvePresenceReportScopeForUser(ctx.session!.user, {
+    siteId: searchParams.get("siteId"),
+    departmentId: searchParams.get("departmentId"),
+  });
+  if (scope.isEmpty) return apiSuccess({ attendance: [], overtime: [] });
 
   if (!startDateStr || !endDateStr) {
     return apiError(
@@ -72,14 +56,14 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     attendanceService.getReportData(
       startDate,
       endDate,
-      siteId || undefined,
-      departmentId || undefined,
+      scope.siteId,
+      scope.departmentId,
     ),
     overtimeService.getReportData(
       startDate,
       endDate,
-      siteId || undefined,
-      departmentId || undefined,
+      scope.siteId,
+      scope.departmentId,
     ),
   ]);
 

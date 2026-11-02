@@ -1,5 +1,6 @@
 import { isSuperAdmin } from "@/lib/auth";
 import { hasAnyScopeRestriction } from "@/lib/authorization/scope-restriction-permissions";
+import { resolveOwnerSiteIds } from "./work-order-site-access";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const LAST_30_DAYS = 30;
@@ -10,12 +11,16 @@ type DashboardAccessFilterOptions = {
   isSuperAdmin?: boolean;
   permissions?: string[];
   departmentId?: string | null;
+  /** Site utama legacy; dipakai bila `siteIds` kosong. */
   siteId?: string | null;
+  /** Seluruh site pengguna dari `userSites`. */
+  siteIds?: readonly string[];
 };
 
 type DashboardAccessFilters = {
   departmentId?: string;
-  siteId?: string;
+  /** Lingkup site (seluruh site pengguna); tidak diisi bila tidak dibatasi. */
+  siteIds?: string[];
   emptyResponse: boolean;
 };
 
@@ -58,12 +63,12 @@ export function buildWorkOrderDashboardAccessFilters(
 ): DashboardAccessFilters {
   const isSuper = isDashboardSuperAdmin(options);
   const departmentId = resolveDashboardDepartmentFilter(options, isSuper);
-  const siteId = resolveDashboardSiteFilter(options, isSuper);
+  const siteScope = resolveDashboardSiteFilter(options, isSuper);
 
   return {
     ...(departmentId.value ? { departmentId: departmentId.value } : {}),
-    ...(siteId.value ? { siteId: siteId.value } : {}),
-    emptyResponse: Boolean(departmentId.isEmpty || siteId.isEmpty),
+    ...(siteScope.siteIds ? { siteIds: siteScope.siteIds } : {}),
+    emptyResponse: Boolean(departmentId.isEmpty || siteScope.isEmpty),
   };
 }
 
@@ -105,18 +110,19 @@ function resolveDashboardDepartmentFilter(
   });
 }
 
+/** Lingkup site dashboard atas SELURUH site pengguna, bukan site utama saja. */
 function resolveDashboardSiteFilter(
   options: DashboardAccessFilterOptions,
   isSuper: boolean,
-) {
-  return resolveRestrictedValue({
-    isRestricted: hasAnyScopeRestriction(
-      options.permissions,
-      SCOPE_PERMISSIONS.site_only,
-    ),
-    isSuper,
-    value: options.siteId,
-  });
+): { siteIds?: string[]; isEmpty?: boolean } {
+  const isRestricted = hasAnyScopeRestriction(
+    options.permissions,
+    SCOPE_PERMISSIONS.site_only,
+  );
+  if (!isRestricted || isSuper) return {};
+  const siteIds = resolveOwnerSiteIds(options);
+  if (siteIds.length === 0) return { isEmpty: true };
+  return { siteIds };
 }
 
 export function getEmptyWorkOrderDashboardData() {

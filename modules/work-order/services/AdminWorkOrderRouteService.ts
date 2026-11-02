@@ -1,10 +1,16 @@
 import { isSuperAdmin } from "@/lib/auth";
+import { tanpaDataSamaSekali } from "@/modules/roles/client";
+import type { WorkOrderRequestFilters } from "../domain/ports/IWorkOrderRepository";
 import { AdminWorkOrderRouteRepository } from "../repositories/AdminWorkOrderRouteRepository";
 import type { UserContext } from "./WorkOrderService";
 import { AdminWorkOrderActionRouteService } from "./AdminWorkOrderActionRouteService";
 import { AdminWorkOrderAnalyticsRouteService } from "./AdminWorkOrderAnalyticsRouteService";
 import { AdminWorkOrderFilterBuilder } from "./AdminWorkOrderFilterBuilder";
 import { buildWorkOrderDashboardAccessFilters } from "./admin-work-order-dashboard.helpers";
+import {
+  resolveWorkOrderSiteScope,
+  toSiteScopeIds,
+} from "./work-order-site-access";
 
 type PermissionList = string[] | undefined;
 type WorkOrderRequestAction = "APPROVE" | "REJECT";
@@ -71,11 +77,16 @@ export class AdminWorkOrderRouteService {
       name: user.name || undefined,
       permissions,
       siteId: profile.siteId || undefined,
+      siteIds: profile.siteIds,
       departmentId: profile.departmentId || undefined,
     };
   }
 
-  /** Ambil filter akses department/site berdasarkan permissions admin. */
+  /**
+   * Ambil filter akses department/site berdasarkan permissions admin.
+   * Lingkup site mencakup SELURUH site pengguna (`siteIds`), bukan hanya site
+   * utamanya.
+   */
   async buildAccessFilters(
     user: { id: string; role?: string },
     permissions?: PermissionList,
@@ -91,13 +102,17 @@ export class AdminWorkOrderRouteService {
     const hasDepartmentRestriction = permissionList.includes(
       "workorders:department_only",
     );
-    const hasSiteRestriction = permissionList.includes("workorders:site_only");
+    const lingkupSite = resolveWorkOrderSiteScope({
+      permissions: permissionList,
+      owner: profile,
+      isSuperAdmin: isSuper,
+    });
 
     if (hasDepartmentRestriction && !isSuper && !profile.departmentId) {
       return { unauthorized: false as const, emptyResponse: true as const };
     }
 
-    if (hasSiteRestriction && !isSuper && !profile.siteId) {
+    if (tanpaDataSamaSekali(lingkupSite)) {
       return { unauthorized: false as const, emptyResponse: true as const };
     }
 
@@ -108,12 +123,32 @@ export class AdminWorkOrderRouteService {
         hasDepartmentRestriction && !isSuper
           ? profile.departmentId || undefined
           : undefined,
-      siteId:
-        hasSiteRestriction && !isSuper
-          ? profile.siteId || undefined
-          : undefined,
+      siteIds: toSiteScopeIds(lingkupSite),
       userDepartmentId: profile.departmentId || undefined,
       userSiteId: profile.siteId || undefined,
+      userSiteIds: profile.siteIds,
+    };
+  }
+
+  /**
+   * Bangun filter daftar permintaan WO: lingkup `*_only` pengguna menang atas
+   * filter query string; site pilihan di luar lingkup tidak melebarkan hasil.
+   */
+  buildRequestListFilters(input: {
+    access: { departmentId?: string; siteIds?: string[] };
+    searchParams: URLSearchParams;
+  }): WorkOrderRequestFilters {
+    const { access, searchParams } = input;
+    const search = searchParams.get("search") || undefined;
+    const siteId = searchParams.get("siteId") || undefined;
+    const departmentId =
+      access.departmentId || searchParams.get("departmentId") || undefined;
+
+    return {
+      ...(search ? { search } : {}),
+      ...(siteId ? { siteId } : {}),
+      ...(access.siteIds ? { siteIds: access.siteIds } : {}),
+      ...(departmentId ? { departmentId } : {}),
     };
   }
 
@@ -143,6 +178,7 @@ export class AdminWorkOrderRouteService {
         permissions: permissions ?? [],
         departmentId: profile.departmentId,
         siteId: profile.siteId,
+        siteIds: profile.siteIds,
       }),
     };
   }

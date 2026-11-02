@@ -23,6 +23,7 @@ import { useApi } from "@/lib/hooks/useApi";
 import type { WorkOrderActivityPayload } from "@/lib/websocket/types";
 import { usePermission } from "@/hooks/use-permission";
 import { Button } from "@/components/ui/Button";
+import { isAdminMaterialLocked } from "@/modules/work-order/client";
 
 import type {
   WorkOrderDetail,
@@ -55,10 +56,8 @@ export function ClientComponent() {
   const [loading, setLoading] = useState(true);
   const [workOrder, setWorkOrder] = useState<WorkOrderDetail | null>(null);
 
-  // ReadOnly logic based on admin approval/final state
-  const isReadOnly = ["VERIFIED", "CLOSED", "CANCELLED"].includes(
-    workOrder?.status || "",
-  );
+  // Read-only mengikuti aturan server yang sama: material terkunci setelah VERIFIED/CLOSED/CANCELLED.
+  const isReadOnly = isAdminMaterialLocked(workOrder?.status);
 
   const [editMode, setEditMode] = useState<string | null>(null);
   const [editValues, setEditValues] = useState({

@@ -27,6 +27,7 @@ vi.mock("@/modules/network", async () => {
   const access =
     await import("@/modules/network/services/mikrotik-router.access");
   return {
+    isRestrictedToOwnRouterSite: access.isRestrictedToOwnRouterSite,
     RouterAccessDeniedError: access.RouterAccessDeniedError,
     RouterNotFoundError: access.RouterNotFoundError,
     MikroTikRouterService: class {

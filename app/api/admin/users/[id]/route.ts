@@ -4,20 +4,13 @@ import { logger } from "@/lib/logger";
 import { updateUserSchema } from "@/lib/validations/user";
 import { AdminUserRouteService } from "@/modules/users";
 import type { Session } from "next-auth";
+import { toUserRouteApiError } from "../user-route-error";
 
 const adminUserRouteService = new AdminUserRouteService();
 
 function getUserId(params: Record<string, string | string[] | undefined>) {
   const rawId = params.id;
   return typeof rawId === "string" ? rawId : "";
-}
-
-function toApiError(code: number, message: string) {
-  if (code === 400) return ApiErrors.badRequest(message);
-  if (code === 403) return ApiErrors.forbidden(message);
-  if (code === 404) return ApiErrors.notFound("User");
-  if (code === 409) return ApiErrors.conflict(message);
-  return ApiErrors.badRequest(message);
 }
 
 /** Get user detail for admin route. */
@@ -48,7 +41,7 @@ export const GET = createHandler(
       resolvedPermissions,
     );
     if (result.ok === false) {
-      return toApiError(result.error.code, result.error.message);
+      return toUserRouteApiError(result.error);
     }
 
     logger.apiRequest(
@@ -97,7 +90,7 @@ export const PATCH = createHandler(
       validated,
     );
     if (result.ok === false) {
-      return toApiError(result.error.code, result.error.message);
+      return toUserRouteApiError(result.error);
     }
 
     logger.apiRequest(
@@ -152,7 +145,7 @@ export const DELETE = createHandler(
       userId,
     );
     if (result.ok === false) {
-      return toApiError(result.error.code, result.error.message);
+      return toUserRouteApiError(result.error);
     }
 
     logger.apiRequest(

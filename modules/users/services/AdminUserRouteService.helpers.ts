@@ -11,7 +11,12 @@ import { invalidatePermissionCache } from "@/lib/auth";
 import { firebaseRealtimeService } from "@/lib/realtime";
 import { redis } from "@/lib/redis";
 import { checkGlobalIdentifier } from "@/lib/validations/global-identifier";
-import { checkSiteRestriction, canAccessSite } from "@/modules/roles";
+import {
+  TANPA_BATAS,
+  checkSiteRestriction,
+  siteBolehDiakses,
+  type LingkupSite,
+} from "@/modules/roles";
 import type { UserEntity } from "../domain/entities/UserEntity";
 import type {
   AdminSession,
@@ -21,25 +26,48 @@ import type {
 
 const HASH_SALT_ROUNDS = 10;
 const USER_SCHEDULE_CACHE_PREFIX = "user:schedule:";
+const USERS_RESOURCE = "users";
+
+/** Bagian user yang menentukan di site mana ia berada. */
+export type UserSiteMembership = Pick<UserEntity, "siteId"> &
+  Partial<Pick<UserEntity, "userSites">>;
 
 /**
- * Apakah admin boleh bertindak atas user yang berada di `targetSiteId`.
+ * Lingkup site admin atas resource `users`: SELURUH site yang ditugaskan
+ * kepadanya (userSites, fallback site legacy), bukan hanya site utama.
+ */
+export function lingkupSiteAdminUser(session: AdminSession): LingkupSite {
+  const { isRestricted, siteIds } = checkSiteRestriction(
+    session,
+    USERS_RESOURCE,
+  );
+  return isRestricted ? { dibatasi: true, siteIds } : TANPA_BATAS;
+}
+
+/** Seluruh site seorang user: site utama digabung semua userSites-nya. */
+export function siteIdsMilikUser(user: UserSiteMembership): string[] {
+  const siteIds = (user.userSites ?? []).map((userSite) => userSite.siteId);
+  if (user.siteId) siteIds.unshift(user.siteId);
+  return [...new Set(siteIds)];
+}
+
+/**
+ * Apakah admin boleh bertindak atas `target`.
  *
- * `canAccessSite` (modules/roles) sengaja meloloskan target tanpa site — benar
- * untuk data bersama seperti profil PPP global, tetapi salah untuk user: admin
- * ber-`users:site_only` dulu bisa melihat, mengubah, menghapus, dan memaksa
- * logout user yang belum ditugaskan ke site mana pun. User tanpa site kini di
- * luar lingkup admin terbatas; hanya admin tanpa pembatasan yang bisa
- * mengurusnya (mis. menugaskan site pertamanya).
+ * Sama dengan filter daftar user: target terlihat bila site utamanya ATAU
+ * salah satu userSites-nya ada di lingkup admin. User tanpa site sama sekali
+ * di luar lingkup admin terbatas (gagal tertutup); hanya admin tanpa
+ * pembatasan yang bisa mengurusnya (mis. menugaskan site pertamanya).
  */
 export function canAccessUserSite(
   session: AdminSession,
-  targetSiteId: string | null | undefined,
+  target: UserSiteMembership,
 ): boolean {
-  if (!targetSiteId) {
-    return !checkSiteRestriction(session, "users").isRestricted;
-  }
-  return canAccessSite(session, "users", targetSiteId);
+  const lingkup = lingkupSiteAdminUser(session);
+  if (!lingkup.dibatasi) return true;
+  return siteIdsMilikUser(target).some((siteId) =>
+    siteBolehDiakses(lingkup, siteId),
+  );
 }
 
 /** Membuat hasil gagal terstandar untuk route admin user. */
@@ -91,25 +119,58 @@ export function validateSelfUpdate(
   return { ok: true, data: null };
 }
 
-/** Memvalidasi update berdasarkan scope site admin. */
+/**
+ * Memvalidasi update berdasarkan scope site admin.
+ *
+ * Admin terbatas hanya boleh mengubah keanggotaan site DI DALAM lingkupnya:
+ * site di luar lingkup tidak boleh ditambah maupun dicabut, dan user tidak
+ * boleh dibuat tanpa site (yang berarti keluar dari lingkup siapa pun yang
+ * terbatas). Berlaku juga untuk update akun sendiri.
+ */
 export function validateScopedUpdate(
   session: AdminSession,
   isSelfUpdate: boolean,
   currentUser: UserEntity,
   payload: UpdateUserPayload,
 ): UserRouteResult<null> {
-  const { isRestricted, primarySiteId } = checkSiteRestriction(
-    session,
-    "users",
-  );
-  if (!isRestricted || isSelfUpdate) return { ok: true, data: null };
-  if (!canAccessUserSite(session, currentUser.siteId)) {
+  const lingkup = lingkupSiteAdminUser(session);
+  if (!lingkup.dibatasi) return { ok: true, data: null };
+  if (!isSelfUpdate && !canAccessUserSite(session, currentUser)) {
     return fail(403, "Anda hanya dapat mengupdate user di site Anda");
   }
-  if (payload.siteId && payload.siteId !== primarySiteId) {
+  const isSiteChanged =
+    payload.siteId !== undefined && payload.siteId !== currentUser.siteId;
+  if (isSiteChanged && !siteBolehDiakses(lingkup, payload.siteId)) {
     return fail(403, "Anda tidak dapat mengubah site user ke site lain");
   }
+  if (
+    payload.userSites !== undefined &&
+    !isUserSitesChangeInScope(lingkup, currentUser, payload.userSites)
+  ) {
+    return fail(
+      403,
+      "Anda tidak dapat menambahkan atau melepas site di luar scope Anda",
+    );
+  }
   return { ok: true, data: null };
+}
+
+function isUserSitesChangeInScope(
+  lingkup: LingkupSite,
+  currentUser: UserEntity,
+  nextUserSites: NonNullable<UpdateUserPayload["userSites"]>,
+): boolean {
+  const nextSiteIds = new Set(nextUserSites.map((userSite) => userSite.siteId));
+  if (nextSiteIds.size === 0) return false;
+  const isOutOfScope = (siteId: string) => !siteBolehDiakses(lingkup, siteId);
+  // Site utama ikut dihitung: `updateWithSites` menimpa `user.siteId` dari
+  // userSites, jadi site utama legacy di luar lingkup bisa ikut tercabut.
+  const currentOutOfScope = siteIdsMilikUser(currentUser).filter(isOutOfScope);
+  const nextOutOfScope = [...nextSiteIds].filter(isOutOfScope);
+  return (
+    currentOutOfScope.length === nextOutOfScope.length &&
+    currentOutOfScope.every((siteId) => nextSiteIds.has(siteId))
+  );
 }
 
 /** Menerapkan perubahan tenant jika diizinkan. */

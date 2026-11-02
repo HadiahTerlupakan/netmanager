@@ -146,6 +146,10 @@ export { buildVpnApiUserScript } from "./services/vpn-api-user-script";
 export { createVpnDraftService } from "./factories/VpnDraftServiceFactory";
 export { createVpnServerService } from "./factories/VpnServerServiceFactory";
 export { routerVpnAccessGuard } from "./vpn/routerAccessGuard";
+export {
+  isRestrictedToOwnRouterSite,
+  MIKROTIK_SITE_ONLY_PERMISSION,
+} from "./services/mikrotik-router.access";
 export { createVpnRouterService } from "./factories/VpnRouterServiceFactory";
 export { createVpnRouterProtocolService } from "./factories/VpnRouterProtocolServiceFactory";
 export { createVpnRouterMigrationService } from "./factories/VpnRouterMigrationServiceFactory";

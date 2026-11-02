@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getLeaveById: vi.fn(),
   approveLeave: vi.fn(),
   getAllBalances: vi.fn(),
+  getLeaves: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", async (importOriginal) => ({
@@ -17,6 +18,7 @@ vi.mock("@/modules/attendance/services/LeaveService", () => ({
     createLeave: mocks.createLeave,
     getLeaveById: mocks.getLeaveById,
     approveLeave: mocks.approveLeave,
+    getLeaves: mocks.getLeaves,
   }),
 }));
 
@@ -31,13 +33,22 @@ type LookupUser = {
   tenantId?: string;
   siteId: string | null;
   departmentId: string | null;
+  /** Seluruh site (userSites); bawaan: hanya site utamanya. */
+  siteIds?: string[];
 };
 
 function lookupOf(users: LookupUser[]) {
+  const cari = (id: string) => users.find((u) => u.id === id) ?? null;
   return {
-    findById: vi.fn(
-      async (id: string) => users.find((u) => u.id === id) ?? null,
-    ),
+    findById: vi.fn(async (id: string) => cari(id)),
+    findAccessAssignmentById: vi.fn(async (id: string) => {
+      const user = cari(id);
+      if (!user) return null;
+      return {
+        siteIds: user.siteIds ?? (user.siteId ? [user.siteId] : []),
+        departmentId: user.departmentId,
+      };
+    }),
   };
 }
 
@@ -105,6 +116,72 @@ describe("AdminLeaveRouteService — lingkup izin", () => {
     expect(result).toMatchObject({ success: false, code: "FORBIDDEN" });
     expect(mocks.approveLeave).not.toHaveBeenCalled();
   });
+
+  // Regresi multi-site: lingkup dulu hanya site utama admin.
+  describe("admin multi-site", () => {
+    const adminMultiSite: LookupUser = {
+      id: "admin-1",
+      siteId: "site-a",
+      siteIds: ["site-a", "site-b"],
+      departmentId: null,
+    };
+
+    it("boleh membuat izin untuk pegawai di site keduanya", async () => {
+      mocks.getUserPermissions.mockResolvedValue(["izin:site_only"]);
+      const service = new AdminLeaveRouteService(
+        lookupOf([
+          adminMultiSite,
+          { id: "emp-1", siteId: "site-b", departmentId: null },
+        ]) as never,
+      );
+
+      await service.createLeave(CREATE_INPUT);
+
+      expect(mocks.createLeave).toHaveBeenCalled();
+    });
+
+    it("daftar izin disaring ke SELURUH site admin", async () => {
+      mocks.getUserPermissions.mockResolvedValue(["izin:site_only"]);
+      const service = new AdminLeaveRouteService(
+        lookupOf([adminMultiSite]) as never,
+      );
+
+      await service.getLeaves({
+        session: SESSION,
+        tenantId: "t1",
+        page: 1,
+        limit: 20,
+      } as never);
+
+      expect(mocks.getLeaves).toHaveBeenCalledWith(
+        expect.objectContaining({ siteIds: ["site-a", "site-b"] }),
+        1,
+        20,
+      );
+    });
+
+    it("dibatasi tanpa site: daftar izin kosong, bukan seluruh tenant", async () => {
+      mocks.getUserPermissions.mockResolvedValue(["izin:site_only"]);
+      const service = new AdminLeaveRouteService(
+        lookupOf([
+          { id: "admin-1", siteId: null, departmentId: null },
+        ]) as never,
+      );
+
+      await service.getLeaves({
+        session: SESSION,
+        tenantId: "t1",
+        page: 1,
+        limit: 20,
+      } as never);
+
+      expect(mocks.getLeaves).toHaveBeenCalledWith(
+        expect.objectContaining({ siteIds: [] }),
+        1,
+        20,
+      );
+    });
+  });
 });
 
 describe("AdminLeaveBalanceRouteService — lingkup", () => {
@@ -153,8 +230,33 @@ describe("AdminLeaveBalanceRouteService — lingkup", () => {
 
     expect(mocks.getAllBalances).toHaveBeenCalledWith(
       2026,
-      expect.objectContaining({ tenantId: "t1", siteId: "site-a" }),
+      expect.objectContaining({ tenantId: "t1", siteIds: ["site-a"] }),
     );
+  });
+
+  // Regresi multi-site: lingkup dulu hanya site utama admin.
+  it("admin multi-site: daftar & akses saldo mencakup site keduanya", async () => {
+    mocks.getUserPermissions.mockResolvedValue(["attendance:site_only"]);
+    const service = new AdminLeaveBalanceRouteService(
+      { getAllBalances: mocks.getAllBalances } as never,
+      lookupOf([
+        {
+          id: "admin-1",
+          tenantId: "t1",
+          siteId: "site-a",
+          siteIds: ["site-a", "site-b"],
+          departmentId: null,
+        },
+        { id: "emp-1", tenantId: "t1", siteId: "site-b", departmentId: null },
+      ]) as never,
+    );
+
+    await service.getBalances({ year: 2026, access });
+    expect(mocks.getAllBalances).toHaveBeenCalledWith(
+      2026,
+      expect.objectContaining({ siteIds: ["site-a", "site-b"] }),
+    );
+    await expect(service.canAccessUser("emp-1", access)).resolves.toBe(true);
   });
 
   it("admin terbatas tanpa site mendapat daftar kosong", async () => {

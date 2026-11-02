@@ -24,7 +24,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       userId: ctx.params.userId,
       startDate: req.nextUrl.searchParams.get("startDate"),
       endDate: req.nextUrl.searchParams.get("endDate"),
-      permissions: ctx.permissions || [],
       session: { user: ctx.session!.user },
     });
 

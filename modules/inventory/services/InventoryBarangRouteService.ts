@@ -1,7 +1,12 @@
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import type { LingkupSite } from "@/modules/roles/client";
 
-import { IZIN_PEMBATAS_BARANG } from "../domain/izin-pembatas-site";
+import {
+  IZIN_PEMBATAS_BARANG,
+  IZIN_PEMBATAS_KELUAR,
+  IZIN_PEMBATAS_MASUK,
+  IZIN_PEMBATAS_OPNAME,
+} from "../domain/izin-pembatas-site";
 import {
   getInventoryRouteService,
   type PenggunaInventory,
@@ -30,10 +35,16 @@ import {
   withStockSummary,
 } from "./inventory-barang-route.helpers";
 
-import type { UpdateBarangInput } from "../domain/ports/IInventoryOperationRepository";
+import type {
+  SaringanSiteMutasiBarang,
+  UpdateBarangInput,
+} from "../domain/ports/IInventoryOperationRepository";
 
 interface InventoryBarangRouteRepository {
-  findBarangDetail(id: string): Promise<Record<string, unknown> | null>;
+  findBarangDetail(
+    id: string,
+    saringan: SaringanSiteMutasiBarang,
+  ): Promise<Record<string, unknown> | null>;
   findBarangById(id: string): Promise<Record<string, unknown> | null>;
   findBarangByKode(kode: string): Promise<{ id: string; nama?: string } | null>;
   updateBarang(id: string, data: UpdateBarangInput): Promise<unknown>;
@@ -229,12 +240,26 @@ export class InventoryBarangRouteService {
 
   /** Ambil detail barang beserta stok yang sudah dibatasi site. */
   async getBarangDetail(input: BarangByIdRouteInput) {
-    const barang = await this.repository.findBarangDetail(input.id);
+    const [lingkup, lingkupMasuk, lingkupKeluar, lingkupOpname] =
+      await Promise.all([
+        this.resolveLingkupSite(input.pengguna),
+        this.resolveLingkupSite(input.pengguna, IZIN_PEMBATAS_MASUK),
+        this.resolveLingkupSite(input.pengguna, IZIN_PEMBATAS_KELUAR),
+        this.resolveLingkupSite(input.pengguna, IZIN_PEMBATAS_OPNAME),
+      ]);
+
+    // Mutasi terbaru mengikuti sumbu daftarnya masing-masing, sama seperti
+    // halaman Barang Masuk/Keluar/Opname, supaya detail barang tidak menjadi
+    // jalan pintas melihat mutasi gudang site lain.
+    const barang = await this.repository.findBarangDetail(input.id, {
+      masuk: siteIdsSaringan(lingkupMasuk),
+      keluar: siteIdsSaringan(lingkupKeluar),
+      opname: siteIdsSaringan(lingkupOpname),
+    });
     if (!barang) {
       return { found: false as const };
     }
 
-    const lingkup = await this.resolveLingkupSite(input.pengguna);
     return {
       found: true as const,
       barang: withStockSummary(barang, lingkup),
@@ -338,12 +363,15 @@ export class InventoryBarangRouteService {
     }
   }
 
-  private resolveLingkupSite(pengguna: PenggunaInventory) {
+  private resolveLingkupSite(
+    pengguna: PenggunaInventory,
+    restrictedPermissions: readonly string[] = IZIN_PEMBATAS_BARANG,
+  ) {
     return this.inventoryRouteService.resolveLingkupSite({
       userId: pengguna.userId,
       permissions: pengguna.permissions,
       isSuperAdmin: pengguna.isSuperAdmin,
-      restrictedPermissions: IZIN_PEMBATAS_BARANG,
+      restrictedPermissions,
     });
   }
 }

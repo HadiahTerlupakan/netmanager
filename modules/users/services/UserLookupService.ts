@@ -1,3 +1,4 @@
+import { resolveAllowedSiteIds } from "@/lib/authorization/allowed-site-ids";
 import { UserRepository } from "../repositories/UserRepository";
 import { UserLookupRepository } from "../repositories/UserLookupRepository";
 
@@ -141,6 +142,26 @@ export class UserLookupService {
       tenantId,
       userSiteId,
     );
+  }
+
+  /**
+   * Penugasan user untuk menghitung lingkup akses: SELURUH site-nya
+   * (userSites, fallback site legacy — `resolveAllowedSiteIds`) dan departemen.
+   */
+  async findAccessAssignmentById(userId: string): Promise<{
+    siteIds: string[];
+    departmentId: string | null;
+  } | null> {
+    const user =
+      await this.lookupRepository.findSiteAndDepartmentAssignmentById(userId);
+    if (!user) return null;
+    return {
+      siteIds: resolveAllowedSiteIds({
+        siteId: user.siteId,
+        siteIds: user.userSites.map((userSite) => userSite.siteId),
+      }),
+      departmentId: user.departmentId,
+    };
   }
 
   /** Find user with department context. */

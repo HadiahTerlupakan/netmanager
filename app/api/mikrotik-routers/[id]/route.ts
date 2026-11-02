@@ -1,4 +1,3 @@
-import { hasPermission } from "@/lib/rbac";
 import { mikrotikRouterUpdateSchema } from "@/lib/validations/mikrotik";
 import {
   apiSuccess,
@@ -9,6 +8,7 @@ import {
 } from "@/lib/api";
 import {
   isVpnError,
+  isRestrictedToOwnRouterSite,
   MikroTikRouterService,
   RouterAccessDeniedError,
   RouterNotFoundError,
@@ -16,14 +16,30 @@ import {
 } from "@/modules/network";
 import { isSuperAdmin } from "@/lib/auth";
 import { ValidationError } from "@/lib/errors";
+import { hasPermission } from "@/lib/rbac";
 import * as z from "zod";
 
+/** Tolak permintaan bila pengguna tidak memegang izin akses router ini. */
+async function denyWithoutPermission(
+  permission: "mikrotik:read" | "mikrotik:update" | "mikrotik:delete",
+) {
+  return (await hasPermission(permission))
+    ? null
+    : ApiErrors.forbidden("Akses ditolak");
+}
+
+/** GET detail router; butuh `mikrotik:read` dan lingkup site. */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
+  const denied = await denyWithoutPermission("mikrotik:read");
+  if (denied) return denied;
+
   const { id } = ctx.params;
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
-  const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
+  const restrictedToOwnSite = isRestrictedToOwnRouterSite({
+    isSuperAdmin: isSuperAdmin(user),
+    permissions: ctx.permissions,
+  });
 
   try {
     const router = await routerService.getRouterById({
@@ -47,7 +63,11 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   }
 });
 
+/** PATCH router; butuh `mikrotik:update` dan lingkup site. */
 export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
+  const denied = await denyWithoutPermission("mikrotik:update");
+  if (denied) return denied;
+
   const { id } = ctx.params;
   const body = await req.json();
 
@@ -61,8 +81,10 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
-  const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
+  const restrictedToOwnSite = isRestrictedToOwnRouterSite({
+    isSuperAdmin: isSuperAdmin(user),
+    permissions: ctx.permissions,
+  });
 
   try {
     await routerService.updateRouter({
@@ -101,12 +123,18 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   }
 });
 
+/** DELETE router; butuh `mikrotik:delete` dan lingkup site. */
 export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
+  const denied = await denyWithoutPermission("mikrotik:delete");
+  if (denied) return denied;
+
   const { id } = ctx.params;
   const user = ctx.session!.user;
   const routerService = new MikroTikRouterService();
-  const restrictedToOwnSite =
-    (await hasPermission("mikrotik:site_only")) && !isSuperAdmin(user);
+  const restrictedToOwnSite = isRestrictedToOwnRouterSite({
+    isSuperAdmin: isSuperAdmin(user),
+    permissions: ctx.permissions,
+  });
 
   try {
     await routerService.deleteRouter({

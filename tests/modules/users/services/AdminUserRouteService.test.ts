@@ -2,12 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
   checkSiteRestriction: vi.fn(),
-  canAccessSite: vi.fn(),
 }));
 
-vi.mock("@/modules/roles", () => ({
+vi.mock("@/modules/roles", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/roles")>()),
   checkSiteRestriction: mockFns.checkSiteRestriction,
-  canAccessSite: mockFns.canAccessSite,
 }));
 
 // AdminUserRouteCreateService di-instantiate oleh AdminUserRouteService constructor.
@@ -74,7 +73,6 @@ describe("AdminUserRouteService", () => {
       primarySiteId: null,
       siteIds: [],
     });
-    mockFns.canAccessSite.mockReturnValue(true);
   });
 
   describe("getAdminUserById", () => {
@@ -130,7 +128,11 @@ describe("AdminUserRouteService", () => {
         id: "user-remote",
         siteId: "site-other",
       } as never);
-      mockFns.canAccessSite.mockReturnValueOnce(false);
+      mockFns.checkSiteRestriction.mockReturnValue({
+        isRestricted: true,
+        primarySiteId: "site-mine",
+        siteIds: ["site-mine"],
+      });
 
       const result = await service.getAdminUserById(
         createSession(),
@@ -147,7 +149,7 @@ describe("AdminUserRouteService", () => {
     const basePayload: UpdateUserPayload = { name: "New Name" };
 
     it("mengembalikan 404 saat user target tidak ditemukan", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce(null);
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce(null);
 
       const result = await service.updateAdminUser(
         createSession(),
@@ -160,7 +162,7 @@ describe("AdminUserRouteService", () => {
     });
 
     it("meneruskan error dari validateUpdate apa adanya", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce({
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
         id: "user-1",
       } as never);
 
@@ -185,7 +187,7 @@ describe("AdminUserRouteService", () => {
     });
 
     it("memanggil persistUpdate dan runAfterUpdate saat payload valid", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce({
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
         id: "user-1",
       } as never);
 
@@ -227,12 +229,12 @@ describe("AdminUserRouteService", () => {
       expect(result).toMatchObject({
         error: { code: 400, message: "Tidak dapat menghapus akun sendiri" },
       });
-      expect(repository.findById).not.toHaveBeenCalled();
+      expect(repository.findByIdWithRelations).not.toHaveBeenCalled();
       expect(repository.delete).not.toHaveBeenCalled();
     });
 
     it("mengembalikan 404 saat user target tidak ada", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce(null);
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce(null);
 
       const result = await service.deleteAdminUser(createSession(), "missing");
 
@@ -241,7 +243,7 @@ describe("AdminUserRouteService", () => {
     });
 
     it("menolak delete user di luar site saat admin site-restricted", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce({
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
         id: "user-remote",
         siteId: "site-other",
       } as never);
@@ -250,7 +252,6 @@ describe("AdminUserRouteService", () => {
         primarySiteId: "site-mine",
         siteIds: ["site-mine"],
       });
-      mockFns.canAccessSite.mockReturnValueOnce(false);
 
       const result = await service.deleteAdminUser(
         createSession(),
@@ -263,7 +264,7 @@ describe("AdminUserRouteService", () => {
     });
 
     it("menghapus user saat admin berada di site yang sama", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce({
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
         id: "user-local",
         siteId: "site-mine",
       } as never);
@@ -276,7 +277,6 @@ describe("AdminUserRouteService", () => {
         primarySiteId: "site-mine",
         siteIds: ["site-mine"],
       });
-      mockFns.canAccessSite.mockReturnValueOnce(true);
 
       const result = await service.deleteAdminUser(
         createSession(),
@@ -299,7 +299,7 @@ describe("AdminUserRouteService", () => {
     };
 
     it("tidak bisa menghapus user tanpa site", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce({
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
         id: "user-siteless",
         siteId: null,
       } as never);
@@ -331,7 +331,7 @@ describe("AdminUserRouteService", () => {
     });
 
     it("admin tanpa pembatasan tetap bisa menghapus user tanpa site", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce({
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
         id: "user-siteless",
         siteId: null,
       } as never);
@@ -378,7 +378,7 @@ describe("AdminUserRouteService", () => {
     });
 
     it("menolak force logout user di luar site saat restricted", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce({
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
         id: "user-remote",
         siteId: "site-other",
         tenantId: "tenant-admin",
@@ -388,7 +388,6 @@ describe("AdminUserRouteService", () => {
         primarySiteId: "site-mine",
         siteIds: ["site-mine"],
       });
-      mockFns.canAccessSite.mockReturnValueOnce(false);
 
       const result = await service.forceLogoutUser(
         createSession({ tenantId: "tenant-admin" }),
@@ -401,7 +400,7 @@ describe("AdminUserRouteService", () => {
     });
 
     it("menolak force logout user tenant berbeda", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce({
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
         id: "user-x",
         siteId: "site-mine",
         tenantId: "tenant-other",
@@ -418,7 +417,7 @@ describe("AdminUserRouteService", () => {
     });
 
     it("force logout sukses saat site accessible", async () => {
-      vi.mocked(repository.findById).mockResolvedValueOnce({
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
         id: "user-local",
         siteId: "site-mine",
         tenantId: "tenant-admin",
@@ -433,7 +432,6 @@ describe("AdminUserRouteService", () => {
         primarySiteId: "site-mine",
         siteIds: ["site-mine"],
       });
-      mockFns.canAccessSite.mockReturnValueOnce(true);
 
       const result = await service.forceLogoutUser(
         createSession({ tenantId: "tenant-admin" }),

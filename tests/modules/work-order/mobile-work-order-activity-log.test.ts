@@ -153,6 +153,7 @@ describe("Log Aktivitas aksi WO dari mobile", () => {
     const service = new MobileAvailableWorkOrderService({
       findUserProfile: vi.fn().mockResolvedValue(null),
       findWorkOrderById: vi.fn().mockResolvedValue(claimed),
+      isWorkOrderMatchingFilter: vi.fn().mockResolvedValue(true),
       claimWorkOrder: vi.fn().mockResolvedValue(true),
     } as never);
     const internals = service as unknown as Internals;

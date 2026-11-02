@@ -1,4 +1,8 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+import {
+  buildSiteScopeWhere,
+  type WorkOrderSiteScope,
+} from "./work-order-site-scope";
 
 /**
  * Helper to classify work order based on title
@@ -33,12 +37,9 @@ export async function getIssueStatistics(
   dateFrom?: Date,
   dateTo?: Date,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ): Promise<Array<{ issue: string; count: number }>> {
-  const where: Prisma.WorkOrdersWhereInput = {};
-  if (siteId) {
-    where.siteId = siteId;
-  }
+  const where: Prisma.WorkOrdersWhereInput = buildSiteScopeWhere(siteIds);
   if (departmentId) {
     where.departmentId = departmentId;
   }
@@ -87,14 +88,11 @@ export async function getSiteStatistics(
   dateFrom?: Date,
   dateTo?: Date,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ): Promise<
   Array<{ siteName: string; count: number; mostCommonIssue: string }>
 > {
-  const where: Prisma.WorkOrdersWhereInput = {};
-  if (siteId) {
-    where.siteId = siteId;
-  }
+  const where: Prisma.WorkOrdersWhereInput = buildSiteScopeWhere(siteIds);
   if (departmentId) {
     where.departmentId = departmentId;
   }
@@ -165,14 +163,14 @@ export async function getDisconnectionStatistics(
   dateFrom?: Date,
   dateTo?: Date,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ): Promise<Array<{ reason: string; count: number }>> {
   const where: Prisma.WorkOrdersWhereInput = {
     type: "DISCONNECTION",
     // Include all completed states, not just COMPLETED
     status: { in: ["COMPLETED", "VERIFIED", "CLOSED"] },
+    ...buildSiteScopeWhere(siteIds),
   };
-  if (siteId) where.siteId = siteId;
   if (departmentId) where.departmentId = departmentId;
   // Use createdAt for date filtering (more reliable than completedAt which might be null)
   if (dateFrom || dateTo) {

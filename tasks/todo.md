@@ -1,3 +1,41 @@
+# Rencana: Tegakkan pembatasan site/departemen di semua modul (2026-11-02 s/d 2026-11-03)
+
+Status: **selesai di lokal, menunggu "push"** (commit `5fd1e8821` sudah deploy; `9c1b01789` belum)
+
+Catatan proses: rencana ini ditulis setelah pengerjaan, bukan sebelumnya — lihat
+`tasks/lessons.md` (2026-11-03).
+
+## Patokan
+- Tanpa `<resource>:site_only` → semua site di tenant; dengan toggle → hanya site
+  pengguna (semua `userSites`, cadangan `siteId`), gagal tertutup bila tanpa site.
+  `department_only` serupa. Super admin bebas.
+- Izin lingkup dicocokkan persis (`includes`), bukan `hasPermission` (mengembangkan `*`).
+- Di luar lingkup untuk satu resource → 404.
+
+## Langkah
+- [x] Audit WO & inventory, lalu modul lain; perbaiki + tes (commit `5fd1e8821`, sudah deploy).
+- [x] Cek data produksi: user terbatas tanpa site, `siteId` tanpa `user_sites`, gudang tanpa site.
+- [x] Sisa putaran 1: multi-site WO/pengguna/SDM/pembayaran manual, reminder departemen,
+      klaim garansi, super admin nama role, material admin, detail barang, modul Site +
+      jadwal SO, `*` di proyek/sales/MikroTik, toggle katalog yang mati.
+- [x] Sisa putaran 2: izin aksi router MikroTik `[id]`, pengeluaran cek persis + multi-site,
+      kunci material WO final, laporan presence multi-site, penerima pengingat SO.
+- [x] Typecheck + lint + suite penuh (1344 file / 10112 tes); changelog; commit lokal.
+- [x] Audit kepatuhan CLAUDE.md atas commit (49 klaim → 8 pelanggaran nyata), semua diperbaiki.
+
+## Review (2026-11-03)
+- Suite penuh: 1345 file / 10118 tes lulus; typecheck & lint bersih.
+- Temuan reviewer yang diperbaiki: PATCH site bisa menautkan gudang site lain (pelebaran
+  lingkup sendiri); route performa user tanpa cek tenant/site; site utama bisa tercabut
+  lewat `userSites`; riwayat lokasi punya jalur lingkup sendiri.
+- Audit kepatuhan: repository pengingat SO bergantung ke services; duplikasi aturan
+  lingkup opname, filter site pengeluaran vs RAB, blok cek akses route performa, guard
+  tenant & pesan di `AdminUserRouteService`, literal scope super admin di cuti; JSDoc usang.
+  Semua diperbaiki (helper bersama `irisanSiteDiminta`/`siteDefaultLingkup` di `modules/roles`,
+  `isDibatasiSite` di inventory, `toUserRouteApiError`).
+- Proses: rencana ini ditulis terlambat (setelah pengerjaan) — dicatat di `tasks/lessons.md`.
+- [ ] Push (menunggu instruksi "push" dari user).
+
 # Rencana: Semua push pindah ke FCM, Expo dihapus (2026-11-02)
 
 Status: **dikerjakan**

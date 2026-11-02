@@ -1,4 +1,5 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
+import type { WorkOrderSiteScope } from "./work-order-site-scope";
 import {
   buildAnalyticsWhere,
   buildMonthKeys,
@@ -27,9 +28,9 @@ export async function getVolumeTrend(
   startDate: Date,
   endDate: Date,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ) {
-  const where = buildAnalyticsWhere({ departmentId, siteId });
+  const where = buildAnalyticsWhere({ departmentId, siteIds });
   const [createdWOs, completedWOs, requestedWOs] = await Promise.all([
     prisma.workOrders.findMany({
       where: { ...where, createdAt: { gte: startDate, lte: endDate } },
@@ -80,9 +81,9 @@ export async function getIssueTrend(
   startDate: Date,
   endDate: Date,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ) {
-  const where = buildAnalyticsWhere({ departmentId, siteId });
+  const where = buildAnalyticsWhere({ departmentId, siteIds });
   const workOrders = await prisma.workOrders.findMany({
     where: { ...where, createdAt: { gte: startDate, lte: endDate } },
     select: { title: true, createdAt: true },
@@ -105,9 +106,9 @@ export async function getPerformanceTrend(
   startDate: Date,
   endDate: Date,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ) {
-  const where = buildAnalyticsWhere({ departmentId, siteId });
+  const where = buildAnalyticsWhere({ departmentId, siteIds });
   const completedWOs = await prisma.workOrders.findMany({
     where: {
       ...where,
@@ -149,9 +150,9 @@ export async function getTypeTrend(
   startDate: Date,
   endDate: Date,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ) {
-  const where = buildAnalyticsWhere({ departmentId, siteId });
+  const where = buildAnalyticsWhere({ departmentId, siteIds });
   const workOrders = await prisma.workOrders.findMany({
     where: { ...where, createdAt: { gte: startDate, lte: endDate } },
     select: { type: true, createdAt: true },

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 
 const mocks = vi.hoisted(() => ({
+  permissions: [] as string[],
   hasPermission: vi.fn(),
   getRouterById: vi.fn(),
   enable: vi.fn(),
@@ -18,6 +19,7 @@ vi.mock("@/lib/api", () => ({
       handler(req, {
         params: route?.params ?? {},
         session: { user: { id: "u1", tenantId: "t1" } },
+        permissions: mocks.permissions,
       }),
   apiSuccess: (
     data: unknown,
@@ -88,6 +90,7 @@ const routes = [
 describe("/api/mikrotik-routers/[id]/vpn migration routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.permissions = [];
     mocks.hasPermission.mockImplementation(
       async (permission: string) => permission !== "mikrotik:site_only",
     );

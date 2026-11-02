@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { OvertimePayrollQueryService } from "@/modules/overtime";
@@ -28,7 +29,7 @@ export class AttendanceReportService {
   async getReportData(input: {
     startDate: Date;
     endDate: Date;
-    siteId?: string;
+    siteId?: ReportSiteFilter;
     departmentId?: string;
   }) {
     const reportData = await this.loadReportData(input);
@@ -61,7 +62,7 @@ export class AttendanceReportService {
   private async loadReportData(input: {
     startDate: Date;
     endDate: Date;
-    siteId?: string;
+    siteId?: ReportSiteFilter;
     departmentId?: string;
   }) {
     const { startDate, endDate, siteId, departmentId } = input;
@@ -185,7 +186,7 @@ export class AttendanceReportService {
     input: {
       startDate: Date;
       endDate: Date;
-      siteId?: string;
+      siteId?: ReportSiteFilter;
       departmentId?: string;
     },
     reportData: Awaited<ReturnType<AttendanceReportService["loadReportData"]>>,

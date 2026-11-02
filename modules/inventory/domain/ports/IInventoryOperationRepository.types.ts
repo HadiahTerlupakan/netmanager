@@ -104,6 +104,17 @@ export interface CreateBarangKeluarInput {
   tenantId?: string;
 }
 
+/**
+ * Saringan site untuk mutasi terbaru di detail barang. Tiap daftar punya
+ * sumbunya sendiri: `undefined` berarti tanpa saringan, `[]` berarti pengguna
+ * dibatasi tanpa site sehingga daftarnya kosong.
+ */
+export interface SaringanSiteMutasiBarang {
+  masuk?: string[];
+  keluar?: string[];
+  opname?: string[];
+}
+
 export type BarangDetail = BarangWithStock & {
   masuk: BarangMasukWithRelations[];
   keluar: BarangKeluarWithRelations[];

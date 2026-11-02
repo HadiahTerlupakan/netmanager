@@ -2,6 +2,7 @@ import {
   getPurchaseOrderPaymentService,
   type PurchaseOrderPaymentService,
 } from "@/modules/procurement";
+import type { LingkupSite } from "@/modules/roles/client";
 import { FinanceAccountFacadeService } from "./FinanceAccountFacadeService";
 import { FinanceExpenseFacadeService } from "./FinanceExpenseFacadeService";
 import { FinanceReportService } from "./FinanceReportService";
@@ -61,7 +62,7 @@ export class FinanceService {
     category?: string | null;
     expenseCategoryId?: string | null;
     scope?: string | null;
-    restrictedSiteId?: string | null;
+    siteScope?: LingkupSite;
   }) {
     return this.expenseService.getExpenses(params);
   }

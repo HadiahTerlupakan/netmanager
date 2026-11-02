@@ -6,7 +6,11 @@
  */
 import type { PrismaClient } from "@prisma/client";
 import type { WorkOrderStatus } from "../types/work-order.enums";
-import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
+import type {
+  WorkOrderFilters,
+  WorkOrderRequestFilters,
+  WorkOrderWithRelations,
+} from "../domain/ports/IWorkOrderRepository";
 import type {
   MobileWorkOrderMaterialInput,
   MobileWorkOrderMaterialResult,
@@ -62,7 +66,7 @@ export class WorkOrderService {
 
   /** Ambil daftar request work order. */
   async getWorkOrderRequests(
-    filters: { departmentId?: string; siteId?: string; search?: string },
+    filters: WorkOrderRequestFilters,
     page = 1,
     limit = 20,
   ) {
@@ -73,6 +77,7 @@ export class WorkOrderService {
   async getStatistics(filters: {
     departmentId?: string;
     siteId?: string;
+    siteIds?: readonly string[];
     assignedToId?: string;
   }) {
     return this.readService.getStatistics(filters);
@@ -81,7 +86,7 @@ export class WorkOrderService {
   /** Ambil work order terbaru. */
   async getRecentWorkOrders(
     limit = 5,
-    filters: { departmentId?: string; siteId?: string },
+    filters: Pick<WorkOrderFilters, "departmentId" | "siteIds">,
   ) {
     return this.readService.getRecentWorkOrders(limit, filters);
   }

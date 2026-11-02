@@ -45,7 +45,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-vi.mock("@/modules/roles", () => ({
+vi.mock("@/modules/roles", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/roles")>()),
   checkSiteRestriction: mockFns.checkSiteRestriction,
   canAccessSite: mockFns.canAccessSite,
 }));

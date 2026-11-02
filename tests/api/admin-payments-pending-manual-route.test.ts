@@ -117,6 +117,71 @@ describe("admin pending manual payments route", () => {
     );
   });
 
+  // Regresi multi-site: daftar dulu hanya memakai site utama admin.
+  describe("admin multi-site", () => {
+    beforeEach(() => {
+      routeMocks.ensureAdminAccess.mockResolvedValue({
+        id: "admin-1",
+        role: "ADMIN",
+        siteId: "site-owned",
+        primarySiteId: "site-owned",
+        siteIds: ["site-owned", "site-second"],
+        isSuperAdmin: false,
+      });
+      routeMocks.getUserPermissions.mockResolvedValue([
+        "manual_payments:read",
+        "manual_payments:site_only",
+      ]);
+      routeMocks.findAllCustomers.mockImplementation(
+        async ({ siteId }: { siteId: string }) => [
+          { id: `customer-${siteId}` },
+        ],
+      );
+    });
+
+    it("tanpa filter: pelanggan SELURUH site admin", async () => {
+      const response = await GET(
+        new Request("http://localhost/api/admin/payments/pending-manual"),
+      );
+
+      expect(response.status).toBe(200);
+      expect(routeMocks.findPayments).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pelangganId: {
+            in: ["customer-site-owned", "customer-site-second"],
+          },
+        }),
+        expect.any(Object),
+      );
+    });
+
+    it("filter ke site kedua admin dihormati", async () => {
+      await GET(
+        new Request(
+          "http://localhost/api/admin/payments/pending-manual?siteId=site-second",
+        ),
+      );
+
+      expect(routeMocks.findAllCustomers).toHaveBeenCalledTimes(1);
+      expect(routeMocks.findAllCustomers).toHaveBeenCalledWith({
+        siteId: "site-second",
+      });
+    });
+
+    it("filter ke site di luar lingkup diabaikan", async () => {
+      await GET(
+        new Request(
+          "http://localhost/api/admin/payments/pending-manual?siteId=site-other",
+        ),
+      );
+
+      expect(routeMocks.findAllCustomers).not.toHaveBeenCalledWith({
+        siteId: "site-other",
+      });
+      expect(routeMocks.findAllCustomers).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("finance:site_only juga mengunci daftar ke site admin", async () => {
     routeMocks.getUserPermissions.mockResolvedValueOnce([
       "manual_payments:read",

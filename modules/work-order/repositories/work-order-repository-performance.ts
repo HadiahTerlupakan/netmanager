@@ -12,6 +12,7 @@ import {
   sortTopAssists,
   sortTopPerformers,
 } from "./work-order-repository-performance-helpers";
+import type { WorkOrderSiteScope } from "./work-order-site-scope";
 
 /** Get top performers based on completed tasks and average completion time. */
 export async function getTopPerformers(
@@ -20,10 +21,10 @@ export async function getTopPerformers(
   dateFrom?: Date,
   dateTo?: Date,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ): Promise<TopPerformer[]> {
   const completedWorkOrders = await prisma.workOrders.findMany({
-    where: buildLeadPerformerWhere({ dateFrom, dateTo, departmentId, siteId }),
+    where: buildLeadPerformerWhere({ dateFrom, dateTo, departmentId, siteIds }),
     select: {
       startedAt: true,
       completedAt: true,
@@ -83,7 +84,7 @@ export async function getTopAssists(
   dateFrom?: Date,
   dateTo?: Date,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ): Promise<TopPerformer[]> {
   const partnerAssignments = await prisma.workOrderAssignments.findMany({
     where: {
@@ -93,7 +94,7 @@ export async function getTopAssists(
         dateFrom,
         dateTo,
         departmentId,
-        siteId,
+        siteIds,
       }),
     },
     include: {

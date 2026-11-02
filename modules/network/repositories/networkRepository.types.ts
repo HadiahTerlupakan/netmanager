@@ -75,6 +75,7 @@ export interface RouterGeneratedApiUserRecord {
 
 export interface UserSiteRecord {
   siteId: string | null;
+  siteIds: string[];
 }
 
 export interface PelangganWithRouter {

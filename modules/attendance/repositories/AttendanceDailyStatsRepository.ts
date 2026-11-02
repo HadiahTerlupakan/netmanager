@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { HolidayRepository } from "./HolidayRepository";
@@ -21,7 +22,7 @@ export class AttendanceDailyStatsRepository {
   async getDailyStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {
@@ -42,7 +43,10 @@ export class AttendanceDailyStatsRepository {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  private async findScopedUserIds(siteId?: string, departmentId?: string) {
+  private async findScopedUserIds(
+    siteId?: ReportSiteFilter,
+    departmentId?: string,
+  ) {
     if (!siteId && !departmentId) return undefined;
     const users = await prisma.user.findMany({
       where: {

@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import type { WorkOrderSiteScope } from "./work-order-site-scope";
 import {
   buildAdminKpiDates,
   buildAnalyticsWhere,
@@ -11,7 +12,7 @@ import {
 export async function getAdminKPIStats(
   prisma: PrismaClient,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ): Promise<{
   pendingVerification: number;
   avgVerificationTimeMinutes: number;
@@ -20,7 +21,7 @@ export async function getAdminKPIStats(
   canvasingApprovedThisWeek: number;
 }> {
   const { today, dateFrom, dateTo } = buildAdminKpiDates();
-  const where = buildAnalyticsWhere({ departmentId, siteId });
+  const where = buildAnalyticsWhere({ departmentId, siteIds });
 
   const [
     pendingVerification,

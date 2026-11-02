@@ -1,4 +1,10 @@
-import { hasAnyScopeRestriction } from "@/lib/authorization/scope-restriction-permissions";
+import type { ReportSiteFilter } from "../domain/report-site-filter";
+import {
+  filterSiteDalamScope,
+  resolveAdminScope,
+  scopeTanpaData,
+  type AdminScope,
+} from "./AdminScopeResolver";
 
 /**
  * Laporan kehadiran terbuka bagi pemegang `attendance:read` MAUPUN `report:read`
@@ -11,19 +17,19 @@ export const PRESENCE_SCOPE_PERMISSIONS = {
   department_only: ["report:department_only", "attendance:department_only"],
 } as const;
 
-export interface PresenceReportScopeInput {
-  permissions: string[];
-  /** Site dan departemen milik pengguna, diambil dari database. */
-  userSiteId?: string | null;
-  userDepartmentId?: string | null;
-  /** Filter yang diminta lewat query string; diabaikan saat dibatasi. */
-  requestedSiteId?: string | null;
-  requestedDepartmentId?: string | null;
+/** Filter yang diminta lewat query string laporan. */
+export interface PresenceReportRequest {
+  siteId?: string | null;
+  departmentId?: string | null;
 }
 
 export interface PresenceReportScope {
-  siteId: string | null;
-  departmentId: string | null;
+  /**
+   * Satu site (permintaan yang termasuk lingkup), seluruh site lingkup admin
+   * (`{ in }`), atau `undefined` bila tidak dibatasi dan tidak diminta.
+   */
+  siteId?: ReportSiteFilter;
+  departmentId?: string;
   /**
    * Pengguna dibatasi tetapi tidak punya site/departemen, sehingga tidak ada
    * satu baris pun yang boleh ia lihat. Pemanggil mengembalikan hasil kosong —
@@ -32,31 +38,38 @@ export interface PresenceReportScope {
   isEmpty: boolean;
 }
 
-/** Menentukan filter site/departemen untuk laporan kehadiran non-super-admin. */
-export function resolvePresenceReportScope(
-  input: PresenceReportScopeInput,
-): PresenceReportScope {
-  const dibatasiSite = hasAnyScopeRestriction(
-    input.permissions,
-    PRESENCE_SCOPE_PERMISSIONS.site_only,
-  );
-  const dibatasiDepartemen = hasAnyScopeRestriction(
-    input.permissions,
-    PRESENCE_SCOPE_PERMISSIONS.department_only,
-  );
+const EMPTY_SCOPE: PresenceReportScope = { isEmpty: true };
 
-  if (dibatasiSite && !input.userSiteId) {
-    return { siteId: null, departmentId: null, isEmpty: true };
-  }
-  if (dibatasiDepartemen && !input.userDepartmentId) {
-    return { siteId: null, departmentId: null, isEmpty: true };
-  }
+/**
+ * Menentukan filter site/departemen laporan kehadiran dari lingkup admin.
+ *
+ * Dulu hanya site UTAMA admin yang dipakai, sehingga admin ber-`site_only`
+ * dengan beberapa site kehilangan data site lainnya. Sekarang seluruh site
+ * lingkup dipakai; `siteId` yang diminta hanya boleh MEMPERSEMPIT (permintaan
+ * di luar lingkup diabaikan), dan departemen yang diminta diabaikan saat
+ * dibatasi per departemen.
+ */
+export function resolvePresenceReportScope(
+  scope: AdminScope,
+  request: PresenceReportRequest,
+): PresenceReportScope {
+  if (scopeTanpaData(scope)) return EMPTY_SCOPE;
 
   return {
-    siteId: dibatasiSite ? input.userSiteId! : (input.requestedSiteId ?? null),
-    departmentId: dibatasiDepartemen
-      ? input.userDepartmentId!
-      : (input.requestedDepartmentId ?? null),
+    siteId: filterSiteDalamScope(scope, request.siteId),
+    departmentId: scope.departmentId ?? (request.departmentId || undefined),
     isEmpty: false,
   };
+}
+
+/** Resolve lingkup admin lalu filter laporan kehadiran untuk pengguna ini. */
+export async function resolvePresenceReportScopeForUser(
+  user: Parameters<typeof resolveAdminScope>[0],
+  request: PresenceReportRequest,
+): Promise<PresenceReportScope> {
+  const scope = await resolveAdminScope(user, {
+    siteOnly: PRESENCE_SCOPE_PERMISSIONS.site_only,
+    departmentOnly: PRESENCE_SCOPE_PERMISSIONS.department_only,
+  });
+  return resolvePresenceReportScope(scope, request);
 }

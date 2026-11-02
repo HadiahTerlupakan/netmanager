@@ -9,6 +9,7 @@ import {
   notifyMobileWorkOrderAction,
 } from "./mobile-work-order-notification.helpers";
 import { syncWoStatusToTicket } from "./WorkOrderSyncService";
+import { getMobileAvailableWorkOrderService } from "./MobileAvailableWorkOrderService";
 import {
   buildActionContext,
   ensureNotePayload,
@@ -211,6 +212,15 @@ export class MobileWorkOrderActionService {
     if (currentOwnerId && currentOwnerId !== input.input.actor.id) {
       throw new Error(
         "Hanya WO yang belum diambil orang lain yang dapat diklaim",
+      );
+    }
+    // Paritas aturan garansi dengan daftar WO tersedia dan
+    // `claimAvailableWorkOrder`: WO garansi orang lain tidak bisa direbut.
+    if (!currentOwnerId) {
+      await getMobileAvailableWorkOrderService().ensureWarrantyClaimAllowed(
+        input.input.workOrderId,
+        input.input.tenantId,
+        input.input.actor.id,
       );
     }
 

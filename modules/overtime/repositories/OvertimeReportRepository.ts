@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 
+import type { OvertimeSiteFilter } from "../domain/ports/IOvertimeRepository";
 import {
   buildPaidOvertimeWhere,
   buildReportWhere,
@@ -31,7 +32,7 @@ export class OvertimeReportRepository {
   async getStatsByDateRange(input: {
     startDate: Date;
     endDate: Date;
-    siteId?: string;
+    siteId?: OvertimeSiteFilter;
     departmentId?: string;
     tenantId?: string;
   }) {
@@ -51,7 +52,7 @@ export class OvertimeReportRepository {
   async getDailyStats(input: {
     startDate: Date;
     endDate: Date;
-    siteId?: string;
+    siteId?: OvertimeSiteFilter;
     departmentId?: string;
   }) {
     const tenantContext = await getTenantIdFromContext();
@@ -72,7 +73,7 @@ export class OvertimeReportRepository {
     startDate: Date;
     endDate: Date;
     groupBy: "department" | "site";
-    siteId?: string;
+    siteId?: OvertimeSiteFilter;
     departmentId?: string;
   }) {
     const tenantContext = await getTenantIdFromContext();
@@ -87,7 +88,7 @@ export class OvertimeReportRepository {
     startDate: Date;
     endDate: Date;
     limit?: number;
-    siteId?: string;
+    siteId?: OvertimeSiteFilter;
     departmentId?: string;
   }) {
     const groups = await prisma.overtime.groupBy({
@@ -110,7 +111,7 @@ export class OvertimeReportRepository {
   async getUserOvertimeStats(input: {
     startDate: Date;
     endDate: Date;
-    siteId?: string;
+    siteId?: OvertimeSiteFilter;
     departmentId?: string;
   }) {
     const groups = await prisma.overtime.groupBy({
@@ -129,7 +130,7 @@ export class OvertimeReportRepository {
 function buildDailyStatsQuery(input: {
   startDate: Date;
   endDate: Date;
-  siteId?: string;
+  siteId?: OvertimeSiteFilter;
   departmentId?: string;
   tenantContext: TenantContext;
 }) {
@@ -142,7 +143,7 @@ function buildDailyStatsQuery(input: {
 function createDailyStatsBaseQuery(input: {
   startDate: Date;
   endDate: Date;
-  siteId?: string;
+  siteId?: OvertimeSiteFilter;
   departmentId?: string;
 }) {
   const joinUserTable = input.siteId || input.departmentId;
@@ -162,7 +163,7 @@ function createDailyStatsBaseQuery(input: {
 function appendDailyStatsFilters(
   query: Prisma.Sql,
   input: {
-    siteId?: string;
+    siteId?: OvertimeSiteFilter;
     departmentId?: string;
     tenantContext: TenantContext;
   },
@@ -170,7 +171,7 @@ function appendDailyStatsFilters(
   const tenantFilter = buildTenantFilter(input.tenantContext);
   const withTenant = Prisma.sql`${query}${tenantFilter}`;
   const withSite = input.siteId
-    ? Prisma.sql`${withTenant} AND u."siteId" = ${input.siteId}`
+    ? Prisma.sql`${withTenant} ${buildUserSiteCondition(input.siteId)}`
     : withTenant;
 
   return input.departmentId
@@ -182,7 +183,7 @@ function buildGroupedStatsQuery(input: {
   startDate: Date;
   endDate: Date;
   groupBy: "department" | "site";
-  siteId?: string;
+  siteId?: OvertimeSiteFilter;
   departmentId?: string;
   tenantContext: TenantContext;
 }) {
@@ -192,7 +193,7 @@ function buildGroupedStatsQuery(input: {
     WHERE o."createdAt" >= ${input.startDate}
     AND o."createdAt" <= ${input.endDate}
     ${buildTenantFilter(input.tenantContext)}
-    ${input.siteId ? Prisma.sql`AND u."siteId" = ${input.siteId}` : Prisma.empty}
+    ${input.siteId ? buildUserSiteCondition(input.siteId) : Prisma.empty}
     ${input.departmentId ? Prisma.sql`AND u."departmentId" = ${input.departmentId}` : Prisma.empty}
     GROUP BY ${grouping.groupByColumn}, ${grouping.nameColumn}
   `;
@@ -226,6 +227,19 @@ function getGroupedStatsConfig(groupBy: "department" | "site") {
     nameColumn: Prisma.sql`d.name`,
     joinTable: Prisma.sql`JOIN "departments" d ON u."departmentId" = d.id`,
   };
+}
+
+/**
+ * Klausa `AND u."siteId" ...` untuk raw SQL report: satu site → `=`, daftar
+ * site → `IN` terparameter. Daftar kosong menjadi `AND FALSE` — gagal tertutup,
+ * dan `Prisma.join([])` sendiri akan menghasilkan SQL tidak valid.
+ */
+export function buildUserSiteCondition(siteFilter: OvertimeSiteFilter) {
+  if (typeof siteFilter === "string") {
+    return Prisma.sql`AND u."siteId" = ${siteFilter}`;
+  }
+  if (siteFilter.in.length === 0) return Prisma.sql`AND FALSE`;
+  return Prisma.sql`AND u."siteId" IN (${Prisma.join(siteFilter.in)})`;
 }
 
 function buildTenantFilter(tenantContext: TenantContext) {

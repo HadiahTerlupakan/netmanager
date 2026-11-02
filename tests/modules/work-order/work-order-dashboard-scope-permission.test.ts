@@ -33,7 +33,7 @@ describe("pembatasan dashboard work order membaca permission resource sendiri", 
       permissions: ["work_order_dashboard:site_only"],
     });
 
-    expect(filters.siteId).toBe(SITE);
+    expect(filters.siteIds).toEqual([SITE]);
   });
 
   it("membatasi departemen lewat work_order_dashboard:department_only", () => {
@@ -51,7 +51,7 @@ describe("pembatasan dashboard work order membaca permission resource sendiri", 
       permissions: ["workorders:site_only"],
     });
 
-    expect(filters.siteId).toBe(SITE);
+    expect(filters.siteIds).toEqual([SITE]);
   });
 
   it("tetap menghormati nama lama workorders:department_only", () => {
@@ -69,7 +69,7 @@ describe("pembatasan dashboard work order membaca permission resource sendiri", 
       permissions: ["work_order_dashboard:read"],
     });
 
-    expect(filters.siteId).toBeUndefined();
+    expect(filters.siteIds).toBeUndefined();
     expect(filters.departmentId).toBeUndefined();
   });
 
@@ -80,6 +80,6 @@ describe("pembatasan dashboard work order membaca permission resource sendiri", 
       permissions: ["work_order_dashboard:site_only"],
     });
 
-    expect(filters.siteId).toBeUndefined();
+    expect(filters.siteIds).toBeUndefined();
   });
 });

@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import {
@@ -11,7 +12,7 @@ export class AttendanceUserReportRepository {
   async getUserAttendanceStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {
@@ -34,7 +35,7 @@ export class AttendanceUserReportRepository {
   async getUserAbsenceStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     const userIds = await this.findScopedUserIds(siteId, departmentId, true);
@@ -55,7 +56,7 @@ export class AttendanceUserReportRepository {
   async getUserAttendanceRecords(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     const userIds = await this.findScopedUserIds(siteId, departmentId, false);
@@ -75,7 +76,7 @@ export class AttendanceUserReportRepository {
   async getUserTotalDuration(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     const { effectiveTenantId } = await resolveEffectiveTenantId();
@@ -108,7 +109,7 @@ export class AttendanceUserReportRepository {
   async getUserLateStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     const userIds = await this.findScopedUserIds(siteId, departmentId, false);
@@ -126,7 +127,7 @@ export class AttendanceUserReportRepository {
   }
 
   private async findScopedUserIds(
-    siteId: string | undefined,
+    siteId: ReportSiteFilter | undefined,
     departmentId: string | undefined,
     fixedHourOnly: boolean,
   ) {

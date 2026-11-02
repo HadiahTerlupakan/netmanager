@@ -15,6 +15,7 @@ import {
   findWorkOrdersByTicketId,
   findWorkOrderWithTicketAndAttachments,
 } from "./work-order-repository-attachments";
+import type { WorkOrderSiteScope } from "./work-order-site-scope";
 import {
   getEmployeeWorkOrdersByDepartment,
   getWorkOrderAdminKpiStats,
@@ -56,7 +57,7 @@ export class WorkOrderReportingRepository {
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ): Promise<TopPerformer[]> {
     return getWorkOrderTopPerformers({
       prisma: this.prisma,
@@ -64,7 +65,7 @@ export class WorkOrderReportingRepository {
       dateFrom,
       dateTo,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -73,7 +74,7 @@ export class WorkOrderReportingRepository {
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ): Promise<TopPerformer[]> {
     return getWorkOrderTopAssists({
       prisma: this.prisma,
@@ -81,7 +82,7 @@ export class WorkOrderReportingRepository {
       dateFrom,
       dateTo,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -118,11 +119,14 @@ export class WorkOrderReportingRepository {
     return getWorkOrderRecentItems({ prisma: this.prisma, limit, filters });
   }
 
-  async getDepartmentWorkload(departmentId?: string, siteId?: string) {
+  async getDepartmentWorkload(
+    departmentId?: string,
+    siteIds?: WorkOrderSiteScope,
+  ) {
     return getWorkOrderDepartmentWorkload({
       prisma: this.prisma,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -148,7 +152,7 @@ export class WorkOrderReportingRepository {
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ) {
     return getWorkOrderIssueStats({
       prisma: this.prisma,
@@ -156,7 +160,7 @@ export class WorkOrderReportingRepository {
       dateFrom,
       dateTo,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -165,7 +169,7 @@ export class WorkOrderReportingRepository {
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ) {
     return getWorkOrderSiteStatistics({
       prisma: this.prisma,
@@ -173,7 +177,7 @@ export class WorkOrderReportingRepository {
       dateFrom,
       dateTo,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -181,14 +185,14 @@ export class WorkOrderReportingRepository {
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ) {
     return getWorkOrderDisconnectionStatistics({
       prisma: this.prisma,
       dateFrom,
       dateTo,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -210,22 +214,22 @@ export class WorkOrderReportingRepository {
     dateFrom: Date,
     dateTo: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ) {
     return getWorkOrderAdminResponseStats({
       prisma: this.prisma,
       dateFrom,
       dateTo,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
-  async getAdminKPIStats(departmentId?: string, siteId?: string) {
+  async getAdminKPIStats(departmentId?: string, siteIds?: WorkOrderSiteScope) {
     return getWorkOrderAdminKpiStats({
       prisma: this.prisma,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -233,14 +237,14 @@ export class WorkOrderReportingRepository {
     startDate: Date,
     endDate: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ) {
     return getWorkOrderVolumeTrend({
       prisma: this.prisma,
       startDate,
       endDate,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -248,14 +252,14 @@ export class WorkOrderReportingRepository {
     startDate: Date,
     endDate: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ) {
     return getWorkOrderIssueTrend({
       prisma: this.prisma,
       startDate,
       endDate,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -263,14 +267,14 @@ export class WorkOrderReportingRepository {
     startDate: Date,
     endDate: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ) {
     return getWorkOrderPerformanceTrend({
       prisma: this.prisma,
       startDate,
       endDate,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 
@@ -278,14 +282,14 @@ export class WorkOrderReportingRepository {
     startDate: Date,
     endDate: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: WorkOrderSiteScope,
   ) {
     return getWorkOrderTypeTrend({
       prisma: this.prisma,
       startDate,
       endDate,
       departmentId,
-      siteId,
+      siteIds,
     });
   }
 }

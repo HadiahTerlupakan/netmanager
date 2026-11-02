@@ -39,6 +39,7 @@ export type {
   WorkOrderListSummary,
   WorkOrderStatistics,
 } from "../entities/WorkOrderRepositoryTypes";
+export type { WorkOrderRequestFilters } from "../entities/WorkOrderRepositoryTypes";
 export type { WorkOrderWithRelations } from "../entities/WorkOrderEntity";
 
 export interface IWorkOrderRepository {
@@ -121,27 +122,27 @@ export interface IWorkOrderRepository {
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: readonly string[],
   ): Promise<TopPerformer[]>;
   getIssueStatistics(
     limit?: number,
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: readonly string[],
   ): Promise<IssueStatistic[]>;
   getSiteStatistics(
     limit?: number,
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: readonly string[],
   ): Promise<SiteStatistic[]>;
   getDisconnectionStatistics(
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: readonly string[],
   ): Promise<Array<{ reason: string; count: number }>>;
   getUserWorkOrderStats(
     dateFrom: Date,
@@ -159,7 +160,7 @@ export interface IWorkOrderRepository {
     dateFrom: Date,
     dateTo: Date,
     departmentId?: string,
-    siteId?: string,
+    siteIds?: readonly string[],
   ): Promise<
     Array<{
       userName: string;

@@ -6,6 +6,11 @@ import type {
   WorkOrderFilters,
   WorkOrderListSummary,
 } from "../domain/ports/IWorkOrderRepository";
+import { tanpaDataSamaSekali } from "@/modules/roles/client";
+import {
+  resolveWorkOrderSiteScope,
+  toSiteScopeIds,
+} from "./work-order-site-access";
 
 export const EMPTY_WORK_ORDER_LIST_SUMMARY: WorkOrderListSummary = {
   completed: 0,
@@ -22,6 +27,7 @@ export function applyWorkOrderListRestrictions(input: {
   userPermissions?: string[];
   userDepartmentId?: string;
   userSiteId?: string;
+  userSiteIds?: string[];
   userRole?: string;
 }): WorkOrderFilters | null {
   const appliedFilters = { ...input.filters };
@@ -66,22 +72,27 @@ function applyDepartmentRestriction(
   return true;
 }
 
+/**
+ * Kunci daftar ke SELURUH site pengguna (bukan hanya site utama). Filter
+ * `siteId` pilihan pengguna tetap dipertahankan dan dipersempit oleh lingkup
+ * ini di repository. Pengguna terbatas tanpa site: daftar kosong.
+ */
 function applySiteRestriction(
   filters: WorkOrderFilters,
-  input: { userSiteId?: string },
+  input: { userSiteId?: string; userSiteIds?: string[] },
   context: { userPermissions: string[]; isSuperAdmin: boolean },
 ) {
-  if (
-    !context.userPermissions.includes("workorders:site_only") ||
-    context.isSuperAdmin
-  ) {
-    return true;
-  }
-  if (!input.userSiteId) {
+  const lingkup = resolveWorkOrderSiteScope({
+    permissions: context.userPermissions,
+    owner: { siteId: input.userSiteId, siteIds: input.userSiteIds },
+    isSuperAdmin: context.isSuperAdmin,
+  });
+  if (tanpaDataSamaSekali(lingkup)) {
     return false;
   }
 
-  filters.siteId = input.userSiteId;
+  const siteIds = toSiteScopeIds(lingkup);
+  if (siteIds) filters.siteIds = siteIds;
   return true;
 }
 

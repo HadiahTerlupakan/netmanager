@@ -2,6 +2,7 @@ import type { IRouterAccessRepository } from "../domain/ports/IRouterAccessRepos
 import type {
   MikroTikRouterUpdateData,
   PaginatedRouterResult,
+  RouterFilters,
 } from "../domain/entities/MikroTikRouterEntity";
 import type { IMikroTikRouterRepository } from "../domain/ports/IMikroTikRouterRepository";
 import type { IVpnServerRepository } from "../domain/ports/IVpnServerRepository";
@@ -13,7 +14,7 @@ import { VpnServerRepository } from "../repositories/VpnServerRepository";
 import { MikroTikProvisioningService } from "./MikroTikProvisioningService";
 import {
   getAuthorizedRouter,
-  resolveRestrictedSiteId,
+  resolveRestrictedSiteIds,
   RouterAccessDeniedError,
   RouterNotFoundError,
 } from "./mikrotik-router.access";
@@ -46,15 +47,18 @@ function createEmptyRouterList(
   };
 }
 
-function buildRouterFilters(params: { search?: string; siteId?: string }) {
-  const filters: Record<string, string | undefined> = {};
+function buildRouterFilters(params: {
+  search?: string;
+  siteIds?: string[];
+}): RouterFilters {
+  const filters: RouterFilters = {};
 
   if (params.search) {
     filters.search = params.search;
   }
 
-  if (params.siteId) {
-    filters.siteId = params.siteId;
+  if (params.siteIds?.length) {
+    filters.siteIds = params.siteIds;
   }
 
   return filters;
@@ -96,16 +100,16 @@ export class MikroTikRouterService {
     page: number;
     limit: number;
   }) {
-    const siteId = params.restrictedToOwnSite
-      ? await resolveRestrictedSiteId(this.networkRepository, params.userId)
+    const siteIds = params.restrictedToOwnSite
+      ? await resolveRestrictedSiteIds(this.networkRepository, params.userId)
       : undefined;
 
-    if (params.restrictedToOwnSite && !siteId) {
+    if (siteIds && siteIds.length === 0) {
       return createEmptyRouterList(params.page, params.limit);
     }
 
     return this.routerRepository.findWithFilters(
-      buildRouterFilters({ search: params.search, siteId }),
+      buildRouterFilters({ search: params.search, siteIds }),
       { page: params.page, limit: params.limit },
       params.tenantId,
     );
@@ -223,8 +227,8 @@ export class MikroTikRouterService {
 
   /**
    * Cek status router dari tombol admin: super admin seluruh tenant, admin
-   * tenant hanya tenant-nya, dan admin `mikrotik:site_only` hanya site-nya
-   * (tanpa site → tidak ada router yang dicek).
+   * tenant hanya tenant-nya, dan admin `mikrotik:site_only` hanya site-site
+   * miliknya (tanpa site → tidak ada router yang dicek).
    */
   async checkRouterStatus(params: {
     tenantId?: string | null;
@@ -237,14 +241,14 @@ export class MikroTikRouterService {
     if (!params.restrictedToOwnSite) {
       return checkTenantMikroTikRouterStatus({ tenantId: params.tenantId });
     }
-    const siteId = await resolveRestrictedSiteId(
+    const siteIds = await resolveRestrictedSiteIds(
       this.networkRepository,
       params.userId,
     );
-    if (!siteId) return 0;
+    if (siteIds.length === 0) return 0;
     return checkTenantMikroTikRouterStatus({
       tenantId: params.tenantId,
-      siteId,
+      siteIds,
     });
   }
 }

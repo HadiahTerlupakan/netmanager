@@ -22,3 +22,12 @@ export interface EmployeeLocationEntity {
   isMoving: boolean;
   recordedAt: Date;
 }
+
+/**
+ * Penyaring karyawan untuk live map: `siteId` berbentuk `{ in }` karena admin
+ * multi-site dibatasi ke SELURUH site-nya, bukan hanya site utama.
+ */
+export type LiveMapUserFilter = {
+  siteId?: { in: string[] };
+  departmentId?: string;
+};

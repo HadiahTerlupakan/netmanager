@@ -265,7 +265,7 @@ describe("mikrotik ping-check for VPN routers", () => {
 
     const count = await checkTenantMikroTikRouterStatus({
       tenantId: "t1",
-      siteId: "site-a",
+      siteIds: ["site-a"],
     });
 
     expect(count).toBe(1);
@@ -273,5 +273,28 @@ describe("mikrotik ping-check for VPN routers", () => {
     expect(mocks.findAll).toHaveBeenCalledWith("t1");
     expect(statusOf("a")).toBeDefined();
     expect(statusOf("bb")).toBeUndefined();
+  });
+
+  // Regresi: lingkup site dulu hanya satu site legacy; pengguna multi-site
+  // kehilangan router di site tambahannya, dan router tanpa site ikut dicek.
+  it("cek status per tenant mencakup seluruh site yang diminta, bukan router tanpa site", async () => {
+    mocks.findAll.mockResolvedValue([
+      router("a", { siteId: "site-a" }),
+      router("bb", { siteId: "site-b" }),
+      router("cc", { siteId: "site-c" }),
+      router("dd", { siteId: null }),
+    ]);
+    mocks.getRouter.mockResolvedValue({ lastHandshakeAt: FRESH_HANDSHAKE });
+
+    const count = await checkTenantMikroTikRouterStatus({
+      tenantId: "t1",
+      siteIds: ["site-a", "site-b"],
+    });
+
+    expect(count).toBe(2);
+    expect(statusOf("a")).toBeDefined();
+    expect(statusOf("bb")).toBeDefined();
+    expect(statusOf("cc")).toBeUndefined();
+    expect(statusOf("dd")).toBeUndefined();
   });
 });

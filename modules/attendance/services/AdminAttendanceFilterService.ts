@@ -2,7 +2,12 @@ import type { Prisma } from "../repositories/prisma-boundary";
 import type { AttendanceStatus } from "../types/attendance.enums";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import { isCanonicalStatusDetail } from "./AdminAttendanceEvaluationHelper";
-import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
+import {
+  filterSiteDalamScope,
+  resolveAdminScope,
+  scopeTanpaData,
+  type AdminScope,
+} from "./AdminScopeResolver";
 import type {
   AdminAttendanceUser,
   AttendanceFilterInput,
@@ -36,23 +41,22 @@ export async function buildAdminAttendanceWhere(
   const where: Prisma.AttendanceWhereInput = { tenantId: user.tenantId };
   applyDateRangeFilter(where, input, timezone);
 
-  const restrictionScope = await resolveRestrictionScope(user);
+  const scope = await resolveAdminScope(user, {
+    siteOnly: "attendance:site_only",
+    departmentOnly: "attendance:department_only",
+  });
 
   // Dibatasi tetapi tanpa site/departemen berarti tidak ada kehadiran yang
   // boleh tampil. Sebelumnya keadaan ini menghasilkan filter kosong, sehingga
   // justru seluruh tenant terbaca. `id: { in: [] }` tidak pernah cocok dengan
   // baris mana pun, apa pun filter lain yang menyertainya.
-  if (restrictionScope.tanpaData) {
+  if (scopeTanpaData(scope)) {
     where.user = { id: { in: [] } };
     applyStatusFilter(where, input.status, input.statusDetail);
     return where;
   }
 
-  const userWhere = buildUserWhere(
-    input,
-    restrictionScope.restrictedSiteId,
-    restrictionScope.restrictedDeptId,
-  );
+  const userWhere = buildUserWhere(input, scope);
   if (Object.keys(userWhere).length > 0) where.user = userWhere;
 
   applyStatusFilter(where, input.status, input.statusDetail);
@@ -100,27 +104,13 @@ function applyDateRangeFilter(
   };
 }
 
-async function resolveRestrictionScope(user: AdminAttendanceUser) {
-  const scope = await resolveAdminScope(user, {
-    siteOnly: "attendance:site_only",
-    departmentOnly: "attendance:department_only",
-  });
-
-  return {
-    restrictedSiteId: scope.isSuperAdmin ? undefined : scope.siteId,
-    restrictedDeptId: scope.isSuperAdmin ? undefined : scope.departmentId,
-    tanpaData: scopeTanpaData(scope),
-  };
-}
-
 function buildUserWhere(
   input: AttendanceFilterInput,
-  restrictedSiteId?: string,
-  restrictedDeptId?: string,
+  scope: AdminScope,
 ): Prisma.UserWhereInput {
   const userWhere: Prisma.UserWhereInput = {};
   applyUserIdentityFilter(userWhere, input);
-  applyUserScopeFilter(userWhere, input, restrictedSiteId, restrictedDeptId);
+  applyUserScopeFilter(userWhere, input, scope);
   applyUserSearchFilter(userWhere, input.search);
   return userWhere;
 }
@@ -135,11 +125,10 @@ function applyUserIdentityFilter(
 function applyUserScopeFilter(
   userWhere: Prisma.UserWhereInput,
   input: AttendanceFilterInput,
-  restrictedSiteId?: string,
-  restrictedDeptId?: string,
+  scope: AdminScope,
 ) {
-  userWhere.siteId = restrictedSiteId || input.siteId;
-  userWhere.departmentId = restrictedDeptId || input.departmentId;
+  userWhere.siteId = filterSiteDalamScope(scope, input.siteId);
+  userWhere.departmentId = scope.departmentId || input.departmentId;
 }
 
 function applyUserSearchFilter(

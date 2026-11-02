@@ -7,7 +7,10 @@ import { logger } from "@/lib/logger";
 
 import type { IUserRepository } from "../domain/ports/IUserRepository";
 import { UserService } from "./UserService";
-import { validateKepalaSalesTenant } from "./AdminUserRouteService.helpers";
+import {
+  lingkupSiteAdminUser,
+  validateKepalaSalesTenant,
+} from "./AdminUserRouteService.helpers";
 import { AppError } from "@/lib/errors";
 import type {
   AdminSession,
@@ -15,7 +18,11 @@ import type {
   NewUserSiteAssignment,
 } from "./AdminUserRouteService.types";
 import type { LeaveType } from "../types/user.enums";
-import { checkSiteRestriction } from "@/modules/roles";
+import {
+  siteBolehDiakses,
+  tanpaDataSamaSekali,
+  type LingkupSite,
+} from "@/modules/roles";
 
 const DEFAULT_FLEXIBLE_TARGET_HOUR = 8;
 
@@ -37,13 +44,9 @@ export class AdminUserRouteCreateService {
       context.targetTenantId,
     );
 
-    const { isRestricted, siteIds } = checkSiteRestriction(session, "users");
-    const allowedSiteIds = isRestricted ? siteIds : undefined;
-
-    // Validate dan prepare userSites
     const validUserSites = this.validateAndPrepareUserSites(
       scopedPayload.userSites,
-      allowedSiteIds,
+      lingkupSiteAdminUser(session),
     );
 
     // Create user dengan sites dalam satu transaksi
@@ -65,57 +68,58 @@ export class AdminUserRouteCreateService {
     return user;
   }
 
-  /** Validasi dan prepare userSites sebelum create. */
+  /** Validasi dan prepare userSites sebelum create: semuanya wajib dalam lingkup admin. */
   private validateAndPrepareUserSites(
-    userSites?: NewUserSiteAssignment[],
-    allowedSiteIds?: string[],
+    userSites: NewUserSiteAssignment[] | undefined,
+    lingkup: LingkupSite,
   ): Array<{ siteId: string; isPrimary?: boolean }> {
     const validUserSites = (userSites ?? []).filter(
       (userSite): userSite is { siteId: string; isPrimary?: boolean } =>
         Boolean(userSite.siteId),
     );
 
-    if (validUserSites.length === 0) {
-      return [];
-    }
-
-    // Validate each siteId against allowed scope
-    if (allowedSiteIds && allowedSiteIds.length > 0) {
-      const invalidSites = validUserSites.filter(
-        (us) => !allowedSiteIds.includes(us.siteId),
+    const hasOutOfScopeSite = validUserSites.some(
+      (userSite) => !siteBolehDiakses(lingkup, userSite.siteId),
+    );
+    if (hasOutOfScopeSite) {
+      throw new Error(
+        "Anda tidak dapat menambahkan user ke site di luar scope Anda",
       );
-      if (invalidSites.length > 0) {
-        throw new Error(
-          "Anda tidak dapat menambahkan user ke site di luar scope Anda",
-        );
-      }
     }
 
     return validUserSites;
   }
 
+  /**
+   * Admin terbatas wajib menaruh user baru di salah satu site-nya sendiri:
+   * `siteId` dari payload harus termasuk seluruh site admin (bukan hanya site
+   * utama); bila kosong, dipakai site utama admin (atau site pertamanya).
+   */
   private applyCreateSiteRestriction(
     session: AdminSession,
     payload: CreateAdminUserInput,
   ): CreateAdminUserInput {
-    const { isRestricted, primarySiteId } = checkSiteRestriction(
-      session,
-      "users",
-    );
-
-    if (!isRestricted) {
+    const lingkup = lingkupSiteAdminUser(session);
+    if (!lingkup.dibatasi) {
       return payload;
     }
 
-    if (!primarySiteId) {
+    if (tanpaDataSamaSekali(lingkup)) {
       throw new Error("User restricted to site but has no site assigned.");
     }
 
-    if (payload.siteId && payload.siteId !== primarySiteId) {
-      throw new Error("Anda hanya dapat membuat user untuk site Anda");
+    if (payload.siteId) {
+      if (!siteBolehDiakses(lingkup, payload.siteId)) {
+        throw new Error("Anda hanya dapat membuat user untuk site Anda");
+      }
+      return payload;
     }
 
-    return { ...payload, siteId: primarySiteId };
+    const primarySiteId = session.user.primarySiteId || session.user.siteId;
+    const defaultSiteId = siteBolehDiakses(lingkup, primarySiteId)
+      ? primarySiteId
+      : lingkup.siteIds[0];
+    return { ...payload, siteId: defaultSiteId ?? undefined };
   }
 
   private async buildCreationContext(

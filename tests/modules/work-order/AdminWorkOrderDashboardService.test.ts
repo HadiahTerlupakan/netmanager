@@ -66,6 +66,7 @@ describe("AdminWorkOrderDashboardService", () => {
       role: "ADMIN",
       departmentId: "dept-1",
       siteId: "site-1",
+      userSites: [],
     });
     mockFns.count.mockResolvedValue(0);
     mockFns.getCachedDashboardData.mockResolvedValue(null);
@@ -93,6 +94,7 @@ describe("AdminWorkOrderDashboardService", () => {
       role: "ADMIN",
       departmentId: null,
       siteId: "site-1",
+      userSites: [],
     });
 
     const service = new AdminWorkOrderDashboardService();
@@ -153,11 +155,36 @@ describe("AdminWorkOrderDashboardService", () => {
 
     expect(mockFns.getRecentWorkOrders).toHaveBeenCalledWith(5, {
       departmentId: "dept-1",
-      siteId: "site-1",
+      siteIds: ["site-1"],
     });
   });
 
-  it("meneruskan siteId ke widget beban departemen, top performer, top assist, dan respons admin", async () => {
+  it("karyawan multi-site: widget dashboard memakai SELURUH site userSites", async () => {
+    mockFns.userFindUnique.mockResolvedValue({
+      id: "user-1",
+      role: "ADMIN",
+      departmentId: "dept-1",
+      siteId: "site-1",
+      userSites: [{ siteId: "site-1" }, { siteId: "site-2" }],
+    });
+    const service = new AdminWorkOrderDashboardService();
+
+    await service.getDashboardData({
+      user: { id: "user-1", role: "ADMIN" },
+      permissions: ["workorders:site_only"],
+      period: "monthly",
+    });
+
+    expect(mockFns.getRecentWorkOrders).toHaveBeenCalledWith(5, {
+      siteIds: ["site-1", "site-2"],
+    });
+    expect(mockFns.getAdminKPIStats).toHaveBeenCalledWith(undefined, [
+      "site-1",
+      "site-2",
+    ]);
+  });
+
+  it("meneruskan lingkup site ke widget beban departemen, top performer, top assist, dan respons admin", async () => {
     const service = new AdminWorkOrderDashboardService();
 
     await service.getDashboardData({
@@ -166,29 +193,28 @@ describe("AdminWorkOrderDashboardService", () => {
       period: "monthly",
     });
 
-    expect(mockFns.getDepartmentWorkload).toHaveBeenCalledWith(
-      undefined,
+    expect(mockFns.getDepartmentWorkload).toHaveBeenCalledWith(undefined, [
       "site-1",
-    );
+    ]);
     expect(mockFns.getTopPerformers).toHaveBeenCalledWith(
       5,
       expect.any(Date),
       expect.any(Date),
       undefined,
-      "site-1",
+      ["site-1"],
     );
     expect(mockFns.getTopAssists).toHaveBeenCalledWith(
       5,
       expect.any(Date),
       expect.any(Date),
       undefined,
-      "site-1",
+      ["site-1"],
     );
     expect(mockFns.getAdminResponseStats).toHaveBeenCalledWith(
       expect.any(Date),
       expect.any(Date),
       undefined,
-      "site-1",
+      ["site-1"],
     );
   });
 
@@ -198,6 +224,7 @@ describe("AdminWorkOrderDashboardService", () => {
       role: "ADMIN",
       departmentId: "dept-1",
       siteId: null,
+      userSites: [],
     });
 
     const service = new AdminWorkOrderDashboardService();

@@ -4,6 +4,10 @@ import { workOrderCacheService } from "./WorkOrderCacheService";
 import { sendWorkOrderReminder } from "./WorkOrderNotifications";
 import { getWorkOrderService } from "./WorkOrderService";
 import {
+  buildAdminMaterialLockedMessage,
+  isAdminMaterialLocked,
+} from "../domain/work-order-material-status";
+import {
   recordWorkOrderActivity,
   WORK_ORDER_ACTIVITY_ACTIONS,
 } from "./work-order-activity-log";
@@ -13,6 +17,8 @@ import {
   executeRequestApprovalAction,
   logCommentCreated,
   logTaskCreated,
+  REMINDER_DEPARTMENT_DENIED_MESSAGE,
+  resolveReminderDepartmentId,
   type WorkOrderRequestAction,
 } from "./admin-work-order-action.helpers";
 
@@ -40,7 +46,8 @@ function toFailureResult(failure: { code?: string; error?: string }) {
   };
 }
 
-function materialGudangError(error: string) {
+/** Kegagalan validasi tambah material admin; route memetakannya ke 400. */
+function addMaterialValidationError(error: string) {
   return { success: false as const, code: "ADD_MATERIAL_ERROR", error };
 }
 
@@ -195,6 +202,9 @@ export class AdminWorkOrderActionRouteService {
   /**
    * Tambahkan material dari gudang yang berada di site work order.
    *
+   * WO berstatus VERIFIED/CLOSED/CANCELLED ditolak sebelum gudang dicari dan
+   * stok dipotong (lihat `ADMIN_MATERIAL_LOCKED_STATUSES`).
+   *
    * Gudang dari klien hanya diterima bila tertaut ke site work order; tanpa
    * gudang, dipakai gudang pertama site itu. Bila gudang tidak bisa ditentukan
    * (WO tanpa site, atau site tanpa gudang) permintaan ditolak dengan pesan
@@ -220,6 +230,11 @@ export class AdminWorkOrderActionRouteService {
       userContext,
     );
     if (!access.success) return toFailureResult(access);
+    if (isAdminMaterialLocked(access.data.status)) {
+      return addMaterialValidationError(
+        buildAdminMaterialLockedMessage(access.data.status),
+      );
+    }
 
     const gudang = await this.resolveMaterialGudang(
       input.gudangId,
@@ -294,7 +309,20 @@ export class AdminWorkOrderActionRouteService {
       return { success: false as const, code: "INVALID_STATUS" };
     }
 
-    const departmentId = input.targetDepartmentId || workOrder.departmentId;
+    const recipientDepartment = resolveReminderDepartmentId({
+      targetDepartmentId: input.targetDepartmentId,
+      workOrderDepartmentId: workOrder.departmentId,
+      sender: userContext,
+    });
+    if (!recipientDepartment.allowed) {
+      return {
+        success: false as const,
+        code: "FORBIDDEN",
+        error: REMINDER_DEPARTMENT_DENIED_MESSAGE,
+      };
+    }
+
+    const { departmentId } = recipientDepartment;
     const sentCount = await sendWorkOrderReminder(
       {
         id: workOrder.id,
@@ -391,18 +419,22 @@ export class AdminWorkOrderActionRouteService {
       );
       return isAllowed
         ? { success: true, gudangId: requestedGudangId }
-        : materialGudangError(MATERIAL_GUDANG_MESSAGES.GUDANG_OTHER_SITE);
+        : addMaterialValidationError(
+            MATERIAL_GUDANG_MESSAGES.GUDANG_OTHER_SITE,
+          );
     }
 
     if (!workOrderSiteId) {
-      return materialGudangError(MATERIAL_GUDANG_MESSAGES.WORK_ORDER_NO_SITE);
+      return addMaterialValidationError(
+        MATERIAL_GUDANG_MESSAGES.WORK_ORDER_NO_SITE,
+      );
     }
 
     const siteGudangId =
       await this.repository.findFirstGudangBySite(workOrderSiteId);
     return siteGudangId
       ? { success: true, gudangId: siteGudangId }
-      : materialGudangError(MATERIAL_GUDANG_MESSAGES.SITE_NO_GUDANG);
+      : addMaterialValidationError(MATERIAL_GUDANG_MESSAGES.SITE_NO_GUDANG);
   }
 
   private async deleteWorkOrderPermanently(

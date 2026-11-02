@@ -1,6 +1,12 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { AdminUserPerformanceRouteService } from "@/modules/users";
+import {
+  AdminUserPerformanceRouteService,
+  AdminUserRouteService,
+} from "@/modules/users";
 import { logger } from "@/lib/logger";
+import { toUserRouteApiError } from "../../user-route-error";
+
+const adminUserRouteService = new AdminUserRouteService();
 
 /**
  * @swagger
@@ -23,16 +29,13 @@ export const GET = createHandler(
 
     if (!session) return ApiErrors.unauthorized();
 
-    // Authorization: Self OR users:read permission
-    const isSelf = session.user.id === userId;
-    const hasReadPermission =
-      permissions.includes("users:read") || permissions.includes("*");
-
-    if (!isSelf && !hasReadPermission) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk melihat performa user ini",
-      );
-    }
+    // Self, atau `users:read` + target di tenant & lingkup site admin.
+    const access = await adminUserRouteService.checkUserReadAccess(
+      session,
+      userId,
+      Array.isArray(permissions) ? permissions : [],
+    );
+    if (access.ok === false) return toUserRouteApiError(access.error);
 
     const { searchParams } = new URL(req.url);
     const userPerformanceRouteService = new AdminUserPerformanceRouteService();

@@ -102,7 +102,13 @@ export interface WorkOrderFilters {
   status?: WorkOrderStatus | WorkOrderStatus[];
   priority?: WorkOrderPriority | WorkOrderPriority[];
   type?: WorkOrderType | WorkOrderType[];
+  /** Filter site pilihan pengguna (query string). */
   siteId?: string;
+  /**
+   * Lingkup `workorders:site_only`: seluruh site pengguna. Membatasi `siteId`
+   * pilihan pengguna, tidak pernah melebarkannya.
+   */
+  siteIds?: readonly string[];
   departmentId?: string;
   assignedToId?: string | null;
   assignedMitraId?: string | null;
@@ -116,6 +122,12 @@ export interface WorkOrderFilters {
   involvedUserId?: string;
   isInternal?: boolean;
 }
+
+/** Filter daftar permintaan WO (status REQUESTED). */
+export type WorkOrderRequestFilters = Pick<
+  WorkOrderFilters,
+  "departmentId" | "siteId" | "siteIds" | "search"
+>;
 
 export interface WorkOrderStatistics {
   total: number;

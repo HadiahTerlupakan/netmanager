@@ -40,8 +40,10 @@ export * from "./client";
 export * from "./services/AttendanceSettingsService";
 export * from "./services/AttendanceQueryService";
 export {
+  filterSiteDalamScope,
   resolveAdminScope,
   scopeTanpaData,
+  siteDalamScope,
   type AdminScope,
 } from "./services/AdminScopeResolver";
 export * from "./services/HolidayLookupService";

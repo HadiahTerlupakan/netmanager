@@ -115,6 +115,7 @@ export async function findPartnerAdminProfile(
     where: { id: userId, tenantId },
     select: {
       siteId: true,
+      userSites: { select: { siteId: true } },
       departmentId: true,
       role: {
         select: {
@@ -136,6 +137,7 @@ export async function findPartnerAdminProfile(
     isAdmin: Boolean(user?.role?.accessAdminPanel || user?.role?.isSuperAdmin),
     isSuperAdmin: Boolean(user?.role?.isSuperAdmin),
     siteId: user?.siteId ?? undefined,
+    siteIds: (user?.userSites ?? []).map((userSite) => userSite.siteId),
     departmentId: user?.departmentId ?? undefined,
     permissions: (user?.role?.permission ?? []).map(
       (permission) => `${permission.resource}:${permission.action}`,

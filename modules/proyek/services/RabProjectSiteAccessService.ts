@@ -2,10 +2,10 @@ import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { resolveAllowedSiteIds } from "@/lib/authorization/allowed-site-ids";
 import { AppError } from "@/lib/errors";
 import {
-  filterSitePrisma,
+  irisanSiteDiminta,
   lingkupSiteUntuk,
   siteBolehDiakses,
-  tanpaDataSamaSekali,
+  siteDefaultLingkup,
   type LingkupSite,
 } from "@/modules/roles";
 import type { IRabProjectSiteLookup } from "../domain/ports/IRabProjectRepository";
@@ -51,13 +51,7 @@ export function buildRabSiteWhere(
   scope: LingkupSite,
   requestedSiteId?: string | null,
 ): Prisma.RabProjectWhereInput | null {
-  if (!scope.dibatasi)
-    return requestedSiteId ? { siteId: requestedSiteId } : {};
-  if (tanpaDataSamaSekali(scope)) return null;
-  if (!requestedSiteId) return { siteId: filterSitePrisma(scope) };
-  return siteBolehDiakses(scope, requestedSiteId)
-    ? { siteId: requestedSiteId }
-    : null;
+  return irisanSiteDiminta(scope, requestedSiteId);
 }
 
 /**
@@ -69,9 +63,7 @@ export function resolveRabCreateSiteId(
   scope: LingkupSite,
   requestedSiteId: string | null | undefined,
 ): string | null {
-  if (requestedSiteId) return requestedSiteId;
-  if (scope.dibatasi && scope.siteIds.length === 1) return scope.siteIds[0];
-  return null;
+  return requestedSiteId || siteDefaultLingkup(scope);
 }
 
 /** Penjaga akses per proyek RAB berdasarkan site proyek. */

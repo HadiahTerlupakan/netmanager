@@ -8,6 +8,7 @@ import type {
   WorkOrderFilters,
   WorkOrderStatistics,
 } from "../domain/ports/IWorkOrderRepository";
+import { resolveSiteFilter, resolveSiteIdList } from "./work-order-site-scope";
 
 const CLOSED_STATUSES: WorkOrderStatus[] = [
   "COMPLETED",
@@ -108,7 +109,8 @@ function buildStatisticsWhere(
   filters?: Omit<WorkOrderFilters, "search">,
 ): Prisma.WorkOrdersWhereInput {
   const where: Prisma.WorkOrdersWhereInput = {};
-  if (filters?.siteId) where.siteId = filters.siteId;
+  const siteFilter = filters ? resolveSiteFilter(filters) : undefined;
+  if (siteFilter !== undefined) where.siteId = siteFilter;
   if (filters?.departmentId) where.departmentId = filters.departmentId;
   if (filters?.assignedToId !== undefined)
     where.assignedToId = filters.assignedToId;
@@ -149,8 +151,8 @@ function buildCompletionStatisticsQuery(
       AND "startedAt" IS NOT NULL
   `;
   if (tenantId) query = Prisma.sql`${query} AND "tenantId" = ${tenantId}`;
-  if (filters?.siteId)
-    query = Prisma.sql`${query} AND "siteId" = ${filters.siteId}`;
+  const siteIdList = filters ? resolveSiteIdList(filters) : undefined;
+  if (siteIdList) query = appendSiteIdListCondition(query, siteIdList);
   if (filters?.departmentId) {
     query = Prisma.sql`${query} AND "departmentId" = ${filters.departmentId}`;
   }
@@ -216,4 +218,13 @@ function buildStatusCountMap(
 
 function getStatusCount(statusMap: Record<string, number>, status: string) {
   return statusMap[status] || 0;
+}
+
+/** Tambahkan syarat `"siteId" IN (...)`; daftar kosong berarti tanpa baris. */
+function appendSiteIdListCondition(
+  query: Prisma.Sql,
+  siteIdList: string[],
+): Prisma.Sql {
+  if (siteIdList.length === 0) return Prisma.sql`${query} AND FALSE`;
+  return Prisma.sql`${query} AND "siteId" IN (${Prisma.join(siteIdList)})`;
 }

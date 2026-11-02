@@ -7,12 +7,19 @@ import {
   ErrorCodes,
   apiError,
 } from "@/lib/api";
-import { ExpenseRouteService, isRouteServiceError } from "@/modules/finance";
+import {
+  ExpenseRouteService,
+  isRouteServiceError,
+  resolveExpenseSiteScope,
+  type RouteServiceError,
+} from "@/modules/finance";
 import * as z from "zod";
 
 export const dynamic = "force-dynamic";
 
 const expenseRouteService = new ExpenseRouteService();
+const HTTP_NOT_FOUND = 404;
+const HTTP_FORBIDDEN = 403;
 
 const expenseSchema = z.object({
   amount: z.union([z.string(), z.number()]).transform((val) => BigInt(val)),
@@ -72,21 +79,6 @@ export const PUT = createHandler(
       invoiceFile,
     } = ctx.validated;
 
-    const isSiteRestricted =
-      !isSuper &&
-      (await hasPermission("expense:site_only", null, { silent: true }));
-    let userSiteId: string | undefined;
-
-    if (isSiteRestricted) {
-      try {
-        userSiteId = await expenseRouteService.resolveRestrictedSiteId(user.id);
-      } catch {
-        return ApiErrors.forbidden(
-          "Akses terbatas: Site tidak ditemukan di profil anda",
-        );
-      }
-    }
-
     try {
       const expense = await expenseRouteService.updateExpense(
         id,
@@ -104,17 +96,12 @@ export const PUT = createHandler(
           invoiceNumber,
           invoiceFile,
         },
-        {
-          isSiteRestricted,
-          userSiteId,
-        },
+        resolveExpenseSiteScope(user, ctx.permissions),
       );
 
       return apiSuccess(expense, { message: "Expense berhasil diperbarui" });
     } catch (error) {
-      if (isRouteServiceError(error) && error.status === 404) {
-        return apiError(error.message, ErrorCodes.NOT_FOUND, { status: 404 });
-      }
+      if (isRouteServiceError(error)) return mapExpenseRouteError(error);
       throw error;
     }
   },
@@ -140,27 +127,26 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const isSiteRestricted =
-    !isSuper && (await hasPermission("expense:site_only"));
-  let userSiteId: string | undefined;
-
-  if (isSiteRestricted) {
-    try {
-      userSiteId = await expenseRouteService.resolveRestrictedSiteId(user.id);
-    } catch {
-      return ApiErrors.forbidden(
-        "Akses terbatas: Site tidak ditemukan di profil anda",
-      );
-    }
-  }
-
   try {
-    const expense = await expenseRouteService.deleteExpense(id, userSiteId);
+    const expense = await expenseRouteService.deleteExpense(
+      id,
+      resolveExpenseSiteScope(user, ctx.permissions),
+    );
     return apiSuccess(expense, { message: "Expense berhasil dihapus" });
   } catch (error) {
-    if (isRouteServiceError(error) && error.status === 404) {
-      return apiError(error.message, ErrorCodes.NOT_FOUND, { status: 404 });
-    }
+    if (isRouteServiceError(error)) return mapExpenseRouteError(error);
     throw error;
   }
 });
+
+/** Terjemahkan galat lingkup/keberadaan pengeluaran ke respons HTTP. */
+function mapExpenseRouteError(error: RouteServiceError) {
+  if (error.status === HTTP_NOT_FOUND) {
+    return apiError(error.message, ErrorCodes.NOT_FOUND, {
+      status: HTTP_NOT_FOUND,
+    });
+  }
+  if (error.status === HTTP_FORBIDDEN)
+    return ApiErrors.forbidden(error.message);
+  throw error;
+}

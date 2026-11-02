@@ -229,3 +229,157 @@ describe("gudang asal material admin mengikuti site work order", () => {
     expect(repository.isGudangAvailableForSite).not.toHaveBeenCalled();
   });
 });
+
+describe("admin tidak bisa menambah material pada WO yang sudah final", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.addMaterial.mockResolvedValue({ success: true, data: {} });
+  });
+
+  function allowWorkOrderWithStatus(status: string) {
+    mocks.getWorkOrderById.mockResolvedValue({
+      success: true,
+      data: { id: "wo-1", siteId: SITE_WO, status },
+    });
+  }
+
+  function addMaterial(service: AdminWorkOrderActionRouteService) {
+    return service.addMaterial({
+      workOrderId: "wo-1",
+      barangId: "barang-1",
+      quantity: 1,
+      gudangId: "gudang-site-b",
+      actor: ACTOR,
+      permissions: PERMISSIONS,
+    });
+  }
+
+  it.each(["VERIFIED", "CLOSED", "CANCELLED"])(
+    "menolak WO berstatus %s tanpa memotong stok",
+    async (status) => {
+      allowWorkOrderWithStatus(status);
+      const { service, repository } = createService();
+
+      const result = await addMaterial(service);
+
+      expect(result).toMatchObject({
+        success: false,
+        code: "ADD_MATERIAL_ERROR",
+        error: expect.stringContaining(status),
+      });
+      expect(repository.isGudangAvailableForSite).not.toHaveBeenCalled();
+      expect(mocks.addMaterial).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["PENDING", "ASSIGNED", "IN_PROGRESS", "ON_HOLD", "COMPLETED"])(
+    "tetap mengizinkan WO berstatus %s (koreksi sebelum verifikasi)",
+    async (status) => {
+      allowWorkOrderWithStatus(status);
+      const { service, repository } = createService();
+      repository.isGudangAvailableForSite.mockResolvedValue(true);
+
+      const result = await addMaterial(service);
+
+      expect(result).toEqual({ success: true, data: {} });
+      expect(mocks.addMaterial).toHaveBeenCalledTimes(1);
+    },
+  );
+});
+
+describe("reminder admin ber-department_only tidak menjangkau departemen lain", () => {
+  const DEPT_SENDER = "dept-teknis";
+  const DEPT_LAIN = "dept-sales";
+
+  function createReminderService(permissions: string[], role?: string) {
+    const repository = {
+      findReminderWorkOrderById: vi.fn().mockResolvedValue({
+        id: "wo-1",
+        status: "PENDING",
+        departmentId: DEPT_SENDER,
+        siteId: SITE_WO,
+        assignedToId: null,
+      }),
+    };
+    const getUserContext = vi.fn().mockResolvedValue({
+      id: ACTOR.id,
+      role,
+      permissions,
+      departmentId: DEPT_SENDER,
+    });
+    return new AdminWorkOrderActionRouteService(
+      repository as never,
+      getUserContext,
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    allowWorkOrder();
+    mocks.sendWorkOrderReminder.mockResolvedValue(3);
+  });
+
+  it("menolak target departemen lain dan tidak mengirim notifikasi", async () => {
+    const service = createReminderService(["workorders:department_only"]);
+
+    const result = await service.sendReminder({
+      workOrderId: "wo-1",
+      targetDepartmentId: DEPT_LAIN,
+      actor: ACTOR,
+      permissions: ["workorders:department_only"],
+    });
+
+    expect(result).toMatchObject({ success: false, code: "FORBIDDEN" });
+    expect(mocks.sendWorkOrderReminder).not.toHaveBeenCalled();
+  });
+
+  it("mengizinkan target departemen sendiri", async () => {
+    const service = createReminderService(["workorders:department_only"]);
+
+    const result = await service.sendReminder({
+      workOrderId: "wo-1",
+      targetDepartmentId: DEPT_SENDER,
+      actor: ACTOR,
+      permissions: ["workorders:department_only"],
+    });
+
+    expect(result).toEqual({ success: true, data: { sentCount: 3 } });
+    expect(mocks.sendWorkOrderReminder).toHaveBeenCalledWith(
+      expect.objectContaining({ departmentId: DEPT_SENDER, siteId: SITE_WO }),
+      undefined,
+    );
+  });
+
+  it("tanpa department_only, target departemen lain tetap boleh", async () => {
+    const service = createReminderService([]);
+
+    const result = await service.sendReminder({
+      workOrderId: "wo-1",
+      targetDepartmentId: DEPT_LAIN,
+      actor: ACTOR,
+      permissions: [],
+    });
+
+    expect(result).toMatchObject({ success: true });
+    expect(mocks.sendWorkOrderReminder).toHaveBeenCalledWith(
+      expect.objectContaining({ departmentId: DEPT_LAIN }),
+      undefined,
+    );
+  });
+
+  it("super admin (nama role) tidak dibatasi department_only", async () => {
+    const service = createReminderService(
+      ["workorders:department_only"],
+      "SUPER_ADMIN",
+    );
+
+    const result = await service.sendReminder({
+      workOrderId: "wo-1",
+      targetDepartmentId: DEPT_LAIN,
+      actor: ACTOR,
+      permissions: ["workorders:department_only"],
+    });
+
+    expect(result).toMatchObject({ success: true });
+  });
+});

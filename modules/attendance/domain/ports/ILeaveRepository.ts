@@ -44,7 +44,8 @@ export type LeaveFiltersEntity = {
   startDate?: Date;
   endDate?: Date;
   departmentId?: string;
-  siteId?: string;
+  /** Site utama pegawai harus salah satu dari ini (lingkup site admin). */
+  siteIds?: readonly string[];
   skip?: number;
   take?: number;
   tenantId?: string;

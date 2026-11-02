@@ -6,6 +6,9 @@ import {
   buildExpensePayloadHash,
   completeExpenseMutation,
   ExpenseRouteService,
+  isRouteServiceError,
+  resolveExpenseCreateSiteId,
+  resolveExpenseSiteScope,
 } from "@/modules/finance";
 import * as z from "zod";
 
@@ -74,6 +77,17 @@ export const POST = createHandler(
 
     const { date, siteId, invoiceNumber, invoiceFile, items } = ctx.validated;
 
+    let finalSiteId: string | undefined;
+    try {
+      finalSiteId = resolveExpenseCreateSiteId(
+        resolveExpenseSiteScope(user, ctx.permissions),
+        siteId,
+      );
+    } catch (error) {
+      if (isRouteServiceError(error)) return ApiErrors.forbidden(error.message);
+      throw error;
+    }
+
     const payloadHash = buildExpensePayloadHash(ctx.validated);
     const beginResult = beginExpenseMutation({
       action: "batch-create",
@@ -94,19 +108,6 @@ export const POST = createHandler(
 
     if (beginResult.status === "in-progress") {
       return ApiErrors.conflict("Permintaan serupa sedang diproses");
-    }
-
-    let finalSiteId = siteId;
-    if ((await hasPermission("expense:site_only")) && !isSuper) {
-      try {
-        finalSiteId = await expenseRouteService.resolveRestrictedSiteId(
-          user.id,
-        );
-      } catch {
-        return ApiErrors.forbidden(
-          "User terikat site namun belum memiliki site",
-        );
-      }
     }
 
     const response = await expenseRouteService.createBatchExpenses(

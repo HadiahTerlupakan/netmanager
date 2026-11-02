@@ -16,6 +16,7 @@ const repo = {
   findGudangAktif: vi.fn(),
   findBarangBerstok: vi.fn(),
   findOpnameDalamRentang: vi.fn(),
+  findSiteIdsPengguna: vi.fn(),
 };
 const riwayatRepo = {
   catat: vi.fn(),
@@ -109,6 +110,83 @@ describe("StockOpnameJadwalService — jadwal per site", () => {
     ).rejects.toMatchObject({ status: 400 });
     expect(repo.upsertAturan).not.toHaveBeenCalled();
     expect(repo.upsertJadwal).not.toHaveBeenCalled();
+  });
+
+  it("site di luar lingkup site:site_only dijawab 404 tanpa membaca maupun menulis", async () => {
+    const lingkup = { dibatasi: true, siteIds: ["s1"] } as const;
+
+    await expect(
+      service.getJadwalSite("t-1", "s2", "2026-10", lingkup),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      service.simpanAturanSite(
+        "t-1",
+        "s2",
+        { isAktif: true, tanggalMulai: 1, tanggalSelesai: 5 },
+        lingkup,
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      service.simpanJadwalKhususSite(
+        "t-1",
+        "s2",
+        "2026-10",
+        { mulai: "2026-10-01", selesai: "2026-10-05" },
+        "u-1",
+        lingkup,
+      ),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      service.hapusJadwalKhususSite("t-1", "s2", "2026-10", {
+        dibatasi: true,
+        siteIds: [],
+      }),
+    ).rejects.toMatchObject({ status: 404 });
+
+    expect(repo.findSite).not.toHaveBeenCalled();
+    expect(repo.upsertAturan).not.toHaveBeenCalled();
+    expect(repo.upsertJadwal).not.toHaveBeenCalled();
+    expect(repo.deleteJadwal).not.toHaveBeenCalled();
+
+    await service.simpanAturanSite(
+      "t-1",
+      "s1",
+      { isAktif: true, tanggalMulai: 1, tanggalSelesai: 5 },
+      lingkup,
+    );
+    expect(repo.upsertAturan).toHaveBeenCalled();
+  });
+
+  it("lingkup laporan SO mengikuti IZIN_PEMBATAS_OPNAME dengan pencocokan persis", async () => {
+    repo.findSiteIdsPengguna.mockResolvedValue(["s1"]);
+    const pengguna = { tenantId: "t-1", userId: "u-1", isSuperAdmin: false };
+
+    for (const izin of [
+      "opname:site_only",
+      "gudang:site_only",
+      "barang:site_only",
+    ]) {
+      expect(
+        await service.getSiteIdsLingkupOpname({
+          ...pengguna,
+          permissions: [izin],
+        }),
+      ).toEqual(["s1"]);
+    }
+    expect(
+      await service.getSiteIdsLingkupOpname({
+        ...pengguna,
+        permissions: ["*"],
+      }),
+    ).toBeNull();
+    expect(
+      await service.getSiteIdsLingkupOpname({
+        ...pengguna,
+        isSuperAdmin: true,
+        permissions: ["opname:site_only"],
+      }),
+    ).toBeNull();
+    expect(repo.findSiteIdsPengguna).toHaveBeenCalledWith("t-1", "u-1");
   });
 
   it("gudang lintas site dinilai dengan jadwal masing-masing site", async () => {

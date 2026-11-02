@@ -1,4 +1,9 @@
 import { createRouteServiceError } from "@/lib/api/route-service-error";
+import {
+  siteBolehDiakses,
+  TANPA_BATAS,
+  type LingkupSite,
+} from "@/modules/roles/client";
 
 import {
   ATURAN_JADWAL_AWAL,
@@ -18,8 +23,10 @@ import {
   type RingkasanSoGudang,
   type StatusSoGudang,
 } from "../domain/jadwal-stock-opname";
+import { IZIN_PEMBATAS_OPNAME } from "../domain/izin-pembatas-site";
 import { StockOpnameJadwalRepository } from "../repositories/StockOpnameJadwalRepository";
 import { StockOpnameRiwayatRepository } from "../repositories/StockOpnameRiwayatRepository";
+import { isDibatasiSite } from "./lingkup-gudang";
 import type {
   AksiRiwayatOpname,
   RingkasanPerubahan,
@@ -178,9 +185,17 @@ export class StockOpnameJadwalService {
     );
   }
 
-  /** Jadwal satu site untuk bulan `periode` beserta jadwal khusus mulai bulan itu. */
-  async getJadwalSite(tenantId: string, siteId: string, periode: string) {
-    const site = await this.pastikanSite(tenantId, siteId);
+  /**
+   * Jadwal satu site untuk bulan `periode` beserta jadwal khusus mulai bulan
+   * itu. Site di luar `lingkup` (`site:site_only`) dijawab 404.
+   */
+  async getJadwalSite(
+    tenantId: string,
+    siteId: string,
+    periode: string,
+    lingkup: LingkupSite = TANPA_BATAS,
+  ) {
+    const site = await this.pastikanSite(tenantId, siteId, lingkup);
     const jadwal = await this.getJadwalSites(tenantId, [site], periode);
     const khusus = await this.repository.findJadwalKhususSite(
       tenantId,
@@ -205,8 +220,9 @@ export class StockOpnameJadwalService {
     tenantId: string,
     siteId: string,
     aturan: AturanJadwalSo,
+    lingkup: LingkupSite = TANPA_BATAS,
   ) {
-    await this.pastikanSite(tenantId, siteId);
+    await this.pastikanSite(tenantId, siteId, lingkup);
     tolak(validasiAturan(aturan));
     return this.repository.upsertAturan(tenantId, siteId, aturan);
   }
@@ -218,8 +234,9 @@ export class StockOpnameJadwalService {
     periode: string,
     input: { mulai: string; selesai: string; catatan?: string | null },
     userId: string,
+    lingkup: LingkupSite = TANPA_BATAS,
   ) {
-    await this.pastikanSite(tenantId, siteId);
+    await this.pastikanSite(tenantId, siteId, lingkup);
     tolak(validasiJadwalKhusus(periode, input.mulai, input.selesai));
     return this.repository.upsertJadwal(tenantId, siteId, periode, {
       tanggalMulai: keTanggal(input.mulai),
@@ -234,18 +251,32 @@ export class StockOpnameJadwalService {
     tenantId: string,
     siteId: string,
     periode: string,
+    lingkup: LingkupSite = TANPA_BATAS,
   ) {
-    await this.pastikanSite(tenantId, siteId);
+    await this.pastikanSite(tenantId, siteId, lingkup);
     tolakPeriode(periode);
     await this.repository.deleteJadwal(tenantId, siteId, periode);
   }
 
-  /** Site yang boleh dilihat pengguna `opname:site_only`. */
-  async getSiteIdsPengguna(
-    tenantId: string,
-    userId: string,
-  ): Promise<string[]> {
-    return this.repository.findSiteIdsPengguna(tenantId, userId);
+  /**
+   * Site yang boleh dilihat di laporan kepatuhan & riwayat SO: `null` = semua,
+   * `[]` = dibatasi tanpa site (tidak ada data). Sumbunya sama dengan daftar
+   * stock opname (`IZIN_PEMBATAS_OPNAME`), dan izin dicocokkan persis sehingga
+   * role wildcard `*` tidak keliru dianggap dibatasi.
+   */
+  async getSiteIdsLingkupOpname(input: {
+    tenantId: string;
+    userId: string;
+    permissions: readonly string[];
+    isSuperAdmin: boolean;
+  }): Promise<string[] | null> {
+    const isDibatasi = isDibatasiSite({
+      permissions: input.permissions,
+      isSuperAdmin: input.isSuperAdmin,
+      izinPembatas: IZIN_PEMBATAS_OPNAME,
+    });
+    if (!isDibatasi) return null;
+    return this.repository.findSiteIdsPengguna(input.tenantId, input.userId);
   }
 
   /**
@@ -372,8 +403,15 @@ export class StockOpnameJadwalService {
     }));
   }
 
-  private async pastikanSite(tenantId: string, siteId: string) {
-    const site = await this.repository.findSite(tenantId, siteId);
+  private async pastikanSite(
+    tenantId: string,
+    siteId: string,
+    lingkup: LingkupSite,
+  ) {
+    // Site di luar lingkup dijawab sama dengan site yang tidak ada.
+    const site = siteBolehDiakses(lingkup, siteId)
+      ? await this.repository.findSite(tenantId, siteId)
+      : null;
     if (!site)
       throw createRouteServiceError(
         "Site tidak ditemukan, mungkin sudah dihapus. Muat ulang halaman.",

@@ -43,37 +43,60 @@ describe("filter site pada widget work order", () => {
   it("beban departemen menghitung hanya WO site sendiri", async () => {
     const prisma = fakePrisma();
 
-    await getDepartmentWorkload(prisma as never, undefined, "site-1");
+    await getDepartmentWorkload(prisma as never, undefined, [
+      "site-1",
+      "site-2",
+    ]);
 
     for (const [args] of prisma.workOrders.count.mock.calls) {
       expect(args.where).toMatchObject({
         departmentId: "dept-1",
-        siteId: "site-1",
+        siteId: { in: ["site-1", "site-2"] },
       });
     }
   });
 
-  it("top performer/assist menyaring siteId", () => {
-    expect(buildCompletedWorkOrderWhere({ siteId: "site-1" })).toMatchObject({
-      siteId: "site-1",
+  it("top performer/assist menyaring seluruh site lingkup", () => {
+    expect(
+      buildCompletedWorkOrderWhere({ siteIds: ["site-1", "site-2"] }),
+    ).toMatchObject({
+      siteId: { in: ["site-1", "site-2"] },
     });
+  });
+
+  it("WO terbaru memakai seluruh site lingkup", async () => {
+    const prisma = fakePrisma();
+
+    await getRecentWorkOrders(prisma as never, 5, {
+      siteIds: ["site-1", "site-2"],
+    });
+
+    expect(prisma.workOrders.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { siteId: { in: ["site-1", "site-2"] } },
+      }),
+    );
   });
 
   it("statistik respons admin menyaring update dan canvasing di database", async () => {
     const prisma = fakePrisma();
 
     await getAdminResponseStats(prisma as never, new Date(0), new Date(), {
-      siteId: "site-1",
+      siteIds: ["site-1"],
     });
 
     expect(prisma.workOrderUpdates.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ workOrders: { siteId: "site-1" } }),
+        where: expect.objectContaining({
+          workOrders: { siteId: { in: ["site-1"] } },
+        }),
       }),
     );
     expect(prisma.canvasing.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ workOrder: { siteId: "site-1" } }),
+        where: expect.objectContaining({
+          workOrder: { siteId: { in: ["site-1"] } },
+        }),
       }),
     );
   });

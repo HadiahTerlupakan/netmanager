@@ -1,3 +1,4 @@
+import type { LiveMapUserFilter } from "../domain/entities/LocationTrackingEntity";
 import { Prisma } from "@prisma/client";
 import type { IAttendanceRepository } from "../domain/ports/IAttendanceRepository";
 import type { CreateAttendanceWithIdInput } from "./AttendanceCrudRepository";
@@ -37,7 +38,7 @@ export class AttendanceRepositoryFacade
   async findOpenSessionsForLiveMap(params: {
     since: Date;
     tenantId?: string;
-    userFilter?: { siteId?: string; departmentId?: string };
+    userFilter?: LiveMapUserFilter;
   }) {
     return this.sessionRepository.findOpenSessionsForLiveMap(params);
   }

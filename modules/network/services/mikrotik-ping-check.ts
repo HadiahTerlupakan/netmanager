@@ -114,14 +114,15 @@ export async function checkAllMikroTikRouterStatus(): Promise<number> {
 }
 
 /**
- * Ping router satu tenant — opsional hanya satu site — untuk tombol "cek
+ * Ping router satu tenant — opsional hanya site tertentu — untuk tombol "cek
  * status" admin. Dulu tombol itu memanggil `checkAllMikroTikRouterStatus`
  * sehingga admin tenant memicu ping ke router SEMUA tenant dan menerima
  * jumlah globalnya.
  */
 export async function checkTenantMikroTikRouterStatus(input: {
   tenantId: string;
-  siteId?: string;
+  /** Hanya router di site-site ini; undefined = seluruh tenant. */
+  siteIds?: readonly string[];
 }): Promise<number> {
   return runWithRequestTenantContext(
     { tenantId: input.tenantId, isSuperAdmin: false },
@@ -130,7 +131,7 @@ export async function checkTenantMikroTikRouterStatus(input: {
         new MikroTikRouterRepository(),
         input.tenantId,
         createCoreLookupBreaker(),
-        input.siteId,
+        input.siteIds,
       ),
   );
 }
@@ -139,12 +140,14 @@ async function checkTenantRouters(
   routerRepository: MikroTikRouterRepository,
   tenantId: string,
   breaker: CoreLookupBreaker,
-  siteId?: string,
+  siteIds?: readonly string[],
 ): Promise<number> {
   try {
     const allRouters = await routerRepository.findAll(tenantId);
-    const routers = siteId
-      ? allRouters.filter((router) => router.siteId === siteId)
+    const routers = siteIds
+      ? allRouters.filter(
+          (router) => !!router.siteId && siteIds.includes(router.siteId),
+        )
       : allRouters;
     const results = await Promise.all(
       routers.map((router) =>

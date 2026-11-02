@@ -3,7 +3,12 @@ import { isSuperAdmin } from "@/lib/auth";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { AdminAttendanceListService } from "./AdminAttendanceListService";
-import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
+import { filterSitePrisma } from "@/modules/roles/client";
+import {
+  resolveAdminScope,
+  scopeTanpaData,
+  type AdminScope,
+} from "./AdminScopeResolver";
 import type {
   AdminAttendanceUser,
   AttendanceFilterInput,
@@ -67,13 +72,11 @@ export class AdminAttendanceRouteService {
    * nilai falsy di sini — `scopeTanpaData` yang menyatakannya, dan pemanggil
    * memetakannya ke `NO_SCOPE_MATCH`.
    */
-  private buildDeletionUserScope(
-    siteId: string | undefined,
-    departmentId: string | undefined,
-  ) {
+  private buildDeletionUserScope(scope: AdminScope) {
     const userScope: Prisma.UserWhereInput = {};
-    if (siteId) userScope.siteId = siteId;
-    if (departmentId) userScope.departmentId = departmentId;
+    const siteFilter = filterSitePrisma(scope.lingkupSite);
+    if (siteFilter) userScope.siteId = siteFilter;
+    if (scope.departmentId) userScope.departmentId = scope.departmentId;
     return userScope;
   }
 
@@ -102,7 +105,7 @@ export class AdminAttendanceRouteService {
     });
     const userScope = scopeTanpaData(scope)
       ? { id: NO_SCOPE_MATCH }
-      : this.buildDeletionUserScope(scope.siteId, scope.departmentId);
+      : this.buildDeletionUserScope(scope);
 
     if (userScope.id === NO_SCOPE_MATCH) {
       attendanceWhere.user = { id: NO_SCOPE_MATCH };

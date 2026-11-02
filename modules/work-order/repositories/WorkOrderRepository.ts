@@ -6,6 +6,7 @@ import type {
   UpdateWorkOrderData,
   AddUpdateData,
   WorkOrderFilters,
+  WorkOrderRequestFilters,
   StaleReminderWorkOrder,
 } from "../domain/ports/IWorkOrderRepository";
 import { prisma as defaultPrisma } from "@/lib/prisma";
@@ -236,7 +237,7 @@ export class WorkOrderRepository
   }
 
   async findAllRequests(
-    filters?: { departmentId?: string; siteId?: string; search?: string },
+    filters?: WorkOrderRequestFilters,
     page: number = 1,
     limit: number = 20,
   ): Promise<{

@@ -157,14 +157,6 @@ export class ExpenseRepository {
     );
   }
 
-  /** Find user site restriction context. */
-  async findUserSiteContext(userId: string) {
-    return this.client.user.findUnique({
-      where: { id: userId },
-      select: { siteId: true },
-    });
-  }
-
   /** Find a single expense with route relations. */
   async findExpenseById(id: string) {
     return this.client.expense.findUnique({

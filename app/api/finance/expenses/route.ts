@@ -1,4 +1,9 @@
-import { FinanceService } from "@/modules/finance";
+import {
+  FinanceService,
+  isRouteServiceError,
+  resolveExpenseCreateSiteId,
+  resolveExpenseSiteScope,
+} from "@/modules/finance";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
@@ -9,7 +14,6 @@ import {
   completeExpenseMutation,
 } from "@/modules/finance";
 import * as z from "zod";
-import { getUserService } from "@/modules/users";
 
 export const dynamic = "force-dynamic";
 
@@ -74,14 +78,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     }
   }
 
-  let restrictedSiteId: string | undefined;
-  if ((await hasPermission("expense:site_only")) && !isSuper) {
-    const userService = getUserService();
-    const dbUser = await userService.getUser(user.id);
-    restrictedSiteId = dbUser?.siteId || undefined;
-    if (!restrictedSiteId) return apiSuccess([]);
-  }
-
   const financeService = new FinanceService();
   const expenses = await financeService.getExpenses({
     startDate,
@@ -90,7 +86,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     category,
     expenseCategoryId,
     scope,
-    restrictedSiteId,
+    siteScope: resolveExpenseSiteScope(user, ctx.permissions),
   });
 
   return apiSuccess(expenses);
@@ -119,6 +115,17 @@ export const POST = createHandler(
       return ApiErrors.badRequest("Header x-idempotency-key wajib diisi");
     }
 
+    let finalSiteId: string | undefined;
+    try {
+      finalSiteId = resolveExpenseCreateSiteId(
+        resolveExpenseSiteScope(user, ctx.permissions),
+        ctx.validated.siteId,
+      );
+    } catch (error) {
+      if (isRouteServiceError(error)) return ApiErrors.forbidden(error.message);
+      throw error;
+    }
+
     const payloadHash = buildExpensePayloadHash(ctx.validated);
     const beginResult = beginExpenseMutation({
       action: "create",
@@ -139,19 +146,6 @@ export const POST = createHandler(
 
     if (beginResult.status === "in-progress") {
       return ApiErrors.conflict("Permintaan serupa sedang diproses");
-    }
-    let finalSiteId = ctx.validated.siteId;
-    if ((await hasPermission("expense:site_only")) && !isSuper) {
-      const userService = getUserService();
-      const dbUser = await userService.getUser(user.id);
-      const userSiteId = dbUser?.siteId;
-
-      if (!userSiteId) {
-        return ApiErrors.forbidden(
-          "User terikat site namun belum memiliki site",
-        );
-      }
-      finalSiteId = userSiteId;
     }
 
     const financeService = new FinanceService();

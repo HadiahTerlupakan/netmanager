@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 
 const mocks = vi.hoisted(() => ({
+  permissions: [] as string[],
   hasPermission: vi.fn(),
   getRouterById: vi.fn(),
   getRouterVpn: vi.fn(),
@@ -17,6 +18,7 @@ vi.mock("@/lib/api", () => ({
       handler(req, {
         params: route?.params ?? {},
         session: { user: { id: "u1", tenantId: "t1" } },
+        permissions: mocks.permissions,
       }),
   apiSuccess: (data: unknown, options?: { status?: number }) =>
     NextResponse.json({ success: true, data }, { status: options?.status }),
@@ -58,6 +60,7 @@ const req = (body?: unknown) => ({ json: async () => body }) as never;
 describe("/api/mikrotik-routers/[id]/vpn", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.permissions = [];
     mocks.hasPermission.mockImplementation(
       async (permission: string) => permission !== "mikrotik:site_only",
     );
@@ -84,6 +87,27 @@ describe("/api/mikrotik-routers/[id]/vpn", () => {
     expect(res.status).toBe(403);
     expect(mocks.hasPermission).toHaveBeenCalledWith("mikrotik:update");
     expect(mocks.updateServers).not.toHaveBeenCalled();
+  });
+
+  it("penjaga VPN: role wildcard non-super tidak dianggap dibatasi site", async () => {
+    mocks.permissions = ["*"];
+    mocks.hasPermission.mockResolvedValue(true);
+
+    await vpnRoute.GET(req(), params);
+
+    expect(mocks.getRouterById).toHaveBeenCalledWith(
+      expect.objectContaining({ restrictedToOwnSite: false }),
+    );
+  });
+
+  it("penjaga VPN: mikrotik:site_only pada role mengunci ke site sendiri", async () => {
+    mocks.permissions = ["mikrotik:read", "mikrotik:site_only"];
+
+    await vpnRoute.GET(req(), params);
+
+    expect(mocks.getRouterById).toHaveBeenCalledWith(
+      expect.objectContaining({ restrictedToOwnSite: true }),
+    );
   });
 
   it("answers 404 for a router outside the tenant", async () => {

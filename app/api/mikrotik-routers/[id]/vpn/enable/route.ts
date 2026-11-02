@@ -14,7 +14,12 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
   const denied =
     vpnConfiguredGuard() ??
-    (await routerVpnAccessGuard(ctx.params.id, user, "mikrotik:update"));
+    (await routerVpnAccessGuard(
+      ctx.params.id,
+      user,
+      "mikrotik:update",
+      ctx.permissions,
+    ));
   if (denied) return denied;
   const parsed = routerVpnEnableSchema.safeParse(await req.json());
   if (!parsed.success) {

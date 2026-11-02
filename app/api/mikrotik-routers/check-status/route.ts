@@ -1,5 +1,8 @@
 import { logger } from "@/lib/logger";
-import { MikroTikRouterService } from "@/modules/network";
+import {
+  isRestrictedToOwnRouterSite,
+  MikroTikRouterService,
+} from "@/modules/network";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -16,9 +19,10 @@ export const POST = createHandler({ auth: true }, async (_req, ctx) => {
       tenantId: user.tenantId,
       userId: user.id,
       isSuperAdmin: isSuper,
-      // Dicocokkan persis: role `*` non-super tidak dianggap dibatasi.
-      restrictedToOwnSite:
-        !isSuper && ctx.permissions.includes("mikrotik:site_only"),
+      restrictedToOwnSite: isRestrictedToOwnRouterSite({
+        isSuperAdmin: isSuper,
+        permissions: ctx.permissions,
+      }),
     });
     return apiSuccess({
       success: true,

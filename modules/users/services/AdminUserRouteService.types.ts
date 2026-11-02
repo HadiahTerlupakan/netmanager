@@ -88,6 +88,12 @@ export type AdminSession = Session & {
   };
 };
 
+/**
+ * Sesi yang cukup memuat `user` — bentuk `ctx.session` dari `createHandler`
+ * (tanpa `expires` dan tanpa permissions); permissions dikirim terpisah.
+ */
+export type AdminSessionUser = Pick<AdminSession, "user">;
+
 export type AdminUserListQuery = {
   tenantId?: string | null;
   roleName?: string | null;

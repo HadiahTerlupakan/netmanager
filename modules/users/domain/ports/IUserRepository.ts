@@ -8,7 +8,8 @@ export type UpdateUserRepositoryInput = Record<string, unknown>;
 export type UserSiteAssignmentInput = { siteId: string; isPrimary?: boolean };
 
 export interface FindUsersParams {
-  siteId?: string;
+  /** Batasi ke user yang site utama atau salah satu userSites-nya ada di sini. */
+  siteIds?: readonly string[];
   tenantId?: string;
   roleName?: string;
   page?: number;

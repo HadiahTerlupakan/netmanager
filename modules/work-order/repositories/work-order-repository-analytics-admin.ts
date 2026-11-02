@@ -1,5 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
 import {
+  buildSiteScopeWhere,
+  type WorkOrderSiteScope,
+} from "./work-order-site-scope";
+import {
   calculateAdminScore,
   calculateMinutesBetween,
   calculateRoundedAverage,
@@ -11,7 +15,7 @@ import {
 /** Cakupan site/departemen yang membatasi statistik respons admin. */
 export type AdminResponseScope = {
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 };
 
 /** Get admin response statistics with weighted KPI metrics. */
@@ -95,12 +99,12 @@ type KPIStatMap = Record<string, ReturnType<typeof createInitialUserKPIStats>>;
 function buildScopedWorkOrderWhere(scope: AdminResponseScope) {
   return {
     ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
-    ...(scope.siteId ? { siteId: scope.siteId } : {}),
+    ...buildSiteScopeWhere(scope.siteIds),
   };
 }
 
 function hasScopeFilter(scope: AdminResponseScope) {
-  return Boolean(scope.departmentId || scope.siteId);
+  return Boolean(scope.departmentId || scope.siteIds);
 }
 
 async function fetchAdminResponseUpdates(

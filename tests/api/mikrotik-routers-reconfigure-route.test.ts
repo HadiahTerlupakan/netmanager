@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
+  permissions: [] as string[],
   hasPermission: vi.fn(),
   reconfigureRouters: vi.fn(),
 }));
@@ -23,6 +24,7 @@ vi.mock("@/lib/api", () => ({
   ) => {
     return (req: Request) =>
       handler(req, {
+        permissions: mockFns.permissions,
         session: {
           user: {
             id: "admin-1",
@@ -63,7 +65,10 @@ vi.mock("@/lib/rbac", () => ({
   hasPermission: mockFns.hasPermission,
 }));
 
-vi.mock("@/modules/network", () => ({
+vi.mock("@/modules/network", async () => ({
+  isRestrictedToOwnRouterSite: (
+    await import("@/modules/network/services/mikrotik-router.access")
+  ).isRestrictedToOwnRouterSite,
   RouterReconfigureRouteService: class MockRouterReconfigureRouteService {
     reconfigureRouters = mockFns.reconfigureRouters;
   },
@@ -78,10 +83,10 @@ describe("POST /api/mikrotik-routers/reconfigure", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFns.permissions = [];
 
     mockFns.hasPermission.mockImplementation(async (permission: string) => {
       if (permission === "mikrotik:update") return true;
-      if (permission === "mikrotik:site_only") return false;
       return false;
     });
 
@@ -91,9 +96,9 @@ describe("POST /api/mikrotik-routers/reconfigure", () => {
   it("hanya memproses router yang lolos site restriction", async () => {
     mockFns.hasPermission.mockImplementation(async (permission: string) => {
       if (permission === "mikrotik:update") return true;
-      if (permission === "mikrotik:site_only") return true;
       return false;
     });
+    mockFns.permissions = ["mikrotik:site_only"];
 
     mockFns.reconfigureRouters.mockResolvedValue({ processed: 1, logs: [] });
 
@@ -124,9 +129,9 @@ describe("POST /api/mikrotik-routers/reconfigure", () => {
   it("mengembalikan forbidden ketika semua router ditolak oleh site restriction", async () => {
     mockFns.hasPermission.mockImplementation(async (permission: string) => {
       if (permission === "mikrotik:update") return true;
-      if (permission === "mikrotik:site_only") return true;
       return false;
     });
+    mockFns.permissions = ["mikrotik:site_only"];
 
     mockFns.reconfigureRouters.mockRejectedValue(
       new Error("FORBIDDEN:Akses ditolak"),

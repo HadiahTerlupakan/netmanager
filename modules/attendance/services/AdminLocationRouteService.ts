@@ -1,14 +1,26 @@
 import type { Session } from "next-auth";
-import { isSuperAdmin } from "@/lib/auth";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
+import { filterSitePrisma } from "@/modules/roles/client";
 import { UserLookupService } from "@/modules/users";
-import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
+import type { LiveMapUserFilter } from "../domain/entities/LocationTrackingEntity";
+import {
+  resolveAdminScope,
+  scopeTanpaData,
+  siteDalamScope,
+  type AdminScope,
+} from "./AdminScopeResolver";
 import { LocationTrackingService } from "./LocationTrackingService";
 
 const LOCATION_READ_FORBIDDEN_MESSAGE =
   "Anda tidak memiliki akses untuk melihat history lokasi user ini";
 const LOCATION_LIVE_FORBIDDEN_MESSAGE =
   "Anda tidak memiliki akses untuk melihat live tracking";
+
+/** Permission pembatas live tracking — dipakai live list DAN history. */
+const LIVE_TRACKING_SCOPE_KEYS = {
+  siteOnly: "live_tracking:site_only",
+  departmentOnly: "live_tracking:department_only",
+} as const;
 
 interface AdminLocationSession {
   user: Session["user"] & {
@@ -21,7 +33,6 @@ interface AdminLocationHistoryInput {
   userId: string;
   startDate?: string | null;
   endDate?: string | null;
-  permissions: string[];
   session: AdminLocationSession;
 }
 
@@ -67,11 +78,7 @@ export class AdminLocationRouteService {
   /** Ambil history lokasi user sesuai scope permission admin. */
   async getLocationHistory(input: AdminLocationHistoryInput) {
     const dateRange = this.parseDateRange(input.startDate, input.endDate);
-    await this.assertCanAccessTargetUser(
-      input.session,
-      input.permissions,
-      input.userId,
-    );
+    await this.assertCanAccessTargetUser(input.session, input.userId);
     const [history, stats] = await Promise.all([
       this.locationService.getLocationHistory(
         input.userId,
@@ -96,15 +103,10 @@ export class AdminLocationRouteService {
     };
   }
 
-  private async resolveScope(session: AdminLocationSession) {
-    const scope = await resolveAdminScope(
-      session.user,
-      {
-        siteOnly: "live_tracking:site_only",
-        departmentOnly: "live_tracking:department_only",
-      },
-      this.userRepository,
-    );
+  private async resolveScope(
+    session: AdminLocationSession,
+  ): Promise<LiveMapUserFilter | null> {
+    const scope = await this.resolveLiveTrackingScope(session);
 
     if (scope.isSuperAdmin) return {};
 
@@ -113,15 +115,16 @@ export class AdminLocationRouteService {
     // seluruh tenant ikut terbuka.
     if (scopeTanpaData(scope)) return null;
 
-    if (!scope.siteId && !scope.departmentId) {
+    if (!scope.lingkupSite.dibatasi && !scope.departmentId) {
       const currentUser = await this.userRepository.findById(session.user.id);
       if (!currentUser) {
         throw new AdminLocationRouteError("Unauthorized", 401);
       }
     }
 
+    const siteFilter = filterSitePrisma(scope.lingkupSite);
     return {
-      ...(scope.siteId ? { siteId: scope.siteId } : {}),
+      ...(siteFilter ? { siteId: siteFilter } : {}),
       ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
     };
   }
@@ -144,19 +147,33 @@ export class AdminLocationRouteService {
     throw new AdminLocationRouteError("Parameter tanggal tidak valid", 400);
   }
 
+  /** Lingkup live tracking admin; satu sumber untuk live list dan history. */
+  private resolveLiveTrackingScope(
+    session: AdminLocationSession,
+  ): Promise<AdminScope> {
+    return resolveAdminScope(
+      session.user,
+      LIVE_TRACKING_SCOPE_KEYS,
+      this.userRepository,
+    );
+  }
+
   /**
-   * History harus sama ketat dengan live list:
+   * History harus sama ketat dengan live list — keduanya memakai
+   * `resolveLiveTrackingScope`:
    * - superadmin: lolos
-   * - live_tracking:site_only → target.siteId harus = admin.siteId
-   * - live_tracking:department_only → target.departmentId harus = admin.departmentId
-   * - tanpa restriction flag → tenant-wide (prisma isolation)
+   * - live_tracking:site_only → target.siteId harus salah satu site admin
+   *   (seluruh site yang ditugaskan); dibatasi tanpa site → ditolak
+   * - live_tracking:department_only → target.departmentId harus = departemen
+   *   admin; dibatasi tanpa departemen → ditolak
+   * - tanpa restriction flag → tenant-wide (cek tenant di bawah)
    */
   private async assertCanAccessTargetUser(
     session: AdminLocationSession,
-    permissions: string[],
     targetUserId: string,
   ): Promise<void> {
-    if (isSuperAdmin(session.user)) {
+    const scope = await this.resolveLiveTrackingScope(session);
+    if (scope.isSuperAdmin) {
       return;
     }
 
@@ -177,23 +194,16 @@ export class AdminLocationRouteService {
       throw new AdminLocationRouteError(LOCATION_READ_FORBIDDEN_MESSAGE, 403);
     }
 
-    const siteRestricted = permissions.includes("live_tracking:site_only");
-    if (siteRestricted) {
-      if (!adminUser.siteId || adminUser.siteId !== targetUser.siteId) {
-        throw new AdminLocationRouteError(LOCATION_LIVE_FORBIDDEN_MESSAGE, 403);
-      }
+    if (!siteDalamScope(scope, targetUser.siteId)) {
+      throw new AdminLocationRouteError(LOCATION_LIVE_FORBIDDEN_MESSAGE, 403);
     }
 
-    const departmentRestricted = permissions.includes(
-      "live_tracking:department_only",
-    );
-    if (departmentRestricted) {
-      if (
-        !adminUser.departmentId ||
-        adminUser.departmentId !== targetUser.departmentId
-      ) {
-        throw new AdminLocationRouteError(LOCATION_READ_FORBIDDEN_MESSAGE, 403);
-      }
+    const isOutsideDepartment =
+      scope.tanpaDepartemen ||
+      (scope.departmentId !== undefined &&
+        scope.departmentId !== targetUser.departmentId);
+    if (isOutsideDepartment) {
+      throw new AdminLocationRouteError(LOCATION_READ_FORBIDDEN_MESSAGE, 403);
     }
   }
 }

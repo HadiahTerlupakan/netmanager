@@ -28,6 +28,7 @@ export interface SiteUpdateRepositoryInput {
 export interface SiteFilterOptions {
   search?: string;
   activeOnly?: boolean;
+  /** `undefined` = semua site; `[]` = tidak ada site sama sekali. */
   allowedSiteIds?: string[];
 }
 
@@ -47,6 +48,15 @@ export interface ISiteRepository {
    * sendiri.
    */
   findGudangIdsInTenant(gudangIds: string[]): Promise<string[]>;
+  /**
+   * Kembalikan bagian dari `gudangIds` yang sudah tertaut ke minimal satu site
+   * di `siteIds`. Dipakai agar pemegang `site:site_only` tidak bisa menautkan
+   * gudang site lain ke site-nya dan melebarkan lingkupnya sendiri.
+   */
+  findGudangIdsDiSites(
+    gudangIds: string[],
+    siteIds: string[],
+  ): Promise<string[]>;
   /** Find site by unique code. */
   findByCode(code: string): Promise<SiteEntity | null>;
   /** Create a site entity. */

@@ -1,6 +1,11 @@
 export { CanvasingService } from "./services/CanvasingService";
 export { PointClaimService } from "./services/PointClaimService";
 export { AdminSalesRouteService } from "./services/AdminSalesRouteService";
+export {
+  resolveSalesAllowedSiteIds,
+  SALES_SITE_SCOPE_RESOURCE,
+  type SalesSiteScopeResource,
+} from "./services/SalesSiteScopeService";
 export { TestCanvasingRouteService } from "./services/TestCanvasingRouteService";
 export {
   MarketingError,

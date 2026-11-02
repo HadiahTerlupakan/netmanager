@@ -41,6 +41,10 @@ export {
   getRoleService,
 } from "./services/RoleService";
 export { SiteService } from "./services/SiteService";
+export {
+  SITE_SCOPE_RESOURCE,
+  lingkupKelolaSite,
+} from "./services/site-management-scope";
 export { AdminOptionsRouteService } from "./services/AdminOptionsRouteService";
 export { SiteAccessRouteService } from "./services/SiteAccessRouteService";
 export {

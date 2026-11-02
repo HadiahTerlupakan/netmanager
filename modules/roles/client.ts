@@ -49,8 +49,12 @@ export { CANVASING_CASHOUT_PERMISSION } from "./domain/izin-canvasing";
 export {
   TANPA_BATAS,
   filterSitePrisma,
+  irisanSiteDiminta,
   lingkupSiteUntuk,
   siteBolehDiakses,
+  siteDefaultLingkup,
   tanpaDataSamaSekali,
+  type FilterKolomSite,
+  type KlausaSite,
   type LingkupSite,
 } from "./domain/lingkup-site";

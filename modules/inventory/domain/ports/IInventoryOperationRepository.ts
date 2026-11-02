@@ -8,6 +8,7 @@ import type {
 
 export type {
   BarangWithStock,
+  SaringanSiteMutasiBarang,
   BarangMasukWithRelations,
   BarangKeluarWithRelations,
   InventoryActorInput,
@@ -41,6 +42,7 @@ export type {
 import type {
   BarangWithStock,
   BarangDetail,
+  SaringanSiteMutasiBarang,
   CreateBarangInput,
   UpdateBarangInput,
   CreateBarangMasukInput,
@@ -94,7 +96,10 @@ export interface IInventoryOperationRepository {
     siteIds?: string[];
   }): Promise<{ items: BarangWithStock[]; total: number }>;
   findBarangById(id: string): Promise<BarangWithStock | null>;
-  findBarangDetail(id: string): Promise<BarangDetail | null>;
+  findBarangDetail(
+    id: string,
+    saringan?: SaringanSiteMutasiBarang,
+  ): Promise<BarangDetail | null>;
   findBarangByKode(kode: string): Promise<BarangWithStock | null>;
   existsBarangByKode(kode: string): Promise<boolean>;
   createBarang(data: CreateBarangInput): Promise<Barang>;

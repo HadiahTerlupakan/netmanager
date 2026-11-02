@@ -1,3 +1,4 @@
+import type { LiveMapUserFilter } from "../domain/entities/LocationTrackingEntity";
 import { calculateHaversineDistance } from "@/lib/geo-utils";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 import type { ILocationTrackingRepository } from "../domain/ports/ILocationTrackingRepository";
@@ -97,7 +98,7 @@ export class LocationTrackingService {
   }
 
   /** Ambil lokasi terakhir untuk semua karyawan yang sedang aktif. */
-  async getLiveLocations(filters?: { siteId?: string; departmentId?: string }) {
+  async getLiveLocations(filters?: LiveMapUserFilter) {
     return this.liveMapService.getLiveLocations(filters);
   }
 

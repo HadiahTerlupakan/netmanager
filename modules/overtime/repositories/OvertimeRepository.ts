@@ -7,6 +7,7 @@ import type {
   IOvertimeRepository,
   OvertimeCreateInput,
   OvertimeQueryFilters,
+  OvertimeSiteFilter,
   OvertimeStatusCountFilters,
   OvertimeUpdateInput,
   UpsertOvertimeAutoCheckoutScheduleInput,
@@ -121,7 +122,7 @@ export class OvertimeRepository implements IOvertimeRepository {
   async getStatsByDateRange(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {
@@ -138,7 +139,7 @@ export class OvertimeRepository implements IOvertimeRepository {
   async getDailyStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ) {
     return this.reportRepository.getDailyStats({
@@ -154,7 +155,7 @@ export class OvertimeRepository implements IOvertimeRepository {
     startDate: Date,
     endDate: Date,
     groupBy: "department" | "site",
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ) {
     return this.reportRepository.getGroupedStats({
@@ -171,7 +172,7 @@ export class OvertimeRepository implements IOvertimeRepository {
     startDate: Date,
     endDate: Date,
     limit?: number,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ) {
     return this.reportRepository.getTopEmployees({
@@ -187,7 +188,7 @@ export class OvertimeRepository implements IOvertimeRepository {
   async getUserOvertimeStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ) {
     return this.reportRepository.getUserOvertimeStats({

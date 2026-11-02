@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { prisma } from "@/lib/prisma";
 import {
   toActiveLeaveEntity,
@@ -9,7 +10,7 @@ export class LeaveLookupRepository {
   async getUserLeaveStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {

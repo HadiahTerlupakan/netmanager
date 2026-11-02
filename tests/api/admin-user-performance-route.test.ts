@@ -37,6 +37,7 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import { GET } from "@/app/api/admin/users/[id]/performance/route";
+import { GET as GET_SALES } from "@/app/api/admin/users/[id]/sales-performance/route";
 
 describe("admin user performance route", () => {
   beforeEach(() => {
@@ -79,5 +80,58 @@ describe("admin user performance route", () => {
       absent: 1,
       total: 8,
     });
+  });
+
+  // Regresi: route ini dulu hanya memeriksa self/users:read, sehingga admin
+  // ber-`users:site_only` bisa membaca performa user site lain dengan
+  // menebak id.
+  it("menolak admin site_only membaca performa user di site lain", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-2",
+      tenantId: "t-1",
+      siteId: "site-x",
+      userSites: [],
+      workingHourMode: "FIXED",
+      flexibleTargetHour: 8,
+    } as never);
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/users/user-2/performance"),
+      {
+        session: {
+          user: { id: "admin-1", tenantId: "t-1", siteIds: ["site-a"] },
+        },
+        params: { id: "user-2" },
+        permissions: ["users:read", "users:site_only"],
+      } as never,
+    );
+
+    expect(response.status).toBe(403);
+    expect(prismaMock.attendance.groupBy).not.toHaveBeenCalled();
+  });
+
+  it("menolak admin site_only membaca performa sales user tanpa site", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: "user-3",
+      tenantId: "t-1",
+      siteId: null,
+      userSites: [],
+    } as never);
+
+    const response = await GET_SALES(
+      new NextRequest(
+        "http://localhost/api/admin/users/user-3/sales-performance",
+      ),
+      {
+        session: {
+          user: { id: "admin-1", tenantId: "t-1", siteIds: ["site-a"] },
+        },
+        params: { id: "user-3" },
+        query: {},
+        permissions: ["users:read", "users:site_only"],
+      } as never,
+    );
+
+    expect(response.status).toBe(403);
   });
 });

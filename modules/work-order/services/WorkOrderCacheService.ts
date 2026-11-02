@@ -7,6 +7,7 @@ import {
   readCacheStats,
   scanKeys,
   type CacheStats as WorkOrderCacheStats,
+  type DashboardCacheScope,
 } from "./work-order-cache.helpers";
 /**
  * Work Order Cache Service
@@ -40,7 +41,7 @@ export class WorkOrderCacheService {
     userId: string,
     period: string,
     data: unknown,
-    options?: { departmentId?: string; siteId?: string },
+    options?: DashboardCacheScope,
   ): Promise<void> {
     try {
       const key = getDashboardCacheKey(CACHE_PREFIX, userId, period, options);
@@ -58,7 +59,7 @@ export class WorkOrderCacheService {
   async getCachedDashboardData(
     userId: string,
     period: string,
-    options?: { departmentId?: string; siteId?: string },
+    options?: DashboardCacheScope,
   ): Promise<unknown | null> {
     try {
       const key = getDashboardCacheKey(CACHE_PREFIX, userId, period, options);

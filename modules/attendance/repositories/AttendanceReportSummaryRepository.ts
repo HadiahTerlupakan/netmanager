@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import {
@@ -15,7 +16,7 @@ export class AttendanceReportSummaryRepository {
   async getStatsByDateRange(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     const userIds = await this.findScopedUserIds(siteId, departmentId);
@@ -46,7 +47,7 @@ export class AttendanceReportSummaryRepository {
   async getEvaluationStatsByDateRange(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     const userIds = await this.findScopedUserIds(siteId, departmentId);
@@ -78,7 +79,10 @@ export class AttendanceReportSummaryRepository {
     };
   }
 
-  private async findScopedUserIds(siteId?: string, departmentId?: string) {
+  private async findScopedUserIds(
+    siteId?: ReportSiteFilter,
+    departmentId?: string,
+  ) {
     if (!siteId && !departmentId) return undefined;
     const users = await prisma.user.findMany({
       where: {

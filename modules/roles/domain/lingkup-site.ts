@@ -52,6 +52,13 @@ export function tanpaDataSamaSekali(lingkup: LingkupSite): boolean {
 }
 
 /**
+ * Filter kolom `siteId` untuk Prisma: satu site, atau `{ in }` untuk seluruh
+ * site lingkup. Satu-satunya definisi bentuk ini; tipe filter site di modul
+ * lain (laporan kehadiran, lembur) adalah alias darinya.
+ */
+export type FilterKolomSite = string | { in: string[] };
+
+/**
  * Klausa Prisma `{ in: [...] }` untuk kolom site, atau `undefined` bila tidak
  * dibatasi. Melempar bila dipanggil pada lingkup kosong, supaya pemanggil yang
  * lupa memeriksa `tanpaDataSamaSekali` gagal keras alih-alih membocorkan data.
@@ -76,4 +83,38 @@ export function siteBolehDiakses(
   if (!lingkup.dibatasi) return true;
   if (!siteId) return false;
   return lingkup.siteIds.includes(siteId);
+}
+
+/** Klausa Prisma kolom site; objek kosong berarti tanpa filter site. */
+export type KlausaSite = { siteId?: FilterKolomSite };
+
+/**
+ * Iriskan site yang diminta (filter daftar) dengan lingkup. Tak dibatasi:
+ * pakai permintaan apa adanya (kosong = semua). Dibatasi: tanpa permintaan
+ * berarti seluruh site lingkup; permintaan di luar lingkup — atau lingkup
+ * kosong — menghasilkan `null` (tidak ada baris yang boleh tampil).
+ */
+export function irisanSiteDiminta(
+  lingkup: LingkupSite,
+  requestedSiteId: string | null | undefined,
+): KlausaSite | null {
+  if (!lingkup.dibatasi) {
+    return requestedSiteId ? { siteId: requestedSiteId } : {};
+  }
+  if (tanpaDataSamaSekali(lingkup)) return null;
+  if (!requestedSiteId) return { siteId: filterSitePrisma(lingkup) };
+  return siteBolehDiakses(lingkup, requestedSiteId)
+    ? { siteId: requestedSiteId }
+    : null;
+}
+
+/**
+ * Site bawaan saat pengguna tidak memilih site: pengguna dibatasi yang tepat
+ * punya satu site memakai site itu; selain itu `null` (tidak ada bawaan).
+ */
+export function siteDefaultLingkup(lingkup: LingkupSite): string | null {
+  if (lingkup.dibatasi && lingkup.siteIds.length === 1) {
+    return lingkup.siteIds[0];
+  }
+  return null;
 }

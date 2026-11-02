@@ -1,8 +1,11 @@
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import { AdminSalesRouteService } from "@/modules/marketing";
-import { isSuperAdmin } from "@/lib/auth";
+import {
+  AdminSalesRouteService,
+  resolveSalesAllowedSiteIds,
+  SALES_SITE_SCOPE_RESOURCE,
+} from "@/modules/marketing";
 
 const adminSalesRouteService = new AdminSalesRouteService();
 
@@ -13,19 +16,13 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
-  // Site restriction only applies if user has sales:site_only permission
-  const user = ctx.session.user as {
-    id: string;
-    siteIds?: string[];
-    isSuperAdmin?: boolean;
-  };
-  // `?? []` disengaja: sesi tanpa daftar site pada pengguna yang DIBATASI
-  // berarti tidak ada site yang boleh ia lihat. Membiarkannya `undefined` akan
-  // terbaca sebagai "tanpa batas" dan justru membuka seluruh tenant.
-  const allowedSiteIds =
-    !isSuperAdmin(user) && (await hasPermission("sales:site_only"))
-      ? (user.siteIds ?? [])
-      : undefined;
+  // Dibatasi hanya bila role memegang `sales:site_only` (persis); site
+  // diambil dari `siteIds` dengan fallback `siteId` legacy.
+  const allowedSiteIds = resolveSalesAllowedSiteIds({
+    user: ctx.session.user,
+    permissions: ctx.permissions,
+    resource: SALES_SITE_SCOPE_RESOURCE.overview,
+  });
 
   try {
     return apiSuccess(

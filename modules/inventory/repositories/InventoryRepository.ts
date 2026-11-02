@@ -13,6 +13,7 @@ import type {
   CreateTransferInput,
   UpdateTransferInput,
   BarangDetail,
+  SaringanSiteMutasiBarang,
   UpdateBarangMasukInput,
   UpdateStockOpnameInput,
   PelakuPerubahanOpname,
@@ -124,8 +125,11 @@ export class InventoryRepository
   async updateBarang(id: string, data: UpdateBarangInput): Promise<Barang> {
     return updateInventoryBarang(this.db, id, data);
   }
-  async findBarangDetail(id: string): Promise<BarangDetail | null> {
-    return findInventoryBarangDetail(this.db, id);
+  async findBarangDetail(
+    id: string,
+    saringan?: SaringanSiteMutasiBarang,
+  ): Promise<BarangDetail | null> {
+    return findInventoryBarangDetail(this.db, id, saringan);
   }
   async deleteBarang(id: string): Promise<void> {
     await deleteInventoryBarang(this.db, id);

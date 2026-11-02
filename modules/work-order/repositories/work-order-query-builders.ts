@@ -1,5 +1,6 @@
 import { Prisma, type WorkOrderStatus } from "@prisma/client";
 import type { WorkOrderFilters } from "../domain/ports/IWorkOrderRepository";
+import { resolveSiteFilter } from "./work-order-site-scope";
 
 const FINALIZED_UNASSIGNED_STATUSES: WorkOrderStatus[] = [
   "CANCELLED",
@@ -67,8 +68,9 @@ export function applyWorkOrderRelationFilters(
     where.pelangganId = filters.pelangganId;
   }
 
-  if (filters.siteId) {
-    where.siteId = filters.siteId;
+  const siteFilter = resolveSiteFilter(filters);
+  if (siteFilter !== undefined) {
+    where.siteId = siteFilter;
   }
 
   if (filters.isInternal === true) {

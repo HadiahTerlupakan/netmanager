@@ -49,6 +49,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     userPermissions: ctx.permissions || [],
     userDepartmentId: access.userDepartmentId,
     userSiteId: access.userSiteId,
+    userSiteIds: access.userSiteIds,
     userRole: user.role,
   });
 

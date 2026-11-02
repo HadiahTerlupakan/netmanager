@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFns = vi.hoisted(() => ({
+  permissions: [] as string[],
   hasPermission: vi.fn(),
   generateApiUser: vi.fn(),
   isSuperAdmin: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("@/lib/api", () => ({
   ) => {
     return (req: Request, ctx: { params: { id: string } }) =>
       handler(req, {
+        permissions: mockFns.permissions,
         params: ctx.params,
         session: {
           user: {
@@ -77,7 +79,10 @@ vi.mock("next/server", () => ({
   },
 }));
 
-vi.mock("@/modules/network", () => ({
+vi.mock("@/modules/network", async () => ({
+  isRestrictedToOwnRouterSite: (
+    await import("@/modules/network/services/mikrotik-router.access")
+  ).isRestrictedToOwnRouterSite,
   MikroTikRouterService: class MockMikroTikRouterService {
     generateApiUser = mockFns.generateApiUser;
   },
@@ -95,10 +100,10 @@ describe("POST /api/mikrotik-routers/[id]/generate-api-user", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFns.permissions = [];
 
     mockFns.hasPermission.mockImplementation(async (permission: string) => {
       if (permission === "mikrotik:update") return true;
-      if (permission === "mikrotik:site_only") return false;
       return false;
     });
 
@@ -113,9 +118,9 @@ describe("POST /api/mikrotik-routers/[id]/generate-api-user", () => {
   it("SUPER_ADMIN bypass site restriction saat generate API user", async () => {
     mockFns.hasPermission.mockImplementation(async (permission: string) => {
       if (permission === "mikrotik:update") return true;
-      if (permission === "mikrotik:site_only") return true;
       return false;
     });
+    mockFns.permissions = ["mikrotik:site_only"];
 
     mockFns.isSuperAdmin.mockReturnValue(true);
 
@@ -142,9 +147,9 @@ describe("POST /api/mikrotik-routers/[id]/generate-api-user", () => {
   it("non-SUPER_ADMIN dengan site_only permission tetap terkena site restriction", async () => {
     mockFns.hasPermission.mockImplementation(async (permission: string) => {
       if (permission === "mikrotik:update") return true;
-      if (permission === "mikrotik:site_only") return true;
       return false;
     });
+    mockFns.permissions = ["mikrotik:site_only"];
 
     mockFns.isSuperAdmin.mockReturnValue(false);
 

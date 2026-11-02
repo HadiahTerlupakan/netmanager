@@ -10,6 +10,11 @@ import {
   createDepartmentWorkloadSummary,
   getInProgressStatuses,
 } from "./work-order-repository-dashboard-helpers";
+import {
+  buildSiteScopeWhere,
+  resolveSiteFilter,
+  type WorkOrderSiteScope,
+} from "./work-order-site-scope";
 
 /** Get recent work orders for dashboard widgets. */
 export async function getRecentWorkOrders(
@@ -19,7 +24,8 @@ export async function getRecentWorkOrders(
 ): Promise<WorkOrderWithRelations[]> {
   const where: Record<string, unknown> = {};
   if (filters?.departmentId) where.departmentId = filters.departmentId;
-  if (filters?.siteId) where.siteId = filters.siteId;
+  const siteFilter = filters ? resolveSiteFilter(filters) : undefined;
+  if (siteFilter !== undefined) where.siteId = siteFilter;
   if (filters?.assignedToId !== undefined)
     where.assignedToId = filters.assignedToId;
   if (filters?.status) {
@@ -102,11 +108,11 @@ export async function getRecentWorkOrders(
   }) as Promise<WorkOrderWithRelations[]>;
 }
 
-/** Get department workload statistics, dibatasi site bila `siteId` diisi. */
+/** Get department workload statistics, dibatasi lingkup site bila `siteIds` diisi. */
 export async function getDepartmentWorkload(
   prisma: PrismaClient,
   departmentId?: string,
-  siteId?: string,
+  siteIds?: WorkOrderSiteScope,
 ): Promise<
   Array<{
     departmentId: string | null;
@@ -129,7 +135,7 @@ export async function getDepartmentWorkload(
     departments.map(async (department) => {
       const scopeWhere = {
         departmentId: department.id,
-        ...(siteId ? { siteId } : {}),
+        ...buildSiteScopeWhere(siteIds),
       };
       const [total, pending, inProgress, completed] = await Promise.all([
         prisma.workOrders.count({ where: scopeWhere }),

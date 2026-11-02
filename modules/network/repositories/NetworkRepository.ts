@@ -201,10 +201,21 @@ export class NetworkRepository {
 
   /** Ambil site user untuk validasi akses. */
   async findUserSite(userId: string): Promise<UserSiteRecord | null> {
-    return prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { siteId: true },
+      select: {
+        siteId: true,
+        userSites: {
+          select: { siteId: true },
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        },
+      },
     });
+    if (!user) return null;
+    return {
+      siteId: user.siteId,
+      siteIds: user.userSites.map((userSite) => userSite.siteId),
+    };
   }
 
   /** Ambil router untuk proses reconfigure dengan batas tenant. */

@@ -25,6 +25,7 @@ import {
   findActiveEmployeesByIds,
   findByIdWithDepartment,
   findByIdWithSite,
+  findSiteAndDepartmentAssignmentById,
   findManyWithBasicInfo,
   findManyWithCustomWhere,
   findManyWithFullDetails,
@@ -108,6 +109,10 @@ export class UserLookupRepository {
 
   findByIdWithDepartment(userId: string) {
     return findByIdWithDepartment(userId);
+  }
+
+  findSiteAndDepartmentAssignmentById(userId: string) {
+    return findSiteAndDepartmentAssignmentById(userId);
   }
 
   findManyActiveWithPushTokenAndSite(

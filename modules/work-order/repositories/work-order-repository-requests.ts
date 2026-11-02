@@ -1,11 +1,9 @@
 import type { PrismaClient, WorkOrders } from "@prisma/client";
-import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
-
-interface RequestFilterInput {
-  departmentId?: string;
-  siteId?: string;
-  search?: string;
-}
+import type {
+  WorkOrderRequestFilters,
+  WorkOrderWithRelations,
+} from "../domain/ports/IWorkOrderRepository";
+import { resolveSiteFilter } from "./work-order-site-scope";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -59,7 +57,7 @@ export async function findRequestsByRequester(input: {
 /** Ambil daftar work order request dengan filter ringkas. */
 export async function findRequestedWorkOrders(
   prisma: PrismaClient,
-  filters?: RequestFilterInput,
+  filters?: WorkOrderRequestFilters,
   page: number = DEFAULT_PAGE,
   limit: number = DEFAULT_LIMIT,
 ): Promise<{
@@ -129,14 +127,15 @@ export async function rejectRequestedWorkOrder(
 }
 
 function buildRequestWhere(
-  filters?: RequestFilterInput,
+  filters?: WorkOrderRequestFilters,
 ): Record<string, unknown> {
   const where: Record<string, unknown> = { status: "REQUESTED" };
   if (filters?.departmentId) {
     where.departmentId = filters.departmentId;
   }
-  if (filters?.siteId) {
-    where.siteId = filters.siteId;
+  const siteFilter = filters ? resolveSiteFilter(filters) : undefined;
+  if (siteFilter !== undefined) {
+    where.siteId = siteFilter;
   }
   if (!filters?.search) {
     return where;

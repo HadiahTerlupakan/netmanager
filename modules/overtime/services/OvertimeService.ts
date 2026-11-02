@@ -7,6 +7,7 @@ import {
 import type {
   IOvertimeRepository,
   OvertimeQueryFilters,
+  OvertimeSiteFilter,
 } from "../domain/ports/IOvertimeRepository";
 import type { OvertimeEntity } from "../domain/entities/OvertimeEntity";
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
@@ -291,7 +292,7 @@ export class OvertimeService {
   async getReportData(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ) {
     return this.queryReportService.getReportData({

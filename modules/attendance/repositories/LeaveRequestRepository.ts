@@ -45,7 +45,7 @@ export class LeaveRequestRepository {
     startDate?: Date;
     endDate?: Date;
     departmentId?: string;
-    siteId?: string;
+    siteIds?: readonly string[];
     skip?: number;
     take?: number;
     tenantId?: string;
@@ -73,7 +73,7 @@ export class LeaveRequestRepository {
     userId?: string;
     status?: LeaveStatus;
     departmentId?: string;
-    siteId?: string;
+    siteIds?: readonly string[];
     tenantId?: string;
   }) {
     return prisma.leaveRequest.count({ where: this.buildFilterWhere(filters) });
@@ -103,7 +103,7 @@ export class LeaveRequestRepository {
     startDate?: Date;
     endDate?: Date;
     departmentId?: string;
-    siteId?: string;
+    siteIds?: readonly string[];
     tenantId?: string;
   }): Prisma.LeaveRequestWhereInput {
     return {
@@ -116,13 +116,15 @@ export class LeaveRequestRepository {
             endDate: { lte: filters.endDate },
           }
         : {}),
-      ...(filters?.departmentId || filters?.siteId
+      ...(filters?.departmentId || filters?.siteIds
         ? {
             user: {
               ...(filters.departmentId
                 ? { departmentId: filters.departmentId }
                 : {}),
-              ...(filters.siteId ? { siteId: filters.siteId } : {}),
+              ...(filters.siteIds
+                ? { siteId: { in: [...filters.siteIds] } }
+                : {}),
             },
           }
         : {}),

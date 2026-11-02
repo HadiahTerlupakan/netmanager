@@ -1,10 +1,13 @@
 import type { Session } from "next-auth";
 import type { OvertimeStatusValue } from "../domain/entities/OvertimeEntity";
+import type { OvertimeQueryFilters } from "../domain/ports/IOvertimeRepository";
 
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
 import {
+  filterSiteDalamScope,
   resolveAdminScope,
   scopeTanpaData,
+  siteDalamScope,
   type AdminScope,
 } from "@/modules/attendance";
 import { UserLookupService } from "@/modules/users";
@@ -164,23 +167,13 @@ export class OvertimeRouteService {
 
   /** Bangun filter overtime admin dengan scope RBAC. */
   private buildScopedFilters(input: AdminOvertimeListInput, scope: AdminScope) {
-    const filters: {
-      skip: number;
-      take: number;
-      status?: OvertimeStatusValue;
-      holidayType?: string;
-      siteId?: string;
-      departmentId?: string;
-      startDate?: Date;
-      endDate?: Date;
-      tenantId?: string;
-    } = {
+    const filters: OvertimeQueryFilters = {
       skip: (input.page - 1) * input.limit,
       take: input.limit,
       status: input.status,
       holidayType: input.holidayType,
       tenantId: input.session.user.tenantId ?? undefined,
-      siteId: scope.siteId ?? input.siteId,
+      siteId: filterSiteDalamScope(scope, input.siteId),
       departmentId: scope.departmentId ?? input.departmentId,
     };
 
@@ -226,7 +219,7 @@ function isOvertimeInScope(
   owner?: { siteId?: string | null; departmentId?: string | null } | null,
 ): boolean {
   if (scopeTanpaData(scope)) return false;
-  if (scope.siteId && owner?.siteId !== scope.siteId) return false;
+  if (!siteDalamScope(scope, owner?.siteId)) return false;
   if (scope.departmentId && owner?.departmentId !== scope.departmentId) {
     return false;
   }

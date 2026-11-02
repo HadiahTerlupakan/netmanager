@@ -15,6 +15,14 @@ vi.mock("@/lib/auth", async (importOriginal) => ({
 vi.mock("@/modules/users", () => ({
   UserLookupService: class {
     findById = mocks.findActor;
+    findAccessAssignmentById = async (id: string) => {
+      const actor = await mocks.findActor(id);
+      if (!actor) return null;
+      return {
+        siteIds: actor.siteIds ?? (actor.siteId ? [actor.siteId] : []),
+        departmentId: actor.departmentId,
+      };
+    };
   },
 }));
 
@@ -90,5 +98,27 @@ describe("AttendanceCorrectionService — lingkup admin", () => {
     ).rejects.toMatchObject({ statusCode: 404 });
     expect(repository.applyMissedCheckInCorrection).not.toHaveBeenCalled();
     expect(repository.createCorrectedAttendance).not.toHaveBeenCalled();
+  });
+
+  // Regresi multi-site: lingkup dulu hanya site utama admin, sehingga absensi
+  // di site keduanya ikut ditolak.
+  it("admin multi-site melewati pemeriksaan lingkup untuk site keduanya", async () => {
+    mocks.getUserPermissions.mockResolvedValue(["attendance:site_only"]);
+    mocks.findActor.mockResolvedValue({
+      siteId: "site-a",
+      siteIds: ["site-a", "site-b"],
+      departmentId: null,
+    });
+
+    // Langkah setelah pemeriksaan lingkup tidak di-mock lengkap; yang diuji
+    // hanya bahwa penolakan lingkup (404) tidak terjadi.
+    const outcome = await correct(
+      new AttendanceCorrectionService(repository as never),
+    ).then(
+      (): null => null,
+      (error: { statusCode?: number }) => error,
+    );
+
+    expect(outcome?.statusCode).not.toBe(404);
   });
 });

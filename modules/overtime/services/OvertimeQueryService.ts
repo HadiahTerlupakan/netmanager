@@ -1,3 +1,4 @@
+import type { OvertimeSiteFilter } from "../domain/ports/IOvertimeRepository";
 import { OvertimeRepository } from "../repositories/OvertimeRepository";
 
 export class OvertimeQueryService {
@@ -26,7 +27,7 @@ export class OvertimePayrollQueryService {
   getUserOvertimeStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: OvertimeSiteFilter,
     departmentId?: string,
   ) {
     return this.repository.getUserOvertimeStats(

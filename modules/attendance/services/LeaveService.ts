@@ -26,7 +26,8 @@ export interface LeaveFilters {
   startDate?: Date;
   endDate?: Date;
   departmentId?: string;
-  siteId?: string;
+  /** Site utama pegawai harus salah satu dari ini (lingkup site admin). */
+  siteIds?: readonly string[];
   tenantId?: string;
 }
 

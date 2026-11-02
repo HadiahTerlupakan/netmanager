@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { AdminUserRouteService } from "@/modules/users/services/AdminUserRouteService";
 
-vi.mock("@/modules/roles", () => ({
-  canAccessSite: () => true,
+vi.mock("@/modules/roles", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/roles")>()),
   checkSiteRestriction: () => ({
     isRestricted: false,
     siteIds: [] as string[],

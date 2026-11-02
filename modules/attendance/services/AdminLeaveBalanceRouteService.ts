@@ -4,9 +4,11 @@ import {
   DEFAULT_LEAVE_QUOTAS,
   LeaveBalanceRepository,
 } from "../repositories/LeaveBalanceRepository";
+import { filterSitePrisma } from "@/modules/roles/client";
 import {
   resolveAdminScope,
   scopeTanpaData,
+  siteDalamScope,
   type AdminScope,
 } from "./AdminScopeResolver";
 import {
@@ -150,7 +152,7 @@ export class AdminLeaveBalanceRouteService {
 
     const balances = await this.leaveBalanceRepository.getAllBalances(year, {
       tenantId: tenantId || undefined,
-      siteId: scope.siteId,
+      siteIds: filterSitePrisma(scope.lingkupSite)?.in,
       departmentId: scope.departmentId,
     });
     return { balances, year };
@@ -232,6 +234,6 @@ function isUserInScope(
   user: { siteId?: string | null; departmentId?: string | null },
 ): boolean {
   if (scopeTanpaData(scope)) return false;
-  if (scope.siteId && user.siteId !== scope.siteId) return false;
+  if (!siteDalamScope(scope, user.siteId)) return false;
   return !scope.departmentId || user.departmentId === scope.departmentId;
 }

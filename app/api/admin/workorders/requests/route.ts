@@ -10,7 +10,6 @@ import {
   apiError,
   createHandler,
 } from "@/lib/api";
-import { isSuperAdmin } from "@/lib/auth";
 
 /** GET /api/admin/workorders/requests */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
@@ -27,10 +26,6 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     req.nextUrl.searchParams.get("limit") || "20",
     10,
   );
-  const search = req.nextUrl.searchParams.get("search") || undefined;
-  const departmentId =
-    req.nextUrl.searchParams.get("departmentId") || undefined;
-  const siteId = req.nextUrl.searchParams.get("siteId") || undefined;
   const access = await getAdminWorkOrderRouteService().buildAccessFilters(
     user,
     ctx.permissions,
@@ -52,30 +47,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const isSuper = isSuperAdmin({ role: user.role });
-  const filters: { departmentId?: string; siteId?: string; search?: string } = {
-    ...(search ? { search } : {}),
-  };
-
-  if (
-    access.userSiteId &&
-    !isSuper &&
-    (ctx.permissions || []).includes("workorders:site_only")
-  ) {
-    filters.siteId = access.userSiteId;
-  } else if (siteId) {
-    filters.siteId = siteId;
-  }
-
-  if (
-    access.userDepartmentId &&
-    !isSuper &&
-    (ctx.permissions || []).includes("workorders:department_only")
-  ) {
-    filters.departmentId = access.userDepartmentId;
-  } else if (departmentId) {
-    filters.departmentId = departmentId;
-  }
+  const filters = getAdminWorkOrderRouteService().buildRequestListFilters({
+    access,
+    searchParams: req.nextUrl.searchParams,
+  });
 
   const result = await getWorkOrderService().getWorkOrderRequests(
     filters,

@@ -1,3 +1,4 @@
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { logger } from "@/lib/logger";
 
 import type { ServiceResult, UserContext } from "./WorkOrderService";
@@ -84,4 +85,34 @@ export function logTaskCreated(input: {
 
 export function canSendWorkOrderReminder(status: string) {
   return (WORK_ORDER_REMINDER_STATUSES as readonly string[]).includes(status);
+}
+
+/** Pesan penolakan reminder ke departemen di luar lingkup pengirim. */
+export const REMINDER_DEPARTMENT_DENIED_MESSAGE =
+  "Akses ditolak: Anda hanya dapat mengirim reminder ke departemen Anda";
+
+/**
+ * Departemen penerima reminder: target pilihan pengirim, atau departemen WO.
+ *
+ * Pengirim ber-`workorders:department_only` (bukan super admin) hanya boleh
+ * menjangkau departemennya sendiri. Lingkup site tidak perlu diperiksa di sini:
+ * penerima selalu disaring ke site WO, dan WO itu sudah lolos lingkup site
+ * pengirim sebelum fungsi ini dipanggil.
+ */
+export function resolveReminderDepartmentId(input: {
+  targetDepartmentId?: string;
+  workOrderDepartmentId: string | null;
+  sender: Pick<
+    UserContext,
+    "permissions" | "departmentId" | "role" | "isSuperAdmin"
+  >;
+}): { allowed: true; departmentId: string | null } | { allowed: false } {
+  const departmentId = input.targetDepartmentId || input.workOrderDepartmentId;
+  const isDepartmentRestricted =
+    Boolean(input.sender.permissions?.includes("workorders:department_only")) &&
+    !isSuperAdmin(input.sender);
+  if (isDepartmentRestricted && departmentId !== input.sender.departmentId) {
+    return { allowed: false };
+  }
+  return { allowed: true, departmentId };
 }

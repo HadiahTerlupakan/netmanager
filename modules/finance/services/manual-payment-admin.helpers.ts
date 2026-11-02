@@ -9,9 +9,14 @@ import type {
 export type PendingManualPaymentsInput = {
   startDate?: string | null;
   endDate?: string | null;
+  /** Site yang diminta lewat filter layar. */
   siteId?: string | null;
   status?: string | null;
-  isSiteOnly?: boolean;
+  /**
+   * Seluruh site admin bila dibatasi (`resolveManualPaymentAllowedSiteIds`),
+   * `undefined` bila tidak. Daftar kosong = dibatasi tanpa site → kosong.
+   */
+  allowedSiteIds?: readonly string[];
 };
 
 type PaymentRecord = PaymentEntity & {
@@ -132,21 +137,35 @@ export function summarizeCheckouts(
   );
 }
 
+/**
+ * Pelanggan yang pembayarannya boleh tampil, atau `null` bila tanpa batas.
+ * Admin terbatas melihat pelanggan SELURUH site-nya; site yang diminta hanya
+ * dipakai bila termasuk site tersebut (permintaan di luar lingkup diabaikan).
+ */
 export async function getScopedPelangganIds(
   pelangganRepository: PelangganBillingBridgeService,
-  siteId?: string | null,
-  isSiteOnly?: boolean,
+  requestedSiteId?: string | null,
+  allowedSiteIds?: readonly string[],
 ) {
-  if (isSiteOnly && !siteId) {
-    return EMPTY_SCOPE;
-  }
+  const siteIds = resolvePendingSiteIds(requestedSiteId, allowedSiteIds);
+  if (siteIds === null) return null;
+  if (siteIds.length === 0) return EMPTY_SCOPE;
 
-  if (!siteId) {
-    return null;
-  }
+  const pelanggansPerSite = await Promise.all(
+    siteIds.map((siteId) => pelangganRepository.findBySiteId(siteId)),
+  );
+  return pelanggansPerSite.flat().map((pelanggan) => pelanggan.id);
+}
 
-  const pelanggans = await pelangganRepository.findBySiteId(siteId);
-  return pelanggans.map((pelanggan) => pelanggan.id);
+function resolvePendingSiteIds(
+  requestedSiteId?: string | null,
+  allowedSiteIds?: readonly string[],
+): readonly string[] | null {
+  if (!allowedSiteIds) return requestedSiteId ? [requestedSiteId] : null;
+  if (requestedSiteId && allowedSiteIds.includes(requestedSiteId)) {
+    return [requestedSiteId];
+  }
+  return allowedSiteIds;
 }
 
 type CustomerNameRecord = {

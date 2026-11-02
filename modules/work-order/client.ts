@@ -10,3 +10,8 @@ export type {
   WorkOrderCustomerInfo,
   WorkOrderCustomerInfoSource,
 } from "./utils/work-order-customer-info";
+
+export {
+  ADMIN_MATERIAL_LOCKED_STATUSES,
+  isAdminMaterialLocked,
+} from "./domain/work-order-material-status";

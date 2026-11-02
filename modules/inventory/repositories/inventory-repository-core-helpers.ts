@@ -5,6 +5,7 @@ import type {
   BarangDetail,
   BarangMasukWithRelations,
   BarangKeluarWithRelations,
+  SaringanSiteMutasiBarang,
   UpdateBarangInput,
 } from "../domain/ports/IInventoryOperationRepository";
 import type { CreateInventoryBarangData } from "../domain/ports/IInventoryOperationRepository";
@@ -143,11 +144,19 @@ export async function updateInventoryBarang(
   });
 }
 
-/** Ambil detail barang lengkap untuk halaman detail inventory. */
-export async function findInventoryBarangDetail(db: PrismaClient, id: string) {
+/**
+ * Detail barang beserta 10 mutasi terbaru per jenis. Mutasi disaring ke gudang
+ * di dalam `saringan` di level query, supaya "10 terbaru" berarti 10 terbaru
+ * yang boleh dilihat, bukan 10 terbaru seluruh tenant yang lalu dipangkas.
+ */
+export async function findInventoryBarangDetail(
+  db: PrismaClient,
+  id: string,
+  saringan: SaringanSiteMutasiBarang = {},
+) {
   const result = await db.barang.findUnique({
     where: { id },
-    include: buildBarangDetailInclude(),
+    include: buildBarangDetailInclude(saringan),
   });
 
   if (!result) {
@@ -157,34 +166,45 @@ export async function findInventoryBarangDetail(db: PrismaClient, id: string) {
   return mapToBarangDetail(result);
 }
 
-function buildBarangDetailInclude() {
+const JUMLAH_MUTASI_TERBARU = 10;
+
+/** Klausa `where` mutasi untuk gudang di site-site ini; `[]` tidak cocok apa pun. */
+function whereGudangDiSite(siteIds: string[] | undefined) {
+  if (!siteIds) return undefined;
+  return { gudang: { sites: { some: { id: { in: siteIds } } } } };
+}
+
+function buildBarangDetailInclude(saringan: SaringanSiteMutasiBarang) {
   return {
     // `sites` dipakai untuk menyaring stok ke lingkup site pengguna.
     barangGudang: {
       include: { gudang: { include: { sites: { select: { id: true } } } } },
     },
     barang_masuk: {
+      where: whereGudangDiSite(saringan.masuk),
       include: {
         gudang: { select: { id: true, nama: true } },
         user: { select: { id: true, name: true } },
       },
       orderBy: { tanggal: "desc" as const },
-      take: 10,
+      take: JUMLAH_MUTASI_TERBARU,
     },
     barang_keluar: {
+      where: whereGudangDiSite(saringan.keluar),
       include: {
         gudang: { select: { id: true, nama: true } },
         user: { select: { id: true, name: true } },
       },
       orderBy: { tanggal: "desc" as const },
-      take: 10,
+      take: JUMLAH_MUTASI_TERBARU,
     },
     stockOpname: {
+      where: whereGudangDiSite(saringan.opname),
       include: {
         gudang: { select: { id: true, nama: true } },
       },
       orderBy: { tanggal: "desc" as const },
-      take: 10,
+      take: JUMLAH_MUTASI_TERBARU,
     },
   };
 }

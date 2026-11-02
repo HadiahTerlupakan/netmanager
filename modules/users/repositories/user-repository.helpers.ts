@@ -157,12 +157,13 @@ export function buildUserNotificationWhere(
 function buildUserFindAllWhere(params: FindUsersParams): Prisma.UserWhereInput {
   const where: Prisma.UserWhereInput = {};
 
-  if (params.siteId) {
+  if (params.siteIds?.length) {
+    const siteIds = [...params.siteIds];
     where.AND = [
       {
         OR: [
-          { siteId: params.siteId },
-          { userSites: { some: { siteId: params.siteId } } },
+          { siteId: { in: siteIds } },
+          { userSites: { some: { siteId: { in: siteIds } } } },
         ],
       },
     ];

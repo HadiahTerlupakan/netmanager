@@ -10,7 +10,10 @@ vi.mock("@/lib/api", () => ({
   createHandler:
     (_o: unknown, handler: (req: unknown, ctx: unknown) => unknown) =>
     (req: unknown) =>
-      handler(req, { session: { user: { id: "u1", tenantId: "t1" } } }),
+      handler(req, {
+        session: { user: { id: "u1", tenantId: "t1" } },
+        permissions: [],
+      }),
   apiSuccess: (data: unknown, options?: { status?: number }) =>
     NextResponse.json({ success: true, data }, { status: options?.status }),
   apiError: (
@@ -43,6 +46,7 @@ vi.mock("@/modules/network", async () => {
     await import("@/modules/network/services/mikrotik-router.access");
   return {
     ...errors,
+    isRestrictedToOwnRouterSite: access.isRestrictedToOwnRouterSite,
     vpnConfiguredGuard: http.vpnConfiguredGuard,
     vpnErrorResponse: http.vpnErrorResponse,
     isVpnError: http.isVpnError,

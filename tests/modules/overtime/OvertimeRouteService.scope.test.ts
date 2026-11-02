@@ -23,6 +23,8 @@ const SESSION = {
 function buildService(currentUser: {
   siteId: string | null;
   departmentId: string | null;
+  /** Seluruh site admin (userSites); bawaan: hanya site utamanya. */
+  siteIds?: string[];
 }) {
   const overtimeService = {
     findAll: vi.fn().mockResolvedValue([]),
@@ -36,7 +38,14 @@ function buildService(currentUser: {
     approveRequest: vi.fn().mockResolvedValue({}),
     deleteOvertime: vi.fn(),
   };
-  const userLookup = { findById: vi.fn().mockResolvedValue(currentUser) };
+  const userLookup = {
+    findById: vi.fn().mockResolvedValue(currentUser),
+    findAccessAssignmentById: vi.fn().mockResolvedValue({
+      siteIds:
+        currentUser.siteIds ?? (currentUser.siteId ? [currentUser.siteId] : []),
+      departmentId: currentUser.departmentId,
+    }),
+  };
   const service = new OvertimeRouteService(
     overtimeService as never,
     userLookup as never,
@@ -96,8 +105,57 @@ describe("OvertimeRouteService — lingkup site/departemen", () => {
     });
 
     expect(overtimeService.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({ siteId: { in: ["site-a"] } }),
+    );
+  });
+
+  // Regresi multi-site: lingkup dulu hanya site utama admin.
+  it("admin multi-site melihat lembur SELURUH site-nya", async () => {
+    mocks.getUserPermissions.mockResolvedValue(["lembur:site_only"]);
+    const { service, overtimeService } = buildService({
+      siteId: "site-b",
+      siteIds: ["site-b", "site-a"],
+      departmentId: null,
+    });
+
+    await service.getAdminList({ session: SESSION, page: 1, limit: 10 });
+
+    expect(overtimeService.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({ siteId: { in: ["site-b", "site-a"] } }),
+    );
+  });
+
+  it("admin multi-site boleh mempersempit ke site keduanya", async () => {
+    mocks.getUserPermissions.mockResolvedValue(["lembur:site_only"]);
+    const { service, overtimeService } = buildService({
+      siteId: "site-b",
+      siteIds: ["site-b", "site-a"],
+      departmentId: null,
+    });
+
+    await service.getAdminList({
+      session: SESSION,
+      page: 1,
+      limit: 10,
+      siteId: "site-a",
+    });
+
+    expect(overtimeService.findAll).toHaveBeenCalledWith(
       expect.objectContaining({ siteId: "site-a" }),
     );
+  });
+
+  it("admin multi-site boleh menyetujui lembur di site keduanya", async () => {
+    mocks.getUserPermissions.mockResolvedValue(["lembur:site_only"]);
+    const { service, overtimeService } = buildService({
+      siteId: "site-b",
+      siteIds: ["site-b", "site-a"],
+      departmentId: null,
+    });
+
+    await service.approve({ id: "ot-1", session: SESSION });
+
+    expect(overtimeService.approveRequest).toHaveBeenCalled();
   });
 
   it("admin di site lain ditolak saat menghapus", async () => {

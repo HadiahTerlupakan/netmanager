@@ -6,6 +6,7 @@ const mockFns = vi.hoisted(() => ({
   workOrdersFindFirst: vi.fn(),
   workOrdersUpdate: vi.fn(),
   workOrdersUpdateMany: vi.fn(),
+  workOrdersCount: vi.fn(),
   workOrderAssignmentsFindFirst: vi.fn(),
   workOrderAssignmentsCreate: vi.fn(),
   workOrderUpdatesCreate: vi.fn(),
@@ -64,6 +65,7 @@ vi.mock("@/modules/database", () => ({
       findFirst: mockFns.workOrdersFindFirst,
       update: mockFns.workOrdersUpdate,
       updateMany: mockFns.workOrdersUpdateMany,
+      count: mockFns.workOrdersCount,
     },
     workOrderAssignments: {
       findFirst: mockFns.workOrderAssignmentsFindFirst,
@@ -132,6 +134,7 @@ describe("mobile work orders available route", () => {
       tenantId: "tenant-1",
     });
     mockFns.workOrdersUpdateMany.mockResolvedValue({ count: 1 });
+    mockFns.workOrdersCount.mockResolvedValue(1);
     mockFns.workOrderAssignmentsFindFirst.mockResolvedValue(null);
     mockFns.workOrderAssignmentsCreate.mockResolvedValue({
       id: "assignment-1",
@@ -191,5 +194,39 @@ describe("mobile work orders available route", () => {
     );
     expect(mockFns.workOrderUpdatesCreate).not.toHaveBeenCalled();
     expect(mockFns.notifyAdminsAboutMobileAction).not.toHaveBeenCalled();
+  });
+
+  it("menolak klaim WO garansi milik teknisi lain dengan aturan yang sama dengan daftar", async () => {
+    // Tidak ada WO yang cocok dengan aturan garansi untuk teknisi ini.
+    mockFns.workOrdersCount.mockResolvedValueOnce(0);
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/work-orders/available", {
+        method: "POST",
+        body: JSON.stringify({ workOrderId: "wo-1" }),
+        headers: { "content-type": "application/json" },
+      }),
+      { session } as never,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({ success: false, code: "WO_ACCESS_DENIED" }),
+    );
+    const [countArgs] = mockFns.workOrdersCount.mock.calls[0];
+    expect(countArgs.where.AND[0]).toEqual({
+      id: "wo-1",
+      tenantId: "tenant-1",
+    });
+    expect(countArgs.where.AND[1].OR).toEqual(
+      expect.arrayContaining([
+        { isWarranty: false },
+        expect.objectContaining({
+          isWarranty: true,
+          OR: expect.arrayContaining([{ warrantyOwnerId: "tech-1" }]),
+        }),
+      ]),
+    );
+    expect(mockFns.workOrdersUpdateMany).not.toHaveBeenCalled();
   });
 });

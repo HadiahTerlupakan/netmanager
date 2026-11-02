@@ -113,24 +113,15 @@ export class AdminUserRouteUpdateService {
     return { ok: true, data };
   }
 
-  /** Simpan update user dan assignment multi-site dalam satu transaksi. */
+  /**
+   * Simpan update user dan assignment multi-site dalam satu transaksi.
+   * Lingkup site sudah ditegakkan `validateUpdate` (`validateScopedUpdate`).
+   */
   async persistUpdate(
     userId: string,
     data: Prisma.UserUncheckedUpdateInput,
     userSites: UpdateUserPayload["userSites"],
-    allowedSiteIds?: string[],
   ): Promise<void> {
-    if (userSites && allowedSiteIds && allowedSiteIds.length > 0) {
-      const invalidSites = userSites.filter(
-        (userSite) => !allowedSiteIds.includes(userSite.siteId),
-      );
-      if (invalidSites.length > 0) {
-        throw new Error(
-          "Anda tidak dapat menambahkan user ke site di luar scope Anda",
-        );
-      }
-    }
-
     await userRepository.updateWithSites(userId, data, userSites);
   }
 

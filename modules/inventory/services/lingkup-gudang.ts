@@ -47,20 +47,34 @@ interface LingkupGudangInput extends LingkupGudangPenggunaInput {
   gudangId: string;
 }
 
+/** Masukan keputusan pembatasan site: izin pengguna dan daftar pembatas endpoint. */
+export type PembatasanSiteInput = Pick<
+  LingkupGudangPenggunaInput,
+  "permissions" | "isSuperAdmin" | "izinPembatas"
+>;
+
+/**
+ * Satu-satunya aturan "apakah pengguna dibatasi ke site-nya sendiri" untuk
+ * inventory: super admin tidak pernah dibatasi; selain itu dibatasi bila
+ * memegang SALAH SATU permission pembatas, dicocokkan persis (role wildcard
+ * `*` tidak dianggap dibatasi).
+ */
+export function isDibatasiSite(input: PembatasanSiteInput): boolean {
+  if (input.isSuperAdmin) return false;
+  return hasAnyScopeRestriction([...input.permissions], input.izinPembatas);
+}
+
 /**
  * Lingkup site pengguna untuk satu endpoint inventory.
  *
- * Pengguna dibatasi bila memegang SALAH SATU permission pembatas endpoint itu.
- * Pengguna yang dibatasi tetapi tanpa site mendapat lingkup kosong — bukan
- * "tanpa batas" — sehingga pemanggil gagal-tertutup.
+ * Pengguna yang dibatasi (lihat {@link isDibatasiSite}) tetapi tanpa site
+ * mendapat lingkup kosong — bukan "tanpa batas" — sehingga pemanggil
+ * gagal-tertutup.
  */
 export async function lingkupSiteGudang(
   input: LingkupGudangPenggunaInput,
 ): Promise<LingkupSite> {
-  if (input.isSuperAdmin) return TANPA_BATAS;
-  if (!hasAnyScopeRestriction([...input.permissions], input.izinPembatas)) {
-    return TANPA_BATAS;
-  }
+  if (!isDibatasiSite(input)) return TANPA_BATAS;
   return { dibatasi: true, siteIds: await siteIdsPengguna(input.userId) };
 }
 

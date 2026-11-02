@@ -11,7 +11,7 @@ import {
 /**
  * GET ?gudangId=&periode=YYYY-MM — jejak perubahan catatan stock opname satu
  * gudang pada bulan itu: siapa mengubah apa, dan kapan.
- * Pengguna `opname:site_only` hanya bisa membaca gudang di site-nya.
+ * Pengguna yang dibatasi per site (`IZIN_PEMBATAS_OPNAME`) hanya bisa membaca gudang di site-nya.
  */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
   if (!(await hasPermission("opname:read")))
@@ -28,11 +28,12 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   try {
     const service = getStockOpnameJadwalService();
-    const isSiteOnly =
-      !isSuperAdmin(user) && (await hasPermission("opname:site_only"));
-    const siteIds = isSiteOnly
-      ? await service.getSiteIdsPengguna(user.tenantId, user.id)
-      : null;
+    const siteIds = await service.getSiteIdsLingkupOpname({
+      tenantId: user.tenantId,
+      userId: user.id,
+      permissions: ctx.permissions,
+      isSuperAdmin: isSuperAdmin(user),
+    });
     const riwayat = await service.getRiwayatGudang({
       tenantId: user.tenantId,
       gudangId,

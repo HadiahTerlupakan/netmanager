@@ -4,12 +4,15 @@ import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { calculateAttendanceStatus } from "../utils/attendanceStatus";
 import type { AttendanceUpdate } from "../validators/attendance";
 import { AttendanceSettingsService } from "./AttendanceSettingsService";
-import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
+import {
+  resolveAdminScope,
+  scopeTanpaData,
+  siteDalamScope,
+} from "./AdminScopeResolver";
 import type {
   AdminAttendanceUser,
   AttendanceUpdateInput,
   DetailResult,
-  RestrictedScope,
   SessionUser,
 } from "./admin-attendance-detail-route.types";
 
@@ -30,32 +33,20 @@ function getScheduledStartTime(user: AdminAttendanceUser) {
   return user.startWorkTime ?? null;
 }
 
-async function getRestrictedScope(user: SessionUser): Promise<RestrictedScope> {
-  const scope = await resolveAdminScope(user, {
-    siteOnly: "attendance:site_only",
-    departmentOnly: "attendance:department_only",
-  });
-
-  if (scope.isSuperAdmin) return null;
-
-  return {
-    siteId: scope.siteId ?? null,
-    departmentId: scope.departmentId ?? null,
-    tanpaData: scopeTanpaData(scope),
-  };
-}
-
 async function isOutsideScope(
   attendanceUser: { siteId?: string | null; departmentId?: string | null },
   user: SessionUser,
 ) {
-  const scope = await getRestrictedScope(user);
-  if (!scope) return false;
-  // Dibatasi tanpa site/departemen: semua data di luar lingkup. Sebelumnya
-  // `scope.siteId` kosong membuat perbandingan ini dilewati, sehingga absensi
-  // site lain bisa dibaca, diubah, bahkan dihapus.
-  if (scope.tanpaData) return true;
-  if (scope.siteId && attendanceUser.siteId !== scope.siteId) return true;
+  const scope = await resolveAdminScope(user, {
+    siteOnly: "attendance:site_only",
+    departmentOnly: "attendance:department_only",
+  });
+  if (scope.isSuperAdmin) return false;
+  // Dibatasi tanpa site/departemen: semua data di luar lingkup.
+  if (scopeTanpaData(scope)) return true;
+  // Site pemilik absensi harus salah satu site admin (multi-site), bukan
+  // hanya site utamanya.
+  if (!siteDalamScope(scope, attendanceUser.siteId)) return true;
   return Boolean(
     scope.departmentId && attendanceUser.departmentId !== scope.departmentId,
   );

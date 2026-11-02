@@ -1,6 +1,10 @@
 import { Prisma, type WorkOrderType } from "@prisma/client";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import type { TopPerformer } from "../domain/ports/IWorkOrderRepository";
+import {
+  buildSiteScopeWhere,
+  type WorkOrderSiteScope,
+} from "./work-order-site-scope";
 
 const COMPLETED_WORK_ORDER_STATUSES = [
   "COMPLETED",
@@ -21,7 +25,7 @@ type CompletionWindow = {
   dateFrom?: Date;
   dateTo?: Date;
   departmentId?: string;
-  siteId?: string;
+  siteIds?: WorkOrderSiteScope;
 };
 
 /** Build completed work order filter for performer queries. */
@@ -36,9 +40,7 @@ export function buildCompletedWorkOrderWhere(
     where.departmentId = params.departmentId;
   }
 
-  if (params.siteId) {
-    where.siteId = params.siteId;
-  }
+  Object.assign(where, buildSiteScopeWhere(params.siteIds));
 
   if (params.dateFrom || params.dateTo) {
     where.completedAt = buildCompletedAtFilter(params.dateFrom, params.dateTo);

@@ -7,7 +7,8 @@ const mockFns = vi.hoisted(() => ({
   sitesCount: vi.fn(),
 }));
 
-vi.mock("@/modules/roles", () => ({
+vi.mock("@/modules/roles", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/roles")>()),
   checkSiteRestriction: mockFns.checkSiteRestriction,
 }));
 

@@ -1,3 +1,4 @@
+import type { LiveMapUserFilter } from "../domain/entities/LocationTrackingEntity";
 import { logger } from "@/lib/logger";
 import { getTimezone } from "@/lib/utils/get-timezone";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
@@ -36,7 +37,7 @@ export class ActiveAttendanceSessionService {
   async findActiveSessions(input: {
     timezoneTenantId?: string;
     tenantId?: string;
-    userFilter?: { siteId?: string; departmentId?: string };
+    userFilter?: LiveMapUserFilter;
   }): Promise<LiveMapSessionRow[]> {
     const now = new Date();
     const timezone = await getTimezone(input.timezoneTenantId);

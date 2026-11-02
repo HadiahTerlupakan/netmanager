@@ -8,6 +8,7 @@ import {
 import { hasPermission } from "@/lib/rbac";
 import { isSuperAdmin } from "@/lib/auth";
 import {
+  isRestrictedToOwnRouterSite,
   isVpnError,
   MikroTikRouterService,
   RouterAccessDeniedError,
@@ -35,10 +36,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     result = await routerService.testConnection({
       tenantId: ctx.session!.user.tenantId,
       userId: ctx.session!.user.id,
-      // Dicocokkan persis: role `*` non-super tidak dianggap dibatasi.
-      restrictedToOwnSite:
-        !isSuperAdmin(ctx.session!.user) &&
-        ctx.permissions.includes("mikrotik:site_only"),
+      restrictedToOwnSite: isRestrictedToOwnRouterSite({
+        isSuperAdmin: isSuperAdmin(ctx.session!.user),
+        permissions: ctx.permissions,
+      }),
       routerId,
       vpnDraftId:
         typeof body.vpnDraftId === "string" ? body.vpnDraftId : undefined,

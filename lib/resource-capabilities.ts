@@ -9,10 +9,18 @@
  * - create: Membuat data baru
  * - update: Mengubah data yang ada
  * - delete: Menghapus data
- * - site_only: Restricsi hanya data site sendiri
- * - department_only: Restricsi hanya data department sendiri
+ * - site_only: Batasi ke data site sendiri
+ * - department_only: Batasi ke data departemen sendiri
  * - cancel: Membatalkan (khusus Work Order)
  * - verify: Memverifikasi (khusus Work Order)
+ *
+ * Aksi pembatasan (`site_only`, `department_only`) HANYA tampil bila
+ * dideklarasikan eksplisit di entri resource-nya — default tidak pernah
+ * menawarkannya. Toggle pembatasan yang tidak dibaca backend menipu pemilik
+ * role: ia menyalakan "Batasi ke Site Sendiri", yakin datanya terbatas, padahal
+ * tidak terjadi apa-apa. Deklarasikan pembatasan hanya bersamaan dengan kode
+ * yang menegakkannya; `tests/architecture/katalog-toggle-pembatasan.test.ts`
+ * menggagalkan build bila katalog menawarkan toggle yang tidak dibaca siapa pun.
  */
 
 export type ResourceAction =
@@ -60,15 +68,19 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
       "approve",
       "mark_paid",
       "view_all",
-      "site_only",
-      "department_only",
     ],
     description: "Manajemen Daftar Gaji",
   },
   salary_users: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    actions: ["read", "create", "update", "delete"],
     description: "Manajemen Karyawan Digaji & Pengaturan Gaji Individu",
   },
+
+  // Resource di bawah yang hanya memuat aksi kemampuan (tanpa `site_only`/
+  // `department_only`) — salary, salary_users, login, activity, daily_income,
+  // period_income, profit_loss, procurement, map, network, acs_* — dulu
+  // menawarkan toggle pembatasan yang tidak dibaca kode mana pun (snapshot
+  // 2026-11-03). Tambahkan kembali hanya bersama penegakannya.
 
   // ====== READ-ONLY RESOURCES ======
   // Hanya bisa lihat data, tidak ada CRUD
@@ -92,11 +104,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Log aktivitas sistem",
   },
   login: {
-    actions: ["read", "site_only"],
+    actions: ["read"],
     description: "Log riwayat login",
   },
   activity: {
-    actions: ["read", "site_only"],
+    actions: ["read"],
     description: "Log riwayat aktivitas pengguna",
   },
   report: {
@@ -104,15 +116,15 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Laporan kehadiran",
   },
   daily_income: {
-    actions: ["read", "site_only"],
+    actions: ["read"],
     description: "Pendapatan harian",
   },
   period_income: {
-    actions: ["read", "site_only"],
+    actions: ["read"],
     description: "Pendapatan periodik",
   },
   profit_loss: {
-    actions: ["read", "site_only"],
+    actions: ["read"],
     description: "Laporan rugi laba",
   },
 
@@ -226,7 +238,7 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
 
   // ====== PROCUREMENT MODULE ======
   procurement: {
-    actions: ["read", "create", "update", "delete", "verify", "site_only"], // Approve = verify
+    actions: ["read", "create", "update", "delete", "verify"], // Approve = verify
     description: "Manajemen pengadaan barang (PO)",
   },
   supplier: {
@@ -251,6 +263,8 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Work Order",
   },
   list: {
+    // Tanpa aksi pembatasan: `list:*_only` hanya alias izin, sedangkan
+    // pembatasan dicocokkan persis — yang dibaca adalah `workorders:*_only`.
     actions: [
       "read",
       "create",
@@ -260,8 +274,6 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
       "verify",
       "reminder",
       "approve_request",
-      "site_only",
-      "department_only",
     ],
     description: "Daftar Work Order",
   },
@@ -314,11 +326,11 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
 
   // ====== NETWORK ======
   map: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    actions: ["read", "create", "update", "delete"],
     description: "Manajemen Peta Jaringan (ODP/ODC/Fiber)",
   },
   network: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    actions: ["read", "create", "update", "delete"],
     description: "Menu network (parent)",
   },
   mikrotik: {
@@ -334,19 +346,41 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     description: "Radius server",
   },
   acs_dashboard: {
-    actions: ["read", "site_only"],
+    actions: ["read"],
     description: "Dashboard ACS",
   },
   acs_mapping: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    actions: ["read", "create", "update", "delete"],
     description: "Pemetaan perangkat OLT/ONT",
   },
   acs_devices: {
-    actions: ["read", "create", "update", "delete", "site_only"],
+    actions: ["read", "create", "update", "delete"],
     description: "Semua device ONT di ACS",
   },
 
+  // ====== PAKET ======
+  // Entri eksplisit karena default tidak lagi menawarkan pembatasan.
+  // `site_only` dibaca lewat `checkSiteRestriction(..., "<resource>")`.
+  bandwidth: {
+    actions: ["read", "create", "update", "delete", "site_only"],
+    description: "Paket bandwidth",
+  },
+  profileppp: {
+    actions: ["read", "create", "update", "delete", "site_only"],
+    description: "Profile PPP",
+  },
+  harga: {
+    actions: ["read", "create", "update", "delete", "site_only"],
+    description: "Harga paket",
+  },
+
   // ====== PELANGGAN ======
+  ppp: {
+    // `ppp:site_only` dibaca bersama `pelanggan:site_only`
+    // (`PELANGGAN_PPP_SITE_ONLY_PERMISSIONS`, `INVOICE_SITE_ONLY_PERMISSIONS`).
+    actions: ["read", "create", "update", "delete", "site_only"],
+    description: "Pelanggan PPP",
+  },
   pelanggan: {
     // `downgrade_paket`: boleh menurunkan pelanggan ke paket yang lebih
     // murah. `update` saja tidak cukup; pelanggan sendiri hanya bisa upgrade.
@@ -414,6 +448,16 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
   accounts: {
     actions: ["read", "create", "update", "delete"],
     description: "Buku kas dan rekening bank",
+  },
+  // `invoices`/`transactions`: `site_only` dibaca lewat
+  // `INVOICE_SITE_ONLY_PERMISSIONS` (lib/api/financial-permissions.ts).
+  invoices: {
+    actions: ["read", "create", "update", "delete", "site_only"],
+    description: "Invoice pelanggan",
+  },
+  transactions: {
+    actions: ["read", "create", "update", "delete", "site_only"],
+    description: "Transaksi keuangan",
   },
   manual_payments: {
     actions: ["read", "create", "update", "delete", "verify", "site_only"],
@@ -583,16 +627,26 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
 };
 
 /**
- * Get available actions for a resource
- * Falls back to all actions if resource not configured
+ * Aksi untuk resource tanpa entri katalog: CRUD saja. Pembatasan lingkup tidak
+ * pernah jatuh dari default — ia wajib dideklarasikan bersama penegakannya.
+ */
+const DEFAULT_RESOURCE_ACTIONS: readonly ResourceAction[] = [
+  "read",
+  "create",
+  "update",
+  "delete",
+];
+
+/**
+ * Aksi yang tersedia (dan digambar matriks role) untuk sebuah resource.
+ * Resource tanpa entri katalog mendapat CRUD tanpa toggle pembatasan.
  */
 export function getResourceCapabilities(resource: string): ResourceAction[] {
   const capability = RESOURCE_CAPABILITIES[resource.toLowerCase()];
   if (capability) {
     return capability.actions;
   }
-  // Default: all actions available
-  return ["read", "create", "update", "delete", "site_only", "department_only"];
+  return [...DEFAULT_RESOURCE_ACTIONS];
 }
 
 /**

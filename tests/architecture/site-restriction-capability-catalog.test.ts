@@ -26,8 +26,10 @@ import {
  * "Batasi ke Site Sendiri" sama sekali, karena entri `site` di katalog cuma
  * berisi read/create/update/delete.
  *
- * Resource tanpa entri katalog aman: `getResourceCapabilities` jatuh ke default
- * yang sudah memuat kedua aksi pembatasan.
+ * Resource tanpa entri katalog TIDAK mendapat toggle pembatasan: default
+ * `getResourceCapabilities` hanya CRUD. Test ini menggagalkan build bila backend
+ * membaca `<resource>:site_only` / `<resource>:department_only` untuk resource
+ * yang belum mendeklarasikan aksi itu di katalog.
  */
 const SEARCH_ROOTS = ["app", "modules", "lib"];
 

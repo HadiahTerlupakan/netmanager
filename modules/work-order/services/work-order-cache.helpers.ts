@@ -101,15 +101,22 @@ function createEmptyCacheStats(): CacheStats {
   };
 }
 
+/** Lingkup yang membedakan cache dashboard antar pengguna terbatas. */
+export interface DashboardCacheScope {
+  departmentId?: string;
+  siteIds?: readonly string[];
+}
+
 export function getDashboardCacheKey(
   prefix: string,
   userId: string,
   period: string,
-  options?: { departmentId?: string; siteId?: string },
+  options?: DashboardCacheScope,
 ): string {
   const parts = [prefix, "dashboard", userId, period];
   if (options?.departmentId) parts.push(`dept:${options.departmentId}`);
-  if (options?.siteId) parts.push(`site:${options.siteId}`);
+  if (options?.siteIds)
+    parts.push(`site:${[...options.siteIds].sort().join(",")}`);
   return parts.join(":");
 }
 

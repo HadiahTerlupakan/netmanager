@@ -149,6 +149,27 @@ export function getScheduledTimeStart(date: Date) {
   });
 }
 
+/**
+ * Aturan siapa yang boleh mengambil WO garansi: WO non-garansi bebas; WO
+ * garansi hanya untuk pemilik garansinya (`warrantyOwnerId`) sampai SLA
+ * garansinya lewat. Satu-satunya sumber aturan ini — daftar WO tersedia dan
+ * kedua jalur klaim mobile memakainya.
+ */
+export function buildWarrantyClaimableWhere(
+  actorId: string,
+  now: Date = new Date(),
+): Prisma.WorkOrdersWhereInput {
+  return {
+    OR: [
+      { isWarranty: false },
+      {
+        isWarranty: true,
+        OR: [{ warrantySla: { lt: now } }, { warrantyOwnerId: actorId }],
+      },
+    ],
+  };
+}
+
 function getBaseAvailableWhere(
   tenantId: string,
   userId: string,
@@ -158,12 +179,6 @@ function getBaseAvailableWhere(
     assignedToId: null as string | null,
     assignedMitraId: null as string | null,
     tenantId,
-    OR: [
-      { isWarranty: false },
-      {
-        isWarranty: true,
-        OR: [{ warrantySla: { lt: new Date() } }, { warrantyOwnerId: userId }],
-      },
-    ],
+    ...buildWarrantyClaimableWhere(userId),
   };
 }

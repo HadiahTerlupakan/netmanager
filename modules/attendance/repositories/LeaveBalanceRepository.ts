@@ -14,7 +14,8 @@ export const DEFAULT_LEAVE_QUOTAS: Record<LeaveType, number> = {
 
 type LeaveBalanceFilters = {
   departmentId?: string;
-  siteId?: string;
+  /** Site utama pegawai harus salah satu dari ini (lingkup site admin). */
+  siteIds?: readonly string[];
   tenantId?: string;
 };
 
@@ -232,17 +233,18 @@ export class LeaveBalanceRepository implements ILeaveBalanceRepository {
     const where: {
       year: number;
       tenantId?: string;
-      user?: { departmentId?: string; siteId?: string };
+      user?: { departmentId?: string; siteId?: { in: string[] } };
     } = {
       year,
       tenantId: filters?.tenantId,
     };
 
-    if (!filters?.departmentId && !filters?.siteId) return where;
+    const siteIds = filters?.siteIds;
+    if (!filters?.departmentId && !siteIds) return where;
 
     where.user = {
-      ...(filters.departmentId ? { departmentId: filters.departmentId } : {}),
-      ...(filters.siteId ? { siteId: filters.siteId } : {}),
+      ...(filters?.departmentId ? { departmentId: filters.departmentId } : {}),
+      ...(siteIds ? { siteId: { in: [...siteIds] } } : {}),
     };
     return where;
   }

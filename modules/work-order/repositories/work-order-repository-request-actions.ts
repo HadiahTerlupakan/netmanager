@@ -3,6 +3,7 @@ import type { WorkOrders } from "@prisma/client";
 import type {
   AddUpdateData,
   CreateWorkOrderData,
+  WorkOrderRequestFilters,
   WorkOrderWithRelations,
 } from "../domain/ports/IWorkOrderRepository";
 import {
@@ -134,7 +135,7 @@ function buildRequestStatusUpdate(input: {
 
 export function findAllWorkOrderRequests(input: {
   prisma: PrismaInstance;
-  filters?: { departmentId?: string; siteId?: string; search?: string };
+  filters?: WorkOrderRequestFilters;
   page: number;
   limit: number;
 }) {

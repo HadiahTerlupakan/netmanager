@@ -1,6 +1,11 @@
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/auth";
+import { filterSitePrisma } from "@/modules/roles/client";
 import { UserLookupService } from "@/modules/users";
-import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
+import {
+  resolveAdminScope,
+  scopeTanpaData,
+  siteDalamScope,
+} from "./AdminScopeResolver";
 
 import {
   getLeaveService,
@@ -24,13 +29,6 @@ const SITE_FORBIDDEN_MESSAGE = "Dibatasi hanya untuk Site Anda";
 const DEPARTMENT_FORBIDDEN_MESSAGE = "Dibatasi hanya untuk Departemen Anda";
 
 /** Service untuk thin controller route admin leave. */
-/**
- * Site yang tidak pernah cocok dengan baris mana pun. Dipakai saat pengguna
- * dibatasi tetapi tidak punya site: lingkupnya harus kosong hasilnya, bukan
- * kosong filternya.
- */
-const TANPA_SITE_COCOK = "__tanpa_site__";
-
 export class AdminLeaveRouteService {
   private readonly leaveService = getLeaveService();
   private readonly userRepository: UserLookupService;
@@ -141,20 +139,29 @@ export class AdminLeaveRouteService {
     >;
   }
 
-  /** Resolve scope filter untuk list admin. */
-  private async resolveScope(session: AdminLeaveSession) {
+  /**
+   * Filter lingkup untuk list admin. Dibatasi tanpa site/departemen → daftar
+   * site kosong (`{ in: [] }`), sehingga hasilnya kosong, bukan tanpa filter.
+   */
+  private async resolveScope(
+    session: AdminLeaveSession,
+  ): Promise<Pick<LeaveFilters, "siteIds" | "departmentId">> {
     if (isSuperAdmin(session.user)) return {};
-    const accessContext = await this.getAccessContext(session);
-    return this.buildResolvedScope(accessContext);
+    const { scope, tanpaData } = await this.getAccessContext(session);
+    if (tanpaData) return { siteIds: [] };
+    return {
+      siteIds: filterSitePrisma(scope.lingkupSite)?.in,
+      departmentId: scope.departmentId,
+    };
   }
 
   private buildLeaveFilters(
     input: AdminLeaveListInput,
-    scope: Partial<LeaveScopeTarget>,
+    scope: Pick<LeaveFilters, "siteIds" | "departmentId">,
   ) {
     return {
       ...(input.status ? { status: input.status } : {}),
-      ...(scope.siteId ? { siteId: scope.siteId } : {}),
+      ...(scope.siteIds ? { siteIds: scope.siteIds } : {}),
       ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
       tenantId: input.tenantId,
     } as LeaveFilters;
@@ -177,55 +184,15 @@ export class AdminLeaveRouteService {
   private async getAccessContext(
     session: AdminLeaveSession,
   ): Promise<AccessContext> {
-    if (isSuperAdmin(session.user)) return this.createSuperAdminAccessContext();
-
-    const [permissions, scope] = await Promise.all([
-      getUserPermissions(session.user.id),
-      resolveAdminScope(
-        session.user,
-        {
-          siteOnly: SITE_ONLY_PERMISSION,
-          departmentOnly: DEPARTMENT_ONLY_PERMISSION,
-        },
-        this.userRepository,
-      ),
-    ]);
-
-    return {
-      permissions,
-      currentUser: {
-        siteId: scope.siteId ?? null,
-        departmentId: scope.departmentId ?? null,
+    const scope = await resolveAdminScope(
+      session.user,
+      {
+        siteOnly: SITE_ONLY_PERMISSION,
+        departmentOnly: DEPARTMENT_ONLY_PERMISSION,
       },
-      tanpaData: scopeTanpaData(scope),
-    };
-  }
-
-  private buildResolvedScope(accessContext: AccessContext) {
-    // Dibatasi tanpa site/departemen: tidak ada izin yang boleh tampil.
-    // Sebelumnya cabang ini menghasilkan lingkup kosong, yang terbaca sebagai
-    // "tanpa batas" dan membuka seluruh tenant — termasuk menyetujui dan
-    // menghapus izin milik site lain.
-    if (accessContext.tanpaData) return { siteId: TANPA_SITE_COCOK };
-
-    return {
-      ...(accessContext.permissions.includes(SITE_ONLY_PERMISSION) &&
-      accessContext.currentUser.siteId
-        ? { siteId: accessContext.currentUser.siteId }
-        : {}),
-      ...(accessContext.permissions.includes(DEPARTMENT_ONLY_PERMISSION) &&
-      accessContext.currentUser.departmentId
-        ? { departmentId: accessContext.currentUser.departmentId }
-        : {}),
-    };
-  }
-
-  private createSuperAdminAccessContext(): AccessContext {
-    return {
-      permissions: [],
-      tanpaData: false,
-      currentUser: { siteId: null, departmentId: null },
-    };
+      this.userRepository,
+    );
+    return { scope, tanpaData: scopeTanpaData(scope) };
   }
 
   private extractLeaveScopeTarget(leaveData: unknown): LeaveScopeTarget {
@@ -273,19 +240,14 @@ export class AdminLeaveRouteService {
     accessContext: AccessContext,
     target: LeaveScopeTarget,
   ) {
-    return (
-      accessContext.permissions.includes(SITE_ONLY_PERMISSION) &&
-      target.siteId !== accessContext.currentUser.siteId
-    );
+    return !siteDalamScope(accessContext.scope, target.siteId);
   }
 
   private isOutsideDepartmentScope(
     accessContext: AccessContext,
     target: LeaveScopeTarget,
   ) {
-    return (
-      accessContext.permissions.includes(DEPARTMENT_ONLY_PERMISSION) &&
-      target.departmentId !== accessContext.currentUser.departmentId
-    );
+    const { departmentId } = accessContext.scope;
+    return departmentId !== undefined && target.departmentId !== departmentId;
   }
 }

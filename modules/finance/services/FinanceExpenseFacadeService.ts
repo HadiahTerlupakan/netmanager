@@ -2,6 +2,8 @@ import { randomUUID } from "crypto";
 import { publishExpenseRecorded } from "./expense-journal-events";
 import { Prisma } from "../repositories/prisma-boundary";
 import { ExpenseCategoryRepository, ExpenseRepository } from "../repositories";
+import { TANPA_BATAS, type LingkupSite } from "@/modules/roles/client";
+import { buildExpenseSiteWhere } from "./expense-site-scope";
 
 type ExpenseRepo = Pick<
   ExpenseRepository,
@@ -26,9 +28,11 @@ export class FinanceExpenseFacadeService {
     category?: string | null;
     expenseCategoryId?: string | null;
     scope?: string | null;
-    restrictedSiteId?: string | null;
+    /** Lingkup `expense:site_only`; tanpa nilai berarti tidak dibatasi. */
+    siteScope?: LingkupSite;
   }) {
     const where = this.buildExpenseWhere(params);
+    if (!where) return [];
     const expenses = await this.expenseRepo.findManyWithRelations(where);
 
     return expenses.map((expense) => ({
@@ -134,36 +138,21 @@ export class FinanceExpenseFacadeService {
     category?: string | null;
     expenseCategoryId?: string | null;
     scope?: string | null;
-    restrictedSiteId?: string | null;
-  }): Prisma.ExpenseWhereInput {
-    const where: Prisma.ExpenseWhereInput = {};
+    siteScope?: LingkupSite;
+  }): Prisma.ExpenseWhereInput | null {
+    const siteWhere = buildExpenseSiteWhere(
+      params.siteScope ?? TANPA_BATAS,
+      params,
+    );
+    if (!siteWhere) return null;
+
+    const where: Prisma.ExpenseWhereInput = { ...siteWhere };
     if (params.startDate && params.endDate) {
       where.date = { gte: params.startDate, lte: params.endDate };
     }
     if (params.category) where.category = params.category;
     if (params.expenseCategoryId)
       where.expenseCategoryId = params.expenseCategoryId;
-
-    this.applyExpenseScope(where, params);
     return where;
-  }
-
-  private applyExpenseScope(
-    where: Prisma.ExpenseWhereInput,
-    params: {
-      restrictedSiteId?: string | null;
-      scope?: string | null;
-      siteId?: string | null;
-    },
-  ) {
-    if (params.restrictedSiteId) {
-      where.siteId = params.restrictedSiteId;
-      return;
-    }
-    if (params.scope === "general") {
-      where.siteId = null;
-      return;
-    }
-    if (params.siteId) where.siteId = params.siteId;
   }
 }

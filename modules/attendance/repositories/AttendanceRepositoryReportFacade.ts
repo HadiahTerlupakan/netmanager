@@ -1,3 +1,4 @@
+import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { Prisma } from "@prisma/client";
 import { AttendanceCrudRepository } from "./AttendanceCrudRepository";
 import { AttendanceReportDelegates } from "./AttendanceReportDelegates";
@@ -60,7 +61,7 @@ export abstract class AttendanceRepositoryReportFacade {
   async getStatsByDateRange(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.reportDelegates.getStatsByDateRange(
@@ -75,7 +76,7 @@ export abstract class AttendanceRepositoryReportFacade {
   async getEvaluationStatsByDateRange(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.reportDelegates.getEvaluationStatsByDateRange(
@@ -90,7 +91,7 @@ export abstract class AttendanceRepositoryReportFacade {
   async getDailyStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {
@@ -125,7 +126,7 @@ export abstract class AttendanceRepositoryReportFacade {
     startDate: Date,
     endDate: Date,
     limit: number = 5,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.reportDelegates.getTopEmployees(
@@ -142,7 +143,7 @@ export abstract class AttendanceRepositoryReportFacade {
     startDate: Date,
     endDate: Date,
     limit: number = 5,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.reportDelegates.getTopAbsentees(
@@ -158,7 +159,7 @@ export abstract class AttendanceRepositoryReportFacade {
   async getUserAttendanceStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {
@@ -175,7 +176,7 @@ export abstract class AttendanceRepositoryReportFacade {
   async getUserAbsenceStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.reportDelegates.getUserAbsenceStats(
@@ -190,7 +191,7 @@ export abstract class AttendanceRepositoryReportFacade {
   async getUserAttendanceRecords(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.reportDelegates.getUserAttendanceRecords(
@@ -205,7 +206,7 @@ export abstract class AttendanceRepositoryReportFacade {
   async getUserTotalDuration(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.reportDelegates.getUserTotalDuration(
@@ -220,7 +221,7 @@ export abstract class AttendanceRepositoryReportFacade {
   async getUserLateStats(
     startDate: Date,
     endDate: Date,
-    siteId?: string,
+    siteId?: ReportSiteFilter,
     departmentId?: string,
   ) {
     return this.reportDelegates.getUserLateStats(

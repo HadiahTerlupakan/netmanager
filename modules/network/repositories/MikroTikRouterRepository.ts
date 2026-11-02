@@ -105,7 +105,7 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
     pagination: PaginationOptions,
     tenantId: string,
   ): Promise<PaginatedRouterResult> {
-    const { search, siteId } = filters;
+    const { search, siteIds } = filters;
     const { page, limit } = pagination;
     const skip = (page - 1) * limit;
 
@@ -119,8 +119,8 @@ export class MikroTikRouterRepository implements IMikroTikRouterRepository {
       ];
     }
 
-    if (siteId) {
-      whereClause.siteId = siteId;
+    if (siteIds?.length) {
+      whereClause.siteId = { in: siteIds };
     }
 
     const [routers, total] = await Promise.all([

@@ -12,13 +12,10 @@ import {
   getResourceDisplayName,
   type ResourceAction,
 } from "@/lib/resource-capabilities";
-import { getCapabilityActions } from "./role-permission-actions";
+import { getCapabilityActions, SCOPE_ACTIONS } from "./role-permission-actions";
 
 /** Aksi CRUD dalam urutan tampil kartu resource. */
 const CRUD_ACTIONS = ["read", "create", "update", "delete"] as const;
-
-/** Aksi pembatasan jangkauan data (site/departemen). */
-const SCOPE_ACTIONS = ["site_only", "department_only"] as const;
 
 const NON_SPECIAL_ACTIONS: readonly string[] = [
   ...CRUD_ACTIONS,

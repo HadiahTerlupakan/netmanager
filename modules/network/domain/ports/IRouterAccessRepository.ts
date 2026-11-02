@@ -1,5 +1,8 @@
 export interface RouterUserSiteEntity {
+  /** Site legacy/utama pengguna. */
   siteId: string | null;
+  /** Seluruh site pengguna dari tabel `userSites`. */
+  siteIds: string[];
 }
 
 export interface GeneratedApiUserUpdateInput {
@@ -19,7 +22,7 @@ export interface RouterSettingEntity {
 }
 
 export interface IRouterAccessRepository {
-  /** Ambil site user untuk validasi akses router. */
+  /** Ambil site utama dan seluruh `userSites` user untuk validasi akses router. */
   findUserSite(userId: string): Promise<RouterUserSiteEntity | null>;
 
   /** Ambil setting untuk kebutuhan provisioning router. */

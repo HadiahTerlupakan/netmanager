@@ -68,12 +68,4 @@ export class AdminUserPerformanceRouteService {
 
     return buildSalesPerformanceResult({ user, period, salesData });
   }
-
-  /** Get user restriction context for scoped routes. */
-  async getUserRestrictionContext(userId: string) {
-    return prisma.user.findUnique({
-      where: { id: userId },
-      select: { siteId: true, departmentId: true },
-    });
-  }
 }

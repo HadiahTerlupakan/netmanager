@@ -661,3 +661,31 @@
   sudah lolos penjaga ke handler lain yang punya decoding sendiri — di Next, `public/`
   adalah direktori statis, jadi fallthrough untuk `/uploads/` berarti penjaga bisa
   dilewati. Buktikan dengan curl `--path-as-is`, bukan dengan menalar parser URL.
+
+## Izin lingkup dicocokkan persis, izin akses lewat `hasPermission`
+
+- **Konteks (2026-11-03):** banyak rute memakai `hasPermission("x:site_only")`. Karena
+  `hasPermission` mengembangkan `*`, role wildcard non-super keliru dianggap dibatasi;
+  di tempat lain `*` malah dianggap super admin. Dua arah salah dari satu kebingungan.
+- **How to apply:** pertanyaan "boleh melakukan X?" → `hasPermission`. Pertanyaan
+  "dibatasi ke site/departemen?" → `permissions.includes(...)` lewat `lingkupSiteUntuk`
+  / `hasAnyScopeRestriction`, super admin via `isSuperAdmin(user)`. Site pengguna selalu
+  `resolveAllowedSiteIds` (semua `userSites`), bukan `siteId` utama saja.
+
+## Tulis rencana ke `tasks/todo.md` sebelum mengerjakan, juga saat memakai workflow
+
+- **Konteks (2026-11-03):** audit pembatasan site dikerjakan lewat beberapa workflow
+  paralel tanpa rencana di `tasks/todo.md`; rencana baru ditulis setelah user bertanya
+  apakah aturan agent sudah dipatuhi.
+- **How to apply:** untuk task 3+ langkah, tulis checklist ke `tasks/todo.md` sebelum
+  meluncurkan agent/workflow pertama, centang saat tiap putaran selesai, dan tambah
+  bagian Review sebelum melapor selesai.
+
+## Jalankan tes arsitektur sebelum menganggap hasil agen paralel beres
+
+- **Konteks (2026-11-03):** agen paralel masing-masing hijau di tes area, tetapi gabungan
+  hasilnya melanggar `domain-purity` dan `module-public-api` (domain mengimpor
+  `@/modules/roles/client`/`lib`, UI mengimpor `domain/` module lain). Baru ketahuan di
+  suite penuh.
+- **How to apply:** setiap brief agen wajib menyertakan `npx vitest run tests/architecture`
+  dan `npx eslint <file yang diubah>`; orkestrator menjalankan suite penuh sebelum commit.
