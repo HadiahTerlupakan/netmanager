@@ -1,54 +1,40 @@
-import { hasPermission } from "@/lib/rbac";
-import { ChatService, resolveChatActor } from "@/modules/chat";
-import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import * as z from "zod";
+import {
+  ChatService,
+  createConversationSchema,
+  resolveChatActor,
+} from "@/modules/chat";
+import { apiSuccess, createHandler } from "@/lib/api";
+import { chatFailureResponse, parseChatBody } from "@/lib/api/chat-route";
 
-const createConversationSchema = z.object({
-  participantIds: z.array(z.uuid()).min(1, "Minimal 1 peserta"),
-  name: z.string().max(100).optional(),
-});
-
-// GET - Get all conversations for current admin user
+/** Daftar percakapan milik admin yang login. */
 export const GET = createHandler(
-  { auth: true, feature: "chat" },
+  { auth: true, permissions: ["chat:read"], feature: "chat" },
   async (_req, ctx) => {
-    const chatService = new ChatService();
-    const conversations = await chatService.getConversations(
+    const conversations = await new ChatService().getConversations(
       resolveChatActor(ctx.session!.user),
       ctx.session!.user.tenantId as string,
     );
-
     return apiSuccess(conversations);
   },
 );
 
-// POST - Create a new conversation
+/** Buat percakapan baru, atau kembalikan chat langsung yang sudah ada. */
 export const POST = createHandler(
-  {
-    auth: true,
-    schema: createConversationSchema,
-    feature: "chat",
-  },
-  async (_req, ctx) => {
-    // Check permission
-    if (!(await hasPermission("chat:create"))) {
-      return ApiErrors.forbidden(
-        "Anda tidak memiliki akses untuk membuat percakapan",
-      );
-    }
+  { auth: true, permissions: ["chat:create"], feature: "chat" },
+  async (req, ctx) => {
+    const parsed = await parseChatBody(req, createConversationSchema);
+    if (parsed.response) return parsed.response;
 
-    const { participantIds, name } = ctx.validated;
-    const creator = resolveChatActor(ctx.session!.user);
-
-    const chatService = new ChatService();
-    const result = await chatService.createConversation({
-      creator,
+    const { participantIds, name } = parsed.data;
+    const result = await new ChatService().createConversation({
+      creator: resolveChatActor(ctx.session!.user),
       participants: participantIds.map((id) => ({ type: "user", id })),
       tenantId: ctx.session!.user.tenantId as string,
       ...(name ? { name } : {}),
     });
+    if (!result.success) return chatFailureResponse(result);
 
-    return apiSuccess(result, {
+    return apiSuccess(result.data, {
       status: 201,
       message: "Percakapan berhasil dibuat",
     });

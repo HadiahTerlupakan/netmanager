@@ -5,7 +5,6 @@ import { getMobileAuthPayload } from "@/lib/mobile-api-auth";
 import {
   convertAndSaveImage,
   deleteUploadedFile,
-  getR2Settings,
   isImageFile,
 } from "@/lib/utils/image-upload";
 import type { UploadType } from "@/lib/utils/image-upload";
@@ -15,26 +14,13 @@ import {
   subFolderUploadAman,
   tenantJalurUpload,
 } from "@/lib/upload/upload-policy";
+import {
+  isTrustedUploadUrl,
+  resolveAbsoluteUploadUrl,
+} from "@/lib/upload/trusted-upload-url";
 import path from "path";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-/** Check whether target upload URL is trusted for mobile deletion. */
-async function isTrustedMobileUploadUrl(url: URL, request: NextRequest) {
-  const host = request.headers.get("host");
-  const allowedHost = host ? `${url.protocol}//${host}` : null;
-  const isSameHost = allowedHost
-    ? `${url.protocol}//${url.host}` === allowedHost
-    : false;
-  const isRelativeUploadPath = url.pathname.startsWith("/uploads/");
-  const isDefaultR2Url = url.hostname.endsWith(".r2.cloudflarestorage.com");
-  if (!isRelativeUploadPath) return false;
-  if (isSameHost || isDefaultR2Url) return true;
-
-  const r2Settings = await getR2Settings();
-  const publicPrefix = r2Settings?.publicUrl?.replace(/\/$/, "");
-  return publicPrefix ? url.toString().startsWith(`${publicPrefix}/`) : false;
-}
 
 /** Resolve upload base directory by mobile upload type. */
 function resolveUploadDir(type: UploadType) {
@@ -88,14 +74,6 @@ function direktoriUploadTenant(
   return buildTenantUploadDir(baseDir, tenantId);
 }
 
-/** Resolve valid absolute public URL from upload result. */
-function resolveAbsoluteUrl(request: NextRequest, url: string) {
-  const protocol = request.headers.get("x-forwarded-proto") || "http";
-  const host = request.headers.get("host");
-  const baseUrl = `${protocol}://${host}`;
-  return url.startsWith("http") ? url : `${baseUrl}${url}`;
-}
-
 /** Handle mobile upload delete request. */
 export async function DELETE(request: NextRequest) {
   try {
@@ -118,7 +96,7 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    if (!(await isTrustedMobileUploadUrl(parsedUrl, request))) {
+    if (!(await isTrustedUploadUrl(parsedUrl, request))) {
       return apiError("URL upload tidak diizinkan", ErrorCodes.FORBIDDEN, {
         status: 403,
       });
@@ -242,7 +220,7 @@ export async function POST(request: NextRequest) {
       subFolder,
       watermarkLines,
     );
-    const absoluteUrl = resolveAbsoluteUrl(request, url);
+    const absoluteUrl = resolveAbsoluteUploadUrl(request, url);
 
     return NextResponse.json({
       success: true,

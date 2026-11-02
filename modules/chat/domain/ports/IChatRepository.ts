@@ -68,5 +68,6 @@ export interface IChatRepository {
     excludeUserId?: string,
   ): Promise<ChatUserResult[]>;
   isEmployeeUser(userId: string, tenantId: string): Promise<boolean>;
+  countActiveEmployees(userIds: string[], tenantId: string): Promise<number>;
   getAllActiveUsers(tenantId: string): Promise<Array<{ id: string }>>;
 }

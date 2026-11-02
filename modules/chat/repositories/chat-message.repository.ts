@@ -4,7 +4,8 @@ import type {
   ChatActor,
   ChatParticipantEntity,
 } from "../domain/entities/ChatEntity";
-import { DEFAULT_MESSAGE_LIMIT } from "./chat.constants";
+import { isPrismaUniqueConstraintError } from "@/lib/prisma-errors";
+import { DEFAULT_MESSAGE_LIMIT } from "../domain/chat.constants";
 
 /** Build participant create data — set userId hanya untuk aktor User. */
 function participantUncheckedCreate(
@@ -33,7 +34,9 @@ export class ChatMessageRepository {
 
     return prisma.message.findMany({
       where: { conversationId, tenantId },
-      orderBy: { createdAt: "desc" },
+      // `id` memecah seri: pesan dengan createdAt sama tidak terlewat atau
+      // terulang di batas halaman.
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       include: {
@@ -119,23 +122,36 @@ export class ChatMessageRepository {
     return Boolean(participant);
   }
 
-  /** Tambahkan actor sebagai participant conversation bila belum ada. */
+  /**
+   * Tambahkan actor sebagai participant conversation bila belum ada.
+   *
+   * Ekstensi tenant menambah `tenantId` ke `where` upsert, sehingga Prisma
+   * tidak memakai upsert native dan dua permintaan bersamaan (broadcast dan
+   * buka global chat) bisa sama-sama mencoba insert. Yang kalah membaca baris
+   * pemenangnya, bukan menggagalkan permintaan dengan 409.
+   */
   async addParticipant(
     conversationId: string,
     actor: ChatActor,
     tenantId: string,
   ) {
-    return prisma.conversationParticipant.upsert({
-      where: {
-        conversationId_actorType_actorId: {
-          conversationId,
-          actorType: actor.type,
-          actorId: actor.id,
-        },
+    const kunci = {
+      conversationId_actorType_actorId: {
+        conversationId,
+        actorType: actor.type,
+        actorId: actor.id,
       },
-      create: participantUncheckedCreate(conversationId, actor, tenantId),
-      update: { tenantId },
-    });
+    };
+    try {
+      return await prisma.conversationParticipant.upsert({
+        where: kunci,
+        create: participantUncheckedCreate(conversationId, actor, tenantId),
+        update: { tenantId },
+      });
+    } catch (error) {
+      if (!isPrismaUniqueConstraintError(error)) throw error;
+      return prisma.conversationParticipant.findUniqueOrThrow({ where: kunci });
+    }
   }
 
   /** Update waktu baca terakhir participant. */

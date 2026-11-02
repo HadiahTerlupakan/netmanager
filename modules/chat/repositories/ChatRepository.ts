@@ -133,6 +133,11 @@ export class ChatRepository implements IChatRepository {
     return this.userRepository.isEmployeeUser(userId, tenantId);
   }
 
+  /** Hitung id yang merupakan karyawan aktif tenant. */
+  async countActiveEmployees(userIds: string[], tenantId: string) {
+    return this.userRepository.countActiveEmployees(userIds, tenantId);
+  }
+
   /** Ambil semua user aktif tenant. */
   async getAllActiveUsers(tenantId: string) {
     return this.userRepository.getAllActiveUsers(tenantId);

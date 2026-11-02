@@ -4,9 +4,9 @@ import {
   GLOBAL_CHAT_NAME,
   IMAGE_NOTIFICATION_TEXT,
   NEW_MESSAGE_FALLBACK,
-} from "./chat.constants";
+} from "../domain/chat.constants";
 import type { ChatActor } from "../domain/entities/ChatEntity";
-import { participantSummary, resolveActorSummary } from "./actor-resolver";
+import { ActorSummaryLookup, participantSummary } from "./actor-resolver";
 
 type ChatUserSummary = {
   id: string;
@@ -61,12 +61,14 @@ function isActorMatch(
 export async function formatConversationListItem(
   conversation: ChatConversation,
   actor: ChatActor,
+  lookup: ActorSummaryLookup,
 ) {
   const lastMessage = conversation.messages?.[0];
   const otherParticipants = await resolveParticipants(
     (conversation.participants ?? []).filter(
       (participant) => !isActorMatch(participant, actor),
     ),
+    lookup,
   );
   const myParticipant = conversation.participants?.find((participant) =>
     isActorMatch(participant, actor),
@@ -80,7 +82,7 @@ export async function formatConversationListItem(
     lastMessage: lastMessage
       ? {
           content: lastMessage.content,
-          senderName: await resolveSenderName(lastMessage),
+          senderName: await resolveSenderName(lastMessage, lookup),
           createdAt: lastMessage.createdAt.toISOString(),
         }
       : null,
@@ -96,14 +98,15 @@ export async function formatConversationMessagesResponse(
   actor: ChatActor,
   limit: number,
 ) {
+  const lookup = new ActorSummaryLookup();
   const hasMore = messages.length > limit;
   const displayMessages = hasMore ? messages.slice(0, -1) : messages;
 
   return {
-    conversation: await formatConversationSummary(conversation),
+    conversation: await formatConversationSummary(conversation, lookup),
     messages: await Promise.all(
       displayMessages.map((message) =>
-        formatConversationMessageItem(message, actor),
+        formatConversationMessageItem(message, actor, lookup),
       ),
     ),
     hasMore,
@@ -118,7 +121,7 @@ export async function formatSentMessageResponse(
   message: ChatMessage,
   sender: ChatActor,
 ) {
-  const senderName = await resolveSenderName(message);
+  const senderName = await resolveSenderName(message, new ActorSummaryLookup());
   return {
     id: message.id,
     content: message.content,
@@ -206,18 +209,23 @@ function resolveConversationName(
 
 async function formatConversationSummary(
   conversation: Omit<ChatConversation, "messages" | "updatedAt">,
+  lookup: ActorSummaryLookup,
 ) {
   return {
     id: conversation.id,
     name: conversation.isGlobal ? GLOBAL_CHAT_NAME : conversation.name,
     isGlobal: conversation.isGlobal,
-    participants: await resolveParticipants(conversation.participants ?? []),
+    participants: await resolveParticipants(
+      conversation.participants ?? [],
+      lookup,
+    ),
   };
 }
 
 async function formatConversationMessageItem(
   message: ChatMessage,
   actor: ChatActor,
+  lookup: ActorSummaryLookup,
 ) {
   return {
     id: message.id,
@@ -225,7 +233,7 @@ async function formatConversationMessageItem(
     imageUrl: message.imageUrl,
     senderActorType: message.actorType,
     senderActorId: message.actorId,
-    senderName: await resolveSenderName(message),
+    senderName: await resolveSenderName(message, lookup),
     senderImage: message.sender?.image ?? null,
     createdAt: message.createdAt.toISOString(),
     isOwn: isActorMatch(message, actor),
@@ -234,13 +242,14 @@ async function formatConversationMessageItem(
 
 async function resolveParticipants(
   participants: ChatParticipant[],
+  lookup: ActorSummaryLookup,
 ): Promise<ChatUserSummary[]> {
   return Promise.all(
     participants.map(async (participant) => {
       const summary = participantSummary(participant);
       if (summary && summary.name) return summary;
       if (participant.actorId && participant.actorType !== "user") {
-        const resolved = await resolveActorSummary({
+        const resolved = await lookup.find({
           type: participant.actorType as ChatActor["type"],
           id: participant.actorId,
         });
@@ -256,10 +265,13 @@ async function resolveParticipants(
   );
 }
 
-async function resolveSenderName(message: ChatMessage): Promise<string> {
+async function resolveSenderName(
+  message: ChatMessage,
+  lookup: ActorSummaryLookup,
+): Promise<string> {
   if (message.sender?.name) return message.sender.name;
   if (message.actorId && message.actorType !== "user") {
-    const resolved = await resolveActorSummary({
+    const resolved = await lookup.find({
       type: message.actorType as ChatActor["type"],
       id: message.actorId,
     });

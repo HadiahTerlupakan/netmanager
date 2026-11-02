@@ -1,47 +1,40 @@
-import { createHandler, apiSuccess, apiError, ErrorCodes } from "@/lib/api";
-import { ChatService, resolveChatActor } from "@/modules/chat";
+import { createHandler, apiSuccess } from "@/lib/api";
+import { chatFailureResponse, parseChatBody } from "@/lib/api/chat-route";
+import {
+  ChatService,
+  createConversationSchema,
+  resolveChatActor,
+} from "@/modules/chat";
 
 const chatService = new ChatService();
 
-/** Get conversation list for mobile chat. */
+/** Daftar percakapan untuk chat mobile. */
 export const GET = createHandler(
   { auth: true, permissions: ["m_chat:read"] },
   async (_req, ctx) => {
-    const tenantId = ctx.session!.user.tenantId!;
-
     const conversations = await chatService.getConversations(
       resolveChatActor(ctx.session!.user),
-      tenantId,
+      ctx.session!.user.tenantId!,
     );
     return apiSuccess(conversations);
   },
 );
 
-/** Create a new mobile chat conversation. */
+/** Buat percakapan baru dari aplikasi mobile. */
 export const POST = createHandler(
   { auth: true, permissions: ["m_chat:create"] },
   async (req, ctx) => {
-    const tenantId = ctx.session!.user.tenantId!;
+    const parsed = await parseChatBody(req, createConversationSchema);
+    if (parsed.response) return parsed.response;
 
-    const body = await req.json();
-    const participantIds = Array.isArray(body.participantIds)
-      ? body.participantIds
-      : [];
-    if (participantIds.length === 0) {
-      return apiError(
-        "participantIds is required",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
-    }
-
-    const conversation = await chatService.createConversation({
+    const { participantIds, name } = parsed.data;
+    const result = await chatService.createConversation({
       creator: resolveChatActor(ctx.session!.user),
-      participants: participantIds.map((id: string) => ({ type: "user", id })),
-      tenantId,
-      name: body.name,
+      participants: participantIds.map((id) => ({ type: "user", id })),
+      tenantId: ctx.session!.user.tenantId!,
+      ...(name ? { name } : {}),
     });
-
-    return apiSuccess(conversation);
+    if (!result.success) return chatFailureResponse(result);
+    return apiSuccess(result.data);
   },
 );

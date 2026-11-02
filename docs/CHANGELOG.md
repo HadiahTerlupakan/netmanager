@@ -41,6 +41,57 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-02] — Chat: tutup celah lintas tenant, perbaiki pencarian admin
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/chat`, `app/api/admin/chat`, `app/api/mobile/chat`, `lib/api/chat-route.ts`, `lib/upload/trusted-upload-url.ts`
+- **Author**: agent
+- **Deskripsi**: Hasil audit modul chat (`/admin/chat`).
+  - **Keamanan:**
+    - Pembuatan percakapan kini mewajibkan semua peserta karyawan aktif tenant yang sama (`countActiveEmployees`). Sebelumnya id user tenant lain diterima, sehingga nama dan fotonya bocor dan ia menerima pesan realtime.
+    - `imageUrl` pesan hanya diterima dari upload tenant pengirim di host aplikasi atau R2. Sebelumnya URL server luar diterima dan bisa dipakai melacak IP staf.
+    - Daftar user chat mobile tertutup untuk mitra dan pelanggan, sehingga email karyawan tidak lagi terbuka bagi mereka.
+    - Semua route admin chat kini mendeklarasikan izin (`chat:read`/`chat:create`/`broadcast:create`) dan `feature: "chat"` lewat `createHandler`. Sebelumnya `global` dan `users` tanpa izin, dan token mobile bisa masuk lewat route admin.
+    - Upload gambar chat menolak kiriman di atas 5MB dari header `Content-Length` sebelum body dibaca. Gambar di-encode ulang (`convertAndSaveImage`), sehingga nama, ekstensi, dan MIME dari klien tidak dipakai.
+  - **Bug:**
+    - Pencarian "Chat Baru" di admin selalu kosong karena argumen `searchUsers` tertukar (`tenantId` ↔ kata cari). Ini lolos typecheck karena `strictNullChecks: false`.
+    - `findExisting1on1` bisa mengembalikan percakapan yang hanya berisi salah satu orang, atau sebuah grup.
+    - `limit` tidak divalidasi: `abc` → 500, `0` → loop paginasi tanpa akhir, besar → query berat. Kini dibatasi 1–100.
+    - Urutan pesan diberi pemecah seri `id`, sehingga tidak ada pesan terlewat di batas halaman.
+    - Global chat ganda akibat race kini selalu memakai yang tertua. `addParticipant` yang bentrok (P2002) membaca baris pemenang, bukan menjawab 409.
+    - Pesan dari mitra/pelanggan tidak lagi memicu satu query lintas database per pesan (`ActorSummaryLookup`).
+  - **Pola:**
+    - `ChatService` dimigrasi ke `ChatResult`: "bukan anggota" dan "hanya karyawan" kini 403 dengan pesan sederhana, bukan 500.
+    - Validasi Zod bersama untuk admin dan mobile ada di `modules/chat/validators`.
+    - Konstanta yang terpecah di 3 file disatukan di `domain/chat.constants.ts`.
+    - Pemeriksa URL upload tepercaya dipindah dari route upload generik ke `lib/upload/trusted-upload-url.ts`.
+- **Files**: `modules/chat/services/ChatService.ts`, `modules/chat/domain/chat-result.ts`, `modules/chat/validators/chat.validators.ts`, `modules/chat/repositories/*`, `app/api/admin/chat/**`, `app/api/mobile/chat/**`, `app/api/mobile/upload/route-handlers-impl.ts`
+- **Breaking**: ❌ Tidak (bentuk respons sukses tetap; galat aturan berubah dari 500 ke 400/403)
+
+### [2026-11-02] — Halaman chat admin: galat terlihat, komponen dipecah
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/chat`
+- **Author**: agent
+- **Deskripsi**:
+  - **Galat kini terlihat:** kirim pesan, buka percakapan, buat chat, broadcast, dan cari pegawai dulu gagal diam-diam. Sekarang kegagalan tampil sebagai toast atau baris merah di modal, memakai pesan server atau kalimat cadangan yang sederhana. Teks pesan yang gagal terkirim tidak hilang.
+  - **Dibuang:**
+    - Tombol foto yang tidak berfungsi.
+    - Permintaan izin notifikasi saat halaman dibuka; kini diminta saat pengguna klik atau kirim.
+    - Fetch yang dipanggil di tengah render.
+    - Log debug "TRIGGERING NOTIFICATION".
+  - **Struktur:** tipe pesan klien disesuaikan dengan server (`senderActorType`/`senderActorId`, tanpa `senderId`). Komponen 938 baris dipecah menjadi hook (`useChatConversations`, `useChatMessages`, `useChatUserSearch`) dan komponen di `_components/`.
+- **Files**: `app/admin/chat/ChatPageClient.tsx`, `app/admin/chat/_hooks/*`, `app/admin/chat/_components/*`, `app/admin/chat/_lib/*`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-02] — Hapus 15 file mati di modul chat
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/chat`
+- **Author**: agent
+- **Deskripsi**: Generasi lama modul chat yang masih memakai `userId`/`senderId` (sebelum `ChatActor`) tidak di-import siapa pun, termasuk `ChatBroadcastService` yang lebih longgar daripada versi aktif karena tanpa cek "hanya karyawan". Yang dihapus: `factories/ChatFactory`, `mappers/ChatMapper`, `dto/ChatDTO`, `repositories/chat-repository.queries` + konstantanya, `services/ChatBroadcastService`, `ChatNotificationService`, `chat-response-mappers`, `chat-service.gateway`, `chat-service.mappers` + konstantanya, `chat-service.types`, `utils/shouldNotifyForChatMessage` (kembar identik), `types/index` dan `validators/index` yang kosong, serta dua file konstanta lama yang digantikan `domain/chat.constants.ts`.
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-02] — Rute token FCM mobile tercatat di log pod
 
 - **Tipe**: [FIXED]

@@ -1,57 +1,63 @@
-import { createHandler, apiSuccess, apiError, ErrorCodes } from "@/lib/api";
-import { ChatService, resolveChatActor } from "@/modules/chat";
+import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import {
+  chatFailureResponse,
+  parseChatBody,
+  parseChatQuery,
+} from "@/lib/api/chat-route";
+import { isTrustedChatImageUrl } from "@/lib/upload/trusted-upload-url";
+import {
+  ChatService,
+  messagesQuerySchema,
+  resolveChatActor,
+  sendMessageSchema,
+} from "@/modules/chat";
 
 const chatService = new ChatService();
 
-/** Get messages for a conversation. */
+const PESAN_GAMBAR_LUAR =
+  "Gambar ini bukan dari aplikasi. Kirim gambar lewat tombol foto di aplikasi.";
+
+/** Halaman pesan sebuah percakapan; hanya untuk anggotanya. */
 export const GET = createHandler(
   { auth: true, permissions: ["m_chat:read"] },
   async (req, ctx) => {
-    const tenantId = ctx.session!.user.tenantId!;
-    const conversationId = ctx.params.id;
+    const query = parseChatQuery(req, messagesQuerySchema);
+    if (query.response) return query.response;
 
-    const { searchParams } = new URL(req.url);
     const result = await chatService.getMessages({
-      conversationId,
+      conversationId: ctx.params.id,
       actor: resolveChatActor(ctx.session!.user),
-      tenantId,
-      cursor: searchParams.get("cursor") || undefined,
-      limit: parseInt(searchParams.get("limit") || "50"),
+      tenantId: ctx.session!.user.tenantId!,
+      cursor: query.data.cursor,
+      limit: query.data.limit,
     });
-
-    return apiSuccess(result);
+    if (!result.success) return chatFailureResponse(result);
+    return apiSuccess(result.data);
   },
 );
 
-/** Send a message to a conversation. */
+/** Kirim pesan ke percakapan; hanya untuk anggotanya. */
 export const POST = createHandler(
   { auth: true, permissions: ["m_chat:create"] },
   async (req, ctx) => {
-    const userName = ctx.session!.user.name;
     const tenantId = ctx.session!.user.tenantId!;
-    const conversationId = ctx.params.id;
+    const parsed = await parseChatBody(req, sendMessageSchema);
+    if (parsed.response) return parsed.response;
 
-    const body = await req.json();
-    const content = typeof body.content === "string" ? body.content : undefined;
-    const imageUrl =
-      typeof body.imageUrl === "string" ? body.imageUrl : undefined;
-    if ((!content || content.trim().length === 0) && !imageUrl) {
-      return apiError(
-        "Message content or image is required",
-        ErrorCodes.VALIDATION_ERROR,
-        { status: 400 },
-      );
+    const { content, imageUrl } = parsed.data;
+    if (imageUrl && !(await isTrustedChatImageUrl(imageUrl, req, tenantId))) {
+      return ApiErrors.badRequest(PESAN_GAMBAR_LUAR);
     }
 
-    const message = await chatService.sendMessage({
-      conversationId,
+    const result = await chatService.sendMessage({
+      conversationId: ctx.params.id,
       sender: resolveChatActor(ctx.session!.user),
-      senderName: userName || "Mobile User",
+      senderName: ctx.session!.user.name || "Mobile User",
       tenantId,
-      content,
-      imageUrl,
+      ...(content !== undefined ? { content } : {}),
+      ...(imageUrl !== undefined ? { imageUrl } : {}),
     });
-
-    return apiSuccess(message);
+    if (!result.success) return chatFailureResponse(result);
+    return apiSuccess(result.data);
   },
 );

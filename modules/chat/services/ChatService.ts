@@ -1,6 +1,9 @@
 import type { IChatRepository } from "../domain/ports/IChatRepository";
 import type { ChatActor } from "../domain/entities/ChatEntity";
+import { DEFAULT_MESSAGE_LIMIT } from "../domain/chat.constants";
+import { chatGagal, chatOk, type ChatResult } from "../domain/chat-result";
 import { ChatRepository } from "../repositories/ChatRepository";
+import { ActorSummaryLookup } from "./actor-resolver";
 import { ChatNotificationService } from "./chat-notification.service";
 import type {
   BroadcastMessageInput,
@@ -8,10 +11,6 @@ import type {
   CreateChatInput,
   SendMessageInput,
 } from "./ChatService.types";
-import {
-  DEFAULT_MESSAGE_LIMIT,
-  FORBIDDEN_EMPLOYEE_ONLY_MESSAGE,
-} from "./chat.constants";
 import {
   buildBroadcastContent,
   formatConversationListItem,
@@ -28,7 +27,24 @@ export type {
   SendMessageInput,
 } from "./ChatService.types";
 
-/** Menangani orkestrasi bisnis utama fitur chat. */
+type MessagesPage = Awaited<
+  ReturnType<typeof formatConversationMessagesResponse>
+>;
+type SentMessage = Awaited<ReturnType<typeof formatSentMessageResponse>>;
+type UserSearchItem = ReturnType<typeof formatUserSearchResult>;
+type CreatedConversation = { id: string; isExisting: boolean };
+type BroadcastSummary = {
+  id: string;
+  content: string | null;
+  sentToCount: number;
+  createdAt: string;
+};
+
+/**
+ * Orkestrasi fitur chat. Pelanggaran aturan (bukan peserta, bukan karyawan,
+ * peserta dari luar tenant) dikembalikan sebagai `ChatResult` gagal supaya
+ * route menjawab 4xx dengan pesan yang jelas, bukan 500.
+ */
 export class ChatService {
   private readonly notificationService: ChatNotificationService;
 
@@ -38,26 +54,33 @@ export class ChatService {
     this.notificationService = new ChatNotificationService(repository);
   }
 
-  /** Ambil semua conversation chat milik actor. */
+  /** Ambil semua conversation milik actor. */
   async getConversations(actor: ChatActor, tenantId: string) {
     const conversations = await this.repository.findConversationsForUser(
       actor,
       tenantId,
     );
+    const lookup = new ActorSummaryLookup();
     return Promise.all(
       conversations.map((conversation) =>
-        formatConversationListItem(conversation, actor),
+        formatConversationListItem(conversation, actor, lookup),
       ),
     );
   }
 
   /** Ambil daftar pesan conversation dengan cursor pagination. */
-  async getMessages(query: ChatMessagesQuery) {
-    await this.ensureParticipant(
-      query.conversationId,
-      query.actor,
-      query.tenantId,
-    );
+  async getMessages(
+    query: ChatMessagesQuery,
+  ): Promise<ChatResult<MessagesPage>> {
+    if (
+      !(await this.isParticipant(
+        query.conversationId,
+        query.actor,
+        query.tenantId,
+      ))
+    ) {
+      return chatGagal("NOT_PARTICIPANT");
+    }
 
     const messageLimit = query.limit ?? DEFAULT_MESSAGE_LIMIT;
     const messages = await this.repository.findMessages(
@@ -78,21 +101,27 @@ export class ChatService {
       query.tenantId,
     );
 
-    return formatConversationMessagesResponse(
-      conversation,
-      messages,
-      query.actor,
-      messageLimit,
+    return chatOk(
+      await formatConversationMessagesResponse(
+        conversation,
+        messages,
+        query.actor,
+        messageLimit,
+      ),
     );
   }
 
   /** Kirim pesan ke conversation dan trigger notifikasi penerima. */
-  async sendMessage(input: SendMessageInput) {
-    await this.ensureParticipant(
-      input.conversationId,
-      input.sender,
-      input.tenantId,
-    );
+  async sendMessage(input: SendMessageInput): Promise<ChatResult<SentMessage>> {
+    if (
+      !(await this.isParticipant(
+        input.conversationId,
+        input.sender,
+        input.tenantId,
+      ))
+    ) {
+      return chatGagal("NOT_PARTICIPANT");
+    }
 
     const message = await this.repository.createMessage({
       conversationId: input.conversationId,
@@ -108,7 +137,7 @@ export class ChatService {
     );
     void this.notificationService.notifyMessageSent(input, message);
 
-    return formatSentMessageResponse(message, input.sender);
+    return chatOk(await formatSentMessageResponse(message, input.sender));
   }
 
   /** Ambil atau buat global chat tenant untuk actor apapun. */
@@ -123,27 +152,27 @@ export class ChatService {
     return formatGlobalChatResponse(globalChat, participantCount);
   }
 
-  /** Buat conversation baru atau return direct chat yang sudah ada. */
-  async createConversation(input: CreateChatInput) {
-    if (input.creator.type !== "user") {
-      // Mitra/pelanggan tidak dapat membuat conversation baru (hanya join/reply).
-      throw new Error(FORBIDDEN_EMPLOYEE_ONLY_MESSAGE);
+  /**
+   * Buat conversation baru atau kembalikan direct chat yang sudah ada.
+   * Pembuat dan semua peserta wajib karyawan aktif tenant yang sama.
+   */
+  async createConversation(
+    input: CreateChatInput,
+  ): Promise<ChatResult<CreatedConversation>> {
+    if (!(await this.isEmployee(input.creator, input.tenantId))) {
+      return chatGagal("EMPLOYEE_ONLY");
     }
-    await this.ensureEmployeeUser(input.creator.id, input.tenantId);
-    const participants = Array.from(
-      new Map(
-        [input.creator, ...input.participants].map((a) => [
-          `${a.type}:${a.id}`,
-          a,
-        ]),
-      ).values(),
-    );
+    const participants = uniqueActors([input.creator, ...input.participants]);
+    if (!(await this.areActiveEmployees(participants, input.tenantId))) {
+      return chatGagal("INVALID_PARTICIPANTS");
+    }
+
     const existingConversation = await this.findExistingConversation(
       participants,
       input.tenantId,
     );
     if (existingConversation) {
-      return { id: existingConversation.id, isExisting: true };
+      return chatOk({ id: existingConversation.id, isExisting: true });
     }
 
     const conversation = await this.repository.createConversation({
@@ -151,29 +180,29 @@ export class ChatService {
       tenantId: input.tenantId,
       ...(input.name ? { name: input.name } : {}),
     });
-    return { id: conversation.id, isExisting: false };
+    return chatOk({ id: conversation.id, isExisting: false });
   }
 
-  /** Cari user aktif untuk memulai conversation baru. */
+  /** Cari karyawan aktif untuk diajak chat; hanya untuk akun karyawan. */
   async searchUsers(
+    actor: ChatActor,
     tenantId: string,
     search?: string,
-    excludeActorId?: string,
-  ) {
-    const users = await this.repository.searchUsers(
-      tenantId,
-      search,
-      excludeActorId,
-    );
-    return users.map(formatUserSearchResult);
+  ): Promise<ChatResult<UserSearchItem[]>> {
+    if (actor.type !== "user") {
+      return chatGagal("EMPLOYEE_ONLY");
+    }
+    const users = await this.repository.searchUsers(tenantId, search, actor.id);
+    return chatOk(users.map(formatUserSearchResult));
   }
 
   /** Broadcast pesan ke global chat seluruh user aktif tenant. */
-  async broadcastMessage(input: BroadcastMessageInput) {
-    if (input.sender.type !== "user") {
-      throw new Error(FORBIDDEN_EMPLOYEE_ONLY_MESSAGE);
+  async broadcastMessage(
+    input: BroadcastMessageInput,
+  ): Promise<ChatResult<BroadcastSummary>> {
+    if (!(await this.isEmployee(input.sender, input.tenantId))) {
+      return chatGagal("EMPLOYEE_ONLY");
     }
-    await this.ensureEmployeeUser(input.sender.id, input.tenantId);
 
     const globalChat = await this.repository.findOrCreateGlobalChat(
       input.tenantId,
@@ -191,17 +220,15 @@ export class ChatService {
       content: buildBroadcastContent(input),
     });
     const allUsers = await this.repository.getAllActiveUsers(input.tenantId);
+    const allActors = allUsers.map((user) => employeeActor(user.id));
     await this.addBroadcastParticipants(
       globalChat.id,
       input.tenantId,
-      allUsers.map((user) => ({ type: "user", id: user.id }) as ChatActor),
+      allActors,
     );
 
-    const otherActors = allUsers
-      .filter((user) => user.id !== input.sender.id)
-      .map((user) => ({ type: "user", id: user.id }) as ChatActor);
     void this.notificationService.notifyBroadcastSent({
-      recipients: otherActors,
+      recipients: allActors.filter((actor) => actor.id !== input.sender.id),
       conversationId: globalChat.id,
       messageId: message.id,
       content: input.content,
@@ -211,12 +238,12 @@ export class ChatService {
       title: input.title,
     });
 
-    return {
+    return chatOk({
       id: message.id,
       content: message.content,
       sentToCount: allUsers.length,
       createdAt: message.createdAt.toISOString(),
-    };
+    });
   }
 
   private async findExistingConversation(
@@ -245,31 +272,44 @@ export class ChatService {
     );
   }
 
-  private async ensureParticipant(
+  private isParticipant(
     conversationId: string,
     actor: ChatActor,
     tenantId: string,
-  ): Promise<void> {
-    const isParticipant = await this.repository.isParticipant(
-      conversationId,
-      actor,
-      tenantId,
-    );
-    if (!isParticipant) {
-      throw new Error("Not a participant");
-    }
+  ): Promise<boolean> {
+    return this.repository.isParticipant(conversationId, actor, tenantId);
   }
 
-  private async ensureEmployeeUser(
-    userId: string,
-    tenantId: string,
-  ): Promise<void> {
-    const isEmployeeUser = await this.repository.isEmployeeUser(
-      userId,
+  private async isEmployee(actor: ChatActor, tenantId: string) {
+    return (
+      actor.type === "user" &&
+      (await this.repository.isEmployeeUser(actor.id, tenantId))
+    );
+  }
+
+  /** Semua peserta karyawan aktif tenant ini; mitra/pelanggan tidak diundang. */
+  private async areActiveEmployees(actors: ChatActor[], tenantId: string) {
+    if (actors.some((actor) => actor.type !== "user")) {
+      return false;
+    }
+    const userIds = actors.map((actor) => actor.id);
+    const activeCount = await this.repository.countActiveEmployees(
+      userIds,
       tenantId,
     );
-    if (!isEmployeeUser) {
-      throw new Error(FORBIDDEN_EMPLOYEE_ONLY_MESSAGE);
-    }
+    return activeCount === userIds.length;
   }
+}
+
+function employeeActor(userId: string): ChatActor {
+  return { type: "user", id: userId };
+}
+
+/** Buang aktor ganda (mis. pembuat ikut memilih dirinya sendiri). */
+function uniqueActors(actors: ChatActor[]): ChatActor[] {
+  return Array.from(
+    new Map(
+      actors.map((actor) => [`${actor.type}:${actor.id}`, actor]),
+    ).values(),
+  );
 }

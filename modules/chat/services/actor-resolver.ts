@@ -44,6 +44,29 @@ export async function resolveActorSummary(
   return null;
 }
 
+/**
+ * Pencari ringkasan aktor untuk satu permintaan. Mitra dan pelanggan tidak
+ * punya relasi `sender`/`user`, jadi namanya dicari di database lain; tanpa
+ * penyimpan ini satu halaman 50 pesan dari mitra yang sama memicu 50 query.
+ */
+export class ActorSummaryLookup {
+  private readonly hasilPerAktor = new Map<
+    string,
+    Promise<ActorSummary | null>
+  >();
+
+  /** Ringkasan aktor; aktor yang sama hanya dicari sekali. */
+  find(actor: ChatActor): Promise<ActorSummary | null> {
+    const kunci = `${actor.type}:${actor.id}`;
+    let hasil = this.hasilPerAktor.get(kunci);
+    if (!hasil) {
+      hasil = resolveActorSummary(actor);
+      this.hasilPerAktor.set(kunci, hasil);
+    }
+    return hasil;
+  }
+}
+
 /** Resolve ringkasan participant dari relasi user (jika User) atau fallback actor. */
 export function participantSummary(participant: {
   userId: string | null;

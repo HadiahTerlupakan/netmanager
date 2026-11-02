@@ -8,3 +8,12 @@ export type {
   SendMessageInput,
 } from "./services/ChatService";
 export { shouldNotifyForChatMessage } from "./services/shouldNotifyForChatMessage";
+export { CHAT_PESAN } from "./domain/chat-result";
+export type { ChatFailureCode, ChatResult } from "./domain/chat-result";
+export {
+  broadcastSchema,
+  createConversationSchema,
+  messagesQuerySchema,
+  sendMessageSchema,
+  userSearchQuerySchema,
+} from "./validators/chat.validators";

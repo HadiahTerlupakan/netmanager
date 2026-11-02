@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import type { ChatActor } from "../domain/entities/ChatEntity";
-import { GLOBAL_CHAT_NAME } from "./chat.constants";
+import { GLOBAL_CHAT_NAME } from "../domain/chat.constants";
 
 type ParticipantNestedCreate =
   Prisma.ConversationParticipantCreateWithoutConversationInput;
@@ -17,6 +17,14 @@ function participantNestedCreate(
     actorId: actor.id,
     tenantId,
   } as ParticipantNestedCreate;
+}
+
+/** Global chat tertua tenant: acuan tunggal bila pernah tercipta ganda. */
+function findOldestGlobalChat(tenantId: string) {
+  return prisma.conversation.findFirst({
+    where: { isGlobal: true, tenantId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
 }
 
 /** Query conversation chat utama. */
@@ -42,7 +50,6 @@ export class ChatConversationRepository {
                 id: true,
                 name: true,
                 image: true,
-                email: true,
               },
             },
           },
@@ -77,22 +84,28 @@ export class ChatConversationRepository {
     });
   }
 
-  /** Ambil atau buat global chat tenant. */
+  /**
+   * Ambil atau buat global chat tenant.
+   *
+   * Tidak ada unique constraint "satu global chat per tenant", jadi dua
+   * permintaan pertama yang bersamaan bisa sama-sama membuatnya. Semua
+   * pemanggil selalu memakai yang tertua, sehingga anggota tidak terpecah ke
+   * dua global chat.
+   */
   async findOrCreateGlobalChat(tenantId: string) {
-    const globalChat = await prisma.conversation.findFirst({
-      where: { isGlobal: true, tenantId },
-    });
+    const globalChat = await findOldestGlobalChat(tenantId);
     if (globalChat) {
       return globalChat;
     }
 
-    return prisma.conversation.create({
+    await prisma.conversation.create({
       data: {
         name: GLOBAL_CHAT_NAME,
         isGlobal: true,
         tenantId,
       },
     });
+    return (await findOldestGlobalChat(tenantId))!;
   }
 
   /** Buat conversation baru beserta participant awal. */
@@ -116,7 +129,11 @@ export class ChatConversationRepository {
     });
   }
 
-  /** Cari direct conversation yang sudah ada antara dua actor. */
+  /**
+   * Cari direct conversation yang sudah ada antara dua actor: keduanya
+   * peserta, dan tidak ada peserta lain. Percakapan yang hanya berisi salah
+   * satunya, atau grup bernama, bukan chat langsung mereka.
+   */
   async findExisting1on1(actors: [ChatActor, ChatActor], tenantId: string) {
     if (actors.length !== 2) {
       return null;
@@ -126,18 +143,16 @@ export class ChatConversationRepository {
       where: {
         isGlobal: false,
         tenantId,
-        participants: {
-          every: {
-            OR: actors.map((actor) => ({
-              actorType: actor.type,
-              actorId: actor.id,
-            })),
-          },
-        },
-        AND: {
-          participants: {
-            none: {
-              NOT: {
+        name: null,
+        AND: [
+          ...actors.map((actor) => ({
+            participants: {
+              some: { actorType: actor.type, actorId: actor.id },
+            },
+          })),
+          {
+            participants: {
+              every: {
                 OR: actors.map((actor) => ({
                   actorType: actor.type,
                   actorId: actor.id,
@@ -145,8 +160,9 @@ export class ChatConversationRepository {
               },
             },
           },
-        },
+        ],
       },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
   }
 }

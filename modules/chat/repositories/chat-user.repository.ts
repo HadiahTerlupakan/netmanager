@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { DEFAULT_USER_SEARCH_LIMIT } from "./chat.constants";
+import { DEFAULT_USER_SEARCH_LIMIT } from "../domain/chat.constants";
 
 /** Query user untuk kebutuhan fitur chat. */
 export class ChatUserRepository {
@@ -28,6 +28,17 @@ export class ChatUserRepository {
       select: { id: true },
     });
     return Boolean(user);
+  }
+
+  /**
+   * Hitung berapa id yang memang karyawan aktif tenant ini. Dipakai sebelum
+   * membuat percakapan: tanpa cek ini id user tenant lain ikut tersimpan
+   * sebagai peserta, nama dan fotonya bocor, dan ia menerima pesan.
+   */
+  async countActiveEmployees(userIds: string[], tenantId: string) {
+    return prisma.user.count({
+      where: { id: { in: userIds }, tenantId, isActive: true },
+    });
   }
 
   /** Ambil semua user aktif tenant untuk broadcast. */
