@@ -28,6 +28,7 @@ type StakeholderScopeInput = {
   createdById?: string | null;
   requestedById?: string | null;
   excludeUserId?: string;
+  tenantId?: string | null;
 };
 
 /** WO Baru → POOL (dept+site ketat). */
@@ -41,6 +42,8 @@ export async function notifyNewWorkOrderEvent(input: {
     departmentId: input.data.departmentId,
     siteId: input.data.siteId,
     excludeUserId: input.data.triggeredByUserId,
+    workOrderId: input.data.workOrderId,
+    tenantId: input.data.tenantId,
   });
 
   return notifyNewWorkOrderRecipients({
@@ -69,6 +72,7 @@ export async function notifyWorkOrderAssignedEvent(input: {
     requestedById: input.data.requestedById,
     // Assignee gets dedicated "Di-assign ke Anda"; exclude from observers.
     excludeUserId: input.data.assignedToId || input.data.triggeredByUserId,
+    tenantId: input.data.tenantId,
   });
   await notifyAssignedWorkOrderRecipients({
     data: input.data,
@@ -95,6 +99,7 @@ export async function notifyWorkOrderStatusChangeEvent(input: {
     createdById: input.data.createdById,
     requestedById: input.data.requestedById,
     excludeUserId: input.data.triggeredByUserId,
+    tenantId: input.data.tenantId,
   });
   await notifyStatusChangedWorkOrderRecipients({
     data: input.data,
@@ -122,6 +127,7 @@ export async function notifyWorkOrderUpdateEvent(input: {
     createdById: input.data.createdById,
     requestedById: input.data.requestedById,
     excludeUserId: input.data.triggeredByUserId,
+    tenantId: input.data.tenantId,
   });
   await notifyUpdatedWorkOrderRecipients({
     data: input.data,
@@ -203,5 +209,6 @@ async function resolveStakeholders(
     createdById: scope.createdById,
     requestedById: scope.requestedById,
     excludeUserId: scope.excludeUserId,
+    tenantId: scope.tenantId,
   });
 }

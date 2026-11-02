@@ -41,6 +41,38 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-02] — Notifikasi WO mengikuti toggle Batasi ke Site Sendiri
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`
+- **Author**: agent
+- **Deskripsi**: Pemilih penerima notifikasi Work Order selalu mencocokkan site
+  profil pengguna, tanpa membaca toggle "Batasi ke Site Sendiri"
+  (`workorders:site_only`) di peran. Akibatnya Rohadi (peran `admin`, toggle
+  mati, site JAKSEL) hanya dikabari WO Jakarta Selatan, padahal WO semua site
+  bisa ia lihat dan verifikasi.
+  - Sekarang verifikator WO (`workorders:verify` / `approve_request`) tanpa
+    `site_only` dikabari WO dari semua site di tenant-nya, baik "Work Order
+    Baru" (POOL) maupun status/update/aksi mobile (STAKEHOLDERS).
+  - `workorders:department_only` tetap mengunci pelebaran ke departemen
+    sendiri, sehingga tidak ada notifikasi tentang WO yang tidak bisa dibuka
+    penerimanya.
+  - Teknisi aplikasi (`m_work_order`), pembaca biasa, dan pemegang site_only
+    tetap memakai aturan site lama.
+  - Pelebaran selalu dipasangkan dengan `tenantId` pemilik WO itu sendiri
+    (dari data notifikasi atau dibaca dari `WorkOrders.tenantId`), bukan tenant
+    sesi pengubah: super admin bisa mengubah WO tenant lain sambil sesinya
+    membawa tenant host. Bila tenant WO tak diketahui, pemilih kembali ke
+    syarat site lama.
+  - Dampak: volume notifikasi dan push naik untuk peran verifikator tanpa
+    `site_only`. Peran yang harus tetap per site cukup menyalakan toggle itu.
+- **Files**: `lib/authorization/recipient-scope.ts`,
+  `modules/notification/services/NotificationService.recipients.ts`,
+  `modules/notification/services/NotificationService.work-order-events.ts`,
+  `tests/lib/authorization/recipient-scope.test.ts`,
+  `tests/modules/notification/NotificationService.recipients.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-02] — Tutup 4 alert Dependabot tanpa mengubah perilaku
 
 - **Tipe**: [SECURITY]

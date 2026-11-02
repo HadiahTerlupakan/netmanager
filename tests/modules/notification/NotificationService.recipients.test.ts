@@ -4,11 +4,15 @@ import type { EligibleUser } from "@/modules/notification/services/NotificationS
 const findManyWithDetailedRelations = vi.fn();
 const findManyWithCustomWhere = vi.fn();
 const assignmentFindMany = vi.fn();
+const workOrderFindUnique = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     workOrderAssignments: {
       findMany: (...args: unknown[]) => assignmentFindMany(...args),
+    },
+    workOrders: {
+      findUnique: (...args: unknown[]) => workOrderFindUnique(...args),
     },
   },
 }));
@@ -171,5 +175,223 @@ describe("findWorkOrderStakeholders", () => {
     });
     expect(recipients.map((r) => r.id)).not.toContain("random-tech");
     expect(recipients).toEqual([]);
+  });
+});
+
+// Peran tanpa "Batasi ke Site Sendiri" melihat WO semua site, jadi
+// verifikatornya juga dikabari WO dari semua site di tenant-nya. Dulu hanya
+// WO site profilnya sendiri (kasus Rohadi: admin di JAKSEL).
+describe("cakupan site penerima mengikuti toggle Batasi ke Site Sendiri", () => {
+  const WO_SITE = "site-cariu";
+  const HOME_SITE = "site-jaksel";
+
+  function verifier(
+    id: string,
+    extra: Array<{ resource: string; action: string }> = [],
+    partial: Partial<EligibleUser> = {},
+  ): EligibleUser {
+    return user({
+      id,
+      siteId: HOME_SITE,
+      userSites: [],
+      ...partial,
+      role: {
+        name: "admin",
+        permission: [
+          { id: `${id}-r`, resource: "workorders", action: "read" },
+          { id: `${id}-v`, resource: "workorders", action: "verify" },
+          ...extra.map((permission, index) => ({
+            id: `${id}-${index}`,
+            ...permission,
+          })),
+        ],
+      },
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    workOrderFindUnique.mockResolvedValue({ tenantId: "tenant-1" });
+    assignmentFindMany.mockResolvedValue([]);
+    findManyWithCustomWhere.mockResolvedValue([]);
+  });
+
+  it("WO baru: verifikator tanpa site_only di site lain ikut menerima", async () => {
+    findManyWithDetailedRelations.mockResolvedValue([verifier("rohadi")]);
+
+    const recipients = await findEligibleRecipients({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+      departmentId: "dept-tech",
+      excludeUserId: "creator-1",
+    });
+
+    expect(recipients.map((r) => r.id)).toEqual(["rohadi"]);
+    const where = findManyWithDetailedRelations.mock.calls[0][0];
+    expect(where.tenantId).toBe("tenant-1");
+    expect(where.OR).toHaveLength(4);
+  });
+
+  it("WO baru: verifikator dengan site_only di site lain tidak menerima", async () => {
+    findManyWithDetailedRelations.mockResolvedValue([
+      verifier("terbatas", [{ resource: "workorders", action: "site_only" }]),
+    ]);
+
+    const recipients = await findEligibleRecipients({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+      excludeUserId: "creator-1",
+    });
+
+    expect(recipients).toEqual([]);
+  });
+
+  it("WO baru: department_only hanya melebar untuk departemennya sendiri", async () => {
+    const deptOnly = [{ resource: "workorders", action: "department_only" }];
+    findManyWithDetailedRelations.mockResolvedValue([
+      verifier("dept-sama", deptOnly, { departmentId: "dept-tech" }),
+      verifier("dept-lain", deptOnly, { departmentId: "dept-ops" }),
+    ]);
+
+    const recipients = await findEligibleRecipients({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+      departmentId: "dept-tech",
+      excludeUserId: "creator-1",
+    });
+
+    expect(recipients.map((r) => r.id)).toEqual(["dept-sama"]);
+  });
+
+  it("WO baru: teknisi aplikasi di site lain tetap tidak menerima", async () => {
+    findManyWithDetailedRelations.mockResolvedValue([
+      user({
+        id: "teknisi",
+        siteId: HOME_SITE,
+        userSites: [],
+        role: {
+          name: "Teknisi",
+          permission: [{ id: "t1", resource: "m_work_order", action: "read" }],
+        },
+      }),
+    ]);
+
+    const recipients = await findEligibleRecipients({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+      excludeUserId: "creator-1",
+    });
+
+    expect(recipients).toEqual([]);
+  });
+
+  it("WO baru: tanpa tenant WO yang diketahui tidak melebar ke site lain", async () => {
+    workOrderFindUnique.mockResolvedValue(null);
+    findManyWithDetailedRelations.mockResolvedValue([verifier("rohadi")]);
+
+    const recipients = await findEligibleRecipients({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+      excludeUserId: "creator-1",
+    });
+
+    expect(recipients).toEqual([]);
+    const where = findManyWithDetailedRelations.mock.calls[0][0];
+    expect(where.tenantId).toBeUndefined();
+    expect(where.OR).toHaveLength(3);
+  });
+
+  it("status/update: query verifikator memuat tenant dan cabang tanpa site_only", async () => {
+    await findWorkOrderStakeholders({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+      departmentId: "dept-tech",
+    });
+
+    const where = findManyWithCustomWhere.mock.calls[0][0];
+    const scope = where.AND[1];
+    expect(scope.tenantId).toBe("tenant-1");
+    expect(scope.OR).toHaveLength(4);
+    expect(JSON.stringify(scope.OR[3])).toContain('"action":"site_only"');
+    expect(JSON.stringify(scope.OR[3])).toContain('"departmentId":"dept-tech"');
+  });
+
+  it("status/update: hanya verifikator workorders yang dilebarkan", async () => {
+    await findWorkOrderStakeholders({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+    });
+
+    const widened = findManyWithCustomWhere.mock.calls[0][0].AND[1].OR[3];
+    expect(widened.AND[0]).toEqual({
+      role: {
+        permission: {
+          some: {
+            resource: "workorders",
+            action: { in: ["verify", "approve_request"] },
+          },
+        },
+      },
+    });
+  });
+
+  it("tenant pagar diambil dari WO, bukan dari sesi pengubahnya", async () => {
+    workOrderFindUnique.mockResolvedValue({ tenantId: "tenant-wo" });
+    findManyWithDetailedRelations.mockResolvedValue([verifier("rohadi")]);
+
+    const recipients = await findEligibleRecipients({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+      excludeUserId: "superadmin-1",
+    });
+
+    expect(recipients.map((r) => r.id)).toEqual(["rohadi"]);
+    expect(workOrderFindUnique).toHaveBeenCalledWith({
+      where: { id: "wo-1" },
+      select: { tenantId: true },
+    });
+    expect(findManyWithDetailedRelations.mock.calls[0][0].tenantId).toBe(
+      "tenant-wo",
+    );
+  });
+
+  it("status/update: tenant dari data notifikasi dipakai tanpa query WO", async () => {
+    await findWorkOrderStakeholders({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+      tenantId: "tenant-2",
+    });
+
+    expect(findManyWithCustomWhere.mock.calls[0][0].AND[1].tenantId).toBe(
+      "tenant-2",
+    );
+    expect(workOrderFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("status/update: WO tak ditemukan hanya memakai syarat site lama", async () => {
+    workOrderFindUnique.mockResolvedValue(null);
+
+    await findWorkOrderStakeholders({
+      userLookupService,
+      workOrderId: "wo-1",
+      siteId: WO_SITE,
+    });
+
+    expect(findManyWithCustomWhere.mock.calls[0][0].AND[1]).toEqual({
+      OR: [
+        { siteId: WO_SITE },
+        { siteId: null },
+        { userSites: { some: { siteId: WO_SITE } } },
+      ],
+    });
   });
 });

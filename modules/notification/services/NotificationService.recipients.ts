@@ -1,5 +1,9 @@
 import { logger } from "@/lib/logger";
 import { Prisma } from "@prisma/client";
+import {
+  buildRecipientSiteScopeWhere,
+  isSiteUnrestrictedRecipient,
+} from "@/lib/authorization/recipient-scope";
 import { prisma } from "@/lib/prisma";
 import type { UserLookupService } from "@/modules/users";
 import type {
@@ -13,6 +17,18 @@ const WORK_ORDER_READ_ACTION = "read";
 const WORK_ORDER_DEPARTMENT_ONLY_ACTION = "department_only";
 const VERIFY_ACTIONS = ["verify", "approve_request"] as const;
 
+/** Verifikator WO portal admin: satu-satunya yang boleh dilebarkan lintas site. */
+const WORK_ORDER_VERIFIER_WHERE: Prisma.UserWhereInput = {
+  role: {
+    permission: {
+      some: {
+        resource: WORK_ORDER_RESOURCE,
+        action: { in: [...VERIFY_ACTIONS] },
+      },
+    },
+  },
+};
+
 /**
  * POOL: user yang boleh dapat "Work Order Baru".
  * Site match + read permission; dept dibatasi lewat department_only
@@ -23,6 +39,8 @@ export async function findEligibleRecipients(input: {
   departmentId?: string;
   siteId?: string;
   excludeUserId?: string;
+  workOrderId?: string;
+  tenantId?: string | null;
 }): Promise<RecipientUser[]> {
   if (!input.excludeUserId) {
     logger.warn(
@@ -30,11 +48,15 @@ export async function findEligibleRecipients(input: {
     );
   }
 
-  const whereClause = buildEligibleRecipientWhere(input);
+  const scope = {
+    ...input,
+    tenantId: await resolveWorkOrderTenantId(input.workOrderId, input.tenantId),
+  };
+  const whereClause = buildEligibleRecipientWhere(scope);
   const users =
     await input.userLookupService.findManyWithDetailedRelations(whereClause);
   return users
-    .filter((user: EligibleUser) => isEligibleRecipient(user, input))
+    .filter((user: EligibleUser) => isEligibleRecipient(user, scope))
     .filter((user: EligibleUser) =>
       isPoolDepartmentAllowed(user, input.departmentId),
     )
@@ -42,7 +64,8 @@ export async function findEligibleRecipients(input: {
 }
 
 /**
- * STAKEHOLDERS: assignee/creator/assignments + verify/approve di site.
+ * STAKEHOLDERS: assignee/creator/assignments + verify/approve yang cakupan
+ * perannya mencakup WO ini (lihat lib/authorization/recipient-scope.ts).
  * Dipakai status change, mobile action, update, assign observers.
  */
 export async function findWorkOrderStakeholders(input: {
@@ -54,6 +77,7 @@ export async function findWorkOrderStakeholders(input: {
   createdById?: string | null;
   requestedById?: string | null;
   excludeUserId?: string;
+  tenantId?: string | null;
 }): Promise<RecipientUser[]> {
   const explicitIds = new Set<string>();
   for (const id of [
@@ -82,31 +106,36 @@ export async function findWorkOrderStakeholders(input: {
   try {
     const verifiers = await input.userLookupService.findManyWithCustomWhere({
       isActive: true,
-      role: {
-        permission: {
-          some: {
-            OR: [
-              {
-                resource: WORK_ORDER_RESOURCE,
-                action: { in: [...VERIFY_ACTIONS] },
+      AND: [
+        {
+          role: {
+            permission: {
+              some: {
+                OR: [
+                  {
+                    resource: WORK_ORDER_RESOURCE,
+                    action: { in: [...VERIFY_ACTIONS] },
+                  },
+                  {
+                    resource: WORK_ORDER_MOBILE_RESOURCE,
+                    action: "verify",
+                  },
+                ],
               },
-              {
-                resource: WORK_ORDER_MOBILE_RESOURCE,
-                action: "verify",
-              },
-            ],
+            },
           },
         },
-      },
-      ...(input.siteId
-        ? {
-            OR: [
-              { siteId: input.siteId },
-              { siteId: null },
-              { userSites: { some: { siteId: input.siteId } } },
-            ],
-          }
-        : {}),
+        buildRecipientSiteScopeWhere({
+          resource: WORK_ORDER_RESOURCE,
+          siteId: input.siteId,
+          departmentId: input.departmentId,
+          tenantId: await resolveWorkOrderTenantId(
+            input.workOrderId,
+            input.tenantId,
+          ),
+          widenOnlyWhen: WORK_ORDER_VERIFIER_WHERE,
+        }),
+      ],
     });
     for (const verifier of verifiers) {
       explicitIds.add(verifier.id);
@@ -189,19 +218,57 @@ export async function findPaymentGatewayReviewers(input: {
   });
 }
 
-function buildEligibleRecipientWhere(input: {
+interface PoolScope {
   departmentId?: string;
   siteId?: string;
   excludeUserId?: string;
-}): Prisma.UserWhereInput {
-  const siteConditions = input.siteId
-    ? buildSiteConditions(input.siteId)
-    : undefined;
+  tenantId: string | null;
+}
+
+/**
+ * Tenant pagar pelebaran lintas site: tenant pemilik WO itu sendiri.
+ *
+ * Tidak memakai tenant konteks request: super admin bisa mengubah WO tenant
+ * lain sambil sesinya membawa tenant host, sehingga verifikator tenant host
+ * ikut dikabari WO tenant lain. Bila WO tidak ditemukan, hasilnya null dan
+ * pemilih kembali ke syarat site lama.
+ */
+async function resolveWorkOrderTenantId(
+  workOrderId: string | undefined,
+  tenantId?: string | null,
+): Promise<string | null> {
+  if (tenantId) return tenantId;
+  if (!workOrderId) return null;
+  try {
+    const workOrder = await prisma.workOrders.findUnique({
+      where: { id: workOrderId },
+      select: { tenantId: true },
+    });
+    return workOrder?.tenantId ?? null;
+  } catch (error) {
+    logger.error(
+      "[Notification] Failed to resolve work order tenant for recipients:",
+      error,
+    );
+    return null;
+  }
+}
+
+function buildEligibleRecipientWhere(input: PoolScope): Prisma.UserWhereInput {
   // Dept matching is post-filtered (isPoolDepartmentAllowed) so multi-resource
   // department_only is accurate; Prisma where only scopes site + read.
+  // Teknisi dan pembaca biasa tetap terikat site; hanya verifikator WO tanpa
+  // "Batasi ke Site Sendiri" yang menerima WO baru dari semua site tenant,
+  // sama seperti jalur status/update (STAKEHOLDERS).
   return {
     ...buildEligibleRecipientBaseWhere(input.excludeUserId),
-    ...(siteConditions ? { OR: siteConditions } : {}),
+    ...buildRecipientSiteScopeWhere({
+      resource: WORK_ORDER_RESOURCE,
+      siteId: input.siteId,
+      departmentId: input.departmentId,
+      tenantId: input.tenantId,
+      widenOnlyWhen: WORK_ORDER_VERIFIER_WHERE,
+    }),
   };
 }
 
@@ -232,10 +299,6 @@ function buildEligibleRecipientBaseWhere(
       ],
     },
   };
-}
-
-function buildSiteConditions(siteId: string): Prisma.UserWhereInput[] {
-  return [{ siteId }, { siteId: null }, { userSites: { some: { siteId } } }];
 }
 
 function hasDepartmentOnly(user: EligibleUser): boolean {
@@ -275,10 +338,7 @@ function isPoolDepartmentAllowed(
   return true;
 }
 
-function isEligibleRecipient(
-  user: EligibleUser,
-  input: { excludeUserId?: string; siteId?: string },
-): boolean {
+function isEligibleRecipient(user: EligibleUser, input: PoolScope): boolean {
   if (input.excludeUserId && user.id === input.excludeUserId) {
     return false;
   }
@@ -287,10 +347,30 @@ function isEligibleRecipient(
   }
 
   const userSiteIds = user.userSites?.map((userSite) => userSite.siteId) || [];
-  return (
+  const isAtHomeSite =
     userSiteIds.includes(input.siteId) ||
     user.siteId === input.siteId ||
-    user.siteId === null
+    user.siteId === null;
+  return isAtHomeSite || isSiteUnrestrictedVerifier(user, input);
+}
+
+function isSiteUnrestrictedVerifier(
+  user: EligibleUser,
+  input: PoolScope,
+): boolean {
+  if (!input.tenantId) return false;
+  const isVerifier =
+    user.role?.permission?.some(
+      (permission) =>
+        permission.resource === WORK_ORDER_RESOURCE &&
+        (VERIFY_ACTIONS as readonly string[]).includes(permission.action),
+    ) ?? false;
+  return (
+    isVerifier &&
+    isSiteUnrestrictedRecipient(user, {
+      resource: WORK_ORDER_RESOURCE,
+      departmentId: input.departmentId,
+    })
   );
 }
 
