@@ -17,27 +17,46 @@ function normalizeHostname(hostname: string): string {
   return hostname.toLowerCase().replace(/\.$/, "");
 }
 
-/** Hostname aplikasi dari konfigurasi server (mis. `radpro.id`). */
-function configuredAppHostnames(): string[] {
-  const hostnames = new Set<string>();
-  for (const key of APP_URL_ENV_KEYS) {
-    const value = process.env[key];
-    if (!value) continue;
-    try {
-      hostnames.add(normalizeHostname(new URL(value).hostname));
-    } catch {
-      // URL env yang rusak dilewati; env lain masih bisa memberi host.
-    }
+/**
+ * Daftar host tambahan yang dipisah koma, untuk host upload selain URL
+ * aplikasi (mis. `karyawan.radpro.id`). Kosong secara default.
+ */
+const EXTRA_TRUSTED_HOSTS_ENV_KEY = "TRUSTED_UPLOAD_HOSTS";
+
+function parseHostname(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const withScheme = trimmed.includes("://") ? trimmed : `https://${trimmed}`;
+    return normalizeHostname(new URL(withScheme).hostname);
+  } catch {
+    return null;
   }
-  return [...hostnames];
 }
 
-/** Host aplikasi sendiri atau subdomainnya (`admin.radpro.id`, `karyawan.radpro.id`). */
+/**
+ * Hostname upload tepercaya dari konfigurasi server: host URL aplikasi
+ * (mis. `radpro.id`) ditambah `TRUSTED_UPLOAD_HOSTS`. Dicocokkan persis —
+ * subdomain tidak ikut dipercaya, karena subdomain yang diarahkan ke layanan
+ * pihak ketiga atau terkena takeover akan ikut lolos.
+ */
+function trustedAppHostnames(): Set<string> {
+  const hostnames = new Set<string>();
+  for (const key of APP_URL_ENV_KEYS) {
+    const hostname = parseHostname(process.env[key] ?? "");
+    if (hostname) hostnames.add(hostname);
+  }
+  for (const entry of (process.env[EXTRA_TRUSTED_HOSTS_ENV_KEY] ?? "").split(
+    ",",
+  )) {
+    const hostname = parseHostname(entry);
+    if (hostname) hostnames.add(hostname);
+  }
+  return hostnames;
+}
+
 function isAppHostname(hostname: string): boolean {
-  const normalized = normalizeHostname(hostname);
-  return configuredAppHostnames().some(
-    (appHost) => normalized === appHost || normalized.endsWith(`.${appHost}`),
-  );
+  return trustedAppHostnames().has(normalizeHostname(hostname));
 }
 
 /**

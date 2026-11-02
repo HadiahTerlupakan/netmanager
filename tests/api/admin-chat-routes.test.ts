@@ -180,8 +180,7 @@ describe("admin chat routes", () => {
       login(["chat:create"]);
 
       const response = await kirimPesan({
-        imageUrl:
-          "https://admin.radpro.id/uploads/tenants/tenant-2/chat/a.webp",
+        imageUrl: "https://radpro.id/uploads/tenants/tenant-2/chat/a.webp",
       });
 
       expect(response.status).toBe(400);
@@ -212,6 +211,17 @@ describe("admin chat routes", () => {
       expect(mocks.sendMessage).not.toHaveBeenCalled();
     });
 
+    it("menolak subdomain yang tidak dikonfigurasi (cegah subdomain takeover)", async () => {
+      login(["chat:create"]);
+
+      const response = await kirimPesan({
+        imageUrl: "https://lama.radpro.id/uploads/tenants/tenant-1/chat/a.webp",
+      });
+
+      expect(response.status).toBe(400);
+      expect(mocks.sendMessage).not.toHaveBeenCalled();
+    });
+
     it("menerima gambar hasil upload tenant sendiri", async () => {
       login(["chat:create"]);
       mocks.sendMessage.mockResolvedValueOnce({
@@ -220,8 +230,7 @@ describe("admin chat routes", () => {
       });
 
       const response = await kirimPesan({
-        imageUrl:
-          "https://admin.radpro.id/uploads/tenants/tenant-1/chat/a.webp",
+        imageUrl: "https://radpro.id/uploads/tenants/tenant-1/chat/a.webp",
       });
 
       expect(response.status).toBe(201);
