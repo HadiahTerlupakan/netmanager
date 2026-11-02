@@ -96,7 +96,7 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    if (!(await isTrustedUploadUrl(parsedUrl, request))) {
+    if (!(await isTrustedUploadUrl(parsedUrl))) {
       return apiError("URL upload tidak diizinkan", ErrorCodes.FORBIDDEN, {
         status: 403,
       });

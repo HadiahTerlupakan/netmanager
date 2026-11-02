@@ -56,6 +56,53 @@ describe("POST /api/mobile/chat/upload", () => {
     expect(mocks.convertAndSaveImage).not.toHaveBeenCalled();
   });
 
+  it("menolak body chunked raksasa tanpa Content-Length saat dibaca", async () => {
+    const formData = new FormData();
+    formData.set(
+      "image",
+      new File([new Uint8Array(6 * 1024 * 1024)], "besar.jpg", {
+        type: "image/jpeg",
+      }),
+    );
+    const multipart = new Request("https://radpro.id/x", {
+      method: "POST",
+      body: formData,
+    });
+    // Stream chunked yang patuh pada cancel: produsen FormData bawaan undici
+    // masih mencoba enqueue sesudah pembacaan dibatalkan.
+    const bytes = new Uint8Array(await multipart.arrayBuffer());
+    const CHUNK = 64 * 1024;
+    let posisi = 0;
+    const streamChunked = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (posisi >= bytes.byteLength) {
+          controller.close();
+          return;
+        }
+        controller.enqueue(bytes.slice(posisi, posisi + CHUNK));
+        posisi += CHUNK;
+      },
+    });
+    const tanpaUkuran = new NextRequest(
+      "https://radpro.id/api/mobile/chat/upload",
+      {
+        method: "POST",
+        headers: {
+          host: "radpro.id",
+          "content-type": multipart.headers.get("content-type")!,
+        },
+        body: streamChunked,
+        duplex: "half",
+      } as RequestInit & { duplex: "half" },
+    );
+    expect(tanpaUkuran.headers.get("content-length")).toBeNull();
+
+    const response = await POST(tanpaUkuran, params);
+
+    expect(response.status).toBe(413);
+    expect(mocks.convertAndSaveImage).not.toHaveBeenCalled();
+  });
+
   it("meng-encode ulang gambar ke folder chat tenant dan mengembalikan URL absolut", async () => {
     mocks.convertAndSaveImage.mockResolvedValueOnce(
       "/uploads/tenants/tenant-1/chat/user-1-1.webp",

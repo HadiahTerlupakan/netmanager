@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import path from "path";
 
@@ -26,6 +26,8 @@ import { DELETE, POST } from "@/app/api/mobile/upload/route";
 describe("mobile upload route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Host tepercaya diambil dari URL aplikasi di konfigurasi, bukan header Host.
+    vi.stubEnv("NEXTAUTH_URL", "http://localhost:3000");
     mockFns.getMobileAuthPayload.mockResolvedValue({
       id: "user-1",
       tenantId: "tenant-1",
@@ -35,6 +37,10 @@ describe("mobile upload route", () => {
     mockFns.convertAndSaveImage.mockResolvedValue(
       "/uploads/employee/attendance/test-photo.webp",
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("returns top-level url for mobile clients after a successful upload", async () => {
@@ -167,6 +173,11 @@ describe("mobile upload route", () => {
   });
 
   it("accepts trusted default R2 upload urls", async () => {
+    mockFns.getR2Settings.mockResolvedValue({
+      bucketName: "bucket",
+      accountId: "account",
+      publicUrl: "",
+    });
     mockFns.deleteUploadedFile.mockResolvedValue(true);
 
     const response = await DELETE(
@@ -186,6 +197,38 @@ describe("mobile upload route", () => {
     expect(mockFns.deleteUploadedFile).toHaveBeenCalledWith(
       "https://bucket.account.r2.cloudflarestorage.com/uploads/employee/attendance/test-photo.webp",
     );
+  });
+
+  // Sufiks `.r2.cloudflarestorage.com` cocok dengan bucket akun Cloudflare
+  // siapa pun; deleteUploadedFile lalu menghapus kunci yang sama di bucket kita.
+  it("menolak URL R2 dari bucket akun lain", async () => {
+    mockFns.getR2Settings.mockResolvedValue({
+      bucketName: "bucket",
+      accountId: "account",
+      publicUrl: "",
+    });
+
+    const response = await DELETE(
+      new NextRequest(
+        "http://localhost/api/mobile/upload?url=https%3A%2F%2Fpenyerang.akunlain.r2.cloudflarestorage.com%2Fuploads%2Femployee%2Fattendance%2Ftest-photo.webp",
+        { method: "DELETE", headers: { host: "localhost:3000" } },
+      ),
+    );
+
+    expect(response.status).not.toBe(200);
+    expect(mockFns.deleteUploadedFile).not.toHaveBeenCalled();
+  });
+
+  it("tidak mempercayai host dari header Host kiriman klien", async () => {
+    const response = await DELETE(
+      new NextRequest(
+        "http://localhost/api/mobile/upload?url=https%3A%2F%2Fpenyerang.example%2Fuploads%2Femployee%2Fattendance%2Ftest-photo.webp",
+        { method: "DELETE", headers: { host: "penyerang.example" } },
+      ),
+    );
+
+    expect(response.status).not.toBe(200);
+    expect(mockFns.deleteUploadedFile).not.toHaveBeenCalled();
   });
 
   // `subFolder` datang dari form dan dipakai sebagai segmen direktori. Tanpa

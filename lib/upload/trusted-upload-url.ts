@@ -4,25 +4,74 @@ import { tenantJalurUpload } from "@/lib/upload/upload-policy";
 import { getR2Settings } from "@/lib/utils/image-upload";
 
 /**
- * URL berkas upload yang bisa dipercaya: berada di `/uploads/` dan disajikan
- * host aplikasi ini (host permintaan) atau penyimpanan R2 milik aplikasi.
- * URL di luar itu bisa menunjuk server siapa pun — gambar chat yang dimuat
- * dari sana membocorkan IP dan browser setiap staf yang membukanya.
+ * Env yang memuat URL publik aplikasi. Host tepercaya diambil dari sini, bukan
+ * dari header `Host` permintaan: header itu dikirim klien.
  */
-export async function isTrustedUploadUrl(
-  url: URL,
-  request: NextRequest,
-): Promise<boolean> {
-  if (!url.pathname.startsWith("/uploads/")) return false;
+const APP_URL_ENV_KEYS = [
+  "NEXTAUTH_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "APP_URL",
+] as const;
 
-  const host = request.headers.get("host");
-  const isSameHost = host ? url.host === host : false;
-  const isDefaultR2Url = url.hostname.endsWith(".r2.cloudflarestorage.com");
-  if (isSameHost || isDefaultR2Url) return true;
+function normalizeHostname(hostname: string): string {
+  return hostname.toLowerCase().replace(/\.$/, "");
+}
 
+/** Hostname aplikasi dari konfigurasi server (mis. `radpro.id`). */
+function configuredAppHostnames(): string[] {
+  const hostnames = new Set<string>();
+  for (const key of APP_URL_ENV_KEYS) {
+    const value = process.env[key];
+    if (!value) continue;
+    try {
+      hostnames.add(normalizeHostname(new URL(value).hostname));
+    } catch {
+      // URL env yang rusak dilewati; env lain masih bisa memberi host.
+    }
+  }
+  return [...hostnames];
+}
+
+/** Host aplikasi sendiri atau subdomainnya (`admin.radpro.id`, `karyawan.radpro.id`). */
+function isAppHostname(hostname: string): boolean {
+  const normalized = normalizeHostname(hostname);
+  return configuredAppHostnames().some(
+    (appHost) => normalized === appHost || normalized.endsWith(`.${appHost}`),
+  );
+}
+
+/**
+ * Bucket R2 milik aplikasi: host default `{bucket}.{account}` yang persis,
+ * atau URL publik yang dikonfigurasi. Sufiks `.r2.cloudflarestorage.com`
+ * saja tidak cukup — itu cocok dengan bucket akun Cloudflare siapa pun.
+ */
+async function isOwnR2Url(url: URL): Promise<boolean> {
   const r2Settings = await getR2Settings();
-  const publicPrefix = r2Settings?.publicUrl?.replace(/\/$/, "");
+  if (!r2Settings) return false;
+
+  const { bucketName, accountId, publicUrl } = r2Settings;
+  if (bucketName && accountId) {
+    const defaultHost = `${bucketName}.${accountId}.r2.cloudflarestorage.com`;
+    if (normalizeHostname(url.hostname) === normalizeHostname(defaultHost)) {
+      return true;
+    }
+  }
+
+  const publicPrefix = publicUrl?.replace(/\/$/, "");
   return publicPrefix ? url.toString().startsWith(`${publicPrefix}/`) : false;
+}
+
+/**
+ * URL berkas upload yang bisa dipercaya: berada di `/uploads/` dan disajikan
+ * host aplikasi ini atau bucket R2 milik aplikasi. URL di luar itu bisa
+ * menunjuk server siapa pun — gambar chat yang dimuat dari sana membocorkan
+ * IP dan browser setiap staf yang membukanya, dan penghapusan berkas bisa
+ * diarahkan ke kunci bucket kita lewat URL bucket orang lain.
+ */
+export async function isTrustedUploadUrl(url: URL): Promise<boolean> {
+  if (!url.pathname.startsWith("/uploads/")) return false;
+  if (isAppHostname(url.hostname)) return true;
+  return isOwnR2Url(url);
 }
 
 /**
@@ -31,7 +80,6 @@ export async function isTrustedUploadUrl(
  */
 export async function isTrustedChatImageUrl(
   rawUrl: string,
-  request: NextRequest,
   tenantId: string,
 ): Promise<boolean> {
   let url: URL;
@@ -42,10 +90,15 @@ export async function isTrustedChatImageUrl(
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return false;
   if (tenantJalurUpload(url.pathname) !== tenantId) return false;
-  return isTrustedUploadUrl(url, request);
+  return isTrustedUploadUrl(url);
 }
 
-/** URL absolut berkas upload: URL R2 apa adanya, jalur lokal diberi host. */
+/**
+ * URL absolut untuk dikembalikan ke pengunggah: URL R2 apa adanya, jalur
+ * lokal diberi host permintaan. Ini hanya jawaban untuk klien itu sendiri,
+ * bukan keputusan percaya — URL hasilnya tetap diperiksa
+ * `isTrustedUploadUrl` saat dipakai.
+ */
 export function resolveAbsoluteUploadUrl(
   request: NextRequest,
   url: string,

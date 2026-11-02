@@ -44,7 +44,7 @@ export const POST = createHandler(
     if (parsed.response) return parsed.response;
 
     const { content, imageUrl } = parsed.data;
-    if (imageUrl && !(await isTrustedChatImageUrl(imageUrl, req, tenantId))) {
+    if (imageUrl && !(await isTrustedChatImageUrl(imageUrl, tenantId))) {
       return ApiErrors.badRequest(PESAN_GAMBAR_LUAR);
     }
 

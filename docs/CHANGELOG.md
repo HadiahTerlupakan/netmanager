@@ -41,6 +41,18 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-02] — Upload: host tepercaya dari konfigurasi, batas body chunked
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/upload`, `app/api/mobile/upload`, `app/api/mobile/chat`
+- **Author**: agent
+- **Deskripsi**: `isTrustedUploadUrl` dipakai untuk menghapus upload mobile dan memeriksa gambar chat.
+  - **Host aplikasi:** sebelumnya percaya pada header `Host` kiriman klien. Sekarang host diambil dari `NEXTAUTH_URL`/`NEXT_PUBLIC_APP_URL`/`APP_URL` beserta subdomainnya.
+  - **R2:** sebelumnya semua sufiks `.r2.cloudflarestorage.com` diterima, termasuk bucket akun Cloudflare siapa pun. Penghapusan lalu mengenai kunci yang sama di bucket kita. Sekarang hanya `{bucket}.{account}` milik aplikasi dan URL publik R2 yang dikonfigurasi.
+  - **Upload gambar chat:** body dibaca sambil dihitung (`readFormDataWithLimit`), sehingga body chunked tanpa `Content-Length` tidak bisa melewati batas 5MB.
+- **Files**: `lib/upload/trusted-upload-url.ts`, `lib/upload/read-body-with-limit.ts`, `app/api/mobile/chat/upload/route.ts`
+- **Breaking**: ❌ Tidak (lingkungan tanpa `NEXTAUTH_URL` menolak URL upload host lokal)
+
 ### [2026-11-02] — Chat: tutup celah lintas tenant, perbaiki pencarian admin
 
 - **Tipe**: [SECURITY]

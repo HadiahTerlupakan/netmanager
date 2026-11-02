@@ -1,5 +1,6 @@
 import { createHandler, apiSuccess, apiError, ErrorCodes } from "@/lib/api";
 import { logger } from "@/lib/logger";
+import { readFormDataWithLimit } from "@/lib/upload/read-body-with-limit";
 import { buildTenantUploadDir } from "@/lib/upload/upload-policy";
 import { resolveAbsoluteUploadUrl } from "@/lib/upload/trusted-upload-url";
 import { convertAndSaveImage } from "@/lib/utils/image-upload";
@@ -43,12 +44,18 @@ export const POST = createHandler(
       );
     }
 
+    // Jalan pintas: header yang jujur menyebut ukuran langsung ditolak.
+    // Body tanpa Content-Length (chunked) tetap dibatasi saat dibaca.
+    const maxBodyBytes = MAX_CHAT_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES;
     const declaredLength = Number(req.headers.get("content-length") ?? "0");
-    if (declaredLength > MAX_CHAT_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES) {
+    if (declaredLength > maxBodyBytes) {
       return tolak(PESAN_TERLALU_BESAR, 413);
     }
 
-    const formData = await req.formData().catch((): null => null);
+    const formData = await readFormDataWithLimit(req, maxBodyBytes);
+    if (formData === "terlalu-besar") {
+      return tolak(PESAN_TERLALU_BESAR, 413);
+    }
     const file = formData?.get("image");
     if (!(file instanceof File)) {
       return tolak("Gambar belum dipilih. Pilih gambar dulu, lalu kirim lagi.");

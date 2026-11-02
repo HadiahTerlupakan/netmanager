@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getServerSession: vi.fn(),
@@ -74,8 +74,13 @@ function kirimPesan(body: unknown) {
 describe("admin chat routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("NEXTAUTH_URL", "https://radpro.id");
     mocks.isFeatureEnabled.mockResolvedValue(true);
     mocks.getR2Settings.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe("GET /api/admin/chat/users", () => {
@@ -180,6 +185,31 @@ describe("admin chat routes", () => {
       });
 
       expect(response.status).toBe(400);
+    });
+
+    it("menolak gambar dari host luar walau header Host-nya dipalsukan", async () => {
+      login(["chat:create"]);
+
+      const response = await postMessage(
+        new NextRequest(
+          "https://pelacak.example/api/admin/chat/conversations/conv-1",
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              host: "pelacak.example",
+            },
+            body: JSON.stringify({
+              imageUrl:
+                "https://pelacak.example/uploads/tenants/tenant-1/chat/a.webp",
+            }),
+          },
+        ),
+        params(),
+      );
+
+      expect(response.status).toBe(400);
+      expect(mocks.sendMessage).not.toHaveBeenCalled();
     });
 
     it("menerima gambar hasil upload tenant sendiri", async () => {
