@@ -7,9 +7,7 @@ import {
   findByIdWithPushToken,
   findManyActiveWithPhoneAndSite,
   findManyActiveWithPushTokenAndSite,
-  findManyByDepartmentWithPushToken,
   findManyWithPushToken,
-  findManyWithPushTokenAndFilter,
 } from "./user-lookup.notification";
 import {
   findActiveForAttendance,
@@ -111,10 +109,6 @@ export class UserLookupRepository {
     return findManyWithPushToken(userIds);
   }
 
-  findManyByDepartmentWithPushToken(departmentId: string) {
-    return findManyByDepartmentWithPushToken(departmentId);
-  }
-
   findByIdWithDepartment(userId: string) {
     return findByIdWithDepartment(userId);
   }
@@ -141,10 +135,6 @@ export class UserLookupRepository {
 
   findByIdWithPushToken(userId: string) {
     return findByIdWithPushToken(userId);
-  }
-
-  findManyWithPushTokenAndFilter(userIds: string[]) {
-    return findManyWithPushTokenAndFilter(userIds);
   }
 
   clearPushTokens(tokens: string[]) {

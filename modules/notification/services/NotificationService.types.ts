@@ -38,7 +38,12 @@ export interface CreateNotificationData {
   siteId?: string | undefined;
   sourceType?: string | undefined;
   sourceId?: string | undefined;
-  skipExpoPush?: boolean | undefined;
+  /**
+   * Simpan notifikasi dan kirim websocket, tapi jangan push ke HP — mis.
+   * karyawan yang sedang cuti. Dulu bernama `skipExpoPush` dan hanya
+   * menahan Expo, sehingga FCM tetap terkirim ke karyawan cuti.
+   */
+  skipPush?: boolean | undefined;
   tenantId?: string | undefined;
 }
 

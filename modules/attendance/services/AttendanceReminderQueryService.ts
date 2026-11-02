@@ -93,7 +93,7 @@ export async function getUsersNeedingCheckInReminder(
       startWorkTime: user.startWorkTime,
       endWorkTime: user.endWorkTime || "17:00",
       workDays: user.workDays,
-      pushToken: user.pushToken,
+      hasPushDevice: (user.fcmTokens?.length ?? 0) > 0,
       phone: user.phone ?? null,
     });
   }
@@ -145,7 +145,7 @@ export async function getUsersNeedingCheckOutReminder(
       startWorkTime: user.startWorkTime || "08:00",
       endWorkTime: user.endWorkTime,
       workDays: user.workDays,
-      pushToken: user.pushToken,
+      hasPushDevice: (user.fcmTokens?.length ?? 0) > 0,
       phone: (user as { phone?: string | null }).phone ?? null,
     });
   }
@@ -191,7 +191,7 @@ export async function getFlexibleUsersNeedingNoCheckInReminder(): Promise<
       startWorkTime: "fleksibel",
       endWorkTime: "fleksibel",
       workDays: user.workDays,
-      pushToken: user.pushToken,
+      hasPushDevice: (user.fcmTokens?.length ?? 0) > 0,
       phone: user.phone ?? null,
     });
   }

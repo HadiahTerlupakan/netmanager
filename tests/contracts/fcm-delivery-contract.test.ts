@@ -23,20 +23,25 @@ describe("fcm delivery contract", () => {
     expect(notificationService).not.toContain("unsubscribeDevice(");
   });
 
-  it("keeps queue delivery contracts limited to expo and websocket", () => {
+  it("keeps queue delivery contracts limited to websocket; Expo is gone", () => {
     const queueSource = readSource("lib/event-bus/queues.ts");
     const workerSource = readSource("lib/event-bus/workers.ts");
-    const retryQueueSource = readSource(
-      "modules/notification/services/PushRetryQueue.ts",
-    );
+    const processorSource = readSource("lib/event-bus/worker-processors.ts");
 
-    expect(queueSource).toContain('type: "expo_push" | "websocket"');
+    expect(queueSource).toContain('type: "websocket"');
+    expect(queueSource).not.toContain("expo_push");
     expect(queueSource).not.toContain("web_push");
     expect(workerSource).not.toContain('case "web_push"');
     expect(workerSource).not.toContain("PushNotificationService");
-    expect(retryQueueSource).toContain('retryItem.type === "expo"');
-    expect(retryQueueSource).not.toContain('type: "expo" | "web"');
-    expect(retryQueueSource).not.toContain("retryWebPush");
+    expect(processorSource).not.toContain('case "expo_push"');
+    for (const removed of [
+      "modules/notification/services/PushRetryQueue.ts",
+      "modules/notification/services/ExpoPushService.ts",
+      "lib/expo.ts",
+      "app/api/mobile/push-token/route.ts",
+    ]) {
+      expect(existsSync(join(projectRoot, removed))).toBe(false);
+    }
   });
 
   it("drops the legacy subscribe route source file", () => {

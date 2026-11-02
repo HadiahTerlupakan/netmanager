@@ -19,10 +19,6 @@ import { AppError } from "./lib/errors";
 import { shutdownManager } from "./lib/shutdown-manager";
 import { startInternalCronIfEnabled } from "./lib/runtime/should-start-internal-cron";
 import { stopRadiusMonitoring } from "./modules/network/services/RadiusMonitor";
-import {
-  startPushRetryProcessor,
-  stopPushRetryProcessor,
-} from "./modules/notification/services/PushRetryQueue";
 import { logger } from "./lib/logger";
 
 // Standalone Hono app for custom server (separate from Next.js App Router route)
@@ -66,8 +62,6 @@ const server = serve(
   },
 ) as unknown as import("http").Server;
 
-startPushRetryProcessor();
-
 void import("./modules/network/services/monitorBootstrap")
   .then(async ({ waitForDatabaseReady }) => {
     await waitForDatabaseReady();
@@ -108,7 +102,6 @@ shutdownManager.register(async () => {
 
   try {
     stopRadiusMonitoring();
-    stopPushRetryProcessor();
     mikroTikMonitorRef?.stop();
     logger.info("[Server] Monitoring services stopped");
   } catch (e) {

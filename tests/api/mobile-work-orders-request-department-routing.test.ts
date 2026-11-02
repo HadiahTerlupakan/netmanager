@@ -21,7 +21,6 @@ vi.mock("@/modules/database", () => ({
 
 vi.mock("@/modules/notification", () => ({
   createNotification: vi.fn().mockResolvedValue({}),
-  sendPushToUsers: vi.fn().mockResolvedValue({}),
 }));
 
 vi.mock("@/lib/websocket/emitter", () => ({

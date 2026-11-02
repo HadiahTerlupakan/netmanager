@@ -2,10 +2,6 @@ import { logger } from "@/lib/logger";
 import { socketEmitter } from "@/lib/websocket/emitter";
 import { getAdminTokens, sendFCMNotification } from "@/lib/firebase/messaging";
 import {
-  sendPushNotification as sendExpoPush,
-  sendPushToDepartment as sendExpoPushToDepartment,
-} from "./ExpoPushService";
-import {
   buildAdminNotificationSiteId,
   buildNotificationPushMetadata,
   buildWebsocketPayload,
@@ -14,7 +10,7 @@ import {
 import type { CreateNotificationData } from "./NotificationService.types";
 import type { UserLookupService } from "@/modules/users";
 
-/** Dispatch websocket, FCM, and Expo deliveries for one notification. */
+/** Dispatch websocket and FCM deliveries for one notification. */
 export async function deliverNotification(input: {
   notification: {
     id: string;
@@ -90,6 +86,10 @@ async function notifyDirectUser(
   }
 
   socketEmitter.notifyUser(data.userId, wsPayload);
+  if (data.skipPush) {
+    return;
+  }
+
   const directRecipient = await userLookupService.findByIdWithPushToken(
     data.userId,
   );
@@ -102,16 +102,6 @@ async function notifyDirectUser(
       pushMetadata,
     ).catch((error) => logger.error("[FCM Push] Error:", error));
   }
-
-  if (data.skipExpoPush) {
-    return;
-  }
-
-  void sendExpoPush(data.userId, data.title, data.message, {
-    link: data.link || undefined,
-    sourceType: data.sourceType || undefined,
-    sourceId: data.sourceId || undefined,
-  }).catch((error) => logger.error("[Expo Push] Error:", error));
 }
 
 /** Notify all department recipients through supported channels. */
@@ -126,6 +116,10 @@ async function notifyDepartment(
   }
 
   socketEmitter.notifyDepartment(data.departmentId, wsPayload);
+  if (data.skipPush) {
+    return;
+  }
+
   const departmentRecipients =
     await userLookupService.findManyActiveWithPushTokenAndSite(
       data.departmentId,
@@ -143,16 +137,6 @@ async function notifyDepartment(
       pushMetadata,
     ).catch((error) => logger.error("[FCM Push Dept] Error:", error));
   }
-
-  if (data.skipExpoPush) {
-    return;
-  }
-
-  void sendExpoPushToDepartment(data.departmentId, data.title, data.message, {
-    link: data.link || undefined,
-    sourceType: data.sourceType || undefined,
-    sourceId: data.sourceId || undefined,
-  }).catch((error) => logger.error("[Expo Push Dept] Error:", error));
 }
 
 /** Notify admin channels for high-priority notifications. */

@@ -23,8 +23,8 @@ vi.mock("@/lib/realtime", () => ({
   firebaseRealtimeService: { publish: vi.fn() },
 }));
 
-vi.mock("@/lib/expo", () => ({
-  sendExpoPushNotifications: vi.fn(),
+vi.mock("@/modules/notification/services/ActorPushService", () => ({
+  sendPushToActors: vi.fn().mockResolvedValue(0),
 }));
 
 import {
@@ -123,8 +123,7 @@ describe("AnnouncementService.updateAnnouncement — validasi periode sebagian",
         startDate: "2026-10-25T00:00:00.000Z",
       }),
     ).rejects.toSatisfy(
-      (e: unknown) =>
-        e instanceof AnnouncementServiceError && e.status === 400,
+      (e: unknown) => e instanceof AnnouncementServiceError && e.status === 400,
     );
   });
 

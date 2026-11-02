@@ -2,7 +2,6 @@ import { sendFCMNotification } from "@/lib/firebase/messaging";
 import { logger } from "@/lib/logger";
 import { toFcmData } from "./fcm-data";
 import { PelangganPushTokenService } from "@/modules/pelanggan";
-import { sendExpoPushToToken } from "./ExpoPushService";
 
 let pelangganPushTokenService: PelangganPushTokenService | null = null;
 
@@ -12,10 +11,9 @@ function getPelangganPushTokenService(): PelangganPushTokenService {
 }
 
 /**
- * Kirim push ke satu pelanggan: lewat FCM ke setiap perangkat aplikasi sekarang
- * (`fcmTokens`, didaftarkan sejak 2026-04-16) dan lewat Expo ke token aplikasi
- * era Expo (`pushToken`) bila masih ada. Mengembalikan true bila salah satu
- * kanal menerimanya.
+ * Kirim push ke satu pelanggan lewat FCM ke setiap perangkat aplikasi
+ * (`fcmTokens`, didaftarkan sejak 2026-04-16). Mengembalikan true bila FCM
+ * menerima setidaknya satu perangkat.
  *
  * Preferensi ditegakkan di sini, bukan di tiap pemanggil: jalur push langsung
  * (pembayaran ditolak/dibatalkan) dulu melewatinya sehingga pelanggan yang
@@ -38,14 +36,7 @@ export async function sendCustomerPushNotification(
       return false;
     }
 
-    // Kanal yang gagal tidak boleh menahan kanal lain.
-    const deliveries = await Promise.allSettled([
-      sendCustomerFcm(pelanggan.fcmTokens, title, body, data),
-      pelanggan.pushToken
-        ? sendExpoPushToToken(pelanggan.pushToken, title, body, data)
-        : Promise.resolve(false),
-    ]);
-    return deliveries.some(isDelivered);
+    return await sendCustomerFcm(pelanggan.fcmTokens, title, body, data);
   } catch (error) {
     logger.error("[Push] Error sending customer notification:", error);
     return false;
@@ -66,12 +57,4 @@ async function sendCustomerFcm(
     toFcmData(data),
   );
   return accepted > 0;
-}
-
-function isDelivered(delivery: PromiseSettledResult<boolean>): boolean {
-  if (delivery.status === "rejected") {
-    logger.error("[Push] Customer push channel failed:", delivery.reason);
-    return false;
-  }
-  return delivery.value;
 }

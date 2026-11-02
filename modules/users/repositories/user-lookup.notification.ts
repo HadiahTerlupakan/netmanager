@@ -34,22 +34,6 @@ export function findManyWithPushToken(userIds: string[]) {
   });
 }
 
-/** Ambil banyak user aktif per departemen yang punya push token. */
-export function findManyByDepartmentWithPushToken(departmentId: string) {
-  return prisma.user.findMany({
-    where: { isActive: true, departmentId, pushToken: { not: null } },
-    select: { id: true, pushToken: true },
-  });
-}
-
-/** Ambil user dari daftar id yang masih memiliki push token. */
-export function findManyWithPushTokenAndFilter(userIds: string[]) {
-  return prisma.user.findMany({
-    where: { id: { in: userIds }, pushToken: { not: null } },
-    select: { id: true, pushToken: true },
-  });
-}
-
 /** Ambil user aktif dengan token push berdasarkan site dan departemen. */
 export function findManyActiveWithPushTokenAndSite(
   departmentId?: string,

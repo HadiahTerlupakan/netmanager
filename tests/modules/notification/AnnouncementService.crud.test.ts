@@ -23,8 +23,8 @@ vi.mock("@/lib/realtime", () => ({
   firebaseRealtimeService: { publish: vi.fn() },
 }));
 
-vi.mock("@/lib/expo", () => ({
-  sendExpoPushNotifications: vi.fn(),
+vi.mock("@/modules/notification/services/ActorPushService", () => ({
+  sendPushToActors: vi.fn().mockResolvedValue(0),
 }));
 
 import {

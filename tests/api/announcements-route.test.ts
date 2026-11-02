@@ -17,7 +17,7 @@ const mockFns = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   publish: vi.fn().mockResolvedValue(undefined),
   logActivity: vi.fn(),
-  sendExpoPushNotifications: vi.fn().mockResolvedValue(undefined),
+  sendPushToActors: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock("@/lib/auth-helpers", () => ({
@@ -49,8 +49,8 @@ vi.mock("@/lib/logger", () => ({
   },
 }));
 
-vi.mock("@/lib/expo", () => ({
-  sendExpoPushNotifications: mockFns.sendExpoPushNotifications,
+vi.mock("@/modules/notification/services/ActorPushService", () => ({
+  sendPushToActors: mockFns.sendPushToActors,
 }));
 
 import { POST } from "@/app/api/announcements/route";
@@ -69,6 +69,7 @@ describe("announcements route", () => {
       target: "ADMIN",
       isPinned: false,
       createdAt: new Date("2026-03-08T10:00:00.000Z"),
+      tenantId: "tenant-1",
     });
     prismaMock.leaveRequest.findMany.mockResolvedValue([]);
     prismaMock.pelanggan.findMany.mockResolvedValue([]);
@@ -77,8 +78,8 @@ describe("announcements route", () => {
   it("targets admin announcements to admin and super admin roles with the correct prisma relation", async () => {
     prismaMock.user.findMany
       .mockResolvedValueOnce([
-        { id: "admin-1", pushToken: "token-1" },
-        { id: "super-1", pushToken: "token-2" },
+        { id: "admin-1", fcmTokens: ["fcm"] },
+        { id: "super-1", fcmTokens: ["fcm"] },
       ])
       .mockResolvedValueOnce([{ id: "admin-1" }, { id: "super-1" }]);
 
@@ -122,6 +123,7 @@ describe("announcements route", () => {
         where: {
           isActive: true,
           role: { is: { accessAdminPanel: true } },
+          tenantId: "tenant-1",
         },
         select: { id: true },
       }),
@@ -130,7 +132,7 @@ describe("announcements route", () => {
 
   it("publishes active admin announcements through Firebase realtime admin scope", async () => {
     prismaMock.user.findMany
-      .mockResolvedValueOnce([{ id: "admin-1", pushToken: "token-1" }])
+      .mockResolvedValueOnce([{ id: "admin-1", fcmTokens: ["fcm"] }])
       .mockResolvedValueOnce([{ id: "admin-1" }]);
 
     const response = await POST(
@@ -219,7 +221,7 @@ describe("announcements route", () => {
 
   it("still returns success when Firebase realtime publish fails after creating the announcement", async () => {
     prismaMock.user.findMany
-      .mockResolvedValueOnce([{ id: "admin-1", pushToken: "token-1" }])
+      .mockResolvedValueOnce([{ id: "admin-1", fcmTokens: ["fcm"] }])
       .mockResolvedValueOnce([{ id: "admin-1" }]);
     mockFns.publish.mockRejectedValueOnce(new Error("realtime down"));
 
@@ -242,7 +244,7 @@ describe("announcements route", () => {
   it("does not wait for Firebase realtime publish before finishing the POST response", async () => {
     const deferredPublish = createDeferred<void>();
     prismaMock.user.findMany
-      .mockResolvedValueOnce([{ id: "admin-1", pushToken: "token-1" }])
+      .mockResolvedValueOnce([{ id: "admin-1", fcmTokens: ["fcm"] }])
       .mockResolvedValueOnce([{ id: "admin-1" }]);
     mockFns.publish.mockReturnValueOnce(deferredPublish.promise);
 

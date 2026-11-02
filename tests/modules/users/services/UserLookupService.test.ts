@@ -28,8 +28,6 @@ const mockUserLookupRepository = {
   findManyWithDetailedRelations: vi.fn(),
   findManyWithPushToken: vi.fn(),
   clearPushTokens: vi.fn(),
-  findManyWithPushTokenAndFilter: vi.fn(),
-  findManyByDepartmentWithPushToken: vi.fn(),
   findManyActiveWithPushTokenAndSite: vi.fn(),
 };
 
@@ -69,10 +67,6 @@ vi.mock("@/modules/users/repositories/UserLookupRepository", () => ({
       mockUserLookupRepository.findManyWithDetailedRelations;
     findManyWithPushToken = mockUserLookupRepository.findManyWithPushToken;
     clearPushTokens = mockUserLookupRepository.clearPushTokens;
-    findManyWithPushTokenAndFilter =
-      mockUserLookupRepository.findManyWithPushTokenAndFilter;
-    findManyByDepartmentWithPushToken =
-      mockUserLookupRepository.findManyByDepartmentWithPushToken;
     findManyActiveWithPushTokenAndSite =
       mockUserLookupRepository.findManyActiveWithPushTokenAndSite;
   },

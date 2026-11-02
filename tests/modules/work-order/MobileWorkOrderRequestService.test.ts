@@ -12,7 +12,6 @@ const mockFns = vi.hoisted(() => ({
   departmentsFindFirst: vi.fn(),
   userFindMany: vi.fn(),
   createNotification: vi.fn(),
-  sendPushToUsers: vi.fn(),
   socketNewWorkOrder: vi.fn(),
 }));
 
@@ -37,7 +36,6 @@ vi.mock("@/modules/work-order/repositories/WorkOrderRepository", () => ({
 vi.mock("@/modules/notification", () => ({
   createNotification: (...args: unknown[]) =>
     mockFns.createNotification(...args),
-  sendPushToUsers: (...args: unknown[]) => mockFns.sendPushToUsers(...args),
 }));
 
 vi.mock("@/lib/websocket/emitter", () => ({
@@ -55,7 +53,6 @@ describe("MobileWorkOrderRequestService", () => {
     mockFns.departmentsFindFirst.mockResolvedValue(null);
     mockFns.userFindMany.mockResolvedValue([]);
     mockFns.createNotification.mockResolvedValue(undefined);
-    mockFns.sendPushToUsers.mockResolvedValue(undefined);
     mockFns.socketNewWorkOrder.mockResolvedValue(undefined);
     mockFns.createRequest.mockResolvedValue({
       id: "wo-1",
@@ -109,7 +106,9 @@ describe("MobileWorkOrderRequestService", () => {
     );
   });
 
-  it("tetap mengirim bulk push admin secara async tanpa expo push per-admin", async () => {
+  // Dulu: createNotification (FCM) + push Expo massal terpisah. Expo dihapus;
+  // setiap admin cukup satu createNotification yang sudah membawa push FCM.
+  it("mengirim satu notifikasi ber-push FCM ke tiap admin, tanpa push massal terpisah", async () => {
     mockFns.userFindMany.mockResolvedValue([
       { id: "admin-1" },
       { id: "admin-2" },
@@ -149,27 +148,16 @@ describe("MobileWorkOrderRequestService", () => {
       1,
       expect.objectContaining({
         userId: "admin-1",
-        skipExpoPush: true,
+        title: "📝 WO Request Baru",
       }),
     );
     expect(mockFns.createNotification).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({
-        userId: "admin-2",
-        skipExpoPush: true,
-      }),
+      expect.objectContaining({ userId: "admin-2" }),
     );
-    expect(mockFns.sendPushToUsers).toHaveBeenCalledTimes(1);
-    expect(mockFns.sendPushToUsers).toHaveBeenCalledWith(
-      ["admin-1", "admin-2"],
-      "📝 WO Request Baru",
-      "Teknisi Mobile mengajukan: Request Dismantle",
-      {
-        workOrderId: "wo-1",
-        type: "WO_REQUEST",
-        screen: "WorkOrderRequests",
-      },
-    );
+    for (const [panggilan] of mockFns.createNotification.mock.calls) {
+      expect(panggilan).not.toHaveProperty("skipPush");
+    }
   });
 
   it("mengembalikan work order sebelum fan-out notifikasi admin selesai", async () => {
@@ -178,10 +166,10 @@ describe("MobileWorkOrderRequestService", () => {
       { id: "admin-2" },
     ]);
 
-    let resolvePush: ((value: number) => void) | undefined;
-    mockFns.sendPushToUsers.mockImplementation(
+    let resolvePush: ((value: { id: string }) => void) | undefined;
+    mockFns.createNotification.mockImplementation(
       () =>
-        new Promise<number>((resolve) => {
+        new Promise<{ id: string }>((resolve) => {
           resolvePush = resolve;
         }),
     );
@@ -224,7 +212,7 @@ describe("MobileWorkOrderRequestService", () => {
     );
     expect(resolvePush).toBeTypeOf("function");
 
-    resolvePush?.(2);
+    resolvePush?.({ id: "notif-1" });
     await expect(pendingRequest).resolves.toEqual(
       expect.objectContaining({ id: "wo-1" }),
     );

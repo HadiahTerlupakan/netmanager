@@ -4,7 +4,8 @@ export interface UserSchedule {
   startWorkTime: string;
   endWorkTime: string;
   workDays: string | null;
-  pushToken: string | null;
+  /** Punya token FCM — HP-nya bisa menerima push pengingat. */
+  hasPushDevice: boolean;
   phone: string | null;
 }
 

@@ -241,7 +241,6 @@ function pushUntukStaf() {
         message: "WO-UJI",
         userId: STAF,
         priority: "NORMAL",
-        skipExpoPush: true,
       },
       userLookupService: new UserLookupService(),
     }),

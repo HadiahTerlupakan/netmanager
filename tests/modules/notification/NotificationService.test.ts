@@ -1,11 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prismaMock } from "../../setup";
 
-vi.mock("@/modules/notification/services/ExpoPushService", () => ({
-  sendPushNotification: vi.fn().mockResolvedValue(true),
-  sendPushToDepartment: vi.fn().mockResolvedValue(0),
-}));
-
 const firebaseMessagingMocks = vi.hoisted(() => ({
   sendFCMNotification: vi.fn().mockResolvedValue(undefined),
   getAdminTokens: vi.fn().mockResolvedValue([]),
@@ -29,7 +24,6 @@ import {
   markAsRead,
   notifyNewPointClaim,
 } from "@/modules/notification/services/NotificationService";
-import { sendPushNotification as sendExpoPush } from "@/modules/notification/services/ExpoPushService";
 import { getAdminTokens, sendFCMNotification } from "@/lib/firebase/messaging";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 
@@ -134,7 +128,6 @@ describe("NotificationService", () => {
         userId: "user-tenant-1",
         sourceType: "SYSTEM",
         sourceId: "src-tenant-1",
-        skipExpoPush: true,
       });
 
       expect(prismaMock.notifications.create).toHaveBeenCalledWith({
@@ -144,35 +137,37 @@ describe("NotificationService", () => {
       });
     });
 
-    it("can skip expo push while still creating in-app notification", async () => {
+    // Dulu bernama skipExpoPush dan hanya menahan Expo: karyawan cuti tetap
+    // menerima push FCM. skipPush menahan push ke HP, notifikasinya tetap ada.
+    it("skipPush menyimpan notifikasi tanpa push FCM ke HP", async () => {
       prismaMock.notifications.create.mockResolvedValueOnce({
         id: "notif-web-2",
         type: "SYSTEM",
         priority: "NORMAL",
-        title: "No Expo",
-        message: "Still persisted",
+        title: "Sedang cuti",
+        message: "Tetap tersimpan",
         link: null,
         sourceType: "SYSTEM",
         sourceId: "src-2",
         createdAt: new Date("2026-03-08T12:10:00.000Z"),
       } as unknown as { id: string });
+      prismaMock.user.findUnique.mockResolvedValue({
+        id: "user-cuti",
+        fcmTokens: ["fcm-token-cuti"],
+      });
 
       await createNotification({
         type: "SYSTEM",
-        title: "No Expo",
-        message: "Still persisted",
-        userId: "user-no-expo",
+        title: "Sedang cuti",
+        message: "Tetap tersimpan",
+        userId: "user-cuti",
         sourceType: "SYSTEM",
         sourceId: "src-2",
-        skipExpoPush: true,
+        skipPush: true,
       });
 
-      expect(sendExpoPush).not.toHaveBeenCalledWith(
-        "user-no-expo",
-        "No Expo",
-        "Still persisted",
-        expect.anything(),
-      );
+      expect(prismaMock.notifications.create).toHaveBeenCalled();
+      expect(sendFCMNotification).not.toHaveBeenCalled();
     });
 
     it("fans out direct notifications through Firebase messaging for user fcm tokens", async () => {
@@ -200,7 +195,6 @@ describe("NotificationService", () => {
         link: "/admin/notifications",
         sourceType: "SYSTEM",
         sourceId: "src-fcm-1",
-        skipExpoPush: true,
       });
 
       expect(sendFCMNotification).toHaveBeenCalledWith(
@@ -241,7 +235,6 @@ describe("NotificationService", () => {
         siteId: "site-1",
         sourceType: "SYSTEM",
         sourceId: "src-fcm-dept-1",
-        skipExpoPush: true,
       });
 
       expect(sendFCMNotification).toHaveBeenCalledWith(
@@ -282,7 +275,6 @@ describe("NotificationService", () => {
         link: "/admin/notifications",
         sourceType: "SYSTEM",
         sourceId: "src-fcm-admin-1",
-        skipExpoPush: true,
         tenantId: "tenant-A",
       });
 
@@ -321,7 +313,6 @@ describe("NotificationService", () => {
         link: "/admin/notifications",
         sourceType: "SYSTEM",
         sourceId: "src-fcm-admin-2",
-        skipExpoPush: true,
       });
 
       expect(getAdminTokens).not.toHaveBeenCalled();

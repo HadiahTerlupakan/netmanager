@@ -13,7 +13,6 @@ import { logger } from "@/lib/logger";
 import {
   cleanupExpiredNotificationLogs,
   NOTIFICATION_LOGS_CLEANUP_CONFIG,
-  requeueStuckProcessingItems,
 } from "@/modules/notification";
 
 export const dynamic = "force-dynamic";
@@ -41,13 +40,12 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await cleanupExpiredNotificationLogs();
-    const stuckRecovery = await requeueStuckProcessingItems();
 
     logger.info(
-      `[CronCleanup] Notification logs cleanup: ${result.emailLogsDeleted} email logs (>${NOTIFICATION_LOGS_CLEANUP_CONFIG.emailLogRetentionDays}d) + ${result.dlqResolvedDeleted} resolved DLQ (>${NOTIFICATION_LOGS_CLEANUP_CONFIG.dlqResolvedRetentionDays}d) deleted; push-retry recovery: ${stuckRecovery.requeued} requeued, ${stuckRecovery.dropped} dropped`,
+      `[CronCleanup] Notification logs cleanup: ${result.emailLogsDeleted} email logs (>${NOTIFICATION_LOGS_CLEANUP_CONFIG.emailLogRetentionDays}d) + ${result.dlqResolvedDeleted} resolved DLQ (>${NOTIFICATION_LOGS_CLEANUP_CONFIG.dlqResolvedRetentionDays}d) deleted`,
     );
 
-    return apiSuccess({ ...result, stuckRecovery });
+    return apiSuccess(result);
   } catch (error) {
     logger.error("[CronCleanup] Error:", error);
     return ApiErrors.internalError("Gagal cleanup notification logs");

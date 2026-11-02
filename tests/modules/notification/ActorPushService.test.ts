@@ -4,16 +4,12 @@ const mocks = vi.hoisted(() => ({
   getUserFcmTokens: vi.fn(),
   getMitraFcmTokens: vi.fn(),
   sendFCMNotification: vi.fn(),
-  sendPushToUsers: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase/messaging", () => ({
   getUserFcmTokens: mocks.getUserFcmTokens,
   getMitraFcmTokens: mocks.getMitraFcmTokens,
   sendFCMNotification: mocks.sendFCMNotification,
-}));
-vi.mock("@/modules/notification/services/ExpoPushService", () => ({
-  sendPushToUsers: mocks.sendPushToUsers,
 }));
 
 import { sendPushToActors } from "@/modules/notification/services/ActorPushService";
@@ -24,11 +20,10 @@ describe("sendPushToActors", () => {
     mocks.getUserFcmTokens.mockResolvedValue(["fcm-karyawan"]);
     mocks.getMitraFcmTokens.mockResolvedValue(["fcm-mitra"]);
     mocks.sendFCMNotification.mockResolvedValue(2);
-    mocks.sendPushToUsers.mockResolvedValue(0);
   });
 
-  // Chat dulu hanya memakai Expo (`pushToken`); aplikasi sekarang mendaftar
-  // lewat FCM (`fcmTokens`), jadi notifikasi chat tidak pernah sampai.
+  // Push dulu dikirim lewat Expo (`pushToken`); aplikasi sekarang hanya
+  // mendaftar lewat FCM (`fcmTokens`), jadi push Expo tidak pernah sampai.
   it("mengirim lewat FCM ke token karyawan dan mitra", async () => {
     await sendPushToActors(
       [
@@ -50,24 +45,12 @@ describe("sendPushToActors", () => {
     );
   });
 
-  it("tetap mengirim Expo untuk pemasangan aplikasi lama", async () => {
-    await sendPushToActors([{ type: "user", id: "user-2" }], "Judul", "Isi");
-
-    expect(mocks.sendPushToUsers).toHaveBeenCalledWith(
-      ["user-2"],
-      "Judul",
-      "Isi",
-      undefined,
-    );
-  });
-
-  it("kanal FCM yang gagal tidak menahan kanal Expo", async () => {
+  it("FCM yang gagal dicatat dan dihitung 0, tidak melempar ke pemanggil", async () => {
     mocks.sendFCMNotification.mockRejectedValueOnce(new Error("FCM down"));
 
     await expect(
       sendPushToActors([{ type: "user", id: "user-2" }], "J", "I"),
-    ).resolves.toBeDefined();
-    expect(mocks.sendPushToUsers).toHaveBeenCalled();
+    ).resolves.toBe(0);
   });
 
   it("tidak memanggil FCM bila tidak ada token", async () => {

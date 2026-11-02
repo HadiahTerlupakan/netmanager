@@ -1,3 +1,37 @@
+# Rencana: Semua push pindah ke FCM, Expo dihapus (2026-11-02)
+
+Status: **dikerjakan**
+
+## Bukti Expo sudah mati
+- Aplikasi berhenti memakai Expo push di commit mobile `d616a7b` (2026-04-16, ±build 39).
+- Production `GET /api/mobile/app-version/check?currentVersionCode=39` → `isForceUpdate: true` (minimum = build 51).
+- Aplikasi sekarang tidak punya `expo-notifications`/`getExpoPushTokenAsync`.
+
+## Batasan
+- Kolom DB `pushToken`/`pushTokenUpdatedAt` TIDAK dihapus (tanpa migration destruktif); hanya berhenti dipakai untuk kirim.
+- Filter penerima WhatsApp tidak diubah.
+- Satu notifikasi = satu push: jalur `createNotification` (sudah FCM) + push Expo eksplisit → hapus yang eksplisit, jangan diganti (cegah dobel).
+
+## Langkah
+- [x] `ActorPushService`: buang kanal Expo.
+- [x] `NotificationService.delivery`: buang Expo; `skipExpoPush` → `skipPush` (berlaku ke FCM pengguna & departemen; maksud aslinya: karyawan cuti tidak dipush).
+- [x] Work order: 3 jalur createNotification+Expo → hapus Expo eksplisit; pengingat WO → `sendPushToActors`.
+- [x] Pengingat absensi: `pushToken` → punya token FCM; kirim lewat `sendPushToActors`.
+- [x] Pengumuman: Expo (`lib/expo`) → FCM, tetap lewati karyawan cuti.
+- [x] `CustomerPushService`: buang kanal Expo.
+- [x] `getAdminTokens`: filter basi memakai `pushTokenUpdatedAt` (timestamp Expo) → hapus; token mati dibersihkan saat FCM menolak.
+- [x] Hapus: `ExpoPushService(+helpers)`, `PushRetryQueue(+helpers)` + start di `server.ts` + endpoint monitoring, `lib/expo.ts`, job `expo_push`, route `/api/mobile/push-token` + service-nya, fungsi repository yang jadi mati, dependensi `expo-server-sdk`.
+- [x] Tes: perbarui yang terdampak, hapus tes kode yang dihapus, tambah tes regresi.
+- [x] typecheck + lint + suite penuh; changelog; commit.
+
+## Review (2026-11-02)
+- Suite penuh: 1305 file / 9648 tes lulus; typecheck & lint bersih.
+- Temuan reviewer yang diperbaiki: push pengumuman tanpa filter tenant; cron
+  `cleanup-stale-fcm-tokens` menghapus token FCM aktif karena `pushTokenUpdatedAt`
+  tidak disegarkan saat sinkron FCM.
+- Pelajaran: impor statis pengirim FCM menarik Firebase Admin ke modul yang
+  banyak diimpor → hook tes timeout saat paralel; pertahankan lazy import.
+
 # Rencana: Self-Assessment Komdigi dua jenis izin (Jartaplok PS + ISP)
 
 Tanggal: 2026-10-07

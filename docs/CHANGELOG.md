@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-02] — Semua push mobile lewat FCM; Expo dihapus
+
+- **Tipe**: [REMOVED]
+- **Scope**: `modules/notification`, `modules/work-order`, `modules/attendance`, `modules/users`, `modules/mitra`, `lib/firebase`, `lib/event-bus`, `app/api`
+- **Author**: agent
+- **Deskripsi**:
+  - **Kenapa:** aplikasi berhenti memakai Expo push sejak 2026-04-16 (mobile `d616a7b`, ±build 39), dan versi itu dipaksa update (`app-version/check` build 39 → `isForceUpdate: true`, minimum build 51). Akibatnya push yang masih lewat Expo tidak pernah sampai ke HP mana pun.
+  - **Pindah ke FCM:** pengingat absensi, pengingat WO, pengumuman, dan push pelanggan.
+  - **Panggilan Expo duplikat dihapus, bukan diganti FCM:** di jalur yang sudah memanggil `createNotification` (persetujuan WO, permintaan WO baru, instalasi selesai), supaya tidak ada notifikasi ganda.
+  - **`skipExpoPush` → `skipPush`:** kini benar-benar menahan push FCM. Sebelumnya karyawan cuti tetap menerima push update WO lewat FCM.
+  - **Pengingat absensi:** syarat "punya pushToken atau nomor HP" diganti "punya token FCM atau nomor HP". Karyawan yang hanya punya token FCM tanpa nomor HP dulu tidak diingatkan sama sekali.
+  - **`getAdminTokens`:** tidak lagi melewati token FCM admin berdasarkan `pushTokenUpdatedAt`, karena timestamp itu hanya diperbarui saat registrasi Expo.
+  - **Dihapus:**
+    - `ExpoPushService` (+helpers), `PushRetryQueue` (+helpers) dan prosesornya di `server.ts`/`server-api.ts`, pemulihan antrean di cron `cleanup-notification-logs`.
+    - `lib/expo.ts` + dependensi `expo-server-sdk`, job `expo_push` (tanpa produsen, dan salah mengoper `pushToken` sebagai `userId`).
+    - Lookup Expo-saja di repository notification, users, dan mitra.
+  - **Token FCM tidak lagi dihapus tiap malam:** cron `cleanup-stale-fcm-tokens` (02:00 WIB) mengosongkan `fcmTokens` bila `pushTokenUpdatedAt` > 30 hari. Kolom itu dulu hanya diperbarui registrasi Expo, sehingga token FCM karyawan, pelanggan, dan mitra yang aktif ikut terhapus. Ini kemungkinan besar sebab hanya 3 dari 56 karyawan yang punya token. Sinkron token FCM (setiap aplikasi dibuka) kini menyegarkan `pushTokenUpdatedAt`, seperti yang sudah dilakukan investor.
+  - **Push pengumuman dibatasi ke tenant pengumuman.** Dulu tanpa filter tenant; dampaknya tertutup karena Expo tidak sampai, dan baru nyata setelah pindah ke FCM. Pengumuman tanpa tenant tidak di-push. Notifikasi in-app ikut dibatasi tenant.
+  - **Kolom DB `pushToken`/`pushTokenUpdatedAt` dipertahankan** (tanpa migration destruktif); `pushTokenUpdatedAt` kini berarti "terakhir sinkron token FCM".
+- **Files**: `modules/notification/services/ActorPushService.ts`, `modules/notification/services/NotificationService.delivery.ts`, `modules/attendance/services/AttendanceReminderDeliveryService.ts`, `modules/work-order/services/WorkOrderNotifications.ts`, `modules/notification/services/AnnouncementNotification.helpers.ts`, `lib/firebase/messaging.ts`
+- **Breaking**: ✅ Ya — endpoint `POST/DELETE /api/mobile/push-token` (registrasi token Expo) dan `GET /api/admin/notifications/monitoring` (statistik antrean retry Expo) dihapus; tidak ada klien aktif yang memakainya.
+
 ### [2026-11-02] — Notifikasi chat dikirim lewat FCM, bukan hanya Expo
 
 - **Tipe**: [FIXED]

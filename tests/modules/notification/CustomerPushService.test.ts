@@ -4,8 +4,8 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
  * Aplikasi sejak 2026-04-16 hanya mendaftarkan token FCM, untuk pelanggan juga,
  * tetapi push pelanggan dulu hanya dikirim lewat Expo ke `Pelanggan.pushToken`
  * (token aplikasi era Expo). Pelanggan dengan aplikasi sekarang tidak menerima
- * push apa pun. Push pelanggan kini dikirim lewat FCM ke `fcmTokens` dan tetap
- * lewat Expo ke token lama bila masih ada.
+ * push apa pun. Push pelanggan kini dikirim lewat FCM ke `fcmTokens` saja;
+ * Expo dihapus 2026-11-02 karena versi era Expo sudah dipaksa update.
  *
  * `Pelanggan.isBillNotifEnabled` dulu hanya dihormati di
  * `NotificationDispatcher`; jalur push langsung (pembayaran ditolak atau
@@ -130,7 +130,7 @@ describe("sendCustomerPushNotification", () => {
     expect(tokenExpoTerkirim()).toEqual([]);
   });
 
-  it("tetap mengirim lewat Expo ke token lama, di samping FCM", async () => {
+  it("token Expo lama tidak lagi dikirimi; push hanya lewat FCM", async () => {
     findByIdWithPushToken.mockResolvedValue(
       pelanggan({ fcmTokens: ["fcm-hp"], pushToken: TOKEN_EXPO_LAMA }),
     );
@@ -138,10 +138,10 @@ describe("sendCustomerPushNotification", () => {
     await sendCustomerPushNotification("cust-1", "Judul", "Isi", DATA_TAGIHAN);
 
     expect(pesanFcm().tokens).toEqual(["fcm-hp"]);
-    expect(tokenExpoTerkirim()).toEqual([TOKEN_EXPO_LAMA]);
+    expect(tokenExpoTerkirim()).toEqual([]);
   });
 
-  it("pemasangan era Expo tanpa token FCM tetap menerima push lewat Expo", async () => {
+  it("pelanggan yang hanya punya token Expo lama tidak dikirimi apa pun", async () => {
     findByIdWithPushToken.mockResolvedValue(
       pelanggan({ pushToken: TOKEN_EXPO_LAMA }),
     );
@@ -153,9 +153,9 @@ describe("sendCustomerPushNotification", () => {
       DATA_TAGIHAN,
     );
 
-    expect(terkirim).toBe(true);
+    expect(terkirim).toBe(false);
     expect(sendEachForMulticast).not.toHaveBeenCalled();
-    expect(tokenExpoTerkirim()).toEqual([TOKEN_EXPO_LAMA]);
+    expect(tokenExpoTerkirim()).toEqual([]);
   });
 
   it("data push diubah ke string untuk FCM; nilai kosong dibuang", async () => {
@@ -209,7 +209,7 @@ describe("sendCustomerPushNotification", () => {
     expect(sendEachForMulticast).not.toHaveBeenCalled();
   });
 
-  it("FCM yang gagal tidak menahan push Expo ke token lama", async () => {
+  it("FCM yang tidak terjangkau dilaporkan tidak terkirim, tanpa jatuh ke Expo", async () => {
     findByIdWithPushToken.mockResolvedValue(
       pelanggan({ fcmTokens: ["fcm-hp"], pushToken: TOKEN_EXPO_LAMA }),
     );
@@ -217,8 +217,8 @@ describe("sendCustomerPushNotification", () => {
 
     const terkirim = await sendCustomerPushNotification("cust-1", "J", "I");
 
-    expect(terkirim).toBe(true);
-    expect(tokenExpoTerkirim()).toEqual([TOKEN_EXPO_LAMA]);
+    expect(terkirim).toBe(false);
+    expect(tokenExpoTerkirim()).toEqual([]);
   });
 
   it("melaporkan tidak terkirim bila FCM menolak semua token", async () => {

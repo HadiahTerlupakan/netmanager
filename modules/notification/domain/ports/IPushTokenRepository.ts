@@ -1,7 +1,4 @@
-import type {
-  PushTokenOwnerEntity,
-  PushTokenOwnerTokensEntity,
-} from "../entities/PushTokenOwnerEntity";
+import type { PushTokenOwnerTokensEntity } from "../entities/PushTokenOwnerEntity";
 
 export interface IMobileFcmSession {
   userId?: string;
@@ -11,24 +8,8 @@ export interface IMobileFcmSession {
 }
 
 export interface IPushTokenRepository {
-  findUserPushToken(userId: string): Promise<string | null>;
-  findMitraPushToken(mitraId: string): Promise<string | null>;
-  findPelangganPushToken(pelangganId: string): Promise<string | null>;
-  findUsersWithPushToken(userIds: string[]): Promise<PushTokenOwnerEntity[]>;
-  findMitrasWithPushToken(mitraIds: string[]): Promise<PushTokenOwnerEntity[]>;
-  findUsersByDepartmentWithPushToken(
-    departmentId: string,
-  ): Promise<PushTokenOwnerEntity[]>;
-  findActiveUsersWithPushTokenBySite(
-    departmentId?: string,
-    siteId?: string,
-    excludeUserId?: string,
-  ): Promise<Array<{ id: string }>>;
   clearPushTokens(tokens: string[]): Promise<void>;
   clearFcmTokensFromArrays(tokens: string[]): Promise<number>;
-  findUsersByPushTokens(tokens: string[]): Promise<PushTokenOwnerEntity[]>;
-  findMitrasByPushTokens(tokens: string[]): Promise<PushTokenOwnerEntity[]>;
-  findPelanggansByPushTokens(tokens: string[]): Promise<PushTokenOwnerEntity[]>;
   findOwnerTokens(
     session: IMobileFcmSession,
     userId: string,
@@ -42,14 +23,5 @@ export interface IPushTokenRepository {
     session: IMobileFcmSession,
     userId: string,
     fcmTokens: string[],
-  ): Promise<void>;
-  clearLegacyPushTokenOwners(input: {
-    userId: string;
-    tenantId: string | null;
-    pushToken: string;
-  }): Promise<void>;
-  updateLegacyOwnerPushToken(
-    session: IMobileFcmSession,
-    pushToken: string | null,
   ): Promise<void>;
 }

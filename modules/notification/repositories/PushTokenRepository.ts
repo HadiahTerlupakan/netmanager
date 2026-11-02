@@ -13,13 +13,6 @@ import type {
   IPushTokenRepository,
 } from "../domain/ports/IPushTokenRepository";
 
-function buildLegacyPushTokenPayload(pushToken: string | null) {
-  return {
-    pushToken,
-    pushTokenUpdatedAt: pushToken ? new Date() : null,
-  };
-}
-
 /**
  * Gabungkan token baru ke array existing tanpa duplikat. Dipakai oleh
  * `appendOwnerToken` untuk dedup atomic — array fcmTokens di DB tidak
@@ -36,6 +29,21 @@ function addedFcmTokens(
 ): string[] | null {
   const tokens = existing ?? [];
   return tokens.includes(fcmToken) ? null : mergeFcmTokenSet(tokens, fcmToken);
+}
+
+/**
+ * Data update saat perangkat menyinkronkan token: token baru (bila ada) dan
+ * `pushTokenUpdatedAt` = sekarang, walau tokennya sudah tersimpan. Kolom itu
+ * penanda kesegaran yang dipakai cron `cleanup-stale-fcm-tokens`; dulu hanya
+ * diperbarui saat registrasi token Expo, sehingga cron mengosongkan token FCM
+ * karyawan, pelanggan, dan mitra yang masih aktif setiap malam. Investor sudah
+ * memperbaruinya sejak awal.
+ */
+function freshTokenData(next: string[] | null) {
+  return {
+    ...(next ? { fcmTokens: { set: next } } : {}),
+    pushTokenUpdatedAt: new Date(),
+  };
 }
 
 const CUSTOMER_ROLE = "CUSTOMER";
@@ -58,12 +66,10 @@ async function claimUserFcmToken(userId: string, fcmToken: string) {
       select: { fcmTokens: true, tenantId: true },
     });
     const next = addedFcmTokens(owner?.fcmTokens, fcmToken);
-    if (next) {
-      await tx.user.update({
-        where: { id: userId },
-        data: { fcmTokens: { set: next } },
-      });
-    }
+    await tx.user.update({
+      where: { id: userId },
+      data: freshTokenData(next),
+    });
     const userClaimant: FcmTokenClaimant = {
       kind: "user",
       id: userId,
@@ -86,12 +92,10 @@ async function claimCustomerFcmToken(
       select: { fcmTokens: true, tenantId: true },
     });
     const next = addedFcmTokens(owner?.fcmTokens, fcmToken);
-    if (next) {
-      await tx.pelanggan.update({
-        where,
-        data: { fcmTokens: { set: next } },
-      });
-    }
+    await tx.pelanggan.update({
+      where,
+      data: freshTokenData(next),
+    });
     const customerClaimant: FcmTokenClaimant = {
       kind: "pelanggan",
       id: where.id,
@@ -111,12 +115,10 @@ async function claimMitraFcmToken(mitraId: string, fcmToken: string) {
       select: { fcmTokens: true, tenantId: true },
     });
     const next = addedFcmTokens(owner?.fcmTokens, fcmToken);
-    if (next) {
-      await tx.mitra.update({
-        where: { id: mitraId },
-        data: { fcmTokens: { set: next } },
-      });
-    }
+    await tx.mitra.update({
+      where: { id: mitraId },
+      data: freshTokenData(next),
+    });
     const mitraClaimant: FcmTokenClaimant = {
       kind: "mitra",
       id: mitraId,
@@ -129,82 +131,6 @@ async function claimMitraFcmToken(mitraId: string, fcmToken: string) {
 }
 
 export class PushTokenRepository implements IPushTokenRepository {
-  async findUserPushToken(userId: string): Promise<string | null> {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { pushToken: true },
-    });
-    return user?.pushToken || null;
-  }
-
-  async findMitraPushToken(mitraId: string): Promise<string | null> {
-    const mitra = await prismaMitra.mitra.findUnique({
-      where: { id: mitraId },
-      select: { pushToken: true },
-    });
-    return mitra?.pushToken || null;
-  }
-
-  async findPelangganPushToken(pelangganId: string): Promise<string | null> {
-    const pelanggan = await prisma.pelanggan.findUnique({
-      where: { id: pelangganId },
-      select: { pushToken: true },
-    });
-    return pelanggan?.pushToken || null;
-  }
-
-  async findUsersWithPushToken(
-    userIds: string[],
-  ): Promise<Array<{ id: string; pushToken: string }>> {
-    return prisma.user.findMany({
-      where: { id: { in: userIds }, pushToken: { not: null } },
-      select: { id: true, pushToken: true },
-    });
-  }
-
-  async findMitrasWithPushToken(
-    mitraIds: string[],
-  ): Promise<Array<{ id: string; pushToken: string }>> {
-    return prismaMitra.mitra.findMany({
-      where: { id: { in: mitraIds }, pushToken: { not: null } },
-      select: { id: true, pushToken: true },
-    });
-  }
-
-  async findUsersByDepartmentWithPushToken(
-    departmentId: string,
-  ): Promise<Array<{ id: string; pushToken: string }>> {
-    return prisma.user.findMany({
-      where: { departmentId, isActive: true, pushToken: { not: null } },
-      select: { id: true, pushToken: true },
-    });
-  }
-
-  async findActiveUsersWithPushTokenBySite(
-    departmentId?: string,
-    siteId?: string,
-    excludeUserId?: string,
-  ): Promise<Array<{ id: string }>> {
-    const whereClause: Record<string, unknown> = {
-      isActive: true,
-      pushToken: { not: null },
-      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
-    };
-
-    if (siteId) {
-      whereClause.OR = [{ siteId }, { userSites: { some: { siteId } } }];
-    }
-
-    if (departmentId) {
-      whereClause.departmentId = departmentId;
-    }
-
-    return prisma.user.findMany({
-      where: whereClause,
-      select: { id: true },
-    });
-  }
-
   async clearPushTokens(tokens: string[]): Promise<void> {
     if (tokens.length === 0) return;
     await Promise.all([
@@ -293,33 +219,6 @@ export class PushTokenRepository implements IPushTokenRepository {
     return removedCount;
   }
 
-  async findUsersByPushTokens(
-    tokens: string[],
-  ): Promise<Array<{ id: string; pushToken: string }>> {
-    return prisma.user.findMany({
-      where: { pushToken: { in: tokens } },
-      select: { id: true, pushToken: true },
-    });
-  }
-
-  async findMitrasByPushTokens(
-    tokens: string[],
-  ): Promise<Array<{ id: string; pushToken: string }>> {
-    return prismaMitra.mitra.findMany({
-      where: { pushToken: { in: tokens } },
-      select: { id: true, pushToken: true },
-    });
-  }
-
-  async findPelanggansByPushTokens(
-    tokens: string[],
-  ): Promise<Array<{ id: string; pushToken: string }>> {
-    return prisma.pelanggan.findMany({
-      where: { pushToken: { in: tokens } },
-      select: { id: true, pushToken: true },
-    });
-  }
-
   async findOwnerTokens(session: IMobileFcmSession, userId: string) {
     const where = { id: userId, tenantId: session.tenantId ?? undefined };
 
@@ -391,61 +290,6 @@ export class PushTokenRepository implements IPushTokenRepository {
     await prisma.user.update({
       where: { id: userId },
       data: { fcmTokens: { set: fcmTokens } },
-    });
-  }
-
-  async clearLegacyPushTokenOwners(input: {
-    userId: string;
-    tenantId: string | null;
-    pushToken: string;
-  }) {
-    await Promise.all([
-      prisma.user.updateMany({
-        where: {
-          pushToken: input.pushToken,
-          id: { not: input.userId },
-          tenantId: input.tenantId ?? undefined,
-        },
-        data: { pushToken: null, pushTokenUpdatedAt: null },
-      }),
-      prisma.pelanggan.updateMany({
-        where: {
-          pushToken: input.pushToken,
-          id: { not: input.userId },
-          tenantId: input.tenantId ?? undefined,
-        },
-        data: { pushToken: null, pushTokenUpdatedAt: null },
-      }),
-      prismaMitra.mitra.updateMany({
-        where: { pushToken: input.pushToken, id: { not: input.userId } },
-        data: { pushToken: null, pushTokenUpdatedAt: null },
-      }),
-    ]);
-  }
-
-  async updateLegacyOwnerPushToken(
-    session: IMobileFcmSession,
-    pushToken: string | null,
-  ) {
-    if (session.role === "CUSTOMER") {
-      await prisma.pelanggan.update({
-        where: { id: session.id, tenantId: session.tenantId ?? undefined },
-        data: buildLegacyPushTokenPayload(pushToken),
-      });
-      return;
-    }
-
-    if (session.role === "MITRA") {
-      await prismaMitra.mitra.update({
-        where: { id: session.id },
-        data: buildLegacyPushTokenPayload(pushToken),
-      });
-      return;
-    }
-
-    await prisma.user.update({
-      where: { id: session.id, tenantId: session.tenantId ?? undefined },
-      data: buildLegacyPushTokenPayload(pushToken),
     });
   }
 }

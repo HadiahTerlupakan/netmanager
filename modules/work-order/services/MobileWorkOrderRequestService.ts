@@ -2,7 +2,7 @@ import { logger } from "@/lib/logger";
 import type { PrismaClient } from "@prisma/client";
 import { resolveAllowedSiteIds } from "@/lib/authorization/allowed-site-ids";
 import { prisma } from "@/modules/database";
-import { createNotification, sendPushToUsers } from "@/modules/notification";
+import { createNotification } from "@/modules/notification";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import type { CreateWorkOrderData } from "../domain/ports/IWorkOrderRepository";
 import { findRequestsByRequester } from "../repositories/work-order-repository-requests";
@@ -335,21 +335,9 @@ export class MobileWorkOrderRequestService {
             userId: adminId,
             sourceType: "WORK_ORDER",
             sourceId: workOrder.id,
-            skipExpoPush: true,
           }).catch((error) => logger.error("Notification error:", error)),
         ),
       );
-
-      await sendPushToUsers(
-        adminIds,
-        "📝 WO Request Baru",
-        `${userName} mengajukan: ${workOrder.title}`,
-        {
-          workOrderId: workOrder.id,
-          type: "WO_REQUEST",
-          screen: "WorkOrderRequests",
-        },
-      ).catch((error) => logger.error("Push error:", error));
     } catch (error) {
       logger.error("Notify admins error:", error);
     }

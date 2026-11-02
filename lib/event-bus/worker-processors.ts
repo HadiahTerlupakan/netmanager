@@ -94,23 +94,6 @@ export async function processNotificationJob(
   );
 
   switch (data.type) {
-    case "expo_push": {
-      if (!data.pushToken) break;
-      try {
-        const { sendPushNotification } = await import("@/modules/notification");
-        await sendPushNotification(
-          data.pushToken,
-          data.title,
-          data.body,
-          data.data,
-        );
-      } catch (error) {
-        logger.error("[Worker] Expo push failed:", error);
-        throw error; // Retry
-      }
-      break;
-    }
-
     case "websocket": {
       if (!data.room || !data.event) break;
       try {

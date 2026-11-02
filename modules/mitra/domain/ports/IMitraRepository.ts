@@ -38,12 +38,6 @@ export interface IMitraRepository {
   /** Mengambil daftar mitra berdasarkan token push. */
   findManyWithPushToken(tokens: string[]): Promise<MitraPushTokenEntity[]>;
 
-  /** Mengambil push token mitra berdasarkan id. */
-  findPushTokenById(id: string): Promise<{ pushToken: string | null } | null>;
-
-  /** Mengambil daftar mitra bertoken push dari kumpulan id. */
-  findManyWithPushTokenByIds(ids: string[]): Promise<MitraPushTokenEntity[]>;
-
   /** Mengambil mitra sederhana berdasarkan id. */
   findByIdSimple(id: string, tenantId?: string): Promise<MitraEntity | null>;
 

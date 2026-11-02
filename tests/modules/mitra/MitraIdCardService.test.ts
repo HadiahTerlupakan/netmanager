@@ -7,8 +7,6 @@ function createRepository(): IMitraRepository {
   return {
     clearPushTokens: vi.fn(),
     findManyWithPushToken: vi.fn(),
-    findPushTokenById: vi.fn(),
-    findManyWithPushTokenByIds: vi.fn(),
     findByIdSimple: vi.fn(),
     findIdsBySite: vi.fn(),
     findCanvasingSummary: vi.fn(),

@@ -100,7 +100,7 @@ export function findActiveWithPushTokenAndSchedule() {
       isActive: true,
       tenantId: { not: null },
       startWorkTime: { not: null },
-      OR: [{ pushToken: { not: null } }, { phone: { not: null } }],
+      OR: [{ fcmTokens: { isEmpty: false } }, { phone: { not: null } }],
     },
     select: {
       id: true,
@@ -109,28 +109,28 @@ export function findActiveWithPushTokenAndSchedule() {
       startWorkTime: true,
       endWorkTime: true,
       workDays: true,
-      pushToken: true,
+      fcmTokens: true,
       phone: true,
       workingHourMode: true,
     },
   });
 }
 
-/** Ambil user flexible aktif yang punya push token/phone (belum absen harian). */
+/** Ambil user flexible aktif yang punya perangkat FCM/phone (belum absen harian). */
 export function findActiveFlexibleWithContact() {
   return prisma.user.findMany({
     where: {
       isActive: true,
       tenantId: { not: null },
       workingHourMode: WorkingHourMode.FLEXIBLE,
-      OR: [{ pushToken: { not: null } }, { phone: { not: null } }],
+      OR: [{ fcmTokens: { isEmpty: false } }, { phone: { not: null } }],
     },
     select: {
       id: true,
       name: true,
       tenantId: true,
       workDays: true,
-      pushToken: true,
+      fcmTokens: true,
       phone: true,
       flexibleTargetHour: true,
     },

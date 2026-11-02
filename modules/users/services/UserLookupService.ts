@@ -177,18 +177,6 @@ export class UserLookupService {
     return this.lookupRepository.clearPushTokens(tokens);
   }
 
-  /** Find users with push token among selected ids. */
-  findManyWithPushTokenAndFilter(userIds: string[]) {
-    return this.lookupRepository.findManyWithPushTokenAndFilter(userIds);
-  }
-
-  /** Find users by department with push token. */
-  findManyByDepartmentWithPushToken(departmentId: string) {
-    return this.lookupRepository.findManyByDepartmentWithPushToken(
-      departmentId,
-    );
-  }
-
   /** Find active users with push tokens by site. */
   findManyActiveWithPushTokenAndSite(
     departmentId?: string,

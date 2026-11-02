@@ -1,4 +1,4 @@
-import { createNotification, sendPushToUsers } from "@/modules/notification";
+import { createNotification } from "@/modules/notification";
 import { onWorkOrderUpdated } from "./WorkOrderNotifications";
 import { AdminWorkOrderRouteRepository } from "../repositories/AdminWorkOrderRouteRepository";
 
@@ -30,17 +30,6 @@ export class AdminWorkOrderNotificationRouteService {
         sourceType: "WORK_ORDER",
         sourceId: input.workOrderId,
       });
-      await sendPushToUsers(
-        [input.requesterId],
-        notification.title,
-        notification.message,
-        {
-          workOrderId: input.workOrderId,
-          type: "WO_REQUEST_RESULT",
-          action: input.action,
-          screen: "WorkOrderDetail",
-        },
-      );
     } catch {
       return;
     }
@@ -69,7 +58,8 @@ export class AdminWorkOrderNotificationRouteService {
       userId: workOrder.assignedTo.id,
       sourceType: "WORK_ORDER",
       sourceId: input.workOrderId,
-      skipExpoPush: isOnLeave,
+      // Karyawan cuti tetap melihatnya di aplikasi, tapi HP-nya tidak dipush.
+      skipPush: isOnLeave,
     });
     await onWorkOrderUpdated(
       {

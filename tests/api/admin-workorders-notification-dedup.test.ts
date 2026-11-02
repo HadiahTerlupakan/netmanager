@@ -5,7 +5,6 @@ const mockFns = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   isSuperAdmin: vi.fn(),
   createNotification: vi.fn(),
-  sendPushToUsers: vi.fn(),
   onWorkOrderStatusChanged: vi.fn(),
   getWorkOrderById: vi.fn(),
   assignWorkOrder: vi.fn(),
@@ -54,7 +53,6 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/modules/notification", () => ({
   createNotification: mockFns.createNotification,
-  sendPushToUsers: mockFns.sendPushToUsers,
 }));
 
 vi.mock("@/modules/work-order/services/WorkOrderNotifications", () => ({

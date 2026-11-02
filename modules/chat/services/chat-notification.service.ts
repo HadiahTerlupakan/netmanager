@@ -175,10 +175,9 @@ export class ChatNotificationService {
   }
 
   /**
-   * Push lewat FCM (aplikasi sekarang) dan Expo (pemasangan lama). Dulu hanya
-   * Expo `sendPushToUsers`, yang membaca `pushToken` lama saja — token FCM
-   * yang didaftarkan aplikasi tidak pernah dipakai, jadi notifikasi chat
-   * tidak sampai ke HP.
+   * Push lewat FCM ke perangkat penerima. Dulu lewat Expo saja, yang membaca
+   * `pushToken` lama — token FCM yang didaftarkan aplikasi tidak pernah
+   * dipakai, jadi notifikasi chat tidak sampai ke HP.
    */
   private async sendPushToActors(
     actors: ChatActor[],

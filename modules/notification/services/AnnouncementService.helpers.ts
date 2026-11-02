@@ -35,6 +35,8 @@ export interface AnnouncementRecord {
   target: string;
   isPinned: boolean;
   createdAt: Date;
+  /** Diisi ekstensi tenant saat dibuat; penerima push dibatasi ke tenant ini. */
+  tenantId?: string | null;
 }
 
 export interface AnnouncementCreateInput {

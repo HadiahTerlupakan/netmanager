@@ -2,16 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prismaMock } from "../../setup";
 
 const mockFns = vi.hoisted(() => ({
-  sendPushNotification: vi.fn().mockResolvedValue(true),
+  sendPushToActors: vi.fn().mockResolvedValue(true),
   createNotification: vi.fn().mockResolvedValue({ id: "notif-1" }),
   whatsAppSend: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 const redisStore = new Map<string, { value: string; expiresAt: number }>();
-
-vi.mock("@/modules/notification/services/ExpoPushService", () => ({
-  sendPushNotification: mockFns.sendPushNotification,
-}));
 
 vi.mock("@/modules/notification/services/NotificationService", () => ({
   createNotification: mockFns.createNotification,
@@ -28,7 +24,7 @@ vi.mock("@/modules/notification", async (importOriginal) => {
     await importOriginal<typeof import("@/modules/notification")>();
   return {
     ...actual,
-    sendPushNotification: mockFns.sendPushNotification,
+    sendPushToActors: mockFns.sendPushToActors,
     WhatsAppSenderService: class {
       send = mockFns.whatsAppSend;
     },
@@ -107,7 +103,7 @@ describe("AttendanceAlertService", () => {
         startWorkTime: "08:00",
         endWorkTime: "17:00",
         workDays: "MON,TUE,WED,THU,FRI",
-        pushToken: "token-1",
+        fcmTokens: ["token-1"],
         phone: "08123456789",
         workingHourMode: "FIXED",
       },
@@ -119,14 +115,43 @@ describe("AttendanceAlertService", () => {
 
     expect(first.usersNotified).toBe(1);
     expect(second.usersNotified).toBe(0);
-    expect(mockFns.sendPushNotification).toHaveBeenCalledTimes(1);
+    expect(mockFns.sendPushToActors).toHaveBeenCalledTimes(1);
     expect(mockFns.whatsAppSend).toHaveBeenCalledTimes(1);
-    expect(mockFns.sendPushNotification).toHaveBeenCalledWith(
-      "user-1",
+    expect(mockFns.sendPushToActors).toHaveBeenCalledWith(
+      [{ type: "user", id: "user-1" }],
       expect.stringContaining("Telat Check-In"),
       expect.stringContaining("08:00"),
       expect.objectContaining({ action: "check_in" }),
     );
+  });
+
+  // Dulu syaratnya `pushToken` (Expo) atau nomor HP: karyawan yang hanya
+  // punya token FCM dan tidak mengisi nomor HP dilewati sama sekali.
+  it("tetap mengirim push ke karyawan yang hanya punya token FCM tanpa nomor HP", async () => {
+    prismaMock.user.findMany.mockResolvedValue([
+      {
+        id: "user-fcm",
+        name: "Sari",
+        startWorkTime: "08:00",
+        endWorkTime: "17:00",
+        workDays: "MON,TUE,WED,THU,FRI",
+        fcmTokens: ["token-fcm"],
+        phone: null,
+        workingHourMode: "FIXED",
+      },
+    ]);
+    prismaMock.attendance.findMany.mockResolvedValue([]);
+
+    const result = await processCheckInReminders(30);
+
+    expect(result.usersNotified).toBe(1);
+    expect(mockFns.sendPushToActors).toHaveBeenCalledWith(
+      [{ type: "user", id: "user-fcm" }],
+      expect.stringContaining("Telat Check-In"),
+      expect.any(String),
+      expect.objectContaining({ action: "check_in" }),
+    );
+    expect(mockFns.whatsAppSend).not.toHaveBeenCalled();
   });
 
   it("sends check-in reminder via WhatsApp only when user has phone without push token", async () => {
@@ -137,7 +162,7 @@ describe("AttendanceAlertService", () => {
         startWorkTime: "08:00",
         endWorkTime: "17:00",
         workDays: "MON,TUE,WED,THU,FRI",
-        pushToken: null,
+        fcmTokens: [],
         phone: "08111111111",
         workingHourMode: "FIXED",
       },
@@ -147,7 +172,7 @@ describe("AttendanceAlertService", () => {
     const result = await processCheckInReminders(30);
 
     expect(result.usersNotified).toBe(1);
-    expect(mockFns.sendPushNotification).not.toHaveBeenCalled();
+    expect(mockFns.sendPushToActors).not.toHaveBeenCalled();
     expect(mockFns.whatsAppSend).toHaveBeenCalledWith(
       expect.objectContaining({
         phone: "08111111111",
@@ -165,7 +190,7 @@ describe("AttendanceAlertService", () => {
         name: "Flexi",
         tenantId: "tenant-1",
         workDays: "MON,TUE,WED,THU,FRI",
-        pushToken: "token-flex-none",
+        fcmTokens: ["token-flex-none"],
         phone: null,
         flexibleTargetHour: 8,
       },
@@ -179,7 +204,7 @@ describe("AttendanceAlertService", () => {
 
     expect(first.usersNotified).toBe(1);
     expect(second.usersNotified).toBe(0);
-    expect(mockFns.sendPushNotification).toHaveBeenCalledTimes(1);
+    expect(mockFns.sendPushToActors).toHaveBeenCalledTimes(1);
   });
 
   it("sends flexible reminders once per exceeded hour bucket", async () => {
@@ -190,7 +215,7 @@ describe("AttendanceAlertService", () => {
           id: "user-flex",
           name: "Sari",
           flexibleTargetHour: 8,
-          pushToken: "token-flex",
+          fcmTokens: ["token-flex"],
           phone: null,
         },
       },
@@ -201,7 +226,7 @@ describe("AttendanceAlertService", () => {
 
     expect(first.usersNotified).toBe(1);
     expect(second.usersNotified).toBe(0);
-    expect(mockFns.sendPushNotification).toHaveBeenCalledTimes(1);
+    expect(mockFns.sendPushToActors).toHaveBeenCalledTimes(1);
   });
 
   it("creates incomplete attendance alerts only once per user per day", async () => {
@@ -233,7 +258,7 @@ describe("AttendanceAlertService", () => {
         startWorkTime: "08:00",
         endWorkTime: "17:00",
         workDays: "MON,TUE,WED,THU,FRI",
-        pushToken: "token-1",
+        fcmTokens: ["token-1"],
         phone: null,
         workingHourMode: "FIXED",
       },
@@ -243,7 +268,7 @@ describe("AttendanceAlertService", () => {
     const result = await processCheckInReminders(30);
 
     expect(result.usersNotified).toBe(0);
-    expect(mockFns.sendPushNotification).not.toHaveBeenCalled();
+    expect(mockFns.sendPushToActors).not.toHaveBeenCalled();
   });
 
   it("ignores DAY_OFF, PERMIT, and SICK records when checking check-out reminders", async () => {
@@ -261,7 +286,7 @@ describe("AttendanceAlertService", () => {
         }),
       }),
     );
-    expect(mockFns.sendPushNotification).not.toHaveBeenCalled();
+    expect(mockFns.sendPushToActors).not.toHaveBeenCalled();
   });
 
   it("ignores DAY_OFF, PERMIT, and SICK records when checking incomplete attendance alerts", async () => {

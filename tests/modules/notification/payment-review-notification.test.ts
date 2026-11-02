@@ -2,10 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "bullmq";
 import { prismaMock } from "../../setup";
 
-vi.mock("@/modules/notification/services/ExpoPushService", () => ({
-  sendPushNotification: vi.fn().mockResolvedValue(true),
-  sendPushToDepartment: vi.fn().mockResolvedValue(0),
-}));
 vi.mock("@/lib/firebase/messaging", () => ({
   sendFCMNotification: vi.fn().mockResolvedValue(undefined),
   getAdminTokens: vi.fn().mockResolvedValue([]),

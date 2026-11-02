@@ -65,7 +65,46 @@ describe("POST /api/mobile/fcm-token", () => {
         fcmTokens: {
           set: [TOKEN_FCM_1],
         },
+        pushTokenUpdatedAt: expect.any(Date),
       },
+    });
+  });
+
+  // Cron cleanup-stale-fcm-tokens mengosongkan token yang pushTokenUpdatedAt-nya
+  // lebih dari 30 hari. Dulu kolom itu hanya diperbarui registrasi Expo, jadi
+  // token FCM karyawan aktif ikut terhapus tiap malam. Sinkron token (setiap
+  // aplikasi dibuka) kini menyegarkannya, walau tokennya sudah tersimpan.
+  it("menyegarkan pushTokenUpdatedAt walau token sudah tersimpan", async () => {
+    mockGetMobileAuthPayload.mockResolvedValueOnce({
+      userId: "user-1",
+      tenantId: "tenant-1",
+      role: "ADMIN",
+    });
+    prismaMock.user.findFirst.mockResolvedValueOnce({
+      id: "user-1",
+      tenantId: "tenant-1",
+      fcmTokens: [TOKEN_FCM_1],
+    });
+    prismaMock.$transaction.mockImplementationOnce(
+      async (cb: (tx: typeof prismaMock) => unknown) => cb(prismaMock),
+    );
+    prismaMock.user.findUnique.mockResolvedValueOnce({
+      fcmTokens: [TOKEN_FCM_1],
+      tenantId: "tenant-1",
+    });
+    prismaMock.user.update.mockResolvedValueOnce({ id: "user-1" });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/mobile/fcm-token", {
+        method: "POST",
+        body: JSON.stringify({ fcmToken: TOKEN_FCM_1, action: "add" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: { pushTokenUpdatedAt: expect.any(Date) },
     });
   });
 

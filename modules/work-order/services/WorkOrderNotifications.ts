@@ -12,7 +12,7 @@ import {
   notifyWorkOrderStatusChange,
   notifyWorkOrderUpdate,
   createNotification,
-  sendPushToUsers,
+  sendPushToActors,
 } from "@/modules/notification";
 import {
   isWhatsAppNotConfigured,
@@ -284,20 +284,6 @@ async function notifyCanvasingSalesOnWOStatusChange(
         sourceId: canvasing.id,
       });
 
-      // Send explicit push notification to ensure mobile receives it
-      await sendPushToUsers(
-        [canvasing.salesId],
-        "✅ Instalasi Selesai",
-        `Instalasi untuk ${canvasing.nama} selesai. Anda bisa claim poin sekarang!`,
-        {
-          canvasingId: canvasing.id,
-          type: "CANVASING_COMPLETED",
-          screen: "CanvasingDetail",
-        },
-      ).catch((error) =>
-        logger.error("[Push] Error sending canvasing completion push:", error),
-      );
-
       logger.info(
         `[Notification] Canvasing COMPLETED notif sent to sales: ${canvasing.salesId}`,
       );
@@ -360,8 +346,8 @@ export async function sendWorkOrderReminder(
 
     // Case 1: WO sudah diambil → Reminder hanya ke teknisi yang mengambil
     if (workOrder.assignedToId) {
-      const sentPush = await sendPushToUsers(
-        [workOrder.assignedToId],
+      const sentPush = await sendPushToActors(
+        [{ type: "user", id: workOrder.assignedToId }],
         title,
         message,
         {
@@ -391,11 +377,16 @@ export async function sendWorkOrderReminder(
 
     const userIds = techniciansInSite.map((u: { id: string }) => u.id);
 
-    const sentPush = await sendPushToUsers(userIds, title, message, {
-      workOrderId: workOrder.id,
-      type: "WORK_ORDER",
-      screen: "WorkOrderList",
-    });
+    const sentPush = await sendPushToActors(
+      userIds.map((id) => ({ type: "user", id })),
+      title,
+      message,
+      {
+        workOrderId: workOrder.id,
+        type: "WORK_ORDER",
+        screen: "WorkOrderList",
+      },
+    );
 
     await Promise.all(
       techniciansInSite.map((t) =>

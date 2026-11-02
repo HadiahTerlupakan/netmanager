@@ -7,13 +7,10 @@ import { PUSH_SOUND_ANDROID, PUSH_SOUND_IOS } from "@/lib/push-sound";
 import { prismaMitra } from "@/lib/prisma-mitra";
 import { clearStaleFcmTokens } from "@/modules/notification";
 
-const STALE_TOKEN_THRESHOLD_DAYS = 30;
-
 /**
  * Channel Android bernada gelembung. Aplikasi membuatnya setiap kali dibuka dan
  * menjadikannya channel bawaan FCM di manifest; perangkat yang belum punya
  * channel ini jatuh ke channel bawaan manifest itu, menurut dokumentasi FCM.
- * Push Expo sengaja tidak memakainya (lihat `createExpoPushMessage`).
  */
 const ANDROID_NOTIFICATION_CHANNEL_ID = "high-priority-bubble";
 
@@ -33,9 +30,10 @@ const STALE_TOKEN_ERROR_CODES = new Set([
  * Wajib filter `tenantId` untuk mencegah cross-tenant notification leak —
  * notifikasi tenant A tidak boleh dipush ke admin tenant B.
  *
- * Pre-send filtering: skip user yang `pushTokenUpdatedAt` sudah lebih dari
- * 30 hari — kemungkinan token sudah stale (user ganti HP, uninstall, dll).
- * Ini mengurangi wasted API calls ke Firebase.
+ * Token tidak disaring berdasarkan umur: `pushTokenUpdatedAt` hanya
+ * diperbarui saat registrasi token Expo lama, jadi menyaring dengannya
+ * melewati token FCM admin yang masih hidup. Token mati dibersihkan saat
+ * FCM menolaknya (`reapRejectedTokens`).
  */
 export async function getAdminTokens(tenantId: string): Promise<string[]> {
   if (!tenantId) {
@@ -46,36 +44,15 @@ export async function getAdminTokens(tenantId: string): Promise<string[]> {
   }
 
   try {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - STALE_TOKEN_THRESHOLD_DAYS);
-
     const admins = await prisma.user.findMany({
       where: {
         role: { accessAdminPanel: true },
         isActive: true,
         tenantId,
       },
+      select: { fcmTokens: true },
     });
-
-    const tokens: string[] = [];
-    let skippedStale = 0;
-    for (const admin of admins) {
-      if (admin.fcmTokens && Array.isArray(admin.fcmTokens)) {
-        const isStale =
-          admin.pushTokenUpdatedAt && admin.pushTokenUpdatedAt < cutoff;
-        if (isStale) {
-          skippedStale += admin.fcmTokens.length;
-          continue;
-        }
-        tokens.push(...admin.fcmTokens);
-      }
-    }
-    if (skippedStale > 0) {
-      logger.info(
-        `[FCM] getAdminTokens: skipped ${skippedStale} token(s) from users inactive >${STALE_TOKEN_THRESHOLD_DAYS}d`,
-      );
-    }
-    return tokens;
+    return admins.flatMap((admin) => admin.fcmTokens ?? []);
   } catch (error) {
     logger.error("Error fetching admin FCM tokens:", error);
     return [];

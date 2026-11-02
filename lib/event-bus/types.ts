@@ -411,7 +411,6 @@ export interface PushNotificationPayload extends BaseEventPayload {
   title: string;
   body: string;
   data?: Record<string, unknown>;
-  pushToken?: string;
   subscription?: {
     endpoint: string;
     p256dh: string;

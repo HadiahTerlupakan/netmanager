@@ -89,7 +89,10 @@ describe("POST /api/mobile/fcm-token dengan token pelanggan", () => {
     });
     expect(prismaMock.pelanggan.update).toHaveBeenCalledWith({
       where: DI_TENANT,
-      data: { fcmTokens: { set: [TOKEN_FCM_1] } },
+      data: {
+        fcmTokens: { set: [TOKEN_FCM_1] },
+        pushTokenUpdatedAt: expect.any(Date),
+      },
     });
     expect(prismaMock.user.findFirst).not.toHaveBeenCalled();
   });

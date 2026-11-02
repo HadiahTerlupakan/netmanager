@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 import {
   isWhatsAppNotConfigured,
-  sendPushNotification,
+  sendPushToActors,
   WhatsAppSenderService,
 } from "@/modules/notification";
 import { getDateKey, getFlexibleHourBucket } from "./AttendanceAlertClock";
@@ -31,7 +31,7 @@ type ReminderPayload = {
 
 type ContactTarget = {
   userId: string;
-  pushToken: string | null;
+  hasPushDevice: boolean;
   phone: string | null;
 };
 
@@ -169,7 +169,7 @@ async function sendFlexibleReminders(now: Date): Promise<ReminderResult> {
 
 async function notifyFlexibleReminders(
   sessions: Array<{
-    user: { id: string; pushToken?: string | null; phone?: string | null };
+    user: { id: string; fcmTokens?: string[] | null; phone?: string | null };
   }>,
   reminders: Array<Awaited<ReturnType<typeof buildFlexibleReminder>>>,
 ) {
@@ -180,7 +180,7 @@ async function notifyFlexibleReminders(
     await deliverReminder(
       {
         userId: session.user.id,
-        pushToken: session.user.pushToken ?? null,
+        hasPushDevice: (session.user.fcmTokens?.length ?? 0) > 0,
         phone: session.user.phone ?? null,
       },
       reminder,
@@ -203,7 +203,7 @@ async function sendScheduledReminders(
   let notified = 0;
 
   for (const user of users) {
-    if (!user.pushToken && !user.phone) continue;
+    if (!user.hasPushDevice && !user.phone) continue;
     const reminder = buildReminder(user);
     const shouldSend = await acquireReminderLock(
       reminder.lockKey,
@@ -213,7 +213,7 @@ async function sendScheduledReminders(
     await deliverReminder(
       {
         userId: user.userId,
-        pushToken: user.pushToken,
+        hasPushDevice: user.hasPushDevice,
         phone: user.phone,
       },
       reminder,
@@ -231,10 +231,10 @@ async function deliverReminder(
 ): Promise<void> {
   const tasks: Promise<unknown>[] = [];
 
-  if (target.pushToken) {
+  if (target.hasPushDevice) {
     tasks.push(
-      sendPushNotification(
-        target.userId,
+      sendPushToActors(
+        [{ type: "user", id: target.userId }],
         reminder.title,
         reminder.message,
         reminder.payload,

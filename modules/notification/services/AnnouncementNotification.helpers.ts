@@ -21,36 +21,63 @@ export async function sendEmployeeAnnouncementNotifications(
 ): Promise<void> {
   try {
     const targetAudience = announcement.target as TargetAudience;
-    const users = await prisma.user.findMany({
-      where: buildNotificationUserFilter(targetAudience),
-      select: { id: true, pushToken: true },
+    await pushAnnouncementToTenantDevices(announcement, targetAudience);
+    await createPersistentAnnouncementNotifications(announcement, {
+      ...buildNotificationDbUserFilter(targetAudience),
+      ...tenantFilter(announcement),
     });
-    const usersOnLeave = await findUsersOnLeave(users.map((user) => user.id));
-    const tokens = users
-      .filter((user) => !usersOnLeave.has(user.id))
-      .map((user) => user.pushToken)
-      .filter((token): token is string => !!token);
-
-    if (tokens.length > 0) {
-      const { sendExpoPushNotifications } = await import("@/lib/expo");
-      await sendExpoPushNotifications(
-        tokens,
-        announcement.title,
-        buildAnnouncementPreview(announcement.content),
-        { announcementId: announcement.id, url: ANNOUNCEMENT_LINK },
-      );
-    }
-
-    await createPersistentAnnouncementNotifications(
-      announcement,
-      buildNotificationDbUserFilter(targetAudience),
-    );
   } catch (pushError) {
     logger.error(
       "[Announcements] Failed to send push notifications",
       pushError as Error,
     );
   }
+}
+
+/**
+ * Push pengumuman ke HP karyawan tenant pengumuman itu, kecuali yang cuti.
+ * Pengumuman tanpa tenant tidak di-push: penerimanya tidak bisa dibatasi ke
+ * satu tenant, dan push lintas tenant lebih buruk daripada tidak ada push.
+ */
+async function pushAnnouncementToTenantDevices(
+  announcement: AnnouncementRecord,
+  targetAudience: TargetAudience,
+): Promise<void> {
+  if (!announcement.tenantId) {
+    logger.warn(
+      "[Announcements] Push dilewati: pengumuman tanpa tenantId (cegah push lintas tenant)",
+      { announcementId: announcement.id },
+    );
+    return;
+  }
+
+  const users = await prisma.user.findMany({
+    where: {
+      ...buildNotificationUserFilter(targetAudience),
+      ...tenantFilter(announcement),
+    },
+    select: { id: true },
+  });
+  const usersOnLeave = await findUsersOnLeave(users.map((user) => user.id));
+  const recipients = users
+    .filter((user) => !usersOnLeave.has(user.id))
+    .map((user) => ({ type: "user", id: user.id }));
+  if (recipients.length === 0) return;
+
+  // Dimuat saat dipakai: modul ini diimpor banyak tempat (lewat
+  // AnnouncementService.helpers), dan pengirim FCM menarik Firebase Admin.
+  const { sendPushToActors } = await import("./ActorPushService");
+  await sendPushToActors(
+    recipients,
+    announcement.title,
+    buildAnnouncementPreview(announcement.content),
+    { announcementId: announcement.id, url: ANNOUNCEMENT_LINK },
+  );
+}
+
+/** Batasi penerima ke tenant pengumuman, bila pengumuman punya tenant. */
+function tenantFilter(announcement: AnnouncementRecord): Prisma.UserWhereInput {
+  return announcement.tenantId ? { tenantId: announcement.tenantId } : {};
 }
 
 async function createPersistentAnnouncementNotifications(
@@ -85,7 +112,7 @@ function buildNotificationUserFilter(
   target: TargetAudience,
 ): Prisma.UserWhereInput {
   return {
-    pushToken: { not: null },
+    fcmTokens: { isEmpty: false },
     isActive: true,
     ...buildRoleFilter(target),
   };

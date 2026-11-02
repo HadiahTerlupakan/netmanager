@@ -16,16 +16,6 @@ export class MitraLookupService {
     return this.repository.findManyWithPushToken(tokens);
   }
 
-  /** Mengambil push token mitra berdasarkan id. */
-  async findPushTokenById(id: string) {
-    return this.repository.findPushTokenById(id);
-  }
-
-  /** Mengambil daftar mitra bertoken push dari kumpulan id. */
-  async findManyWithPushTokenByIds(ids: string[]) {
-    return this.repository.findManyWithPushTokenByIds(ids);
-  }
-
   /** Mengambil seluruh id mitra pada site tertentu. */
   async findIdsBySite(siteId: string) {
     return this.repository.findIdsBySite(siteId);

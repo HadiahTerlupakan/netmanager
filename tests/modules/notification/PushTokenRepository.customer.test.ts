@@ -64,17 +64,25 @@ describe("PushTokenRepository untuk sesi pelanggan", () => {
     });
     expect(prismaMock.pelanggan.update).toHaveBeenCalledWith({
       where: DI_TENANT,
-      data: { fcmTokens: { set: ["fcm-a", "fcm-b"] } },
+      data: {
+        fcmTokens: { set: ["fcm-a", "fcm-b"] },
+        pushTokenUpdatedAt: expect.any(Date),
+      },
     });
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
-  it("token yang sudah dipegang tidak ditulis ulang, tetapi tetap dilepas dari pemilik lain", async () => {
+  // Daftar token tidak ditulis ulang, tetapi kesegarannya diperbarui supaya
+  // cron cleanup-stale-fcm-tokens tidak menghapus token perangkat yang aktif.
+  it("token yang sudah dipegang hanya disegarkan, dan tetap dilepas dari pemilik lain", async () => {
     prismaMock.pelanggan.findUnique.mockResolvedValue({ fcmTokens: ["fcm-a"] });
 
     await repository.appendOwnerToken(SESI_PELANGGAN, "cust-1", "fcm-a");
 
-    expect(prismaMock.pelanggan.update).not.toHaveBeenCalled();
+    expect(prismaMock.pelanggan.update).toHaveBeenCalledWith({
+      where: DI_TENANT,
+      data: { pushTokenUpdatedAt: expect.any(Date) },
+    });
     expect(tabelDilepas("fcm-a")).toEqual([
       "User",
       "Pelanggan",

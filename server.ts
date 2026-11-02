@@ -21,10 +21,6 @@ import { cronRegistry } from "./lib/cron-registry";
 import { shutdownManager } from "./lib/shutdown-manager";
 import { startInternalCronIfEnabled } from "./lib/runtime/should-start-internal-cron";
 import { stopRadiusMonitoring } from "./modules/network/services/RadiusMonitor";
-import {
-  startPushRetryProcessor,
-  stopPushRetryProcessor,
-} from "./modules/notification/services/PushRetryQueue";
 import { initializeEventBus, shutdownEventBus } from "./lib/event-bus";
 import {
   headerCacheUpload,
@@ -261,7 +257,6 @@ app.prepare().then(() => {
     handle(req, res);
   });
 
-  startPushRetryProcessor();
   if (process.env.ENABLE_EVENT_BUS_WORKERS !== "false") {
     initializeEventBus().catch((err) =>
       logger.error("[Server] Failed to initialize Event Bus:", err),
@@ -324,7 +319,6 @@ app.prepare().then(() => {
 
     try {
       stopRadiusMonitoring();
-      stopPushRetryProcessor();
       mikroTikMonitorRef?.stop();
       logger.info("[Server] Monitoring services stopped");
     } catch (e) {

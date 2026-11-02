@@ -26,9 +26,9 @@ const STALE_TOKEN_DAYS = 30;
 
 /**
  * Periodic cleanup untuk hapus fcmTokens[] yang sudah stale.
- * Menggunakan `pushTokenUpdatedAt` sebagai proxy freshness —
- * user yang tidak pernah update token dalam 30 hari kemungkinan
- * sudah tidak aktif atau ganti device.
+ * Kesegaran dibaca dari `pushTokenUpdatedAt`, yang diperbarui setiap kali
+ * aplikasi menyinkronkan token FCM (setiap dibuka). Pemilik yang tidak
+ * membuka aplikasi 30 hari kemungkinan sudah ganti HP atau berhenti.
  */
 export async function cleanupStaleFcmTokenArrays(): Promise<{
   usersCleaned: number;

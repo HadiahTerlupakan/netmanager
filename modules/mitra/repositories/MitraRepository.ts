@@ -47,24 +47,6 @@ export class MitraRepository implements IMitraRepository {
     return mitras.map(toMitraPushTokenEntity);
   }
 
-  /** Mengambil push token mitra berdasarkan id. */
-  async findPushTokenById(id: string) {
-    return prismaMitra.mitra.findUnique({
-      where: { id },
-      select: { pushToken: true },
-    });
-  }
-
-  /** Mengambil daftar mitra bertoken push dari kumpulan id. */
-  async findManyWithPushTokenByIds(ids: string[]) {
-    const mitras = await prismaMitra.mitra.findMany({
-      where: { id: { in: ids }, pushToken: { not: null } },
-      select: { id: true, pushToken: true },
-    });
-
-    return mitras.map(toMitraPushTokenEntity);
-  }
-
   /** Mengambil mitra sederhana berdasarkan id. */
   async findByIdSimple(id: string, tenantId?: string) {
     const mitra = await prismaMitra.mitra.findFirst({
