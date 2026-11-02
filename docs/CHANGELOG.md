@@ -41,6 +41,15 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-02] — Notifikasi chat dikirim lewat FCM, bukan hanya Expo
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/notification`, `modules/chat`, `lib/firebase/messaging.ts`
+- **Author**: agent
+- **Deskripsi**: Push pesan chat dan broadcast dikirim lewat `sendPushToUsers` (Expo), yang hanya membaca `pushToken` lama. Aplikasi sekarang mendaftar lewat FCM (`fcmTokens`), sehingga notifikasi chat tidak pernah sampai ke HP: setelah pesan terkirim (201) tidak ada log `[FCM] Multicast sent`. Fungsi baru `sendPushToActors` mengirim ke token FCM karyawan dan mitra (`getUserFcmTokens`/`getMitraFcmTokens`) dan tetap lewat Expo untuk pemasangan lama. Kanal yang gagal tidak menahan kanal lain. `toFcmData` dipindah ke `services/fcm-data.ts` agar dipakai bersama. Belum ditangani: pengingat absensi (`AttendanceReminderDeliveryService`) masih Expo-only.
+- **Files**: `modules/notification/services/ActorPushService.ts`, `modules/notification/services/fcm-data.ts`, `modules/chat/services/chat-notification.service.ts`, `lib/firebase/messaging.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-02] — Upload: host tepercaya dari konfigurasi, batas body chunked
 
 - **Tipe**: [SECURITY]

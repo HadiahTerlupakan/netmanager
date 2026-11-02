@@ -104,6 +104,8 @@ export {
   type ClassifiedEmailError,
 } from "./services/email-error-classifier";
 export { sendCustomerPushNotification } from "./services/CustomerPushService";
+export { sendPushToActors } from "./services/ActorPushService";
+export type { PushActor } from "./services/ActorPushService";
 export {
   sendPushNotification,
   sendPushToUsers,

@@ -174,21 +174,20 @@ export class ChatNotificationService {
     return this.socketEmitterModulePromise;
   }
 
+  /**
+   * Push lewat FCM (aplikasi sekarang) dan Expo (pemasangan lama). Dulu hanya
+   * Expo `sendPushToUsers`, yang membaca `pushToken` lama saja — token FCM
+   * yang didaftarkan aplikasi tidak pernah dipakai, jadi notifikasi chat
+   * tidak sampai ke HP.
+   */
   private async sendPushToActors(
     actors: ChatActor[],
     title: string,
     body: string,
     data?: Record<string, unknown>,
   ): Promise<void> {
-    const { sendPushToUsers } = await this.getPushServiceModule();
-    // sendPushToUsers sudah actor-aware: fallback ke mitra repo jika id tidak
-    // ditemukan di User. Mitra/pelanggan/user id bisa langsung dilewat.
-    await sendPushToUsers(
-      actors.map((actor) => actor.id),
-      title,
-      body,
-      data,
-    );
+    const { sendPushToActors } = await this.getPushServiceModule();
+    await sendPushToActors(actors, title, body, data);
   }
 
   private async emitMessageToActors(

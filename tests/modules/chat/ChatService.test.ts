@@ -17,13 +17,16 @@ const mockChatRepository = {
   isParticipant: vi.fn(),
   findMessages: vi.fn(),
   searchUsers: vi.fn(),
+  updateLastRead: vi.fn(),
+  getOtherParticipants: vi.fn(),
+  findConversationById: vi.fn(),
 };
 
-const mockSendPushToUsers = vi.fn().mockResolvedValue(undefined);
+const mockSendPushToActors = vi.fn().mockResolvedValue(1);
 const mockChatMessage = vi.fn();
 
 vi.mock("@/modules/notification", () => ({
-  sendPushToUsers: mockSendPushToUsers,
+  sendPushToActors: mockSendPushToActors,
 }));
 
 vi.mock("@/modules/chat/repositories/ChatRepository", () => ({
@@ -39,6 +42,9 @@ vi.mock("@/modules/chat/repositories/ChatRepository", () => ({
     isParticipant = mockChatRepository.isParticipant;
     findMessages = mockChatRepository.findMessages;
     searchUsers = mockChatRepository.searchUsers;
+    updateLastRead = mockChatRepository.updateLastRead;
+    getOtherParticipants = mockChatRepository.getOtherParticipants;
+    findConversationById = mockChatRepository.findConversationById;
   },
 }));
 
@@ -90,6 +96,12 @@ describe("ChatService", () => {
     await flushAsyncWork();
 
     expect(result).toMatchObject({ success: true, data: { sentToCount: 2 } });
+    expect(mockSendPushToActors).toHaveBeenCalledWith(
+      [{ type: "user", id: "user-2" }],
+      "Broadcast Ops",
+      "Server restart",
+      { type: "broadcast", conversationId: "conv-1", messageId: "msg-1" },
+    );
     expect(mockChatMessage).toHaveBeenCalledWith("user-2", {
       id: "msg-1",
       content: "Server restart",
@@ -101,6 +113,44 @@ describe("ChatService", () => {
       isOwn: false,
       isBroadcast: true,
     });
+  });
+
+  it("pesan chat biasa mengirim push ke penerima lewat kanal FCM-aware", async () => {
+    mockChatRepository.isParticipant.mockResolvedValueOnce(true);
+    mockChatRepository.createMessage.mockResolvedValueOnce({
+      id: "msg-2",
+      content: "halo",
+      imageUrl: null,
+      actorType: "user",
+      actorId: "user-1",
+      sender: { id: "user-1", name: "Admin", image: null },
+      createdAt: new Date("2026-11-02T01:19:38.000Z"),
+    });
+    mockChatRepository.getOtherParticipants.mockResolvedValueOnce([
+      { userId: "user-hp", actorType: "user", actorId: "user-hp" },
+    ]);
+    mockChatRepository.findConversationById.mockResolvedValueOnce({
+      id: "conv-1",
+      isGlobal: false,
+      name: null,
+    });
+
+    const result = await service.sendMessage({
+      conversationId: "conv-1",
+      sender: ADMIN,
+      senderName: "Admin",
+      tenantId: "tenant-1",
+      content: "halo",
+    });
+    await flushAsyncWork();
+
+    expect(result.success).toBe(true);
+    expect(mockSendPushToActors).toHaveBeenCalledWith(
+      [{ type: "user", id: "user-hp" }],
+      "Chat Admin",
+      "Admin: halo",
+      { type: "chat_message", conversationId: "conv-1", messageId: "msg-2" },
+    );
   });
 
   it("menolak broadcast dari mitra/pelanggan dengan pesan, bukan galat 500", async () => {

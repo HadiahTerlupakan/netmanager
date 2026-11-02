@@ -1,5 +1,6 @@
 import { sendFCMNotification } from "@/lib/firebase/messaging";
 import { logger } from "@/lib/logger";
+import { toFcmData } from "./fcm-data";
 import { PelangganPushTokenService } from "@/modules/pelanggan";
 import { sendExpoPushToToken } from "./ExpoPushService";
 
@@ -73,18 +74,4 @@ function isDelivered(delivery: PromiseSettledResult<boolean>): boolean {
     return false;
   }
   return delivery.value;
-}
-
-/** FCM hanya menerima data bernilai string; nilai kosong dibuang. */
-function toFcmData(data: Record<string, unknown> = {}): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(data)
-      .filter(([, value]) => value !== null && value !== undefined)
-      .map(([key, value]) => [key, toFcmDataValue(value)]),
-  );
-}
-
-function toFcmDataValue(value: unknown): string {
-  if (typeof value === "string") return value;
-  return typeof value === "object" ? JSON.stringify(value) : String(value);
 }

@@ -98,6 +98,39 @@ export async function getMitraTokens(mitraId: string): Promise<string[]> {
 }
 
 /**
+ * Token FCM karyawan aktif dari daftar id — semua perangkat tempat ia login.
+ * Id berasal dari baris yang sudah tersaring tenant (mis. peserta chat).
+ */
+export async function getUserFcmTokens(userIds: string[]): Promise<string[]> {
+  if (userIds.length === 0) return [];
+  try {
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds }, isActive: true },
+      select: { fcmTokens: true },
+    });
+    return users.flatMap((user) => user.fcmTokens ?? []);
+  } catch (error) {
+    logger.error("Error fetching user FCM tokens:", error);
+    return [];
+  }
+}
+
+/** Token FCM beberapa mitra sekaligus (database mitra). */
+export async function getMitraFcmTokens(mitraIds: string[]): Promise<string[]> {
+  if (mitraIds.length === 0) return [];
+  try {
+    const mitras = await prismaMitra.mitra.findMany({
+      where: { id: { in: mitraIds } },
+      select: { fcmTokens: true },
+    });
+    return mitras.flatMap((mitra) => mitra.fcmTokens ?? []);
+  } catch (error) {
+    logger.error("Error fetching mitra FCM tokens:", error);
+    return [];
+  }
+}
+
+/**
  * Mengirim notifikasi multicast FCM ke daftar token dan mengembalikan jumlah
  * pesan yang diterima FCM. Token yang ditolak sebagai tidak terdaftar atau
  * tidak sah dibersihkan dari DB agar tidak terus consume quota di multicast
