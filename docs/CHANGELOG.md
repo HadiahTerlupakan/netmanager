@@ -41,6 +41,41 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-02] — Tutup 4 alert Dependabot tanpa mengubah perilaku
+
+- **Tipe**: [SECURITY]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Menutup alert #7 (follow-redirects, high), #8 (glob), #9
+  (minimatch), dan #4 (deepmerge). Tidak satu pun bisa dieksploitasi lewat
+  input pengguna di aplikasi ini, tetapi follow-redirects, glob, dan minimatch
+  ikut termuat di produksi.
+  - follow-redirects `^1.16.0` → `^1.16.2` (dependency dan override).
+    Perubahan upstream hanya `instanceof Array` → `Array.isArray`.
+  - Override glob `^13.0.6` → `14.0.3` (dipin karena rilisnya baru). Glob 13
+    membawa salinan minimatch 10 di dalam bundle-nya sendiri, jadi override
+    minimatch saja tidak menghapus kode rentan dari jalur `/api/docs`. Semua
+    ekspor yang dipakai dependent identik; spec `/api/docs` sebelum dan
+    sesudah sama persis (731 file, 20 path, hash sama).
+  - Override `minimatch@^10.0.0` → `11.0.3`, hanya untuk lini 10. Override
+    global akan merusak eslint dan pluginnya, yang memanggil minimatch 3
+    sebagai fungsi. Salinan 3.1.5 dan 5.1.9 tidak mengandung kode rentan.
+  - deepmerge tidak punya rilis perbaikan, jadi diganti shim lokal
+    `shims/deepmerge` (`@radpro/deepmerge@4.3.1-radpro.1`, salinan
+    `dist/cjs.js` ditambah penjaga `__proto__`). Shim ini dipasang lewat
+    devDependency `file:` dan override `$deepmerge`. Dockerfile kini menyalin
+    `shims/` di stage builder, prod-deps, dan runner; tanpa itu symlink
+    `node_modules/deepmerge` menggantung di image. `shims/**` dikecualikan dari
+    eslint (gaya ES5 vendor).
+  - Lockfile dibuat ulang dengan `npm install` biasa. Dengan
+    `--legacy-peer-deps`, webpack dan peer dependency lain ikut terhapus dari
+    lockfile.
+- **Files**: `package.json`, `package-lock.json`, `Dockerfile`,
+  `shims/deepmerge/`, `eslint.config.mjs`,
+  `tests/lib/dependency-security-overrides.test.ts`,
+  `tests/ci/husky-prepare-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-02] — Refresh token mobile memakai build yang sedang berjalan
 
 - **Tipe**: [FIXED]

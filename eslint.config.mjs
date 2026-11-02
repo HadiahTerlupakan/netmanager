@@ -52,6 +52,8 @@ const eslintConfig = [
       ".claude/worktrees/**",
       "prisma/generated/**",
       "scripts/**",
+      // Salinan vendor deepmerge 4.3.1 (gaya ES5) dengan penjaga __proto__.
+      "shims/**",
       "temp_genieacs_source/**",
       ".next/**",
       "tmp/**",

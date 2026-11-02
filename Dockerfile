@@ -15,6 +15,11 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+# `shims/` berisi paket lokal (`file:./shims/...`) yang di node_modules menjadi
+# symlink, jadi folder ini harus ada sebelum `npm ci`. Tanpa itu `npm ci` tetap
+# lolos, tetapi symlink-nya menggantung dan aplikasi baru gagal saat
+# require. Lihat shims/deepmerge (GHSA-gcqx-w48m-w2h4).
+COPY shims ./shims
 
 # Cache mount mempercepat pemasangan ulang saat package-lock.json berubah.
 RUN --mount=type=cache,target=/root/.npm \
@@ -119,6 +124,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+COPY shims ./shims
 RUN --mount=type=cache,target=/root/.npm \
     npm config set fetch-retries 5 \
     && npm config set fetch-retry-mintimeout 20000 \
@@ -227,6 +233,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Lihat catatan panjang di stage `prod-deps` soal mengapa `chown -R` di sana
 # justru menjadi jalur kritis yang lebih mahal.
 COPY --from=prod-deps /app/node_modules ./node_modules
+# Target symlink paket lokal di node_modules (lihat catatan `shims/` di builder).
+COPY --from=prod-deps /app/shims ./shims
 
 # `COPY --from` mempertahankan kepemilikan ISI direktori, tetapi direktori
 # tujuannya sendiri dibuat sebagai root. Satu chown non-rekursif menutup

@@ -41,7 +41,7 @@ describe("Husky prepare safety", () => {
     expect(packageJson.overrides?.protobufjs).toBe("^7.5.5");
     expect(packageJson.overrides?.["protocol-buffers-schema"]).toBe("^3.6.1");
     expect(packageJson.overrides?.["node-forge"]).toBe("^1.4.0");
-    expect(packageJson.overrides?.["follow-redirects"]).toBe("^1.16.0");
+    expect(packageJson.overrides?.["follow-redirects"]).toBe("^1.16.2");
     expect(packageJson.overrides?.lodash).toBe("^4.18.1");
     expect(packageJson.overrides?.["brace-expansion@^2.0.0"]).toBe("^2.0.3");
     expect(packageJson.overrides?.["brace-expansion@^5.0.0"]).toBe("^5.0.5");

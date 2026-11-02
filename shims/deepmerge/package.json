@@ -1,0 +1,9 @@
+{
+  "name": "@radpro/deepmerge",
+  "version": "4.3.1-radpro.1",
+  "private": true,
+  "description": "deepmerge 4.3.1 with GHSA-gcqx-w48m-w2h4 fixed; upstream has no patched release. Drop once deepmerge ships one.",
+  "license": "MIT",
+  "main": "index.js",
+  "types": "index.d.ts"
+}
