@@ -3,7 +3,10 @@ import { hasCapability } from "@/lib/permission-aliases";
 import { NextResponse } from "next/server";
 import { getUserPermissions, isSuperAdminUser } from "@/lib/auth";
 import { ensureAdminAccess } from "@/lib/server-auth";
-import { ManualPaymentAdminRouteService } from "@/modules/finance";
+import {
+  ManualPaymentAdminRouteService,
+  isManualPaymentSiteRestricted,
+} from "@/modules/finance";
 
 type AdminSessionUser = Awaited<ReturnType<typeof ensureAdminAccess>> & {
   id: string;
@@ -30,8 +33,7 @@ export async function GET(request: Request) {
     }
     const { searchParams } = new URL(request.url);
     const userSiteId = user.primarySiteId ?? user.siteId ?? null;
-    const isSiteOnly =
-      !isSuperAdmin && permissions.includes("manual_payments:site_only");
+    const isSiteOnly = isManualPaymentSiteRestricted(user, permissions);
     const data = await manualPaymentAdminRouteService.getPendingManualPayments({
       startDate: searchParams.get("startDate"),
       endDate: searchParams.get("endDate"),

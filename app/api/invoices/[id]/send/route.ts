@@ -7,7 +7,10 @@ import {
   createHandler,
 } from "@/lib/api";
 import { sendInvoiceForRoute } from "@/modules/finance";
-import { INVOICE_WRITE_PERMISSIONS } from "@/lib/api/financial-permissions";
+import {
+  INVOICE_WRITE_PERMISSIONS,
+  isInvoiceSiteRestricted,
+} from "@/lib/api/financial-permissions";
 
 export const POST = createHandler(
   {
@@ -19,6 +22,10 @@ export const POST = createHandler(
     const result = await sendInvoiceForRoute({
       invoiceId: ctx.params.id,
       user: ctx.session!.user,
+      isRestricted: isInvoiceSiteRestricted({
+        permissions: ctx.permissions,
+        user: ctx.session!.user,
+      }),
       input: ctx.validated,
     });
 

@@ -11,7 +11,13 @@ const {
   mockLoggerDbOperation,
   mockLoggerApiRequest,
   mockLoggerError,
+  mockGetUserPermissions,
+  mockUserFindUnique,
+  mockGudangFindFirst,
 } = vi.hoisted(() => ({
+  mockGetUserPermissions: vi.fn(),
+  mockUserFindUnique: vi.fn(),
+  mockGudangFindFirst: vi.fn(),
   mockRequireAdmin: vi.fn(),
   mockBarangMasukGroupBy: vi.fn(),
   mockBarangKeluarGroupBy: vi.fn(),
@@ -27,8 +33,16 @@ vi.mock("@/lib/auth-helpers", () => ({
   requireAdmin: (request: NextRequest) => mockRequireAdmin(request),
 }));
 
+vi.mock("@/lib/auth", () => ({
+  getUserPermissions: (userId: string) => mockGetUserPermissions(userId),
+  isSuperAdmin: () => false,
+}));
+
 vi.mock("@/modules/database", () => ({
   prisma: {
+    user: {
+      findUnique: (...args: unknown[]) => mockUserFindUnique(...args),
+    },
     barangMasuk: {
       groupBy: (...args: unknown[]) => mockBarangMasukGroupBy(...args),
     },
@@ -43,6 +57,7 @@ vi.mock("@/modules/database", () => ({
     },
     gudang: {
       findUnique: (...args: unknown[]) => mockGudangFindUnique(...args),
+      findFirst: (...args: unknown[]) => mockGudangFindFirst(...args),
     },
   },
 }));
@@ -68,6 +83,7 @@ describe("GET /api/inventory/barang/stock/by-kondisi", () => {
     vi.clearAllMocks();
 
     mockRequireAdmin.mockResolvedValue({ user: { id: "admin-1" } });
+    mockGetUserPermissions.mockResolvedValue([]);
     mockBarangMasukGroupBy.mockResolvedValue([
       { kondisi: "BARU", _sum: { jumlah: 1 } },
     ]);
@@ -109,5 +125,20 @@ describe("GET /api/inventory/barang/stock/by-kondisi", () => {
       RUSAK: 0,
     });
     expect(json.data.totalStock).toBe(1);
+  });
+
+  it("menolak gudang site lain untuk role barang:site_only", async () => {
+    mockGetUserPermissions.mockResolvedValue(["barang:site_only"]);
+    mockUserFindUnique.mockResolvedValue({ siteId: "site-1", userSites: [] });
+    mockGudangFindFirst.mockResolvedValue(null);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost/api/inventory/barang/stock/by-kondisi?barangId=barang-1&gudangId=gudang-lain",
+      ),
+    );
+
+    expect(response.status).toBe(403);
+    expect(mockBarangGudangFindUnique).not.toHaveBeenCalled();
   });
 });

@@ -4,6 +4,7 @@ import { buildSessionWithPermissions, createHandler } from "@/lib/api";
 import {
   PelangganPppRouteService,
   RouteServiceError,
+  withPelangganPppSiteScope,
 } from "@/modules/pelanggan";
 
 /**
@@ -134,7 +135,7 @@ export const POST = createHandler(
     try {
       const session = buildSessionWithPermissions(
         ctx.session!,
-        ctx.permissions,
+        withPelangganPppSiteScope(ctx.permissions),
       );
       const result = await pelangganPppRouteService.suspendCustomer({
         id: ctx.params.id,

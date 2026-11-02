@@ -10,6 +10,7 @@ import {
   restockForbiddenMessage,
   restockServerErrorMessage,
 } from "@/modules/inventory";
+import { ensureRestockRequestSiteAccess } from "../../../_lib/restock-site-access";
 
 const inventoryRouteService = getInventoryRouteService();
 
@@ -35,6 +36,12 @@ export async function PATCH(
 
   const { id } = await params;
   const tenantId = session.user.tenantId as string;
+  const siteDenied = await ensureRestockRequestSiteAccess({
+    user: session.user,
+    purchaseRequestId: id,
+    tenantId: session.user.tenantId as string,
+  });
+  if (siteDenied) return siteDenied;
   const request = await inventoryRouteService.getPurchaseRequestById({
     id,
     tenantId,

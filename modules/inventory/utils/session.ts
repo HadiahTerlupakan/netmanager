@@ -13,21 +13,45 @@ type InventoryAccessUser = {
 };
 
 /**
- * Build inventory access session with fresh site and role data.
+ * Bangun sesi akses inventory dengan data site, role, dan permission terbaru.
+ *
+ * `permissions` wajib dikirim: objek user dari `createHandler` tidak membawa
+ * permission (permission ada di `ctx.permissions`). Dulu sesi ini dibangun
+ * tanpanya, sehingga `validateGudangSiteAccess` tidak pernah melihat
+ * `*:site_only` dan pencatatan barang masuk/keluar/transfer lolos ke gudang
+ * site mana pun.
+ *
+ * Site diambil dari basis data — site utama plus seluruh `userSites` — agar
+ * sama dengan yang dipakai jalur daftar dan `bolehAksesGudang`.
  */
 export async function buildInventoryAccessSession(
   user: InventoryAccessUser,
+  permissions: readonly string[],
 ): Promise<Session> {
   const persistedUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { siteId: true, role: true },
+    select: {
+      siteId: true,
+      role: true,
+      userSites: { select: { siteId: true } },
+    },
   });
+  const primarySiteId = persistedUser ? persistedUser.siteId : user.siteId;
+  const siteIds = [
+    ...new Set([
+      ...(primarySiteId ? [primarySiteId] : []),
+      ...(persistedUser?.userSites.map((userSite) => userSite.siteId) ?? []),
+    ]),
+  ];
 
   return {
     user: {
       ...user,
-      siteId: persistedUser?.siteId ?? user.siteId,
+      siteId: primarySiteId,
+      primarySiteId,
+      siteIds,
       role: persistedUser?.role ?? user.role,
+      permissions: [...permissions],
     },
     expires: new Date(
       Date.now() + SESSION_DURATION_IN_MILLISECONDS,

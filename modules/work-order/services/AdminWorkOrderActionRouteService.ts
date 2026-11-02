@@ -18,6 +18,32 @@ import {
 
 const CANCEL_REASON_DEFAULT = "Cancelled by admin";
 
+const MATERIAL_GUDANG_MESSAGES = {
+  WORK_ORDER_NO_SITE:
+    "Work order ini belum punya site, jadi gudang asal material tidak bisa ditentukan otomatis. Pilih gudangnya secara eksplisit.",
+  GUDANG_OTHER_SITE:
+    "Gudang yang dipilih tidak ditemukan atau tidak berada di site work order ini. Pilih gudang dari site work order.",
+  SITE_NO_GUDANG:
+    "Site work order ini belum punya gudang. Tautkan gudang ke site tersebut sebelum menambahkan material.",
+} as const;
+
+/**
+ * Bentuk ulang kegagalan sebagai objek baru ber-`success: false` literal.
+ * Proyek ini memakai `strictNullChecks: false`, sehingga mengembalikan variabel
+ * union yang sudah "dipersempit" tetap membocorkan cabang sukses ke tipe hasil.
+ */
+function toFailureResult(failure: { code?: string; error?: string }) {
+  return {
+    success: false as const,
+    code: failure.code ?? "NOT_FOUND",
+    error: failure.error,
+  };
+}
+
+function materialGudangError(error: string) {
+  return { success: false as const, code: "ADD_MATERIAL_ERROR", error };
+}
+
 type PermissionList = string[] | undefined;
 
 interface WorkOrderApprovalInput {
@@ -166,7 +192,14 @@ export class AdminWorkOrderActionRouteService {
     return result;
   }
 
-  /** Tambahkan material dengan resolusi gudang default user bila perlu. */
+  /**
+   * Tambahkan material dari gudang yang berada di site work order.
+   *
+   * Gudang dari klien hanya diterima bila tertaut ke site work order; tanpa
+   * gudang, dipakai gudang pertama site itu. Bila gudang tidak bisa ditentukan
+   * (WO tanpa site, atau site tanpa gudang) permintaan ditolak dengan pesan
+   * jelas — bukan diam-diam mengambil stok gudang site lain.
+   */
   async addMaterial(input: {
     workOrderId: string;
     barangId: string;
@@ -182,18 +215,55 @@ export class AdminWorkOrderActionRouteService {
     );
     if (!userContext) return { success: false as const, code: "UNAUTHORIZED" };
 
-    const gudangId = await this.resolveGudangId(
-      input.gudangId,
-      userContext.siteId,
+    const access = await this.requireScopedWorkOrder(
+      input.workOrderId,
+      userContext,
     );
+    if (!access.success) return toFailureResult(access);
+
+    const gudang = await this.resolveMaterialGudang(
+      input.gudangId,
+      access.data.siteId ?? null,
+    );
+    if (!gudang.success) return toFailureResult(gudang);
+
     return this.workOrderService.addMaterial(
       input.workOrderId,
       input.barangId,
       input.quantity,
       userContext,
       input.notes,
-      gudangId,
+      gudang.gudangId,
     );
+  }
+
+  /** Ambil detail material timeline setelah akses lingkup work order lolos. */
+  async getMaterialDetail(input: {
+    workOrderId: string;
+    updateId: string;
+    actor: { id: string; role?: string; name?: string | null };
+    permissions?: PermissionList;
+  }) {
+    const userContext = await this.getRequiredUserContext(
+      input.actor,
+      input.permissions,
+    );
+    if (!userContext) return { success: false as const, code: "UNAUTHORIZED" };
+
+    const access = await this.requireScopedWorkOrder(
+      input.workOrderId,
+      userContext,
+    );
+    if (!access.success) return toFailureResult(access);
+
+    const detail = await this.repository.findMaterialDetail(
+      input.workOrderId,
+      input.updateId,
+    );
+    if (detail.code !== "OK") {
+      return { success: false as const, code: detail.code };
+    }
+    return { success: true as const, data: detail.data };
   }
 
   /** Kirim reminder manual untuk work order aktif dan catat pengirimnya. */
@@ -201,8 +271,21 @@ export class AdminWorkOrderActionRouteService {
     workOrderId: string;
     customMessage?: string;
     targetDepartmentId?: string;
-    actorId: string;
+    actor: { id: string; role?: string; name?: string | null };
+    permissions?: PermissionList;
   }) {
+    const userContext = await this.getRequiredUserContext(
+      input.actor,
+      input.permissions,
+    );
+    if (!userContext) return { success: false as const, code: "UNAUTHORIZED" };
+
+    const access = await this.requireScopedWorkOrder(
+      input.workOrderId,
+      userContext,
+    );
+    if (!access.success) return toFailureResult(access);
+
     const workOrder = await this.repository.findReminderWorkOrderById(
       input.workOrderId,
     );
@@ -228,7 +311,7 @@ export class AdminWorkOrderActionRouteService {
     recordWorkOrderActivity({
       action: WORK_ORDER_ACTIVITY_ACTIONS.SEND_REMINDER,
       workOrder,
-      actorId: input.actorId,
+      actorId: input.actor.id,
       details: {
         departmentId,
         sentCount,
@@ -267,18 +350,70 @@ export class AdminWorkOrderActionRouteService {
     return this.getUserContext(user, permissions);
   }
 
-  private async resolveGudangId(
-    gudangId: string | undefined,
-    siteId: string | undefined,
+  /**
+   * Pastikan aktor boleh menyentuh work order ini sesuai toggle
+   * `workorders:site_only|department_only`. Mengembalikan NOT_FOUND/FORBIDDEN
+   * dari jalur baca pusat supaya pesan dan kode galatnya seragam.
+   */
+  private async requireScopedWorkOrder(
+    workOrderId: string,
+    userContext: UserContext,
   ) {
-    if (gudangId || !siteId) return gudangId;
-    return this.repository.findFirstGudangBySite(siteId);
+    const result = await this.workOrderService.getWorkOrderById(
+      workOrderId,
+      userContext,
+    );
+    if (!result.success || !result.data) {
+      return {
+        success: false as const,
+        code: result.code || "NOT_FOUND",
+        error: result.error,
+      };
+    }
+    return { success: true as const, data: result.data };
+  }
+
+  private async resolveMaterialGudang(
+    requestedGudangId: string | undefined,
+    workOrderSiteId: string | null,
+  ): Promise<{
+    success: boolean;
+    gudangId?: string;
+    code?: string;
+    error?: string;
+  }> {
+    // Work order tanpa site hanya bisa dibuka role yang tidak dibatasi site,
+    // jadi gudang pilihan klien cukup dibuktikan ada di tenant ini.
+    if (requestedGudangId) {
+      const isAllowed = await this.repository.isGudangAvailableForSite(
+        requestedGudangId,
+        workOrderSiteId,
+      );
+      return isAllowed
+        ? { success: true, gudangId: requestedGudangId }
+        : materialGudangError(MATERIAL_GUDANG_MESSAGES.GUDANG_OTHER_SITE);
+    }
+
+    if (!workOrderSiteId) {
+      return materialGudangError(MATERIAL_GUDANG_MESSAGES.WORK_ORDER_NO_SITE);
+    }
+
+    const siteGudangId =
+      await this.repository.findFirstGudangBySite(workOrderSiteId);
+    return siteGudangId
+      ? { success: true, gudangId: siteGudangId }
+      : materialGudangError(MATERIAL_GUDANG_MESSAGES.SITE_NO_GUDANG);
   }
 
   private async deleteWorkOrderPermanently(
     workOrderId: string,
     userContext: UserContext,
   ) {
+    // Validasi lingkup lebih dulu: reset canvasing adalah efek samping yang
+    // tidak boleh terjadi pada work order site/departemen lain.
+    const access = await this.requireScopedWorkOrder(workOrderId, userContext);
+    if (!access.success) return toFailureResult(access);
+
     await this.repository.resetCanvasingByWorkOrderId(workOrderId);
     return this.workOrderService.deleteWorkOrder(workOrderId, userContext);
   }

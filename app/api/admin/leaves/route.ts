@@ -91,6 +91,9 @@ export const POST = createHandler(
       session: ctx.session as never,
     });
 
+    if (result.code === "FORBIDDEN") {
+      return ApiErrors.forbidden(result.error);
+    }
     if (!result.success) {
       return apiError(
         result.error || "Gagal membuat izin/cuti",

@@ -204,6 +204,15 @@ export class MobileWorkOrderActionService {
     if (input.workOrder?.status !== CLAIM_ALLOWED_WORK_ORDER_STATUS) {
       throw new Error("Hanya WO berstatus PENDING yang dapat diklaim");
     }
+    // Paritas dengan `claimAvailableWorkOrder`: WO yang sudah dipegang orang
+    // lain tidak boleh direbut lewat aksi CLAIM.
+    const currentOwnerId =
+      input.workOrder.assignedToId || input.workOrder.assignedMitraId;
+    if (currentOwnerId && currentOwnerId !== input.input.actor.id) {
+      throw new Error(
+        "Hanya WO yang belum diambil orang lain yang dapat diklaim",
+      );
+    }
 
     await this.repository.assign(
       input.input.workOrderId,

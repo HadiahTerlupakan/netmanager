@@ -46,8 +46,20 @@ export class AdminLeaveRouteService {
     return this.leaveService.getLeaves(filters, input.page, input.limit);
   }
 
-  /** Buat leave manual oleh admin. */
+  /**
+   * Buat leave manual oleh admin. Pegawai tujuan wajib berada dalam lingkup
+   * `izin:site_only`/`izin:department_only` admin — dulu `userId` apa pun
+   * dalam tenant diterima.
+   */
   async createLeave(input: AdminLeaveCreateInput) {
+    const accessContext = await this.getAccessContext(input.session);
+    const targetUser = await this.userRepository.findById(input.userId);
+    const scopedError = this.validateScopedAccess(accessContext, {
+      siteId: targetUser?.siteId ?? null,
+      departmentId: targetUser?.departmentId ?? null,
+    });
+    if (scopedError) return scopedError;
+
     return this.leaveService.createLeave(
       this.buildCreateLeaveData(input),
       input.session.user.id,
@@ -118,12 +130,6 @@ export class AdminLeaveRouteService {
     }
 
     const accessContext = await this.getAccessContext(session);
-    const basicAccessError = this.validateScopedAccess(accessContext, {
-      siteId: null,
-      departmentId: null,
-    });
-    if (basicAccessError) return basicAccessError;
-
     const leaveTarget = this.extractLeaveScopeTarget(leave.data);
     const scopedError = this.validateScopedAccess(accessContext, leaveTarget);
     if (scopedError) return scopedError;
@@ -137,12 +143,8 @@ export class AdminLeaveRouteService {
 
   /** Resolve scope filter untuk list admin. */
   private async resolveScope(session: AdminLeaveSession) {
+    if (isSuperAdmin(session.user)) return {};
     const accessContext = await this.getAccessContext(session);
-    const accessError = this.validateScopedAccess(accessContext, {
-      siteId: null,
-      departmentId: null,
-    });
-    if (accessError || isSuperAdmin(session.user)) return {};
     return this.buildResolvedScope(accessContext);
   }
 
@@ -238,11 +240,19 @@ export class AdminLeaveRouteService {
     };
   }
 
+  /**
+   * Gagal-tertutup: admin dibatasi tanpa site/departemen, atau target tanpa
+   * site/departemen, berada di luar lingkup. Dulu kedua keadaan itu lolos
+   * karena perbandingan dilewati saat salah satu sisinya kosong.
+   */
   private validateScopedAccess(
     accessContext: AccessContext,
     target: LeaveScopeTarget,
   ): ServiceResult<never> | null {
-    if (this.isOutsideSiteScope(accessContext, target)) {
+    if (
+      accessContext.tanpaData ||
+      this.isOutsideSiteScope(accessContext, target)
+    ) {
       return {
         success: false,
         error: SITE_FORBIDDEN_MESSAGE,
@@ -263,11 +273,9 @@ export class AdminLeaveRouteService {
     accessContext: AccessContext,
     target: LeaveScopeTarget,
   ) {
-    return Boolean(
+    return (
       accessContext.permissions.includes(SITE_ONLY_PERMISSION) &&
-      accessContext.currentUser.siteId &&
-      target.siteId &&
-      accessContext.currentUser.siteId !== target.siteId,
+      target.siteId !== accessContext.currentUser.siteId
     );
   }
 
@@ -275,11 +283,9 @@ export class AdminLeaveRouteService {
     accessContext: AccessContext,
     target: LeaveScopeTarget,
   ) {
-    return Boolean(
+    return (
       accessContext.permissions.includes(DEPARTMENT_ONLY_PERMISSION) &&
-      accessContext.currentUser.departmentId &&
-      target.departmentId &&
-      accessContext.currentUser.departmentId !== target.departmentId,
+      target.departmentId !== accessContext.currentUser.departmentId
     );
   }
 }

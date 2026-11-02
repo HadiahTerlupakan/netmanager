@@ -15,7 +15,6 @@ const mockFns = vi.hoisted(() => ({
   approveManualCheckout: vi.fn(),
   rejectManualCheckout: vi.fn(),
   findVerifiablePayment: vi.fn(),
-  checkSiteRestriction: vi.fn(),
   findPelangganById: vi.fn(),
 }));
 
@@ -41,10 +40,6 @@ vi.mock("@/modules/finance/repositories/PaymentRepository", () => ({
 }));
 vi.mock("@/modules/finance/pelanggan-registry", () => ({
   getPelangganBillingBridge: () => ({ findById: mockFns.findPelangganById }),
-}));
-vi.mock("@/modules/roles", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  checkSiteRestriction: mockFns.checkSiteRestriction,
 }));
 
 const { POST } = await import("@/app/api/admin/payments/verify-manual/route");
@@ -76,10 +71,6 @@ describe("verify-manual — route dan layanan asli", () => {
     mockFns.getUserPermissions.mockResolvedValue(["manual_payments:verify"]);
     mockFns.findVerifiablePayment.mockResolvedValue(TRANSFER_MANUAL);
     mockFns.approveManualCheckout.mockResolvedValue({ ok: true });
-    mockFns.checkSiteRestriction.mockReturnValue({
-      isRestricted: false,
-      siteIds: [] as string[],
-    });
     mockFns.findPelangganById.mockResolvedValue({
       id: "pel-1",
       siteId: "site-a",
@@ -117,10 +108,10 @@ describe("verify-manual — route dan layanan asli", () => {
   });
 
   it("admin terbatas tanpa site ditolak, bukan dibebaskan", async () => {
-    mockFns.checkSiteRestriction.mockReturnValue({
-      isRestricted: true,
-      siteIds: [] as string[],
-    });
+    mockFns.getUserPermissions.mockResolvedValue([
+      "manual_payments:verify",
+      "finance:site_only",
+    ]);
 
     const response = await verify("APPROVE");
 
@@ -128,15 +119,46 @@ describe("verify-manual — route dan layanan asli", () => {
     expect(mockFns.approveManualCheckout).not.toHaveBeenCalled();
   });
 
-  it("admin terbatas hanya bisa memverifikasi pelanggan di site-nya", async () => {
-    mockFns.checkSiteRestriction.mockReturnValue({
-      isRestricted: true,
-      siteIds: ["site-b"],
+  it.each(["finance:site_only", "manual_payments:site_only"])(
+    "admin ber-%s hanya bisa memverifikasi pelanggan di site-nya",
+    async (siteOnly) => {
+      mockFns.getServerSession.mockResolvedValue({
+        user: {
+          id: "admin-1",
+          role: "ADMIN",
+          tenantId: "t1",
+          siteIds: ["site-b"],
+        },
+      });
+      mockFns.getUserPermissions.mockResolvedValue([
+        "manual_payments:verify",
+        siteOnly,
+      ]);
+
+      const response = await verify("APPROVE");
+
+      expect(response.status).toBe(400);
+      expect(mockFns.approveManualCheckout).not.toHaveBeenCalled();
+    },
+  );
+
+  it("admin terbatas di site pelanggan tetap bisa memverifikasi", async () => {
+    mockFns.getServerSession.mockResolvedValue({
+      user: {
+        id: "admin-1",
+        role: "ADMIN",
+        tenantId: "t1",
+        siteIds: ["site-a"],
+      },
     });
+    mockFns.getUserPermissions.mockResolvedValue([
+      "manual_payments:verify",
+      "manual_payments:site_only",
+    ]);
 
     const response = await verify("APPROVE");
 
-    expect(response.status).toBe(400);
-    expect(mockFns.approveManualCheckout).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mockFns.approveManualCheckout).toHaveBeenCalledTimes(1);
   });
 });

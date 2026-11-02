@@ -40,6 +40,7 @@ import {
   validateMobileWorkOrderMaterialAccess,
   validateMobileWorkOrderMaterialReturnAccess,
 } from "./work-order-access";
+import { ensureMobileMaterialGudangsAccessible } from "./work-order-material-gudang-scope";
 
 interface WorkOrderMaterialDependencies {
   prismaClient: PrismaClient;
@@ -100,6 +101,11 @@ export class WorkOrderMaterialService {
         workOrderId,
         userContext,
       });
+      await ensureMobileMaterialGudangsAccessible({
+        actorId: userContext.id,
+        tenantId: workOrder.tenantId,
+        gudangIds: items.map((item) => item.gudangId),
+      });
       const results =
         await this.dependencies.materialRepository.addMobileMaterialsWithStockDeduction(
           {
@@ -147,6 +153,11 @@ export class WorkOrderMaterialService {
       const tenantId = resolveTenantIdFromContext({
         workOrderTenantId: workOrder.tenantId,
         userContext,
+      });
+      await ensureMobileMaterialGudangsAccessible({
+        actorId: userContext.id,
+        tenantId: workOrder.tenantId,
+        gudangIds: items.map((item) => item.gudangId),
       });
       const results = await processMobileMaterialReturn({
         prismaClient: this.dependencies.prismaClient,

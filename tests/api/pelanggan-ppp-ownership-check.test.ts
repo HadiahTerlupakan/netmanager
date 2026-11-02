@@ -17,6 +17,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 });
 
 vi.mock("@/modules/pelanggan", () => ({
+  withPelangganPppSiteScope: (permissions: string[]) => permissions,
   PelangganAdminQueryService: class {
     getPppDetail = mockGetPppDetail;
   },

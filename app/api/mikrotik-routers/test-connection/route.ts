@@ -6,9 +6,12 @@ import {
   createHandler,
 } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
+import { isSuperAdmin } from "@/lib/auth";
 import {
   isVpnError,
   MikroTikRouterService,
+  RouterAccessDeniedError,
+  RouterNotFoundError,
   vpnErrorResponse,
 } from "@/modules/network";
 
@@ -31,6 +34,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   try {
     result = await routerService.testConnection({
       tenantId: ctx.session!.user.tenantId,
+      userId: ctx.session!.user.id,
+      // Dicocokkan persis: role `*` non-super tidak dianggap dibatasi.
+      restrictedToOwnSite:
+        !isSuperAdmin(ctx.session!.user) &&
+        ctx.permissions.includes("mikrotik:site_only"),
       routerId,
       vpnDraftId:
         typeof body.vpnDraftId === "string" ? body.vpnDraftId : undefined,
@@ -40,6 +48,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       apiPassword: body.apiPassword,
     });
   } catch (error: unknown) {
+    if (error instanceof RouterNotFoundError)
+      return ApiErrors.notFound("Router");
+    if (error instanceof RouterAccessDeniedError) {
+      return ApiErrors.forbidden("Akses ditolak");
+    }
     if (isVpnError(error)) return vpnErrorResponse(error);
     throw error;
   }

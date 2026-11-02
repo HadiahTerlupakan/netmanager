@@ -44,6 +44,7 @@ export * from "./services/InvoiceCollectionRouteService";
 export * from "./services/PaymentRouteService";
 export * from "./services/CustomerRenewalService";
 export * from "./services/ManualPaymentAdminRouteService";
+export * from "./services/manual-payment-scope";
 export * from "./services/CustomerPaymentFinanceService";
 export {
   listPaymentGatewayTransactions,

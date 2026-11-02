@@ -49,6 +49,8 @@ export function findWorkOrder(workOrderId: string, tenantId: string) {
       status: true,
       createdById: true,
       assignedToId: true,
+      siteId: true,
+      departmentId: true,
     },
   });
 }
@@ -90,23 +92,55 @@ export function findAssignmentForRemoval(
           tenantId: true,
           createdById: true,
           assignedToId: true,
+          siteId: true,
+          departmentId: true,
         },
       },
     },
   });
 }
 
-export async function hasPartnerAdminAccess(userId: string, tenantId: string) {
+/** Toggle lingkup work order yang relevan bagi admin pengelola partner. */
+const WORK_ORDER_SCOPE_ACTIONS = ["site_only", "department_only"] as const;
+
+/**
+ * Profil admin untuk pengelolaan partner: apakah role-nya admin panel, plus
+ * site/departemen dan toggle `workorders:*_only` agar lingkupnya bisa dinilai.
+ */
+export async function findPartnerAdminProfile(
+  userId: string,
+  tenantId: string,
+) {
   const user = await prisma.user.findFirst({
     where: { id: userId, tenantId },
     select: {
+      siteId: true,
+      departmentId: true,
       role: {
-        select: { accessAdminPanel: true, isSuperAdmin: true },
+        select: {
+          accessAdminPanel: true,
+          isSuperAdmin: true,
+          permission: {
+            where: {
+              resource: "workorders",
+              action: { in: [...WORK_ORDER_SCOPE_ACTIONS] },
+            },
+            select: { resource: true, action: true },
+          },
+        },
       },
     },
   });
 
-  return Boolean(user?.role?.accessAdminPanel || user?.role?.isSuperAdmin);
+  return {
+    isAdmin: Boolean(user?.role?.accessAdminPanel || user?.role?.isSuperAdmin),
+    isSuperAdmin: Boolean(user?.role?.isSuperAdmin),
+    siteId: user?.siteId ?? undefined,
+    departmentId: user?.departmentId ?? undefined,
+    permissions: (user?.role?.permission ?? []).map(
+      (permission) => `${permission.resource}:${permission.action}`,
+    ),
+  };
 }
 
 function getAssignmentUserInclude() {

@@ -6,6 +6,7 @@ import {
   type InventoryTransferRouteResult,
   buildInventoryAccessSession,
   describeGudangAccessDenial,
+  IZIN_PEMBATAS_TRANSFER,
   validateGudangSiteAccess,
   TRANSFER_MESSAGES,
 } from "@/modules/inventory";
@@ -62,16 +63,24 @@ async function buildListInput(
   };
 }
 
-/** Validate source and destination warehouse access. */
-async function validateTransferAccess(
-  user: { id: string },
-  dariGudangId: string,
-  keGudangId: string,
-) {
-  const accessSession = await buildInventoryAccessSession(user);
+/**
+ * Validasi akses ke gudang asal dan tujuan. Keduanya wajib di dalam lingkup
+ * site pengguna, dengan permission pembatas yang sama dengan daftar transfer.
+ */
+async function validateTransferAccess(input: {
+  user: { id: string };
+  permissions: readonly string[];
+  dariGudangId: string;
+  keGudangId: string;
+}) {
+  const accessSession = await buildInventoryAccessSession(
+    input.user,
+    input.permissions,
+  );
   const accessDari = await validateGudangSiteAccess(
     accessSession,
-    dariGudangId,
+    input.dariGudangId,
+    IZIN_PEMBATAS_TRANSFER,
   );
   if (!accessDari.allowed) {
     return ApiErrors.forbidden(
@@ -79,7 +88,11 @@ async function validateTransferAccess(
     );
   }
 
-  const accessKe = await validateGudangSiteAccess(accessSession, keGudangId);
+  const accessKe = await validateGudangSiteAccess(
+    accessSession,
+    input.keGudangId,
+    IZIN_PEMBATAS_TRANSFER,
+  );
   if (!accessKe.allowed) {
     return ApiErrors.forbidden(
       `Gudang tujuan: ${describeGudangAccessDenial(accessKe.error)}`,
@@ -156,11 +169,12 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     inventoryTransferRouteService.validateCreateTransferBody(body);
   if (invalidBody) return toTransferRouteResponse(invalidBody);
 
-  const accessError = await validateTransferAccess(
+  const accessError = await validateTransferAccess({
     user,
-    String(body.dariGudangId),
-    String(body.keGudangId),
-  );
+    permissions: ctx.permissions,
+    dariGudangId: String(body.dariGudangId),
+    keGudangId: String(body.keGudangId),
+  });
   if (accessError) return accessError;
 
   try {

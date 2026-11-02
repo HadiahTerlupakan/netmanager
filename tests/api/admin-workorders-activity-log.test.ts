@@ -115,7 +115,8 @@ describe("Log Aktivitas route admin work order", () => {
       workOrderId: "wo-1",
       customMessage: undefined,
       targetDepartmentId: "dept-noc",
-      actorId: "admin-1",
+      actor: expect.objectContaining({ id: "admin-1" }),
+      permissions: undefined,
     });
   });
 

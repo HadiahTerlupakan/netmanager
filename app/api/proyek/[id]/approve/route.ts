@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 
 import { authOptions } from "@/lib/auth";
-import { rabApprovalService } from "@/modules/proyek";
+import { getUserPermissions } from "@/lib/auth/permissions";
+import {
+  RabProjectSiteAccessService,
+  rabApprovalService,
+} from "@/modules/proyek";
 
 export async function POST(
   _req: NextRequest,
@@ -25,6 +29,19 @@ export async function POST(
             "Dilarang: Akun Anda tidak memiliki hak akses (role: canApproveRab) untuk menyetujui dokumen ini.",
         },
         { status: 403 },
+      );
+    }
+
+    if (
+      !(await new RabProjectSiteAccessService().isProjectInUserScope(
+        resolvedParams.id,
+        session.user,
+        await getUserPermissions(session.user.id),
+      ))
+    ) {
+      return NextResponse.json(
+        { error: "Proyek RAB tidak ditemukan" },
+        { status: 404 },
       );
     }
 

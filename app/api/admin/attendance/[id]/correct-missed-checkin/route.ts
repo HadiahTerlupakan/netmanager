@@ -131,6 +131,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     sourceAttendanceId: idResult.data,
     tenantId,
     actorId: user.id,
+    actor: user,
     checkIn: new Date(payload.checkIn),
     checkOut: payload.checkOut ? new Date(payload.checkOut) : null,
     reason: payload.reason,

@@ -62,6 +62,7 @@ vi.mock("@/modules/network/vpn/VpnCoreClient", () => ({
 import {
   checkAllMikroTikRouterStatus,
   checkSingleMikroTikRouterStatus,
+  checkTenantMikroTikRouterStatus,
 } from "@/modules/network/services/mikrotik-ping-check";
 
 const NOW = Date.parse("2026-10-20T10:00:00.000Z");
@@ -252,5 +253,25 @@ describe("mikrotik ping-check for VPN routers", () => {
 
     await expect(checkSingleMikroTikRouterStatus("a")).resolves.toBe(false);
     expect(statusOf("a")).toBe("tunnel_down");
+  });
+
+  // Regresi: tombol "cek status" admin tenant memicu ping seluruh tenant.
+  it("cek status per tenant hanya menyentuh tenant itu dan site yang diminta", async () => {
+    mocks.findAll.mockResolvedValue([
+      router("a", { siteId: "site-a" }),
+      router("bb", { siteId: "site-b" }),
+    ]);
+    mocks.getRouter.mockResolvedValue({ lastHandshakeAt: FRESH_HANDSHAKE });
+
+    const count = await checkTenantMikroTikRouterStatus({
+      tenantId: "t1",
+      siteId: "site-a",
+    });
+
+    expect(count).toBe(1);
+    expect(mocks.findActiveTenants).not.toHaveBeenCalled();
+    expect(mocks.findAll).toHaveBeenCalledWith("t1");
+    expect(statusOf("a")).toBeDefined();
+    expect(statusOf("bb")).toBeUndefined();
   });
 });

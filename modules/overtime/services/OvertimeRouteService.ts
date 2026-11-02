@@ -1,8 +1,12 @@
 import type { Session } from "next-auth";
 import type { OvertimeStatusValue } from "../domain/entities/OvertimeEntity";
 
-import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { toEndOfDay, toStartOfDay } from "@/lib/utils/server-datetime";
+import {
+  resolveAdminScope,
+  scopeTanpaData,
+  type AdminScope,
+} from "@/modules/attendance";
 import { UserLookupService } from "@/modules/users";
 
 import { OvertimeMapper } from "../mappers/OvertimeMapper";
@@ -38,8 +42,10 @@ interface AdminOvertimeUpdateInput extends AdminOvertimeMutationInput {
   endTime?: string;
 }
 
-const SITE_ONLY_PERMISSION = "lembur:site_only";
-const DEPARTMENT_ONLY_PERMISSION = "lembur:department_only";
+const OVERTIME_SCOPE_PERMISSIONS = {
+  siteOnly: "lembur:site_only",
+  departmentOnly: "lembur:department_only",
+} as const;
 const NOT_FOUND_MESSAGE = "Data lembur tidak ditemukan";
 
 /** Service untuk thin controller route overtime. */
@@ -57,7 +63,10 @@ export class OvertimeRouteService {
 
   /** Ambil daftar overtime admin sesuai scope permission. */
   async getAdminList(input: AdminOvertimeListInput) {
-    const filters = await this.buildScopedFilters(input);
+    const scope = await this.resolveScope(input.session);
+    if (scopeTanpaData(scope)) return this.buildEmptyList(input);
+
+    const filters = this.buildScopedFilters(input, scope);
     const [entities, total, summary] = await Promise.all([
       this.overtimeService.findAll(filters),
       this.overtimeService.count(filters),
@@ -136,9 +145,25 @@ export class OvertimeRouteService {
     };
   }
 
+  /**
+   * Admin dibatasi tanpa site/departemen tidak melihat apa pun. Dulu filter
+   * dilewati diam-diam sehingga ia justru melihat lembur seluruh tenant.
+   */
+  private buildEmptyList(input: AdminOvertimeListInput) {
+    return {
+      data: [] as ReturnType<typeof OvertimeMapper.toAdminDetailPayload>[],
+      summary: {} as Record<string, number>,
+      pagination: {
+        page: input.page,
+        limit: input.limit,
+        total: 0,
+        totalPages: 0,
+      },
+    };
+  }
+
   /** Bangun filter overtime admin dengan scope RBAC. */
-  private async buildScopedFilters(input: AdminOvertimeListInput) {
-    const scope = await this.resolveScope(input.session);
+  private buildScopedFilters(input: AdminOvertimeListInput, scope: AdminScope) {
     const filters: {
       skip: number;
       take: number;
@@ -155,12 +180,9 @@ export class OvertimeRouteService {
       status: input.status,
       holidayType: input.holidayType,
       tenantId: input.session.user.tenantId ?? undefined,
+      siteId: scope.siteId ?? input.siteId,
+      departmentId: scope.departmentId ?? input.departmentId,
     };
-
-    if (input.siteId) filters.siteId = input.siteId;
-    if (input.departmentId) filters.departmentId = input.departmentId;
-    if (scope.siteId) filters.siteId = scope.siteId;
-    if (scope.departmentId) filters.departmentId = scope.departmentId;
 
     if (input.startDate && input.endDate) {
       filters.startDate = toStartOfDay(new Date(input.startDate));
@@ -170,7 +192,7 @@ export class OvertimeRouteService {
     return filters;
   }
 
-  /** Ambil overtime dan validasi access admin. */
+  /** Ambil overtime dan validasi access admin (gagal-tertutup). */
   private async getAccessibleOvertime(id: string, session: RouteSession) {
     const overtime = await this.overtimeService.getOvertimeById(
       id,
@@ -180,52 +202,33 @@ export class OvertimeRouteService {
       throw new Error(NOT_FOUND_MESSAGE);
     }
 
-    if (isSuperAdmin(session.user)) {
-      return overtime;
-    }
-
-    const permissions = await getUserPermissions(session.user.id);
-    const currentUser = await this.userRepository.findById(session.user.id);
-    if (!currentUser) {
-      throw new Error("Unauthorized");
-    }
-
-    if (
-      permissions.includes(SITE_ONLY_PERMISSION) &&
-      currentUser.siteId &&
-      overtime.user?.siteId !== currentUser.siteId
-    ) {
-      throw new Error(NOT_FOUND_MESSAGE);
-    }
-
-    if (
-      permissions.includes(DEPARTMENT_ONLY_PERMISSION) &&
-      currentUser.departmentId &&
-      overtime.user?.departmentId !== currentUser.departmentId
-    ) {
+    const scope = await this.resolveScope(session);
+    if (!isOvertimeInScope(scope, overtime.user)) {
       throw new Error(NOT_FOUND_MESSAGE);
     }
 
     return overtime;
   }
 
-  /** Resolve scope filter berdasarkan permission admin. */
-  private async resolveScope(session: RouteSession) {
-    if (isSuperAdmin(session.user)) {
-      return {};
-    }
-
-    const permissions = await getUserPermissions(session.user.id);
-    const currentUser = await this.userRepository.findById(session.user.id);
-
-    return {
-      ...(permissions.includes(SITE_ONLY_PERMISSION) && currentUser?.siteId
-        ? { siteId: currentUser.siteId }
-        : {}),
-      ...(permissions.includes(DEPARTMENT_ONLY_PERMISSION) &&
-      currentUser?.departmentId
-        ? { departmentId: currentUser.departmentId }
-        : {}),
-    };
+  /** Resolve scope site/departemen admin untuk permission lembur. */
+  private resolveScope(session: RouteSession): Promise<AdminScope> {
+    return resolveAdminScope(
+      session.user,
+      OVERTIME_SCOPE_PERMISSIONS,
+      this.userRepository,
+    );
   }
+}
+
+/** Apakah pemilik lembur berada dalam lingkup admin; lingkup kosong = tidak. */
+function isOvertimeInScope(
+  scope: AdminScope,
+  owner?: { siteId?: string | null; departmentId?: string | null } | null,
+): boolean {
+  if (scopeTanpaData(scope)) return false;
+  if (scope.siteId && owner?.siteId !== scope.siteId) return false;
+  if (scope.departmentId && owner?.departmentId !== scope.departmentId) {
+    return false;
+  }
+  return true;
 }

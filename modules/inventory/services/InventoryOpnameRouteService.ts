@@ -2,7 +2,7 @@ import { ZodError } from "zod";
 
 import { logger } from "@/lib/logger";
 
-import { OPNAME_PESAN } from "../domain/opname-pesan";
+import { OPNAME_BEDA_SITE_ERROR, OPNAME_PESAN } from "../domain/opname-pesan";
 import { getInventoryOpnameService } from "./InventoryOpnameService";
 import type {
   CreateInventoryOpnameInput,
@@ -264,6 +264,11 @@ const OPNAME_ERROR_TRANSLATIONS: readonly OpnameErrorTranslation[] = [
     matches: (m) => m.startsWith("Akses ditolak: record bukan milik"),
     status: 403,
     message: OPNAME_PESAN.catatanBukanMilikAnda,
+  },
+  {
+    matches: (m) => m === OPNAME_BEDA_SITE_ERROR,
+    status: 403,
+    message: OPNAME_PESAN.catatanBedaSite,
   },
   {
     matches: (m) => m === "Barang tidak ditemukan",

@@ -1,4 +1,9 @@
-import { ProyekService } from "@/modules/proyek";
+import {
+  ProyekService,
+  RabProjectSiteAccessService,
+  resolveRabCreateSiteId,
+  resolveRabSiteScope,
+} from "@/modules/proyek";
 import { rabProjectCreateSchema } from "@/lib/validations/rab-project";
 import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
@@ -22,6 +27,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
   const params = {
     siteId: searchParams.get("siteId"),
     status: searchParams.get("status"),
+    scope: resolveRabSiteScope(user, ctx.permissions),
   };
 
   const proyekService = new ProyekService();
@@ -47,10 +53,19 @@ export const POST = createHandler(
       );
     }
 
+    const siteScope = resolveRabSiteScope(user, ctx.permissions);
+    const siteId = resolveRabCreateSiteId(siteScope, ctx.validated.siteId);
+    new RabProjectSiteAccessService().assertTargetSiteAllowed(
+      siteScope,
+      siteId,
+    );
+
     const proyekService = new ProyekService();
     try {
       const project = await proyekService.createRabProject(
-        ctx.validated as Parameters<typeof proyekService.createRabProject>[0],
+        { ...ctx.validated, siteId } as Parameters<
+          typeof proyekService.createRabProject
+        >[0],
         user.id,
       );
       return apiSuccess(project, { status: 201 });

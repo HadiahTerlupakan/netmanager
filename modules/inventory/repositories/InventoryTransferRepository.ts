@@ -22,7 +22,7 @@ export class InventoryTransferRepository {
     barangId?: string;
     dariGudangId?: string;
     keGudangId?: string;
-    siteId?: string;
+    siteIds?: string[];
     tenantId?: string;
   }): Promise<{ items: InventoryTransferRecord[]; total: number }> {
     return findAllTransfers(this.db, params);

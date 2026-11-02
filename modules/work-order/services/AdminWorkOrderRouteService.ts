@@ -4,6 +4,7 @@ import type { UserContext } from "./WorkOrderService";
 import { AdminWorkOrderActionRouteService } from "./AdminWorkOrderActionRouteService";
 import { AdminWorkOrderAnalyticsRouteService } from "./AdminWorkOrderAnalyticsRouteService";
 import { AdminWorkOrderFilterBuilder } from "./AdminWorkOrderFilterBuilder";
+import { buildWorkOrderDashboardAccessFilters } from "./admin-work-order-dashboard.helpers";
 
 type PermissionList = string[] | undefined;
 type WorkOrderRequestAction = "APPROVE" | "REJECT";
@@ -44,7 +45,7 @@ export class AdminWorkOrderRouteService {
   private get analyticsService(): AdminWorkOrderAnalyticsRouteService {
     this._analyticsService ??= new AdminWorkOrderAnalyticsRouteService(
       this.repository,
-      this.buildAccessFilters.bind(this),
+      this.buildDashboardAccessFilters.bind(this),
     );
     return this._analyticsService;
   }
@@ -116,6 +117,36 @@ export class AdminWorkOrderRouteService {
     };
   }
 
+  /**
+   * Ambil filter akses department/site untuk route analitik admin.
+   *
+   * Route analitik dijaga `work_order_dashboard:read`, jadi pembatasannya
+   * memakai helper dashboard yang membaca `work_order_dashboard:*_only`
+   * sekaligus `workorders:*_only`. Role terbatas tanpa site/departemen
+   * mendapat `emptyResponse` (fail closed).
+   */
+  async buildDashboardAccessFilters(
+    user: { id: string; role?: string; isSuperAdmin?: boolean },
+    permissions?: PermissionList,
+  ) {
+    const profile = await this.repository.findUserProfile(user.id);
+
+    if (!profile) {
+      return { unauthorized: true as const };
+    }
+
+    return {
+      unauthorized: false as const,
+      ...buildWorkOrderDashboardAccessFilters({
+        role: user.role,
+        isSuperAdmin: user.isSuperAdmin,
+        permissions: permissions ?? [],
+        departmentId: profile.departmentId,
+        siteId: profile.siteId,
+      }),
+    };
+  }
+
   /** Bangun filter list work order dari query string route admin. */
   buildListFilters(searchParams: URLSearchParams) {
     return this.filterBuilder.buildListFilters(searchParams);
@@ -161,9 +192,14 @@ export class AdminWorkOrderRouteService {
     return this.actionService.addMaterial(input);
   }
 
-  /** Ambil detail material berdasarkan update timeline. */
-  async getMaterialDetail(workOrderId: string, updateId: string) {
-    return this.repository.findMaterialDetail(workOrderId, updateId);
+  /** Ambil detail material berdasarkan update timeline, dengan cek lingkup WO. */
+  async getMaterialDetail(input: {
+    workOrderId: string;
+    updateId: string;
+    actor: { id: string; role?: string; name?: string | null };
+    permissions?: PermissionList;
+  }) {
+    return this.actionService.getMaterialDetail(input);
   }
 
   /** Kirim reminder manual untuk work order aktif. */
@@ -171,7 +207,8 @@ export class AdminWorkOrderRouteService {
     workOrderId: string;
     customMessage?: string;
     targetDepartmentId?: string;
-    actorId: string;
+    actor: { id: string; role?: string; name?: string | null };
+    permissions?: PermissionList;
   }) {
     return this.actionService.sendReminder(input);
   }

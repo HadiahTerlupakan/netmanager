@@ -10,6 +10,7 @@ import {
   RESTOCK_MESSAGES,
   restockForbiddenMessage,
 } from "@/modules/inventory";
+import { ensureRestockRequestSiteAccess } from "../../../_lib/restock-site-access";
 
 /** Konfirmasi penyelesaian item jasa pada purchase request restock. */
 export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
@@ -20,6 +21,12 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   const { id } = ctx.params;
+  const siteDenied = await ensureRestockRequestSiteAccess({
+    user,
+    purchaseRequestId: id,
+    tenantId: user.tenantId as string,
+  });
+  if (siteDenied) return siteDenied;
   const body = await req.json().catch((): null => null);
   if (!body) return ApiErrors.badRequest(RESTOCK_MESSAGES.unreadableBody);
   const parsed = restockJasaConfirmSchema.safeParse(body);

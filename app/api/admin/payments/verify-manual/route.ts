@@ -1,16 +1,11 @@
 import { logger } from "@/lib/logger";
 import { z } from "zod";
-import {
-  ApiErrors,
-  apiSuccess,
-  createHandler,
-  buildSessionWithPermissions,
-} from "@/lib/api";
+import { ApiErrors, apiSuccess, createHandler } from "@/lib/api";
 import {
   ManualPaymentAdminRouteService,
   isRouteServiceError,
+  resolveManualPaymentAllowedSiteIds,
 } from "@/modules/finance";
-import { checkSiteRestriction } from "@/modules/roles";
 
 const manualPaymentAdminRouteService = new ManualPaymentAdminRouteService();
 const MAX_REJECTION_REASON_LENGTH = 500;
@@ -40,11 +35,10 @@ export const POST = createHandler(
   },
   async (_req, ctx) => {
     try {
-      const { isRestricted, siteIds } = checkSiteRestriction(
-        buildSessionWithPermissions(ctx.session!, ctx.permissions),
-        "finance",
+      const allowedSiteIds = resolveManualPaymentAllowedSiteIds(
+        ctx.session!.user,
+        ctx.permissions,
       );
-      const allowedSiteIds = isRestricted ? siteIds : undefined;
 
       const admin = ctx.session!.user;
       const result = await manualPaymentAdminRouteService.verifyManualPayment({

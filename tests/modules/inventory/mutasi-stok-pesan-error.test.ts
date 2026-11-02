@@ -319,7 +319,7 @@ describe("route service masuk/keluar meneruskan pesan, tidak melempar", () => {
       {} as never,
       {
         getKeluarRecordWithSite: vi.fn().mockResolvedValue(null),
-        resolveRestrictedSiteId: vi.fn(),
+        resolveLingkupSite: vi.fn().mockResolvedValue({ dibatasi: false }),
       } as never,
     );
 
@@ -350,7 +350,9 @@ describe("route service masuk/keluar meneruskan pesan, tidak melempar", () => {
     };
     const service = new InventoryMasukRouteService(
       {} as never,
-      { resolveRestrictedSiteId: vi.fn() } as never,
+      {
+        resolveLingkupSite: vi.fn().mockResolvedValue({ dibatasi: false }),
+      } as never,
       stockMovementService as never,
     );
 

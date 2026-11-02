@@ -20,7 +20,8 @@ const SLOW_MOVING_DAYS = 30;
  */
 export interface GudangSiteFilter {
   isActive?: boolean;
-  sites?: { some: { id: string } };
+  /** `in: []` sengaja tidak cocok dengan gudang mana pun. */
+  sites?: { some: { id: { in: string[] } } };
 }
 
 export interface InventoryDashboardFilters {
@@ -186,12 +187,14 @@ export async function getInventoryStockAlerts(
   sortStockAlerts: <T extends { status: string; currentStock: number }>(
     alerts: T[],
   ) => T[],
-  siteId?: string,
+  siteIds?: string[],
 ) {
   const settings = await prisma.restockSettings.findMany({
     where: {
       isActive: true,
-      ...(siteId ? { gudang: { sites: { some: { id: siteId } } } } : {}),
+      ...(siteIds
+        ? { gudang: { sites: { some: { id: { in: siteIds } } } } }
+        : {}),
     },
     include: {
       barang: { select: { id: true, kode: true, nama: true } },

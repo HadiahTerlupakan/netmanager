@@ -13,6 +13,7 @@ import {
   restockForbiddenMessage,
   restockServerErrorMessage,
 } from "@/modules/inventory";
+import { ensureRestockRequestSiteAccess } from "../../../_lib/restock-site-access";
 
 const goodsReceiptService = createRestockGoodsReceiptService();
 
@@ -26,6 +27,13 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   if (!(await hasPermission("restock:verify"))) {
     return ApiErrors.forbidden(restockForbiddenMessage("restock:verify"));
   }
+
+  const siteDenied = await ensureRestockRequestSiteAccess({
+    user,
+    purchaseRequestId: ctx.params.id,
+    tenantId: user.tenantId as string,
+  });
+  if (siteDenied) return siteDenied;
 
   const body = await req.json().catch((): null => null);
   if (!body) return ApiErrors.badRequest(RESTOCK_MESSAGES.unreadableBody);

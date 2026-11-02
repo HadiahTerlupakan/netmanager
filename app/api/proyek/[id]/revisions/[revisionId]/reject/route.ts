@@ -5,7 +5,11 @@ import * as z from "zod";
 
 import { authOptions } from "@/lib/auth";
 import { isRouteServiceError } from "@/lib/api/route-service-error";
-import { RabRevisionRouteService } from "@/modules/proyek";
+import { getUserPermissions } from "@/lib/auth/permissions";
+import {
+  RabProjectSiteAccessService,
+  RabRevisionRouteService,
+} from "@/modules/proyek";
 
 const rabRevisionRouteService = new RabRevisionRouteService();
 
@@ -23,6 +27,19 @@ export async function POST(
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (
+      !(await new RabProjectSiteAccessService().isProjectInUserScope(
+        resolvedParams.id,
+        session.user,
+        await getUserPermissions(session.user.id),
+      ))
+    ) {
+      return NextResponse.json(
+        { error: "Proyek RAB tidak ditemukan" },
+        { status: 404 },
+      );
     }
 
     const payload = rejectSchema.safeParse(await req.json().catch(() => ({})));

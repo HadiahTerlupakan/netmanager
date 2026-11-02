@@ -66,6 +66,25 @@ export class AdminWorkOrderRouteRepository {
     return gudang?.id ?? null;
   }
 
+  /**
+   * Cek apakah gudang ada di tenant aktif dan — bila `siteId` diisi — tertaut
+   * ke site tersebut.
+   */
+  async isGudangAvailableForSite(
+    gudangId: string,
+    siteId: string | null,
+  ): Promise<boolean> {
+    const gudang = await prisma.gudang.findFirst({
+      where: {
+        id: gudangId,
+        ...(siteId ? { sites: { some: { id: siteId } } } : {}),
+      },
+      select: { id: true },
+    });
+
+    return gudang !== null;
+  }
+
   /** Ambil data minimum work order untuk fitur reminder. */
   async findReminderWorkOrderById(
     id: string,
@@ -190,13 +209,14 @@ export class AdminWorkOrderRouteRepository {
   async getAdminResponseStats(
     dateFrom: Date,
     dateTo: Date,
-    departmentId?: string,
+    scope: { departmentId?: string; siteId?: string } = {},
   ) {
     const workOrderRepo = await import("./WorkOrderRepository");
     return new workOrderRepo.WorkOrderRepository(prisma).getAdminResponseStats(
       dateFrom,
       dateTo,
-      departmentId,
+      scope.departmentId,
+      scope.siteId,
     );
   }
 
@@ -206,6 +226,7 @@ export class AdminWorkOrderRouteRepository {
     dateFrom?: Date;
     dateTo?: Date;
     departmentId?: string;
+    siteId?: string;
   }) {
     const limit = options.limit ?? DEFAULT_LIMIT;
     const workOrderRepo = await import("./WorkOrderRepository");
@@ -216,12 +237,14 @@ export class AdminWorkOrderRouteRepository {
         options.dateFrom,
         options.dateTo,
         options.departmentId,
+        options.siteId,
       ),
       repository.getTopAssists(
         limit,
         options.dateFrom,
         options.dateTo,
         options.departmentId,
+        options.siteId,
       ),
     ]);
 

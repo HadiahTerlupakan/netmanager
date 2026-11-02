@@ -291,6 +291,81 @@ describe("AdminUserRouteService", () => {
     });
   });
 
+  describe("user tanpa site — admin terbatas", () => {
+    const restricted = {
+      isRestricted: true,
+      primarySiteId: "site-mine",
+      siteIds: ["site-mine"],
+    };
+
+    it("tidak bisa menghapus user tanpa site", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce({
+        id: "user-siteless",
+        siteId: null,
+      } as never);
+      mockFns.checkSiteRestriction.mockReturnValue(restricted);
+
+      const result = await service.deleteAdminUser(
+        createSession(),
+        "user-siteless",
+      );
+
+      expect(result).toMatchObject({ ok: false, error: { code: 403 } });
+      expect(repository.delete).not.toHaveBeenCalled();
+    });
+
+    it("tidak bisa melihat detail user tanpa site", async () => {
+      vi.mocked(repository.findByIdWithRelations).mockResolvedValueOnce({
+        id: "user-siteless",
+        siteId: null,
+      } as never);
+      mockFns.checkSiteRestriction.mockReturnValue(restricted);
+
+      const result = await service.getAdminUserById(
+        createSession(),
+        "user-siteless",
+        ["users:read"],
+      );
+
+      expect(result).toMatchObject({ ok: false, error: { code: 403 } });
+    });
+
+    it("admin tanpa pembatasan tetap bisa menghapus user tanpa site", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce({
+        id: "user-siteless",
+        siteId: null,
+      } as never);
+      vi.mocked(repository.delete).mockResolvedValueOnce({
+        id: "user-siteless",
+        name: "Baru",
+      } as never);
+
+      const result = await service.deleteAdminUser(
+        createSession(),
+        "user-siteless",
+      );
+
+      expect(result.ok).toBe(true);
+    });
+
+    it("daftar user kosong bila admin terbatas belum punya site", async () => {
+      mockFns.checkSiteRestriction.mockReturnValue({
+        isRestricted: true,
+        primarySiteId: null,
+        siteIds: [],
+      });
+
+      const result = await service.getAdminUsers(createSession(), {}, [
+        "users:read",
+        "users:site_only",
+      ]);
+
+      expect(result.users).toEqual([]);
+      expect(result.meta.total).toBe(0);
+      expect(repository.findAll).not.toHaveBeenCalled();
+    });
+  });
+
   describe("forceLogoutUser", () => {
     it("menolak force logout diri sendiri", async () => {
       const result = await service.forceLogoutUser(

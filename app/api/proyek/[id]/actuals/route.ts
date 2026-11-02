@@ -5,9 +5,12 @@ import { isRouteServiceError } from "@/lib/api/route-service-error";
 import {
   rabActualAchievementSchema,
   RabProjectRouteService,
+  RabProjectSiteAccessService,
+  resolveRabSiteScope,
 } from "@/modules/proyek";
 
 const rabProjectRouteService = new RabProjectRouteService();
+const rabProjectSiteAccess = new RabProjectSiteAccessService();
 
 /** POST: simpan capaian bulan ke-n proyek RAB (bulan yang sudah dibagikan → 409). */
 export const POST = createHandler(
@@ -26,6 +29,11 @@ export const POST = createHandler(
     if (!hasAccess) {
       return ApiErrors.forbidden("Akses ditolak");
     }
+
+    await rabProjectSiteAccess.assertProjectAccessible(
+      rabProjectId,
+      resolveRabSiteScope(user, ctx.permissions),
+    );
 
     try {
       const achievement = await rabProjectRouteService.upsertActualAchievement({

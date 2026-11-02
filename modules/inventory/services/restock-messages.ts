@@ -68,6 +68,10 @@ export const RESTOCK_MESSAGES = {
   nothingRequested:
     "Belum ada barang atau jasa yang diminta. Tambahkan paling sedikit satu barang atau jasa.",
   gudangMissing: "Gudang tujuan belum dipilih. Pilih gudangnya dulu.",
+  requestBedaSite:
+    "Pengajuan ini untuk gudang di site lain, jadi tidak bisa Anda buka atau proses. Minta admin kalau pengajuan ini memang harus Anda urus.",
+  gudangBedaSite:
+    "Gudang tujuan ini milik site lain. Pilih gudang di site Anda.",
   unknownLifecycleAction:
     "Tindakan ini tidak dikenal. Pilih Setujui atau Tolak, lalu coba lagi.",
   noPurchaseOrderYet:

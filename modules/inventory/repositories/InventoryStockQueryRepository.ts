@@ -22,19 +22,20 @@ export class InventoryStockQueryRepository {
    * mustahil diaktifkan lagi lewat antarmuka.
    */
   async getAllGudang(params?: {
-    siteId?: string;
+    siteIds?: string[];
     tenantId?: string;
     includeInactive?: boolean;
   }): Promise<Gudang[]> {
-    const { siteId, tenantId, includeInactive } = params || {};
+    const { siteIds, tenantId, includeInactive } = params || {};
     const where: Prisma.GudangWhereInput = { tenantId };
 
     if (!includeInactive) {
       where.isActive = true;
     }
 
-    if (siteId) {
-      (where as Record<string, unknown>).sites = { some: { id: siteId } };
+    // `siteIds` kosong sengaja tidak cocok dengan gudang mana pun.
+    if (siteIds) {
+      where.sites = { some: { id: { in: siteIds } } };
     }
 
     return this.db.gudang.findMany({ where, orderBy: { nama: "asc" } });

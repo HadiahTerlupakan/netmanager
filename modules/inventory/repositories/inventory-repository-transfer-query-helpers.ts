@@ -17,17 +17,17 @@ export async function findAllTransfers(
     barangId?: string;
     dariGudangId?: string;
     keGudangId?: string;
-    siteId?: string;
+    siteIds?: string[];
     tenantId?: string;
   },
 ): Promise<{ items: InventoryTransferRecord[]; total: number }> {
-  const { skip, take, barangId, dariGudangId, keGudangId, siteId, tenantId } =
+  const { skip, take, barangId, dariGudangId, keGudangId, siteIds, tenantId } =
     params || {};
   const where = buildTransferWhere({
     barangId,
     dariGudangId,
     keGudangId,
-    siteId,
+    siteIds,
     tenantId,
   });
   const queryOptions: Prisma.TransferAntarGudangFindManyArgs = {
@@ -62,7 +62,7 @@ function buildTransferWhere(input: {
   barangId?: string;
   dariGudangId?: string;
   keGudangId?: string;
-  siteId?: string;
+  siteIds?: string[];
   tenantId?: string;
 }): Prisma.TransferAntarGudangWhereInput {
   const where: Prisma.TransferAntarGudangWhereInput = {
@@ -72,11 +72,10 @@ function buildTransferWhere(input: {
   if (input.barangId) where.barangId = input.barangId;
   if (input.dariGudangId) where.dariGudangId = input.dariGudangId;
   if (input.keGudangId) where.keGudangId = input.keGudangId;
-  if (input.siteId) {
-    where.OR = [
-      { gudangDari: { sites: { some: { id: input.siteId } } } },
-      { gudangKe: { sites: { some: { id: input.siteId } } } },
-    ];
+  // `siteIds` kosong sengaja tidak cocok dengan baris mana pun.
+  if (input.siteIds) {
+    const siteFilter = { sites: { some: { id: { in: input.siteIds } } } };
+    where.OR = [{ gudangDari: siteFilter }, { gudangKe: siteFilter }];
   }
 
   return where;

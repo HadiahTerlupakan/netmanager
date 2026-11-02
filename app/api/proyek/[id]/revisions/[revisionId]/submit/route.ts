@@ -3,12 +3,17 @@ import * as z from "zod";
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { isRouteServiceError } from "@/lib/api/route-service-error";
-import { RabRevisionRouteService } from "@/modules/proyek";
+import {
+  RabProjectSiteAccessService,
+  RabRevisionRouteService,
+  resolveRabSiteScope,
+} from "@/modules/proyek";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 const rabRevisionRouteService = new RabRevisionRouteService();
+const rabProjectSiteAccess = new RabProjectSiteAccessService();
 
 const submitSchema = z.object({
   reason: z.string().trim().min(1),
@@ -25,6 +30,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       "Akses ditolak. Anda memerlukan permission: expense:update",
     );
   }
+
+  await rabProjectSiteAccess.assertProjectAccessible(
+    ctx.params.id,
+    resolveRabSiteScope(user, ctx.permissions),
+  );
 
   const payload = submitSchema.safeParse(await req.json());
 

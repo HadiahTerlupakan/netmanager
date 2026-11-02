@@ -1,6 +1,8 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { resolvePenggunaInventory } from "../../_lib/inventory-pengguna";
 import {
   getInventoryRouteService,
+  IZIN_PEMBATAS_OPNAME,
   OPNAME_PESAN,
   pesanGagalMuatOpname,
 } from "@/modules/inventory";
@@ -24,8 +26,15 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     return ApiErrors.badRequest(OPNAME_PESAN.gudangBelumDipilih);
   }
 
+  const inventoryRouteService = getInventoryRouteService();
+  const bolehAkses = await inventoryRouteService.canAccessGudang({
+    ...resolvePenggunaInventory(ctx),
+    gudangId,
+    restrictedPermissions: IZIN_PEMBATAS_OPNAME,
+  });
+  if (!bolehAkses) return ApiErrors.forbidden(OPNAME_PESAN.gudangBedaSite);
+
   try {
-    const inventoryRouteService = getInventoryRouteService();
     const dbStart = Date.now();
     const result = await inventoryRouteService.calculateOpname(gudangId);
 

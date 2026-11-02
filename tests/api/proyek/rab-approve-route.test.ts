@@ -13,6 +13,12 @@ const {
   mockIsApprovalRouteError: vi.fn(),
 }));
 
+const mockIsProjectInUserScope = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/auth/permissions", () => ({
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock("next-auth/next", () => ({
   getServerSession: mockGetServerSession,
 }));
@@ -22,6 +28,9 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 vi.mock("@/modules/proyek", () => ({
+  RabProjectSiteAccessService: class {
+    isProjectInUserScope = mockIsProjectInUserScope;
+  },
   rabApprovalService: {
     canUserApproveRab: mockCanUserApproveRab,
     approveRabWithRetry: mockApproveRabWithRetry,
@@ -36,6 +45,7 @@ describe("rab approve route", () => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue({ user: { id: "approver-1" } });
     mockCanUserApproveRab.mockResolvedValue({ isAllowed: true });
+    mockIsProjectInUserScope.mockResolvedValue(true);
     mockIsApprovalRouteError.mockImplementation(
       (error: unknown) =>
         typeof error === "object" && error !== null && "status" in error,
@@ -102,6 +112,18 @@ describe("rab approve route", () => {
     expect(response.status).toBe(403);
     expect(mockApproveRabWithRetry).not.toHaveBeenCalled();
     expect(body.error).toContain("canApproveRab");
+  });
+
+  it("404 dan tidak menyetujui RAB di luar lingkup site penyetuju", async () => {
+    mockIsProjectInUserScope.mockResolvedValue(false);
+
+    const response = await APPROVE(
+      new NextRequest("http://localhost/api/rab/approve", { method: "POST" }),
+      { params: Promise.resolve({ id: "rab-site-lain" }) },
+    );
+
+    expect(response.status).toBe(404);
+    expect(mockApproveRabWithRetry).not.toHaveBeenCalled();
   });
 
   it("maps approval service business errors to the provided HTTP status", async () => {

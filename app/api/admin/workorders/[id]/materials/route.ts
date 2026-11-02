@@ -47,6 +47,14 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       return ApiErrors.unauthorized();
     }
 
+    if (result.code === "NOT_FOUND") {
+      return ApiErrors.notFound("Work Order");
+    }
+
+    if (result.code === "FORBIDDEN") {
+      return ApiErrors.forbidden(result.error || "Akses ditolak");
+    }
+
     return apiError(
       result.error || "Gagal menambahkan material",
       result.code === "ADD_MATERIAL_ERROR"

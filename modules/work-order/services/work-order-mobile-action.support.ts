@@ -2,7 +2,12 @@ import type { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import type { UserContext } from "./WorkOrderService";
 import type { MobileUserContext } from "./work-order-mobile-action.types";
 import { validateMobileAssignedWorkOrderAccess } from "./work-order-access";
+import { mobileUnclaimedWorkOrderGuard } from "./mobile-unclaimed-work-order-guard";
 
+/**
+ * Validasi akses aksi mobile. Aksi CLAIM atas WO yang belum diambil tunduk pada
+ * aturan daftar WO tersedia lewat `mobileUnclaimedWorkOrderGuard`.
+ */
 export async function ensureMobileWorkOrderAccess(input: {
   repository: WorkOrderRepository;
   workOrderId: string;
@@ -16,9 +21,14 @@ export async function ensureMobileWorkOrderAccess(input: {
     userContext: buildMobileActionUserContext(input.actor),
     allowedStatuses: input.allowedStatuses,
     invalidStatusMessage: input.invalidStatusMessage,
+    unclaimedAccessGuard: mobileUnclaimedWorkOrderGuard,
   });
 }
 
+/**
+ * `permissions` kosong: toggle web `workorders:*_only` tidak mencabut akses
+ * pemegang/partner atas WO-nya sendiri; WO yang belum diambil dijaga guard.
+ */
 function buildMobileActionUserContext(actor: MobileUserContext): UserContext {
   return {
     id: actor.id,

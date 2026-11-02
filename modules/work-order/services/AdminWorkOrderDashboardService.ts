@@ -183,18 +183,23 @@ export class AdminWorkOrderDashboardService {
         RECENT_WORK_ORDER_LIMIT,
         this.createCacheOptions(access),
       ),
-      this.workOrderRepo.getDepartmentWorkload(access.departmentId),
+      this.workOrderRepo.getDepartmentWorkload(
+        access.departmentId,
+        access.siteId,
+      ),
       this.workOrderRepo.getTopPerformers(
         ANALYTICS_LIMIT,
         dateRange.dateFrom,
         dateRange.dateTo,
         access.departmentId,
+        access.siteId,
       ),
       this.workOrderRepo.getTopAssists(
         ANALYTICS_LIMIT,
         dateRange.dateFrom,
         dateRange.dateTo,
         access.departmentId,
+        access.siteId,
       ),
       this.workOrderRepo.getIssueStatistics(
         ANALYTICS_LIMIT,
@@ -220,6 +225,7 @@ export class AdminWorkOrderDashboardService {
         responseRange.dateFrom,
         responseRange.dateTo,
         access.departmentId,
+        access.siteId,
       ),
       this.workOrderRepo.getAdminKPIStats(access.departmentId, access.siteId),
     ]).then(

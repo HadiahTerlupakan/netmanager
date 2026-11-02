@@ -3,12 +3,17 @@ import * as z from "zod";
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { isRouteServiceError } from "@/lib/api/route-service-error";
-import { RabRevisionRouteService } from "@/modules/proyek";
+import {
+  RabProjectSiteAccessService,
+  RabRevisionRouteService,
+  resolveRabSiteScope,
+} from "@/modules/proyek";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 const rabRevisionRouteService = new RabRevisionRouteService();
+const rabProjectSiteAccess = new RabProjectSiteAccessService();
 
 const createRevisionSchema = z.object({
   notes: z.string().optional(),
@@ -25,6 +30,10 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     );
   }
 
+  await rabProjectSiteAccess.assertProjectAccessible(
+    ctx.params.id,
+    resolveRabSiteScope(user, ctx.permissions),
+  );
   const revisions = await rabRevisionRouteService.getRevisions(ctx.params.id);
   return apiSuccess(revisions);
 });
@@ -41,6 +50,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
+  await rabProjectSiteAccess.assertProjectAccessible(
+    ctx.params.id,
+    resolveRabSiteScope(user, ctx.permissions),
+  );
   const payload = createRevisionSchema.parse(
     await req.json().catch(() => ({})),
   );

@@ -217,6 +217,7 @@ type InvoiceSendInput = {
 export async function sendInvoiceForRoute(options: {
   invoiceId: string;
   user: RouteUser;
+  isRestricted: boolean;
   input: InvoiceSendInput;
 }) {
   const invoice = await loadDraftInvoiceForSend(options);
@@ -250,16 +251,23 @@ async function executeSendInvoice(
   return { status: "sent" as const, sentVia: sentVia.sentVia };
 }
 
+/**
+ * Dulu setiap pengguna yang punya site dikunci ke site-nya (tanpa melihat
+ * permission), sementara pengguna DIBATASI tanpa site — atau invoice tanpa
+ * site — lolos. Kini mengikuti `isRestricted` seperti endpoint invoice lain dan
+ * gagal-tertutup.
+ */
 async function loadDraftInvoiceForSend(options: {
   invoiceId: string;
   user: RouteUser;
+  isRestricted: boolean;
 }) {
-  const userSiteId = await getRestrictedSiteId(options.user.id);
   const invoice = await invoiceRepository.findInvoiceForSend(options.invoiceId);
-  if (!invoice) {
-    return null;
+  if (!invoice || !options.isRestricted) {
+    return invoice;
   }
-  if (userSiteId && invoice.siteId && invoice.siteId !== userSiteId) {
+  const userSiteId = await getRestrictedSiteId(options.user.id);
+  if (!userSiteId || invoice.siteId !== userSiteId) {
     return null;
   }
   return invoice;

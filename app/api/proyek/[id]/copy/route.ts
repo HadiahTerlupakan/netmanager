@@ -2,9 +2,14 @@ import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { isRouteServiceError } from "@/lib/api/route-service-error";
-import { RabProjectRouteService } from "@/modules/proyek";
+import {
+  RabProjectRouteService,
+  RabProjectSiteAccessService,
+  resolveRabSiteScope,
+} from "@/modules/proyek";
 
 const rabProjectRouteService = new RabProjectRouteService();
+const rabProjectSiteAccess = new RabProjectSiteAccessService();
 
 export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
@@ -18,6 +23,11 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       "Akses ditolak. Anda memerlukan permission: expense:create",
     );
   }
+
+  await rabProjectSiteAccess.assertProjectAccessible(
+    ctx.params.id,
+    resolveRabSiteScope(user, ctx.permissions),
+  );
 
   try {
     const duplicatedProject = await rabProjectRouteService.duplicateProject(

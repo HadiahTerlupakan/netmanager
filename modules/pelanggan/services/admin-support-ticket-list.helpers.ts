@@ -34,10 +34,10 @@ export async function calculateAverageRating(
 
 /** Bentuk filter tiket open untuk unread count. */
 export function buildUnreadOpenWhere(
-  siteId?: string,
+  siteIds?: string[],
 ): Prisma.SupportTicketsWhereInput {
-  if (!siteId) return { status: OPEN_TICKET_STATUS };
-  return { status: OPEN_TICKET_STATUS, pelanggan: { siteId } };
+  if (!siteIds) return { status: OPEN_TICKET_STATUS };
+  return { status: OPEN_TICKET_STATUS, pelanggan: { siteId: { in: siteIds } } };
 }
 
 function buildStatusCountMap(

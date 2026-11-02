@@ -41,6 +41,90 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-02] — Tutup celah pembatasan site Inventory
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/inventory`, `app/api/inventory`
+- **Author**: agent
+- **Deskripsi**: Audit toggle "Batasi ke Site Sendiri" pada Inventory.
+  - Pencatatan barang masuk/keluar/transfer di web tidak pernah menerapkan
+    kunci site: sesi akses dibangun tanpa `permissions`, sehingga
+    `validateGudangSiteAccess` selalu mengizinkan. Kini `ctx.permissions`
+    dibawa dan tiap endpoint memakai daftar izin pembatas yang sama dengan
+    jalur daftarnya (`modules/inventory/domain/izin-pembatas-site.ts`); opname
+    create ikut membaca `opname:site_only`.
+  - Detail/aksi berdasarkan ID yang hanya mengecek tenant kini mengecek site:
+    opname `[id]`/report/summary/calculate, gudang `[id]`, restock `[id]` +
+    approve/process/receive/receive-jasa, cek stok keluar, stok per kondisi.
+  - Pengguna terbatas tanpa site tidak lagi melihat seluruh tenant (fail-closed);
+    site diambil dari basis data (site utama + `userSites`).
+  - Ubah/hapus transfer butuh akses ke kedua gudang.
+  - Detail/ubah barang kini memuat `gudang.sites`, sehingga pengguna terbatas
+    tidak lagi selalu ditolak 403.
+- **Files**: `modules/inventory/services/lingkup-gudang.ts`,
+  `modules/inventory/utils/session.ts`, `modules/inventory/utils/validation.ts`,
+  `modules/inventory/services/InventoryRouteService.ts`,
+  `app/api/inventory/restock/_lib/restock-site-access.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-02] — Tutup celah pembatasan site/departemen Work Order
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/work-order`, `app/api/admin/workorders`, `app/api/mobile/work-orders`
+- **Author**: agent
+- **Deskripsi**: Alur inti WO sudah benar; celah ada di sisi samping.
+  - Dashboard/analitik: "WO terbaru" dan widget beban departemen, top
+    performer, statistik respons kini memfilter site; `/trends` tidak lagi
+    fail-open; rute analitik membaca toggle `work_order_dashboard:*` juga.
+  - `material-detail` kini butuh `workorders:read` dan akses ke WO; pengingat
+    dan hapus permanen memvalidasi akses lebih dulu (reset canvasing tidak lagi
+    jalan sebelum 403).
+  - Mobile: WO PENDING hanya bisa dibuka/diklaim pengguna yang berhak melihatnya
+    di daftar WO tersedia; kelola partner lewat jalur admin mengikuti lingkup.
+  - Material: admin hanya memakai gudang yang terhubung ke site WO (tolak bila
+    tidak ada, bukan diam-diam ambil gudang lain); ambil/kembalikan material di
+    mobile mengikuti aturan gudang `m_barang`.
+  - Pengguna terbatas tanpa site/departemen tidak bisa membuat WO tanpa site;
+    `findManyByDepartmentAndSite` yang tak terpakai dihapus.
+- **Files**: `modules/work-order/services/work-order-access.ts`,
+  `modules/work-order/services/AdminWorkOrderAnalyticsRouteService.ts`,
+  `modules/work-order/services/AdminWorkOrderActionRouteService.ts`,
+  `modules/work-order/services/mobile-unclaimed-work-order-guard.ts`,
+  `modules/work-order/services/work-order-material-gudang-scope.ts`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-02] — Tutup celah pembatasan site di keuangan, SDM, dan lainnya
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/finance`, `modules/overtime`, `modules/attendance`, `modules/users`, `modules/proyek`, `modules/pelanggan`, `modules/network`, `modules/marketing`, `modules/roles`
+- **Author**: agent
+- **Deskripsi**:
+  - Dashboard sales: `?siteId=` tidak lagi menimpa `sales_dashboard:site_only`.
+  - Pembayaran manual: daftar, verifikasi, dan batal menerima toggle
+    `manual_payments:` maupun `finance:site_only`.
+  - Invoice: pembatasan membaca semua izin yang membuka layar (invoices,
+    finance, pelanggan, ppp, transactions); kirim invoice kini fail-closed.
+  - Lembur, daftar pengguna, tiket support, pembatalan pembayaran: pengguna
+    terbatas tanpa site tidak lagi melihat semua (fail-closed).
+  - Laporan kehadiran/lembur: agregat per site/departemen mengikuti lingkup.
+  - Koreksi absen, buat cuti, kuota cuti: kini mengecek site/departemen.
+  - Admin `users:site_only` tidak bisa mengurus pengguna tanpa site.
+  - Proyek/RAB menegakkan `expense:site_only` — termasuk setujui RAB,
+    setujui/tolak revisi, dan pengingat; pengguna terbatas satu site otomatis
+    memakai site-nya saat site dikosongkan.
+  - MikroTik: tes koneksi mengecek site router; cek status hanya menyapu tenant
+    (dan site bila dibatasi) pemanggil, bukan semua tenant.
+  - Canvasing detail/approve/reject memakai himpunan site yang sama dengan daftar.
+  - Toggle `ppp:site_only` kini berlaku di pelanggan PPP.
+  - `checkSiteRestriction`: `siteIds: []` (pengguna belum dimigrasi ke
+    userSites) jatuh ke `siteId` legacy, sehingga admin terbatas tidak terkunci
+    dari site-nya sendiri.
+- **Files**: `modules/finance/services/manual-payment-scope.ts`,
+  `lib/api/financial-permissions.ts`,
+  `modules/proyek/services/RabProjectSiteAccessService.ts`,
+  `modules/roles/services/SiteRestrictionService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-02] — Notifikasi WO mengikuti toggle Batasi ke Site Sendiri
 
 - **Tipe**: [FIXED]

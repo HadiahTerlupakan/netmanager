@@ -1,5 +1,8 @@
+import { resolveAllowedSiteIds } from "@/lib/authorization/allowed-site-ids";
+
 interface SiteScopedSession {
   siteId?: string | null;
+  siteIds?: string[];
 }
 
 interface SiteScopedCanvasing {
@@ -14,6 +17,18 @@ interface CanvasingSiteAccessInput {
   canvasing: SiteScopedCanvasing;
 }
 
+/**
+ * Site yang boleh dilihat pengguna `canvasing:site_only` — satu himpunan yang
+ * dipakai daftar maupun detail/approve/reject. Dulu daftar memakai `siteIds`
+ * sementara detail hanya `siteId` utama, sehingga canvasing di site tambahan
+ * tampil di daftar tetapi ditolak saat dibuka (dan sebaliknya).
+ */
+export function resolveCanvasingAllowedSiteIds(
+  session: SiteScopedSession,
+): string[] {
+  return resolveAllowedSiteIds(session);
+}
+
 /** Cek akses site-scoped untuk data canvasing. */
 export function canAccessCanvasingSite(
   input: CanvasingSiteAccessInput,
@@ -25,8 +40,9 @@ export function canAccessCanvasingSite(
     return true;
   }
 
-  return getCanvasingSiteIds(input.canvasing).includes(
-    input.session.siteId ?? "",
+  const allowedSiteIds = resolveCanvasingAllowedSiteIds(input.session);
+  return getCanvasingSiteIds(input.canvasing).some((siteId) =>
+    allowedSiteIds.includes(siteId),
   );
 }
 

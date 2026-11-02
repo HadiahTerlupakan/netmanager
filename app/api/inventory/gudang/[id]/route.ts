@@ -6,13 +6,13 @@ import {
   pesanGagalMuat,
   pesanGagalSimpan,
   pesanTanpaIzin,
-  pesanTidakDitemukan,
   type InventoryGudangRouteResult,
 } from "@/modules/inventory";
 import { masterDataFailureResponse } from "../../master-data-response";
 import { logActivitySafe } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
+import { resolvePenggunaInventory } from "../../_lib/inventory-pengguna";
 
 type InventoryGudangRouteFailure = Extract<
   InventoryGudangRouteResult<unknown>,
@@ -39,13 +39,16 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   try {
     const dbStart = Date.now();
-    const result = await inventoryGudangRouteService.getGudangDetail(id);
+    const result = await inventoryGudangRouteService.getGudangDetail({
+      id,
+      pengguna: resolvePenggunaInventory(ctx),
+    });
 
-    if (!result.found) {
-      return ApiErrors.notFound(pesanTidakDitemukan("Gudang"));
+    if (isInventoryGudangRouteFailure(result)) {
+      return masterDataFailureResponse(result);
     }
 
-    const gudang = result.gudang;
+    const gudang = result.data;
 
     logger.dbOperation("findUnique", "Gudang", Date.now() - dbStart);
 
@@ -91,7 +94,11 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
 
   try {
     const dbStart = Date.now();
-    const result = await inventoryGudangRouteService.updateGudang({ id, body });
+    const result = await inventoryGudangRouteService.updateGudang({
+      id,
+      pengguna: resolvePenggunaInventory(ctx),
+      body,
+    });
 
     if (isInventoryGudangRouteFailure(result)) {
       return masterDataFailureResponse(result);
@@ -149,7 +156,10 @@ export const DELETE = createHandler({ auth: true }, async (req, ctx) => {
 
   try {
     const dbStart = Date.now();
-    const result = await inventoryGudangRouteService.deleteGudang(id);
+    const result = await inventoryGudangRouteService.deleteGudang({
+      id,
+      pengguna: resolvePenggunaInventory(ctx),
+    });
 
     if (isInventoryGudangRouteFailure(result)) {
       return masterDataFailureResponse(result);

@@ -7,6 +7,8 @@ vi.mock("@/lib/utils/get-timezone", () => ({
 import { AttendanceCorrectionService } from "@/modules/attendance";
 import { AttendanceTimezoneService } from "@/modules/attendance";
 
+const SUPER_ADMIN_ACTOR = { id: "admin-1", isSuperAdmin: true };
+
 describe("AttendanceCorrectionService", () => {
   type AttendanceCorrectionRepository = ConstructorParameters<
     typeof AttendanceCorrectionService
@@ -95,6 +97,7 @@ describe("AttendanceCorrectionService", () => {
       sourceAttendanceId: "attendance-absent-1",
       tenantId: "tenant-1",
       actorId: "admin-1",
+      actor: SUPER_ADMIN_ACTOR,
       checkIn: new Date("2026-04-17T01:03:00.000Z"),
       checkOut: null,
       reason: "Karyawan hadir tetapi lupa absen masuk",
@@ -144,6 +147,7 @@ describe("AttendanceCorrectionService", () => {
       sourceAttendanceId: "attendance-alpha-1",
       tenantId: "tenant-1",
       actorId: "admin-1",
+      actor: SUPER_ADMIN_ACTOR,
       checkIn: new Date("2026-04-17T01:30:00.000Z"),
       checkOut: new Date("2026-04-17T10:15:00.000Z"),
       reason: "Karyawan hadir tetapi lupa absen masuk",
@@ -197,6 +201,7 @@ describe("AttendanceCorrectionService", () => {
         sourceAttendanceId: "attendance-late-1",
         tenantId: "tenant-1",
         actorId: "admin-1",
+        actor: SUPER_ADMIN_ACTOR,
         checkIn: new Date("2026-04-17T01:30:00.000Z"),
         checkOut: null,
         reason: "Tidak relevan",
@@ -231,6 +236,7 @@ describe("AttendanceCorrectionService", () => {
         sourceAttendanceId: "attendance-absent-before-join-1",
         tenantId: "tenant-1",
         actorId: "admin-1",
+        actor: SUPER_ADMIN_ACTOR,
         checkIn: new Date("2026-03-03T01:30:00.000Z"),
         checkOut: null,
         reason: "Sebelum join date",
@@ -264,6 +270,7 @@ describe("AttendanceCorrectionService", () => {
         sourceAttendanceId: "attendance-absent-other-tenant",
         tenantId: "tenant-1",
         actorId: "admin-1",
+        actor: SUPER_ADMIN_ACTOR,
         checkIn: new Date("2026-04-17T01:30:00.000Z"),
         checkOut: null,
         reason: "Tenant mismatch",
@@ -297,6 +304,7 @@ describe("AttendanceCorrectionService", () => {
         sourceAttendanceId: "attendance-absent-early-1",
         tenantId: "tenant-1",
         actorId: "admin-1",
+        actor: SUPER_ADMIN_ACTOR,
         checkIn: new Date("2026-04-16T21:59:00.000Z"),
         checkOut: null,
         reason: "Di luar jendela",
@@ -344,6 +352,7 @@ describe("AttendanceCorrectionService", () => {
       sourceAttendanceId: "attendance-absent-fallback-1",
       tenantId: "tenant-1",
       actorId: "admin-1",
+      actor: SUPER_ADMIN_ACTOR,
       checkIn: new Date("2026-04-17T01:30:00.000Z"),
       checkOut: new Date("2026-04-17T10:00:00.000Z"),
       reason: "Fallback flow",
@@ -392,6 +401,7 @@ describe("AttendanceCorrectionService", () => {
         sourceAttendanceId: "attendance-absent-prod-guard-1",
         tenantId: "tenant-1",
         actorId: "admin-1",
+        actor: SUPER_ADMIN_ACTOR,
         checkIn: new Date("2026-04-17T01:30:00.000Z"),
         checkOut: new Date("2026-04-17T10:00:00.000Z"),
         reason: "Guard non-atomic",
@@ -431,6 +441,7 @@ describe("AttendanceCorrectionService", () => {
         sourceAttendanceId: "attendance-absent-corrected-1",
         tenantId: "tenant-1",
         actorId: "admin-1",
+        actor: SUPER_ADMIN_ACTOR,
         checkIn: new Date("2026-04-17T01:30:00.000Z"),
         checkOut: null,
         reason: "Sudah dikoreksi sebelumnya",

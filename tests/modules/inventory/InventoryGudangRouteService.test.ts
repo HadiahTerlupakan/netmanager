@@ -8,6 +8,12 @@ const gudang = {
   nama: "Gudang Utama",
 };
 
+const PENGGUNA = {
+  userId: "user-1",
+  permissions: ["gudang:site_only"],
+  isSuperAdmin: false,
+};
+
 function createService() {
   const repository = {
     getAllGudang: vi.fn().mockResolvedValue([gudang]),
@@ -19,7 +25,10 @@ function createService() {
     deleteGudang: vi.fn().mockResolvedValue(undefined),
   };
   const inventoryRouteService = {
-    resolveRestrictedSiteId: vi.fn().mockResolvedValue("site-1"),
+    resolveLingkupSite: vi
+      .fn()
+      .mockResolvedValue({ dibatasi: true, siteIds: ["site-1"] }),
+    canAccessGudang: vi.fn().mockResolvedValue(true),
   };
   const createCode = vi.fn().mockReturnValue("GD123456001");
 
@@ -46,13 +55,15 @@ describe("InventoryGudangRouteService", () => {
       viewAll: false,
     });
 
-    expect(inventoryRouteService.resolveRestrictedSiteId).toHaveBeenCalledWith({
+    expect(inventoryRouteService.resolveLingkupSite).toHaveBeenCalledWith({
       userId: "user-1",
       permissions: ["gudang:site_only"],
       isSuperAdmin: false,
       restrictedPermissions: ["barang:site_only", "gudang:site_only"],
     });
-    expect(repository.getAllGudang).toHaveBeenCalledWith({ siteId: "site-1" });
+    expect(repository.getAllGudang).toHaveBeenCalledWith({
+      siteIds: ["site-1"],
+    });
     expect(result).toEqual([gudang]);
   });
 
@@ -66,7 +77,9 @@ describe("InventoryGudangRouteService", () => {
       viewAll: false,
     });
 
-    expect(repository.getAllGudang).toHaveBeenCalledWith({ siteId: "site-1" });
+    expect(repository.getAllGudang).toHaveBeenCalledWith({
+      siteIds: ["site-1"],
+    });
   });
 
   it("menyertakan gudang nonaktif saat layar manajemen memintanya", async () => {
@@ -83,7 +96,7 @@ describe("InventoryGudangRouteService", () => {
     });
 
     expect(repository.getAllGudang).toHaveBeenCalledWith({
-      siteId: "site-1",
+      siteIds: ["site-1"],
       includeInactive: true,
     });
   });
@@ -132,17 +145,93 @@ describe("InventoryGudangRouteService", () => {
     expect(result).toEqual({ success: true, data: gudang });
   });
 
-  it("mengambil detail gudang dari repository", async () => {
-    const { repository, service } = createService();
+  it("membuat gudang di site yang dipilih bila masih dalam lingkup user", async () => {
+    const { repository, inventoryRouteService, service } = createService();
+    inventoryRouteService.resolveLingkupSite.mockResolvedValue({
+      dibatasi: true,
+      siteIds: ["site-1", "site-2"],
+    });
 
-    const result = await service.getGudangDetail("gudang-1");
+    await service.createGudang({
+      ...PENGGUNA,
+      body: { nama: "Gudang Dua", siteIds: ["site-2", "site-luar"] },
+    });
+
+    expect(repository.createGudang).toHaveBeenCalledWith(
+      expect.objectContaining({ siteIds: ["site-2"] }),
+    );
+  });
+
+  it("user dibatasi tanpa site tidak bisa membuat gudang", async () => {
+    const { repository, inventoryRouteService, service } = createService();
+    inventoryRouteService.resolveLingkupSite.mockResolvedValue({
+      dibatasi: true,
+      siteIds: [],
+    });
+
+    const result = await service.createGudang({
+      ...PENGGUNA,
+      body: { nama: "Gudang Utama" },
+    });
+
+    expect(result).toMatchObject({ success: false, status: 403 });
+    expect(repository.createGudang).not.toHaveBeenCalled();
+  });
+
+  it("user dibatasi tanpa site mendapat daftar gudang kosong", async () => {
+    const { repository, inventoryRouteService, service } = createService();
+    inventoryRouteService.resolveLingkupSite.mockResolvedValue({
+      dibatasi: true,
+      siteIds: [],
+    });
+
+    await service.listGudang({ ...PENGGUNA, viewAll: false });
+
+    expect(repository.getAllGudang).toHaveBeenCalledWith({ siteIds: [] });
+  });
+
+  it("mengambil detail gudang setelah lingkup site tervalidasi", async () => {
+    const { repository, inventoryRouteService, service } = createService();
+
+    const result = await service.getGudangDetail({
+      id: "gudang-1",
+      pengguna: PENGGUNA,
+    });
 
     expect(repository.findGudangById).toHaveBeenCalledWith("gudang-1");
+    expect(inventoryRouteService.canAccessGudang).toHaveBeenCalledWith({
+      ...PENGGUNA,
+      gudangId: "gudang-1",
+      restrictedPermissions: ["barang:site_only", "gudang:site_only"],
+    });
     expect(result).toEqual({
-      found: true,
-      gudang: { ...gudang, isActive: true },
+      success: true,
+      data: { ...gudang, isActive: true },
     });
   });
+
+  it.each(["detail", "update", "delete"] as const)(
+    "menolak %s gudang site lain dengan 403",
+    async (aksi) => {
+      const { repository, inventoryRouteService, service } = createService();
+      inventoryRouteService.canAccessGudang.mockResolvedValue(false);
+      const input = { id: "gudang-1", pengguna: PENGGUNA };
+
+      const result =
+        aksi === "detail"
+          ? await service.getGudangDetail(input)
+          : aksi === "update"
+            ? await service.updateGudang({
+                ...input,
+                body: { kode: "GD001", nama: "Gudang" },
+              })
+            : await service.deleteGudang(input);
+
+      expect(result).toMatchObject({ success: false, status: 403 });
+      expect(repository.updateGudang).not.toHaveBeenCalled();
+      expect(repository.deleteGudang).not.toHaveBeenCalled();
+    },
+  );
 
   it("menolak update gudang ketika kode dipakai gudang lain", async () => {
     const { repository, service } = createService();
@@ -153,6 +242,7 @@ describe("InventoryGudangRouteService", () => {
 
     const result = await service.updateGudang({
       id: "gudang-1",
+      pengguna: PENGGUNA,
       body: { kode: "GD002", nama: "Gudang Dua" },
     });
 
@@ -174,7 +264,10 @@ describe("InventoryGudangRouteService", () => {
       barangGudang: [{ stok: 10 }, { stok: 0 }, { stok: 35 }],
     });
 
-    const result = await service.deleteGudang("gudang-1");
+    const result = await service.deleteGudang({
+      id: "gudang-1",
+      pengguna: PENGGUNA,
+    });
 
     expect(result).toEqual({
       success: false,

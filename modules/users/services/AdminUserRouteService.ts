@@ -1,11 +1,11 @@
 import { Prisma } from "../repositories/prisma-boundary";
 import { hasCapability } from "@/lib/permission-aliases";
-import { checkSiteRestriction, canAccessSite } from "@/modules/roles";
+import { checkSiteRestriction } from "@/modules/roles";
 import type { IUserRepository } from "../domain/ports/IUserRepository";
 import { createUserRepository } from "../factories/RepositoryFactory";
 import { UserMapper } from "../mappers/UserMapper";
 import { UserService } from "./UserService";
-import { fail } from "./AdminUserRouteService.helpers";
+import { canAccessUserSite, fail } from "./AdminUserRouteService.helpers";
 import { AdminUserRouteCreateService } from "./admin-user-route.create";
 import { AdminUserRouteUpdateService } from "./admin-user-route.update";
 import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
@@ -48,9 +48,14 @@ export class AdminUserRouteService {
       session,
       query.tenantId || undefined,
     );
+    // Dibatasi tanpa site → daftar kosong. Dulu `primarySiteId || undefined`
+    // menjatuhkan filter sehingga admin itu melihat seluruh user tenant.
+    if (isRestricted && !primarySiteId) {
+      return this.buildEmptyUserList(query);
+    }
     const [result, latestAppVersionCode] = await Promise.all([
       new UserService(this.userRepository).getAllUsers({
-        siteId: isRestricted ? primarySiteId || undefined : undefined,
+        siteId: isRestricted ? (primarySiteId ?? undefined) : undefined,
         tenantId,
         roleName: query.roleName || undefined,
         page: query.page ? parseInt(query.page) : undefined,
@@ -75,6 +80,23 @@ export class AdminUserRouteService {
         page: query.page ? parseInt(query.page) : 1,
         limit: query.limit ? parseInt(query.limit) : result.data.length,
         latestAppVersionCode,
+      },
+    };
+  }
+
+  private buildEmptyUserList(query: AdminUserListQuery) {
+    type ListedUser = Awaited<
+      ReturnType<UserService["getAllUsers"]>
+    >["data"][number];
+    return {
+      users: [] as Array<ListedUser & { latestAppVersionCode: number | null }>,
+      meta: {
+        total: 0,
+        active: 0,
+        inactive: 0,
+        page: query.page ? parseInt(query.page) : 1,
+        limit: query.limit ? parseInt(query.limit) : 0,
+        latestAppVersionCode: null as number | null,
       },
     };
   }
@@ -111,7 +133,7 @@ export class AdminUserRouteService {
       return fail(403, "Anda tidak memiliki izin untuk melihat detail user");
     }
 
-    if (!isOwnProfile && !canAccessSite(session, "users", user.siteId)) {
+    if (!isOwnProfile && !canAccessUserSite(session, user.siteId)) {
       return fail(403, "Anda hanya dapat melihat user di site Anda");
     }
 
@@ -202,7 +224,7 @@ export class AdminUserRouteService {
     }
 
     const { isRestricted } = checkSiteRestriction(session, "users");
-    if (isRestricted && !canAccessSite(session, "users", targetUser.siteId)) {
+    if (isRestricted && !canAccessUserSite(session, targetUser.siteId)) {
       return fail(403, "Anda hanya dapat force logout user di site Anda");
     }
 
@@ -224,7 +246,7 @@ export class AdminUserRouteService {
     const targetUser = await this.userRepository.findById(userId);
     if (!targetUser) return fail(404, USER_NOT_FOUND);
     const { isRestricted } = checkSiteRestriction(session, "users");
-    if (isRestricted && !canAccessSite(session, "users", targetUser.siteId)) {
+    if (isRestricted && !canAccessUserSite(session, targetUser.siteId)) {
       return fail(403, "Anda hanya dapat menghapus user di site Anda");
     }
     const deletedUser = await this.userRepository.delete(userId);

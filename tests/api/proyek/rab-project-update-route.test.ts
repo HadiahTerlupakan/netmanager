@@ -31,7 +31,10 @@ vi.mock("@/lib/api/route-service-error", () => ({
     error instanceof Error && "status" in error,
 }));
 
-vi.mock("@/modules/proyek", () => ({
+vi.mock("@/modules/proyek", async () => ({
+  ...(await vi.importActual<Record<string, unknown>>(
+    "@/modules/proyek/services/RabProjectSiteAccessService",
+  )),
   RabProjectRouteService: class MockRabProjectRouteService {
     updateProject = mockUpdateProject;
   },
@@ -55,6 +58,7 @@ vi.mock("@/lib/api", () => ({
         ctx: {
           params: Record<string, string>;
           session: { user: { id: string } };
+          permissions: string[];
           validated?: unknown;
         },
       ) => Promise<Response>,
@@ -68,6 +72,7 @@ vi.mock("@/lib/api", () => ({
         return await handler(request, {
           params: (await params) ?? {},
           session: { user: { id: "user-1" } },
+          permissions: [] as string[],
           validated: options.schema ? options.schema.parse(body) : body,
         });
       } catch (error) {

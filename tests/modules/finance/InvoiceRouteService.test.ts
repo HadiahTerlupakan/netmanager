@@ -23,6 +23,16 @@ vi.mock("@/modules/users/repositories/UserRepository", () => ({
   },
 }));
 
+// Layanan membaca site lewat UserLookupService → user-lookup.profile, bukan
+// UserRepository; tanpa mock ini site pengguna selalu kosong.
+vi.mock(
+  "@/modules/users/repositories/user-lookup.profile",
+  async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
+    findByIdWithSite: (...args: unknown[]) => mockFns.findByIdWithSite(...args),
+  }),
+);
+
 vi.mock("@/modules/pelanggan/repositories/PelangganRepository", () => ({
   PelangganRepository: class MockPelangganRepository {
     findById = mockFns.findPelangganById;
@@ -340,6 +350,7 @@ describe("InvoiceRouteService", () => {
       sendInvoiceForRoute({
         invoiceId: "inv-1",
         user: { id: "user-1", role: "ADMIN" },
+        isRestricted: true,
         input: { sendMethod: "BOTH" },
       }),
     ).resolves.toEqual({ status: "sent", sentVia: ["EMAIL", "WHATSAPP"] });
@@ -352,5 +363,56 @@ describe("InvoiceRouteService", () => {
         pelangganId: "cust-1",
       }),
     );
+  });
+
+  it.each([
+    ["admin terbatas tanpa site", null, "site-1"],
+    ["invoice tanpa site", "site-1", null],
+    ["invoice site lain", "site-1", "site-2"],
+  ])(
+    "kirim invoice gagal-tertutup untuk %s",
+    async (_label, userSiteId, invoiceSiteId) => {
+      mockFns.findByIdWithSite.mockResolvedValue({ siteId: userSiteId });
+      mockFns.findInvoiceForSend.mockResolvedValue({
+        id: "inv-1",
+        status: "DRAFT",
+        pelangganId: "cust-1",
+        siteId: invoiceSiteId,
+      });
+
+      await expect(
+        sendInvoiceForRoute({
+          invoiceId: "inv-1",
+          user: { id: "user-1", role: "ADMIN" },
+          isRestricted: true,
+          input: { sendMethod: "EMAIL" },
+        }),
+      ).resolves.toEqual({ status: "not-found" });
+      expect(mockFns.markInvoiceSent).not.toHaveBeenCalled();
+    },
+  );
+
+  it("admin tanpa pembatasan bisa mengirim invoice site mana pun", async () => {
+    mockFns.findByIdWithSite.mockResolvedValue({ siteId: "site-1" });
+    mockFns.findInvoiceForSend.mockResolvedValue({
+      id: "inv-1",
+      status: "DRAFT",
+      pelangganId: "cust-1",
+      siteId: "site-2",
+    });
+    mockFns.findPelangganById.mockResolvedValue({
+      id: "cust-1",
+      email: null,
+      noTelp: null,
+    });
+
+    await expect(
+      sendInvoiceForRoute({
+        invoiceId: "inv-1",
+        user: { id: "user-1", role: "ADMIN" },
+        isRestricted: false,
+        input: { sendMethod: "EMAIL" },
+      }),
+    ).resolves.toEqual({ status: "missing-contact" });
   });
 });

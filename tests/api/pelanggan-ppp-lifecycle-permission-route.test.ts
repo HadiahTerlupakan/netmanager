@@ -45,6 +45,7 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 vi.mock("@/modules/pelanggan", () => ({
+  withPelangganPppSiteScope: (permissions: string[]) => permissions,
   PelangganPppRouteService: class {
     updateCustomerStatus = palsu.updateCustomerStatus;
     suspendCustomer = palsu.suspendCustomer;

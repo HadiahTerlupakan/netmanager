@@ -14,6 +14,7 @@ import {
   describeRestockValidationError,
   restockCreateSchema,
 } from "@/lib/validations/restock";
+import { ensureRestockGudangSiteAccess } from "../_lib/restock-site-access";
 
 interface RestockItemInput {
   barangId: string;
@@ -93,6 +94,11 @@ export async function POST(req: NextRequest) {
   }
 
   const { items, jasaItems, gudangId, keterangan } = parsed.data;
+  const gudangDenied = await ensureRestockGudangSiteAccess({
+    user: session.user,
+    gudangId,
+  });
+  if (gudangDenied) return gudangDenied;
 
   return createRestockRequest({
     items: (items || []).map((item: RestockItemInput) => ({

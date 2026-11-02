@@ -12,43 +12,78 @@ import {
   INVENTORY_ACTIVITY_SUBJECTS,
   recordInventoryActivity,
 } from "./inventory-activity-log";
+import {
+  bolehAksesGudang,
+  lingkupSiteGudang,
+  siteIdsSaringan,
+} from "./lingkup-gudang";
+import {
+  IZIN_PEMBATAS_BARANG,
+  IZIN_PEMBATAS_OPNAME,
+  IZIN_PEMBATAS_RESTOCK,
+} from "../domain/izin-pembatas-site";
 
 const DEFAULT_RESTOCK_PAGE = 1;
 const DEFAULT_RESTOCK_LIMIT = 20;
 const DEFAULT_USAGE_DAYS = 30;
 
-interface ResolveRestrictedSiteIdInput {
+/** Pengguna yang sedang mengakses route inventory. */
+export interface PenggunaInventory {
   userId: string;
-  permissions: string[];
+  permissions: readonly string[];
   isSuperAdmin: boolean;
-  restrictedPermissions: string[];
+}
+
+export interface ResolveLingkupSiteInput extends PenggunaInventory {
+  /** Permission pembatas endpoint, mis. `IZIN_PEMBATAS_MASUK`. */
+  restrictedPermissions: readonly string[];
+}
+
+export interface CanAccessGudangInput extends ResolveLingkupSiteInput {
+  gudangId: string;
 }
 
 export class InventoryRouteService {
   constructor(private readonly repository = new InventoryApiRepository()) {}
 
-  /** Ambil siteId user untuk pembatasan akses route. */
-  async getUserSiteId(userId: string) {
-    return this.repository.findUserSiteId(userId);
+  /**
+   * Lingkup site pengguna untuk satu endpoint inventory (site utama + seluruh
+   * `userSites`). Dibatasi tanpa site menghasilkan lingkup kosong, bukan
+   * "tanpa batas".
+   */
+  async resolveLingkupSite(input: ResolveLingkupSiteInput) {
+    return lingkupSiteGudang({
+      userId: input.userId,
+      permissions: input.permissions,
+      isSuperAdmin: input.isSuperAdmin,
+      izinPembatas: input.restrictedPermissions,
+    });
   }
 
-  /** Selesaikan siteId ketika permission route dibatasi site. */
-  async resolveRestrictedSiteId(input: ResolveRestrictedSiteIdInput) {
-    if (input.isSuperAdmin) return undefined;
-    if (!this.hasRestrictedPermission(input)) return undefined;
-
-    return this.getUserSiteId(input.userId);
+  /** Apakah pengguna boleh memakai gudang ini dalam lingkup endpoint-nya. */
+  async canAccessGudang(input: CanAccessGudangInput) {
+    return bolehAksesGudang({
+      userId: input.userId,
+      gudangId: input.gudangId,
+      permissions: input.permissions,
+      isSuperAdmin: input.isSuperAdmin,
+      izinPembatas: input.restrictedPermissions,
+    });
   }
 
-  private hasRestrictedPermission(input: ResolveRestrictedSiteIdInput) {
-    return input.permissions.some((permission) =>
-      input.restrictedPermissions.includes(permission),
-    );
-  }
-
-  /** Ambil statistik inventory untuk dashboard route. */
-  async getInventoryStats(input: { siteId?: string; startOfDay: Date }) {
-    return this.repository.findInventoryStats(input);
+  /** Ambil statistik inventory untuk dashboard route, dibatasi site pengguna. */
+  async getInventoryStats(input: {
+    pengguna: PenggunaInventory;
+    startOfDay: Date;
+  }) {
+    const lingkup = await this.resolveLingkupSite({
+      ...input.pengguna,
+      restrictedPermissions: IZIN_PEMBATAS_BARANG,
+    });
+    return this.repository.findInventoryStats({
+      siteIds: siteIdsSaringan(lingkup),
+      startOfDay: input.startOfDay,
+    });
   }
 
   /** Ambil analitik penggunaan barang. */
@@ -178,6 +213,30 @@ export class InventoryRouteService {
     return { data };
   }
 
+  /**
+   * Apakah pengguna boleh membuka atau memproses pengajuan restock ini:
+   * gudangnya harus di dalam lingkup `restock:site_only`, sama seperti
+   * daftarnya. Pengajuan yang tidak ada dijawab `true` supaya pemanggil tetap
+   * yang melaporkan 404 dengan pesannya sendiri.
+   */
+  async canAccessPurchaseRequest(
+    input: PenggunaInventory & { id: string; tenantId: string },
+  ) {
+    const request = await this.repository.findPurchaseRequestById({
+      id: input.id,
+      tenantId: input.tenantId,
+    });
+    if (!request) return true;
+
+    return this.canAccessGudang({
+      userId: input.userId,
+      permissions: input.permissions,
+      isSuperAdmin: input.isSuperAdmin,
+      gudangId: request.gudangId,
+      restrictedPermissions: IZIN_PEMBATAS_RESTOCK,
+    });
+  }
+
   /** Ambil purchase request dengan validasi tenant. */
   async getPurchaseRequestById(input: { id: string; tenantId: string }) {
     return this.repository.findPurchaseRequestById(input);
@@ -263,14 +322,28 @@ export class InventoryRouteService {
     return this.repository.findPurchaseRequestProcessInfo(id, tenantId);
   }
 
-  /** Ambil summary opname inventory. */
-  async getOpnameSummary(gudangId?: string) {
-    return this.repository.findOpnameSummary(gudangId);
+  /** Ambil summary opname inventory, dibatasi site pengguna. */
+  async getOpnameSummary(input: {
+    pengguna: PenggunaInventory;
+    gudangId?: string;
+  }) {
+    const siteIds = await this.resolveOpnameSiteIds(input.pengguna);
+    return this.repository.findOpnameSummary({
+      gudangId: input.gudangId,
+      siteIds,
+    });
   }
 
-  /** Ambil laporan opname inventory. */
-  async getOpnameReport(gudangId?: string) {
-    const gudangList = await this.repository.findOpnameReport(gudangId);
+  /** Ambil laporan opname inventory, dibatasi site pengguna. */
+  async getOpnameReport(input: {
+    pengguna: PenggunaInventory;
+    gudangId?: string;
+  }) {
+    const siteIds = await this.resolveOpnameSiteIds(input.pengguna);
+    const gudangList = await this.repository.findOpnameReport({
+      gudangId: input.gudangId,
+      siteIds,
+    });
     return buildOpnameReportResponse(gudangList);
   }
 
@@ -278,6 +351,14 @@ export class InventoryRouteService {
   async calculateOpname(gudangId: string) {
     const items = await this.repository.calculateOpname(gudangId);
     return buildCalculatedOpnameResponse(items);
+  }
+
+  private async resolveOpnameSiteIds(pengguna: PenggunaInventory) {
+    const lingkup = await this.resolveLingkupSite({
+      ...pengguna,
+      restrictedPermissions: IZIN_PEMBATAS_OPNAME,
+    });
+    return siteIdsSaringan(lingkup);
   }
 
   /** Ambil stok barang saat ini. */

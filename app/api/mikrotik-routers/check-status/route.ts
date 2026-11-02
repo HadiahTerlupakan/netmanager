@@ -1,15 +1,25 @@
 import { logger } from "@/lib/logger";
-import { checkAllMikroTikRouterStatus } from "@/modules/network";
+import { MikroTikRouterService } from "@/modules/network";
 import { apiSuccess, ApiErrors, createHandler } from "@/lib/api";
+import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 
-export const POST = createHandler({ auth: true }, async (_req, _ctx) => {
+export const POST = createHandler({ auth: true }, async (_req, ctx) => {
   if (!(await hasPermission("mikrotik:read"))) {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
+  const user = ctx.session!.user;
+  const isSuper = isSuperAdmin(user);
   try {
-    const count = await checkAllMikroTikRouterStatus();
+    const count = await new MikroTikRouterService().checkRouterStatus({
+      tenantId: user.tenantId,
+      userId: user.id,
+      isSuperAdmin: isSuper,
+      // Dicocokkan persis: role `*` non-super tidak dianggap dibatasi.
+      restrictedToOwnSite:
+        !isSuper && ctx.permissions.includes("mikrotik:site_only"),
+    });
     return apiSuccess({
       success: true,
       message: `Status check completed. Updated ${count} routers.`,

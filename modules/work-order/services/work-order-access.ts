@@ -11,6 +11,19 @@ type MobileWorkOrderMaterialAccessWorkOrder = WorkOrderWithRelations & {
   }>;
 };
 
+/**
+ * Penentu kelayakan aktor atas work order yang belum diambil (PENDING/REQUESTED).
+ * Diisi dengan aturan daftar WO tersedia oleh pemanggil jalur detail/klaim.
+ */
+export type UnclaimedWorkOrderAccessGuard = (
+  workOrder: Pick<WorkOrderWithRelations, "siteId" | "departmentId">,
+  userContext: UserContext,
+) => Promise<boolean>;
+
+const UNCLAIMED_SCOPE_DENIED_MESSAGE =
+  "Akses ditolak: Work order ini berada di luar site/departemen Anda.";
+
+/** Validasi akses mobile: tenant, pemegang/partner (atau kelayakan WO belum diambil), lalu status. */
 export async function validateMobileAssignedWorkOrderAccess(params: {
   repository: Pick<WorkOrderRepository, "findById">;
   workOrderId: string;
@@ -26,6 +39,13 @@ export async function validateMobileAssignedWorkOrderAccess(params: {
    * meneruskan izin ini — mengubah work order tetap menuntut APPROVED.
    */
   allowPendingInvitation?: boolean;
+  /**
+   * Kelayakan untuk WO yang belum diambil oleh aktor yang bukan pemegang atau
+   * partner. Tanpa guard, WO semacam itu ditolak (fail closed) — dulu status
+   * PENDING/REQUESTED melewati semua pemeriksaan sehingga WO site lain bisa
+   * dibuka dan diklaim lewat endpoint mobile.
+   */
+  unclaimedAccessGuard?: UnclaimedWorkOrderAccessGuard;
 }): Promise<MobileWorkOrderMaterialAccessWorkOrder> {
   const {
     userContext,
@@ -36,7 +56,18 @@ export async function validateMobileAssignedWorkOrderAccess(params: {
   const workOrder = await requireAccessibleWorkOrder(params);
 
   validateTenantAccess(workOrder, userContext);
-  validateAssigneeAccess(workOrder, userContext.id, allowPendingInvitation);
+  const isParticipant = isWorkOrderParticipant(
+    workOrder,
+    userContext.id,
+    allowPendingInvitation,
+  );
+  if (!isParticipant) {
+    await validateNonParticipantAccess(
+      workOrder,
+      userContext,
+      params.unclaimedAccessGuard,
+    );
+  }
   validateWorkOrderStatus(
     workOrder.status,
     allowedStatuses,
@@ -69,22 +100,18 @@ function validateTenantAccess(
 }
 
 /**
- * Validasi bahwa pelaku adalah pemegang work order atau partner yang disetujui.
+ * Apakah pelaku adalah pemegang work order atau partner yang disetujui.
  *
  * Mitra eksternal tercatat di kolomnya sendiri (`assignedMitraId`,
  * `assignments.mitraId`) karena id-nya berasal dari database mitra, bukan
  * `User`. Tanpa ikut diperiksa, mitra teknisi berhasil mengambil work order
  * lewat `claimAvailableWorkOrder` lalu ditolak saat membukanya sendiri.
  */
-function validateAssigneeAccess(
+function isWorkOrderParticipant(
   workOrder: MobileWorkOrderMaterialAccessWorkOrder,
   userId: string,
   allowPendingInvitation = false,
-): void {
-  const isUnclaimedStatus =
-    workOrder.status === "PENDING" || workOrder.status === "REQUESTED";
-  if (isUnclaimedStatus) return;
-
+): boolean {
   const isAssignedTechnician = workOrder.assignedToId === userId;
   const isAssignedMitra = workOrder.assignedMitraId === userId;
   // PENDING hanya diterima pada jalur baca. Undangan yang sudah ditolak
@@ -98,10 +125,31 @@ function validateAssigneeAccess(
       statusPartnerDiterima.includes(assignment.status),
   );
 
-  if (isAssignedTechnician || isAssignedMitra || isInvitedPartner) return;
-  throw new Error(
-    "Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.",
-  );
+  return Boolean(isAssignedTechnician || isAssignedMitra || isInvitedPartner);
+}
+
+/**
+ * Non-peserta hanya boleh menyentuh WO yang belum diambil, dan itu pun hanya
+ * bila lolos aturan daftar WO tersedia. Super admin dilepas.
+ */
+async function validateNonParticipantAccess(
+  workOrder: MobileWorkOrderMaterialAccessWorkOrder,
+  userContext: UserContext,
+  unclaimedAccessGuard?: UnclaimedWorkOrderAccessGuard,
+): Promise<void> {
+  const isUnclaimedStatus =
+    workOrder.status === "PENDING" || workOrder.status === "REQUESTED";
+  if (!isUnclaimedStatus) {
+    throw new Error(
+      "Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.",
+    );
+  }
+
+  if (isSuperAdminContext(userContext)) return;
+  const isEligible = unclaimedAccessGuard
+    ? await unclaimedAccessGuard(workOrder, userContext)
+    : false;
+  if (!isEligible) throw new Error(UNCLAIMED_SCOPE_DENIED_MESSAGE);
 }
 
 /** Validasi bahwa status work order termasuk status yang diizinkan. */
@@ -114,11 +162,15 @@ function validateWorkOrderStatus(
   throw new Error(invalidStatusMessage);
 }
 
-/** Validasi akses lintas site/departemen untuk work order umum. */
-function validateScopedWorkOrderAccess(
+/**
+ * Pesan pelanggaran lingkup `workorders:department_only|site_only`, atau `null`
+ * bila work order berada dalam lingkup pengguna. Pengguna terbatas tanpa
+ * site/departemen tidak cocok dengan work order mana pun (fail closed).
+ */
+export function getWorkOrderScopeViolation(
   workOrder: Pick<WorkOrderWithRelations, "departmentId" | "siteId">,
-  userContext: UserContext,
-): void {
+  userContext: Pick<UserContext, "permissions" | "departmentId" | "siteId">,
+): string | null {
   const {
     permissions = [],
     departmentId: userDeptId,
@@ -127,17 +179,28 @@ function validateScopedWorkOrderAccess(
 
   if (
     permissions.includes("workorders:department_only") &&
-    workOrder.departmentId !== userDeptId
+    (!userDeptId || workOrder.departmentId !== userDeptId)
   ) {
-    throw new Error("Akses ditolak: Departemen berbeda");
+    return "Akses ditolak: Departemen berbeda";
   }
 
   if (
     permissions.includes("workorders:site_only") &&
-    workOrder.siteId !== userSiteId
+    (!userSiteId || workOrder.siteId !== userSiteId)
   ) {
-    throw new Error("Akses ditolak: Site berbeda");
+    return "Akses ditolak: Site berbeda";
   }
+
+  return null;
+}
+
+/** Validasi akses lintas site/departemen untuk work order umum. */
+function validateScopedWorkOrderAccess(
+  workOrder: Pick<WorkOrderWithRelations, "departmentId" | "siteId">,
+  userContext: UserContext,
+): void {
+  const violation = getWorkOrderScopeViolation(workOrder, userContext);
+  if (violation) throw new Error(violation);
 }
 
 export async function validateMobileWorkOrderMaterialAccess(params: {

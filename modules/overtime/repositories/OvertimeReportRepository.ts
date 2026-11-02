@@ -63,11 +63,17 @@ export class OvertimeReportRepository {
       .sort((left, right) => left.date.localeCompare(right.date));
   }
 
-  /** Ambil statistik overtime terkelompok. */
+  /**
+   * Ambil statistik overtime terkelompok. `siteId`/`departmentId` membatasi
+   * pegawai yang dihitung — tanpanya admin ber-`site_only` melihat angka
+   * lembur seluruh site di grafik laporan.
+   */
   async getGroupedStats(input: {
     startDate: Date;
     endDate: Date;
     groupBy: "department" | "site";
+    siteId?: string;
+    departmentId?: string;
   }) {
     const tenantContext = await getTenantIdFromContext();
     const query = buildGroupedStatsQuery({ ...input, tenantContext });
@@ -176,6 +182,8 @@ function buildGroupedStatsQuery(input: {
   startDate: Date;
   endDate: Date;
   groupBy: "department" | "site";
+  siteId?: string;
+  departmentId?: string;
   tenantContext: TenantContext;
 }) {
   const grouping = getGroupedStatsConfig(input.groupBy);
@@ -184,6 +192,8 @@ function buildGroupedStatsQuery(input: {
     WHERE o."createdAt" >= ${input.startDate}
     AND o."createdAt" <= ${input.endDate}
     ${buildTenantFilter(input.tenantContext)}
+    ${input.siteId ? Prisma.sql`AND u."siteId" = ${input.siteId}` : Prisma.empty}
+    ${input.departmentId ? Prisma.sql`AND u."departmentId" = ${input.departmentId}` : Prisma.empty}
     GROUP BY ${grouping.groupByColumn}, ${grouping.nameColumn}
   `;
 }

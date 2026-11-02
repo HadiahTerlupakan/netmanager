@@ -228,6 +228,28 @@ describe("rute pelanggan-ppp — admin terbatas site", () => {
   });
 
   describe("GET /api/pelanggan-ppp/[id]", () => {
+    // Regresi: toggle ppp:site_only di matriks role tidak dibaca backend.
+    it("ppp:site_only juga membatasi: 403 untuk pelanggan di site lain", async () => {
+      palsu.getServerSession.mockResolvedValue({
+        user: {
+          id: "admin-site-1",
+          role: "NOC",
+          tenantId: "tenant-1",
+          isSuperAdmin: false,
+          siteId: "site-1",
+          siteIds: ["site-1"],
+          permissions: ["pelanggan:read", "ppp:site_only"],
+        },
+      });
+
+      const response = await getPelanggan(
+        jsonRequest("GET", "/api/pelanggan-ppp/pel-other"),
+        konteks("pel-other"),
+      );
+
+      expect(response.status).toBe(403);
+    });
+
     it("403 untuk pelanggan di site lain", async () => {
       const response = await getPelanggan(
         jsonRequest("GET", "/api/pelanggan-ppp/pel-other"),

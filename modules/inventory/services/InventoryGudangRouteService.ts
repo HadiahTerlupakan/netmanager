@@ -1,6 +1,14 @@
 import { InventoryRepository } from "../repositories/InventoryRepository";
-import { getInventoryRouteService } from "./InventoryRouteService";
-import { PEMBATASAN_SITE_GUDANG } from "../utils/validation";
+import { tanpaDataSamaSekali, type LingkupSite } from "@/modules/roles/client";
+
+import { IZIN_PEMBATAS_GUDANG } from "../domain/izin-pembatas-site";
+import {
+  getInventoryRouteService,
+  type CanAccessGudangInput,
+  type PenggunaInventory,
+  type ResolveLingkupSiteInput,
+} from "./InventoryRouteService";
+import { siteIdsSaringan } from "./lingkup-gudang";
 import {
   isPrismaError,
   pesanGagalHapus,
@@ -11,7 +19,6 @@ import {
   type MasterDataFailure,
 } from "./inventory-master-data-errors";
 
-const GUDANG_RESTRICTED_PERMISSIONS = [...PEMBATASAN_SITE_GUDANG];
 const GUDANG_CODE_PREFIX = "GD";
 const GUDANG_CODE_RANDOM_RANGE = 1000;
 
@@ -27,7 +34,7 @@ interface InventoryGudangRecord {
 
 interface InventoryGudangRepositoryPort {
   getAllGudang(params?: {
-    siteId?: string;
+    siteIds?: string[];
     includeInactive?: boolean;
   }): Promise<unknown[]>;
   createGudang(data: {
@@ -48,18 +55,15 @@ interface InventoryGudangRepositoryPort {
 }
 
 interface InventoryRouteServicePort {
-  resolveRestrictedSiteId(input: {
-    userId: string;
-    permissions: string[];
-    isSuperAdmin: boolean;
-    restrictedPermissions: string[];
-  }): Promise<string | undefined>;
+  resolveLingkupSite(input: ResolveLingkupSiteInput): Promise<LingkupSite>;
+  canAccessGudang(input: CanAccessGudangInput): Promise<boolean>;
 }
 
-interface GudangRouteUserInput {
-  userId: string;
-  permissions: string[];
-  isSuperAdmin: boolean;
+type GudangRouteUserInput = PenggunaInventory;
+
+interface GudangByIdRouteInput {
+  id: string;
+  pengguna: PenggunaInventory;
 }
 
 interface ListGudangRouteInput extends GudangRouteUserInput {
@@ -72,8 +76,7 @@ interface CreateGudangRouteInput extends GudangRouteUserInput {
   body: Record<string, unknown>;
 }
 
-interface UpdateGudangRouteInput {
-  id: string;
+interface UpdateGudangRouteInput extends GudangByIdRouteInput {
   body: Record<string, unknown>;
 }
 
@@ -82,8 +85,15 @@ export type InventoryGudangRouteResult<T> =
   | MasterDataFailure;
 
 const HTTP_BAD_REQUEST = 400;
+const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const HTTP_CONFLICT = 409;
+
+const PESAN_GUDANG_BEDA_SITE =
+  "Gudang ini milik site lain, jadi Anda tidak bisa membuka atau mengubahnya. Minta admin kalau gudang ini memang harus Anda urus.";
+
+const PESAN_AKUN_TANPA_SITE =
+  "Akun Anda belum diberi site, jadi belum bisa membuat gudang. Minta admin mengatur site di akun Anda.";
 
 /** Pesan untuk kolom wajib gudang yang masih kosong. */
 const PESAN_KOLOM_GUDANG_KOSONG = {
@@ -158,21 +168,22 @@ export class InventoryGudangRouteService {
 
   /** Ambil daftar gudang dengan site restriction route. */
   async listGudang(input: ListGudangRouteInput) {
-    const siteId = await this.resolveGudangSiteId(input);
-    const shouldRestrict = !!siteId && !(input.viewAll && input.isSuperAdmin);
+    // Super admin tidak pernah dibatasi, jadi `view=all` tidak perlu dicek di
+    // sini: lingkupnya sudah tanpa batas.
+    const lingkup = await this.resolveGudangLingkup(input);
+    const siteIds = siteIdsSaringan(lingkup);
 
     return this.repository.getAllGudang({
-      ...(shouldRestrict ? { siteId } : {}),
+      ...(siteIds ? { siteIds } : {}),
       ...(input.includeInactive ? { includeInactive: true } : {}),
     });
   }
 
-  /** Ambil detail gudang berdasarkan id. */
-  async getGudangDetail(id: string) {
-    const gudang = await this.repository.findGudangById(id);
-    if (!gudang) return { found: false as const };
-
-    return { found: true as const, gudang };
+  /** Ambil detail gudang berdasarkan id, setelah lingkup site tervalidasi. */
+  async getGudangDetail(
+    input: GudangByIdRouteInput,
+  ): Promise<InventoryGudangRouteResult<InventoryGudangRecord>> {
+    return this.findAccessibleGudang(input);
   }
 
   /** Buat gudang setelah validasi body dan site restriction. */
@@ -182,11 +193,15 @@ export class InventoryGudangRouteService {
     const invalidBody = findKolomGudangKosong(input.body, ["nama"]);
     if (invalidBody) return invalidBody;
 
-    const restrictedSiteId = await this.resolveGudangSiteId(input);
-    const siteIds = this.resolveCreateSiteIds(
-      input.body.siteIds,
-      restrictedSiteId,
-    );
+    const lingkup = await this.resolveGudangLingkup(input);
+    if (tanpaDataSamaSekali(lingkup)) {
+      return {
+        success: false,
+        status: HTTP_FORBIDDEN,
+        error: PESAN_AKUN_TANPA_SITE,
+      };
+    }
+    const siteIds = this.resolveCreateSiteIds(input.body.siteIds, lingkup);
     try {
       const gudang = await this.repository.createGudang({
         kode: this.createCode(),
@@ -212,14 +227,9 @@ export class InventoryGudangRouteService {
     const invalidBody = findKolomGudangKosong(input.body, ["kode", "nama"]);
     if (invalidBody) return invalidBody;
 
-    const existingGudang = await this.repository.findGudangById(input.id);
-    if (!existingGudang) {
-      return {
-        success: false,
-        status: HTTP_NOT_FOUND,
-        error: pesanTidakDitemukan("Gudang"),
-      };
-    }
+    const accessible = await this.findAccessibleGudang(input);
+    if (accessible.success === false) return accessible;
+    const existingGudang = accessible.data;
 
     const kode = String(input.body.kode).trim();
     const kodeConflict = await this.repository.findGudangByKode(kode);
@@ -253,15 +263,13 @@ export class InventoryGudangRouteService {
   }
 
   /** Hapus gudang setelah validasi keberadaan dan stok. */
-  async deleteGudang(id: string): Promise<InventoryGudangRouteResult<null>> {
-    const existingGudang = await this.repository.findGudangById(id);
-    if (!existingGudang) {
-      return {
-        success: false,
-        status: HTTP_NOT_FOUND,
-        error: pesanTidakDitemukan("Gudang"),
-      };
-    }
+  async deleteGudang(
+    input: GudangByIdRouteInput,
+  ): Promise<InventoryGudangRouteResult<null>> {
+    const { id } = input;
+    const accessible = await this.findAccessibleGudang(input);
+    if (accessible.success === false) return accessible;
+    const existingGudang = accessible.data;
 
     if (await this.repository.hasStockInGudang(id)) {
       return {
@@ -286,19 +294,55 @@ export class InventoryGudangRouteService {
     }
   }
 
-  private resolveGudangSiteId(input: GudangRouteUserInput) {
-    return this.inventoryRouteService.resolveRestrictedSiteId({
+  /** Gudang yang ada dan berada di dalam lingkup site pengguna. */
+  private async findAccessibleGudang(
+    input: GudangByIdRouteInput,
+  ): Promise<InventoryGudangRouteResult<InventoryGudangRecord>> {
+    const gudang = await this.repository.findGudangById(input.id);
+    if (!gudang) {
+      return {
+        success: false,
+        status: HTTP_NOT_FOUND,
+        error: pesanTidakDitemukan("Gudang"),
+      };
+    }
+
+    const bolehAkses = await this.inventoryRouteService.canAccessGudang({
+      ...input.pengguna,
+      gudangId: input.id,
+      restrictedPermissions: IZIN_PEMBATAS_GUDANG,
+    });
+    if (!bolehAkses) {
+      return {
+        success: false,
+        status: HTTP_FORBIDDEN,
+        error: PESAN_GUDANG_BEDA_SITE,
+      };
+    }
+
+    return { success: true, data: gudang };
+  }
+
+  private resolveGudangLingkup(input: GudangRouteUserInput) {
+    return this.inventoryRouteService.resolveLingkupSite({
       userId: input.userId,
       permissions: input.permissions,
       isSuperAdmin: input.isSuperAdmin,
-      restrictedPermissions: GUDANG_RESTRICTED_PERMISSIONS,
+      restrictedPermissions: IZIN_PEMBATAS_GUDANG,
     });
   }
 
-  private resolveCreateSiteIds(siteIds: unknown, restrictedSiteId?: string) {
-    if (restrictedSiteId) return [restrictedSiteId];
-    if (Array.isArray(siteIds)) return siteIds.filter(this.isString);
-    return undefined;
+  /**
+   * Site untuk gudang baru. Pengguna yang dibatasi hanya boleh menautkan gudang
+   * ke site miliknya: pilihan di luar itu dibuang, dan bila tidak ada yang
+   * tersisa gudang ditautkan ke site pertamanya (site utama bila ada).
+   */
+  private resolveCreateSiteIds(siteIds: unknown, lingkup: LingkupSite) {
+    const diminta = Array.isArray(siteIds) ? siteIds.filter(this.isString) : [];
+    if (!lingkup.dibatasi) return diminta.length ? diminta : undefined;
+
+    const diizinkan = diminta.filter((id) => lingkup.siteIds.includes(id));
+    return diizinkan.length ? diizinkan : [lingkup.siteIds[0]!];
   }
 
   private isString(value: unknown): value is string {

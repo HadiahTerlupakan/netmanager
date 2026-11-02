@@ -12,6 +12,7 @@ export * from "./services/RabRevisionApprovalService";
 export * from "./services/RabApprovalReminderRouteService";
 export * from "./services/RabStatusEvaluationService";
 export * from "./services/ProyekService";
+export * from "./services/RabProjectSiteAccessService";
 
 export {
   rabActualAchievementSchema,

@@ -2,12 +2,17 @@ import { isSuperAdmin } from "@/lib/auth";
 import { hasPermission } from "@/lib/rbac";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { isRouteServiceError } from "@/lib/api/route-service-error";
-import { RabProjectRouteService } from "@/modules/proyek";
+import {
+  RabProjectRouteService,
+  RabProjectSiteAccessService,
+  resolveRabSiteScope,
+} from "@/modules/proyek";
 import { rabProjectUpdateSchema } from "@/lib/validations/rab-project";
 
 export const dynamic = "force-dynamic";
 
 const rabProjectRouteService = new RabProjectRouteService();
+const rabProjectSiteAccess = new RabProjectSiteAccessService();
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
@@ -21,6 +26,11 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
       "Akses ditolak. Anda memerlukan permission: expense:read",
     );
   }
+
+  await rabProjectSiteAccess.assertProjectAccessible(
+    id,
+    resolveRabSiteScope(user, ctx.permissions),
+  );
 
   try {
     const project = await rabProjectRouteService.getProjectDetail(id);
@@ -50,6 +60,13 @@ export const PATCH = createHandler(
         "Akses ditolak. Anda memerlukan permission: expense:update",
       );
     }
+
+    const siteScope = resolveRabSiteScope(user, ctx.permissions);
+    await rabProjectSiteAccess.assertProjectAccessible(id, siteScope);
+    rabProjectSiteAccess.assertTargetSiteAllowed(
+      siteScope,
+      ctx.validated.siteId,
+    );
 
     try {
       const project = await rabProjectRouteService.updateProject(
@@ -86,6 +103,11 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
       "Akses ditolak. Anda memerlukan permission: expense:delete",
     );
   }
+
+  await rabProjectSiteAccess.assertProjectAccessible(
+    id,
+    resolveRabSiteScope(user, ctx.permissions),
+  );
 
   try {
     await rabProjectRouteService.deleteDraftProject(id);

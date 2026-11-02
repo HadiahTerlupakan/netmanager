@@ -11,7 +11,9 @@ function createService() {
     getStockLevel: vi.fn().mockResolvedValue(7),
   };
   const inventoryRouteService = {
-    resolveRestrictedSiteId: vi.fn().mockResolvedValue("site-1"),
+    resolveLingkupSite: vi
+      .fn()
+      .mockResolvedValue({ dibatasi: true, siteIds: ["site-1", "site-2"] }),
   };
 
   return {
@@ -37,7 +39,7 @@ describe("InventoryMasukRouteService", () => {
       search: "kabel",
     });
 
-    expect(inventoryRouteService.resolveRestrictedSiteId).toHaveBeenCalledWith({
+    expect(inventoryRouteService.resolveLingkupSite).toHaveBeenCalledWith({
       userId: "user-1",
       permissions: ["masuk:site_only"],
       isSuperAdmin: false,
@@ -51,12 +53,33 @@ describe("InventoryMasukRouteService", () => {
       skip: 0,
       take: 20,
       search: "kabel",
-      siteId: "site-1",
+      siteIds: ["site-1", "site-2"],
     });
     expect(result).toEqual({
       masukList: [masuk],
       pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
     });
+  });
+
+  it("user dibatasi tanpa site mendapat daftar kosong, bukan seluruh tenant", async () => {
+    const { repository, inventoryRouteService, service } = createService();
+    inventoryRouteService.resolveLingkupSite.mockResolvedValue({
+      dibatasi: true,
+      siteIds: [],
+    });
+
+    await service.listMasuk({
+      userId: "user-1",
+      permissions: ["masuk:site_only"],
+      isSuperAdmin: false,
+      page: 1,
+      limit: 20,
+      siteId: "site-lain",
+    });
+
+    expect(repository.getHistoryMasuk).toHaveBeenCalledWith(
+      expect.objectContaining({ siteIds: [] }),
+    );
   });
 
   it("menolak create masuk dengan jumlah invalid", async () => {

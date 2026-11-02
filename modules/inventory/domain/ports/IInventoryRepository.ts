@@ -18,7 +18,7 @@ export interface FindInventoryBarangParams {
   take?: number;
   search?: string;
   gudangId?: string;
-  siteId?: string;
+  siteIds?: string[];
   tenantId?: string;
 }
 

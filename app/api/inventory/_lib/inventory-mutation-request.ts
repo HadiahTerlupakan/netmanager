@@ -4,6 +4,8 @@ import { ApiErrors } from "@/lib/api";
 import {
   buildInventoryAccessSession,
   describeGudangAccessDenial,
+  IZIN_PEMBATAS_KELUAR,
+  IZIN_PEMBATAS_MASUK,
   validateGudangSiteAccess,
 } from "@/modules/inventory";
 
@@ -27,21 +29,43 @@ export async function parseInventoryMutationBody(
   };
 }
 
+/** Konteks `createHandler` yang dibutuhkan cek akses gudang. */
+interface InventoryHandlerContext {
+  session: { user: { id: string } } | null;
+  /** Permission pengguna — objek user sesi tidak membawanya. */
+  permissions: string[];
+}
+
+/**
+ * Pembatas site per jenis pencatatan, sama dengan yang dipakai daftar
+ * endpoint-nya, supaya toggle yang menyembunyikan mutasi site lain juga
+ * mencegah pencatatannya.
+ */
+const IZIN_PEMBATAS_PENCATATAN = {
+  masuk: IZIN_PEMBATAS_MASUK,
+  keluar: IZIN_PEMBATAS_KELUAR,
+} as const;
+
 /**
  * Tolak pencatatan di gudang yang tidak boleh dipakai user ini (beda site).
  * Gudang kosong dibiarkan lolos: service melaporkannya bersama masalah isian
  * lain, sedangkan cek akses tanpa gudang hanya akan gagal di database.
  */
 export async function ensureCreateGudangAccess(
-  user: { id: string },
-  gudangId: unknown,
+  ctx: InventoryHandlerContext,
+  body: Record<string, unknown>,
+  jenisPencatatan: keyof typeof IZIN_PEMBATAS_PENCATATAN,
 ): Promise<NextResponse | null> {
-  if (!gudangId) return null;
+  if (!body.gudangId) return null;
 
-  const accessSession = await buildInventoryAccessSession(user);
+  const accessSession = await buildInventoryAccessSession(
+    ctx.session!.user,
+    ctx.permissions,
+  );
   const access = await validateGudangSiteAccess(
     accessSession,
-    String(gudangId),
+    String(body.gudangId),
+    IZIN_PEMBATAS_PENCATATAN[jenisPencatatan],
   );
   return access.allowed
     ? null

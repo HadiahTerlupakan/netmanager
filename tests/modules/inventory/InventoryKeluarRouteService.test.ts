@@ -14,7 +14,10 @@ function createService() {
     getStockLevel: vi.fn().mockResolvedValue(4),
   };
   const inventoryRouteService = {
-    resolveRestrictedSiteId: vi.fn().mockResolvedValue("site-1"),
+    resolveLingkupSite: vi
+      .fn()
+      .mockResolvedValue({ dibatasi: true, siteIds: ["site-1"] }),
+    canAccessGudang: vi.fn().mockResolvedValue(true),
   };
 
   return {
@@ -44,7 +47,7 @@ describe("InventoryKeluarRouteService", () => {
       skip: 0,
       take: 20,
       barangId: "barang-1",
-      siteId: "site-1",
+      siteIds: ["site-1"],
     });
     expect(result).toEqual({
       keluarList: [keluar],
@@ -52,18 +55,48 @@ describe("InventoryKeluarRouteService", () => {
     });
   });
 
+  const CEK_STOK = {
+    barangId: "barang-1",
+    gudangId: "gudang-1",
+    userId: "user-1",
+    permissions: ["keluar:site_only"],
+    isSuperAdmin: false,
+  };
+
   it("mengambil stok per kondisi untuk checkStock", async () => {
-    const { repository, service } = createService();
+    const { repository, inventoryRouteService, service } = createService();
 
-    const result = await service.getStockBreakdown("barang-1", "gudang-1");
+    const result = await service.getStockBreakdown(CEK_STOK);
 
+    expect(inventoryRouteService.canAccessGudang).toHaveBeenCalledWith({
+      userId: "user-1",
+      gudangId: "gudang-1",
+      permissions: ["keluar:site_only"],
+      isSuperAdmin: false,
+      restrictedPermissions: [
+        "keluar:site_only",
+        "barang:site_only",
+        "gudang:site_only",
+      ],
+    });
     expect(repository.getStockBreakdown).toHaveBeenCalledWith(
       "barang-1",
       "gudang-1",
     );
     expect(result).toEqual({
-      stokByKondisi: { BARU: 2, BEKAS: 3, RUSAK: 0, total: 5 },
+      success: true,
+      data: { stokByKondisi: { BARU: 2, BEKAS: 3, RUSAK: 0, total: 5 } },
     });
+  });
+
+  it("checkStock gudang site lain ditolak 403 tanpa membaca stok", async () => {
+    const { repository, inventoryRouteService, service } = createService();
+    inventoryRouteService.canAccessGudang.mockResolvedValue(false);
+
+    const result = await service.getStockBreakdown(CEK_STOK);
+
+    expect(result).toMatchObject({ success: false, status: 403 });
+    expect(repository.getStockBreakdown).not.toHaveBeenCalled();
   });
 
   it("menolak create keluar dengan jumlah invalid", async () => {

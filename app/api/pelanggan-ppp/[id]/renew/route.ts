@@ -11,6 +11,7 @@ import {
   PelangganAdminMutationError,
   PelangganRenewalService,
   renewPelangganSchema,
+  withPelangganPppSiteScope,
 } from "@/modules/pelanggan";
 
 const pelangganRenewalService = new PelangganRenewalService();
@@ -28,7 +29,10 @@ export const POST = createHandler(
   },
   async (_req, ctx) => {
     const { id } = ctx.params;
-    const session = buildSessionWithPermissions(ctx.session!, ctx.permissions);
+    const session = buildSessionWithPermissions(
+      ctx.session!,
+      withPelangganPppSiteScope(ctx.permissions),
+    );
 
     try {
       const result = await pelangganRenewalService.renew({

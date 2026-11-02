@@ -10,6 +10,13 @@ const mockFns = vi.hoisted(() => ({
     Promise.resolve(null),
   ),
   reverseReceipt: vi.fn(),
+  getPelanggan: vi.fn(),
+}));
+
+vi.mock("@/modules/finance/pelanggan-registry", () => ({
+  getPelangganServiceFromRegistry: () => ({
+    getPelanggan: mockFns.getPelanggan,
+  }),
 }));
 
 vi.mock("@/modules/accounting", () => ({
@@ -96,6 +103,19 @@ describe("cancelPaidPayment", () => {
         url: "/(customer)/tagihan",
       },
     );
+  });
+
+  it("admin terbatas tanpa site ditolak, bukan dibebaskan", async () => {
+    mockFns.getPelanggan.mockResolvedValue({ id: "cust-1", siteId: "site-a" });
+
+    await expect(
+      cancelPaidPayment({
+        paymentId: "pay-1",
+        adminLabel: "Admin",
+        allowedSiteIds: [],
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(mockFns.paymentUpdate).not.toHaveBeenCalled();
   });
 
   it("rejects non-paid payments", async () => {

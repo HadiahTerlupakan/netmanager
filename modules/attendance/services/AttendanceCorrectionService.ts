@@ -13,6 +13,12 @@ import type {
   CorrectMissedCheckInInput,
 } from "./AttendanceCorrectionTypes";
 import { AttendanceTimezoneService } from "./AttendanceTimezoneService";
+import { resolveAdminScope, scopeTanpaData } from "./AdminScopeResolver";
+
+const ATTENDANCE_SCOPE_PERMISSIONS = {
+  siteOnly: "attendance:site_only",
+  departmentOnly: "attendance:department_only",
+} as const;
 
 const ALLOW_NON_ATOMIC_CORRECTION_ENV =
   "ALLOW_NON_ATOMIC_ATTENDANCE_CORRECTION";
@@ -44,6 +50,7 @@ export class AttendanceCorrectionService {
       input.sourceAttendanceId,
     );
     this.assertSourceAttendance(sourceAttendance, input.tenantId);
+    await this.assertWithinActorScope(input.actor, sourceAttendance.user);
 
     const timezone = await getTimezone(input.tenantId);
     const workDate = toStartOfDay(sourceAttendance.checkIn, timezone);
@@ -110,6 +117,27 @@ export class AttendanceCorrectionService {
         status: correctedAttendance.status,
       },
     };
+  }
+
+  /**
+   * Koreksi mangkir adalah penulisan absensi, jadi tunduk pada lingkup yang
+   * sama dengan ubah/hapus absensi. Dulu hanya tenant yang dicek, sehingga
+   * admin ber-`attendance:site_only` bisa mengoreksi absensi site lain.
+   * Di luar lingkup dijawab 404 agar keberadaan record tidak bocor.
+   */
+  private async assertWithinActorScope(
+    actor: CorrectMissedCheckInInput["actor"],
+    owner: { siteId?: string | null; departmentId?: string | null },
+  ) {
+    const scope = await resolveAdminScope(actor, ATTENDANCE_SCOPE_PERMISSIONS);
+    const isOutside =
+      scopeTanpaData(scope) ||
+      (scope.siteId !== undefined && owner.siteId !== scope.siteId) ||
+      (scope.departmentId !== undefined &&
+        owner.departmentId !== scope.departmentId);
+    if (isOutside) {
+      throw new AppError("Data absensi tidak ditemukan", 404, "NOT_FOUND");
+    }
   }
 
   private assertSourceAttendance(

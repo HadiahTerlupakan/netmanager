@@ -31,12 +31,23 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
     workOrderId: ctx.params.id,
     customMessage,
     targetDepartmentId,
-    actorId: ctx.session!.user.id,
+    actor: ctx.session!.user,
+    permissions: ctx.permissions,
   });
 
   if (!result.success) {
+    if (result.code === "UNAUTHORIZED") {
+      return ApiErrors.unauthorized();
+    }
+
     if (result.code === "NOT_FOUND") {
       return ApiErrors.notFound("Work Order");
+    }
+
+    if (result.code === "FORBIDDEN") {
+      return ApiErrors.forbidden(
+        ("error" in result && result.error) || "Akses ditolak",
+      );
     }
 
     return apiError(

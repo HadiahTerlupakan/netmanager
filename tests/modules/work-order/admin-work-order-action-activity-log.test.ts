@@ -15,7 +15,13 @@ vi.mock("@/modules/work-order/services/WorkOrderNotifications", () => ({
   sendWorkOrderReminder,
 }));
 vi.mock("@/modules/work-order/services/WorkOrderService", () => ({
-  getWorkOrderService: () => ({ updateStatus }),
+  getWorkOrderService: () => ({
+    updateStatus,
+    getWorkOrderById: vi.fn().mockResolvedValue({
+      success: true,
+      data: { id: "wo-1" },
+    }),
+  }),
 }));
 vi.mock("@/modules/work-order/services/WorkOrderCacheService", () => ({
   workOrderCacheService: { invalidateAllCaches: vi.fn() },
@@ -60,7 +66,7 @@ describe("Log Aktivitas aksi admin work order", () => {
     const result = await createService().sendReminder({
       workOrderId: "wo-1",
       targetDepartmentId: "dept-noc",
-      actorId: "admin-1",
+      actor: { id: "admin-1" },
     });
 
     expect(result).toEqual({ success: true, data: { sentCount: 3 } });

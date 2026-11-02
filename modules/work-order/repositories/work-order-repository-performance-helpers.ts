@@ -21,6 +21,7 @@ type CompletionWindow = {
   dateFrom?: Date;
   dateTo?: Date;
   departmentId?: string;
+  siteId?: string;
 };
 
 /** Build completed work order filter for performer queries. */
@@ -33,6 +34,10 @@ export function buildCompletedWorkOrderWhere(
 
   if (params.departmentId) {
     where.departmentId = params.departmentId;
+  }
+
+  if (params.siteId) {
+    where.siteId = params.siteId;
   }
 
   if (params.dateFrom || params.dateTo) {

@@ -12,7 +12,8 @@ interface ListBarangInput {
   gudangId?: string | null;
   page: number;
   limit: number;
-  siteId?: string;
+  /** Saringan stok per site; `[]` berarti tidak ada stok yang boleh dilihat. */
+  siteIds?: string[];
 }
 
 interface CreateBarangInput {
@@ -44,7 +45,7 @@ export class InventoryBarangService {
         take: input.limit,
         ...(input.search ? { search: input.search } : {}),
         ...(input.gudangId ? { gudangId: input.gudangId } : {}),
-        ...(input.siteId ? { siteId: input.siteId } : {}),
+        ...(input.siteIds ? { siteIds: input.siteIds } : {}),
       });
 
     const barangsWithStock = barangs.map((barang) =>

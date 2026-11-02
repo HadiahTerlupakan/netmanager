@@ -69,6 +69,8 @@ export const TRANSFER_MESSAGES = {
     "Data transfer ini tidak ditemukan. Mungkin sudah dibatalkan. Muat ulang halaman untuk melihat daftar terbaru.",
   transferBedaSite:
     "Transfer ini terjadi di gudang site lain, jadi Anda tidak bisa membukanya. Anda hanya bisa membuka transfer yang gudang asal atau tujuannya ada di site Anda.",
+  transferSebagianBedaSite:
+    "Salah satu gudang di transfer ini milik site lain, jadi Anda bisa melihatnya tetapi tidak bisa mengubah atau menghapusnya. Minta admin, atau petugas yang memegang kedua site, untuk melakukannya.",
   gagalSimpan: `Transfer belum tersimpan karena ada gangguan di server. Stok tidak berubah. Coba kirim sekali lagi. ${LAPOR_ADMIN}`,
   gagalBatal: `Transfer belum dibatalkan karena ada gangguan di server. Stok tidak berubah. Coba sekali lagi. ${LAPOR_ADMIN}`,
   gagalUbahKeterangan: `Keterangan belum tersimpan karena ada gangguan di server. Coba sekali lagi. ${LAPOR_ADMIN}`,

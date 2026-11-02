@@ -52,4 +52,6 @@ export const MUTASI_STOK_PESAN = {
     "Catatan barang keluar ini tidak ditemukan, mungkin sudah dihapus orang lain. Muat ulang halaman.",
   catatanBedaSite:
     "Catatan ini milik gudang di site lain, jadi Anda tidak bisa membuka atau mengubahnya. Minta admin kalau Anda perlu akses.",
+  gudangBedaSite:
+    "Gudang ini milik site lain, jadi stoknya tidak bisa Anda lihat. Pilih gudang di site Anda.",
 } as const;

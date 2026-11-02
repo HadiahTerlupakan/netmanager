@@ -194,12 +194,12 @@ export function createTicketReply(data: {
 
 export async function countAdminTicketsNeedingReply(
   status: TicketStatus,
-  siteId?: string,
+  siteIds?: string[],
 ) {
   const tickets = await prisma.supportTickets.findMany({
     where: {
       status,
-      ...(siteId ? { pelanggan: { siteId } } : {}),
+      ...(siteIds ? { pelanggan: { siteId: { in: siteIds } } } : {}),
     },
     select: {
       replies: {

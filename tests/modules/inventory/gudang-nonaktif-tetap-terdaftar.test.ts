@@ -35,11 +35,11 @@ describe("getAllGudang dan gudang nonaktif", () => {
   it("tetap menyaring gudang aktif saat dibatasi per site", async () => {
     const { findMany, repository } = pasangRepositori();
 
-    await repository.getAllGudang({ siteId: "site-1" });
+    await repository.getAllGudang({ siteIds: ["site-1"] });
 
     expect(findMany.mock.calls[0][0].where).toMatchObject({
       isActive: true,
-      sites: { some: { id: "site-1" } },
+      sites: { some: { id: { in: ["site-1"] } } },
     });
   });
 
@@ -54,10 +54,15 @@ describe("getAllGudang dan gudang nonaktif", () => {
   it("menggabungkan includeInactive dengan pembatasan site", async () => {
     const { findMany, repository } = pasangRepositori();
 
-    await repository.getAllGudang({ siteId: "site-1", includeInactive: true });
+    await repository.getAllGudang({
+      siteIds: ["site-1"],
+      includeInactive: true,
+    });
 
     const where = findMany.mock.calls[0][0].where;
     expect(where).not.toHaveProperty("isActive");
-    expect(where).toMatchObject({ sites: { some: { id: "site-1" } } });
+    expect(where).toMatchObject({
+      sites: { some: { id: { in: ["site-1"] } } },
+    });
   });
 });

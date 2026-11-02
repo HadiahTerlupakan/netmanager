@@ -1,5 +1,13 @@
 import { InventoryRepository } from "../repositories/InventoryRepository";
-import { getInventoryRouteService } from "./InventoryRouteService";
+import type { LingkupSite } from "@/modules/roles/client";
+
+import { IZIN_PEMBATAS_BARANG } from "../domain/izin-pembatas-site";
+import {
+  getInventoryRouteService,
+  type PenggunaInventory,
+  type ResolveLingkupSiteInput,
+} from "./InventoryRouteService";
+import { siteIdsSaringan } from "./lingkup-gudang";
 import { getInventoryBarangService } from "./InventoryBarangService";
 import {
   BarangKodeDipakaiError,
@@ -23,8 +31,6 @@ import {
 } from "./inventory-barang-route.helpers";
 
 import type { UpdateBarangInput } from "../domain/ports/IInventoryOperationRepository";
-
-const SITE_RESTRICTION_PERMISSIONS = ["barang:site_only", "gudang:site_only"];
 
 interface InventoryBarangRouteRepository {
   findBarangDetail(id: string): Promise<Record<string, unknown> | null>;
@@ -55,7 +61,7 @@ interface InventoryBarangServicePort {
     gudangId?: string | null;
     page: number;
     limit: number;
-    siteId?: string;
+    siteIds?: string[];
   }): Promise<InventoryBarangListResult>;
   createBarang(input: {
     userId: string;
@@ -70,13 +76,10 @@ interface InventoryBarangServicePort {
 }
 
 interface InventoryRouteServicePort {
-  getUserSiteId(userId: string): Promise<string | undefined>;
+  resolveLingkupSite(input: ResolveLingkupSiteInput): Promise<LingkupSite>;
 }
 
-interface ListBarangRouteInput {
-  userId: string;
-  permissions: string[];
-  isSuperAdmin: boolean;
+interface ListBarangRouteInput extends PenggunaInventory {
   search?: string | null;
   gudangId?: string | null;
   page: number;
@@ -88,9 +91,12 @@ interface CreateBarangRouteInput {
   body: Record<string, unknown>;
 }
 
-interface UpdateBarangRouteInput {
+interface BarangByIdRouteInput {
   id: string;
-  siteId?: string;
+  pengguna: PenggunaInventory;
+}
+
+interface UpdateBarangRouteInput extends BarangByIdRouteInput {
   body: Record<string, unknown>;
 }
 
@@ -176,14 +182,14 @@ export class InventoryBarangRouteService {
 
   /** Ambil list barang dengan site restriction yang sudah diselesaikan. */
   async listBarang(input: ListBarangRouteInput) {
-    const siteId = await this.resolveRestrictedSiteId(input);
+    const lingkup = await this.resolveLingkupSite(input);
     return this.barangService.listBarang({
       userId: input.userId,
       search: input.search,
       gudangId: input.gudangId,
       page: input.page,
       limit: input.limit,
-      siteId,
+      siteIds: siteIdsSaringan(lingkup),
     });
   }
 
@@ -222,15 +228,16 @@ export class InventoryBarangRouteService {
   }
 
   /** Ambil detail barang beserta stok yang sudah dibatasi site. */
-  async getBarangDetail(input: { id: string; siteId?: string }) {
+  async getBarangDetail(input: BarangByIdRouteInput) {
     const barang = await this.repository.findBarangDetail(input.id);
     if (!barang) {
       return { found: false as const };
     }
 
+    const lingkup = await this.resolveLingkupSite(input.pengguna);
     return {
       found: true as const,
-      barang: withStockSummary(barang, input.siteId),
+      barang: withStockSummary(barang, lingkup),
     };
   }
 
@@ -250,7 +257,8 @@ export class InventoryBarangRouteService {
       };
     }
 
-    if (!canAccessBarang(existingBarang, input.siteId)) {
+    const lingkup = await this.resolveLingkupSite(input.pengguna);
+    if (!canAccessBarang(existingBarang, lingkup)) {
       return {
         success: false,
         status: HTTP_FORBIDDEN,
@@ -289,10 +297,9 @@ export class InventoryBarangRouteService {
   }
 
   /** Hapus barang dengan validasi akses site. */
-  async deleteBarang(input: {
-    id: string;
-    siteId?: string;
-  }): Promise<InventoryBarangRouteResult<null>> {
+  async deleteBarang(
+    input: BarangByIdRouteInput,
+  ): Promise<InventoryBarangRouteResult<null>> {
     const barang = await this.repository.findBarangById(input.id);
     if (!barang) {
       return {
@@ -302,7 +309,8 @@ export class InventoryBarangRouteService {
       };
     }
 
-    if (!canAccessBarang(barang, input.siteId)) {
+    const lingkup = await this.resolveLingkupSite(input.pengguna);
+    if (!canAccessBarang(barang, lingkup)) {
       return {
         success: false,
         status: HTTP_FORBIDDEN,
@@ -330,17 +338,13 @@ export class InventoryBarangRouteService {
     }
   }
 
-  private async resolveRestrictedSiteId(input: ListBarangRouteInput) {
-    if (input.isSuperAdmin) return undefined;
-    if (!this.hasSiteRestriction(input.permissions)) return undefined;
-
-    return this.inventoryRouteService.getUserSiteId(input.userId);
-  }
-
-  private hasSiteRestriction(permissions: string[]) {
-    return permissions.some((permission) =>
-      SITE_RESTRICTION_PERMISSIONS.includes(permission),
-    );
+  private resolveLingkupSite(pengguna: PenggunaInventory) {
+    return this.inventoryRouteService.resolveLingkupSite({
+      userId: pengguna.userId,
+      permissions: pengguna.permissions,
+      isSuperAdmin: pengguna.isSuperAdmin,
+      restrictedPermissions: IZIN_PEMBATAS_BARANG,
+    });
   }
 }
 

@@ -5,7 +5,11 @@ vi.mock("@/lib/logger", () => ({
   logActivitySafe,
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
-vi.mock("@/lib/auth", () => ({ isSuperAdmin: () => false }));
+vi.mock("@/lib/auth", () => ({
+  isSuperAdmin: () => false,
+  // Tanpa permission pembatas: pemeriksaan lingkup site lolos tanpa query.
+  getUserPermissions: async (): Promise<string[]> => [],
+}));
 vi.mock("@/lib/tenant-context", () => ({
   getTenantIdFromContext: vi
     .fn()

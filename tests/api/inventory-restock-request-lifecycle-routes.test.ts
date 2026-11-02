@@ -14,6 +14,7 @@ const mockFns = vi.hoisted(() => ({
   patchRestockRequestLifecycle: vi.fn(),
   patchRestockRequestStatus: vi.fn(),
   generatePOFromPRs: vi.fn(),
+  getUserPermissions: vi.fn(),
 }));
 
 vi.mock("next-auth", async () => {
@@ -35,6 +36,7 @@ vi.mock("@/lib/auth", async () => {
     ...actual,
     verifyAuth: mockFns.verifyAuth,
     hasPermission: mockFns.authHasPermission,
+    getUserPermissions: mockFns.getUserPermissions,
   };
 });
 
@@ -83,6 +85,7 @@ describe("inventory restock request lifecycle routes", () => {
     mockFns.verifyAuth.mockResolvedValue({ id: "user-1" });
     mockFns.authHasPermission.mockResolvedValue(true);
     mockFns.generatePOFromPRs.mockResolvedValue([]);
+    mockFns.getUserPermissions.mockResolvedValue([]);
     mockFns.createRestockRequest.mockResolvedValue(
       NextResponse.json(
         { id: "pr-1", nomorRequest: "PR-20260311-0001" },
@@ -162,6 +165,64 @@ describe("inventory restock request lifecycle routes", () => {
       "tenant-1",
     );
     expect(response.status).toBe(200);
+  });
+
+  describe("role restock:site_only", () => {
+    beforeEach(() => {
+      mockFns.getUserPermissions.mockResolvedValue(["restock:site_only"]);
+      prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+        id: "pr-1",
+        gudangId: "gudang-lain",
+        status: "SUBMITTED",
+      });
+      prismaMock.user.findUnique.mockResolvedValue({
+        siteId: "site-1",
+        userSites: [],
+      });
+      prismaMock.gudang.findFirst.mockResolvedValue(null);
+    });
+
+    it("tidak bisa membuka pengajuan untuk gudang site lain", async () => {
+      const response = await getRestockRequestById(
+        new NextRequest("http://localhost/api/inventory/restock/requests/pr-1"),
+        { params: Promise.resolve({ id: "pr-1" }) },
+      );
+
+      expect(response.status).toBe(403);
+      expect(mockFns.getRestockRequestDetail).not.toHaveBeenCalled();
+    });
+
+    it("tidak bisa memproses pengajuan untuk gudang site lain", async () => {
+      const response = await patchRestockRequestById(
+        new NextRequest(
+          "http://localhost/api/inventory/restock/requests/pr-1",
+          {
+            method: "PATCH",
+            body: JSON.stringify({ action: "APPROVE" }),
+          },
+        ),
+        { params: Promise.resolve({ id: "pr-1" }) },
+      );
+
+      expect(response.status).toBe(403);
+      expect(mockFns.patchRestockRequestLifecycle).not.toHaveBeenCalled();
+    });
+
+    it("tidak bisa membuat pengajuan untuk gudang site lain", async () => {
+      const response = await postRestockRequests(
+        new NextRequest("http://localhost/api/inventory/restock/requests", {
+          method: "POST",
+          body: JSON.stringify({
+            gudangId: "gudang-lain",
+            items: [{ barangId: "barang-1", quantity: 3 }],
+            keterangan: "Untuk ODP baru",
+          }),
+        }),
+      );
+
+      expect(response.status).toBe(403);
+      expect(mockFns.createRestockRequest).not.toHaveBeenCalled();
+    });
   });
 
   it("delegates request approval updates to shared purchase request helper", async () => {

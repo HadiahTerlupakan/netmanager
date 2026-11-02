@@ -29,6 +29,7 @@ vi.mock("@/lib/api", () => ({
         ctx: {
           params: Record<string, string>;
           session: { user: { id: string } };
+          permissions: string[];
           validated?: unknown;
         },
       ) => Promise<Response>,
@@ -41,6 +42,7 @@ vi.mock("@/lib/api", () => ({
       return handler(request, {
         params: (await params) ?? {},
         session: { user: { id: "user-1" } },
+        permissions: [] as string[],
         validated: options.schema ? options.schema.parse(body) : body,
       });
     },

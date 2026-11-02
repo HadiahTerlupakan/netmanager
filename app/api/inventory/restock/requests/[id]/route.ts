@@ -19,6 +19,7 @@ import {
   restockLifecycleSchema,
 } from "@/lib/validations/restock";
 import { handleRestockPutRequest } from "./restock-put.handler";
+import { ensureRestockRequestSiteAccess } from "../../_lib/restock-site-access";
 
 const inventoryRouteService = getInventoryRouteService();
 
@@ -47,6 +48,12 @@ export async function GET(
 
   const { id } = await params;
   const tenantId = session.user.tenantId as string;
+  const siteDenied = await ensureRestockRequestSiteAccess({
+    user: session.user,
+    purchaseRequestId: id,
+    tenantId: session.user.tenantId as string,
+  });
+  if (siteDenied) return siteDenied;
   return getRestockRequestDetail(id, tenantId);
 }
 
@@ -71,6 +78,12 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  const siteDenied = await ensureRestockRequestSiteAccess({
+    user: session.user,
+    purchaseRequestId: id,
+    tenantId: session.user.tenantId as string,
+  });
+  if (siteDenied) return siteDenied;
   const body = await req.json().catch((): null => null);
   if (!body) {
     return NextResponse.json(
@@ -126,6 +139,12 @@ export async function DELETE(
 
   const { id } = await params;
   const tenantId = session.user.tenantId as string;
+  const siteDenied = await ensureRestockRequestSiteAccess({
+    user: session.user,
+    purchaseRequestId: id,
+    tenantId: session.user.tenantId as string,
+  });
+  if (siteDenied) return siteDenied;
   const existing = await inventoryRouteService.getPurchaseRequestById({
     id,
     tenantId,

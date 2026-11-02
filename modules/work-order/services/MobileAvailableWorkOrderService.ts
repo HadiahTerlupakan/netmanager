@@ -5,6 +5,8 @@ import { mobileAvailableWorkOrderRepository } from "../repositories/MobileAvaila
 import {
   buildEmployeeWhereClause,
   buildMitraWhereClause,
+  canEmployeeClaimWorkOrder,
+  canMitraClaimWorkOrder,
   extractUserSiteIds,
   getScheduledTimeStart,
   validateEmployeeClaimAccess,
@@ -177,6 +179,35 @@ export class MobileAvailableWorkOrderService {
     return { workOrder: updatedWorkOrder };
   }
 
+  /**
+   * Apakah aktor mobile boleh membuka atau mengklaim work order yang belum
+   * diambil (PENDING/REQUESTED) — aturannya sama dengan daftar WO tersedia.
+   *
+   * Dipakai jalur detail dan aksi CLAIM di `/api/mobile/work-orders/:id` agar
+   * tidak lebih longgar daripada `claimAvailableWorkOrder`.
+   */
+  async canAccessUnclaimedWorkOrder(
+    workOrder: { siteId: string | null; departmentId: string | null },
+    user: MobileAvailableSessionUser,
+  ): Promise<boolean> {
+    if (user.role === "MITRA") {
+      const mitra = await this.repository.findMitraProfile(user.id);
+      return canMitraClaimWorkOrder({ mitraSiteId: mitra?.siteId, workOrder });
+    }
+
+    const dbUser = await this.repository.findUserProfile(
+      user.id,
+      user.tenantId as string,
+    );
+    return Boolean(
+      canEmployeeClaimWorkOrder({
+        dbUser,
+        userSiteIds: extractUserSiteIds(dbUser),
+        workOrder,
+      }),
+    );
+  }
+
   /** Validate access before claiming a work order. */
   private async validateClaimAccess(input: {
     user: MobileAvailableSessionUser;
@@ -194,7 +225,9 @@ export class MobileAvailableWorkOrderService {
       const mitra = await this.repository.findMitraProfile(input.user.id);
       const mitraSiteId = mitra?.siteId;
 
-      if (input.workOrder.siteId && mitraSiteId !== input.workOrder.siteId) {
+      if (
+        !canMitraClaimWorkOrder({ mitraSiteId, workOrder: input.workOrder })
+      ) {
         throw WorkOrderErrors.accessDenied(
           input.workOrder.id || "unknown",
           "Beda Site",

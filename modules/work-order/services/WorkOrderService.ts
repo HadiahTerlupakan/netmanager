@@ -79,7 +79,10 @@ export class WorkOrderService {
   }
 
   /** Ambil work order terbaru. */
-  async getRecentWorkOrders(limit = 5, filters: { departmentId?: string }) {
+  async getRecentWorkOrders(
+    limit = 5,
+    filters: { departmentId?: string; siteId?: string },
+  ) {
     return this.readService.getRecentWorkOrders(limit, filters);
   }
 

@@ -1,9 +1,11 @@
 import { randomUUID } from "crypto";
 
+import { getUserPermissions } from "@/lib/auth";
 import { logActivitySafe } from "@/lib/logger";
 import { prisma } from "@/modules/database";
 import type { Prisma } from "../repositories/prisma-boundary";
 
+import { IZIN_PEMBATAS_OPNAME } from "../domain/izin-pembatas-site";
 import { validateGudangSiteAccess } from "../utils/validation";
 import { buildInventoryAccessSession } from "../utils/session";
 import type { CreateInventoryOpnameInput } from "./InventoryOpnameService";
@@ -59,9 +61,23 @@ export async function createOpnameInTransaction(
   return result;
 }
 
+/**
+ * Tolak opname di gudang luar lingkup site pengguna. Permission diambil ulang
+ * bila pemanggil tidak menyertakannya — tanpa permission, pembatasan site tidak
+ * terlihat dan pemeriksaan ini akan selalu lolos.
+ */
 async function validateOpnameGudangAccess(input: CreateInventoryOpnameInput) {
-  const accessSession = await buildInventoryAccessSession(input.user);
-  const access = await validateGudangSiteAccess(accessSession, input.gudangId);
+  const permissions =
+    input.user.permissions ?? (await getUserPermissions(input.user.id));
+  const accessSession = await buildInventoryAccessSession(
+    input.user,
+    permissions,
+  );
+  const access = await validateGudangSiteAccess(
+    accessSession,
+    input.gudangId,
+    IZIN_PEMBATAS_OPNAME,
+  );
 
   if (!access.allowed) throw new Error(access.error || "Akses ditolak");
   return access;

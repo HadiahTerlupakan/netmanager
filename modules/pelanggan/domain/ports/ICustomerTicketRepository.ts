@@ -147,10 +147,13 @@ export interface ICustomerTicketRepository {
     attachments?: string[];
   }): Promise<unknown>;
 
-  /** Count active tickets whose latest reply is from customer. */
+  /**
+   * Count active tickets whose latest reply is from customer. `siteIds`
+   * undefined = tanpa batas site; array = hanya pelanggan di site tersebut.
+   */
   countNeedsReplyAdmin(
     status: CustomerTicketStatus,
-    siteId?: string,
+    siteIds?: string[],
   ): Promise<number>;
 
   /** Get customer-owned ticket detail by id. */

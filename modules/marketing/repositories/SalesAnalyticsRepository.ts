@@ -24,6 +24,24 @@ export type SalesAnalyticsRange = {
   endDate: Date;
 };
 
+/**
+ * Filter site dashboard sales: site yang diminta lewat query string DIIRISKAN
+ * dengan site yang diizinkan, bukan menimpanya. Dulu `{ siteId }` yang diminta
+ * ditebar setelah `{ siteId: { in } }` sehingga pengguna yang dibatasi cukup
+ * mengirim `?siteId=<site lain>` untuk melihat sales site mana pun.
+ */
+export function buildDashboardSiteFilter(input: {
+  allowedSiteIds?: string[];
+  siteId?: string | null;
+}): string | { in: string[] } | undefined {
+  if (!input.allowedSiteIds) return input.siteId || undefined;
+  if (!input.siteId) return { in: input.allowedSiteIds };
+  // Site di luar lingkup → `{ in: [] }`, yaitu hasil kosong.
+  return input.allowedSiteIds.includes(input.siteId)
+    ? input.siteId
+    : { in: [] };
+}
+
 export class SalesAnalyticsRepository {
   constructor(private readonly db: PrismaClient) {}
 
@@ -48,16 +66,11 @@ export class SalesAnalyticsRepository {
     allowedSiteIds?: string[];
     siteId?: string | null;
   }) {
-    const allowedFilter = input.allowedSiteIds
-      ? { siteId: { in: input.allowedSiteIds } }
-      : {};
-
     return this.db.user.findMany({
       where: {
         isSales: true,
         isActive: true,
-        ...allowedFilter,
-        ...(input.siteId ? { siteId: input.siteId } : {}),
+        siteId: buildDashboardSiteFilter(input),
       },
       select: SALES_USER_DASHBOARD_SELECT,
       orderBy: { name: "asc" },

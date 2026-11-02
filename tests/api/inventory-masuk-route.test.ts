@@ -95,6 +95,17 @@ vi.mock("@/modules/inventory", () => ({
     createMasuk: mockFns.createMasuk,
   },
   validateGudangSiteAccess: mockFns.validateGudangSiteAccess,
+  describeGudangAccessDenial: (error?: string) => error ?? "ditolak",
+  IZIN_PEMBATAS_MASUK: [
+    "masuk:site_only",
+    "barang:site_only",
+    "gudang:site_only",
+  ],
+  IZIN_PEMBATAS_KELUAR: [
+    "keluar:site_only",
+    "barang:site_only",
+    "gudang:site_only",
+  ],
 }));
 
 import { POST } from "@/app/api/inventory/masuk/route";
@@ -150,6 +161,7 @@ describe("POST /api/inventory/masuk", () => {
         },
       },
       params: {},
+      permissions: ["masuk:create"],
     } as never);
     const body = await response.json();
 
@@ -164,5 +176,39 @@ describe("POST /api/inventory/masuk", () => {
       userId: "admin-1",
       body: expect.objectContaining({ kondisi: "cacat" }),
     });
+  });
+
+  it("meneruskan permission ctx dan pembatas daftar barang masuk ke cek akses gudang", async () => {
+    const request = new NextRequest("http://localhost/api/inventory/masuk", {
+      method: "POST",
+      body: JSON.stringify({
+        barangId: "barang-1",
+        gudangId: "gudang-1",
+        jumlah: 5,
+      }),
+      headers: { "content-type": "application/json" },
+    });
+    mockFns.validateGudangSiteAccess.mockResolvedValue({
+      allowed: false,
+      error: "Anda tidak memiliki akses ke Gudang ini (Beda Site).",
+    });
+
+    const response = await POST(request, {
+      session: { user: { id: "staf-1", role: "STAFF" } },
+      params: {},
+      permissions: ["masuk:create", "masuk:site_only"],
+    } as never);
+
+    expect(response.status).toBe(403);
+    expect(mockFns.buildInventoryAccessSession).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "staf-1" }),
+      ["masuk:create", "masuk:site_only"],
+    );
+    expect(mockFns.validateGudangSiteAccess).toHaveBeenCalledWith(
+      expect.anything(),
+      "gudang-1",
+      ["masuk:site_only", "barang:site_only", "gudang:site_only"],
+    );
+    expect(mockFns.createMasuk).not.toHaveBeenCalled();
   });
 });

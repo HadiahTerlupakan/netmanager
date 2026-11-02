@@ -1,4 +1,4 @@
-import { isSuperAdmin } from "@/lib/auth";
+import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
 import { prisma } from "@/modules/database";
 
@@ -23,6 +23,9 @@ import {
   type OpnameHistoryStats,
 } from "./inventory-opname-list.helpers";
 import { namaPelaku } from "../domain/riwayat-stock-opname";
+import { IZIN_PEMBATAS_OPNAME } from "../domain/izin-pembatas-site";
+import { OPNAME_BEDA_SITE_ERROR } from "../domain/opname-pesan";
+import { bolehAksesGudang } from "./lingkup-gudang";
 import {
   INVENTORY_ACTIVITY_ACTIONS,
   INVENTORY_ACTIVITY_SUBJECTS,
@@ -116,6 +119,27 @@ async function ensureTenantContextForNonSuperAdmin(user: InventoryUserContext) {
 }
 
 /**
+ * Tolak catatan opname yang gudangnya di luar lingkup site pengguna, dengan
+ * pembatas yang sama dengan daftar opname. Catatan yang tidak ada dibiarkan:
+ * repository yang melaporkan "tidak ditemukan".
+ */
+async function ensureOpnameSiteAccess(
+  opname: InventoryOpnameRecord | null,
+  user: InventoryUserContext,
+) {
+  if (!opname) return;
+
+  const bolehAkses = await bolehAksesGudang({
+    userId: user.id,
+    gudangId: opname.gudang.id,
+    permissions: user.permissions ?? (await getUserPermissions(user.id)),
+    isSuperAdmin: isSuperAdmin(user as never),
+    izinPembatas: IZIN_PEMBATAS_OPNAME,
+  });
+  if (!bolehAkses) throw new Error(OPNAME_BEDA_SITE_ERROR);
+}
+
+/**
  * Pelaku perubahan untuk jejak audit opname.
  *
  * Diambil dari sesi, bukan dari body permintaan: field `pic` pada catatan
@@ -152,12 +176,14 @@ export class InventoryOpnameService {
     return computeOpnameHistoryStats(where);
   }
 
-  /** Ambil satu record opname (tenant-scoped). */
+  /** Ambil satu record opname (tenant-scoped dan dibatasi site gudangnya). */
   async getOpnameRecord(
     input: GetInventoryOpnameRecordInput,
   ): Promise<InventoryOpnameRecord | null> {
     await ensureTenantContextForNonSuperAdmin(input.user);
-    return this.inventoryRepository.getOpnameRecord(input.id);
+    const opname = await this.inventoryRepository.getOpnameRecord(input.id);
+    await ensureOpnameSiteAccess(opname, input.user);
+    return opname;
   }
 
   /** Update opname dan sinkronkan stok. */
@@ -167,6 +193,7 @@ export class InventoryOpnameService {
     await ensureTenantContextForNonSuperAdmin(input.user);
     const { user, ...payload } = input;
     const opname = await this.inventoryRepository.getOpnameRecord(input.id);
+    await ensureOpnameSiteAccess(opname, user);
     const result = await this.inventoryRepository.updateOpname(
       payload,
       pelakuDari(user),
@@ -186,6 +213,7 @@ export class InventoryOpnameService {
   async deleteOpname(input: DeleteInventoryOpnameInput): Promise<void> {
     await ensureTenantContextForNonSuperAdmin(input.user);
     const opname = await this.inventoryRepository.getOpnameRecord(input.id);
+    await ensureOpnameSiteAccess(opname, input.user);
     await this.inventoryRepository.deleteOpname(
       input.id,
       pelakuDari(input.user),

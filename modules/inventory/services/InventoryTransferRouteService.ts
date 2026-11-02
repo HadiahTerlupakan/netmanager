@@ -7,7 +7,11 @@ import type { KondisiBarang } from "../types/asset.enums";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
-import { PEMBATASAN_SITE_GUDANG } from "../utils/validation";
+import type { LingkupSite } from "@/modules/roles/client";
+
+import { IZIN_PEMBATAS_TRANSFER } from "../domain/izin-pembatas-site";
+import type { ResolveLingkupSiteInput } from "./InventoryRouteService";
+import { gudangDalamLingkup, siteIdsSaringan } from "./lingkup-gudang";
 import {
   isTransferRejectedError,
   TRANSFER_MESSAGES,
@@ -25,11 +29,6 @@ import {
   recordInventoryActivity,
 } from "./inventory-activity-log";
 
-const TRANSFER_RESTRICTED_PERMISSIONS = [
-  "transfer:site_only",
-  ...PEMBATASAN_SITE_GUDANG,
-];
-
 const PRISMA_RECORD_NOT_FOUND = "P2025";
 
 interface InventoryTransferRepositoryPort {
@@ -39,7 +38,7 @@ interface InventoryTransferRepositoryPort {
     barangId?: string;
     dariGudangId?: string;
     keGudangId?: string;
-    siteId?: string;
+    siteIds?: string[];
   }): Promise<{ items: InventoryTransferRecord[]; total: number }>;
   createTransfer(
     data: Omit<CreateTransferInput, "tenantId">,
@@ -53,13 +52,17 @@ interface InventoryTransferRepositoryPort {
 }
 
 interface InventoryRouteServicePort {
-  resolveRestrictedSiteId(input: {
-    userId: string;
-    permissions: string[];
-    isSuperAdmin: boolean;
-    restrictedPermissions: string[];
-  }): Promise<string | undefined>;
+  resolveLingkupSite(input: ResolveLingkupSiteInput): Promise<LingkupSite>;
 }
+
+/**
+ * Sisi gudang yang wajib di dalam lingkup site pengguna.
+ *
+ * - `salah-satu`: membaca detail — transfer memang terlihat di daftar kedua site;
+ * - `keduanya`: ubah/hapus — menghapus transfer membalik stok di gudang asal
+ *   DAN tujuan, jadi aturannya sama dengan saat membuatnya.
+ */
+type SisiGudangWajib = "salah-satu" | "keduanya";
 
 interface ListTransfersRouteInput {
   userId: string;
@@ -89,13 +92,6 @@ interface UpdateTransferRouteInput extends TransferDetailRouteInput {
   body: Record<string, unknown>;
 }
 
-interface TransferSiteScopeInput {
-  userId: string;
-  permissions: string[];
-  isSuperAdmin: boolean;
-  siteId?: string;
-}
-
 export type InventoryTransferRouteResult<T> =
   | { success: true; data: T }
   | { success: false; status: number; error: string };
@@ -110,7 +106,8 @@ export class InventoryTransferRouteService {
 
   /** Ambil daftar transfer dengan filter dan site restriction. */
   async listTransfers(input: ListTransfersRouteInput) {
-    const siteId = await this.resolveTransferSiteId(input);
+    const lingkup = await this.resolveTransferLingkup(input);
+    const siteIds = siteIdsSaringan(lingkup, input.siteId);
     const { items: transferList, total } =
       await this.repository.findAllTransfers({
         skip: (input.page - 1) * input.limit,
@@ -118,7 +115,7 @@ export class InventoryTransferRouteService {
         ...(input.barangId ? { barangId: input.barangId } : {}),
         ...(input.dariGudangId ? { dariGudangId: input.dariGudangId } : {}),
         ...(input.keGudangId ? { keGudangId: input.keGudangId } : {}),
-        ...(siteId ? { siteId } : {}),
+        ...(siteIds ? { siteIds } : {}),
       });
 
     return {
@@ -186,7 +183,7 @@ export class InventoryTransferRouteService {
   ): Promise<
     InventoryTransferRouteResult<{ transfer: InventoryTransferRecord }>
   > {
-    const accessible = await this.getAccessibleTransfer(input);
+    const accessible = await this.getAccessibleTransfer(input, "salah-satu");
     if (accessible.success === false) return accessible;
 
     return { success: true, data: { transfer: accessible.data } };
@@ -203,7 +200,7 @@ export class InventoryTransferRouteService {
     const keterangan =
       typeof rawKeterangan === "string" ? rawKeterangan : undefined;
 
-    const accessible = await this.getAccessibleTransfer(input);
+    const accessible = await this.getAccessibleTransfer(input, "keduanya");
     if (accessible.success === false) return accessible;
 
     let transfer: InventoryTransferRecord;
@@ -237,7 +234,7 @@ export class InventoryTransferRouteService {
   async deleteTransfer(
     input: TransferDetailRouteInput,
   ): Promise<InventoryTransferRouteResult<null>> {
-    const accessible = await this.getAccessibleTransfer(input);
+    const accessible = await this.getAccessibleTransfer(input, "keduanya");
     if (accessible.success === false) return accessible;
 
     try {
@@ -267,27 +264,30 @@ export class InventoryTransferRouteService {
   /** Validasi akses site dan kembalikan transfer jika accessible. */
   private async getAccessibleTransfer(
     input: TransferDetailRouteInput,
+    sisiWajib: SisiGudangWajib,
   ): Promise<InventoryTransferRouteResult<InventoryTransferRecord>> {
     const transfer = await this.repository.findTransferById(input.id);
     if (!transfer) {
       return this.routeError(404, TRANSFER_MESSAGES.transferTidakAda);
     }
 
-    const restrictedSiteId = await this.resolveTransferSiteId(input);
-    if (!this.canAccessTransferSite(transfer, restrictedSiteId)) {
+    const lingkup = await this.resolveTransferLingkup(input);
+    if (!this.canAccessTransferSite(transfer, lingkup, "salah-satu")) {
       return this.routeError(403, TRANSFER_MESSAGES.transferBedaSite);
+    }
+    if (!this.canAccessTransferSite(transfer, lingkup, sisiWajib)) {
+      return this.routeError(403, TRANSFER_MESSAGES.transferSebagianBedaSite);
     }
 
     return { success: true, data: transfer };
   }
 
-  /** Cek apakah user bisa akses transfer berdasarkan site gudang sumber/tujuan. */
+  /** Cek akses transfer berdasarkan site gudang sumber/tujuan. */
   private canAccessTransferSite(
     transfer: InventoryTransferRecord,
-    restrictedSiteId?: string,
+    lingkup: LingkupSite,
+    sisiWajib: SisiGudangWajib,
   ) {
-    if (!restrictedSiteId) return true;
-
     const dariSiteIds =
       transfer.gudangDari?.sites?.map((site) => site.id) ||
       transfer.dariGudang?.sites?.map((site) => site.id) ||
@@ -297,21 +297,24 @@ export class InventoryTransferRouteService {
       transfer.keGudang?.sites?.map((site) => site.id) ||
       [];
 
-    return (
-      dariSiteIds.includes(restrictedSiteId) ||
-      keSiteIds.includes(restrictedSiteId)
-    );
+    const bolehDari = gudangDalamLingkup(lingkup, dariSiteIds);
+    const bolehKe = gudangDalamLingkup(lingkup, keSiteIds);
+    return sisiWajib === "keduanya"
+      ? bolehDari && bolehKe
+      : bolehDari || bolehKe;
   }
 
-  private async resolveTransferSiteId(input: TransferSiteScopeInput) {
-    return (
-      (await this.inventoryRouteService.resolveRestrictedSiteId({
-        userId: input.userId,
-        permissions: input.permissions,
-        isSuperAdmin: input.isSuperAdmin,
-        restrictedPermissions: TRANSFER_RESTRICTED_PERMISSIONS,
-      })) ?? input.siteId
-    );
+  private resolveTransferLingkup(input: {
+    userId: string;
+    permissions: string[];
+    isSuperAdmin: boolean;
+  }) {
+    return this.inventoryRouteService.resolveLingkupSite({
+      userId: input.userId,
+      permissions: input.permissions,
+      isSuperAdmin: input.isSuperAdmin,
+      restrictedPermissions: IZIN_PEMBATAS_TRANSFER,
+    });
   }
 
   /** Penolakan transfer menjadi hasil gagal; error lain dilempar ke route (500). */

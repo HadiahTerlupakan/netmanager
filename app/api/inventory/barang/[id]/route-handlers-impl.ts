@@ -3,7 +3,6 @@ import { hasPermission } from "@/lib/rbac";
 import { logger } from "@/lib/logger";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import {
-  getInventoryRouteService,
   inventoryBarangRouteService,
   PESAN_DATA_TIDAK_TERBACA,
   pesanGagalHapus,
@@ -20,9 +19,6 @@ type InventoryBarangRouteFailure = Extract<
   { success: false }
 >;
 
-const inventoryRouteService = getInventoryRouteService();
-const SITE_RESTRICTION_PERMISSIONS = ["barang:site_only", "gudang:site_only"];
-
 /** Check whether inventory barang route service returned a failure. */
 function isInventoryBarangRouteFailure(
   result: InventoryBarangRouteResult<unknown>,
@@ -30,19 +26,17 @@ function isInventoryBarangRouteFailure(
   return !result.success;
 }
 
-/** Resolve restricted site id for current user. */
-async function resolveRestrictedSiteId(user: {
+/** Identitas akses pengguna yang sedang login untuk service barang. */
+async function toPengguna(user: {
   id: string;
   role?: string;
   isSuperAdmin?: boolean;
 }) {
-  const permissions = await getUserPermissions(user.id);
-  return inventoryRouteService.resolveRestrictedSiteId({
+  return {
     userId: user.id,
-    permissions,
+    permissions: await getUserPermissions(user.id),
     isSuperAdmin: isSuperAdmin(user),
-    restrictedPermissions: SITE_RESTRICTION_PERMISSIONS,
-  });
+  };
 }
 
 /** Log successful barang request. */
@@ -66,11 +60,11 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   }
 
   try {
-    const siteId = await resolveRestrictedSiteId(user);
+    const pengguna = await toPengguna(user);
     const dbStart = Date.now();
     const result = await inventoryBarangRouteService.getBarangDetail({
       id,
-      siteId,
+      pengguna,
     });
 
     if (!result.found) {
@@ -111,11 +105,11 @@ export const PUT = createHandler({ auth: true }, async (req, ctx) => {
   }
 
   try {
-    const siteId = await resolveRestrictedSiteId(user);
+    const pengguna = await toPengguna(user);
     const dbStart = Date.now();
     const result = await inventoryBarangRouteService.updateBarang({
       id,
-      siteId,
+      pengguna,
       body,
     });
 
@@ -167,11 +161,11 @@ export const DELETE = createHandler({ auth: true }, async (_req, ctx) => {
   }
 
   try {
-    const siteId = await resolveRestrictedSiteId(user);
+    const pengguna = await toPengguna(user);
     const dbStart = Date.now();
     const result = await inventoryBarangRouteService.deleteBarang({
       id,
-      siteId,
+      pengguna,
     });
 
     if (isInventoryBarangRouteFailure(result)) {

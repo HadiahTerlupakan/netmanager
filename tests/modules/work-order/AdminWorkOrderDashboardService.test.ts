@@ -157,6 +157,41 @@ describe("AdminWorkOrderDashboardService", () => {
     });
   });
 
+  it("meneruskan siteId ke widget beban departemen, top performer, top assist, dan respons admin", async () => {
+    const service = new AdminWorkOrderDashboardService();
+
+    await service.getDashboardData({
+      user: { id: "user-1", role: "ADMIN" },
+      permissions: ["work_order_dashboard:site_only"],
+      period: "monthly",
+    });
+
+    expect(mockFns.getDepartmentWorkload).toHaveBeenCalledWith(
+      undefined,
+      "site-1",
+    );
+    expect(mockFns.getTopPerformers).toHaveBeenCalledWith(
+      5,
+      expect.any(Date),
+      expect.any(Date),
+      undefined,
+      "site-1",
+    );
+    expect(mockFns.getTopAssists).toHaveBeenCalledWith(
+      5,
+      expect.any(Date),
+      expect.any(Date),
+      undefined,
+      "site-1",
+    );
+    expect(mockFns.getAdminResponseStats).toHaveBeenCalledWith(
+      expect.any(Date),
+      expect.any(Date),
+      undefined,
+      "site-1",
+    );
+  });
+
   it("returns an empty restricted analytics payload when site access is required but no site is assigned", async () => {
     mockFns.userFindUnique.mockResolvedValue({
       id: "user-1",

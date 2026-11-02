@@ -22,6 +22,26 @@ import type {
 const HASH_SALT_ROUNDS = 10;
 const USER_SCHEDULE_CACHE_PREFIX = "user:schedule:";
 
+/**
+ * Apakah admin boleh bertindak atas user yang berada di `targetSiteId`.
+ *
+ * `canAccessSite` (modules/roles) sengaja meloloskan target tanpa site — benar
+ * untuk data bersama seperti profil PPP global, tetapi salah untuk user: admin
+ * ber-`users:site_only` dulu bisa melihat, mengubah, menghapus, dan memaksa
+ * logout user yang belum ditugaskan ke site mana pun. User tanpa site kini di
+ * luar lingkup admin terbatas; hanya admin tanpa pembatasan yang bisa
+ * mengurusnya (mis. menugaskan site pertamanya).
+ */
+export function canAccessUserSite(
+  session: AdminSession,
+  targetSiteId: string | null | undefined,
+): boolean {
+  if (!targetSiteId) {
+    return !checkSiteRestriction(session, "users").isRestricted;
+  }
+  return canAccessSite(session, "users", targetSiteId);
+}
+
 /** Membuat hasil gagal terstandar untuk route admin user. */
 export function fail(code: number, message: string): UserRouteResult<never> {
   return { ok: false, error: { code, message } };
@@ -83,7 +103,7 @@ export function validateScopedUpdate(
     "users",
   );
   if (!isRestricted || isSelfUpdate) return { ok: true, data: null };
-  if (!canAccessSite(session, "users", currentUser.siteId)) {
+  if (!canAccessUserSite(session, currentUser.siteId)) {
     return fail(403, "Anda hanya dapat mengupdate user di site Anda");
   }
   if (payload.siteId && payload.siteId !== primarySiteId) {

@@ -22,6 +22,7 @@ vi.mock("@/modules/finance", () => ({
     verifyManualPayment = mockFns.verifyManualPayment;
   },
   isRouteServiceError: () => false,
+  resolveManualPaymentAllowedSiteIds: (): string[] | undefined => undefined,
 }));
 
 vi.mock("@/modules/roles", () => ({

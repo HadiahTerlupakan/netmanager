@@ -1,4 +1,5 @@
 import { AttendanceReportRepository } from "./AttendanceReportRepository";
+import type { ReportUserScope } from "./AttendanceReportRankingRepository";
 
 export class AttendanceReportDelegates {
   constructor(
@@ -58,12 +59,14 @@ export class AttendanceReportDelegates {
     endDate: Date,
     groupBy: "department" | "site",
     tenantId?: string,
+    scope?: ReportUserScope,
   ) {
     return this.reportRepository.getGroupedStats(
       startDate,
       endDate,
       groupBy,
       tenantId,
+      scope,
     );
   }
 

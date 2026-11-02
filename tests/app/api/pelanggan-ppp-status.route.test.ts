@@ -26,7 +26,10 @@ vi.mock("@/lib/logger", () => ({
     debug: vi.fn(),
   },
 }));
-vi.mock("@/modules/pelanggan", () => ({
+vi.mock("@/modules/pelanggan", async (importOriginal) => ({
+  withPelangganPppSiteScope: (
+    await importOriginal<typeof import("@/modules/pelanggan")>()
+  ).withPelangganPppSiteScope,
   PelangganPppRouteService: class {
     updateCustomerStatus = mockFns.updateCustomerStatus;
   },

@@ -68,15 +68,27 @@ function toCreatedKeluarPayload(
 }
 
 /** Handle stock breakdown request when requested by query flag. */
-async function handleStockBreakdown(searchParams: URLSearchParams) {
+async function handleStockBreakdown(
+  searchParams: URLSearchParams,
+  user: { id: string; role?: string; isSuperAdmin?: boolean },
+  permissions: string[],
+) {
   const barangId = searchParams.get("barangId");
   const gudangId = searchParams.get("gudangId");
   if (!searchParams.has("checkStock") || !barangId || !gudangId) return null;
 
   try {
-    return apiSuccess(
-      await inventoryKeluarRouteService.getStockBreakdown(barangId, gudangId),
-    );
+    const result = await inventoryKeluarRouteService.getStockBreakdown({
+      barangId,
+      gudangId,
+      userId: user.id,
+      permissions,
+      isSuperAdmin: isSuperAdmin(user),
+    });
+    if (isInventoryKeluarRouteFailure(result)) {
+      return inventoryFailureResponse(result);
+    }
+    return apiSuccess(result.data);
   } catch (error: unknown) {
     logger.error(
       "Error checking stock breakdown",
@@ -101,6 +113,8 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
 
   const stockBreakdownResponse = await handleStockBreakdown(
     req.nextUrl.searchParams,
+    user,
+    ctx.permissions,
   );
   if (stockBreakdownResponse) return stockBreakdownResponse;
 
@@ -157,7 +171,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   if (parsed.ok === false) return parsed.response;
   const body = parsed.body;
 
-  const gudangDenied = await ensureCreateGudangAccess(user, body.gudangId);
+  const gudangDenied = await ensureCreateGudangAccess(ctx, body, "keluar");
   if (gudangDenied) return gudangDenied;
 
   try {

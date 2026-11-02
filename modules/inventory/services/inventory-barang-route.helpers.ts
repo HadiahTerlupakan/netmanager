@@ -1,4 +1,7 @@
+import type { LingkupSite } from "@/modules/roles/client";
+
 import type { UpdateBarangInput } from "../domain/ports/IInventoryOperationRepository";
+import { gudangDalamLingkup } from "./lingkup-gudang";
 
 interface InventoryBarangRecord {
   barangGudang?: InventoryBarangStockRecord[];
@@ -66,12 +69,14 @@ export function toUpdateBarangData(
   };
 }
 
-/** Tambahkan ringkasan stok barang untuk site tertentu. */
+/** Tambahkan ringkasan stok barang, hanya dari gudang di dalam lingkup site. */
 export function withStockSummary<T extends InventoryBarangRecord>(
   barang: T,
-  siteId?: string,
+  lingkup: LingkupSite,
 ): T & { barangGudang: InventoryBarangStockRecord[]; totalStock: number } {
-  const barangGudang = filterBarangGudang(barang.barangGudang || [], siteId);
+  const barangGudang = (barang.barangGudang || []).filter((stock) =>
+    stockDalamLingkup(stock, lingkup),
+  );
   return {
     ...barang,
     barangGudang,
@@ -79,25 +84,25 @@ export function withStockSummary<T extends InventoryBarangRecord>(
   };
 }
 
-/** Cek apakah barang bisa diakses dari site tertentu. */
+/**
+ * Cek apakah barang boleh diubah/dihapus dalam lingkup site ini: barang harus
+ * punya stok di setidaknya satu gudang site pengguna. Pengguna dibatasi tanpa
+ * site tidak pernah lolos.
+ */
 export function canAccessBarang(
   barang: InventoryBarangRecord,
-  siteId?: string,
+  lingkup: LingkupSite,
 ) {
-  if (!siteId) return true;
+  if (!lingkup.dibatasi) return true;
   return (barang.barangGudang || []).some((stock) =>
-    stockBelongsToSite(stock, siteId),
+    stockDalamLingkup(stock, lingkup),
   );
 }
 
-function filterBarangGudang(
-  barangGudang: InventoryBarangStockRecord[],
-  siteId?: string,
+function stockDalamLingkup(
+  stock: InventoryBarangStockRecord,
+  lingkup: LingkupSite,
 ) {
-  if (!siteId) return barangGudang;
-  return barangGudang.filter((stock) => stockBelongsToSite(stock, siteId));
-}
-
-function stockBelongsToSite(stock: InventoryBarangStockRecord, siteId: string) {
-  return stock.gudang?.sites?.some((site) => site.id === siteId) ?? false;
+  const gudangSiteIds = stock.gudang?.sites?.map((site) => site.id) ?? [];
+  return gudangDalamLingkup(lingkup, gudangSiteIds);
 }

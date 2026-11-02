@@ -9,6 +9,8 @@ import {
   processRecentActivities,
   sortStockAlerts,
 } from "./inventory-dashboard.service-helpers";
+import { IZIN_PEMBATAS_BARANG } from "../domain/izin-pembatas-site";
+import { lingkupSiteGudang, siteIdsSaringan } from "./lingkup-gudang";
 import {
   fetchInventoryDashboardQueries,
   getInventoryStockAlerts,
@@ -25,7 +27,6 @@ const RECENT_ACTIVITY_LIMIT = 20;
 
 interface InventoryDashboardSession {
   id: string;
-  siteId?: string | null;
   role?: string;
   isSuperAdmin?: boolean;
 }
@@ -43,10 +44,9 @@ export class InventoryDashboardService {
     endDate?: string | null;
   }) {
     try {
-      const permissions = await getUserPermissions(input.session.id);
-      const siteId = this.resolveRestrictedSiteId(input.session, permissions);
+      const siteIds = await this.resolveDashboardSiteIds(input.session);
       const trendRange = this.buildTrendRange(input.startDate, input.endDate);
-      const filters = this.buildFilters(siteId);
+      const filters = this.buildFilters(siteIds);
       const dashboardData = await fetchInventoryDashboardQueries(
         filters,
         trendRange,
@@ -55,7 +55,7 @@ export class InventoryDashboardService {
         dashboardData.fastMovingData,
       );
       const slowMoving = buildSlowMovingItems(dashboardData.slowMovingData);
-      const alerts = await getInventoryStockAlerts(sortStockAlerts, siteId);
+      const alerts = await getInventoryStockAlerts(sortStockAlerts, siteIds);
       const recentActivities = processRecentActivities({
         masuk: dashboardData.recentMasuk,
         keluar: dashboardData.recentKeluar,
@@ -90,21 +90,19 @@ export class InventoryDashboardService {
     }
   }
 
-  /** Resolve the effective site restriction from permissions. */
-  private resolveRestrictedSiteId(
-    session: InventoryDashboardSession,
-    permissions: string[],
-  ) {
-    const restrictedPermissions = ["barang:site_only", "gudang:site_only"];
-    const hasRestriction = restrictedPermissions.some((permission) =>
-      permissions.includes(permission),
-    );
-
-    if (isSuperAdmin(session) || !hasRestriction) {
-      return undefined;
-    }
-
-    return session.siteId || undefined;
+  /**
+   * Site yang boleh tampil di dashboard. Memakai seluruh site pengguna (utama +
+   * `userSites`), dan pengguna dibatasi tanpa site mendapat `[]` — dashboard
+   * kosong, bukan seluruh tenant.
+   */
+  private async resolveDashboardSiteIds(session: InventoryDashboardSession) {
+    const lingkup = await lingkupSiteGudang({
+      userId: session.id,
+      permissions: await getUserPermissions(session.id),
+      isSuperAdmin: isSuperAdmin(session),
+      izinPembatas: IZIN_PEMBATAS_BARANG,
+    });
+    return siteIdsSaringan(lingkup);
   }
 
   /**
@@ -115,14 +113,15 @@ export class InventoryDashboardService {
    * atau bentuk filter tertangkap kompilator di sini, bukan lolos sampai ke
    * pemanggilan Prisma.
    */
-  private buildFilters(siteId?: string): InventoryDashboardFilters {
-    if (!siteId) {
+  private buildFilters(siteIds?: string[]): InventoryDashboardFilters {
+    if (!siteIds) {
       return { gudangFilter: { isActive: true }, transactionFilter: {} };
     }
 
+    const sites = { some: { id: { in: siteIds } } };
     return {
-      gudangFilter: { isActive: true, sites: { some: { id: siteId } } },
-      transactionFilter: { gudang: { sites: { some: { id: siteId } } } },
+      gudangFilter: { isActive: true, sites },
+      transactionFilter: { gudang: { sites } },
     };
   }
 

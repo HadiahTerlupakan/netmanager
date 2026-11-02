@@ -1,4 +1,6 @@
 import { createRouteServiceError } from "@/lib/api/route-service-error";
+import { TANPA_BATAS, type LingkupSite } from "@/modules/roles";
+import { buildRabSiteWhere } from "./RabProjectSiteAccessService";
 import { getExpensesByRabProject } from "@/modules/finance/public-queries";
 import {
   hasActiveInvestorProfitShare,
@@ -198,10 +200,14 @@ export class RabProjectRouteService {
   }
 
   /** Build RAB bottleneck dashboard metrics. */
-  async getDashboardMetrics() {
-    const projects = await this.rabProjectRepository.findManyWithDetails({
-      OR: [{ status: "PENDING_APPROVAL" }, { status: "APPROVED" }],
-    });
+  async getDashboardMetrics(scope: LingkupSite = TANPA_BATAS) {
+    const siteWhere = buildRabSiteWhere(scope);
+    const projects = siteWhere
+      ? await this.rabProjectRepository.findManyWithDetails({
+          OR: [{ status: "PENDING_APPROVAL" }, { status: "APPROVED" }],
+          ...siteWhere,
+        })
+      : [];
 
     const pendingProjects = projects
       .filter((project) => project.status === "PENDING_APPROVAL")

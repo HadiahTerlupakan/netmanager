@@ -19,6 +19,7 @@ export async function getRecentWorkOrders(
 ): Promise<WorkOrderWithRelations[]> {
   const where: Record<string, unknown> = {};
   if (filters?.departmentId) where.departmentId = filters.departmentId;
+  if (filters?.siteId) where.siteId = filters.siteId;
   if (filters?.assignedToId !== undefined)
     where.assignedToId = filters.assignedToId;
   if (filters?.status) {
@@ -101,10 +102,11 @@ export async function getRecentWorkOrders(
   }) as Promise<WorkOrderWithRelations[]>;
 }
 
-/** Get department workload statistics. */
+/** Get department workload statistics, dibatasi site bila `siteId` diisi. */
 export async function getDepartmentWorkload(
   prisma: PrismaClient,
   departmentId?: string,
+  siteId?: string,
 ): Promise<
   Array<{
     departmentId: string | null;
@@ -125,20 +127,24 @@ export async function getDepartmentWorkload(
 
   const workload = await Promise.all(
     departments.map(async (department) => {
+      const scopeWhere = {
+        departmentId: department.id,
+        ...(siteId ? { siteId } : {}),
+      };
       const [total, pending, inProgress, completed] = await Promise.all([
-        prisma.workOrders.count({ where: { departmentId: department.id } }),
+        prisma.workOrders.count({ where: scopeWhere }),
         prisma.workOrders.count({
-          where: { departmentId: department.id, status: "PENDING" },
+          where: { ...scopeWhere, status: "PENDING" },
         }),
         prisma.workOrders.count({
           where: {
-            departmentId: department.id,
+            ...scopeWhere,
             status: { in: getInProgressStatuses() },
           },
         }),
         prisma.workOrders.count({
           where: {
-            departmentId: department.id,
+            ...scopeWhere,
             status: { in: ["COMPLETED", "VERIFIED"] },
           },
         }),

@@ -5,6 +5,7 @@ import { hasPermission } from "@/lib/rbac";
 import { AdminSalesRouteService } from "@/modules/marketing";
 import { apiSuccess, ApiErrors } from "@/lib/api-response";
 import { isSuperAdmin } from "@/lib/auth";
+import { resolveAllowedSiteIds } from "@/lib/authorization/allowed-site-ids";
 import { getFeatureFlagService } from "@/modules/feature-flags";
 
 const adminSalesRouteService = new AdminSalesRouteService();
@@ -35,15 +36,16 @@ export async function GET(request: NextRequest) {
   // Site restriction only applies if user has sales_dashboard:site_only permission
   const user = session.user as {
     id: string;
+    siteId?: string | null;
     siteIds?: string[];
     isSuperAdmin?: boolean;
   };
-  // `?? []` disengaja: sesi tanpa daftar site pada pengguna yang DIBATASI
-  // berarti tidak ada site yang boleh ia lihat. Membiarkannya `undefined` akan
-  // terbaca sebagai "tanpa batas" dan justru membuka seluruh tenant.
+  // Pengguna DIBATASI tanpa site sama sekali mendapat daftar kosong (bukan
+  // `undefined`, yang terbaca "tanpa batas"). `siteIds: []` dengan `siteId`
+  // legacy tetap memakai site legacy itu.
   const allowedSiteIds =
     !isSuperAdmin(user) && (await hasPermission("sales_dashboard:site_only"))
-      ? (user.siteIds ?? [])
+      ? resolveAllowedSiteIds(user)
       : undefined;
 
   const { searchParams } = new URL(request.url);

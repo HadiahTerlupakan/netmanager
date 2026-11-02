@@ -8,12 +8,18 @@ import {
   ensureCanvasingStats,
 } from "./work-order-repository-analytics-helpers";
 
+/** Cakupan site/departemen yang membatasi statistik respons admin. */
+export type AdminResponseScope = {
+  departmentId?: string;
+  siteId?: string;
+};
+
 /** Get admin response statistics with weighted KPI metrics. */
 export async function getAdminResponseStats(
   prisma: PrismaClient,
   dateFrom: Date,
   dateTo: Date,
-  departmentId?: string,
+  scope: AdminResponseScope = {},
 ): Promise<
   Array<{
     userId: string;
@@ -29,10 +35,19 @@ export async function getAdminResponseStats(
     avgCanvasingTimeMinutes: number;
   }>
 > {
-  const updates = await fetchAdminResponseUpdates(prisma, dateFrom, dateTo);
+  const updates = await fetchAdminResponseUpdates(
+    prisma,
+    dateFrom,
+    dateTo,
+    scope,
+  );
 
-  const userStats = accumulateAdminResponseStats(updates, departmentId);
-  await mergeCanvasingApprovalStats(prisma, userStats, dateFrom, dateTo);
+  const userStats = accumulateAdminResponseStats(updates);
+  await mergeCanvasingApprovalStats(prisma, userStats, {
+    dateFrom,
+    dateTo,
+    scope,
+  });
   await hydrateUnknownSalesUsers(prisma, userStats);
 
   return Object.entries(userStats)
@@ -73,15 +88,34 @@ type CanvasingApproval = {
 };
 type KPIStatMap = Record<string, ReturnType<typeof createInitialUserKPIStats>>;
 
+/**
+ * Saring work order sesuai cakupan pemanggil di database, bukan di memori,
+ * supaya role ber-`site_only` tidak pernah memuat update dari site lain.
+ */
+function buildScopedWorkOrderWhere(scope: AdminResponseScope) {
+  return {
+    ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
+    ...(scope.siteId ? { siteId: scope.siteId } : {}),
+  };
+}
+
+function hasScopeFilter(scope: AdminResponseScope) {
+  return Boolean(scope.departmentId || scope.siteId);
+}
+
 async function fetchAdminResponseUpdates(
   prisma: PrismaClient,
   dateFrom: Date,
   dateTo: Date,
+  scope: AdminResponseScope,
 ) {
   return prisma.workOrderUpdates.findMany({
     where: {
       createdAt: { gte: dateFrom, lte: dateTo },
       createdById: { not: null },
+      ...(hasScopeFilter(scope)
+        ? { workOrders: buildScopedWorkOrderWhere(scope) }
+        : {}),
     },
     include: {
       workOrders: {
@@ -111,17 +145,13 @@ async function fetchAdminResponseUpdates(
   });
 }
 
-function accumulateAdminResponseStats(
-  updates: AdminUpdate[],
-  departmentId?: string,
-): KPIStatMap {
+function accumulateAdminResponseStats(updates: AdminUpdate[]): KPIStatMap {
   const userStats: KPIStatMap = {};
   const processedResponsePairs = new Set<string>();
   const processedVerifyPairs = new Set<string>();
 
   updates.forEach((update) => {
     if (!update.user || !update.createdById) return;
-    if (departmentId && update.workOrders.departmentId !== departmentId) return;
 
     initializeUserStats(userStats, update);
     trackResponseStat(userStats, update, processedResponsePairs);
@@ -199,16 +229,23 @@ function trackCompletionStat(userStats: KPIStatMap, update: AdminUpdate) {
   userStats[userId].completedCount += 1;
 }
 
+/**
+ * Canvasing tidak punya site/departemen sendiri; cakupannya diturunkan dari
+ * work order-nya. Saat pemanggil dibatasi, canvasing tanpa work order ikut
+ * tersaring keluar (fail closed) karena site-nya tidak bisa dibuktikan.
+ */
 async function mergeCanvasingApprovalStats(
   prisma: PrismaClient,
   userStats: KPIStatMap,
-  dateFrom: Date,
-  dateTo: Date,
+  window: { dateFrom: Date; dateTo: Date; scope: AdminResponseScope },
 ) {
   const approvals = await prisma.canvasing.findMany({
     where: {
-      approvedAt: { gte: dateFrom, lte: dateTo },
+      approvedAt: { gte: window.dateFrom, lte: window.dateTo },
       approvedBy: { not: null },
+      ...(hasScopeFilter(window.scope)
+        ? { workOrder: buildScopedWorkOrderWhere(window.scope) }
+        : {}),
     },
     select: {
       approvedBy: true,

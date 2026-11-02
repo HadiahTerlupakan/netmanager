@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockFns = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   testConnection: vi.fn(),
+  permissions: [] as string[],
 }));
 
 vi.mock("@/lib/api", async (importActual) => ({
@@ -13,14 +14,21 @@ vi.mock("@/lib/api", async (importActual) => ({
       handler: (req: Request, ctx: unknown) => Promise<Response>,
     ) =>
     (req: Request) =>
-      handler(req, { session: { user: { id: "u1", tenantId: "tenant-1" } } }),
+      handler(req, {
+        session: { user: { id: "u1", tenantId: "tenant-1" } },
+        permissions: mockFns.permissions,
+      }),
 }));
 
 vi.mock("@/lib/rbac", () => ({ hasPermission: mockFns.hasPermission }));
 
 vi.mock("@/modules/network", async () => {
   const vpnHttp = await import("@/modules/network/vpn/vpnHttpErrors");
+  const access =
+    await import("@/modules/network/services/mikrotik-router.access");
   return {
+    RouterAccessDeniedError: access.RouterAccessDeniedError,
+    RouterNotFoundError: access.RouterNotFoundError,
     MikroTikRouterService: class {
       testConnection = mockFns.testConnection;
     },
@@ -46,6 +54,7 @@ describe("POST /api/mikrotik-routers/test-connection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFns.hasPermission.mockResolvedValue(true);
+    mockFns.permissions = ["mikrotik:read"];
   });
 
   it("meneruskan vpnDraftId ke service", async () => {
@@ -75,5 +84,43 @@ describe("POST /api/mikrotik-routers/test-connection", () => {
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("Alamat ini khusus jaringan VPN");
+  });
+
+  it("meneruskan mikrotik:site_only ke service", async () => {
+    mockFns.permissions = ["mikrotik:read", "mikrotik:site_only"];
+    mockFns.testConnection.mockResolvedValue({
+      apiResult: { success: true },
+      routerInfo: null,
+    });
+
+    await post({ routerId: "r1" });
+
+    expect(mockFns.testConnection).toHaveBeenCalledWith(
+      expect.objectContaining({ routerId: "r1", restrictedToOwnSite: true }),
+    );
+  });
+
+  it("role wildcard non-super tidak dianggap dibatasi", async () => {
+    mockFns.permissions = ["*"];
+    mockFns.testConnection.mockResolvedValue({
+      apiResult: { success: true },
+      routerInfo: null,
+    });
+
+    await post({ routerId: "r1" });
+
+    expect(mockFns.testConnection).toHaveBeenCalledWith(
+      expect.objectContaining({ restrictedToOwnSite: false }),
+    );
+  });
+
+  it("router di luar site dijawab 403", async () => {
+    const { RouterAccessDeniedError } =
+      await import("@/modules/network/services/mikrotik-router.access");
+    mockFns.testConnection.mockRejectedValue(new RouterAccessDeniedError("x"));
+
+    const res = await post({ routerId: "r1" });
+
+    expect(res.status).toBe(403);
   });
 });

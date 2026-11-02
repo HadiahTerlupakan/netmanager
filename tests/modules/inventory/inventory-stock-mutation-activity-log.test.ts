@@ -25,7 +25,7 @@ const GUDANG = {
 const BARANG = { id: "b-1", kode: "KBL", nama: "Kabel 1 core", satuan: "m" };
 
 function siteResolver() {
-  return { resolveRestrictedSiteId: vi.fn().mockResolvedValue(undefined) };
+  return { resolveLingkupSite: vi.fn().mockResolvedValue({ dibatasi: false }) };
 }
 
 function lastActivity() {

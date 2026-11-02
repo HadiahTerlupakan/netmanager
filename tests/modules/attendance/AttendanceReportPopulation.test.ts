@@ -172,4 +172,25 @@ describe("AttendanceService report population parity", () => {
 
     expect(result.summary.alphaCount).toBe(1);
   });
+
+  // Regresi: grafik per site/departemen dihitung tanpa lingkup, sehingga admin
+  // ber-site_only melihat angka seluruh site.
+  it("meneruskan lingkup site/departemen ke agregasi terkelompok", async () => {
+    await service.getReportData(
+      new Date("2026-03-01"),
+      new Date("2026-03-31"),
+      "site-1",
+      "dept-1",
+    );
+
+    for (const groupBy of ["site", "department"]) {
+      expect(mockFns.getGroupedStats).toHaveBeenCalledWith(
+        expect.any(Date),
+        expect.any(Date),
+        groupBy,
+        undefined,
+        { siteId: "site-1", departmentId: "dept-1" },
+      );
+    }
+  });
 });

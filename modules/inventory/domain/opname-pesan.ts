@@ -21,6 +21,10 @@ export const OPNAME_PESAN = {
     "Data opname tidak terbaca. Muat ulang halaman lalu coba lagi.",
   catatanTidakDitemukan:
     "Catatan opname ini tidak ditemukan, mungkin sudah dihapus. Kembali ke daftar opname lalu muat ulang.",
+  gudangBedaSite:
+    "Gudang ini milik site lain, jadi opnamenya tidak bisa Anda buka. Pilih gudang di site Anda, atau minta admin menambahkan site gudang ini ke akun Anda.",
+  catatanBedaSite:
+    "Catatan opname ini milik gudang site lain, jadi tidak bisa Anda buka atau ubah. Minta admin kalau catatan ini memang harus Anda urus.",
   catatanBukanMilikAnda:
     "Catatan opname ini milik perusahaan lain, jadi tidak bisa dibuka atau diubah.",
   gagalSimpan:
@@ -28,6 +32,13 @@ export const OPNAME_PESAN = {
   gagalHapus:
     "Catatan opname belum terhapus karena ada gangguan di server. Tidak ada angka yang berubah. Coba hapus sekali lagi; kalau tetap gagal, laporkan ke admin.",
 } as const;
+
+/**
+ * Pesan teknis saat catatan opname dibuka dari luar lingkup site gudangnya.
+ * Diterjemahkan `mapOpnameError` menjadi {@link OPNAME_PESAN.catatanBedaSite}.
+ */
+export const OPNAME_BEDA_SITE_ERROR =
+  "Akses ditolak: catatan opname di gudang site lain";
 
 /** Pesan saat rincian kondisi (baik + rusak + expire) melebihi stok fisik. */
 export function pesanKondisiMelebihiStokFisik(

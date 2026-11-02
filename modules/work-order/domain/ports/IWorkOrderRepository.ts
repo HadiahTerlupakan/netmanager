@@ -159,6 +159,7 @@ export interface IWorkOrderRepository {
     dateFrom: Date,
     dateTo: Date,
     departmentId?: string,
+    siteId?: string,
   ): Promise<
     Array<{
       userName: string;

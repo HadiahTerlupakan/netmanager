@@ -1,12 +1,17 @@
 import { isSuperAdmin } from "@/lib/auth";
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { isRouteServiceError } from "@/lib/api/route-service-error";
-import { RabProjectRouteService } from "@/modules/proyek";
+import {
+  RabProjectRouteService,
+  RabProjectSiteAccessService,
+  resolveRabSiteScope,
+} from "@/modules/proyek";
 import { hasPermission } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
 const rabProjectRouteService = new RabProjectRouteService();
+const rabProjectSiteAccess = new RabProjectSiteAccessService();
 
 export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   const user = ctx.session!.user;
@@ -18,6 +23,11 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
       "Akses ditolak. Anda memerlukan permission: expense:read",
     );
   }
+
+  await rabProjectSiteAccess.assertProjectAccessible(
+    ctx.params.id,
+    resolveRabSiteScope(user, ctx.permissions),
+  );
 
   try {
     const report = await rabProjectRouteService.getRevisionProfitLoss(

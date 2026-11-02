@@ -63,7 +63,7 @@ export function buildWorkOrderDashboardAccessFilters(
   return {
     ...(departmentId.value ? { departmentId: departmentId.value } : {}),
     ...(siteId.value ? { siteId: siteId.value } : {}),
-    emptyResponse: departmentId.isEmpty || siteId.isEmpty,
+    emptyResponse: Boolean(departmentId.isEmpty || siteId.isEmpty),
   };
 }
 

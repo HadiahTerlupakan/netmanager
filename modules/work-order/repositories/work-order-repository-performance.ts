@@ -20,9 +20,10 @@ export async function getTopPerformers(
   dateFrom?: Date,
   dateTo?: Date,
   departmentId?: string,
+  siteId?: string,
 ): Promise<TopPerformer[]> {
   const completedWorkOrders = await prisma.workOrders.findMany({
-    where: buildLeadPerformerWhere({ dateFrom, dateTo, departmentId }),
+    where: buildLeadPerformerWhere({ dateFrom, dateTo, departmentId, siteId }),
     select: {
       startedAt: true,
       completedAt: true,
@@ -82,6 +83,7 @@ export async function getTopAssists(
   dateFrom?: Date,
   dateTo?: Date,
   departmentId?: string,
+  siteId?: string,
 ): Promise<TopPerformer[]> {
   const partnerAssignments = await prisma.workOrderAssignments.findMany({
     where: {
@@ -91,6 +93,7 @@ export async function getTopAssists(
         dateFrom,
         dateTo,
         departmentId,
+        siteId,
       }),
     },
     include: {

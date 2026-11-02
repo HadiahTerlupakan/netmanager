@@ -1,5 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
-import { RabProjectRouteService } from "@/modules/proyek";
+import { RabProjectRouteService, resolveRabSiteScope } from "@/modules/proyek";
 
 const rabProjectRouteService = new RabProjectRouteService();
 
@@ -12,6 +12,8 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
     return ApiErrors.forbidden("Akses ditolak");
   }
 
-  const metrics = await rabProjectRouteService.getDashboardMetrics();
+  const metrics = await rabProjectRouteService.getDashboardMetrics(
+    resolveRabSiteScope(ctx.session!.user, ctx.permissions),
+  );
   return apiSuccess(metrics);
 });

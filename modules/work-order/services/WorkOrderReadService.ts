@@ -106,7 +106,7 @@ export class WorkOrderReadService {
   /** Ambil daftar work order terbaru. */
   async getRecentWorkOrders(
     limit = 5,
-    filters: { departmentId?: string },
+    filters: { departmentId?: string; siteId?: string },
   ): Promise<ServiceResult<unknown[]>> {
     try {
       const workOrders = await this.repository.getRecentWorkOrders(

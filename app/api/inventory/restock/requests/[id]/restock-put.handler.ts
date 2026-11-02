@@ -16,6 +16,10 @@ import {
   describeRestockValidationError,
   restockUpdateSchema,
 } from "@/lib/validations/restock";
+import {
+  ensureRestockGudangSiteAccess,
+  ensureRestockRequestSiteAccess,
+} from "../../_lib/restock-site-access";
 
 const inventoryRouteService = getInventoryRouteService();
 
@@ -66,6 +70,14 @@ export async function handleRestockPutRequest(req: NextRequest, id: string) {
 
   const { items, jasaItems, gudangId, keterangan } = parsed.data;
   const tenantId = session.user.tenantId as string;
+  const siteDenied =
+    (await ensureRestockRequestSiteAccess({
+      user: session.user,
+      purchaseRequestId: id,
+      tenantId,
+    })) ??
+    (await ensureRestockGudangSiteAccess({ user: session.user, gudangId }));
+  if (siteDenied) return siteDenied;
   const existing = await inventoryRouteService.getPurchaseRequestById({
     id,
     tenantId,

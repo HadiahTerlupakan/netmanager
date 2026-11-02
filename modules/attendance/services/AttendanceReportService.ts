@@ -98,11 +98,19 @@ export class AttendanceReportService {
         siteId,
         departmentId,
       ),
-      this.attendanceRepository.getGroupedStats(startDate, endDate, "site"),
+      this.attendanceRepository.getGroupedStats(
+        startDate,
+        endDate,
+        "site",
+        undefined,
+        { siteId, departmentId },
+      ),
       this.attendanceRepository.getGroupedStats(
         startDate,
         endDate,
         "department",
+        undefined,
+        { siteId, departmentId },
       ),
       this.attendanceRepository.getTopEmployees(
         startDate,

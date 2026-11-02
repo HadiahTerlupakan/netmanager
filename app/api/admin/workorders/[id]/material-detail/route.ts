@@ -1,3 +1,4 @@
+import { hasPermission } from "@/lib/rbac";
 import {
   apiSuccess,
   ApiErrors,
@@ -9,6 +10,12 @@ import { getAdminWorkOrderRouteService } from "@/modules/work-order";
 
 /** GET /api/admin/workorders/[id]/material-detail */
 export const GET = createHandler({ auth: true }, async (req, ctx) => {
+  if (!(await hasPermission("workorders:read"))) {
+    return ApiErrors.forbidden(
+      "Anda tidak memiliki akses untuk melihat work order",
+    );
+  }
+
   const updateId = req.nextUrl.searchParams.get("updateId");
 
   if (!updateId) {
@@ -17,13 +24,25 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     });
   }
 
-  const result = await getAdminWorkOrderRouteService().getMaterialDetail(
-    ctx.params.id,
+  const result = await getAdminWorkOrderRouteService().getMaterialDetail({
+    workOrderId: ctx.params.id,
     updateId,
-  );
+    actor: ctx.session!.user,
+    permissions: ctx.permissions,
+  });
 
-  if (result.code === "NOT_FOUND") {
-    return ApiErrors.notFound("Update");
+  if (result.success) {
+    return apiSuccess(result.data);
+  }
+
+  if (result.code === "UNAUTHORIZED") {
+    return ApiErrors.unauthorized();
+  }
+
+  if (result.code === "FORBIDDEN") {
+    return ApiErrors.forbidden(
+      "error" in result && result.error ? result.error : "Akses ditolak",
+    );
   }
 
   if (result.code === "INVALID_WORK_ORDER") {
@@ -34,5 +53,5 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  return apiSuccess(result.data);
+  return ApiErrors.notFound("Update");
 });

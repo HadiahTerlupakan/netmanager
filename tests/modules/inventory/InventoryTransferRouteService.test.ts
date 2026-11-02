@@ -43,7 +43,9 @@ function createService() {
     deleteTransfer: vi.fn().mockResolvedValue(undefined),
   };
   const inventoryRouteService = {
-    resolveRestrictedSiteId: vi.fn().mockResolvedValue("site-1"),
+    resolveLingkupSite: vi
+      .fn()
+      .mockResolvedValue({ dibatasi: true, siteIds: ["site-1"] }),
   };
 
   return {
@@ -69,7 +71,7 @@ describe("InventoryTransferRouteService", () => {
       barangId: "barang-1",
     });
 
-    expect(inventoryRouteService.resolveRestrictedSiteId).toHaveBeenCalledWith({
+    expect(inventoryRouteService.resolveLingkupSite).toHaveBeenCalledWith({
       userId: "user-1",
       permissions: ["transfer:site_only"],
       isSuperAdmin: false,
@@ -83,7 +85,7 @@ describe("InventoryTransferRouteService", () => {
       skip: 10,
       take: 10,
       barangId: "barang-1",
-      siteId: "site-1",
+      siteIds: ["site-1"],
     });
     expect(result).toEqual({
       transferList: [transfer],
@@ -150,7 +152,7 @@ describe("InventoryTransferRouteService", () => {
   });
 
   it("menolak akses detail transfer jika site tidak sesuai", async () => {
-    const { repository, inventoryRouteService, service } = createService();
+    const { repository, service } = createService();
     repository.findTransferById.mockResolvedValue({
       ...transfer,
       gudangDari: {
@@ -166,7 +168,6 @@ describe("InventoryTransferRouteService", () => {
         sites: [{ id: "site-2" }],
       },
     });
-    inventoryRouteService.resolveRestrictedSiteId.mockResolvedValue("site-1");
 
     const result = await service.getTransferDetail(defaultDetailInput);
 
@@ -218,9 +219,78 @@ describe("InventoryTransferRouteService", () => {
     expect(result).toEqual({ success: true, data: null });
   });
 
+  describe("transfer yang hanya satu sisinya di site user", () => {
+    const transferSatuSisi = {
+      ...transfer,
+      gudangKe: {
+        id: "gudang-2",
+        kode: "G2",
+        nama: "Gudang 2",
+        sites: [{ id: "site-2" }],
+      },
+    };
+
+    it("detail tetap boleh dibuka", async () => {
+      const { repository, service } = createService();
+      repository.findTransferById.mockResolvedValue(transferSatuSisi);
+
+      const result = await service.getTransferDetail(defaultDetailInput);
+
+      expect(result).toEqual({
+        success: true,
+        data: { transfer: transferSatuSisi },
+      });
+    });
+
+    it("ubah ditolak karena wajib memegang kedua gudang", async () => {
+      const { repository, service } = createService();
+      repository.findTransferById.mockResolvedValue(transferSatuSisi);
+
+      const result = await service.updateTransfer({
+        ...defaultDetailInput,
+        body: { keterangan: "baru" },
+      });
+
+      expect(result).toEqual({
+        success: false,
+        status: 403,
+        error: TRANSFER_MESSAGES.transferSebagianBedaSite,
+      });
+      expect(repository.updateTransfer).not.toHaveBeenCalled();
+    });
+
+    it("hapus ditolak karena membalik stok di kedua gudang", async () => {
+      const { repository, service } = createService();
+      repository.findTransferById.mockResolvedValue(transferSatuSisi);
+
+      const result = await service.deleteTransfer(defaultDetailInput);
+
+      expect(result).toEqual({
+        success: false,
+        status: 403,
+        error: TRANSFER_MESSAGES.transferSebagianBedaSite,
+      });
+      expect(repository.deleteTransfer).not.toHaveBeenCalled();
+    });
+  });
+
+  it("user dibatasi tanpa site tidak bisa membuka transfer mana pun", async () => {
+    const { inventoryRouteService, service } = createService();
+    inventoryRouteService.resolveLingkupSite.mockResolvedValue({
+      dibatasi: true,
+      siteIds: [],
+    });
+
+    const result = await service.getTransferDetail(defaultDetailInput);
+
+    expect(result).toMatchObject({ success: false, status: 403 });
+  });
+
   it("superAdmin bisa akses transfer tanpa site restriction", async () => {
     const { inventoryRouteService, service } = createService();
-    inventoryRouteService.resolveRestrictedSiteId.mockResolvedValue(undefined);
+    inventoryRouteService.resolveLingkupSite.mockResolvedValue({
+      dibatasi: false,
+    });
 
     const result = await service.getTransferDetail({
       ...defaultDetailInput,

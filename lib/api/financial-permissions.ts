@@ -1,5 +1,5 @@
 import { isSuperAdmin } from "@/lib/auth";
-import { hasPermissionWithAlias } from "@/lib/permission-aliases";
+import { hasAnyScopeRestriction } from "@/lib/authorization/scope-restriction-permissions";
 
 /**
  * Permission set untuk route yang menyentuh data tagihan pelanggan.
@@ -46,8 +46,23 @@ export const INVOICE_WRITE_PERMISSIONS: string[] = [
   "transactions:update",
 ];
 
-/** Permission yang menandai pembatasan cakupan site untuk data invoice. */
-const INVOICE_SITE_ONLY_PERMISSION = "invoices:site_only";
+/**
+ * Toggle pembatasan site yang berlaku untuk data invoice.
+ *
+ * `/api/invoices/**` dibuka oleh `invoices:*`, `finance:*`, `pelanggan:*`,
+ * `ppp:*` (dan `transactions:update` untuk tulis). Dulu hanya
+ * `invoices:site_only` yang dibaca, sehingga Helpdesk ber-`pelanggan:site_only`
+ * melihat invoice seluruh site lewat layar pelanggan. Setiap nama yang membuka
+ * route ini kini ikut membatasi — lihat
+ * `lib/authorization/scope-restriction-permissions.ts`.
+ */
+export const INVOICE_SITE_ONLY_PERMISSIONS = [
+  "invoices:site_only",
+  "finance:site_only",
+  "pelanggan:site_only",
+  "ppp:site_only",
+  "transactions:site_only",
+] as const;
 
 /**
  * Menentukan apakah pemanggil hanya boleh melihat invoice site-nya sendiri.
@@ -67,8 +82,8 @@ export function isInvoiceSiteRestricted(options: {
     return false;
   }
 
-  return hasPermissionWithAlias(
+  return hasAnyScopeRestriction(
     options.permissions,
-    INVOICE_SITE_ONLY_PERMISSION,
+    INVOICE_SITE_ONLY_PERMISSIONS,
   );
 }

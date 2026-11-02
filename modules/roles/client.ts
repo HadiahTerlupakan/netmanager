@@ -45,3 +45,12 @@ export {
 } from "./domain/lingkup-presurvei";
 
 export { CANVASING_CASHOUT_PERMISSION } from "./domain/izin-canvasing";
+
+export {
+  TANPA_BATAS,
+  filterSitePrisma,
+  lingkupSiteUntuk,
+  siteBolehDiakses,
+  tanpaDataSamaSekali,
+  type LingkupSite,
+} from "./domain/lingkup-site";

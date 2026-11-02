@@ -148,7 +148,7 @@ export class InventoryRepository
     return this.stockQueryRepository.getStockLevel(barangId, gudangId);
   }
   async getAllGudang(params?: {
-    siteId?: string;
+    siteIds?: string[];
     tenantId?: string;
     includeInactive?: boolean;
   }): Promise<Gudang[]> {
@@ -222,7 +222,7 @@ export class InventoryRepository
     barangId?: string;
     dariGudangId?: string;
     keGudangId?: string;
-    siteId?: string;
+    siteIds?: string[];
     tenantId?: string;
   }): Promise<{ items: InventoryTransferRecord[]; total: number }> {
     return this.transferRepository.findAllTransfers(params);
@@ -258,7 +258,7 @@ export class InventoryRepository
     startDate?: Date;
     endDate?: Date;
     search?: string;
-    siteId?: string;
+    siteIds?: string[];
     tenantId?: string;
   }): Promise<{ items: BarangMasukWithRelations[]; total: number }> {
     return getHistoryMasuk(this.db, params);
@@ -271,7 +271,7 @@ export class InventoryRepository
     startDate?: Date;
     endDate?: Date;
     search?: string;
-    siteId?: string;
+    siteIds?: string[];
     tenantId?: string;
   }): Promise<{ items: BarangKeluarWithRelations[]; total: number }> {
     return getHistoryKeluar(this.db, params);

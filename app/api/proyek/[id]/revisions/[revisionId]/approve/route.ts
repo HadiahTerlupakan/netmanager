@@ -3,7 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 
 import { authOptions } from "@/lib/auth";
-import { approveRabRevision, RabRevisionApprovalError } from "@/modules/proyek";
+import { getUserPermissions } from "@/lib/auth/permissions";
+import {
+  approveRabRevision,
+  RabProjectSiteAccessService,
+  RabRevisionApprovalError,
+} from "@/modules/proyek";
 
 export async function POST(
   _req: NextRequest,
@@ -15,6 +20,19 @@ export async function POST(
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (
+      !(await new RabProjectSiteAccessService().isProjectInUserScope(
+        resolvedParams.id,
+        session.user,
+        await getUserPermissions(session.user.id),
+      ))
+    ) {
+      return NextResponse.json(
+        { error: "Proyek RAB tidak ditemukan" },
+        { status: 404 },
+      );
     }
 
     const result = await approveRabRevision({

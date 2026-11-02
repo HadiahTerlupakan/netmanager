@@ -6,13 +6,22 @@ import {
   resolveEffectiveTenantId,
 } from "./attendance-repository-helpers";
 
+/** Pembatas site/departemen pegawai untuk agregasi laporan. */
+export type ReportUserScope = { siteId?: string; departmentId?: string };
+
 export class AttendanceReportRankingRepository {
-  /** Ambil statistik attendance berdasarkan site atau department. */
+  /**
+   * Ambil statistik attendance berdasarkan site atau department.
+   *
+   * `scope` membatasi pegawai yang dihitung. Tanpanya admin ber-`site_only`
+   * melihat angka seluruh site di grafik "per site/departemen" laporan.
+   */
   async getGroupedStats(
     startDate: Date,
     endDate: Date,
     groupBy: "department" | "site",
     tenantId?: string,
+    scope: ReportUserScope = {},
   ) {
     const userStats = await this.getGroupedUserStats(
       startDate,
@@ -22,7 +31,11 @@ export class AttendanceReportRankingRepository {
     if (userStats.length === 0) return [];
 
     const users = await prisma.user.findMany({
-      where: { id: { in: userStats.map((stat) => stat.userId) } },
+      where: {
+        id: { in: userStats.map((stat) => stat.userId) },
+        ...(scope.siteId ? { siteId: scope.siteId } : {}),
+        ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
+      },
       select: {
         id: true,
         siteId: true,

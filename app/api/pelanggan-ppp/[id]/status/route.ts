@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger";
 import {
   PelangganPppRouteService,
   RouteServiceError,
+  withPelangganPppSiteScope,
 } from "@/modules/pelanggan";
 
 const pelangganPppRouteService = new PelangganPppRouteService();
@@ -25,7 +26,7 @@ export const PATCH = createHandler(
     try {
       const session = buildSessionWithPermissions(
         ctx.session!,
-        ctx.permissions,
+        withPelangganPppSiteScope(ctx.permissions),
       );
       const { id } = ctx.params;
       const body = await req.json();

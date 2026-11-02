@@ -5,6 +5,11 @@ import {
   LeaveBalanceRepository,
 } from "../repositories/LeaveBalanceRepository";
 import {
+  resolveAdminScope,
+  scopeTanpaData,
+  type AdminScope,
+} from "./AdminScopeResolver";
+import {
   ATTENDANCE_ACTIVITY_ACTIONS,
   ATTENDANCE_ACTIVITY_SUBJECTS,
   recordAttendanceActivity,
@@ -12,9 +17,23 @@ import {
 
 const DEFAULT_YEAR_OFFSET = 0;
 
-interface LeaveBalanceAccessContext {
+/**
+ * Saldo cuti dibuka `attendance:*` maupun `users:*`, dan isinya data izin —
+ * setiap toggle pembatas dari ketiganya ikut membatasi.
+ */
+const LEAVE_BALANCE_SCOPE_PERMISSIONS = {
+  siteOnly: ["attendance:site_only", "izin:site_only", "users:site_only"],
+  departmentOnly: ["attendance:department_only", "izin:department_only"],
+} as const;
+
+interface LeaveBalanceTenantContext {
   requesterTenantId?: string | null;
   isSuperAdmin: boolean;
+}
+
+interface LeaveBalanceAccessContext extends LeaveBalanceTenantContext {
+  /** Admin peminta; dipakai untuk lingkup site/departemen. */
+  actor: { id: string; role?: string | null; isSuperAdmin?: boolean | null };
 }
 
 interface LeaveBalanceListInput {
@@ -27,7 +46,8 @@ interface LeaveQuotaUpdateInput {
   userId: string;
   year?: number;
   quotas: Partial<Record<LeaveType, number>>;
-  access: LeaveBalanceAccessContext;
+  /** Lingkup site/departemen sudah diperiksa lewat `canAccessUser`. */
+  access: LeaveBalanceTenantContext;
   actorId: string;
 }
 
@@ -37,19 +57,27 @@ export class AdminLeaveBalanceRouteService {
     private readonly userRepository = new UserLookupService(),
   ) {}
 
-  /** Pastikan user target berada dalam scope tenant requester. */
+  /**
+   * Pastikan user target berada dalam scope tenant DAN site/departemen
+   * requester. Dulu hanya tenant yang dicek, sehingga admin ber-`site_only`
+   * bisa membaca dan mengubah kuota cuti pegawai site lain.
+   */
   async canAccessUser(userId: string, access: LeaveBalanceAccessContext) {
     if (access.isSuperAdmin) return true;
     const targetUser = await this.userRepository.findById(userId);
-    return Boolean(
-      targetUser && targetUser.tenantId === access.requesterTenantId,
-    );
+    if (!targetUser || targetUser.tenantId !== access.requesterTenantId) {
+      return false;
+    }
+    const scope = await this.resolveScope(access);
+    return isUserInScope(scope, targetUser);
   }
 
   /** Ambil saldo cuti user tertentu atau seluruh user sesuai scope tenant. */
   async getBalances(input: LeaveBalanceListInput) {
     const tenantId = this.resolveTenantId(input.access);
-    if (!input.userId) return this.getAllBalances(input.year, tenantId);
+    if (!input.userId) {
+      return this.getAllBalances(input.year, tenantId, input.access);
+    }
     return this.getUserBalances(input.userId, input.year, tenantId);
   }
 
@@ -111,12 +139,29 @@ export class AdminLeaveBalanceRouteService {
     return { balances: this.fillMissingBalances(balances), year };
   }
 
-  /** Ambil seluruh saldo cuti untuk dashboard admin. */
-  private async getAllBalances(year: number, tenantId?: string | null) {
+  /** Ambil seluruh saldo cuti untuk dashboard admin, dalam lingkup admin. */
+  private async getAllBalances(
+    year: number,
+    tenantId: string | null | undefined,
+    access: LeaveBalanceAccessContext,
+  ) {
+    const scope = await this.resolveScope(access);
+    if (scopeTanpaData(scope)) return { balances: [], year };
+
     const balances = await this.leaveBalanceRepository.getAllBalances(year, {
       tenantId: tenantId || undefined,
+      siteId: scope.siteId,
+      departmentId: scope.departmentId,
     });
     return { balances, year };
+  }
+
+  private resolveScope(access: LeaveBalanceAccessContext) {
+    return resolveAdminScope(
+      access.actor,
+      LEAVE_BALANCE_SCOPE_PERMISSIONS,
+      this.userRepository,
+    );
   }
 
   /** Simpan seluruh kuota yang diberikan ke repository. */
@@ -170,7 +215,7 @@ export class AdminLeaveBalanceRouteService {
   }
 
   /** Tentukan tenant scope untuk admin non super. */
-  private resolveTenantId(access: LeaveBalanceAccessContext) {
+  private resolveTenantId(access: LeaveBalanceTenantContext) {
     if (access.isSuperAdmin) return undefined;
     return access.requesterTenantId || undefined;
   }
@@ -179,4 +224,14 @@ export class AdminLeaveBalanceRouteService {
   private getCurrentYear() {
     return new Date().getFullYear();
   }
+}
+
+/** Apakah pegawai berada dalam lingkup admin; lingkup kosong = tidak. */
+function isUserInScope(
+  scope: AdminScope,
+  user: { siteId?: string | null; departmentId?: string | null },
+): boolean {
+  if (scopeTanpaData(scope)) return false;
+  if (scope.siteId && user.siteId !== scope.siteId) return false;
+  return !scope.departmentId || user.departmentId === scope.departmentId;
 }

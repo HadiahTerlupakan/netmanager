@@ -1,4 +1,5 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
+import { resolvePenggunaInventory } from "../../_lib/inventory-pengguna";
 import {
   getInventoryRouteService,
   OPNAME_PESAN,
@@ -23,7 +24,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     const gudangId = req.nextUrl.searchParams.get("gudangId") || undefined;
     const inventoryRouteService = getInventoryRouteService();
     const dbStart = Date.now();
-    const summary = await inventoryRouteService.getOpnameSummary(gudangId);
+    const summary = await inventoryRouteService.getOpnameSummary({
+      pengguna: resolvePenggunaInventory(ctx),
+      gudangId,
+    });
 
     logger.dbOperation(
       "findMany+groupBy",

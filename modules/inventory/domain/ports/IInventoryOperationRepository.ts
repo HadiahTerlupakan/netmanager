@@ -70,7 +70,7 @@ export interface IInventoryOperationRepository {
     barangId?: string;
     dariGudangId?: string;
     keGudangId?: string;
-    siteId?: string;
+    siteIds?: string[];
   }): Promise<{ items: InventoryTransferRecord[]; total: number }>;
   findTransferById(id: string): Promise<InventoryTransferRecord | null>;
   createTransfer(data: CreateTransferInput): Promise<InventoryTransferRecord>;
@@ -91,7 +91,7 @@ export interface IInventoryOperationRepository {
     search?: string;
     gudangId?: string;
     isWorkOrderMaterial?: boolean;
-    siteId?: string;
+    siteIds?: string[];
   }): Promise<{ items: BarangWithStock[]; total: number }>;
   findBarangById(id: string): Promise<BarangWithStock | null>;
   findBarangDetail(id: string): Promise<BarangDetail | null>;
@@ -108,7 +108,7 @@ export interface IInventoryOperationRepository {
   removeStock(data: CreateBarangKeluarInput): Promise<BarangKeluar>;
   getStockLevel(barangId: string, gudangId: string): Promise<number>;
   getAllGudang(params?: {
-    siteId?: string;
+    siteIds?: string[];
     includeInactive?: boolean;
   }): Promise<Gudang[]>;
   findMobileActorUser(input: {
@@ -132,7 +132,7 @@ export interface IInventoryOperationRepository {
     startDate?: Date;
     endDate?: Date;
     search?: string;
-    siteId?: string;
+    siteIds?: string[];
   }): Promise<{ items: BarangMasukWithRelations[]; total: number }>;
   getHistoryKeluar(params?: {
     skip?: number;
@@ -142,7 +142,7 @@ export interface IInventoryOperationRepository {
     startDate?: Date;
     endDate?: Date;
     search?: string;
-    siteId?: string;
+    siteIds?: string[];
   }): Promise<{ items: BarangKeluarWithRelations[]; total: number }>;
   getMasukRecord(id: string): Promise<InventoryMasukRecord | null>;
   updateMasuk(input: UpdateBarangMasukInput): Promise<void>;

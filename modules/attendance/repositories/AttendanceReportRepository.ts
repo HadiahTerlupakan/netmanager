@@ -1,5 +1,8 @@
 import { AttendanceDailyStatsRepository } from "./AttendanceDailyStatsRepository";
-import { AttendanceReportRankingRepository } from "./AttendanceReportRankingRepository";
+import {
+  AttendanceReportRankingRepository,
+  type ReportUserScope,
+} from "./AttendanceReportRankingRepository";
 import { AttendanceReportSummaryRepository } from "./AttendanceReportSummaryRepository";
 import { AttendanceUserReportRepository } from "./AttendanceUserReportRepository";
 
@@ -62,8 +65,15 @@ export class AttendanceReportRepository {
     endDate: Date,
     groupBy: "department" | "site",
     tenantId?: string,
+    scope?: ReportUserScope,
   ) {
-    return this.ranking.getGroupedStats(startDate, endDate, groupBy, tenantId);
+    return this.ranking.getGroupedStats(
+      startDate,
+      endDate,
+      groupBy,
+      tenantId,
+      scope,
+    );
   }
 
   /** Ambil user dengan attendance hadir terbanyak. */

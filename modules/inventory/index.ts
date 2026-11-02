@@ -99,3 +99,12 @@ export {
 export { periodeDari as periodeStockOpnameDari } from "./domain/jadwal-stock-opname";
 export { OPNAME_PESAN, pesanGagalMuatOpname } from "./domain/opname-pesan";
 export { bolehAksesGudang } from "./services/lingkup-gudang";
+export {
+  IZIN_PEMBATAS_BARANG,
+  IZIN_PEMBATAS_GUDANG,
+  IZIN_PEMBATAS_KELUAR,
+  IZIN_PEMBATAS_MASUK,
+  IZIN_PEMBATAS_OPNAME,
+  IZIN_PEMBATAS_RESTOCK,
+  IZIN_PEMBATAS_TRANSFER,
+} from "./domain/izin-pembatas-site";

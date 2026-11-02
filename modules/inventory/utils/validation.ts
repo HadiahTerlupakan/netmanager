@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/auth";
 import type { Session } from "next-auth";
 import type { UserSession } from "@/lib/auth";
+import { hasAnyScopeRestriction } from "@/lib/authorization/scope-restriction-permissions";
+
+import { PEMBATASAN_SITE_GUDANG } from "../domain/izin-pembatas-site";
 
 interface SiteRef {
   id: string;
@@ -82,49 +85,32 @@ function getSessionAssignedSiteIds(user: UserSession): string[] {
   );
 }
 
-/**
- * Sumbu pembatasan yang berlaku untuk seluruh pergerakan stok.
- *
- * Setiap daftar inventory punya sumbunya sendiri (`masuk:`, `keluar:`,
- * `transfer:`), tetapi semuanya pada akhirnya berbicara tentang gudang. Orang
- * yang dibatasi per-site untuk gudang atau barang tidak seharusnya melihat
- * mutasi gudang site lain hanya karena sumbu spesifik mutasi itu tidak
- * dinyalakan admin.
- *
- * Disatukan di sini supaya tiap daftar tidak lagi menebak sendiri — dulu
- * `transfer` dan `keluar` tidak memuat sumbu gudang sama sekali, sementara
- * `masuk` memuat sebagian.
- */
-export const PEMBATASAN_SITE_GUDANG = [
-  "barang:site_only",
-  "gudang:site_only",
-] as const;
+export { PEMBATASAN_SITE_GUDANG };
 
 /**
  * Validate site-scoped akses user ke Gudang berdasarkan RBAC dan Site restrictions.
+ *
+ * `izinPembatas` WAJIB sama dengan daftar yang dipakai jalur daftar endpoint
+ * pemanggil (lihat `domain/izin-pembatas-site.ts`), supaya toggle yang
+ * menyembunyikan mutasi site lain juga mencegah pencatatannya. Permission
+ * dibaca dari `session.user.permissions`; sesi tanpa permission diperlakukan
+ * tidak dibatasi, jadi pemanggil harus membangunnya lewat
+ * `buildInventoryAccessSession(user, permissions)`.
  */
 export async function validateGudangSiteAccess(
   session: Session,
   gudangId: string,
+  izinPembatas: readonly string[] = PEMBATASAN_SITE_GUDANG,
 ): Promise<ValidatedGudangSiteAccessResult> {
   const user = session.user as UserSession;
   if (isSuperAdmin(user)) {
     return { allowed: true };
   }
 
-  // Sama seperti `isInventorySiteRestricted`: pemeriksaan ini dulu hanya
-  // menyebut `k_barang:site_only`, nama yang tidak pernah dibuat seed maupun
-  // tersimpan di basis data. Tanpa ekspansi alias di jalur ini, `.includes`
-  // selalu salah — artinya fungsi ini selalu menjawab "boleh", dan pembatasan
-  // site pada gudang (transfer, barang masuk, barang keluar, opname) tidak
-  // pernah berlaku untuk siapa pun kecuali super admin.
-  //
-  // Dua nama di bawah yang benar-benar ada, dan persis itulah yang dimaksud
-  // peta alias dengan `k_barang:site_only`.
-  const hasSiteRestriction = ["barang:site_only", "gudang:site_only"].some(
-    (permission) => (user.permissions || []).includes(permission),
-  );
-  if (!hasSiteRestriction) {
+  // Pemeriksaan ini dulu hanya menyebut `k_barang:site_only`, nama yang tidak
+  // pernah dibuat seed maupun tersimpan di basis data, sehingga selalu
+  // menjawab "boleh". Kini daftar pembatasnya datang dari endpoint pemanggil.
+  if (!hasAnyScopeRestriction(user.permissions, izinPembatas)) {
     return { allowed: true };
   }
 

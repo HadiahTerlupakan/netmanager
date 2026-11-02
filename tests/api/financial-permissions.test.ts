@@ -37,6 +37,27 @@ describe("isInvoiceSiteRestricted", () => {
     expect(restricted).toBe(false);
   });
 
+  it.each([
+    "invoices:site_only",
+    "finance:site_only",
+    "pelanggan:site_only",
+    "ppp:site_only",
+    "transactions:site_only",
+  ])("%s ikut membatasi karena membuka route invoice", (siteOnly) => {
+    expect(
+      isInvoiceSiteRestricted({
+        permissions: ["finance:read", siteOnly],
+        user: {},
+      }),
+    ).toBe(true);
+  });
+
+  it("role wildcard non-super tidak dianggap dibatasi", () => {
+    expect(isInvoiceSiteRestricted({ permissions: ["*"], user: {} })).toBe(
+      false,
+    );
+  });
+
   it("aman terhadap daftar permission kosong", () => {
     expect(isInvoiceSiteRestricted({ permissions: [], user: {} })).toBe(false);
   });

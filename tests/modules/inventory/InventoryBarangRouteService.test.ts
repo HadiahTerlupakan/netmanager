@@ -13,16 +13,45 @@ const barang = {
   ],
 };
 
+const PENGGUNA = {
+  userId: "user-1",
+  permissions: ["barang:site_only"],
+  isSuperAdmin: false,
+};
+
+/** Route service palsu yang menjawab lingkup site tertentu. */
+function routeServiceDenganLingkup(
+  lingkup: { dibatasi: false } | { dibatasi: true; siteIds: string[] },
+) {
+  return { resolveLingkupSite: vi.fn().mockResolvedValue(lingkup) };
+}
+
+function createServiceWithRepository(
+  repository: Record<string, unknown>,
+  lingkup: { dibatasi: false } | { dibatasi: true; siteIds: string[] } = {
+    dibatasi: false,
+  },
+) {
+  return new InventoryBarangRouteService(
+    repository as never,
+    {} as never,
+    routeServiceDenganLingkup(lingkup) as never,
+  );
+}
+
 describe("InventoryBarangRouteService", () => {
   it("mengambil detail barang dan menghitung stok sesuai site", async () => {
     const repository = {
       findBarangDetail: vi.fn().mockResolvedValue(barang),
     };
-    const service = new InventoryBarangRouteService(repository as never);
+    const service = createServiceWithRepository(repository, {
+      dibatasi: true,
+      siteIds: ["site-1"],
+    });
 
     const result = await service.getBarangDetail({
       id: "barang-1",
-      siteId: "site-1",
+      pengguna: PENGGUNA,
     });
 
     expect(repository.findBarangDetail).toHaveBeenCalledWith("barang-1");
@@ -44,11 +73,11 @@ describe("InventoryBarangRouteService", () => {
         .mockResolvedValue({ id: "barang-2", nama: "Kabel Drop" }),
       updateBarang: vi.fn(),
     };
-    const service = new InventoryBarangRouteService(repository as never);
+    const service = createServiceWithRepository(repository);
 
     const result = await service.updateBarang({
       id: "barang-1",
-      siteId: undefined,
+      pengguna: PENGGUNA,
       body: { kode: "BRG-2", nama: "Kabel", satuan: "meter" },
     });
 
@@ -69,9 +98,10 @@ describe("InventoryBarangRouteService", () => {
         pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
       }),
     };
-    const inventoryRouteService = {
-      getUserSiteId: vi.fn().mockResolvedValue("site-1"),
-    };
+    const inventoryRouteService = routeServiceDenganLingkup({
+      dibatasi: true,
+      siteIds: ["site-1", "site-2"],
+    });
     const service = new InventoryBarangRouteService(
       repository as never,
       inventoryBarangService as never,
@@ -88,14 +118,17 @@ describe("InventoryBarangRouteService", () => {
       limit: 10,
     });
 
-    expect(inventoryRouteService.getUserSiteId).toHaveBeenCalledWith("user-1");
+    expect(inventoryRouteService.resolveLingkupSite).toHaveBeenCalledWith({
+      ...PENGGUNA,
+      restrictedPermissions: ["barang:site_only", "gudang:site_only"],
+    });
     expect(inventoryBarangService.listBarang).toHaveBeenCalledWith({
       userId: "user-1",
       search: "kabel",
       gudangId: null,
       page: 1,
       limit: 10,
-      siteId: "site-1",
+      siteIds: ["site-1", "site-2"],
     });
     expect(result).toEqual({
       barangs: [{ id: "barang-1" }],
@@ -167,11 +200,14 @@ describe("InventoryBarangRouteService", () => {
       findBarangById: vi.fn().mockResolvedValue(barang),
       deleteBarang: vi.fn().mockResolvedValue(undefined),
     };
-    const service = new InventoryBarangRouteService(repository as never);
+    const service = createServiceWithRepository(repository, {
+      dibatasi: true,
+      siteIds: ["site-1"],
+    });
 
     const result = await service.deleteBarang({
       id: "barang-1",
-      siteId: "site-1",
+      pengguna: PENGGUNA,
     });
 
     expect(repository.deleteBarang).toHaveBeenCalledWith("barang-1");
@@ -179,6 +215,34 @@ describe("InventoryBarangRouteService", () => {
       success: true,
       data: null,
       message: "Barang berhasil dihapus",
+    });
+  });
+
+  it("user dibatasi tanpa site tidak bisa menghapus barang dan tidak melihat stok", async () => {
+    const repository = {
+      findBarangById: vi.fn().mockResolvedValue(barang),
+      findBarangDetail: vi.fn().mockResolvedValue(barang),
+      deleteBarang: vi.fn(),
+    };
+    const service = createServiceWithRepository(repository, {
+      dibatasi: true,
+      siteIds: [],
+    });
+
+    const deleted = await service.deleteBarang({
+      id: "barang-1",
+      pengguna: PENGGUNA,
+    });
+    const detail = await service.getBarangDetail({
+      id: "barang-1",
+      pengguna: PENGGUNA,
+    });
+
+    expect(deleted).toMatchObject({ success: false, status: 403 });
+    expect(repository.deleteBarang).not.toHaveBeenCalled();
+    expect(detail).toMatchObject({
+      found: true,
+      barang: { barangGudang: [], totalStock: 0 },
     });
   });
 });

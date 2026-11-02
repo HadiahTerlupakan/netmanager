@@ -1,6 +1,7 @@
+import type { Session } from "next-auth";
 import { TicketPriority, TicketStatus } from "../types/pelanggan.enums";
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
-import { buildMultiSiteWhereClause } from "@/modules/roles";
+import { checkSiteRestriction } from "@/modules/roles";
 import { UserLookupService } from "@/modules/users";
 import { getAdminSupportTicketService } from "./AdminSupportTicketService";
 
@@ -129,12 +130,16 @@ export class AdminSupportTicketRouteService {
       session,
       scope.permissions,
     );
-    const siteWhere =
-      buildMultiSiteWhereClause(permissionSession as never, "support") || {};
-    const targetSiteId = Array.isArray(siteWhere.siteId?.in)
-      ? siteWhere.siteId.in[0]
-      : undefined;
-    const result = await this.ticketService.getUnreadCount(targetSiteId);
+    // Seluruh site admin dihitung (dulu hanya site pertama), dan admin
+    // terbatas tanpa site mendapat nol — dulu `|| {}` membuatnya menghitung
+    // tiket seluruh tenant.
+    const { isRestricted, siteIds } = checkSiteRestriction(
+      permissionSession,
+      "support",
+    );
+    const result = await this.ticketService.getUnreadCount(
+      isRestricted ? siteIds : undefined,
+    );
     return { ok: true as const, ...result };
   }
 
@@ -150,18 +155,22 @@ export class AdminSupportTicketRouteService {
     };
   }
 
-  /** Bentuk session minimal untuk helper multi-site. */
+  /**
+   * Bentuk session minimal untuk helper multi-site: `checkSiteRestriction`
+   * membaca `session.user.permissions`, yang tidak dimuat sesi asli.
+   */
   private buildPermissionSession(
     session: AdminSupportSession,
     permissions: string[],
-  ) {
+  ): Session {
     return {
       ...session,
       user: {
         ...session.user,
         permissions,
       },
-    };
+      expires: "",
+    } as unknown as Session;
   }
 }
 

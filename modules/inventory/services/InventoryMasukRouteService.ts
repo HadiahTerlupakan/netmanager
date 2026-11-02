@@ -20,12 +20,11 @@ import {
   getInventoryStockMovementService,
   type InventoryStockMovementService,
 } from "./InventoryStockMovementService";
-import { PEMBATASAN_SITE_GUDANG } from "../utils/validation";
+import type { LingkupSite } from "@/modules/roles/client";
 
-const MASUK_RESTRICTED_PERMISSIONS = [
-  "masuk:site_only",
-  ...PEMBATASAN_SITE_GUDANG,
-];
+import { IZIN_PEMBATAS_MASUK } from "../domain/izin-pembatas-site";
+import type { ResolveLingkupSiteInput } from "./InventoryRouteService";
+import { gudangDalamLingkup, siteIdsSaringan } from "./lingkup-gudang";
 const DEFAULT_KONDISI_BARANG = "BARU" as KondisiBarang;
 
 interface InventoryMasukRepositoryPort {
@@ -35,7 +34,7 @@ interface InventoryMasukRepositoryPort {
     barangId?: string;
     gudangId?: string;
     search?: string;
-    siteId?: string;
+    siteIds?: string[];
   }): Promise<{ items: unknown[]; total: number }>;
   addStock(data: {
     barangId: string;
@@ -64,12 +63,7 @@ interface UpdateMasukRouteInput extends MasukDetailRouteInput {
 }
 
 interface InventoryRouteServicePort {
-  resolveRestrictedSiteId(input: {
-    userId: string;
-    permissions: string[];
-    isSuperAdmin: boolean;
-    restrictedPermissions: string[];
-  }): Promise<string | undefined>;
+  resolveLingkupSite(input: ResolveLingkupSiteInput): Promise<LingkupSite>;
 }
 
 interface ListMasukRouteInput {
@@ -88,13 +82,6 @@ interface CreateMasukRouteInput {
   userId: string;
   tenantId?: string;
   body: Record<string, unknown>;
-}
-
-interface MasukSiteScopeInput {
-  userId: string;
-  permissions: string[];
-  isSuperAdmin: boolean;
-  siteId?: string;
 }
 
 interface UpdateMasukPayload {
@@ -122,14 +109,15 @@ export class InventoryMasukRouteService {
 
   /** Ambil histori barang masuk dengan filter dan site restriction. */
   async listMasuk(input: ListMasukRouteInput) {
-    const siteId = await this.resolveMasukSiteId(input);
+    const lingkup = await this.resolveMasukLingkup(input);
+    const siteIds = siteIdsSaringan(lingkup, input.siteId);
     const { items: masukList, total } = await this.repository.getHistoryMasuk({
       skip: (input.page - 1) * input.limit,
       take: input.limit,
       ...(input.barangId ? { barangId: input.barangId } : {}),
       ...(input.gudangId ? { gudangId: input.gudangId } : {}),
       ...(input.search ? { search: input.search } : {}),
-      ...(siteId ? { siteId } : {}),
+      ...(siteIds ? { siteIds } : {}),
     });
 
     return {
@@ -265,33 +253,24 @@ export class InventoryMasukRouteService {
     if (!masuk)
       return this.routeError(404, MUTASI_STOK_PESAN.masukTidakDitemukan);
 
-    const restrictedSiteId = await this.resolveMasukSiteId(input);
-    if (!this.canAccessMasukSite(masuk, restrictedSiteId)) {
+    const lingkup = await this.resolveMasukLingkup(input);
+    const gudangSiteIds = masuk.gudang.sites?.map((site) => site.id) ?? [];
+    if (!gudangDalamLingkup(lingkup, gudangSiteIds)) {
       return this.routeError(403, MUTASI_STOK_PESAN.catatanBedaSite);
     }
 
     return { success: true, data: masuk };
   }
 
-  private async resolveMasukSiteId(input: MasukSiteScopeInput) {
-    return (
-      (await this.inventoryRouteService.resolveRestrictedSiteId({
-        userId: input.userId,
-        permissions: input.permissions,
-        isSuperAdmin: input.isSuperAdmin,
-        restrictedPermissions: MASUK_RESTRICTED_PERMISSIONS,
-      })) ?? input.siteId
-    );
-  }
-
-  private canAccessMasukSite(
-    masuk: InventoryMasukRecord,
-    restrictedSiteId?: string,
+  private resolveMasukLingkup(
+    input: MasukDetailRouteInput | ListMasukRouteInput,
   ) {
-    if (!restrictedSiteId) return true;
-
-    const gudangSiteIds = masuk.gudang.sites?.map((site) => site.id) || [];
-    return gudangSiteIds.includes(restrictedSiteId);
+    return this.inventoryRouteService.resolveLingkupSite({
+      userId: input.userId,
+      permissions: input.permissions,
+      isSuperAdmin: input.isSuperAdmin,
+      restrictedPermissions: IZIN_PEMBATAS_MASUK,
+    });
   }
 
   private parseUpdateBody(

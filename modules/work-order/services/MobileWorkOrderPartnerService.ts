@@ -13,10 +13,11 @@ import {
   findAssignmentForRemoval,
   findPartnerAssignment,
   findTargetUser,
+  findPartnerAdminProfile,
   findWorkOrder,
-  hasPartnerAdminAccess,
   updatePartnerInvitationResponse,
 } from "./mobile-work-order-partner.lookup";
+import { getWorkOrderScopeViolation } from "./work-order-access";
 
 type PartnerAssignmentStatus = "PENDING" | "APPROVED" | "REJECTED";
 
@@ -29,7 +30,6 @@ interface ManagePartnerAccessInput {
   createdById?: string | null;
   assignedToId?: string | null;
   actorId: string;
-  isAdmin: boolean;
 }
 
 interface AddPartnerInput {
@@ -72,6 +72,10 @@ export class MobileWorkOrderPartnerService {
       actorId: input.actorId,
       createdById: workOrder.createdById,
       assignedToId: workOrder.assignedToId,
+      workOrderScope: {
+        siteId: workOrder.siteId,
+        departmentId: workOrder.departmentId,
+      },
       tenantId: input.tenantId,
     });
     await this.ensurePartnerAssignmentAvailable(
@@ -108,6 +112,10 @@ export class MobileWorkOrderPartnerService {
       assignedById: assignment.assignedById,
       createdById: assignment.workOrders.createdById,
       assignedToId: assignment.workOrders.assignedToId,
+      workOrderScope: {
+        siteId: assignment.workOrders.siteId,
+        departmentId: assignment.workOrders.departmentId,
+      },
       tenantId: input.tenantId,
     });
 
@@ -179,23 +187,34 @@ export class MobileWorkOrderPartnerService {
     return this.getErrorCode(error) === "P2002";
   }
 
+  /**
+   * Pengelola partner: pemberi tugas, pembuat, lead, atau admin panel. Jalur
+   * admin tunduk pada toggle `workorders:site_only|department_only` — tanpa
+   * itu admin site A bisa mengatur partner WO site B se-tenant.
+   */
   private async ensurePartnerAccess(input: {
     actorId: string;
     createdById?: string | null;
     assignedToId?: string | null;
     assignedById?: string | null;
+    workOrderScope: { siteId: string | null; departmentId: string | null };
     tenantId: string;
   }) {
-    const isAdmin = await hasPartnerAdminAccess(input.actorId, input.tenantId);
-    const canManage = this.canManageWorkOrderPartner({
+    const isParticipant = this.canManageWorkOrderPartner({
       actorId: input.actorId,
       assignedById: input.assignedById,
       createdById: input.createdById,
       assignedToId: input.assignedToId,
-      isAdmin,
     });
+    if (isParticipant) return;
 
-    if (!canManage) {
+    const admin = await findPartnerAdminProfile(input.actorId, input.tenantId);
+    const isAdminInScope =
+      admin.isAdmin &&
+      (admin.isSuperAdmin ||
+        getWorkOrderScopeViolation(input.workOrderScope, admin) === null);
+
+    if (!isAdminInScope) {
       throw new Error("FORBIDDEN");
     }
   }
@@ -233,8 +252,7 @@ export class MobileWorkOrderPartnerService {
     return (
       input.assignedById === input.actorId ||
       input.createdById === input.actorId ||
-      input.assignedToId === input.actorId ||
-      input.isAdmin
+      input.assignedToId === input.actorId
     );
   }
 

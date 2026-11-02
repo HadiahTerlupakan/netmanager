@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { AttendanceCrudRepository } from "./AttendanceCrudRepository";
 import { AttendanceReportDelegates } from "./AttendanceReportDelegates";
+import type { ReportUserScope } from "./AttendanceReportRankingRepository";
 
 export abstract class AttendanceRepositoryReportFacade {
   protected readonly crudRepository = new AttendanceCrudRepository();
@@ -108,12 +109,14 @@ export abstract class AttendanceRepositoryReportFacade {
     endDate: Date,
     groupBy: "department" | "site",
     tenantId?: string,
+    scope?: ReportUserScope,
   ) {
     return this.reportDelegates.getGroupedStats(
       startDate,
       endDate,
       groupBy,
       tenantId,
+      scope,
     );
   }
 

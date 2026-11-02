@@ -127,10 +127,10 @@ describe("InventoryBarangService", () => {
       });
     });
 
-    it("harus filter by siteId", async () => {
+    it("harus filter by siteIds", async () => {
       const input = {
         userId: "user-1",
-        siteId: "site-1",
+        siteIds: ["site-1"],
         page: 1,
         limit: 10,
       };
@@ -144,7 +144,7 @@ describe("InventoryBarangService", () => {
       expect(mockInventoryRepository.findAllBarang).toHaveBeenCalledWith({
         skip: 0,
         take: 10,
-        siteId: "site-1",
+        siteIds: ["site-1"],
       });
     });
 

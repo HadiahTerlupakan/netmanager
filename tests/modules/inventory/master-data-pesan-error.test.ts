@@ -37,6 +37,13 @@ const barang = {
   barangGudang: [] as Array<{ stok: number }>,
 };
 
+/** Super admin tidak dibatasi site, jadi tidak ada query lingkup yang perlu dipalsukan. */
+const PENGGUNA_TANPA_BATAS = {
+  userId: "user-1",
+  permissions: [] as string[],
+  isSuperAdmin: true,
+};
+
 describe("InventoryBarangRouteService — pesan error", () => {
   it("create: semua kolom wajib yang kosong dilaporkan sekaligus", async () => {
     const service = new InventoryBarangRouteService(
@@ -116,6 +123,7 @@ describe("InventoryBarangRouteService — pesan error", () => {
 
     const result = await service.updateBarang({
       id: "barang-1",
+      pengguna: PENGGUNA_TANPA_BATAS,
       body: { kode: "BRG-1", nama: "Kabel Drop", satuan: "roll" },
     });
 
@@ -133,7 +141,10 @@ describe("InventoryBarangRouteService — pesan error", () => {
       deleteBarang: vi.fn().mockRejectedValue(prismaError("P2003")),
     } as never);
 
-    const result = await service.deleteBarang({ id: "barang-1" });
+    const result = await service.deleteBarang({
+      id: "barang-1",
+      pengguna: PENGGUNA_TANPA_BATAS,
+    });
 
     expect(result).toMatchObject({ success: false, status: 409 });
     expect(result.success === false && result.error).toContain(
@@ -146,7 +157,10 @@ describe("InventoryBarangRouteService — pesan error", () => {
       findBarangById: vi.fn().mockResolvedValue(null),
     } as never);
 
-    const result = await service.deleteBarang({ id: "hilang" });
+    const result = await service.deleteBarang({
+      id: "hilang",
+      pengguna: PENGGUNA_TANPA_BATAS,
+    });
 
     expect(result.success === false && result.error).toBe(
       "Barang tidak ditemukan. Mungkin sudah dihapus. Muat ulang halaman, lalu coba lagi.",
@@ -157,14 +171,12 @@ describe("InventoryBarangRouteService — pesan error", () => {
 describe("InventoryGudangRouteService — pesan error", () => {
   function createService(overrides: Record<string, unknown> = {}) {
     const repository = {
-      findGudangById: vi
-        .fn()
-        .mockResolvedValue({
-          id: "g1",
-          kode: "GD1",
-          nama: "Gudang Utama",
-          isActive: true,
-        }),
+      findGudangById: vi.fn().mockResolvedValue({
+        id: "g1",
+        kode: "GD1",
+        nama: "Gudang Utama",
+        isActive: true,
+      }),
       findGudangByKode: vi.fn().mockResolvedValue(null),
       hasStockInGudang: vi.fn().mockResolvedValue(false),
       deleteGudang: vi.fn(),
@@ -173,7 +185,8 @@ describe("InventoryGudangRouteService — pesan error", () => {
     return new InventoryGudangRouteService(
       repository as never,
       {
-        resolveRestrictedSiteId: vi.fn(),
+        resolveLingkupSite: vi.fn().mockResolvedValue({ dibatasi: false }),
+        canAccessGudang: vi.fn().mockResolvedValue(true),
       } as never,
     );
   }
@@ -183,7 +196,10 @@ describe("InventoryGudangRouteService — pesan error", () => {
       deleteGudang: vi.fn().mockRejectedValue(prismaError("P2003")),
     });
 
-    const result = await service.deleteGudang("g1");
+    const result = await service.deleteGudang({
+      id: "g1",
+      pengguna: PENGGUNA_TANPA_BATAS,
+    });
 
     expect(result).toMatchObject({ success: false, status: 409 });
     expect(result.success === false && result.error).toBe(
@@ -196,6 +212,7 @@ describe("InventoryGudangRouteService — pesan error", () => {
 
     const result = await service.updateGudang({
       id: "g1",
+      pengguna: PENGGUNA_TANPA_BATAS,
       body: { kode: " ", nama: "" },
     });
 

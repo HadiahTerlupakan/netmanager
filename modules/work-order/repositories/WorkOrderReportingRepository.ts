@@ -56,6 +56,7 @@ export class WorkOrderReportingRepository {
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
+    siteId?: string,
   ): Promise<TopPerformer[]> {
     return getWorkOrderTopPerformers({
       prisma: this.prisma,
@@ -63,6 +64,7 @@ export class WorkOrderReportingRepository {
       dateFrom,
       dateTo,
       departmentId,
+      siteId,
     });
   }
 
@@ -71,6 +73,7 @@ export class WorkOrderReportingRepository {
     dateFrom?: Date,
     dateTo?: Date,
     departmentId?: string,
+    siteId?: string,
   ): Promise<TopPerformer[]> {
     return getWorkOrderTopAssists({
       prisma: this.prisma,
@@ -78,6 +81,7 @@ export class WorkOrderReportingRepository {
       dateFrom,
       dateTo,
       departmentId,
+      siteId,
     });
   }
 
@@ -114,10 +118,11 @@ export class WorkOrderReportingRepository {
     return getWorkOrderRecentItems({ prisma: this.prisma, limit, filters });
   }
 
-  async getDepartmentWorkload(departmentId?: string) {
+  async getDepartmentWorkload(departmentId?: string, siteId?: string) {
     return getWorkOrderDepartmentWorkload({
       prisma: this.prisma,
       departmentId,
+      siteId,
     });
   }
 
@@ -205,12 +210,14 @@ export class WorkOrderReportingRepository {
     dateFrom: Date,
     dateTo: Date,
     departmentId?: string,
+    siteId?: string,
   ) {
     return getWorkOrderAdminResponseStats({
       prisma: this.prisma,
       dateFrom,
       dateTo,
       departmentId,
+      siteId,
     });
   }
 

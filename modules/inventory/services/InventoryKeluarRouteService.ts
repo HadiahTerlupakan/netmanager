@@ -8,17 +8,20 @@ import type { KondisiBarang } from "../types/asset.enums";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { InventoryRepository } from "../repositories/InventoryRepository";
 import { getInventoryRouteService } from "./InventoryRouteService";
-import { PEMBATASAN_SITE_GUDANG } from "../utils/validation";
+import type { LingkupSite } from "@/modules/roles/client";
+
+import { IZIN_PEMBATAS_KELUAR } from "../domain/izin-pembatas-site";
+import type {
+  CanAccessGudangInput,
+  ResolveLingkupSiteInput,
+} from "./InventoryRouteService";
+import { gudangDalamLingkup, siteIdsSaringan } from "./lingkup-gudang";
 import {
   INVENTORY_ACTIVITY_ACTIONS,
   INVENTORY_ACTIVITY_SUBJECTS,
   recordInventoryActivity,
 } from "./inventory-activity-log";
 
-const KELUAR_RESTRICTED_PERMISSIONS = [
-  "keluar:site_only",
-  ...PEMBATASAN_SITE_GUDANG,
-];
 const DEFAULT_KONDISI_BARANG = "BARU" as KondisiBarang;
 
 interface InventoryKeluarRepositoryPort {
@@ -28,7 +31,7 @@ interface InventoryKeluarRepositoryPort {
     barangId?: string;
     gudangId?: string;
     search?: string;
-    siteId?: string;
+    siteIds?: string[];
   }): Promise<{ items: unknown[]; total: number }>;
   getStockBreakdown(
     barangId: string,
@@ -52,12 +55,8 @@ interface InventoryKeluarRepositoryPort {
 }
 
 interface InventoryRouteServicePort {
-  resolveRestrictedSiteId(input: {
-    userId: string;
-    permissions: string[];
-    isSuperAdmin: boolean;
-    restrictedPermissions: string[];
-  }): Promise<string | undefined>;
+  resolveLingkupSite(input: ResolveLingkupSiteInput): Promise<LingkupSite>;
+  canAccessGudang(input: CanAccessGudangInput): Promise<boolean>;
   getKeluarRecordWithSite(id: string): Promise<KeluarRecordWithSite | null>;
   updateKeluarRecord(input: {
     id: string;
@@ -102,6 +101,18 @@ interface KeluarDetailAccessInput {
   isSuperAdmin: boolean;
 }
 
+interface StockBreakdownRouteInput {
+  barangId: string;
+  gudangId: string;
+  userId: string;
+  permissions: string[];
+  isSuperAdmin: boolean;
+}
+
+type StockBreakdownByKondisi = {
+  stokByKondisi: { BARU: number; BEKAS: number; RUSAK: number; total: number };
+};
+
 interface KeluarUpdateInput extends KeluarDetailAccessInput {
   body: Record<string, unknown>;
 }
@@ -122,7 +133,8 @@ export class InventoryKeluarRouteService {
 
   /** Ambil histori barang keluar dengan filter dan site restriction. */
   async listKeluar(input: ListKeluarRouteInput) {
-    const siteId = await this.resolveKeluarSiteId(input);
+    const lingkup = await this.resolveKeluarLingkup(input);
+    const siteIds = siteIdsSaringan(lingkup, input.siteId);
     const { items: keluarList, total } = await this.repository.getHistoryKeluar(
       {
         skip: (input.page - 1) * input.limit,
@@ -130,7 +142,7 @@ export class InventoryKeluarRouteService {
         ...(input.barangId ? { barangId: input.barangId } : {}),
         ...(input.gudangId ? { gudangId: input.gudangId } : {}),
         ...(input.search ? { search: input.search } : {}),
-        ...(siteId ? { siteId } : {}),
+        ...(siteIds ? { siteIds } : {}),
       },
     );
 
@@ -144,15 +156,42 @@ export class InventoryKeluarRouteService {
     };
   }
 
-  /** Ambil stok per kondisi untuk barang di gudang. */
-  async getStockBreakdown(barangId: string, gudangId: string) {
-    const stock = await this.repository.getStockBreakdown(barangId, gudangId);
+  /**
+   * Ambil stok per kondisi untuk barang di gudang. Gudang datang dari klien,
+   * jadi lingkup site-nya diperiksa dulu dengan pembatas yang sama dengan
+   * daftar barang keluar.
+   */
+  async getStockBreakdown(
+    input: StockBreakdownRouteInput,
+  ): Promise<InventoryKeluarRouteResult<StockBreakdownByKondisi>> {
+    const bolehAkses = await this.inventoryRouteService.canAccessGudang({
+      userId: input.userId,
+      gudangId: input.gudangId,
+      permissions: input.permissions,
+      isSuperAdmin: input.isSuperAdmin,
+      restrictedPermissions: IZIN_PEMBATAS_KELUAR,
+    });
+    if (!bolehAkses) {
+      return {
+        success: false as const,
+        status: 403,
+        error: MUTASI_STOK_PESAN.gudangBedaSite,
+      };
+    }
+
+    const stock = await this.repository.getStockBreakdown(
+      input.barangId,
+      input.gudangId,
+    );
     return {
-      stokByKondisi: {
-        BARU: stock.baru,
-        BEKAS: stock.bekas,
-        RUSAK: stock.rusak,
-        total: stock.total,
+      success: true as const,
+      data: {
+        stokByKondisi: {
+          BARU: stock.baru,
+          BEKAS: stock.bekas,
+          RUSAK: stock.rusak,
+          total: stock.total,
+        },
       },
     };
   }
@@ -273,20 +312,16 @@ export class InventoryKeluarRouteService {
     };
   }
 
-  private async resolveKeluarSiteId(input: ListKeluarRouteInput) {
-    return (await this.resolveRestrictedKeluarSiteId(input)) ?? input.siteId;
-  }
-
-  private async resolveRestrictedKeluarSiteId(input: {
+  private resolveKeluarLingkup(input: {
     userId: string;
     permissions: string[];
     isSuperAdmin: boolean;
   }) {
-    return this.inventoryRouteService.resolveRestrictedSiteId({
+    return this.inventoryRouteService.resolveLingkupSite({
       userId: input.userId,
       permissions: input.permissions,
       isSuperAdmin: input.isSuperAdmin,
-      restrictedPermissions: KELUAR_RESTRICTED_PERMISSIONS,
+      restrictedPermissions: IZIN_PEMBATAS_KELUAR,
     });
   }
 
@@ -304,13 +339,9 @@ export class InventoryKeluarRouteService {
       };
     }
 
-    const restrictedSiteId = await this.resolveRestrictedKeluarSiteId(input);
-    if (!restrictedSiteId) {
-      return { success: true as const, record };
-    }
-
-    const gudangSiteIds = record.gudang.sites?.map((site) => site.id) || [];
-    if (!gudangSiteIds.includes(restrictedSiteId)) {
+    const lingkup = await this.resolveKeluarLingkup(input);
+    const gudangSiteIds = record.gudang.sites?.map((site) => site.id) ?? [];
+    if (!gudangDalamLingkup(lingkup, gudangSiteIds)) {
       return {
         success: false as const,
         status: 403,

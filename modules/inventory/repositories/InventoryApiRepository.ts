@@ -1,6 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/modules/database";
-import { InventoryOpnameApiRepository } from "./InventoryOpnameApiRepository";
+import {
+  InventoryOpnameApiRepository,
+  type OpnameGudangScope,
+} from "./InventoryOpnameApiRepository";
 import { InventoryPurchaseRequestRepository } from "./InventoryPurchaseRequestRepository";
 import { InventoryRestockRepository } from "./InventoryRestockRepository";
 import { InventoryTransactionVerificationRepository } from "./InventoryTransactionVerificationRepository";
@@ -21,17 +24,11 @@ export class InventoryApiRepository {
       new InventoryTransactionVerificationRepository(this.db);
   }
 
-  /** Ambil site user untuk pembatasan akses route inventory. */
-  async findUserSiteId(userId: string) {
-    const user = await this.db.user.findUnique({
-      where: { id: userId },
-      select: { siteId: true },
-    });
-    return user?.siteId || undefined;
-  }
-
-  /** Ambil statistik inventory berbasis filter site. */
-  async findInventoryStats(input: { siteId?: string; startOfDay: Date }) {
+  /**
+   * Ambil statistik inventory berbasis filter site. `siteIds` kosong berarti
+   * tidak ada gudang yang cocok, bukan tanpa pembatasan.
+   */
+  async findInventoryStats(input: { siteIds?: string[]; startOfDay: Date }) {
     const gudangFilter: Prisma.GudangWhereInput = { isActive: true };
     const masukFilter: Prisma.BarangMasukWhereInput = {
       createdAt: { gte: input.startOfDay },
@@ -39,7 +36,12 @@ export class InventoryApiRepository {
     const keluarFilter: Prisma.BarangKeluarWhereInput = {
       createdAt: { gte: input.startOfDay },
     };
-    this.applySiteFilter(input.siteId, gudangFilter, masukFilter, keluarFilter);
+    this.applySiteFilter(
+      input.siteIds,
+      gudangFilter,
+      masukFilter,
+      keluarFilter,
+    );
     const [totalBarang, barangMasukToday, barangKeluarToday, totalGudang] =
       await Promise.all([
         this.db.barang.count(),
@@ -152,13 +154,13 @@ export class InventoryApiRepository {
   }
 
   /** Ambil summary opname berbasis stok dan opname terakhir. */
-  async findOpnameSummary(gudangId?: string) {
-    return this.opnameRepository.findOpnameSummary(gudangId);
+  async findOpnameSummary(input: OpnameGudangScope) {
+    return this.opnameRepository.findOpnameSummary(input);
   }
 
   /** Ambil laporan opname per gudang. */
-  async findOpnameReport(gudangId?: string) {
-    return this.opnameRepository.findOpnameReport(gudangId);
+  async findOpnameReport(input: OpnameGudangScope) {
+    return this.opnameRepository.findOpnameReport(input);
   }
 
   /** Hitung data awal opname untuk satu gudang. */
@@ -204,14 +206,14 @@ export class InventoryApiRepository {
   }
 
   private applySiteFilter(
-    siteId: string | undefined,
+    siteIds: string[] | undefined,
     gudangFilter: Prisma.GudangWhereInput,
     masukFilter: Prisma.BarangMasukWhereInput,
     keluarFilter: Prisma.BarangKeluarWhereInput,
   ) {
-    if (!siteId) return;
-    const siteFilter = { sites: { some: { id: siteId } } };
-    gudangFilter.sites = { some: { id: siteId } };
+    if (!siteIds) return;
+    const siteFilter = { sites: { some: { id: { in: siteIds } } } };
+    gudangFilter.sites = siteFilter.sites;
     masukFilter.gudang = siteFilter;
     keluarFilter.gudang = siteFilter;
   }

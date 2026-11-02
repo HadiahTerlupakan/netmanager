@@ -1,14 +1,16 @@
 import { getUserPermissions, isSuperAdmin } from "@/lib/auth";
 import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { prisma } from "@/modules/database";
+import { filterSitePrisma, tanpaDataSamaSekali } from "@/modules/roles/client";
 import type { Prisma } from "../repositories/prisma-boundary";
+import { IZIN_PEMBATAS_OPNAME } from "../domain/izin-pembatas-site";
+import { lingkupSiteGudang } from "./lingkup-gudang";
 
 import type {
   ListInventoryOpnameInput,
   OpnameHistoryStatsInput,
 } from "./InventoryOpnameService";
 
-const INVENTORY_OPNAME_SITE_ONLY_PERMISSION = "opname:site_only";
 const DEFAULT_EMPTY_TOTAL = 0;
 const DEFAULT_EMPTY_LIST: never[] = [];
 const ACCURACY_FULL_PERCENT = 100;
@@ -129,10 +131,11 @@ async function buildScopedOpnameWhere(
   input: OpnameHistoryStatsInput,
 ): Promise<Prisma.StockOpnameWhereInput | null> {
   const where = buildBaseOpnameWhere(input);
-  const siteId = await resolveSiteOnlyOpnameScope(input);
+  const lingkup = await resolveOpnameLingkup(input);
 
-  if (siteId === null) return null;
-  if (siteId) where.gudang = { sites: { some: { id: siteId } } };
+  if (tanpaDataSamaSekali(lingkup)) return null;
+  const sitePrisma = filterSitePrisma(lingkup);
+  if (sitePrisma) where.gudang = { sites: { some: { id: sitePrisma } } };
   return where;
 }
 
@@ -164,19 +167,17 @@ function buildTanggalRange(input: OpnameHistoryStatsInput) {
   return Object.keys(range).length > 0 ? range : null;
 }
 
-async function resolveSiteOnlyOpnameScope(input: OpnameHistoryStatsInput) {
-  const [permissions, dbUser] = await Promise.all([
-    getUserPermissions(input.user.id),
-    prisma.user.findUnique({
-      where: { id: input.user.id },
-      select: { siteId: true },
-    }),
-  ]);
-
-  if (isSuperAdmin(input.user as never)) return undefined;
-  if (!permissions.includes(INVENTORY_OPNAME_SITE_ONLY_PERMISSION))
-    return undefined;
-  return dbUser?.siteId ?? input.user.siteId ?? null;
+/**
+ * Lingkup site daftar opname: site utama plus seluruh `userSites`, dengan
+ * pembatas yang sama dengan pencatatan dan pembukaan catatan opname.
+ */
+async function resolveOpnameLingkup(input: OpnameHistoryStatsInput) {
+  return lingkupSiteGudang({
+    userId: input.user.id,
+    permissions: await getUserPermissions(input.user.id),
+    isSuperAdmin: isSuperAdmin(input.user as never),
+    izinPembatas: IZIN_PEMBATAS_OPNAME,
+  });
 }
 
 function buildOpnameListInclude() {

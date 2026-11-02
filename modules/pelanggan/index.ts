@@ -113,6 +113,10 @@ export {
   RouteServiceError,
 } from "./services/PelangganPppRouteService";
 export {
+  PELANGGAN_PPP_SITE_ONLY_PERMISSIONS,
+  withPelangganPppSiteScope,
+} from "./services/pelanggan-ppp-route-validation";
+export {
   listMobilePelanggan,
   SiteAccessDeniedError,
   type MobilePelangganDTO,

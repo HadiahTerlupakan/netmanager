@@ -76,6 +76,8 @@ export interface CorrectMissedCheckInInput {
   sourceAttendanceId: string;
   tenantId: string;
   actorId: string;
+  /** Admin pelaku; dipakai untuk lingkup `attendance:site_only`/`department_only`. */
+  actor: { id: string; role?: string | null; isSuperAdmin?: boolean | null };
   checkIn: Date;
   checkOut: Date | null;
   reason: string;

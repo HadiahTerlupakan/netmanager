@@ -6,6 +6,7 @@ import {
   getPelangganService,
   pelangganInputBuilderService,
   pelangganUploadService,
+  withPelangganPppSiteScope,
 } from "@/modules/pelanggan";
 import { checkSiteRestriction } from "@/modules/roles";
 import {
@@ -45,7 +46,10 @@ export const GET = createHandler(
     const session = ctx.session!;
     const searchParams = req.nextUrl.searchParams;
     const restriction = checkSiteRestriction(
-      buildSessionWithPermissions(session, ctx.permissions),
+      buildSessionWithPermissions(
+        session,
+        withPelangganPppSiteScope(ctx.permissions),
+      ),
       "pelanggan",
     );
     const status = searchParams.get("status") as Status | null;
@@ -111,12 +115,19 @@ export const POST = createHandler(
     const data = validationResult.data;
     try {
       // Sales kosong → diisi otomatis dari canvasing dengan nomor HP sama (bila tunggal).
-      data.salesId = await getPelangganSalesService().tentukanSalesPelangganBaru(requireSessionTenantId(ctx), data);
+      data.salesId =
+        await getPelangganSalesService().tentukanSalesPelangganBaru(
+          requireSessionTenantId(ctx),
+          data,
+        );
     } catch (error) {
       return responsGalatSalesPelanggan(error, "validasi sales pelanggan baru");
     }
     const restriction = checkSiteRestriction(
-      buildSessionWithPermissions(session, ctx.permissions),
+      buildSessionWithPermissions(
+        session,
+        withPelangganPppSiteScope(ctx.permissions),
+      ),
       "pelanggan",
     );
 

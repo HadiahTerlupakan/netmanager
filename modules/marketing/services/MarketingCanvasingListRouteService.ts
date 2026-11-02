@@ -14,6 +14,7 @@ import type {
   CanvasingListItemDTO,
 } from "../dto/MarketingDTO";
 import { createCanvasingService } from "./marketing-service-factories";
+import { resolveCanvasingAllowedSiteIds } from "./CanvasingSiteAccessService";
 import type { CanvasingService } from "./CanvasingService";
 
 type CanvasingStatusValue = "PENDING" | "APPROVED" | "REJECTED";
@@ -207,7 +208,7 @@ export class MarketingCanvasingListRouteService {
           salesIds = lingkup;
         }
       } else if (isSiteRestricted) {
-        const allowedSiteIds = input.session.siteIds ?? [];
+        const allowedSiteIds = resolveCanvasingAllowedSiteIds(input.session);
         if (allowedSiteIds.length === 0) {
           return {
             success: true,

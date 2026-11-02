@@ -45,7 +45,7 @@ export async function findAllInventoryBarang(
     take?: number;
     search?: string;
     gudangId?: string;
-    siteId?: string;
+    siteIds?: string[];
     tenantId?: string;
   },
 ) {
@@ -69,7 +69,13 @@ export function findBarangWithStockById(db: PrismaClient, id: string) {
       barangGudang: {
         include: {
           gudang: {
-            select: { id: true, nama: true, kode: true },
+            // `sites` dipakai untuk memeriksa lingkup site sebelum ubah/hapus.
+            select: {
+              id: true,
+              nama: true,
+              kode: true,
+              sites: { select: { id: true } },
+            },
           },
         },
       },
@@ -153,7 +159,10 @@ export async function findInventoryBarangDetail(db: PrismaClient, id: string) {
 
 function buildBarangDetailInclude() {
   return {
-    barangGudang: { include: { gudang: true } },
+    // `sites` dipakai untuk menyaring stok ke lingkup site pengguna.
+    barangGudang: {
+      include: { gudang: { include: { sites: { select: { id: true } } } } },
+    },
     barang_masuk: {
       include: {
         gudang: { select: { id: true, nama: true } },
@@ -229,7 +238,7 @@ function buildBarangListQuery(
         skip?: number;
         take?: number;
         gudangId?: string;
-        siteId?: string;
+        siteIds?: string[];
       }
     | undefined,
   where: Prisma.BarangWhereInput,
@@ -253,8 +262,8 @@ function buildBarangListQuery(
         where: {
           AND: [
             params?.gudangId ? { gudangId: params.gudangId } : {},
-            params?.siteId
-              ? { gudang: { sites: { some: { id: params.siteId } } } }
+            params?.siteIds
+              ? { gudang: { sites: { some: { id: { in: params.siteIds } } } } }
               : {},
           ],
         },

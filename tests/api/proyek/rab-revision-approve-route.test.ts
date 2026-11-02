@@ -27,6 +27,12 @@ const {
   };
 });
 
+const mockIsProjectInUserScope = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/auth/permissions", () => ({
+  getUserPermissions: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock("next-auth/next", () => ({
   getServerSession: mockGetServerSession,
 }));
@@ -40,6 +46,9 @@ vi.mock("@/lib/api/route-service-error", () => ({
 }));
 
 vi.mock("@/modules/proyek", () => ({
+  RabProjectSiteAccessService: class {
+    isProjectInUserScope = mockIsProjectInUserScope;
+  },
   approveRabRevision: mockApproveRabRevision,
   RabRevisionApprovalError: MockRabRevisionApprovalError,
   RabRevisionRouteService: class MockRabRevisionRouteService {
@@ -54,6 +63,7 @@ describe("rab revision approval route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue({ user: { id: "approver-1" } });
+    mockIsProjectInUserScope.mockResolvedValue(true);
     mockIsRouteServiceError.mockImplementation(
       (error: unknown) =>
         typeof error === "object" && error !== null && "status" in error,
@@ -178,5 +188,32 @@ describe("rab revision approval route", () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe("Anda sudah menyetujui revisi ini sebelumnya.");
+  });
+
+  it("404 dan tidak menyetujui/menolak revisi RAB di luar lingkup site", async () => {
+    mockIsProjectInUserScope.mockResolvedValue(false);
+    const params = {
+      params: Promise.resolve({ id: "rab-site-lain", revisionId: "rev-9" }),
+    };
+
+    const approve = await APPROVE(
+      new NextRequest("http://localhost/api/revision/approve", {
+        method: "POST",
+      }),
+      params,
+    );
+    const reject = await REJECT(
+      new NextRequest("http://localhost/api/revision/reject", {
+        method: "POST",
+        body: JSON.stringify({ notes: "x" }),
+        headers: { "content-type": "application/json" },
+      }),
+      { params: Promise.resolve({ id: "rab-site-lain", revisionId: "rev-9" }) },
+    );
+
+    expect(approve.status).toBe(404);
+    expect(reject.status).toBe(404);
+    expect(mockApproveRabRevision).not.toHaveBeenCalled();
+    expect(mockRejectRevision).not.toHaveBeenCalled();
   });
 });

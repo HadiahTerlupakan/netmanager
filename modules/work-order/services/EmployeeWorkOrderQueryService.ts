@@ -2,6 +2,7 @@ import type { WorkOrderStatus } from "../types/work-order.enums";
 import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import { validateMobileAssignedWorkOrderAccess } from "./work-order-access";
+import { mobileUnclaimedWorkOrderGuard } from "./mobile-unclaimed-work-order-guard";
 
 const ACTIVE_WORK_ORDER_STATUSES = [
   "ASSIGNED",
@@ -77,10 +78,18 @@ export class EmployeeWorkOrderQueryService {
       // Jalur baca: partner yang diundang perlu melihat pekerjaannya sebelum
       // memutuskan menerima atau menolak. Jalur aksi tetap menuntut APPROVED.
       allowPendingInvitation: true,
+      unclaimedAccessGuard: mobileUnclaimedWorkOrderGuard,
     });
   }
 
-  /** Membangun konteks akses mobile yang konsisten. */
+  /**
+   * Membangun konteks akses mobile yang konsisten.
+   *
+   * `permissions` sengaja kosong: toggle `workorders:*_only` milik panel web
+   * tidak boleh mencabut akses pemegang/partner atas WO-nya sendiri. Lingkup
+   * site/departemen untuk WO yang belum diambil ditegakkan lewat
+   * `unclaimedAccessGuard`.
+   */
   private buildAccessContext(userContext: MobileWorkOrderUserContext) {
     return {
       id: userContext.id,

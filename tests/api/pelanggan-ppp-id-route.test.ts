@@ -49,6 +49,7 @@ vi.mock("@/modules/roles", () => ({
 }));
 
 vi.mock("@/modules/pelanggan", () => ({
+  withPelangganPppSiteScope: (permissions: string[]) => permissions,
   // Route PUT memvalidasi field profil/biaya dengan schema ini sebelum
   // meneruskannya ke service; tanpa diekspor di mock, route gagal di-import.
   updatePelangganProfileSchema: {

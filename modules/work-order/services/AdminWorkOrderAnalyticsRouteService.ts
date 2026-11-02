@@ -7,6 +7,7 @@ const DEFAULT_TOP_LIMIT = 5;
 const LAST_30_DAYS = 30;
 
 type PermissionList = string[] | undefined;
+type AnalyticsUser = { id: string; role?: string; isSuperAdmin?: boolean };
 
 interface DateRange {
   dateFrom?: Date;
@@ -17,7 +18,7 @@ export class AdminWorkOrderAnalyticsRouteService {
   constructor(
     private readonly repository: AdminWorkOrderRouteRepository,
     private readonly buildAccessFilters: (
-      user: { id: string; role?: string },
+      user: AnalyticsUser,
       permissions?: PermissionList,
     ) => Promise<{
       unauthorized: boolean;
@@ -34,7 +35,7 @@ export class AdminWorkOrderAnalyticsRouteService {
   /** Ambil statistik response stats untuk route admin. */
   async getResponseStats(input: {
     period?: string;
-    user: { id: string; role?: string };
+    user: AnalyticsUser;
     permissions?: PermissionList;
   }) {
     const access = await this.buildAccessFilters(input.user, input.permissions);
@@ -45,7 +46,7 @@ export class AdminWorkOrderAnalyticsRouteService {
     const stats = await this.repository.getAdminResponseStats(
       range.dateFrom,
       range.dateTo,
-      access.departmentId,
+      { departmentId: access.departmentId, siteId: access.siteId },
     );
     return { success: true as const, data: stats };
   }
@@ -53,7 +54,7 @@ export class AdminWorkOrderAnalyticsRouteService {
   /** Ambil recent work orders dengan access filter admin. */
   async getRecentWorkOrders(input: {
     limit?: number;
-    user: { id: string; role?: string };
+    user: AnalyticsUser;
     permissions?: PermissionList;
   }) {
     const access = await this.buildAccessFilters(input.user, input.permissions);
@@ -62,13 +63,16 @@ export class AdminWorkOrderAnalyticsRouteService {
     if (access.emptyResponse) return { success: true as const, data: [] };
     return this.workOrderService.getRecentWorkOrders(
       input.limit || DEFAULT_RECENT_LIMIT,
-      { ...(access.departmentId ? { departmentId: access.departmentId } : {}) },
+      {
+        ...(access.departmentId ? { departmentId: access.departmentId } : {}),
+        ...(access.siteId ? { siteId: access.siteId } : {}),
+      },
     );
   }
 
   /** Ambil workload departemen dengan filtering akses admin. */
   async getDepartmentWorkload(input: {
-    user: { id: string; role?: string };
+    user: AnalyticsUser;
     permissions?: PermissionList;
   }) {
     const access = await this.buildAccessFilters(input.user, input.permissions);
@@ -77,14 +81,17 @@ export class AdminWorkOrderAnalyticsRouteService {
     if (access.emptyResponse) return { success: true as const, data: [] };
     const dynamicImport = await import("../repositories/WorkOrderRepository");
     const repository = new dynamicImport.WorkOrderRepository();
-    const data = await repository.getDepartmentWorkload(access.departmentId);
+    const data = await repository.getDepartmentWorkload(
+      access.departmentId,
+      access.siteId,
+    );
     return { success: true as const, data };
   }
 
   /** Ambil statistik overview dengan filtering akses admin. */
   async getStats(input: {
     filters: { departmentId?: string; assignedToId?: string };
-    user: { id: string; role?: string };
+    user: AnalyticsUser;
     permissions?: PermissionList;
   }) {
     const access = await this.buildAccessFilters(input.user, input.permissions);
@@ -101,7 +108,7 @@ export class AdminWorkOrderAnalyticsRouteService {
   /** Ambil summary top performer sesuai periode. */
   async getTopPerformers(input: {
     period?: string;
-    user: { id: string; role?: string };
+    user: AnalyticsUser;
     permissions?: PermissionList;
   }) {
     const access = await this.buildAccessFilters(input.user, input.permissions);
@@ -119,6 +126,7 @@ export class AdminWorkOrderAnalyticsRouteService {
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
       departmentId: access.departmentId,
+      siteId: access.siteId,
     });
     return { success: true as const, data };
   }
@@ -127,16 +135,33 @@ export class AdminWorkOrderAnalyticsRouteService {
   async getTrends(input: {
     startDate: Date;
     endDate: Date;
-    user: { id: string; role?: string };
+    user: AnalyticsUser;
     permissions?: PermissionList;
   }) {
     const access = await this.buildAccessFilters(input.user, input.permissions);
     if (access.unauthorized)
       return { success: false as const, code: "UNAUTHORIZED" };
+    const dateRange = {
+      startDate: input.startDate.toISOString(),
+      endDate: input.endDate.toISOString(),
+    };
+    // Role terbatas tanpa site/departemen tidak boleh jatuh ke query tanpa
+    // filter — itu sama dengan membuka seluruh tenant (fail closed).
+    if (access.emptyResponse) {
+      return {
+        success: true as const,
+        data: {
+          volumeTrend: [],
+          issueTrend: [],
+          performanceTrend: [],
+          typeTrend: [],
+          dateRange,
+        },
+      };
+    }
     const dynamicImport = await import("../repositories/WorkOrderRepository");
     const repository = new dynamicImport.WorkOrderRepository();
-    const departmentId = access.emptyResponse ? undefined : access.departmentId;
-    const siteId = access.emptyResponse ? undefined : access.siteId;
+    const { departmentId, siteId } = access;
     const [volumeTrend, issueTrend, performanceTrend, typeTrend] =
       await Promise.all([
         repository.getVolumeTrend(
@@ -171,10 +196,7 @@ export class AdminWorkOrderAnalyticsRouteService {
         issueTrend,
         performanceTrend,
         typeTrend,
-        dateRange: {
-          startDate: input.startDate.toISOString(),
-          endDate: input.endDate.toISOString(),
-        },
+        dateRange,
       },
     };
   }

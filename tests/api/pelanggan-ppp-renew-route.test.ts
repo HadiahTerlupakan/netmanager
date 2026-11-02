@@ -37,6 +37,7 @@ vi.mock("@/modules/pelanggan", async () => {
   return {
     renewPelangganSchema,
     PelangganAdminMutationError,
+    withPelangganPppSiteScope: (permissions: string[]) => permissions,
     PelangganRenewalService: class {
       renew = palsu.renew;
     },

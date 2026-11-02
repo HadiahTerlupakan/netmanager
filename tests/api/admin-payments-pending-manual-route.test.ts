@@ -116,4 +116,22 @@ describe("admin pending manual payments route", () => {
       expect.any(Object),
     );
   });
+
+  it("finance:site_only juga mengunci daftar ke site admin", async () => {
+    routeMocks.getUserPermissions.mockResolvedValueOnce([
+      "manual_payments:read",
+      "finance:site_only",
+    ]);
+
+    const response = await GET(
+      new Request(
+        "http://localhost/api/admin/payments/pending-manual?siteId=site-other",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(routeMocks.findAllCustomers).toHaveBeenCalledWith({
+      siteId: "site-owned",
+    });
+  });
 });

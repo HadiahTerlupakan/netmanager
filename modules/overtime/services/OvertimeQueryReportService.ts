@@ -65,11 +65,19 @@ export class OvertimeQueryReportService {
           input.siteId,
           input.departmentId,
         ),
-        this.repository.getGroupedStats(input.startDate, input.endDate, "site"),
+        this.repository.getGroupedStats(
+          input.startDate,
+          input.endDate,
+          "site",
+          input.siteId,
+          input.departmentId,
+        ),
         this.repository.getGroupedStats(
           input.startDate,
           input.endDate,
           "department",
+          input.siteId,
+          input.departmentId,
         ),
         this.repository.getTopEmployees(
           input.startDate,

@@ -31,10 +31,7 @@ import {
   findManyWithWorkConfig,
   searchActiveEmployees,
 } from "./user-lookup.profile";
-import {
-  findManyByDepartmentAndSite,
-  findManyWithDetailedRelations,
-} from "./user-lookup.workorder";
+import { findManyWithDetailedRelations } from "./user-lookup.workorder";
 
 /** Menangani query lookup user lintas modul yang bersifat read-only. */
 export class UserLookupRepository {
@@ -147,14 +144,6 @@ export class UserLookupRepository {
 
   findManyWithDetailedRelations(where: Prisma.UserWhereInput) {
     return findManyWithDetailedRelations(where);
-  }
-
-  findManyByDepartmentAndSite(
-    departmentId?: string,
-    siteId?: string,
-    excludeUserId?: string,
-  ) {
-    return findManyByDepartmentAndSite(departmentId, siteId, excludeUserId);
   }
 
   findAllActiveInTenant(tenantId: string) {

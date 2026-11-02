@@ -170,8 +170,9 @@ export class AdminSupportTicketService {
       if (ticket.status === TicketStatus.CLOSED)
         return this.closedTicketResult();
 
-      // Validate scope: ticket must belong to pelanggan in allowed sites
-      if (input.allowedSiteIds && input.allowedSiteIds.length > 0) {
+      // Validate scope: ticket must belong to pelanggan in allowed sites.
+      // Daftar kosong = admin terbatas tanpa site — ditolak, bukan dilewati.
+      if (input.allowedSiteIds) {
         const { getPelangganService } = await import("./PelangganService");
         const pelanggan = await getPelangganService().getPelanggan(
           ticket.pelangganId,
@@ -227,9 +228,9 @@ export class AdminSupportTicketService {
 
   /** Hitung tiket yang membutuhkan respon admin. */
   async getUnreadCount(
-    siteId?: string,
+    siteIds?: string[],
   ): Promise<ServiceResult<AdminUnreadCountResponse>> {
-    return getAdminUnreadCount({ siteId, ticketRepo: this.ticketRepo });
+    return getAdminUnreadCount({ siteIds, ticketRepo: this.ticketRepo });
   }
 
   /** Hasil gagal saat tiket tidak ditemukan. */

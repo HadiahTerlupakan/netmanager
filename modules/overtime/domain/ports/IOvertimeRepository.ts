@@ -138,11 +138,13 @@ export interface IOvertimeRepository {
     departmentId?: string,
   ): Promise<OvertimeDateStatsEntity[]>;
 
-  /** Get grouped overtime stats. */
+  /** Get grouped overtime stats, optionally limited to one site/department. */
   getGroupedStats(
     startDate: Date,
     endDate: Date,
     groupBy: "department" | "site",
+    siteId?: string,
+    departmentId?: string,
   ): Promise<OvertimeGroupedStatsEntity[]>;
 
   /** Get top employees by overtime duration. */

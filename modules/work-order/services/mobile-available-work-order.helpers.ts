@@ -25,6 +25,16 @@ export function buildEmployeeWhereClause(
   };
 }
 
+/** Kelayakan mitra atas WO yang belum diambil: site kosong atau sama. */
+export function canMitraClaimWorkOrder(input: {
+  mitraSiteId: string | null | undefined;
+  workOrder: { siteId: string | null };
+}) {
+  return (
+    !input.workOrder.siteId || input.mitraSiteId === input.workOrder.siteId
+  );
+}
+
 export function buildMitraWhereClause(
   tenantId: string,
   userId: string,
@@ -94,7 +104,12 @@ function hasAssignedClaimOwner(workOrder: {
   return Boolean(workOrder.assignedToId || workOrder.assignedMitraId);
 }
 
-function canEmployeeClaimWorkOrder(input: {
+/**
+ * Aturan kelayakan yang sama dengan daftar WO tersedia: departemen dan site
+ * work order kosong atau cocok dengan milik karyawan (multi-site lewat
+ * `userSites`). Dipakai untuk klaim maupun membuka detail WO yang belum diambil.
+ */
+export function canEmployeeClaimWorkOrder(input: {
   dbUser: MobileAvailableUserProfileEntity | null;
   userSiteIds: string[];
   workOrder: {

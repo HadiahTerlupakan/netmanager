@@ -4,7 +4,10 @@ import { buildPaginationMeta } from "@/lib/utils/pagination";
 import { Prisma, TicketStatus } from "@prisma/client";
 import type { ICustomerTicketRepository } from "../domain/ports/ICustomerTicketRepository";
 import type { SupportTicketEntity } from "../domain/entities/SupportTicketEntity";
-import { SupportTicketMapper, type AdminTicketListItemDTO } from "../mappers/SupportTicketMapper";
+import {
+  SupportTicketMapper,
+  type AdminTicketListItemDTO,
+} from "../mappers/SupportTicketMapper";
 import type {
   ServiceResult,
   TicketFilterOptions,
@@ -74,7 +77,7 @@ export async function getAdminTicketById(input: AdminTicketDetailInput) {
 export async function getAdminUnreadCount(input: AdminUnreadCountInput) {
   try {
     const openTickets = await input.ticketRepo.countAdmin(
-      buildUnreadOpenWhere(input.siteId),
+      buildUnreadOpenWhere(input.siteIds),
     );
     const needsReply = await countNeedsReply(input, TicketStatus.IN_PROGRESS);
     const waitingReply = await countNeedsReply(
@@ -113,7 +116,9 @@ function buildTicketListResult(input: TicketListResultInput) {
   return {
     success: true,
     data: {
-      tickets: SupportTicketMapper.toAdminList(input.tickets as SupportTicketEntity[]),
+      tickets: SupportTicketMapper.toAdminList(
+        input.tickets as SupportTicketEntity[],
+      ),
       pagination: buildPaginationMeta(input),
       stats: buildTicketListStats(input.statusSummary, input.rating),
     },
@@ -147,7 +152,7 @@ function isForbidden(
 }
 
 function countNeedsReply(input: AdminUnreadCountInput, status: TicketStatus) {
-  return input.ticketRepo.countNeedsReplyAdmin(status, input.siteId);
+  return input.ticketRepo.countNeedsReplyAdmin(status, input.siteIds);
 }
 
 function buildUnreadCountResult(
@@ -202,7 +207,8 @@ type AdminTicketDetailInput = {
 };
 
 type AdminUnreadCountInput = {
-  siteId?: string;
+  /** undefined = tanpa batas site; array (boleh kosong) = hanya site ini. */
+  siteIds?: string[];
   ticketRepo: ICustomerTicketRepository;
 };
 

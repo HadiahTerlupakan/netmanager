@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
       const canAccessUser = await leaveBalanceService.canAccessUser(userId, {
         requesterTenantId: session.user.tenantId,
         isSuperAdmin: session.user.isSuperAdmin,
+        actor: session.user,
       });
       if (!canAccessUser) {
         return ApiErrors.forbidden(
@@ -73,6 +74,7 @@ export async function GET(req: NextRequest) {
       access: {
         requesterTenantId: session.user.tenantId,
         isSuperAdmin: session.user.isSuperAdmin,
+        actor: session.user,
       },
     });
 
@@ -112,6 +114,7 @@ export async function POST(req: NextRequest) {
     const canAccessUser = await leaveBalanceService.canAccessUser(userId, {
       requesterTenantId: session.user.tenantId,
       isSuperAdmin: session.user.isSuperAdmin,
+      actor: session.user,
     });
     if (!canAccessUser) {
       return ApiErrors.forbidden("Anda tidak diizinkan mengubah data user ini");

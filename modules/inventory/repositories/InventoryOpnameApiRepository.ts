@@ -41,13 +41,31 @@ function keluarJumlahTooLargeError(
   );
 }
 
+/**
+ * Cakupan gudang untuk ringkasan dan laporan opname. `siteIds` kosong berarti
+ * tidak ada gudang yang cocok, bukan tanpa pembatasan; tidak dikirim berarti
+ * tanpa saringan site.
+ */
+export interface OpnameGudangScope {
+  gudangId?: string;
+  siteIds?: string[];
+}
+
+function buildGudangSiteWhere(siteIds?: string[]) {
+  return siteIds ? { sites: { some: { id: { in: siteIds } } } } : {};
+}
+
 export class InventoryOpnameApiRepository {
   constructor(private readonly db: PrismaClientLike) {}
 
   /** Ambil summary opname berbasis stok dan opname terakhir. */
-  async findOpnameSummary(gudangId?: string) {
+  async findOpnameSummary(input: OpnameGudangScope) {
     const tenantFilter = await this.buildTenantFilter();
-    const whereClause = { ...tenantFilter, ...(gudangId ? { gudangId } : {}) };
+    const whereClause = {
+      ...tenantFilter,
+      ...(input.gudangId ? { gudangId: input.gudangId } : {}),
+      ...(input.siteIds ? { gudang: buildGudangSiteWhere(input.siteIds) } : {}),
+    };
     const [barangGudangs, latestOpnames] = await Promise.all([
       this.db.barangGudang.findMany({
         where: whereClause,
@@ -78,13 +96,14 @@ export class InventoryOpnameApiRepository {
   }
 
   /** Ambil laporan opname per gudang. */
-  async findOpnameReport(gudangId?: string) {
+  async findOpnameReport(input: OpnameGudangScope) {
     const tenantFilter = await this.buildTenantFilter();
     const gudangs = await this.db.gudang.findMany({
       where: {
         isActive: true,
         ...tenantFilter,
-        ...(gudangId ? { id: gudangId } : {}),
+        ...(input.gudangId ? { id: input.gudangId } : {}),
+        ...buildGudangSiteWhere(input.siteIds),
       },
       include: {
         barangGudang: {

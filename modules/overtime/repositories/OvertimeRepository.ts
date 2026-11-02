@@ -154,11 +154,15 @@ export class OvertimeRepository implements IOvertimeRepository {
     startDate: Date,
     endDate: Date,
     groupBy: "department" | "site",
+    siteId?: string,
+    departmentId?: string,
   ) {
     return this.reportRepository.getGroupedStats({
       startDate,
       endDate,
       groupBy,
+      siteId,
+      departmentId,
     });
   }
 

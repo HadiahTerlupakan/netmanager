@@ -250,6 +250,29 @@ describe("pola gagal-terbuka tidak boleh muncul lagi", () => {
   });
 });
 
+describe("pencatatan inventory tidak kehilangan permission", () => {
+  /**
+   * `buildInventoryAccessSession(user)` tanpa permission adalah akar bug
+   * 2026-11-02: objek user dari `createHandler` tidak membawa permission, jadi
+   * `validateGudangSiteAccess` tidak pernah melihat `*:site_only` dan
+   * pencatatan barang masuk/keluar/transfer lolos ke gudang site mana pun.
+   */
+  it("setiap buildInventoryAccessSession menyertakan permission", () => {
+    const pelanggar: string[] = [];
+    const pola = /buildInventoryAccessSession\(\s*[^,()]+\s*\)/g;
+
+    for (const jalur of berkasServer()) {
+      const sumber = readFileSync(join(process.cwd(), jalur), "utf8");
+      for (const cocok of sumber.matchAll(pola)) {
+        const barisKe = sumber.slice(0, cocok.index).split("\n").length;
+        pelanggar.push(`${jalur}:${barisKe}`);
+      }
+    }
+
+    expect(pelanggar).toEqual([]);
+  });
+});
+
 /**
  * Pelanggaran yang sudah ada saat penjaga ini ditulis. Keduanya utang yang
  * diakui — boleh menyusut, tidak boleh bertambah.
@@ -257,12 +280,7 @@ describe("pola gagal-terbuka tidak boleh muncul lagi", () => {
 const DIKETAHUI_TERNARY: string[] = [
   // `hasGudangSiteAccess` mengembalikan boolean, bukan filter: daftar kosong
   // menghasilkan `false` alias ditolak. Gagal-tertutup, jadi aman.
-  "modules/inventory/utils/validation.ts:227",
+  "modules/inventory/utils/validation.ts:213",
 ];
 
-const DIKETAHUI_STRING_KOSONG: string[] = [
-  // `session.siteId ?? ""` lalu `.includes("")` tetap gagal-tertutup. Utangnya
-  // lain: perbandingannya site tunggal, padahal daftar canvasing sudah
-  // multi-site — pengguna multi-site melihat barisnya tetapi ditolak membukanya.
-  "modules/marketing/services/CanvasingSiteAccessService.ts:29",
-];
+const DIKETAHUI_STRING_KOSONG: string[] = [];

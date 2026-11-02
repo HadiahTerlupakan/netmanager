@@ -1,6 +1,9 @@
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { isRouteServiceError } from "@/lib/api/route-service-error";
-import { RabApprovalReminderRouteService } from "@/modules/proyek";
+import {
+  RabApprovalReminderRouteService,
+  RabProjectSiteAccessService,
+} from "@/modules/proyek";
 
 const rabApprovalReminderRouteService = new RabApprovalReminderRouteService();
 
@@ -13,6 +16,16 @@ export const POST = createHandler({ auth: true }, async (_req, ctx) => {
   const rabId = ctx.params?.id;
   if (!rabId) {
     return ApiErrors.badRequest("ID RAB tidak ditemukan");
+  }
+
+  if (
+    !(await new RabProjectSiteAccessService().isProjectInUserScope(
+      rabId,
+      ctx.session!.user,
+      ctx.permissions,
+    ))
+  ) {
+    return ApiErrors.notFound("Proyek RAB tidak ditemukan");
   }
 
   try {

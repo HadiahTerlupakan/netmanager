@@ -272,3 +272,19 @@ describe("SiteRestrictionService", () => {
     });
   });
 });
+
+// Regresi: sesi pengguna yang belum dimigrasi ke userSites membawa
+// `siteIds: []` plus `siteId` legacy. `[] || fallback` tidak pernah jatuh ke
+// fallback, sehingga admin terbatas itu terkunci dari site-nya sendiri.
+describe("checkSiteRestriction dengan siteIds kosong", () => {
+  it("memakai siteId legacy bila siteIds kosong", () => {
+    const session = buildSession({
+      permissions: ["users:site_only"],
+      siteId: "legacy",
+      siteIds: [],
+    });
+    expect(checkSiteRestriction(session, "users").siteIds).toEqual(["legacy"]);
+    expect(canAccessSite(session, "users", "legacy")).toBe(true);
+    expect(canAccessSite(session, "users", "site-lain")).toBe(false);
+  });
+});

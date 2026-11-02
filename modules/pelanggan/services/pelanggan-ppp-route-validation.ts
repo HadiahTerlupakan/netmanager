@@ -11,6 +11,33 @@ import {
   getTenantScopedWhereById,
 } from "./pelanggan-admin-mutation.helpers";
 import type { AdminMutationSession } from "./PelangganAdminMutationService";
+import { hasAnyScopeRestriction } from "@/lib/authorization/scope-restriction-permissions";
+
+/**
+ * Layar Pelanggan PPP menawarkan toggle `ppp:site_only`, tetapi backend-nya
+ * hanya membaca `pelanggan:site_only` — toggle itu tidak menggigit dan role
+ * ber-`ppp:site_only` melihat pelanggan seluruh site. Keduanya kini membatasi.
+ */
+export const PELANGGAN_PPP_SITE_ONLY_PERMISSIONS = [
+  "pelanggan:site_only",
+  "ppp:site_only",
+] as const;
+
+/**
+ * Permission sesi untuk route `/api/pelanggan-ppp/**`: bila salah satu toggle
+ * pembatas aktif, `pelanggan:site_only` ditambahkan supaya seluruh penjaga
+ * hilir (`checkSiteRestriction`/`canAccessSite` dengan resource "pelanggan")
+ * ikut membatasi.
+ */
+export function withPelangganPppSiteScope(permissions: string[]): string[] {
+  if (permissions.includes("pelanggan:site_only")) return permissions;
+  return hasAnyScopeRestriction(
+    permissions,
+    PELANGGAN_PPP_SITE_ONLY_PERMISSIONS,
+  )
+    ? [...permissions, "pelanggan:site_only"]
+    : permissions;
+}
 
 export const suspendRequestSchema = z.object({
   suspensionType: z.enum(["PAYMENT", "VIOLATION", "MAINTENANCE", "REQUEST"]),

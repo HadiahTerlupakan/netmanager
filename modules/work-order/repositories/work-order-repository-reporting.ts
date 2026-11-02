@@ -50,6 +50,7 @@ export function getWorkOrderTopPerformers(input: {
   dateFrom?: Date;
   dateTo?: Date;
   departmentId?: string;
+  siteId?: string;
 }): Promise<TopPerformer[]> {
   return getTopPerformers(
     input.prisma,
@@ -57,6 +58,7 @@ export function getWorkOrderTopPerformers(input: {
     input.dateFrom,
     input.dateTo,
     input.departmentId,
+    input.siteId,
   );
 }
 
@@ -66,6 +68,7 @@ export function getWorkOrderTopAssists(input: {
   dateFrom?: Date;
   dateTo?: Date;
   departmentId?: string;
+  siteId?: string;
 }): Promise<TopPerformer[]> {
   return getTopAssists(
     input.prisma,
@@ -73,6 +76,7 @@ export function getWorkOrderTopAssists(input: {
     input.dateFrom,
     input.dateTo,
     input.departmentId,
+    input.siteId,
   );
 }
 
@@ -121,8 +125,9 @@ export function getWorkOrderRecentItems(input: {
 export function getWorkOrderDepartmentWorkload(input: {
   prisma: PrismaInstance;
   departmentId?: string;
+  siteId?: string;
 }) {
-  return getDepartmentWorkload(input.prisma, input.departmentId);
+  return getDepartmentWorkload(input.prisma, input.departmentId, input.siteId);
 }
 
 export function getEmployeeWorkOrdersByDepartment(input: {
@@ -200,13 +205,12 @@ export function getWorkOrderAdminResponseStats(input: {
   dateFrom: Date;
   dateTo: Date;
   departmentId?: string;
+  siteId?: string;
 }) {
-  return getAdminResponseStats(
-    input.prisma,
-    input.dateFrom,
-    input.dateTo,
-    input.departmentId,
-  );
+  return getAdminResponseStats(input.prisma, input.dateFrom, input.dateTo, {
+    departmentId: input.departmentId,
+    siteId: input.siteId,
+  });
 }
 
 export function getWorkOrderAdminKpiStats(input: {

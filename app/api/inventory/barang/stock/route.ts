@@ -3,6 +3,7 @@ import { hasPermission } from "@/lib/rbac";
 import {
   bolehAksesGudang,
   getInventoryRouteService,
+  IZIN_PEMBATAS_BARANG,
   pesanGagalMuat,
   pesanTanpaIzin,
 } from "@/modules/inventory";
@@ -53,7 +54,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     gudangId,
     permissions: await getUserPermissions(user.id),
     isSuperAdmin: isSuperAdmin(user),
-    izinPembatas: ["barang:site_only", "gudang:site_only"],
+    izinPembatas: IZIN_PEMBATAS_BARANG,
   });
   if (!boleh) {
     return ApiErrors.forbidden(

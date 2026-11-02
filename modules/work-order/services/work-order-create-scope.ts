@@ -1,5 +1,10 @@
 import type { CreateWorkOrderInput, UserContext } from "./WorkOrderService";
 
+/**
+ * Kunci site work order baru ke site pembuatnya bila role memegang
+ * `workorders:site_only`. Pembuat terbatas tanpa site ditolak (fail closed) —
+ * work order tanpa site tidak akan pernah bisa dibuka lagi oleh role terbatas.
+ */
 export function enforceSiteRestriction(input: {
   normalizedInput: CreateWorkOrderInput;
   userContext: UserContext;
@@ -13,6 +18,7 @@ export function enforceSiteRestriction(input: {
   input.normalizedInput.siteId = input.userContext.siteId;
 }
 
+/** Kunci departemen work order baru; simetris dengan `enforceSiteRestriction`. */
 export function enforceDepartmentRestriction(input: {
   normalizedInput: CreateWorkOrderInput;
   userContext: UserContext;
@@ -43,6 +49,12 @@ function validateSiteAccess(
   input: CreateWorkOrderInput,
   userSiteId: string | undefined,
 ) {
+  if (!userSiteId) {
+    throw new Error(
+      "Akses ditolak: Akun Anda belum diberi site, jadi belum bisa membuat work order. Minta admin mengatur site akun Anda.",
+    );
+  }
+
   if (!input.siteId || input.siteId === userSiteId) {
     return;
   }
@@ -66,6 +78,12 @@ function validateDepartmentAccess(
   input: CreateWorkOrderInput,
   userDepartmentId: string | undefined,
 ) {
+  if (!userDepartmentId) {
+    throw new Error(
+      "Akses ditolak: Akun Anda belum diberi departemen, jadi belum bisa membuat work order. Minta admin mengatur departemen akun Anda.",
+    );
+  }
+
   if (!input.departmentId || input.departmentId === userDepartmentId) {
     return;
   }

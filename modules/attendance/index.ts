@@ -39,6 +39,11 @@ export type {
 export * from "./client";
 export * from "./services/AttendanceSettingsService";
 export * from "./services/AttendanceQueryService";
+export {
+  resolveAdminScope,
+  scopeTanpaData,
+  type AdminScope,
+} from "./services/AdminScopeResolver";
 export * from "./services/HolidayLookupService";
 export * from "./services/LeaveBalanceQueryService";
 export * from "./services/AttendancePayrollQueryService";

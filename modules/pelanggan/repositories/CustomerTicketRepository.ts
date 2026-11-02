@@ -123,8 +123,8 @@ export class CustomerTicketRepository implements ICustomerTicketRepository {
   }
 
   /** Count active tickets whose latest reply is from customer. */
-  async countNeedsReplyAdmin(status: TicketStatus, siteId?: string) {
-    return countAdminTicketsNeedingReply(status, siteId);
+  async countNeedsReplyAdmin(status: TicketStatus, siteIds?: string[]) {
+    return countAdminTicketsNeedingReply(status, siteIds);
   }
 
   /** Get customer-owned ticket detail by id. */

@@ -7,7 +7,6 @@ const mockFns = vi.hoisted(() => ({
   getServerSession: vi.fn(),
   sendCustomerPushNotification: vi.fn(),
   updateStatusPelanggan: vi.fn(),
-  checkSiteRestriction: vi.fn(),
   cancelPaidPayment: vi.fn(),
 }));
 
@@ -36,12 +35,10 @@ vi.mock("@/modules/pelanggan", () => ({
   PelangganBillingBridgeService: class MockPelangganBillingBridgeService {},
 }));
 
-vi.mock("@/modules/roles", () => ({
-  checkSiteRestriction: (...args: unknown[]) =>
-    mockFns.checkSiteRestriction(...args),
-}));
-
-vi.mock("@/modules/finance", () => ({
+vi.mock("@/modules/finance", async () => ({
+  ...(await vi.importActual<Record<string, unknown>>(
+    "@/modules/finance/services/manual-payment-scope",
+  )),
   cancelPaidPayment: (...args: unknown[]) => mockFns.cancelPaidPayment(...args),
   PaymentCancellationError: class PaymentCancellationError extends Error {
     constructor(
@@ -71,10 +68,6 @@ describe("admin payments cancel route", () => {
     });
     mockFns.sendCustomerPushNotification.mockResolvedValue(undefined);
     mockFns.updateStatusPelanggan.mockResolvedValue(undefined);
-    mockFns.checkSiteRestriction.mockReturnValue({
-      isRestricted: false,
-      siteIds: [],
-    });
     mockFns.cancelPaidPayment.mockResolvedValue(undefined);
     prismaMock.payment.findUnique.mockResolvedValue({
       id: "pay-1",
@@ -111,4 +104,32 @@ describe("admin payments cancel route", () => {
       allowedSiteIds: undefined,
     });
   });
+
+  it.each(["manual_payments:site_only", "finance:site_only"])(
+    "admin ber-%s dibatasi ke site-nya saat membatalkan",
+    async (siteOnly) => {
+      mockFns.getServerSession.mockResolvedValue({
+        user: {
+          id: "admin-1",
+          name: "Admin",
+          role: "ADMIN",
+          tenantId: "tenant-1",
+          isSuperAdmin: false,
+          siteIds: ["site-a"],
+          permissions: ["manual_payments:verify", siteOnly],
+        },
+      });
+
+      await POST(
+        new NextRequest("http://localhost/api/admin/payments/pay-1/cancel", {
+          method: "POST",
+        }),
+        { params: Promise.resolve({ id: "pay-1" }) },
+      );
+
+      expect(mockFns.cancelPaidPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ allowedSiteIds: ["site-a"] }),
+      );
+    },
+  );
 });

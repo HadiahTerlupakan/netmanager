@@ -26,8 +26,9 @@ export async function cancelPaidPayment(options: {
   const payment = await findPaymentWithInvoice(options.paymentId);
   const invoice = payment.invoice;
 
-  // Validate scope: payment must belong to pelanggan in allowed sites
-  if (options.allowedSiteIds && options.allowedSiteIds.length > 0) {
+  // Validate scope: payment must belong to pelanggan in allowed sites.
+  // Daftar kosong berarti admin terbatas tanpa site — ditolak, bukan dilewati.
+  if (options.allowedSiteIds) {
     const pelanggan = await getPelangganServiceFromRegistry().getPelanggan(
       invoice.pelangganId,
     );

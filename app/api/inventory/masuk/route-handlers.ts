@@ -138,7 +138,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   if (parsed.ok === false) return parsed.response;
   const body = parsed.body;
 
-  const gudangDenied = await ensureCreateGudangAccess(user, body.gudangId);
+  const gudangDenied = await ensureCreateGudangAccess(ctx, body, "masuk");
   if (gudangDenied) return gudangDenied;
 
   try {

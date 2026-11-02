@@ -8,6 +8,7 @@ import {
 import {
   PelangganAdminMutationError,
   PelangganAdminMutationService,
+  withPelangganPppSiteScope,
 } from "@/modules/pelanggan";
 
 const pelangganAdminMutationService = new PelangganAdminMutationService();
@@ -20,7 +21,10 @@ export const POST = createHandler(
   { auth: true, permissions: ["pelanggan:update"] },
   async (_req, ctx) => {
     const { id } = ctx.params;
-    const session = buildSessionWithPermissions(ctx.session!, ctx.permissions);
+    const session = buildSessionWithPermissions(
+      ctx.session!,
+      withPelangganPppSiteScope(ctx.permissions),
+    );
 
     try {
       const result = await pelangganAdminMutationService.cancelPendingPackage({

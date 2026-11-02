@@ -28,18 +28,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const permissions = await getUserPermissions(session.id);
-    const siteId = await inventoryRouteService.resolveRestrictedSiteId({
-      userId: session.id,
-      permissions,
-      isSuperAdmin: isSuperAdmin(session),
-      restrictedPermissions: ["barang:site_only", "gudang:site_only"],
-    });
-
     const startOfDay = new Date();
     startOfDay.setTime(toStartOfDay(startOfDay).getTime());
     const stats = await inventoryRouteService.getInventoryStats({
-      siteId,
+      pengguna: {
+        userId: session.id,
+        permissions: await getUserPermissions(session.id),
+        isSuperAdmin: isSuperAdmin(session),
+      },
       startOfDay,
     });
 

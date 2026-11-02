@@ -12,6 +12,7 @@ import {
   PelangganAdminMutationService,
   PelangganAdminQueryService,
   updatePelangganProfileSchema,
+  withPelangganPppSiteScope,
 } from "@/modules/pelanggan";
 import { canAccessSite } from "@/modules/roles";
 
@@ -117,7 +118,10 @@ export const GET = createHandler({ auth: true }, async (_req, ctx) => {
   if (!result) return ApiErrors.notFound("Pelanggan");
   if (
     !canAccessPelangganBySite(
-      buildSessionWithPermissions(session, ctx.permissions) as never,
+      buildSessionWithPermissions(
+        session,
+        withPelangganPppSiteScope(ctx.permissions),
+      ) as never,
       result.pelanggan.siteId,
     )
   ) {
@@ -137,7 +141,10 @@ export const PUT = createHandler(
   { auth: true, permissions: ["pelanggan:update"] },
   async (req, ctx) => {
     const { id } = ctx.params;
-    const session = buildSessionWithPermissions(ctx.session!, ctx.permissions);
+    const session = buildSessionWithPermissions(
+      ctx.session!,
+      withPelangganPppSiteScope(ctx.permissions),
+    );
     const formData = await req.formData();
 
     try {
@@ -222,7 +229,10 @@ export const DELETE = createHandler(
   { auth: true, permissions: ["pelanggan:delete"] },
   async (_req, ctx) => {
     const { id } = ctx.params;
-    const session = buildSessionWithPermissions(ctx.session!, ctx.permissions);
+    const session = buildSessionWithPermissions(
+      ctx.session!,
+      withPelangganPppSiteScope(ctx.permissions),
+    );
 
     try {
       const pelanggan = await pelangganAdminMutationService.deletePppById({

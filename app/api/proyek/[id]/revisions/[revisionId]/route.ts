@@ -2,7 +2,11 @@ import * as z from "zod";
 
 import { createHandler, apiSuccess, ApiErrors } from "@/lib/api";
 import { isRouteServiceError } from "@/lib/api/route-service-error";
-import { RabRevisionRouteService } from "@/modules/proyek";
+import {
+  RabProjectSiteAccessService,
+  RabRevisionRouteService,
+  resolveRabSiteScope,
+} from "@/modules/proyek";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +52,7 @@ const updateRevisionSchema = z.object({
 });
 
 const rabRevisionRouteService = new RabRevisionRouteService();
+const rabProjectSiteAccess = new RabProjectSiteAccessService();
 
 export const GET = createHandler(
   { auth: true, permissions: ["expense:read"] },
@@ -56,6 +61,10 @@ export const GET = createHandler(
 
     try {
       await rabRevisionRouteService.assertRevisionAccess(user);
+      await rabProjectSiteAccess.assertProjectAccessible(
+        ctx.params.id,
+        resolveRabSiteScope(user, ctx.permissions),
+      );
 
       const revision = await rabRevisionRouteService.getRevision(
         ctx.params.id,
@@ -85,6 +94,10 @@ export const PATCH = createHandler(
 
     try {
       await rabRevisionRouteService.assertRevisionAccess(user);
+      await rabProjectSiteAccess.assertProjectAccessible(
+        ctx.params.id,
+        resolveRabSiteScope(user, ctx.permissions),
+      );
       const revision = await rabRevisionRouteService.updateRevision({
         projectId: ctx.params.id,
         revisionId: ctx.params.revisionId,

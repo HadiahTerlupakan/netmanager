@@ -12,7 +12,7 @@ type HistoryParams = {
   startDate?: Date;
   endDate?: Date;
   search?: string;
-  siteId?: string;
+  siteIds?: string[];
   tenantId?: string;
 };
 
@@ -65,7 +65,7 @@ export async function getHistoryKeluar(
 }
 
 function buildMasukWhere(params?: HistoryParams): Prisma.BarangMasukWhereInput {
-  const { barangId, gudangId, startDate, endDate, search, siteId, tenantId } =
+  const { barangId, gudangId, startDate, endDate, search, siteIds, tenantId } =
     params || {};
   const where: Prisma.BarangMasukWhereInput = { tenantId };
   applyHistoryFilters(where, {
@@ -74,7 +74,7 @@ function buildMasukWhere(params?: HistoryParams): Prisma.BarangMasukWhereInput {
     startDate,
     endDate,
     search,
-    siteId,
+    siteIds,
   });
   return where;
 }
@@ -82,7 +82,7 @@ function buildMasukWhere(params?: HistoryParams): Prisma.BarangMasukWhereInput {
 function buildKeluarWhere(
   params?: HistoryParams,
 ): Prisma.BarangKeluarWhereInput {
-  const { barangId, gudangId, startDate, endDate, search, siteId, tenantId } =
+  const { barangId, gudangId, startDate, endDate, search, siteIds, tenantId } =
     params || {};
   const where: Prisma.BarangKeluarWhereInput = { tenantId };
   applyHistoryFilters(where, {
@@ -91,7 +91,7 @@ function buildKeluarWhere(
     startDate,
     endDate,
     search,
-    siteId,
+    siteIds,
   });
   return where;
 }
@@ -102,7 +102,10 @@ function applyHistoryFilters(
 ) {
   if (input.barangId) where.barangId = input.barangId;
   if (input.gudangId) where.gudangId = input.gudangId;
-  if (input.siteId) where.gudang = { sites: { some: { id: input.siteId } } };
+  // `siteIds` kosong sengaja tidak cocok dengan baris mana pun.
+  if (input.siteIds) {
+    where.gudang = { sites: { some: { id: { in: input.siteIds } } } };
+  }
   if (input.search) where.OR = buildSearchFilter(input.search);
   if (input.startDate || input.endDate) {
     where.tanggal = {};

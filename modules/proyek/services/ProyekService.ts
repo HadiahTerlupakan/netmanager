@@ -9,6 +9,8 @@ import {
   RabTargetBasis,
 } from "../repositories/prisma-boundary";
 import { RabProjectRepository } from "../repositories/RabProjectRepository";
+import { TANPA_BATAS, type LingkupSite } from "@/modules/roles";
+import { buildRabSiteWhere } from "./RabProjectSiteAccessService";
 
 type RabProjectRepo = Pick<
   RabProjectRepository,
@@ -77,10 +79,19 @@ export class ProyekService {
   async getRabProjects(params: {
     siteId?: string | null;
     status?: string | null;
+    /** Lingkup `expense:site_only` peminta; default tanpa batas. */
+    scope?: LingkupSite;
   }) {
-    const projects = await this.rabProjectRepo.findManyWithDetails(
-      this.buildProjectWhere(params),
+    const siteWhere = buildRabSiteWhere(
+      params.scope ?? TANPA_BATAS,
+      params.siteId,
     );
+    if (!siteWhere) return [];
+
+    const projects = await this.rabProjectRepo.findManyWithDetails({
+      ...this.buildProjectWhere(params),
+      ...siteWhere,
+    });
 
     return projects.map((project) => this.serializeProject(project));
   }

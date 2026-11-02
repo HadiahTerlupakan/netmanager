@@ -25,6 +25,10 @@ import {
   updateRouterMutation,
 } from "./mikrotik-router.mutations";
 import { testRouterConnection } from "./mikrotik-router.connection-test";
+import {
+  checkAllMikroTikRouterStatus,
+  checkTenantMikroTikRouterStatus,
+} from "./mikrotik-ping-check";
 import { RouterIpConflictError } from "../domain/errors/RouterErrors";
 
 export { RouterAccessDeniedError, RouterNotFoundError, RouterIpConflictError };
@@ -186,8 +190,15 @@ export class MikroTikRouterService {
   }
 
   /** Test koneksi API router dan sinkronkan status online/offline bila router tersimpan. */
+  /**
+   * Uji koneksi router. Router tersimpan (`routerId`) tunduk pada
+   * `mikrotik:site_only` seperti endpoint router lain — dulu router site lain
+   * bisa diuji (dan kredensialnya dipakai) lewat id-nya.
+   */
   async testConnection(params: {
     tenantId: string;
+    userId: string;
+    restrictedToOwnSite: boolean;
     routerId?: string;
     vpnDraftId?: string;
     ipAddress?: string;
@@ -195,9 +206,45 @@ export class MikroTikRouterService {
     apiUsername?: string;
     apiPassword?: string;
   }) {
+    const { userId, restrictedToOwnSite, ...connection } = params;
+    if (connection.routerId) {
+      await this.getRouterById({
+        id: connection.routerId,
+        tenantId: connection.tenantId,
+        userId,
+        restrictedToOwnSite,
+      });
+    }
     return testRouterConnection({
-      ...params,
+      ...connection,
       routerRepository: this.routerRepository,
+    });
+  }
+
+  /**
+   * Cek status router dari tombol admin: super admin seluruh tenant, admin
+   * tenant hanya tenant-nya, dan admin `mikrotik:site_only` hanya site-nya
+   * (tanpa site → tidak ada router yang dicek).
+   */
+  async checkRouterStatus(params: {
+    tenantId?: string | null;
+    userId: string;
+    isSuperAdmin: boolean;
+    restrictedToOwnSite: boolean;
+  }): Promise<number> {
+    if (params.isSuperAdmin) return checkAllMikroTikRouterStatus();
+    if (!params.tenantId) return 0;
+    if (!params.restrictedToOwnSite) {
+      return checkTenantMikroTikRouterStatus({ tenantId: params.tenantId });
+    }
+    const siteId = await resolveRestrictedSiteId(
+      this.networkRepository,
+      params.userId,
+    );
+    if (!siteId) return 0;
+    return checkTenantMikroTikRouterStatus({
+      tenantId: params.tenantId,
+      siteId,
     });
   }
 }

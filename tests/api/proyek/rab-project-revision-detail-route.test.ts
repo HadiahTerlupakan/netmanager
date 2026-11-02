@@ -30,6 +30,7 @@ vi.mock("@/lib/api", () => ({
         ctx: {
           params: Record<string, string>;
           session: { user: { id: string } };
+          permissions: string[];
         },
       ) => Promise<Response>,
     ) =>
@@ -40,6 +41,7 @@ vi.mock("@/lib/api", () => ({
       handler(request, {
         params: (await params) ?? {},
         session: { user: { id: "user-1" } },
+        permissions: [] as string[],
       }),
   apiSuccess: (data: unknown) => NextResponse.json({ success: true, data }),
   ApiErrors: {
