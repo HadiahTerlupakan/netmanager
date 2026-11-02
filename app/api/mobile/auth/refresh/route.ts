@@ -116,9 +116,10 @@ export async function POST(request: NextRequest) {
         version: {
           versionCode: mobileTokens.details.versionCode,
           versionName:
-            typeof claims.appVersionName === "string"
+            versionReport.versionName ??
+            (typeof claims.appVersionName === "string"
               ? claims.appVersionName
-              : versionReport.versionName,
+              : null),
         },
         minimum: await getMinimumMobileVersion(),
         origin: requestOrigin(request),

@@ -41,6 +41,28 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-02] — Refresh token mobile memakai build yang sedang berjalan
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: Sejak 13:16 WIB karyawan yang login di build 49 lalu update ke
+  build 53 dikeluarkan dengan `LOGIN_REJECTED_OUTDATED_APP` (stage refresh),
+  begitu versi minimum naik ke build 51. Penyebabnya, `resolveVersionCode` hanya
+  menerima header `X-App-Version-Code` bila angkanya tidak lebih tinggi dari
+  claim `appVersionCode` di token, padahal claim itu ditulis saat login dan tak
+  pernah ikut naik. Aturan "anti-spoof" itu juga tidak melindungi apa pun karena
+  login menerima versi dari aplikasi apa adanya. Sekarang header menang (claim
+  token jadi cadangan bila header tidak ada), nama versi lama tidak dibandingkan
+  dengan build baru, dan token hasil refresh ditandatangani dengan build serta
+  nama versi yang sedang berjalan. Log penolakan memakai nama versi dari aplikasi.
+- **Files**: `lib/mobile-auth.ts`,
+  `modules/users/services/MobileAuthVersionService.ts`,
+  `modules/users/services/MobileAuthRouteService.ts`,
+  `app/api/mobile/auth/refresh/route.ts`,
+  `tests/lib/mobile-version-enforcement.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-02] — Semua push mobile lewat FCM; Expo dihapus
 
 - **Tipe**: [REMOVED]

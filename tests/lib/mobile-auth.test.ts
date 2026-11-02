@@ -83,31 +83,38 @@ describe("mobile-auth version overrides", () => {
     mockMitraFindUnique.mockResolvedValue(null);
   });
 
-  it("uses explicit version override when it is lower than or equal to token claim", async () => {
-    // Source of truth: claim `appVersionCode` di JWT (signed saat login).
-    // Header `X-App-Version-Code` HANYA diterima sebagai upper-bound
-    // override (≤ token claim), agar attacker tidak bisa spoof header
-    // dengan versi lebih TINGGI untuk bypass version gating.
+  it("uses the version the app reports when it is lower than the token claim", async () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "user-1", tokenVersion: 1, appVersionCode: 100 },
     });
 
     const details = await getMobileTokenDetails("token-1", 80);
 
-    // Header (80) ≤ token (100) → header dipercaya (kasus user downgrade
-    // runtime sambil token masih valid, backend perlu tahu versi runtime
-    // sebenarnya untuk gating).
+    // Aplikasi diturunkan ke APK lama sambil token masih berlaku: gerbang
+    // versi harus melihat build yang benar-benar berjalan.
     expect(details?.versionCode).toBe(80);
   });
 
-  it("ignores version override when it claims a higher version than token (anti-spoof)", async () => {
+  it("uses the version the app reports when it is higher than the token claim", async () => {
     mockJwtVerify.mockResolvedValueOnce({
       payload: { sub: "user-1", tokenVersion: 1, appVersionCode: 54 },
     });
 
     const details = await getMobileTokenDetails("token-1", 100);
 
-    // Header (100) > token claim (54) → spoof attempt, ignore.
+    // Claim token ditulis saat login dan tidak ikut naik saat aplikasi
+    // diperbarui; login sendiri menerima versi dari aplikasi, jadi menolak
+    // header yang lebih tinggi hanya mengeluarkan pengguna yang sudah update.
+    expect(details?.versionCode).toBe(100);
+  });
+
+  it("falls back to the token claim when the app reports no version", async () => {
+    mockJwtVerify.mockResolvedValueOnce({
+      payload: { sub: "user-1", tokenVersion: 1, appVersionCode: 54 },
+    });
+
+    const details = await getMobileTokenDetails("token-1");
+
     expect(details?.versionCode).toBe(54);
   });
 

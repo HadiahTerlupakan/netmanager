@@ -184,6 +184,7 @@ export async function tryRefreshMobileToken(
   const result = await mobileAuthVersionService.buildMobileRefreshResult(
     payload,
     details,
+    versionReport?.versionName,
   );
   const userId =
     payload.userId ||

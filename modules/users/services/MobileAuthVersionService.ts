@@ -95,30 +95,37 @@ export class MobileAuthVersionService {
     return verifyMobileRefreshToken(refreshToken, versionCodeOverride);
   }
 
-  /** Bangun token baru dari refresh payload mobile employee. */
+  /**
+   * Bangun token baru dari refresh payload mobile employee. Versi yang
+   * ditandatangani adalah versi yang sedang berjalan (`details.versionCode`,
+   * hasil header aplikasi), bukan claim lama di refresh token, supaya update
+   * aplikasi tercatat di token berikutnya.
+   */
   async buildMobileRefreshResult(
     payload: NonNullable<Awaited<ReturnType<typeof verifyMobileRefreshToken>>>,
     details: NonNullable<Awaited<ReturnType<typeof getMobileTokenDetails>>>,
+    reportedVersionName?: string | null,
   ) {
-    const trustedVersionCode = resolveTrustedMobileRefreshVersion(
-      payload.appVersionCode,
+    const runningVersion = resolveRunningRefreshVersion(
+      payload,
       details.versionCode,
+      reportedVersionName,
     );
     const unsupportedResponse = await this.buildUnsupportedVersionResponse(
-      trustedVersionCode,
-      payload.appVersionName,
+      runningVersion.versionCode,
+      runningVersion.versionName,
     );
     if (unsupportedResponse) {
       return {
         kind: "unsupported" as const,
-        details: { ...details, versionCode: trustedVersionCode },
+        details: { ...details, versionCode: runningVersion.versionCode },
       };
     }
 
     const tokenPayload = {
       ...pickIdentityClaims(payload),
-      appVersionCode: trustedVersionCode || payload.appVersionCode || 0,
-      appVersionName: payload.appVersionName ?? null,
+      appVersionCode: runningVersion.versionCode,
+      appVersionName: runningVersion.versionName,
     };
 
     return {
@@ -198,13 +205,23 @@ export function normalizeOtaUpdateId(
   return trimmed.slice(0, 64);
 }
 
-function resolveTrustedMobileRefreshVersion(
-  payloadVersionCode: number | null | undefined,
-  detailsVersionCode: number,
+/**
+ * Pasangan nomor dan nama versi yang sedang berjalan saat refresh. Nama dari
+ * aplikasi dipakai bila ada; nama di token hanya dipakai bila nomor build-nya
+ * masih sama, karena nama itu milik build saat login.
+ */
+function resolveRunningRefreshVersion(
+  payload: { appVersionCode?: number | null; appVersionName?: string | null },
+  runningVersionCode: number,
+  reportedVersionName?: string | null,
 ) {
-  const candidateVersionCode = Number(payloadVersionCode ?? 0);
-  if (Number.isInteger(candidateVersionCode) && candidateVersionCode > 0) {
-    return candidateVersionCode;
-  }
-  return detailsVersionCode;
+  const tokenVersionCode = Number(payload.appVersionCode ?? 0);
+  const versionCode =
+    runningVersionCode > 0 ? runningVersionCode : tokenVersionCode || 0;
+  const tokenVersionName =
+    versionCode === tokenVersionCode ? (payload.appVersionName ?? null) : null;
+  return {
+    versionCode,
+    versionName: reportedVersionName?.trim() || tokenVersionName,
+  };
 }

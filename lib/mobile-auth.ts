@@ -214,15 +214,26 @@ export function hasAnyMobilePermission(
   );
 }
 
-function resolveVersionCode(
+interface ResolvedMobileVersion {
+  versionCode: number;
+  versionName: string | null;
+}
+
+/**
+ * Versi native yang sedang berjalan untuk sebuah request mobile.
+ *
+ * Header `X-App-Version-Code` dari aplikasi menang atas claim `appVersionCode`
+ * di token. Claim itu ditulis saat login dan tidak pernah ikut naik ketika
+ * aplikasi diperbarui, sehingga karyawan yang login di build 49 lalu update ke
+ * build 53 tetap dihitung build 49 dan dikeluarkan begitu versi minimum naik.
+ * Menolak header yang lebih tinggi juga tidak menambah keamanan: login sendiri
+ * sudah menerima nomor versi dari aplikasi apa adanya. Claim token hanya
+ * dipakai bila header tidak ada.
+ */
+function resolveRequestVersion(
   payload: MobileTokenPayload,
   versionCodeOverride?: number | null,
-): number {
-  // Source of truth: claim `appVersionCode` di JWT (signed saat login).
-  // Header `X-App-Version-Code` HANYA dipakai sebagai upper-bound override
-  // ketika versi token lebih lama dari versi runtime — tidak boleh dipakai
-  // untuk versi yang lebih TINGGI dari token claim, karena header bisa
-  // di-spoof oleh client untuk bypass version gating.
+): ResolvedMobileVersion {
   const tokenVersionCode = Number(
     payload.appVersionCode ?? payload.versionCode ?? 0,
   );
@@ -230,20 +241,21 @@ function resolveVersionCode(
     Number.isFinite(tokenVersionCode) && tokenVersionCode > 0
       ? tokenVersionCode
       : 0;
+  const tokenVersionName =
+    typeof payload.appVersionName === "string" ? payload.appVersionName : null;
 
-  if (
+  const hasReportedVersion =
     typeof versionCodeOverride === "number" &&
-    Number.isFinite(versionCodeOverride) &&
-    versionCodeOverride > 0 &&
-    versionCodeOverride <= safeTokenVersion
-  ) {
-    // Header diizinkan kalau lebih kecil — kasus user "downgrade" runtime
-    // (mis. install APK lama) sambil token masih valid; backend harus tahu
-    // versi runtime sebenarnya untuk gating.
-    return versionCodeOverride;
+    Number.isInteger(versionCodeOverride) &&
+    versionCodeOverride > 0;
+  if (!hasReportedVersion || versionCodeOverride === safeTokenVersion) {
+    return { versionCode: safeTokenVersion, versionName: tokenVersionName };
   }
 
-  return safeTokenVersion;
+  // Nama versi di token milik build lama; membandingkannya dengan versi
+  // minimum akan menolak build baru yang namanya sudah naik. Tanpa nama,
+  // gerbang versi cukup memakai nomor build.
+  return { versionCode: versionCodeOverride, versionName: null };
 }
 
 export async function getMobileTokenDetails(
@@ -282,13 +294,11 @@ export async function getMobileTokenDetails(
       payload = result.payload as MobileTokenPayload;
     }
     const mobilePayload = payload;
-    const versionCode = resolveVersionCode(mobilePayload, versionCodeOverride);
-    const versionAccess = await evaluateVersionAccess(
-      versionCode,
-      typeof mobilePayload.appVersionName === "string"
-        ? mobilePayload.appVersionName
-        : null,
+    const { versionCode, versionName } = resolveRequestVersion(
+      mobilePayload,
+      versionCodeOverride,
     );
+    const versionAccess = await evaluateVersionAccess(versionCode, versionName);
 
     return {
       payload: mobilePayload,

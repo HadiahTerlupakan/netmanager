@@ -91,4 +91,75 @@ describe("mobile version enforcement", () => {
     expect(oldApp?.status).toBe(426);
     expect(currentApp).toBeNull();
   });
+
+  // Insiden 2026-11-02: karyawan yang login di build 49 lalu update ke build
+  // 53 dikeluarkan saat refresh, karena server memakai build dari token login.
+  describe("aplikasi yang diperbarui setelah login", () => {
+    beforeEach(() => {
+      gate.minimum = { versionCode: 51, versionName: "1.0.9" };
+    });
+
+    it("memakai build yang sedang berjalan, bukan build saat login", async () => {
+      const { getMobileTokenDetails } = await import("@/lib/mobile-auth");
+
+      const details = await getMobileTokenDetails(
+        await tokenFor(49, "1.0.9"),
+        53,
+      );
+
+      expect(details?.versionAccess).toMatchObject({
+        isSupported: true,
+        currentVersionCode: 53,
+      });
+    });
+
+    it("tetap menolak build lama yang dilaporkan aplikasi", async () => {
+      const { getMobileTokenDetails } = await import("@/lib/mobile-auth");
+
+      const details = await getMobileTokenDetails(
+        await tokenFor(53, "1.0.9"),
+        49,
+      );
+
+      expect(details?.versionAccess.isSupported).toBe(false);
+    });
+
+    it("tidak membandingkan nama versi build lama dengan build baru", async () => {
+      gate.minimum = { versionCode: 54, versionName: "1.1.0" };
+      const { getMobileTokenDetails } = await import("@/lib/mobile-auth");
+
+      const details = await getMobileTokenDetails(
+        await tokenFor(49, "1.0.9"),
+        54,
+      );
+
+      expect(details?.versionAccess.isSupported).toBe(true);
+    });
+
+    it("menandatangani build baru ke token hasil refresh", async () => {
+      const { getMobileTokenDetails } = await import("@/lib/mobile-auth");
+      const { MobileAuthVersionService } =
+        await import("@/modules/users/services/MobileAuthVersionService");
+      const refreshToken = await tokenFor(49, "1.0.9");
+      const details = await getMobileTokenDetails(refreshToken, 53);
+
+      const result =
+        await new MobileAuthVersionService().buildMobileRefreshResult(
+          {
+            id: "user-1",
+            role: "USER",
+            appVersionCode: 49,
+            appVersionName: "1.0.9",
+          } as never,
+          details!,
+          "1.0.9",
+        );
+
+      expect(result.kind).toBe("success");
+      if (result.kind !== "success") return;
+      const nextDetails = await getMobileTokenDetails(result.token);
+      expect(nextDetails?.versionCode).toBe(53);
+      expect(nextDetails?.payload.appVersionName).toBe("1.0.9");
+    });
+  });
 });

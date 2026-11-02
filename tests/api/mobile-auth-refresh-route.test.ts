@@ -76,7 +76,7 @@ describe("POST /api/mobile/auth/refresh", () => {
         appVersionCode: 55,
         appVersionName: "1.2.3",
       },
-      versionCode: 55,
+      versionCode: 99,
       versionAccess: {
         isSupported: true,
         minimumVersionCode: 50,
@@ -126,8 +126,8 @@ describe("POST /api/mobile/auth/refresh", () => {
       id: "user-1",
       email: "user@example.com",
       role: "USER",
-      appVersionCode: 55,
-      appVersionName: "1.2.3",
+      appVersionCode: 99,
+      appVersionName: "9.9.9",
     });
   });
 
