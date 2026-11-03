@@ -61,6 +61,7 @@ export const POST = createHandler(
       periodStart: ctx.validated.periodStart,
       periodEnd: ctx.validated.periodEnd,
       notes: ctx.validated.notes,
+      actorId: ctx.session?.user.id ?? null,
     });
     return apiSuccess(toSettlementDTO(settlement), { status: 201 });
   },

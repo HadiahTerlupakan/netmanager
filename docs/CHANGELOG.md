@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-03] — Pembuat settlement reseller tak boleh menyetujuinya
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/reseller`, `app/api/admin/resellers/[id]/settlements`, `app/admin/resellers`, `app/admin/pelanggan/ppp`
+- **Author**: agent
+- **Deskripsi**:
+  - Settlement kini menyimpan `createdById`. Bila pengaturan pemisahan tugas aktif, pembuat
+    settlement ditolak saat menyetujuinya (403), melengkapi aturan penyetuju ≠ pembayar.
+    Settlement lama (pembuat kosong) tidak dibandingkan. Badge peringatan bila pembuat = penyetuju.
+  - Status komisi di daftar komisi tampil berlabel Indonesia (Terbit/Disettle/Dibayar/Ditagih balik).
+  - Dropdown reseller di form PPP hanya menampilkan reseller ACTIVE; form edit tetap memuat
+    reseller tersimpan pelanggan walau tidak aktif.
+- **Migration**: `20261103142405_add_created_by_to_reseller_settlement`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-03] — Clawback komisi reseller saat invoice di-void
 
 - **Tipe**: [ADDED]

@@ -40,6 +40,7 @@ export type Settlement = {
   readonly status: SettlementStatus;
   readonly approvedAt: string | null;
   readonly paidAt: string | null;
+  readonly createdById: string | null;
   readonly approvedById: string | null;
   readonly paidById: string | null;
   readonly paymentMethod: string | null;
@@ -56,6 +57,19 @@ export function isPaidBySameApprover(
   return (
     settlement.paidById !== null &&
     settlement.paidById === settlement.approvedById
+  );
+}
+
+/**
+ * True bila settlement disetujui oleh pembuatnya sendiri (pemisahan tugas
+ * dilanggar). Pelaku yang tidak tercatat tidak dibandingkan.
+ */
+export function isApprovedByCreator(
+  settlement: Pick<Settlement, "createdById" | "approvedById">,
+): boolean {
+  return (
+    settlement.approvedById !== null &&
+    settlement.approvedById === settlement.createdById
   );
 }
 

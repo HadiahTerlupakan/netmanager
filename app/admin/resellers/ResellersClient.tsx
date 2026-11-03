@@ -39,7 +39,12 @@ import type {
   ResellerForm,
   ResellerOutlet,
 } from "./types";
-import { emptyOutletForm, emptyResellerForm, toResellerForm } from "./types";
+import {
+  COMMISSION_STATUS_LABELS,
+  emptyOutletForm,
+  emptyResellerForm,
+  toResellerForm,
+} from "./types";
 import { RESELLER_LIST_URL, useResellerList } from "./useResellerList";
 
 /** Hentikan klik tombol aksi agar tidak ikut memilih baris (kartu mobile). */
@@ -417,7 +422,8 @@ export default function ResellersClient() {
                     </div>
                     <div className="text-gray-500 dark:text-gray-400">
                       {rupiahFormatter.format(commission.commissionAmount)} ·{" "}
-                      {commission.status} · {commission.period}
+                      {COMMISSION_STATUS_LABELS[commission.status]} ·{" "}
+                      {commission.period}
                     </div>
                   </div>
                 ))}

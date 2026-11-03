@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  RESELLER_OPTIONS_URL,
+  selectAssignableResellers,
+} from "@/app/admin/pelanggan/ppp/shared/reseller-options";
 import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -53,6 +57,7 @@ type ResellerOption = {
   readonly id: string;
   readonly code: string;
   readonly name: string;
+  readonly status?: string;
 };
 
 type ResellerOutletOption = {
@@ -274,16 +279,9 @@ export function PppClientCreateForm() {
   const { data: hargaPaketsData, isLoading: loadingHarga } =
     useApi<HargaPaket[]>(hargaPaketsUrl);
   const { data: odpsData } = useApi<{ odps: Odp[] }>(odpsUrl);
-  const { data: resellersData } = useApi<readonly ResellerOption[]>(
-    // Batas eksplisit: default endpoint hanya 20 baris, dan klien tidak
-    // membaca `meta.total`, sehingga tenant dengan lebih banyak reseller tidak
-    // bisa memilih sisanya.
-    "/api/admin/resellers?limit=200",
-  );
-  // Bukan "active": endpoint mengembalikan seluruh reseller yang belum
-  // dihapus, termasuk yang berstatus INACTIVE. Namanya diluruskan agar tidak
-  // menyiratkan penyaringan yang tidak terjadi.
-  const resellerOptions = [...(resellersData ?? [])];
+  const { data: resellersData } =
+    useApi<readonly ResellerOption[]>(RESELLER_OPTIONS_URL);
+  const resellerOptions = selectAssignableResellers(resellersData ?? []);
   const selectedResellerId = formData.resellerId || null;
   const { data: resellerOutletsData } = useApi<readonly ResellerOutletOption[]>(
     selectedResellerId

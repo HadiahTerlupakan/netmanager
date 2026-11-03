@@ -66,6 +66,8 @@ export interface ResellerSettlementEntity {
   readonly updatedAt: Date;
   readonly approvedAt: Date | null;
   readonly paidAt: Date | null;
+  /** Pembuat settlement (User.id); null untuk settlement lama. */
+  readonly createdById: string | null;
   readonly approvedById: string | null;
   readonly paidById: string | null;
   readonly paymentMethod: string | null;

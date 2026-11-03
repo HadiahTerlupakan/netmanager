@@ -22,6 +22,7 @@ const PENDING: ResellerSettlementEntity = {
   updatedAt: NOW,
   approvedAt: null,
   paidAt: null,
+  createdById: null,
   approvedById: null,
   paidById: null,
   paymentMethod: null,
@@ -281,6 +282,52 @@ describe("ResellerSettlementLifecycleService", () => {
         settings.isSettlementSeparateApproverRequired,
       ).not.toHaveBeenCalled();
       expect(repository.markPaid).toHaveBeenCalled();
+    });
+  });
+
+  describe("pemisahan tugas pembuat & penyetuju", () => {
+    const CREATED_BY_USER_1 = { ...PENDING, createdById: "user-1" };
+
+    it("menolak dengan 403 bila aktif dan penyetuju adalah pembuat", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce(CREATED_BY_USER_1);
+      settings.isSettlementSeparateApproverRequired.mockResolvedValueOnce(true);
+
+      const error = await service.approve(REF).catch((caught) => caught);
+
+      expect((error as AppError).statusCode).toBe(403);
+      expect((error as AppError).message).toContain("membuatnya");
+      expect(repository.approve).not.toHaveBeenCalled();
+    });
+
+    it("mengizinkan pengguna lain menyetujui saat aktif", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce(CREATED_BY_USER_1);
+      settings.isSettlementSeparateApproverRequired.mockResolvedValue(true);
+
+      await service.approve({ ...REF, actorId: "user-2" });
+
+      expect(repository.approve).toHaveBeenCalledWith(
+        expect.objectContaining({ approvedById: "user-2" }),
+      );
+    });
+
+    it("mengizinkan pembuat menyetujui saat pengaturan mati", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce(CREATED_BY_USER_1);
+
+      await service.approve(REF);
+
+      expect(repository.approve).toHaveBeenCalled();
+    });
+
+    it("settlement lama tanpa pembuat tidak dibandingkan", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce(PENDING);
+      settings.isSettlementSeparateApproverRequired.mockResolvedValue(true);
+
+      await service.approve(REF);
+
+      expect(
+        settings.isSettlementSeparateApproverRequired,
+      ).not.toHaveBeenCalled();
+      expect(repository.approve).toHaveBeenCalled();
     });
   });
 

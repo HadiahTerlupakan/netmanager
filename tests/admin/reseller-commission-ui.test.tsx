@@ -284,6 +284,7 @@ const SETTLEMENT: Settlement = {
   status: "PENDING",
   approvedAt: null,
   paidAt: null,
+  createdById: null,
   approvedById: null,
   paidById: null,
   paymentMethod: null,

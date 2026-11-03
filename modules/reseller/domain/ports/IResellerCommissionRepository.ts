@@ -28,6 +28,8 @@ export interface CreateSettlementData {
   readonly periodStart: Date;
   readonly periodEnd: Date;
   readonly notes: string | null;
+  /** Pembuat settlement (User.id); kosong bila tidak diketahui. */
+  readonly createdById?: string | null;
 }
 
 export interface CommissionListParams {

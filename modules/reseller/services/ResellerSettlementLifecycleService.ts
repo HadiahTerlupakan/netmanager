@@ -21,6 +21,9 @@ const INSUFFICIENT_BALANCE_MESSAGE =
 const SAME_APPROVER_PAYER_MESSAGE =
   "Pemisahan tugas aktif: settlement harus dibayar oleh pengguna lain, " +
   "bukan pengguna yang menyetujuinya";
+const SAME_CREATOR_APPROVER_MESSAGE =
+  "Pemisahan tugas aktif: settlement harus disetujui oleh pengguna lain, " +
+  "bukan pengguna yang membuatnya";
 /** Toleransi jam server vs jam klien untuk tanggal bayar "hari ini". */
 const FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
@@ -48,8 +51,8 @@ interface PaySettlementInput extends SettlementRef {
  * event yang sama, dan jurnalnya idempoten per settlement.
  *
  * Bila tenant menyalakan RESELLER_SETTLEMENT_SEPARATE_APPROVER, pengguna yang
- * menyetujui settlement tidak boleh menandainya dibayar (403). Pemeriksaan
- * "penyetuju ≠ pembuat" belum ada karena settlement tidak menyimpan pembuat.
+ * membuat settlement tidak boleh menyetujuinya, dan pengguna yang
+ * menyetujuinya tidak boleh menandainya dibayar (403).
  */
 export class ResellerSettlementLifecycleService {
   constructor(
@@ -67,11 +70,18 @@ export class ResellerSettlementLifecycleService {
    *
    * @throws ResellerNotFoundError settlement tidak ada di reseller/tenant.
    * @throws ResellerConflictError settlement sudah dibayar.
+   * @throws ResellerForbiddenError pemisahan tugas aktif dan penyetuju adalah
+   *   pembuat settlement.
    */
   async approve(input: SettlementRef): Promise<ResellerSettlementEntity> {
     const current = await this.findOrThrow(input);
     if (current.status === "APPROVED") return current;
     assertNotPaid(current, "disetujui");
+    await this.assertSeparateActors(
+      current.createdById,
+      input,
+      SAME_CREATOR_APPROVER_MESSAGE,
+    );
 
     const approved = await this.repository.approve({
       settlementId: current.id,
@@ -103,7 +113,11 @@ export class ResellerSettlementLifecycleService {
         "Settlement harus disetujui sebelum ditandai dibayar",
       );
     }
-    await this.assertPayerIsNotApprover(current, input);
+    await this.assertSeparateActors(
+      current.approvedById,
+      input,
+      SAME_APPROVER_PAYER_MESSAGE,
+    );
     await this.assertPaymentValid(input);
 
     const outcome = await this.repository.markPaid({
@@ -138,20 +152,24 @@ export class ResellerSettlementLifecycleService {
   }
 
   /**
-   * Pemisahan tugas: tolak bila pembayar = penyetuju dan tenant mewajibkannya.
-   * Penyetuju atau pembayar yang tidak diketahui (null) tidak bisa
-   * dibandingkan, jadi tidak diblokir.
+   * Pemisahan tugas: tolak bila pelaku sekarang sama dengan pelaku tahap
+   * sebelumnya (pembuat → penyetuju, penyetuju → pembayar) dan tenant
+   * mewajibkannya. Pelaku yang tidak tercatat (null) tidak dibandingkan.
    */
-  private async assertPayerIsNotApprover(
-    settlement: ResellerSettlementEntity,
-    input: PaySettlementInput,
+  private async assertSeparateActors(
+    previousActorId: string | null,
+    input: {
+      readonly tenantId: string | null;
+      readonly actorId?: string | null;
+    },
+    message: string,
   ): Promise<void> {
     if (!input.tenantId || !input.actorId) return;
-    if (settlement.approvedById !== input.actorId) return;
+    if (previousActorId !== input.actorId) return;
     const isSeparationRequired =
       await this.settings.isSettlementSeparateApproverRequired(input.tenantId);
     if (!isSeparationRequired) return;
-    throw new ResellerForbiddenError(SAME_APPROVER_PAYER_MESSAGE);
+    throw new ResellerForbiddenError(message);
   }
 
   private async assertPaymentValid(input: PaySettlementInput): Promise<void> {

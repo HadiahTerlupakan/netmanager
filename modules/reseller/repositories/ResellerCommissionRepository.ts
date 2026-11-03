@@ -318,6 +318,7 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
           adjustmentAmount: deduction.deductedAmount,
           commissionCount: commissions.length,
           notes: data.notes,
+          createdById: data.createdById ?? null,
         },
       });
       const claimed = await tx.resellerCommission.updateMany({

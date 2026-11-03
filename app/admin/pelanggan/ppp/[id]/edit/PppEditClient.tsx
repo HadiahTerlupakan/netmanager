@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  RESELLER_OPTIONS_URL,
+  selectAssignableResellers,
+} from "@/app/admin/pelanggan/ppp/shared/reseller-options";
 import { clientLogger } from "@/lib/client-logger";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -64,6 +68,7 @@ type ResellerOption = {
   readonly id: string;
   readonly code: string;
   readonly name: string;
+  readonly status?: string;
 };
 
 type ResellerOutletOption = {
@@ -85,6 +90,8 @@ export function PppClientEditForm() {
   const [invoiceNotice, setInvoiceNotice] = useState<string | null>(null);
   const [hargaPakets, setHargaPakets] = useState<HargaPaket[]>([]);
   const [odps, setOdps] = useState<Odp[]>([]);
+  // Reseller tersimpan tetap muncul di pilihan walau statusnya bukan ACTIVE.
+  const [savedResellerId, setSavedResellerId] = useState<string | null>(null);
   const [_existingFileKTP, setExistingFileKTP] = useState<string | null>(null);
   const [_existingFileRumahSekitar, setExistingFileRumahSekitar] = useState<
     string | null
@@ -308,6 +315,7 @@ export function PppClientEditForm() {
       });
 
       // Set existing file paths
+      setSavedResellerId(data.resellerId || null);
       setExistingFileKTP(data.fileKTP || null);
       setExistingFileRumahSekitar(data.fileRumahSekitar || null);
       setExistingFileBAST(data.fileBAST || null);
@@ -331,14 +339,12 @@ export function PppClientEditForm() {
     HargaPaket[]
   >("/api/hargapakets?status=AKTIF");
   const { data: odpsData } = useApi<{ odps: Odp[] }>("/api/odps");
-  const { data: resellersData } = useApi<readonly ResellerOption[]>(
-    // Lihat catatan batas yang sama di form tambah pelanggan.
-    "/api/admin/resellers?limit=200",
+  const { data: resellersData } =
+    useApi<readonly ResellerOption[]>(RESELLER_OPTIONS_URL);
+  const resellerOptions = selectAssignableResellers(
+    resellersData ?? [],
+    savedResellerId,
   );
-  // Bukan "active": endpoint mengembalikan seluruh reseller yang belum
-  // dihapus, termasuk yang berstatus INACTIVE. Namanya diluruskan agar tidak
-  // menyiratkan penyaringan yang tidak terjadi.
-  const resellerOptions = [...(resellersData ?? [])];
   const selectedResellerId = formData.resellerId || null;
   const { data: resellerOutletsData } = useApi<readonly ResellerOutletOption[]>(
     selectedResellerId

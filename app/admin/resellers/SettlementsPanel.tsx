@@ -10,6 +10,7 @@ import { SettlementPaymentForm } from "./SettlementPaymentForm";
 import {
   formatDate,
   formatRupiah,
+  isApprovedByCreator,
   isPaidBySameApprover,
   nextSettlementAction,
   PAYMENT_METHOD_LABELS,
@@ -204,9 +205,17 @@ export function SettlementsPanel({
                     {isPaidBySameApprover(settlement) && (
                       <span
                         className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                        title="Settlement disetujui dan dibayar oleh pengguna yang sama. Nyalakan pemisahan penyetuju dan pembayar settlement untuk mencegahnya."
+                        title="Settlement disetujui dan dibayar oleh pengguna yang sama. Nyalakan pemisahan pembuat, penyetuju, dan pembayar settlement untuk mencegahnya."
                       >
                         Disetujui &amp; dibayar pengguna yang sama
+                      </span>
+                    )}
+                    {isApprovedByCreator(settlement) && (
+                      <span
+                        className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                        title="Settlement dibuat dan disetujui oleh pengguna yang sama. Nyalakan pemisahan pembuat, penyetuju, dan pembayar settlement untuk mencegahnya."
+                      >
+                        Dibuat &amp; disetujui pengguna yang sama
                       </span>
                     )}
                   </div>

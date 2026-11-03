@@ -1220,7 +1220,8 @@ model ResellerSettlement {
   updatedAt              DateTime                                  @updatedAt
   approvedAt             DateTime?
   paidAt                 DateTime?
-  /// Pelaku approve/bayar (User.id). Tanpa FK agar modul reseller tidak terikat modul users.
+  /// Pelaku buat/approve/bayar (User.id). Tanpa FK agar modul reseller tidak terikat modul users.
+  createdById            String?
   approvedById           String?
   paidById               String?
   /// Cara bayar komisi (BANK_TRANSFER/CASH/E_WALLET/OTHER), nomor referensi, dan rekening Kas & Bank sumber dana.

@@ -57,6 +57,7 @@ const SETTLEMENT: ResellerSettlementEntity = {
   updatedAt: new Date("2026-07-31T00:00:00.000Z"),
   approvedAt: null,
   paidAt: null,
+  createdById: null,
   approvedById: null,
   paidById: null,
   paymentMethod: null,
@@ -285,6 +286,7 @@ describe("ResellerCommissionService", () => {
       resellerId: "reseller-1",
       periodStart: new Date("2026-07-01T00:00:00.000Z"),
       periodEnd: new Date("2026-07-31T23:59:59.999Z"),
+      actorId: "user-9",
     });
 
     expect(result.totalAmount).toBe(50000);
@@ -294,6 +296,7 @@ describe("ResellerCommissionService", () => {
       periodStart: new Date("2026-07-01T00:00:00.000Z"),
       periodEnd: new Date("2026-07-31T23:59:59.999Z"),
       notes: null,
+      createdById: "user-9",
     });
   });
 

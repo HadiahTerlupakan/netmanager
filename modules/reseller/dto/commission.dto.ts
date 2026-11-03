@@ -46,6 +46,7 @@ export interface ResellerSettlementDTO {
   readonly createdAt: string;
   readonly approvedAt: string | null;
   readonly paidAt: string | null;
+  readonly createdById: string | null;
   readonly approvedById: string | null;
   readonly paidById: string | null;
   readonly paymentMethod: string | null;
@@ -146,6 +147,7 @@ export function toSettlementDTO(
     createdAt: entity.createdAt.toISOString(),
     approvedAt: entity.approvedAt?.toISOString() ?? null,
     paidAt: entity.paidAt?.toISOString() ?? null,
+    createdById: entity.createdById,
     approvedById: entity.approvedById,
     paidById: entity.paidById,
     paymentMethod: entity.paymentMethod,

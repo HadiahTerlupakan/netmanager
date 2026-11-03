@@ -22,7 +22,9 @@ Status: **selesai (commit lokal), menunggu "push"**
   6 temuan terkonfirmasi (balapan pembalikan vs settlement, REVERSED tak terbit ulang, settlement
   APPROVED berubah tanpa persetujuan ulang, riwayat status tanpa lock) → semua diperbaiki + tes DB.
 - Tes DB: 19 file, 176 lulus. Produksi: 0 aturan/komisi/settlement reseller.
-- Belum: cek "penyetuju ≠ pembuat" (tidak ada kolom createdById di settlement).
+- Lanjutan: `createdById` di settlement + cek pembuat ≠ penyetuju (migration
+  `20261103142405_add_created_by_to_reseller_settlement`), label status komisi, dropdown PPP
+  hanya reseller ACTIVE.
 
 # Rencana: Sesuaikan modul Reseller dengan regulasi jual kembali (model agen) (2026-11-03)
 

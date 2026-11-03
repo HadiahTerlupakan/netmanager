@@ -104,6 +104,7 @@ const SETTLEMENT: ResellerSettlementEntity = {
   updatedAt: new Date(),
   approvedAt: new Date(),
   paidAt: null,
+  createdById: null,
   approvedById: "user-1",
   paidById: null,
   paymentMethod: null,

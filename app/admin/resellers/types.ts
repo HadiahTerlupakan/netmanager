@@ -47,6 +47,22 @@ export const RESELLER_STATUS_LABELS: Record<ResellerStatus, string> = {
   TERMINATED: "Diakhiri",
 };
 
+export type ResellerCommissionStatus =
+  | "ACCRUED"
+  | "SETTLED"
+  | "PAID"
+  | "REVERSED";
+
+export const COMMISSION_STATUS_LABELS: Record<
+  ResellerCommissionStatus,
+  string
+> = {
+  ACCRUED: "Terbit",
+  SETTLED: "Disettle",
+  PAID: "Dibayar",
+  REVERSED: "Ditagih balik",
+};
+
 export const PKS_STATUS_LABELS: Record<PksStatus, string> = {
   NONE: "Belum ada PKS",
   PENDING: "PKS belum berlaku",
@@ -94,7 +110,7 @@ export type ResellerCommission = {
   readonly invoiceId: string;
   readonly pelangganId: string;
   readonly commissionAmount: number;
-  readonly status: "ACCRUED" | "SETTLED" | "PAID" | "REVERSED";
+  readonly status: ResellerCommissionStatus;
   readonly period: string;
   readonly accruedAt: string;
 };

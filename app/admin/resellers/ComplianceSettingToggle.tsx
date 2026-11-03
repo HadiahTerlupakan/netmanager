@@ -106,9 +106,9 @@ export function ComplianceSettingToggle({
 }
 
 /**
- * Sakelar tenant "Pisahkan penyetuju dan pembayar settlement". Bila aktif,
- * pengguna yang menyetujui settlement komisi tidak bisa mencatat
- * pembayarannya.
+ * Sakelar tenant "Pisahkan pembuat, penyetuju, dan pembayar settlement". Bila
+ * aktif, pembuat settlement tidak bisa menyetujuinya dan penyetuju tidak bisa
+ * mencatat pembayarannya.
  */
 export function SettlementApproverSettingToggle({
   canUpdate,
@@ -118,9 +118,9 @@ export function SettlementApproverSettingToggle({
   return (
     <GovernanceSettingToggle
       settingKey="isSettlementSeparateApproverRequired"
-      title="Pisahkan penyetuju dan pembayar settlement"
-      description="Pengguna yang menyetujui settlement komisi tidak boleh mencatat pembayarannya; pembayaran harus dicatat pengguna lain."
-      enabledMessage="Pembayaran settlement kini wajib oleh pengguna selain penyetuju"
+      title="Pisahkan pembuat, penyetuju, dan pembayar settlement"
+      description="Pembuat settlement komisi tidak boleh menyetujuinya, dan penyetuju tidak boleh mencatat pembayarannya; tiap tahap harus dilakukan pengguna lain."
+      enabledMessage="Persetujuan dan pembayaran settlement kini wajib oleh pengguna berbeda"
       disabledMessage="Pemisahan penyetuju dan pembayar settlement dimatikan"
       canUpdate={canUpdate}
     />

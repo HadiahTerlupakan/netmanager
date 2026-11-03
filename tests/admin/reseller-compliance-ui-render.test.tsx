@@ -375,7 +375,7 @@ describe("SettlementApproverSettingToggle", () => {
   it("membaca sakelarnya sendiri, bukan sakelar kepatuhan", () => {
     expect(renderToggle(false).checked).toBe(false);
     expect(container.textContent).toContain(
-      "Pisahkan penyetuju dan pembayar settlement",
+      "Pisahkan pembuat, penyetuju, dan pembayar settlement",
     );
   });
 

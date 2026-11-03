@@ -41,6 +41,8 @@ interface CreateSettlementInput {
   readonly periodStart: Date;
   readonly periodEnd: Date;
   readonly notes?: string | null;
+  /** Pengguna yang membuat settlement; dipakai pemisahan tugas saat approve. */
+  readonly actorId?: string | null;
 }
 
 const ACCRUED_STATUS = "ACCRUED";
@@ -244,6 +246,7 @@ export class ResellerCommissionService {
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,
       notes: input.notes ?? null,
+      createdById: input.actorId ?? null,
     });
     if (outcome.kind === "empty") {
       throw new ResellerValidationError(
