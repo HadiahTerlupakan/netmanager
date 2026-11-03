@@ -1,6 +1,6 @@
 # Rencana: Tab Barang | Jasa di Manajemen Barang (2026-11-03)
 
-Status: **dikerjakan**
+Status: **selesai, live (`4413fd280`), dicek di produksi**
 
 ## Temuan
 - `/admin/inventory/barang` hanya membaca tabel `barang`; jasa punya master sendiri
@@ -18,7 +18,9 @@ Status: **dikerjakan**
 - [x] Implementasi + tes; review independen (3 temuan diperbaiki: statistik tab Jasa untuk
       pengguna jasa-saja, redirect tanpa `?tab`, tes); typecheck, lint, tes penuh
       (1351 file / 10174 tes); changelog; commit lokal.
-- [ ] Push setelah "push"; cek halaman produksi.
+- [x] Push setelah "push"; cek halaman produksi: tab Barang/Jasa, `?tab=jasa`, redirect
+      `/admin/inventory/jasa` OK. Sisa data: 4 barang duplikat jasa (Kontrakan, Lalamove,
+      Pasang Baru Listrik 220, Bongkar Ac) tanpa stok/mutasi — keputusan user.
 
 # Rencana: Notifikasi WO bisa dibuka verifikator di mobile (2026-11-03)
 
