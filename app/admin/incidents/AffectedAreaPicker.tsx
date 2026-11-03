@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { HiOutlineMagnifyingGlass, HiOutlineMapPin, HiOutlinePlus, HiXMark } from "react-icons/hi2";
+import {
+  HiOutlineMagnifyingGlass,
+  HiOutlineMapPin,
+  HiOutlinePlus,
+  HiXMark,
+} from "react-icons/hi2";
 import { useApi } from "@/lib/hooks/useApi";
 import {
   MAX_AREA_NAME_LENGTH,
@@ -32,6 +37,8 @@ export function AffectedAreaPicker({
   value: string[];
   onChange: (areas: string[]) => void;
 }) {
+  // Tanpa `resource`: insiden tidak menegakkan `site_only` (area disimpan
+  // sebagai nama), jadi seluruh site tenant boleh dipilih.
   const { data, isLoading } = useApi<{ sites?: SiteOption[] }>("/api/sites");
   const sites = useMemo(() => data?.sites ?? [], [data?.sites]);
   const [keyword, setKeyword] = useState("");
@@ -96,14 +103,18 @@ export function AffectedAreaPicker({
         )}
 
         <div className="max-h-44 overflow-y-auto p-1">
-          {isLoading && <p className="px-3 py-2 text-sm text-gray-500">Memuat site...</p>}
+          {isLoading && (
+            <p className="px-3 py-2 text-sm text-gray-500">Memuat site...</p>
+          )}
           {!isLoading && sites.length === 0 && (
             <p className="px-3 py-2 text-sm text-gray-500">
               Belum ada site. Ketik nama area di bawah.
             </p>
           )}
           {!isLoading && sites.length > 0 && visibleSites.length === 0 && (
-            <p className="px-3 py-2 text-sm text-gray-500">Site tidak ditemukan.</p>
+            <p className="px-3 py-2 text-sm text-gray-500">
+              Site tidak ditemukan.
+            </p>
           )}
           {visibleSites.map((site) => (
             <label
@@ -118,7 +129,9 @@ export function AffectedAreaPicker({
               />
               <HiOutlineMapPin className="h-4 w-4 shrink-0 text-gray-400" />
               <span className="text-gray-900 dark:text-white">{site.name}</span>
-              {site.code && <span className="text-xs text-gray-500">{site.code}</span>}
+              {site.code && (
+                <span className="text-xs text-gray-500">{site.code}</span>
+              )}
             </label>
           ))}
         </div>

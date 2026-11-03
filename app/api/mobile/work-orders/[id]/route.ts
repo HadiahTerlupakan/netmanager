@@ -25,6 +25,7 @@ export const GET = createHandler(
             siteId: user.siteId as string | undefined,
             tenantId: user.tenantId as string | undefined,
             isSuperAdmin: Boolean(user.isSuperAdmin),
+            permissions: ctx.permissions,
           },
         );
 

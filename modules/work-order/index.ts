@@ -8,6 +8,7 @@ export * from "./services/AdminWorkOrderRouteService";
 export * from "./services/AdminWorkOrderConfigService";
 export * from "./services/work-order-access";
 export * from "./services/EmployeeWorkOrderQueryService";
+export * from "./services/mobile-work-order-viewer-access";
 export * from "./services/MobileWorkOrderRequestService";
 export * from "./services/MobileAvailableWorkOrderService";
 export * from "./services/MobileWorkOrderPartnerService";

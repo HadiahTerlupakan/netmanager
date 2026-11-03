@@ -1,3 +1,30 @@
+# Rencana: Notifikasi WO bisa dibuka verifikator di mobile (2026-11-03)
+
+Status: **dikerjakan**
+
+## Temuan (uji di HP Redmi via adb)
+- Tap push "Work Order Baru" → Beranda: `data.url` = rute web `/admin/workorders/<id>`;
+  handler tap push hanya membaca `url`. Diperbaiki di mobile `faa8cc7` (rute dari
+  `sourceType`/`sourceId`, sama dengan daftar notifikasi in-app).
+- Detail WO mobile menolak verifikator: `WO-20261103-0001` (CARIU/Technical) →
+  "Anda tidak punya akses ke data ini". Mobile hanya mengizinkan pemegang/partner atau
+  kolam klaim (site+departemen sendiri), padahal web & notifikasi mengizinkan verifikator
+  tanpa `workorders:site_only` melihat semua site.
+
+## Keputusan
+- [Asumsi] Verifikator boleh MELIHAT detail WO di mobile bila web juga mengizinkan
+  (`workorders:read` + lingkup site/departemen web). Klaim & aksi tetap aturan lama.
+- Kontrak: detail mobile mengembalikan `viewerAccess: "PARTICIPANT" | "CLAIMABLE" | "OBSERVER"`;
+  aplikasi menyembunyikan tombol aksi untuk OBSERVER.
+
+## Langkah
+- [x] Server: jalur baca detail mobile + `viewerAccess`, tes.
+- [x] Mobile: sembunyikan aksi untuk OBSERVER, tes (mobile `b125034`; tap push `faa8cc7`).
+- [x] Pemilih site web: `/api/sites` tanpa resource tidak lagi memakai `role.isRestricted`;
+      pemilih PPP & mitra kirim resource-nya.
+- [x] Review independen; typecheck, lint, tes penuh kedua repo; changelog; commit lokal.
+- [ ] Push netmanager (deploy) + mobile (OTA) setelah "push"; uji ulang di HP.
+
 # Rencana: Tegakkan pembatasan site/departemen di semua modul (2026-11-02 s/d 2026-11-03)
 
 Status: **selesai di lokal, menunggu "push"** (commit `5fd1e8821` sudah deploy; `9c1b01789` belum)

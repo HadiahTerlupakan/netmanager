@@ -1,8 +1,14 @@
 import type { WorkOrderStatus } from "../types/work-order.enums";
 import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepository";
 import { WorkOrderRepository } from "../repositories/WorkOrderRepository";
-import { validateMobileAssignedWorkOrderAccess } from "./work-order-access";
+import { resolveMobileWorkOrderViewerAccess } from "./work-order-access";
 import { mobileUnclaimedWorkOrderGuard } from "./mobile-unclaimed-work-order-guard";
+import {
+  createMobileObserverWorkOrderGuard,
+  type ObserverScopeContextLoader,
+} from "./mobile-work-order-observer-guard";
+import type { MobileWorkOrderViewerAccess } from "./mobile-work-order-viewer-access";
+import { getAdminWorkOrderRouteService } from "./AdminWorkOrderRouteService";
 
 const ACTIVE_WORK_ORDER_STATUSES = [
   "ASSIGNED",
@@ -35,13 +41,27 @@ interface MobileWorkOrderUserContext {
   siteId?: string;
   tenantId?: string;
   isSuperAdmin: boolean;
+  /**
+   * Permission role ASLI pembaca. Hanya dipakai untuk menilai akses pengamat
+   * (`OBSERVER`); tidak pernah masuk ke validasi peserta.
+   */
+  permissions?: readonly string[];
 }
+
+/** Profil lingkup dari jalur web (`getUserContext`): site via `userSites` & departemen. */
+const loadWebScopeContext: ObserverScopeContextLoader = (user, permissions) =>
+  getAdminWorkOrderRouteService().getUserContext(user, permissions);
 
 export class EmployeeWorkOrderQueryService {
   private readonly repository: WorkOrderRepository;
+  private readonly loadObserverScopeContext: ObserverScopeContextLoader;
 
-  constructor(repository?: WorkOrderRepository) {
+  constructor(
+    repository?: WorkOrderRepository,
+    loadObserverScopeContext: ObserverScopeContextLoader = loadWebScopeContext,
+  ) {
     this.repository = repository ?? new WorkOrderRepository();
+    this.loadObserverScopeContext = loadObserverScopeContext;
   }
 
   /** Mengambil daftar work order yang ditugaskan ke user. */
@@ -64,22 +84,32 @@ export class EmployeeWorkOrderQueryService {
     );
   }
 
-  /** Mengambil detail work order mobile dengan validasi akses. */
+  /**
+   * Mengambil detail work order mobile dengan validasi akses, beserta
+   * `viewerAccess`. Non-peserta yang boleh melihat WO di panel web mendapat
+   * `OBSERVER` (hanya baca); jalur aksi tetap menolaknya.
+   */
   async getMobileWorkOrderDetail(
     workOrderId: string,
     userContext: MobileWorkOrderUserContext,
-  ) {
-    return validateMobileAssignedWorkOrderAccess({
-      repository: this.repository,
-      workOrderId,
-      userContext: this.buildAccessContext(userContext),
-      allowedStatuses: [...MOBILE_DETAIL_STATUSES],
-      invalidStatusMessage: "Work order tidak dapat diakses pada status ini",
-      // Jalur baca: partner yang diundang perlu melihat pekerjaannya sebelum
-      // memutuskan menerima atau menolak. Jalur aksi tetap menuntut APPROVED.
-      allowPendingInvitation: true,
-      unclaimedAccessGuard: mobileUnclaimedWorkOrderGuard,
-    });
+  ): Promise<MobileWorkOrderDetail> {
+    const { workOrder, viewerAccess } =
+      await resolveMobileWorkOrderViewerAccess({
+        repository: this.repository,
+        workOrderId,
+        userContext: this.buildAccessContext(userContext),
+        allowedStatuses: [...MOBILE_DETAIL_STATUSES],
+        invalidStatusMessage: "Work order tidak dapat diakses pada status ini",
+        // Jalur baca: partner yang diundang perlu melihat pekerjaannya sebelum
+        // memutuskan menerima atau menolak. Jalur aksi tetap menuntut APPROVED.
+        allowPendingInvitation: true,
+        unclaimedAccessGuard: mobileUnclaimedWorkOrderGuard,
+        observerAccessGuard: createMobileObserverWorkOrderGuard({
+          permissions: userContext.permissions ?? [],
+          loadScopeContext: this.loadObserverScopeContext,
+        }),
+      });
+    return { ...workOrder, viewerAccess };
   }
 
   /**
@@ -112,7 +142,9 @@ export class EmployeeWorkOrderQueryService {
   }
 }
 
-export type MobileWorkOrderDetail = WorkOrderWithRelations;
+export type MobileWorkOrderDetail = WorkOrderWithRelations & {
+  viewerAccess: MobileWorkOrderViewerAccess;
+};
 
 let employeeWorkOrderQueryServiceInstance: EmployeeWorkOrderQueryService | null =
   null;

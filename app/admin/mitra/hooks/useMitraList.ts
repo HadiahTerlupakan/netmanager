@@ -37,8 +37,9 @@ async function fetchMitraList(
   return (await res.json()) as MitraListResponse;
 }
 
+/** Site untuk form mitra; dibatasi `mitra:site_only` seperti `/api/admin/mitra`. */
 async function fetchSites(ctx: { signal: AbortSignal }): Promise<Site[]> {
-  const res = await fetch("/api/sites", { signal: ctx.signal });
+  const res = await fetch("/api/sites?resource=mitra", { signal: ctx.signal });
   const data = (await res.json()) as SitesResponse;
   return data.sites ?? [];
 }

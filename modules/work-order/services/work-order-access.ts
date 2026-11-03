@@ -4,6 +4,10 @@ import type { WorkOrderWithRelations } from "../domain/ports/IWorkOrderRepositor
 import type { WorkOrderRepository } from "../repositories/WorkOrderRepository";
 import type { UserContext } from "./WorkOrderService";
 import { resolveWorkOrderSiteScope } from "./work-order-site-access";
+import {
+  MOBILE_WORK_ORDER_VIEWER_ACCESS,
+  type MobileWorkOrderViewerAccess,
+} from "./mobile-work-order-viewer-access";
 
 type MobileWorkOrderMaterialAccessWorkOrder = WorkOrderWithRelations & {
   assignments?: Array<{
@@ -23,11 +27,22 @@ export type UnclaimedWorkOrderAccessGuard = (
   userContext: UserContext,
 ) => Promise<boolean>;
 
+/**
+ * Penentu apakah non-peserta boleh MELIHAT work order (tanpa aksi). Hanya
+ * jalur baca detail yang mengisinya; jalur aksi tidak pernah meneruskannya.
+ */
+export type ObserverWorkOrderAccessGuard = (
+  workOrder: Pick<WorkOrderWithRelations, "siteId" | "departmentId">,
+  userContext: UserContext,
+) => Promise<boolean>;
+
 const UNCLAIMED_SCOPE_DENIED_MESSAGE =
   "Akses ditolak: Work order ini berada di luar site/departemen Anda.";
+const NON_PARTICIPANT_DENIED_MESSAGE =
+  "Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.";
+const UNCLAIMED_WORK_ORDER_STATUSES = ["PENDING", "REQUESTED"];
 
-/** Validasi akses mobile: tenant, pemegang/partner (atau kelayakan WO belum diambil), lalu status. */
-export async function validateMobileAssignedWorkOrderAccess(params: {
+interface MobileWorkOrderAccessParams {
   repository: Pick<WorkOrderRepository, "findById">;
   workOrderId: string;
   userContext: UserContext;
@@ -49,7 +64,47 @@ export async function validateMobileAssignedWorkOrderAccess(params: {
    * dibuka dan diklaim lewat endpoint mobile.
    */
   unclaimedAccessGuard?: UnclaimedWorkOrderAccessGuard;
-}): Promise<MobileWorkOrderMaterialAccessWorkOrder> {
+}
+
+/** Work order yang lolos validasi akses beserta hubungan pembacanya. */
+export interface MobileWorkOrderViewerAccessResult {
+  workOrder: MobileWorkOrderMaterialAccessWorkOrder;
+  viewerAccess: MobileWorkOrderViewerAccess;
+}
+
+/** Validasi akses mobile: tenant, pemegang/partner (atau kelayakan WO belum diambil), lalu status. */
+export async function validateMobileAssignedWorkOrderAccess(
+  params: MobileWorkOrderAccessParams,
+): Promise<MobileWorkOrderMaterialAccessWorkOrder> {
+  // Jalur aksi tidak pernah melepas pengamat, sekalipun pemanggil menyelipkan
+  // guard lewat objek yang lebih lebar dari tipe parameternya.
+  const { workOrder } = await authorizeMobileWorkOrder({
+    ...params,
+    observerAccessGuard: undefined,
+  });
+  return workOrder;
+}
+
+/**
+ * Jalur baca detail mobile: aturan yang sama dengan
+ * `validateMobileAssignedWorkOrderAccess`, ditambah `observerAccessGuard` untuk
+ * non-peserta yang boleh melihat WO di panel web. Mengembalikan `viewerAccess`
+ * agar aplikasi tahu WO ini hanya boleh dibaca. Jangan dipakai di jalur aksi.
+ */
+export async function resolveMobileWorkOrderViewerAccess(
+  params: MobileWorkOrderAccessParams & {
+    observerAccessGuard?: ObserverWorkOrderAccessGuard;
+  },
+): Promise<MobileWorkOrderViewerAccessResult> {
+  return authorizeMobileWorkOrder(params);
+}
+
+/** Inti validasi akses mobile; `observerAccessGuard` hanya dari jalur baca. */
+async function authorizeMobileWorkOrder(
+  params: MobileWorkOrderAccessParams & {
+    observerAccessGuard?: ObserverWorkOrderAccessGuard;
+  },
+): Promise<MobileWorkOrderViewerAccessResult> {
   const {
     userContext,
     allowedStatuses,
@@ -64,20 +119,16 @@ export async function validateMobileAssignedWorkOrderAccess(params: {
     userContext.id,
     allowPendingInvitation,
   );
-  if (!isParticipant) {
-    await validateNonParticipantAccess(
-      workOrder,
-      userContext,
-      params.unclaimedAccessGuard,
-    );
-  }
+  const viewerAccess = isParticipant
+    ? MOBILE_WORK_ORDER_VIEWER_ACCESS.PARTICIPANT
+    : await resolveNonParticipantAccess(workOrder, userContext, params);
   validateWorkOrderStatus(
     workOrder.status,
     allowedStatuses,
     invalidStatusMessage,
   );
 
-  return workOrder;
+  return { workOrder, viewerAccess };
 }
 
 /** Pastikan work order ada dan lolos validasi akses dasar. */
@@ -132,27 +183,54 @@ function isWorkOrderParticipant(
 }
 
 /**
- * Non-peserta hanya boleh menyentuh WO yang belum diambil, dan itu pun hanya
- * bila lolos aturan daftar WO tersedia. Super admin dilepas.
+ * Non-peserta hanya boleh mengklaim WO yang belum diambil, dan itu pun hanya
+ * bila lolos aturan daftar WO tersedia (super admin dilepas). Selain itu,
+ * jalur baca boleh melepas non-peserta sebagai pengamat lewat
+ * `observerAccessGuard`; tanpa guard itu non-peserta ditolak seperti dulu.
  */
-async function validateNonParticipantAccess(
+async function resolveNonParticipantAccess(
+  workOrder: MobileWorkOrderMaterialAccessWorkOrder,
+  userContext: UserContext,
+  guards: {
+    unclaimedAccessGuard?: UnclaimedWorkOrderAccessGuard;
+    observerAccessGuard?: ObserverWorkOrderAccessGuard;
+  },
+): Promise<MobileWorkOrderViewerAccess> {
+  const isUnclaimedStatus = UNCLAIMED_WORK_ORDER_STATUSES.includes(
+    workOrder.status,
+  );
+  if (
+    isUnclaimedStatus &&
+    (await canClaimUnclaimedWorkOrder(
+      workOrder,
+      userContext,
+      guards.unclaimedAccessGuard,
+    ))
+  ) {
+    return MOBILE_WORK_ORDER_VIEWER_ACCESS.CLAIMABLE;
+  }
+
+  const isObserver = guards.observerAccessGuard
+    ? await guards.observerAccessGuard(workOrder, userContext)
+    : false;
+  if (isObserver) return MOBILE_WORK_ORDER_VIEWER_ACCESS.OBSERVER;
+
+  throw new Error(
+    isUnclaimedStatus
+      ? UNCLAIMED_SCOPE_DENIED_MESSAGE
+      : NON_PARTICIPANT_DENIED_MESSAGE,
+  );
+}
+
+/** Kelayakan klaim WO belum diambil; tanpa guard selalu ditolak (fail closed). */
+async function canClaimUnclaimedWorkOrder(
   workOrder: MobileWorkOrderMaterialAccessWorkOrder,
   userContext: UserContext,
   unclaimedAccessGuard?: UnclaimedWorkOrderAccessGuard,
-): Promise<void> {
-  const isUnclaimedStatus =
-    workOrder.status === "PENDING" || workOrder.status === "REQUESTED";
-  if (!isUnclaimedStatus) {
-    throw new Error(
-      "Anda tidak memiliki akses ke work order ini. Hanya lead teknisi dan partner yang disetujui.",
-    );
-  }
-
-  if (isSuperAdminContext(userContext)) return;
-  const isEligible = unclaimedAccessGuard
-    ? await unclaimedAccessGuard(workOrder, userContext)
-    : false;
-  if (!isEligible) throw new Error(UNCLAIMED_SCOPE_DENIED_MESSAGE);
+): Promise<boolean> {
+  if (isSuperAdminContext(userContext)) return true;
+  if (!unclaimedAccessGuard) return false;
+  return unclaimedAccessGuard(workOrder, userContext);
 }
 
 /** Validasi bahwa status work order termasuk status yang diizinkan. */

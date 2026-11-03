@@ -41,6 +41,37 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-03] — Detail WO mobile mode lihat saja untuk verifikator
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/work-order`, `app/api/mobile/work-orders/[id]`
+- **Author**: agent
+- **Deskripsi**: Verifikator tanpa `workorders:site_only` menerima notifikasi WO
+  semua site, tetapi detail WO di mobile menolaknya (hanya pemegang/partner atau
+  kolam klaim) — notifikasinya tidak bisa dibuka. Jalur baca detail kini
+  mengizinkan pengguna yang boleh melihat WO itu di web (`workorders:read` +
+  lingkup site/departemen web, tenant sama) dan mengembalikan `viewerAccess`
+  (`PARTICIPANT`/`CLAIMABLE`/`OBSERVER`). Semua jalur aksi (klaim, update,
+  material, partner, retur, tugas) tidak berubah dan tetap menolak observer.
+  Pasangan aplikasi: mobile `b125034` (mode lihat saja) dan `faa8cc7` (tap push
+  membuka detail WO, bukan Beranda).
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Pemilih site web ikut toggle pembatasan modul
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/roles`, `app/api/sites`, `app/admin`
+- **Author**: agent
+- **Deskripsi**: `GET /api/sites` tanpa `resource` membatasi pilihan site memakai
+  kolom lama `role.isRestricted` (menyala di hampir semua peran bawaan), sehingga
+  peran tanpa "Batasi ke Site Sendiri" hanya melihat site-nya di beberapa
+  pemilih. Kini tanpa resource → semua site tenant; dengan resource → cek persis
+  `<resource>:site_only` + semua `userSites` (gagal tertutup). Pemilih site
+  pelanggan PPP dan mitra kini mengirim resource modulnya. Kolom
+  `isRestricted` tetap ada (masih dipakai menyembunyikan peran di dropdown).
+  Tes arsitektur `pemilih-site-resource.test.ts` menjaga peta pemilih → resource.
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-03] — Wajibkan izin aksi pada detail router MikroTik
 
 - **Tipe**: [SECURITY]
