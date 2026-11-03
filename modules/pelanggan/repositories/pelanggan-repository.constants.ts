@@ -13,6 +13,9 @@ export const adminMutationSelect = {
   autoIsolir: true,
   siteId: true,
   odpId: true,
+  tenantId: true,
+  resellerId: true,
+  resellerOutletId: true,
 } satisfies Prisma.PelangganSelect;
 
 export const adminDeleteSelect = {

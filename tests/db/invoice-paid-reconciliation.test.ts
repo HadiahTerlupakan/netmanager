@@ -140,6 +140,7 @@ describeDb("rekonsiliasi INVOICE_PAID", () => {
       PELANGGAN,
       100000,
       { amountPaid: 100000, couponDiscount: 0, saldoUsed: 0 },
+      TENANT,
     );
   });
 });

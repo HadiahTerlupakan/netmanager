@@ -1,12 +1,14 @@
 import { randomUUID } from "crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isPrismaUniqueConstraintError } from "@/lib/prisma-errors";
 import type {
   CreateCommissionData,
   CreateSettlementData,
   IResellerCommissionRepository,
   CommissionListParams,
   SettlementListParams,
+  SettlementOutcome,
 } from "../domain/ports/IResellerCommissionRepository";
 import type {
   ResellerCommissionEntity,
@@ -20,6 +22,14 @@ const ACTIVE_STATUS = "ACTIVE";
 const ACCRUED_STATUS = "ACCRUED";
 const SETTLED_STATUS = "SETTLED";
 const PAID_STATUS = "PAID";
+const COMMISSION_LOCK_PREFIX = "reseller-commission:";
+
+/** Dilempar di dalam transaksi settlement agar Prisma me-rollback-nya. */
+class SettlementClaimConflict extends Error {
+  constructor() {
+    super("Komisi reseller sudah diambil settlement lain");
+  }
+}
 
 export class ResellerCommissionRepository implements IResellerCommissionRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
@@ -30,7 +40,7 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
     pelangganId: string,
   ): Promise<ResellerCustomerCommissionContext | null> {
     const pelanggan = await this.db.pelanggan.findFirst({
-      where: { id: pelangganId, tenantId },
+      where: { id: pelangganId, ...(tenantId ? { tenantId } : {}) },
       select: {
         id: true,
         tenantId: true,
@@ -67,21 +77,115 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
     });
   }
 
-  /** Find commission by invoice id for idempotency. */
+  /**
+   * Find commission by invoice id for idempotency. Baris yang sudah
+   * di-soft-delete ikut dihitung: unique (tenantId, invoiceId) mencakupnya,
+   * dan komisi yang dibatalkan (invoice di-void) tidak boleh terbit lagi.
+   */
   async findCommissionByInvoiceId(
     tenantId: string | null,
     invoiceId: string,
   ): Promise<ResellerCommissionEntity | null> {
     return this.db.resellerCommission.findFirst({
-      where: { tenantId, invoiceId, deletedAt: null },
+      where: { tenantId, invoiceId },
     });
   }
 
-  /** Create accrued commission. */
+  /**
+   * Create accrued commission. Dua job INVOICE_PAID yang berlomba sama-sama
+   * lolos cek idempotensi; yang kalah mendapat P2002 dan dianggap selesai.
+   */
   async createCommission(
     data: CreateCommissionData,
+  ): Promise<ResellerCommissionEntity | null> {
+    try {
+      return await this.insertCommissionOnce(data);
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) return null;
+      throw error;
+    }
+  }
+
+  /** Pulihkan komisi ACCRUED yang dibatalkan dan belum disettle. */
+  async restoreCancelledCommission(params: {
+    readonly commissionId: string;
+    readonly accruedAt: Date;
+    readonly period: string;
+  }): Promise<ResellerCommissionEntity | null> {
+    const restored = await this.db.resellerCommission.updateMany({
+      where: {
+        id: params.commissionId,
+        status: ACCRUED_STATUS,
+        settlementId: null,
+        deletedAt: { not: null },
+      },
+      data: {
+        deletedAt: null,
+        accruedAt: params.accruedAt,
+        period: params.period,
+      },
+    });
+    if (restored.count === 0) return null;
+    return this.db.resellerCommission.findFirst({
+      where: { id: params.commissionId },
+    });
+  }
+
+  /** Cek reseller ada (belum dihapus) di tenant. */
+  async resellerExists(
+    tenantId: string | null,
+    resellerId: string,
+  ): Promise<boolean> {
+    const reseller = await this.db.reseller.findFirst({
+      where: { id: resellerId, tenantId, deletedAt: null },
+      select: { id: true },
+    });
+    return reseller !== null;
+  }
+
+  /** Soft-delete komisi ACCRUED milik invoice yang dibatalkan (idempoten). */
+  async softDeleteAccruedByInvoiceId(params: {
+    readonly tenantId: string | null;
+    readonly invoiceId: string;
+  }): Promise<number> {
+    const result = await this.db.resellerCommission.updateMany({
+      where: {
+        invoiceId: params.invoiceId,
+        ...(params.tenantId ? { tenantId: params.tenantId } : {}),
+        status: ACCRUED_STATUS,
+        settlementId: null,
+        deletedAt: null,
+      },
+      data: { deletedAt: new Date() },
+    });
+    return result.count;
+  }
+
+  /**
+   * Unique (tenantId, invoiceId) tidak berlaku bila tenantId NULL (Postgres
+   * menganggap NULL selalu berbeda), jadi dua job yang berlomba diserialkan
+   * dengan advisory lock per invoice lalu mengecek ulang di dalamnya.
+   */
+  private async insertCommissionOnce(
+    data: CreateCommissionData,
+  ): Promise<ResellerCommissionEntity | null> {
+    return this.db.$transaction(async (tx) => {
+      const lockKey = `${COMMISSION_LOCK_PREFIX}${data.invoiceId}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+      const existing = await tx.resellerCommission.findFirst({
+        where: { tenantId: data.tenantId, invoiceId: data.invoiceId },
+        select: { id: true },
+      });
+      if (existing) return null;
+      return this.insertCommission(tx, data);
+    });
+  }
+
+  private async insertCommission(
+    tx: Prisma.TransactionClient,
+    data: CreateCommissionData,
   ): Promise<ResellerCommissionEntity> {
-    return this.db.resellerCommission.create({
+    return tx.resellerCommission.create({
       data: {
         id: randomUUID(),
         tenantId: data.tenantId,
@@ -123,24 +227,43 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
     return { items, total };
   }
 
-  /** Create settlement and attach accrued commissions in one transaction. */
+  /**
+   * Create settlement and claim accrued commissions in one transaction.
+   *
+   * Klaim memakai `updateMany` bersyarat status ACCRUED dan settlementId null.
+   * Di READ COMMITTED, transaksi kedua yang membaca baris yang sama tertahan
+   * row lock transaksi pertama, lalu mengevaluasi ulang syaratnya setelah
+   * commit dan tidak menemukan baris; jumlah yang tidak cocok me-rollback
+   * settlement keduanya, jadi komisi tidak pernah disettle dua kali.
+   */
   async createSettlement(
     data: CreateSettlementData,
-  ): Promise<ResellerSettlementEntity> {
+  ): Promise<SettlementOutcome> {
+    try {
+      const settlement = await this.settleInTransaction(data);
+      return settlement ? { kind: "settled", settlement } : { kind: "empty" };
+    } catch (error) {
+      if (error instanceof SettlementClaimConflict) return { kind: "conflict" };
+      throw error;
+    }
+  }
+
+  private async settleInTransaction(
+    data: CreateSettlementData,
+  ): Promise<ResellerSettlementEntity | null> {
     return this.db.$transaction(async (tx) => {
       const commissions = await tx.resellerCommission.findMany({
         where: {
           tenantId: data.tenantId,
           resellerId: data.resellerId,
           status: ACCRUED_STATUS,
+          settlementId: null,
           deletedAt: null,
           accruedAt: { gte: data.periodStart, lte: data.periodEnd },
         },
         select: { id: true, commissionAmount: true },
       });
-      if (commissions.length === 0) {
-        throw new Error("Tidak ada komisi reseller yang dapat disettle");
-      }
+      if (commissions.length === 0) return null;
       const totalAmount = commissions.reduce(
         (total, commission) => total + commission.commissionAmount,
         0,
@@ -157,14 +280,22 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
           notes: data.notes,
         },
       });
-      await tx.resellerCommission.updateMany({
-        where: { id: { in: commissions.map((commission) => commission.id) } },
+      const claimed = await tx.resellerCommission.updateMany({
+        where: {
+          id: { in: commissions.map((commission) => commission.id) },
+          status: ACCRUED_STATUS,
+          settlementId: null,
+          deletedAt: null,
+        },
         data: {
           status: SETTLED_STATUS,
           settlementId: settlement.id,
           settledAt: new Date(),
         },
       });
+      if (claimed.count !== commissions.length) {
+        throw new SettlementClaimConflict();
+      }
       return settlement;
     });
   }

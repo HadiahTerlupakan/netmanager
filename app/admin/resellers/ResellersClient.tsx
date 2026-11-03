@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { toast } from "react-hot-toast";
 import {
   HiOutlinePencilSquare,
@@ -12,6 +12,12 @@ import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { useApi } from "@/lib/hooks/useApi";
+import {
+  fetchWithHandling,
+  formatErrorMessage,
+  isFetchError,
+} from "@/lib/utils/fetch-wrapper";
+import { LoadErrorState } from "./LoadErrorState";
 import { OutletModal } from "./OutletModal";
 import { ResellerModal } from "./ResellerModal";
 import type {
@@ -23,10 +29,33 @@ import type {
   ResellerPackagePrice,
 } from "./types";
 import { emptyOutletForm, emptyResellerForm } from "./types";
+import { RESELLER_LIST_URL, useResellerList } from "./useResellerList";
 
+/** Pesan galat untuk toast, termasuk detail validasi field dari server. */
 function getErrorMessage(error: unknown) {
+  if (isFetchError(error)) return formatErrorMessage(error);
   if (error instanceof Error) return error.message;
   return "Terjadi kesalahan";
+}
+
+/**
+ * Kirim mutasi ke API reseller. `fetchWithHandling` membaca bentuk galat
+ * standar `{ error, details }`, jadi alasan penolakan server sampai ke toast.
+ */
+async function sendResellerMutation(
+  url: string,
+  method: "POST" | "PATCH" | "DELETE",
+  body?: unknown,
+): Promise<void> {
+  await fetchWithHandling(url, {
+    method,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+}
+
+/** Hentikan klik tombol aksi agar tidak ikut memilih baris (kartu mobile). */
+function stopRowClick(event: MouseEvent) {
+  event.stopPropagation();
 }
 
 const rupiahFormatter = new Intl.NumberFormat("id-ID", {
@@ -35,19 +64,6 @@ const rupiahFormatter = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 0,
 });
 
-async function parseMutationResponse(res: Response): Promise<void> {
-  let message: string | null = null;
-  try {
-    const parsed: unknown = await res.json();
-    if (parsed && typeof parsed === "object" && "message" in parsed) {
-      message = String(parsed.message);
-    }
-  } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
-  }
-  if (!res.ok) throw new Error(message || "Permintaan gagal diproses");
-}
-
 export default function ResellersClient() {
   const { hasPermission } = usePermission();
   const canCreate = hasPermission("reseller:create");
@@ -55,7 +71,7 @@ export default function ResellersClient() {
   const canDelete = hasPermission("reseller:delete");
   const [saving, setSaving] = useState(false);
   const [editingReseller, setEditingReseller] = useState<Reseller | null>(null);
-  const [selectedReseller, setSelectedReseller] = useState<Reseller | null>(
+  const [selectedResellerId, setSelectedResellerId] = useState<string | null>(
     null,
   );
   const [editingOutlet, setEditingOutlet] = useState<ResellerOutlet | null>(
@@ -66,39 +82,32 @@ export default function ResellersClient() {
   const [resellerForm, setResellerForm] =
     useState<ResellerForm>(emptyResellerForm);
   const [outletForm, setOutletForm] = useState<OutletForm>(emptyOutletForm);
-  const { data, isLoading, mutate } = useApi<readonly Reseller[]>(
-    "/api/admin/resellers",
-    {
-      onError: () => toast.error("Gagal memuat data reseller"),
-    },
-  );
-  const outletUrl = selectedReseller
-    ? `/api/admin/resellers/${selectedReseller.id}/outlets`
+  const resellerList = useResellerList();
+  const resellers = [...resellerList.resellers];
+  const selectedUrl = selectedResellerId
+    ? `${RESELLER_LIST_URL}/${selectedResellerId}`
     : null;
-  const {
-    data: outletData,
-    isLoading: isLoadingOutlets,
-    mutate: mutateOutlets,
-  } = useApi<readonly ResellerOutlet[]>(outletUrl, {
-    onError: () => toast.error("Gagal memuat outlet reseller"),
-  });
-  const resellers = [...(data ?? [])];
-  const pricingUrl = selectedReseller
-    ? `/api/admin/resellers/${selectedReseller.id}/package-prices`
+  // Detail dimuat tersendiri agar pilihan tetap utuh saat pindah halaman,
+  // dan selalu diambil dari data segar, bukan salinan baris lama.
+  const { data: selectedDetail, mutate: mutateSelected } =
+    useApi<Reseller>(selectedUrl);
+  const selectedReseller =
+    resellers.find((reseller) => reseller.id === selectedResellerId) ??
+    (selectedDetail?.id === selectedResellerId ? selectedDetail : null) ??
+    null;
+  const canAddOutlet = canUpdate && selectedReseller?.status === "ACTIVE";
+  const outletUrl = selectedUrl ? `${selectedUrl}/outlets` : null;
+  const pricingUrl = selectedUrl ? `${selectedUrl}/package-prices` : null;
+  const commissionUrl = selectedUrl
+    ? `${selectedUrl}/commissions?limit=5`
     : null;
-  const commissionUrl = selectedReseller
-    ? `/api/admin/resellers/${selectedReseller.id}/commissions?limit=5`
-    : null;
-  const { data: pricingData, isLoading: isLoadingPricing } = useApi<
-    readonly ResellerPackagePrice[]
-  >(pricingUrl, {
-    onError: () => toast.error("Gagal memuat pricing reseller"),
-  });
-  const { data: commissionData, isLoading: isLoadingCommissions } = useApi<
-    readonly ResellerCommission[]
-  >(commissionUrl, {
-    onError: () => toast.error("Gagal memuat komisi reseller"),
-  });
+  const outletQuery = useApi<readonly ResellerOutlet[]>(outletUrl);
+  const pricingQuery = useApi<readonly ResellerPackagePrice[]>(pricingUrl);
+  const commissionQuery = useApi<readonly ResellerCommission[]>(commissionUrl);
+  const { data: outletData, mutate: mutateOutlets } = outletQuery;
+  const { data: pricingData, isLoading: isLoadingPricing } = pricingQuery;
+  const { data: commissionData, isLoading: isLoadingCommissions } =
+    commissionQuery;
   const outlets = [...(outletData ?? [])];
   const packagePrices = [...(pricingData ?? [])];
   const commissions = [...(commissionData ?? [])];
@@ -152,23 +161,18 @@ export default function ResellersClient() {
       return toast.error("Kode dan nama reseller wajib diisi");
     setSaving(true);
     try {
-      await parseMutationResponse(
-        await fetch(
-          editingReseller
-            ? `/api/admin/resellers/${editingReseller.id}`
-            : "/api/admin/resellers",
-          {
-            method: editingReseller ? "PATCH" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(resellerForm),
-          },
-        ),
+      await sendResellerMutation(
+        editingReseller
+          ? `${RESELLER_LIST_URL}/${editingReseller.id}`
+          : RESELLER_LIST_URL,
+        editingReseller ? "PATCH" : "POST",
+        resellerForm,
       );
       toast.success(
         editingReseller ? "Reseller diperbarui" : "Reseller ditambahkan",
       );
       setIsResellerModalOpen(false);
-      await mutate();
+      await Promise.all([resellerList.refetch(), mutateSelected()]);
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -179,14 +183,15 @@ export default function ResellersClient() {
     if (!confirm(`Hapus reseller ${reseller.name}?`)) return;
     setSaving(true);
     try {
-      await parseMutationResponse(
-        await fetch(`/api/admin/resellers/${reseller.id}`, {
-          method: "DELETE",
-        }),
+      await sendResellerMutation(
+        `${RESELLER_LIST_URL}/${reseller.id}`,
+        "DELETE",
       );
-      if (selectedReseller?.id === reseller.id) setSelectedReseller(null);
+      setSelectedResellerId((currentId) =>
+        currentId === reseller.id ? null : currentId,
+      );
       toast.success("Reseller dihapus");
-      await mutate();
+      await resellerList.refetch();
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -214,16 +219,14 @@ export default function ResellersClient() {
     if (!outletForm.code.trim() || !outletForm.name.trim())
       return toast.error("Kode dan nama outlet wajib diisi");
     const url = editingOutlet
-      ? `/api/admin/resellers/${selectedReseller.id}/outlets/${editingOutlet.id}`
-      : `/api/admin/resellers/${selectedReseller.id}/outlets`;
+      ? `${RESELLER_LIST_URL}/${selectedReseller.id}/outlets/${editingOutlet.id}`
+      : `${RESELLER_LIST_URL}/${selectedReseller.id}/outlets`;
     setSaving(true);
     try {
-      await parseMutationResponse(
-        await fetch(url, {
-          method: editingOutlet ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(outletForm),
-        }),
+      await sendResellerMutation(
+        url,
+        editingOutlet ? "PATCH" : "POST",
+        outletForm,
       );
       toast.success(editingOutlet ? "Outlet diperbarui" : "Outlet ditambahkan");
       setIsOutletModalOpen(false);
@@ -238,11 +241,9 @@ export default function ResellersClient() {
     if (!selectedReseller || !confirm(`Hapus outlet ${outlet.name}?`)) return;
     setSaving(true);
     try {
-      await parseMutationResponse(
-        await fetch(
-          `/api/admin/resellers/${selectedReseller.id}/outlets/${outlet.id}`,
-          { method: "DELETE" },
-        ),
+      await sendResellerMutation(
+        `${RESELLER_LIST_URL}/${selectedReseller.id}/outlets/${outlet.id}`,
+        "DELETE",
       );
       toast.success("Outlet dihapus");
       await mutateOutlets();
@@ -252,7 +253,7 @@ export default function ResellersClient() {
       setSaving(false);
     }
   };
-  if (isLoading) return <PageLoader />;
+  if (resellerList.isLoading) return <PageLoader />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -273,35 +274,51 @@ export default function ResellersClient() {
       </div>
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <ResponsiveTable
-            data={resellers}
-            columns={resellerColumns}
-            keyField="id"
-            emptyMessage="Belum ada reseller"
-            onRowClick={setSelectedReseller}
-            renderActions={(item) => (
-              <div className="flex items-center justify-end gap-2">
-                {canUpdate && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEditReseller(item)}
-                  >
-                    <HiOutlinePencilSquare className="h-4 w-4" />
-                  </Button>
-                )}
-                {canDelete && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void deleteReseller(item)}
-                  >
-                    <HiOutlineTrash className="h-4 w-4 text-red-500" />
-                  </Button>
-                )}
-              </div>
-            )}
-          />
+          {resellerList.error ? (
+            <LoadErrorState
+              title="Gagal memuat data reseller"
+              error={resellerList.error}
+              onRetry={() => void resellerList.refetch()}
+            />
+          ) : (
+            <ResponsiveTable
+              data={resellers}
+              columns={resellerColumns}
+              keyField="id"
+              emptyMessage="Belum ada reseller"
+              onRowClick={(item) => setSelectedResellerId(item.id)}
+              page={resellerList.page}
+              totalPages={resellerList.totalPages}
+              onPageChange={resellerList.setPage}
+              renderActions={(item) => (
+                <div
+                  className="flex items-center justify-end gap-2"
+                  onClick={stopRowClick}
+                >
+                  {canUpdate && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Edit reseller ${item.name}`}
+                      onClick={() => openEditReseller(item)}
+                    >
+                      <HiOutlinePencilSquare className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Hapus reseller ${item.name}`}
+                      onClick={() => void deleteReseller(item)}
+                    >
+                      <HiOutlineTrash className="h-4 w-4 text-red-500" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            />
+          )}
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -315,18 +332,24 @@ export default function ResellersClient() {
                   : "Pilih reseller untuk melihat outlet"}
               </p>
             </div>
-            {selectedReseller && canUpdate && (
+            {canAddOutlet && (
               <Button size="sm" onClick={openCreateOutlet} className="gap-2">
                 <HiOutlinePlus className="h-4 w-4" /> Outlet
               </Button>
             )}
           </div>
-          {selectedReseller ? (
+          {selectedReseller && outletQuery.error ? (
+            <LoadErrorState
+              title="Gagal memuat outlet reseller"
+              error={outletQuery.error}
+              onRetry={() => void outletQuery.refetch()}
+            />
+          ) : selectedReseller ? (
             <ResponsiveTable
               data={outlets}
               columns={outletColumns}
               keyField="id"
-              loading={isLoadingOutlets}
+              loading={outletQuery.isLoading}
               emptyMessage="Belum ada outlet"
               renderActions={(item) => (
                 <div className="flex items-center justify-end gap-2">
@@ -369,7 +392,13 @@ export default function ResellersClient() {
                 Override harga paket aktif untuk {selectedReseller.name}.
               </p>
             </div>
-            {isLoadingPricing ? (
+            {pricingQuery.error ? (
+              <LoadErrorState
+                title="Gagal memuat pricing reseller"
+                error={pricingQuery.error}
+                onRetry={() => void pricingQuery.refetch()}
+              />
+            ) : isLoadingPricing ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Memuat...
               </p>
@@ -405,7 +434,13 @@ export default function ResellersClient() {
                 {rupiahFormatter.format(totalRecentCommission)}.
               </p>
             </div>
-            {isLoadingCommissions ? (
+            {commissionQuery.error ? (
+              <LoadErrorState
+                title="Gagal memuat komisi reseller"
+                error={commissionQuery.error}
+                onRetry={() => void commissionQuery.refetch()}
+              />
+            ) : isLoadingCommissions ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Memuat...
               </p>

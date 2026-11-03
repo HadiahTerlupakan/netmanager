@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const palsu = vi.hoisted(() => ({
   onInvoicePaid: vi.fn(async () => {}),
   onInvoicePartiallyPaid: vi.fn(async () => {}),
+  onInvoicePaymentReverted: vi.fn(async () => {}),
 }));
 
 vi.mock("@/modules/events", () => ({
   BillingEventDispatcher: {
     onInvoicePaid: palsu.onInvoicePaid,
     onInvoicePartiallyPaid: palsu.onInvoicePartiallyPaid,
+    onInvoicePaymentReverted: palsu.onInvoicePaymentReverted,
   },
 }));
 vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
@@ -18,11 +20,16 @@ vi.mock("@/modules/finance/services/billingScheduleLifecycle", () => ({
 
 import { InvoicePaymentStateService } from "@/modules/finance/services/InvoicePaymentStateService";
 
-function repoDengan(paidAmount: bigint, amounts: bigint[]) {
+function repoDengan(
+  paidAmount: bigint,
+  amounts: bigint[],
+  status = paidAmount > 0n ? "PARTIAL_PAID" : "SENT",
+) {
   const invoice = {
     id: "inv-1",
+    tenantId: "tenant-1",
     pelangganId: "pel-1",
-    status: paidAmount > 0n ? "PARTIAL_PAID" : "SENT",
+    status,
     totalAmount: 100000n,
     paidAmount,
     payment: amounts.map((amount) => ({
@@ -55,6 +62,7 @@ describe("InvoicePaymentStateService.recompute — pembayaran sebagian", () => {
       "inv-1",
       "pel-1",
       30000,
+      "tenant-1",
     );
     expect(palsu.onInvoicePaid).not.toHaveBeenCalled();
   });
@@ -73,6 +81,51 @@ describe("InvoicePaymentStateService.recompute — pembayaran sebagian", () => {
     await new InvoicePaymentStateService(repo as never).recompute("inv-1");
 
     expect(palsu.onInvoicePaid).toHaveBeenCalledTimes(1);
+    // Audit reseller #1/#3/#9: tanpa tenantId worker berjalan di system
+    // context dan komisi reseller tidak pernah terbit.
+    expect(palsu.onInvoicePaid).toHaveBeenCalledWith(
+      "inv-1",
+      "pel-1",
+      100000,
+      expect.any(Object),
+      "tenant-1",
+    );
     expect(palsu.onInvoicePartiallyPaid).not.toHaveBeenCalled();
+  });
+
+  // Reviewer reseller: PAID yang turun lagi (payment di-refund/dihapus) dulu
+  // tidak menerbitkan sinyal, sehingga komisi reseller ACCRUED tetap disettle.
+  it("mengirim INVOICE_PAYMENT_REVERTED saat tagihan PAID turun ke SENT", async () => {
+    const repo = repoDengan(100000n, [], "PAID");
+
+    await new InvoicePaymentStateService(repo as never).recompute("inv-1");
+
+    expect(palsu.onInvoicePaymentReverted).toHaveBeenCalledWith({
+      invoiceId: "inv-1",
+      pelangganId: "pel-1",
+      nextStatus: "SENT",
+      revertedAt: expect.any(String),
+      tenantId: "tenant-1",
+    });
+    expect(palsu.onInvoicePartiallyPaid).not.toHaveBeenCalled();
+  });
+
+  it("mengirim INVOICE_PAYMENT_REVERTED saat tagihan PAID turun ke PARTIAL_PAID", async () => {
+    const repo = repoDengan(100000n, [40000n], "PAID");
+
+    await new InvoicePaymentStateService(repo as never).recompute("inv-1");
+
+    expect(palsu.onInvoicePaymentReverted).toHaveBeenCalledWith(
+      expect.objectContaining({ nextStatus: "PARTIAL_PAID" }),
+    );
+  });
+
+  it("tidak mengirim INVOICE_PAYMENT_REVERTED selama tagihan tetap PAID", async () => {
+    const repo = repoDengan(100000n, [100000n], "PAID");
+
+    await new InvoicePaymentStateService(repo as never).recompute("inv-1");
+
+    expect(palsu.onInvoicePaymentReverted).not.toHaveBeenCalled();
+    expect(palsu.onInvoicePaid).not.toHaveBeenCalled();
   });
 });

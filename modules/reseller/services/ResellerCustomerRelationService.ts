@@ -1,4 +1,5 @@
 import type { IResellerRepository } from "../domain/ports/IResellerRepository";
+import { ResellerValidationError } from "../errors/reseller-errors";
 import { ResellerRepository } from "../repositories/ResellerRepository";
 
 const ACTIVE_STATUS = "ACTIVE";
@@ -19,7 +20,12 @@ export class ResellerCustomerRelationService {
     private readonly repository: IResellerRepository = new ResellerRepository(),
   ) {}
 
-  /** Validate customer reseller/outlet relation before persisting pelanggan. */
+  /**
+   * Validate customer reseller/outlet relation before persisting pelanggan.
+   * `tenantId` harus tenant pelanggan, bukan tenant sesi. Setiap pelanggaran
+   * dilempar sebagai `ResellerValidationError` (400): yang salah adalah
+   * pilihan di form pelanggan, bukan resource yang diminta.
+   */
   async validateCustomerRelation(
     input: CustomerResellerRelationInput,
   ): Promise<CustomerResellerRelationResult> {
@@ -27,7 +33,9 @@ export class ResellerCustomerRelationService {
     const resellerOutletId = input.resellerOutletId?.trim() || null;
 
     if (!resellerId && resellerOutletId) {
-      throw new Error("Reseller wajib dipilih saat outlet reseller diisi");
+      throw new ResellerValidationError(
+        "Reseller wajib dipilih saat outlet reseller diisi",
+      );
     }
     if (!resellerId) {
       return { resellerId: null, resellerOutletId: null };
@@ -35,10 +43,14 @@ export class ResellerCustomerRelationService {
 
     const reseller = await this.repository.findById(input.tenantId, resellerId);
     if (!reseller) {
-      throw new Error("Reseller tidak ditemukan");
+      throw new ResellerValidationError(
+        "Reseller tidak ditemukan atau sudah dihapus",
+      );
     }
     if (reseller.status !== ACTIVE_STATUS) {
-      throw new Error("Reseller tidak aktif");
+      throw new ResellerValidationError(
+        "Reseller tidak aktif; pilih reseller aktif atau kosongkan reseller",
+      );
     }
     if (!resellerOutletId) {
       return { resellerId, resellerOutletId: null };
@@ -49,13 +61,17 @@ export class ResellerCustomerRelationService {
       resellerOutletId,
     );
     if (!outlet) {
-      throw new Error("Outlet tidak ditemukan");
+      throw new ResellerValidationError(
+        "Outlet reseller tidak ditemukan atau sudah dihapus",
+      );
     }
     if (outlet.resellerId !== resellerId) {
-      throw new Error("Outlet tidak sesuai dengan reseller");
+      throw new ResellerValidationError("Outlet tidak sesuai dengan reseller");
     }
     if (outlet.status !== ACTIVE_STATUS) {
-      throw new Error("Outlet tidak aktif");
+      throw new ResellerValidationError(
+        "Outlet reseller tidak aktif; pilih outlet aktif atau kosongkan outlet",
+      );
     }
     return { resellerId, resellerOutletId };
   }

@@ -1,6 +1,7 @@
 import { apiPaginated, createHandler } from "@/lib/api";
 import {
   getResellerCommissionService,
+  listResellerCommissionSchema,
   toCommissionDTO,
 } from "@/modules/reseller";
 
@@ -17,19 +18,17 @@ export const GET = createHandler(
     feature: "reseller",
   },
   async (_req, ctx) => {
-    const page = Number(ctx.query.page ?? 1);
-    const limit = Number(ctx.query.limit ?? 20);
+    const query = listResellerCommissionSchema.parse(ctx.query);
     const result = await getResellerCommissionService().listCommissions({
       tenantId: getTenantId(ctx),
       resellerId: ctx.params.id,
-      period:
-        typeof ctx.query.period === "string" ? ctx.query.period : undefined,
-      skip: (page - 1) * limit,
-      take: limit,
+      period: query.period,
+      skip: (query.page - 1) * query.limit,
+      take: query.limit,
     });
     return apiPaginated(result.items.map(toCommissionDTO), {
-      page,
-      limit,
+      page: query.page,
+      limit: query.limit,
       total: result.total,
     });
   },

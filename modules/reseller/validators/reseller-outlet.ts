@@ -1,17 +1,16 @@
 import * as z from "zod";
 
+import { optionalTextSchema, resellerStatusSchema } from "./shared";
+
 export const createResellerOutletSchema = z.object({
   code: z.string().trim().min(1),
   name: z.string().trim().min(1),
-  phone: z.string().trim().optional().nullable(),
-  address: z.string().trim().optional().nullable(),
+  phone: optionalTextSchema,
+  address: optionalTextSchema,
+  status: resellerStatusSchema.optional(),
 });
 
-export const updateResellerOutletSchema = createResellerOutletSchema
-  .partial()
-  .extend({
-    status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
-  });
+export const updateResellerOutletSchema = createResellerOutletSchema.partial();
 
 export type CreateResellerOutletSchema = z.infer<
   typeof createResellerOutletSchema

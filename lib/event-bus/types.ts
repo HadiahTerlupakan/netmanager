@@ -38,6 +38,8 @@ export const EVENT_NAMES = {
   INVOICE_CREATED: "billing:invoice.created",
   INVOICE_PAID: "billing:invoice.paid",
   INVOICE_PARTIALLY_PAID: "billing:invoice.partially_paid",
+  INVOICE_VOIDED: "billing:invoice.voided",
+  INVOICE_PAYMENT_REVERTED: "billing:invoice.payment_reverted",
   INVOICE_OVERDUE: "billing:invoice.overdue",
   INVOICE_REMINDER_DUE: "billing:invoice.reminder_due",
   INVOICE_AUTO_ISOLATE_REQUESTED: "billing:invoice.auto_isolate_requested",
@@ -234,6 +236,29 @@ export interface InvoicePaidPayload
   amount: number;
   paidAt: string;
   paymentMethod?: string;
+}
+
+/**
+ * Tagihan yang sudah dibayar (PAID/PARTIAL_PAID) dibatalkan admin. Konsumen
+ * membatalkan efek turunan pembayarannya, mis. komisi reseller yang belum
+ * disettle. `tenantId` wajib diisi bila tagihannya bertenant agar worker
+ * berjalan di konteks tenant tersebut.
+ */
+export interface InvoiceVoidedPayload extends BaseEventPayload {
+  invoiceId: string;
+  pelangganId: string | null;
+  /** Status tagihan sebelum dibatalkan. */
+  previousStatus: string;
+  voidedAt: string;
+}
+
+/** Tagihan PAID turun ke status belum lunas (payment di-refund/dihapus). */
+export interface InvoicePaymentRevertedPayload extends BaseEventPayload {
+  invoiceId: string;
+  pelangganId: string | null;
+  /** Status tagihan sesudah dihitung ulang (PARTIAL_PAID/SENT/...). */
+  nextStatus: string;
+  revertedAt: string;
 }
 
 export interface CouponUsedPayload extends BaseEventPayload {
@@ -757,6 +782,8 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVOICE_CREATED]: InvoiceCreatedPayload;
   [EVENT_NAMES.INVOICE_PAID]: InvoicePaidPayload;
   [EVENT_NAMES.INVOICE_PARTIALLY_PAID]: InvoicePaidPayload;
+  [EVENT_NAMES.INVOICE_VOIDED]: InvoiceVoidedPayload;
+  [EVENT_NAMES.INVOICE_PAYMENT_REVERTED]: InvoicePaymentRevertedPayload;
   [EVENT_NAMES.INVOICE_OVERDUE]: InvoiceCreatedPayload;
   [EVENT_NAMES.INVOICE_REMINDER_DUE]: InvoiceReminderDuePayload;
   [EVENT_NAMES.INVOICE_AUTO_ISOLATE_REQUESTED]: InvoiceAutoIsolatePayload;
@@ -886,6 +913,20 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
     name: EVENT_NAMES.INVOICE_PARTIALLY_PAID,
     category: "billing",
     priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVOICE_VOIDED]: {
+    name: EVENT_NAMES.INVOICE_VOIDED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.INVOICE_PAYMENT_REVERTED]: {
+    name: EVENT_NAMES.INVOICE_PAYMENT_REVERTED,
+    category: "billing",
+    priority: JOB_PRIORITIES.HIGH,
     persistent: true,
     async: true,
   },

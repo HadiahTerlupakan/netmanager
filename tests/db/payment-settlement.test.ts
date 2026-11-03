@@ -1078,6 +1078,7 @@ describeDb("pelunasan pembayaran pelanggan", () => {
       PELANGGAN,
       0,
       { amountPaid: 0, couponDiscount: 0, saldoUsed: Number(PRICE) },
+      TENANT,
     );
   });
 });

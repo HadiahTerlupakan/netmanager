@@ -1,13 +1,29 @@
 import type { ResellerOutletDTO } from "../dto/reseller.dto";
+import type { ResellerOutletEntity } from "../domain/entities/ResellerEntity";
 import type {
   CreateOutletData,
   IResellerRepository,
   UpdateOutletData,
 } from "../domain/ports/IResellerRepository";
+import {
+  ResellerConflictError,
+  ResellerNotFoundError,
+  ResellerValidationError,
+} from "../errors/reseller-errors";
 import { ResellerMapper } from "../mappers/ResellerMapper";
 import { ResellerRepository } from "../repositories/ResellerRepository";
+import { trimOptionalText } from "./reseller-text";
 
 const ACTIVE_STATUS = "ACTIVE";
+const OUTLET_NOT_FOUND_MESSAGE = "Outlet reseller tidak ditemukan";
+const DUPLICATE_OUTLET_CODE_MESSAGE = "Kode outlet sudah digunakan";
+const DELETED_OUTLET_CODE_MESSAGE =
+  "Kode outlet sudah pernah dipakai outlet yang telah dihapus. Gunakan kode lain.";
+
+export type CreateOutletInput = Omit<
+  CreateOutletData,
+  "tenantId" | "resellerId"
+>;
 
 export class ResellerOutletService {
   constructor(
@@ -16,27 +32,20 @@ export class ResellerOutletService {
 
   /** Create outlet after validating reseller and outlet code. */
   async createOutlet(
-    tenantId: string | null,
+    tenantId: string,
     resellerId: string,
-    data: Omit<CreateOutletData, "tenantId" | "resellerId">,
+    data: CreateOutletInput,
   ): Promise<ResellerOutletDTO> {
     await this.assertActiveReseller(tenantId, resellerId);
     const normalized = this.normalizeCreateOutlet(tenantId, resellerId, data);
-    const existing = await this.repository.findOutletByCode(
-      tenantId,
-      resellerId,
-      normalized.code,
-    );
-    if (existing) {
-      throw new Error("Kode outlet sudah digunakan");
-    }
+    await this.ensureOutletCodeIsUnique(tenantId, resellerId, normalized.code);
     const outlet = await this.repository.createOutlet(normalized);
     return ResellerMapper.toOutletDTO(outlet);
   }
 
   /** List reseller outlets. */
   async listOutlets(
-    tenantId: string | null,
+    tenantId: string,
     resellerId: string,
   ): Promise<readonly ResellerOutletDTO[]> {
     await this.assertResellerExists(tenantId, resellerId);
@@ -49,10 +58,12 @@ export class ResellerOutletService {
 
   /** Get outlet detail and validate reseller ownership. */
   async getOutletById(
-    tenantId: string | null,
+    tenantId: string,
     resellerId: string,
     outletId: string,
   ): Promise<ResellerOutletDTO | null> {
+    const reseller = await this.repository.findById(tenantId, resellerId);
+    if (!reseller) return null;
     const outlet = await this.repository.findOutletById(tenantId, outletId);
     if (!outlet || outlet.resellerId !== resellerId) {
       return null;
@@ -60,85 +71,118 @@ export class ResellerOutletService {
     return ResellerMapper.toOutletDTO(outlet);
   }
 
-  /** Update outlet after validating ownership. */
+  /**
+   * Update outlet after validating ownership. Status outlet sengaja tidak
+   * diperiksa: outlet nonaktif harus tetap bisa diedit dan diaktifkan lagi.
+   */
   async updateOutlet(
-    tenantId: string | null,
+    tenantId: string,
     resellerId: string,
     outletId: string,
     data: UpdateOutletData,
   ): Promise<ResellerOutletDTO> {
-    await this.assertOutletBelongsToReseller(tenantId, resellerId, outletId);
-    const updated = await this.repository.updateOutlet(
-      tenantId,
-      outletId,
-      data,
-    );
+    const outlet = await this.findOwnedOutlet(tenantId, resellerId, outletId);
+    const code = data.code?.trim();
+    if (code && code !== outlet.code) {
+      await this.ensureOutletCodeIsUnique(tenantId, resellerId, code);
+    }
+    const updated = await this.repository.updateOutlet(tenantId, outletId, {
+      ...data,
+      code,
+      name: data.name?.trim(),
+      phone: trimOptionalText(data.phone),
+      address: trimOptionalText(data.address),
+    });
     return ResellerMapper.toOutletDTO(updated);
   }
 
-  /** Soft-delete outlet after validating ownership. */
+  /** Soft-delete outlet after validating ownership, whatever its status. */
   async deleteOutlet(
-    tenantId: string | null,
+    tenantId: string,
     resellerId: string,
     outletId: string,
   ): Promise<void> {
-    await this.assertOutletBelongsToReseller(tenantId, resellerId, outletId);
+    await this.findOwnedOutlet(tenantId, resellerId, outletId);
     await this.repository.softDeleteOutlet(tenantId, outletId);
   }
 
-  /** Validate outlet belongs to reseller and is active. */
-  async assertOutletBelongsToReseller(
-    tenantId: string | null,
+  /**
+   * Outlet milik reseller ini, atau 404. Reseller yang sudah dihapus dan
+   * outlet milik reseller lain diperlakukan sama dengan tidak ada, seperti
+   * `listOutlets` dan `getOutletById` (soft delete reseller tidak ikut menghapus
+   * outlet-nya).
+   */
+  private async findOwnedOutlet(
+    tenantId: string,
     resellerId: string,
     outletId: string,
-  ): Promise<void> {
+  ): Promise<ResellerOutletEntity> {
+    await this.assertResellerExists(tenantId, resellerId);
     const outlet = await this.repository.findOutletById(tenantId, outletId);
-    if (!outlet) {
-      throw new Error("Outlet tidak ditemukan");
+    if (!outlet || outlet.resellerId !== resellerId) {
+      throw new ResellerNotFoundError(OUTLET_NOT_FOUND_MESSAGE);
     }
-    if (outlet.resellerId !== resellerId) {
-      throw new Error("Outlet tidak sesuai dengan reseller");
-    }
-    if (outlet.status !== ACTIVE_STATUS) {
-      throw new Error("Outlet tidak aktif");
-    }
+    return outlet;
+  }
+
+  /**
+   * Tolak kode yang dipegang outlet lain di reseller yang sama, termasuk
+   * outlet yang sudah dihapus (unique index mencakup baris soft-delete).
+   */
+  private async ensureOutletCodeIsUnique(
+    tenantId: string,
+    resellerId: string,
+    code: string,
+  ): Promise<void> {
+    const existing = await this.repository.findOutletByCode(
+      tenantId,
+      resellerId,
+      code,
+    );
+    if (!existing) return;
+    throw new ResellerConflictError(
+      existing.deletedAt
+        ? DELETED_OUTLET_CODE_MESSAGE
+        : DUPLICATE_OUTLET_CODE_MESSAGE,
+    );
   }
 
   private async assertResellerExists(
-    tenantId: string | null,
+    tenantId: string,
     resellerId: string,
   ): Promise<void> {
     const reseller = await this.repository.findById(tenantId, resellerId);
     if (!reseller) {
-      throw new Error("Reseller tidak ditemukan");
+      throw new ResellerNotFoundError();
     }
   }
 
   private async assertActiveReseller(
-    tenantId: string | null,
+    tenantId: string,
     resellerId: string,
   ): Promise<void> {
     const reseller = await this.repository.findById(tenantId, resellerId);
     if (!reseller) {
-      throw new Error("Reseller tidak ditemukan");
+      throw new ResellerNotFoundError();
     }
     if (reseller.status !== ACTIVE_STATUS) {
-      throw new Error("Reseller tidak aktif");
+      throw new ResellerValidationError("Reseller tidak aktif");
     }
   }
 
   private normalizeCreateOutlet(
-    tenantId: string | null,
+    tenantId: string,
     resellerId: string,
-    data: Omit<CreateOutletData, "tenantId" | "resellerId">,
+    data: CreateOutletInput,
   ): CreateOutletData {
     return {
       tenantId,
       resellerId,
       code: data.code.trim(),
       name: data.name.trim(),
-      phone: data.phone?.trim() || null,
-      address: data.address?.trim() || null,
+      phone: trimOptionalText(data.phone) ?? null,
+      address: trimOptionalText(data.address) ?? null,
+      status: data.status,
     };
   }
 }

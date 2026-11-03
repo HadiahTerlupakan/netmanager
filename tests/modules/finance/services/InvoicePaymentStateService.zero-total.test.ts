@@ -25,6 +25,7 @@ import { InvoicePaymentStateService } from "@/modules/finance/services/InvoicePa
 function repoDengan(status: string, totalAmount: bigint) {
   const invoice = {
     id: "inv-0",
+    tenantId: "tenant-1",
     pelangganId: "pel-1",
     status,
     totalAmount,
@@ -61,11 +62,13 @@ describe("InvoicePaymentStateService.recompute — invoice Rp0", () => {
       expect.objectContaining({ status: "PAID", paidAmount: 0n }),
     );
     expect(hasil?.becamePaid).toBe(true);
-    expect(palsu.onInvoicePaid).toHaveBeenCalledWith("inv-0", "pel-1", 0, {
-      amountPaid: 0,
-      couponDiscount: 0,
-      saldoUsed: 0,
-    });
+    expect(palsu.onInvoicePaid).toHaveBeenCalledWith(
+      "inv-0",
+      "pel-1",
+      0,
+      { amountPaid: 0, couponDiscount: 0, saldoUsed: 0 },
+      "tenant-1",
+    );
     expect(palsu.cancelInvoiceBillingSchedules).toHaveBeenCalledWith("inv-0");
   });
 

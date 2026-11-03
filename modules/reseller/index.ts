@@ -18,9 +18,14 @@ export {
   ResellerCommissionService,
   getResellerCommissionService,
 } from "./services/ResellerCommissionService";
-export { handleInvoicePaidResellerCommission } from "./services/reseller-event-handlers";
+export {
+  handleInvoicePaidResellerCommission,
+  handleInvoiceUnpaidResellerCommission,
+} from "./services/reseller-event-handlers";
 export {
   createResellerSchema,
+  listResellersQuerySchema,
+  MAX_RESELLER_LIST_LIMIT,
   updateResellerSchema,
 } from "./validators/reseller";
 export {
@@ -31,8 +36,14 @@ export { upsertResellerPackagePriceSchema } from "./validators/reseller-pricing"
 export {
   createResellerSettlementSchema,
   listResellerCommissionSchema,
+  listResellerSettlementSchema,
   resellerCommissionSummarySchema,
 } from "./validators/reseller-commission";
+export {
+  ResellerConflictError,
+  ResellerNotFoundError,
+  ResellerValidationError,
+} from "./errors/reseller-errors";
 export type {
   ResellerDTO,
   ResellerOutletDTO,

@@ -2,9 +2,19 @@ import { apiPaginated, apiSuccess, createHandler } from "@/lib/api";
 import {
   createResellerSettlementSchema,
   getResellerCommissionService,
+  listResellerSettlementSchema,
   resellerCommissionSummarySchema,
   toSettlementDTO,
 } from "@/modules/reseller";
+
+/**
+ * Settlement mengunci komisi ACCRUED menjadi SETTLED untuk dibayarkan, jadi
+ * aksi keuangan: pengelola data reseller (`reseller:update`) saja tidak cukup,
+ * ia juga harus boleh mencatat transaksi keuangan (`transactions:create`,
+ * dimiliki template Staff Keuangan). Keduanya wajib, maka `permissionsAll`
+ * — `permissions` bersifat "salah satu dari".
+ */
+const SETTLEMENT_PERMISSIONS = ["reseller:update", "transactions:create"];
 
 function getTenantId(ctx: {
   session: { user: { tenantId?: string | null } } | null;
@@ -15,13 +25,10 @@ function getTenantId(ctx: {
 export const GET = createHandler(
   { auth: true, permissions: ["reseller:read"], feature: "reseller" },
   async (_req, ctx) => {
-    const periodStart = ctx.query.periodStart;
-    const periodEnd = ctx.query.periodEnd;
-    if (typeof periodStart === "string" && typeof periodEnd === "string") {
-      const query = resellerCommissionSummarySchema.parse({
-        periodStart,
-        periodEnd,
-      });
+    const isSummaryRequest =
+      ctx.query.periodStart !== undefined || ctx.query.periodEnd !== undefined;
+    if (isSummaryRequest) {
+      const query = resellerCommissionSummarySchema.parse(ctx.query);
       const summary = await getResellerCommissionService().getSummary({
         tenantId: getTenantId(ctx),
         resellerId: ctx.params.id,
@@ -31,8 +38,7 @@ export const GET = createHandler(
       return apiSuccess(summary);
     }
 
-    const page = Number(ctx.query.page ?? 1);
-    const limit = Number(ctx.query.limit ?? 20);
+    const { page, limit } = listResellerSettlementSchema.parse(ctx.query);
     const result = await getResellerCommissionService().listSettlements({
       tenantId: getTenantId(ctx),
       resellerId: ctx.params.id,
@@ -50,7 +56,7 @@ export const GET = createHandler(
 export const POST = createHandler(
   {
     auth: true,
-    permissions: ["reseller:update"],
+    permissionsAll: SETTLEMENT_PERMISSIONS,
     schema: createResellerSettlementSchema,
     feature: "reseller",
   },

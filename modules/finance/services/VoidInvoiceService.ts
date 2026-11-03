@@ -6,7 +6,10 @@ import { reverseJournalsOfCancelledInvoice } from "./invoice-cancellation-journa
 import { refundSaldoKreditUsedBy } from "./outstanding-invoice.helpers";
 import type { PelangganBillingBridgeService } from "@/modules/pelanggan";
 import { getPelangganBillingBridge } from "../pelanggan-registry";
-import { CustomerEventDispatcher } from "@/modules/events";
+import {
+  BillingEventDispatcher,
+  CustomerEventDispatcher,
+} from "@/modules/events";
 import { logger } from "@/lib/logger";
 
 export class VoidInvoiceService {
@@ -172,16 +175,44 @@ export class VoidInvoiceService {
         `CONFLICT: Tagihan ${invoice.invoiceNumber} baru saja diubah atau dibatalkan admin lain; muat ulang halaman.`,
       );
     }
-    await refundSaldoKreditUsedBy(invoice);
-    await reverseJournalsOfCancelledInvoice({
-      invoiceId: invoice.id,
-      reason: `Tagihan dibatalkan: ${reason}`,
-      reversedBy: adminUserId,
-    });
-    const { cancelInvoiceBillingSchedules } =
-      await import("./billingScheduleLifecycle");
-    await cancelInvoiceBillingSchedules(invoice.id);
-    await this.closeAbandonedTransfers(invoice.id);
+    // Status CANCELLED sudah tersimpan dan void kedua ditolak, jadi
+    // INVOICE_VOIDED tetap terbit walau salah satu efek turunan gagal.
+    try {
+      await refundSaldoKreditUsedBy(invoice);
+      await reverseJournalsOfCancelledInvoice({
+        invoiceId: invoice.id,
+        reason: `Tagihan dibatalkan: ${reason}`,
+        reversedBy: adminUserId,
+      });
+      const { cancelInvoiceBillingSchedules } =
+        await import("./billingScheduleLifecycle");
+      await cancelInvoiceBillingSchedules(invoice.id);
+      await this.closeAbandonedTransfers(invoice.id);
+    } finally {
+      await this.publishInvoiceVoided(invoice);
+    }
+  }
+
+  /**
+   * Konsumen INVOICE_VOIDED membatalkan efek turunan pembayaran, mis. komisi
+   * reseller yang belum disettle. Kegagalan publish hanya dicatat: pembatalan
+   * sudah tersimpan dan tidak bisa diulang.
+   */
+  private async publishInvoiceVoided(invoice: InvoiceWithPayment) {
+    try {
+      await BillingEventDispatcher.onInvoiceVoided({
+        invoiceId: invoice.id,
+        pelangganId: invoice.pelangganId,
+        previousStatus: invoice.status,
+        voidedAt: new Date().toISOString(),
+        ...(invoice.tenantId ? { tenantId: invoice.tenantId } : {}),
+      });
+    } catch (error) {
+      logger.error(
+        `[VoidInvoiceService] Gagal mem-publish INVOICE_VOIDED untuk invoice ${invoice.id}:`,
+        error,
+      );
+    }
   }
 
   /**

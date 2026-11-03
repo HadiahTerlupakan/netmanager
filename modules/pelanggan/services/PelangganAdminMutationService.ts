@@ -116,11 +116,10 @@ export class PelangganAdminMutationService {
         normalizedData.odpId,
         existingPelanggan.odpId,
       );
-      await getResellerCustomerRelationService().validateCustomerRelation({
-        tenantId: input.session.user.tenantId ?? null,
-        resellerId: normalizedData.resellerId,
-        resellerOutletId: normalizedData.resellerOutletId,
-      });
+      await this.assertResellerRelationAssignable(
+        existingPelanggan,
+        normalizedData,
+      );
       if (
         await isDowngradeTanpaIzin({
           paketLamaId: existingPelanggan.hargaPaketId,
@@ -187,6 +186,35 @@ export class PelangganAdminMutationService {
     } catch (error) {
       throw this.mapMutationError(error);
     }
+  }
+
+  /**
+   * Validasi reseller/outlet hanya bila relasinya berubah, dan terhadap tenant
+   * pelanggan — bukan tenant sesi, yang kosong untuk super admin. Form edit
+   * selalu mengirim ulang relasi tersimpan, jadi tanpa pemeriksaan "berubah"
+   * pelanggan milik reseller yang kemudian dinonaktifkan tidak bisa diedit
+   * sama sekali.
+   */
+  private async assertResellerRelationAssignable(
+    existingPelanggan: {
+      tenantId: string | null;
+      resellerId: string | null;
+      resellerOutletId: string | null;
+    },
+    nextRelation: {
+      resellerId: string | null;
+      resellerOutletId: string | null;
+    },
+  ) {
+    const isRelationUnchanged =
+      nextRelation.resellerId === existingPelanggan.resellerId &&
+      nextRelation.resellerOutletId === existingPelanggan.resellerOutletId;
+    if (isRelationUnchanged) return;
+    await getResellerCustomerRelationService().validateCustomerRelation({
+      tenantId: existingPelanggan.tenantId,
+      resellerId: nextRelation.resellerId,
+      resellerOutletId: nextRelation.resellerOutletId,
+    });
   }
 
   /** Get existing pelanggan within admin mutation scope. */

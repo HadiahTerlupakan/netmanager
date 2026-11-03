@@ -41,6 +41,41 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-03] — Perbaikan komisi & settlement reseller (hasil audit)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/reseller`, `modules/finance`, `modules/events`, `lib/event-bus`, `app/api/admin/resellers`
+- **Author**: agent
+- **Deskripsi**: Audit modul Reseller (45 klaim, 40 terkonfirmasi):
+  - Komisi tidak pernah diakru: payload `INVOICE_PAID` tanpa `tenantId` sehingga
+    handler mencari pelanggan dengan `tenantId: null`. Kini `INVOICE_PAID` /
+    `INVOICE_PARTIALLY_PAID` membawa `tenantId`, handler fallback ke tenant pelanggan.
+  - Settlement ganda saat permintaan bersamaan: klaim komisi atomik
+    (`updateMany` bersyarat + cek jumlah, rollback) → 409.
+  - Event baru `billing:invoice.voided` dan `billing:invoice.payment_reverted`
+    (terbit walau efek turunan void gagal); komisi ACCRUED invoice tersebut
+    dibatalkan idempoten. Komisi SETTLED/PAID belum di-clawback (butuh migration).
+  - Komisi soft-deleted tak lagi membuat job gagal permanen (P2002); akru dilewati
+    bila modul reseller nonaktif; settlement butuh `reseller:update` +
+    `transactions:create`; galat settlement/periode/query dipetakan ke 400/404/409.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Perbaikan API & halaman reseller (hasil audit)
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/reseller`, `app/api/admin/resellers`, `app/admin/resellers`, `modules/pelanggan`
+- **Author**: agent
+- **Deskripsi**: Email kosong tak lagi ditolak; outlet nonaktif bisa diubah/
+  diaktifkan/dihapus (outlet reseller terhapus → 404); status saat membuat
+  diterima; validasi Zod query list (kosong → default, limit dibatasi); pelanggan
+  ke reseller nonaktif/outlet salah → 400 jelas, validasi memakai tenant
+  pelanggan, edit pelanggan reseller nonaktif tetap bisa; `hargaPaketId` wajib
+  milik tenant; kode reseller/outlet terhapus → 409 jelas; helper tenant sesi
+  seragam. Halaman: pesan galat server tampil, paginasi, galat muat dengan coba
+  lagi, pilihan reseller segar setelah edit, klik Edit/Hapus di mobile tidak
+  memilih baris.
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-03] — Tab Barang dan Jasa di Manajemen Barang
 
 - **Tipe**: [CHANGED]

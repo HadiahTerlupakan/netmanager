@@ -3,6 +3,7 @@ import {
   eventBus,
   EVENT_NAMES,
   JOB_PRIORITIES,
+  type EventPayloadMap,
   type InvoicePaidBreakdown,
   type PaymentRedirectedPayload,
   type PaymentRejectedPayload,
@@ -38,6 +39,7 @@ export class BillingEventDispatcher {
     pelangganId: string,
     amount?: number,
     breakdown?: InvoicePaidBreakdown,
+    tenantId?: string | null,
   ) {
     await eventBus.publish(
       EVENT_NAMES.INVOICE_PAID,
@@ -47,6 +49,10 @@ export class BillingEventDispatcher {
         amount: amount ?? 0,
         paidAt: new Date().toISOString(),
         ...breakdown,
+        // Tanpa tenantId worker menjalankan handler di system context, dan
+        // handler yang menyaring per tenant (komisi reseller) tidak menemukan
+        // apa pun.
+        ...(tenantId ? { tenantId } : {}),
       },
       {
         // Critical event — use highest priority
@@ -60,12 +66,38 @@ export class BillingEventDispatcher {
     invoiceId: string,
     pelangganId: string,
     amount: number,
+    tenantId?: string | null,
   ) {
     await eventBus.publish(EVENT_NAMES.INVOICE_PARTIALLY_PAID, {
       invoiceId,
       pelangganId,
       amount,
       paidAt: new Date().toISOString(),
+      ...(tenantId ? { tenantId } : {}),
+    });
+  }
+
+  /**
+   * Tagihan yang sudah dibayar dibatalkan admin; konsumen membatalkan efek
+   * turunan pembayarannya (mis. komisi reseller yang belum disettle).
+   */
+  static async onInvoiceVoided(
+    data: EventPayloadMap[typeof EVENT_NAMES.INVOICE_VOIDED],
+  ) {
+    await eventBus.publish(EVENT_NAMES.INVOICE_VOIDED, data, {
+      priority: JOB_PRIORITIES.HIGH,
+    });
+  }
+
+  /**
+   * Tagihan PAID tidak lagi lunas setelah dihitung ulang (payment di-refund
+   * atau dihapus); konsumen menahan efek turunan pelunasan yang belum final.
+   */
+  static async onInvoicePaymentReverted(
+    data: EventPayloadMap[typeof EVENT_NAMES.INVOICE_PAYMENT_REVERTED],
+  ) {
+    await eventBus.publish(EVENT_NAMES.INVOICE_PAYMENT_REVERTED, data, {
+      priority: JOB_PRIORITIES.HIGH,
     });
   }
 

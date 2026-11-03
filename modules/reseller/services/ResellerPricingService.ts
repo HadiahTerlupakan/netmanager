@@ -4,7 +4,13 @@ import type {
 } from "../dto/reseller.dto";
 import { ResellerMapper } from "../mappers/ResellerMapper";
 import type { IResellerRepository } from "../domain/ports/IResellerRepository";
+import {
+  ResellerNotFoundError,
+  ResellerValidationError,
+} from "../errors/reseller-errors";
 import { ResellerRepository } from "../repositories/ResellerRepository";
+
+const PACKAGE_NOT_FOUND_MESSAGE = "Harga Paket tidak ditemukan";
 
 export class ResellerPricingService {
   constructor(
@@ -13,7 +19,7 @@ export class ResellerPricingService {
 
   /** List package price overrides for a reseller. */
   async listPackagePrices(
-    tenantId: string | null,
+    tenantId: string,
     resellerId: string,
   ): Promise<readonly ResellerPackagePriceDTO[]> {
     const prices = await this.repository.findPackagePricesByResellerId(
@@ -23,9 +29,13 @@ export class ResellerPricingService {
     return prices.map(ResellerMapper.toPackagePriceDTO);
   }
 
-  /** Create package price override for a reseller. */
+  /**
+   * Create package price override for a reseller. Paket wajib milik tenant
+   * yang sama: FK `hargaPaketId` global, jadi tanpa pemeriksaan ini id paket
+   * tenant lain diterima dan id yang tidak ada berakhir 500 (P2003).
+   */
   async upsertPackagePrice(input: {
-    readonly tenantId: string | null;
+    readonly tenantId: string;
     readonly resellerId: string;
     readonly hargaPaketId: string;
     readonly price: number;
@@ -37,7 +47,14 @@ export class ResellerPricingService {
       input.resellerId,
     );
     if (!reseller) {
-      throw new Error("Reseller tidak ditemukan");
+      throw new ResellerNotFoundError();
+    }
+    const basePrice = await this.repository.findBasePackagePrice(
+      input.tenantId,
+      input.hargaPaketId,
+    );
+    if (basePrice === null) {
+      throw new ResellerValidationError(PACKAGE_NOT_FOUND_MESSAGE);
     }
     const price = await this.repository.upsertPackagePrice(input);
     return ResellerMapper.toPackagePriceDTO(price);
@@ -72,7 +89,7 @@ export class ResellerPricingService {
       input.hargaPaketId,
     );
     if (basePrice === null) {
-      throw new Error("Harga Paket tidak ditemukan");
+      throw new ResellerNotFoundError(PACKAGE_NOT_FOUND_MESSAGE);
     }
     return { price: basePrice, source: "BASE_PACKAGE", priceId: null };
   }

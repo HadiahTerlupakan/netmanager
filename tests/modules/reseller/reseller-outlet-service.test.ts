@@ -107,7 +107,21 @@ describe("ResellerOutletService", () => {
     expect(repository.createOutlet).not.toHaveBeenCalled();
   });
 
-  it("rejects outlet from a different reseller during ownership assertion", async () => {
+  it("treats outlet of a different reseller as not found on update", async () => {
+    vi.mocked(repository.findById).mockResolvedValueOnce({
+      id: "reseller-1",
+      tenantId: "tenant-1",
+      code: "RSL-001",
+      name: "Reseller Satu",
+      email: null,
+      phone: null,
+      address: null,
+      status: "ACTIVE",
+      notes: null,
+      createdAt: new Date("2026-07-08T00:00:00.000Z"),
+      updatedAt: new Date("2026-07-08T00:00:00.000Z"),
+      deletedAt: null,
+    });
     vi.mocked(repository.findOutletById).mockResolvedValueOnce({
       id: "outlet-1",
       tenantId: "tenant-1",
@@ -123,11 +137,10 @@ describe("ResellerOutletService", () => {
     });
 
     await expect(
-      service.assertOutletBelongsToReseller(
-        "tenant-1",
-        "reseller-1",
-        "outlet-1",
-      ),
-    ).rejects.toThrow("Outlet tidak sesuai dengan reseller");
+      service.updateOutlet("tenant-1", "reseller-1", "outlet-1", {
+        name: "Baru",
+      }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+    expect(repository.updateOutlet).not.toHaveBeenCalled();
   });
 });

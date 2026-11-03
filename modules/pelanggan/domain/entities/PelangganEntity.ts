@@ -145,6 +145,9 @@ export interface PelangganAdminMutationEntity {
   autoIsolir: boolean;
   siteId: string | null;
   odpId: string | null;
+  tenantId: string | null;
+  resellerId: string | null;
+  resellerOutletId: string | null;
 }
 
 export interface PelangganAdminDeleteEntity {

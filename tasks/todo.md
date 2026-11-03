@@ -1,3 +1,48 @@
+# Rencana: Sesuaikan modul Reseller dengan regulasi jual kembali (model agen) (2026-11-03)
+
+Status: **menunggu perbaikan bug audit selesai** (file yang sama)
+
+## Keputusan user
+- Model **agen**: ISP menagih pelanggan reseller dengan merek ISP, seluruh pendapatan dibukukan
+  ISP, reseller menerima komisi (PM 5/2021 Ps 223(2)b.3).
+- [Asumsi] `ResellerPackagePrice` tidak sesuai model agen → dinonaktifkan & `[DEPRECATED]`
+  (UI disembunyikan, API tulis ditolak), tabel tidak di-drop.
+
+## Langkah (acuan: docs/reports/REGULASI_RESELLER_KOMDIGI_2026-11-03.md §3)
+- [ ] Data izin reseller (badan usaha, NIB, KBLI, sertifikat standar, verifikasi) + tautan PKS
+      aktif (modul Legal); peringatan dulu, blokir pelanggan baru bila tidak lengkap (konfigurasi).
+      Migration aditif.
+- [ ] Status kemitraan SUSPENDED/TERMINATED + alasan/tanggal; komisi berhenti diakru. Migration aditif.
+- [ ] CRUD aturan komisi (API + UI); dasar komisi DPP (tanpa PPN).
+- [ ] Settlement approve/mark-paid + jurnal beban & utang komisi (event ke accounting, idempoten).
+- [ ] Laporan bulanan per reseller/outlet (pelanggan, tagihan bruto, terbayar, komisi), ekspor.
+- [ ] Template "PKS Reseller" (modul Legal) dengan klausul wajib model agen.
+- [ ] Verifikasi merek ISP di invoice/kuitansi/WA; `brandName` co-branding opsional.
+- [ ] Revisi draft PKS user (.docx) ke model agen.
+- [ ] Review independen; typecheck, lint, tes penuh; changelog; commit lokal; push setelah "push".
+
+# Rencana: Audit modul Reseller (2026-11-03)
+
+Status: **perbaikan selesai (commit lokal), lanjut penyesuaian regulasi**
+
+## Hasil audit
+45 klaim → 40 terkonfirmasi (±18 masalah unik setelah digabung). Detail:
+`scratchpad/reseller_confirmed.json` sesi 2026-11-03. Celah fitur (butuh keputusan produk,
+tidak dikerjakan): belum ada penulis/UI aturan komisi; harga paket reseller belum
+diterapkan ke invoice.
+
+## Konteks
+- Halaman `/admin/resellers`; API `app/api/admin/resellers/**` (reseller, outlet, harga paket,
+  komisi, settlement); module `modules/reseller`. Model tanpa site/departemen (hanya tenant).
+- Produksi: 0 reseller di semua tenant — fitur belum dipakai, belum ada data terdampak.
+
+## Langkah
+- [x] Audit 5 dimensi (akses & isolasi tenant, komisi/settlement, validasi/kontrak API,
+      fungsi UI, arsitektur CLAUDE.md) + verifikasi adversarial per temuan.
+- [x] Perbaiki temuan terkonfirmasi + tes; typecheck, lint, tes penuh (1362 file, 10288 tes;
+      1 tes Leaflet flaky saat paralel, lulus sendiri); changelog; commit lokal.
+- [ ] Push setelah "push".
+
 # Rencana: Tab Barang | Jasa di Manajemen Barang (2026-11-03)
 
 Status: **selesai, live (`4413fd280`), dicek di produksi**

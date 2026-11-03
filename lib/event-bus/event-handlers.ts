@@ -56,7 +56,10 @@ import {
   handleCustomerChurnedMrr,
   handlePackageChangedMrr,
 } from "@/modules/finance";
-import { handleInvoicePaidResellerCommission } from "@/modules/reseller";
+import {
+  handleInvoicePaidResellerCommission,
+  handleInvoiceUnpaidResellerCommission,
+} from "@/modules/reseller";
 import { handleInvoicePaidCheckoutCleanup } from "@/modules/payment-gateway";
 import { handleEndorsementCompletedLegal } from "@/modules/legal";
 import {
@@ -137,6 +140,16 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.INVOICE_PAID,
     handleInvoicePaidResellerCommission,
+  );
+  // Invoice yang di-void atau pelunasannya ditarik (payment di-refund atau
+  // dihapus): komisi reseller yang belum disettle tidak boleh ikut dibayarkan.
+  registerEventHandler(
+    EVENT_NAMES.INVOICE_VOIDED,
+    handleInvoiceUnpaidResellerCommission,
+  );
+  registerEventHandler(
+    EVENT_NAMES.INVOICE_PAYMENT_REVERTED,
+    handleInvoiceUnpaidResellerCommission,
   );
   // Tutup checkout gateway lain yang masih menunggu untuk invoice ini.
   registerEventHandler(

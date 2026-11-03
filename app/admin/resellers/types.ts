@@ -40,11 +40,6 @@ export type ResellerCommission = {
   readonly accruedAt: string;
 };
 
-export type ApiListResponse<T> = {
-  readonly data?: readonly T[];
-  readonly pagination?: { readonly total?: number };
-};
-
 export type ResellerForm = {
   readonly code: string;
   readonly name: string;

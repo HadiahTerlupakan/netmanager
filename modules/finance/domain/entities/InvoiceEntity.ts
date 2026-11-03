@@ -30,6 +30,8 @@ export interface InvoicePaymentEntity {
 /** Pure domain entity for finance invoice aggregates. */
 export interface InvoiceEntity {
   id: string;
+  /** Tenant pemilik tagihan; diteruskan ke event agar worker berjalan di konteks tenant. */
+  tenantId?: string | null;
   invoiceNumber?: string;
   pelangganId: string | null;
   siteId?: string | null;

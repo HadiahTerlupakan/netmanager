@@ -345,6 +345,7 @@ describeDb("pelunasan yang terhenti setelah payment PAID diulang", () => {
       PELANGGAN,
       Number(PRICE),
       { amountPaid: 0, couponDiscount: Number(PRICE), saldoUsed: 0 },
+      TENANT,
     );
   });
 

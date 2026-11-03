@@ -1,26 +1,28 @@
-import { apiPaginated, apiSuccess, ApiErrors, createHandler } from "@/lib/api";
-import { createResellerSchema, getResellerService } from "@/modules/reseller";
-
-function getTenantId(ctx: {
-  session: { user: { tenantId?: string | null } } | null;
-}) {
-  return ctx.session?.user.tenantId ?? null;
-}
+import {
+  apiPaginated,
+  apiSuccess,
+  createHandler,
+  requireSessionTenantId,
+} from "@/lib/api";
+import {
+  createResellerSchema,
+  getResellerService,
+  listResellersQuerySchema,
+} from "@/modules/reseller";
 
 export const GET = createHandler(
   { auth: true, permissions: ["reseller:read"], feature: "reseller" },
   async (_req, ctx) => {
-    const page = Number(ctx.query.page ?? 1);
-    const limit = Number(ctx.query.limit ?? 20);
+    const tenantId = requireSessionTenantId(ctx);
+    const query = listResellersQuerySchema.parse(ctx.query);
     const result = await getResellerService().listResellers({
-      tenantId: getTenantId(ctx),
-      page,
-      limit,
+      tenantId,
+      ...query,
     });
 
     return apiPaginated([...result.items], {
-      page,
-      limit,
+      page: query.page,
+      limit: query.limit,
       total: result.total,
     });
   },
@@ -34,17 +36,10 @@ export const POST = createHandler(
     feature: "reseller",
   },
   async (_req, ctx) => {
-    try {
-      const reseller = await getResellerService().createReseller({
-        ...ctx.validated,
-        tenantId: getTenantId(ctx),
-      });
-      return apiSuccess(reseller, { status: 201 });
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("sudah digunakan")) {
-        return ApiErrors.conflict(error.message);
-      }
-      throw error;
-    }
+    const reseller = await getResellerService().createReseller({
+      ...ctx.validated,
+      tenantId: requireSessionTenantId(ctx),
+    });
+    return apiSuccess(reseller, { status: 201 });
   },
 );

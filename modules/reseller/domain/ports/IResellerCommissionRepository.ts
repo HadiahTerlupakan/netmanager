@@ -45,8 +45,22 @@ export interface SettlementListParams {
   readonly take?: number;
 }
 
+/**
+ * Hasil upaya settlement. `empty`: tidak ada komisi ACCRUED di periode itu.
+ * `conflict`: sebagian komisi sudah diambil settlement lain yang berjalan
+ * bersamaan, sehingga transaksi dibatalkan seluruhnya.
+ */
+export type SettlementOutcome =
+  | { readonly kind: "settled"; readonly settlement: ResellerSettlementEntity }
+  | { readonly kind: "empty" }
+  | { readonly kind: "conflict" };
+
 export interface IResellerCommissionRepository {
-  /** Find customer reseller context for commission accrual. */
+  /**
+   * Find customer reseller context for commission accrual. `tenantId` null
+   * berarti tenant belum diketahui (event tanpa tenantId): pelanggan dicari
+   * berdasarkan id saja dan tenant-nya dipakai untuk langkah berikutnya.
+   */
   findCustomerContext(
     tenantId: string | null,
     pelangganId: string,
@@ -58,24 +72,52 @@ export interface IResellerCommissionRepository {
     readonly hargaPaketId: string | null;
     readonly at: Date;
   }): Promise<ResellerCommissionRuleEntity | null>;
-  /** Find commission by invoice id for idempotency. */
+  /**
+   * Find commission by invoice id for idempotency, termasuk yang sudah
+   * di-soft-delete: unique (tenantId, invoiceId) juga mencakup baris itu.
+   */
   findCommissionByInvoiceId(
     tenantId: string | null,
     invoiceId: string,
   ): Promise<ResellerCommissionEntity | null>;
-  /** Create accrued commission. */
+  /**
+   * Create accrued commission; null bila invoice itu sudah punya komisi.
+   * Cek-dan-insert diserialkan per invoice, karena unique (tenantId,
+   * invoiceId) tidak menahan duplikat ketika tenantId NULL.
+   */
   createCommission(
     data: CreateCommissionData,
-  ): Promise<ResellerCommissionEntity>;
+  ): Promise<ResellerCommissionEntity | null>;
+  /** Cek reseller ada (belum dihapus) di tenant. */
+  resellerExists(tenantId: string | null, resellerId: string): Promise<boolean>;
+  /**
+   * Soft-delete komisi ACCRUED milik invoice yang tidak lagi lunas (di-void
+   * atau pelunasannya ditarik). Idempoten;
+   * mengembalikan jumlah baris yang berubah.
+   */
+  softDeleteAccruedByInvoiceId(params: {
+    readonly tenantId: string | null;
+    readonly invoiceId: string;
+  }): Promise<number>;
+  /**
+   * Pulihkan komisi ACCRUED yang dibatalkan karena invoice-nya sempat tidak
+   * lunas, dengan tanggal akru baru. Null bila tidak ada yang bisa dipulihkan.
+   */
+  restoreCancelledCommission(params: {
+    readonly commissionId: string;
+    readonly accruedAt: Date;
+    readonly period: string;
+  }): Promise<ResellerCommissionEntity | null>;
   /** List commissions for reseller. */
   findCommissions(params: CommissionListParams): Promise<{
     readonly items: readonly ResellerCommissionEntity[];
     readonly total: number;
   }>;
-  /** Create settlement and attach accrued commissions in one transaction. */
-  createSettlement(
-    data: CreateSettlementData,
-  ): Promise<ResellerSettlementEntity>;
+  /**
+   * Create settlement and claim accrued commissions atomically: komisi yang
+   * sudah diambil settlement lain membatalkan seluruh transaksi.
+   */
+  createSettlement(data: CreateSettlementData): Promise<SettlementOutcome>;
   /** List settlements. */
   findSettlements(params: SettlementListParams): Promise<{
     readonly items: readonly ResellerSettlementEntity[];

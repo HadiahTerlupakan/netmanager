@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 const menuConfigPath = "lib/menu-config.ts";
 const resellerPagePath = "app/admin/resellers/page.tsx";
 const resellerClientPath = "app/admin/resellers/ResellersClient.tsx";
+// Pengambilan daftar reseller dipindah ke hook `useResellerList` (paginasi).
+const resellerListHookPath = "app/admin/resellers/useResellerList.ts";
 const pppInfoSectionPath =
   "app/admin/pelanggan/ppp/components/info/PppClientInfoTabSection.tsx";
 const pppUpdateRoutePath = "app/api/pelanggan-ppp/[id]/route-handlers-impl.ts";
@@ -32,8 +34,9 @@ describe("admin reseller Phase 2 UI", () => {
 
   it("builds reseller CRUD UI against admin reseller APIs", () => {
     const source = readFileSync(resellerClientPath, "utf8");
+    const listHookSource = readFileSync(resellerListHookPath, "utf8");
 
-    expect(source).toContain("/api/admin/resellers");
+    expect(listHookSource).toContain("/api/admin/resellers");
     expect(source).toContain("ResponsiveTable");
     expect(source).toContain("Modal");
     expect(source).toContain("reseller:create");

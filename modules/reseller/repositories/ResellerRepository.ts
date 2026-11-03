@@ -14,20 +14,26 @@ import type {
   ResellerEntity,
   ResellerOutletEntity,
   ResellerPackagePriceEntity,
+  ResellerStatusValue,
 } from "../domain/entities/ResellerEntity";
+import { ResellerNotFoundError } from "../errors/reseller-errors";
 
 const ACTIVE_STATUS = "ACTIVE";
+const OUTLET_NOT_FOUND_MESSAGE = "Outlet reseller tidak ditemukan";
 
 export class ResellerRepository implements IResellerRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
 
-  /** Find reseller by code within tenant scope. */
+  /**
+   * Find reseller by code within tenant scope, including soft-deleted rows,
+   * because the unique index `[tenantId, code]` covers them as well.
+   */
   async findByCode(
     tenantId: string | null,
     code: string,
   ): Promise<ResellerEntity | null> {
     const reseller = await this.db.reseller.findFirst({
-      where: { tenantId, code, deletedAt: null },
+      where: { tenantId, code },
     });
     return reseller;
   }
@@ -47,6 +53,7 @@ export class ResellerRepository implements IResellerRepository {
   async findAll(params: {
     readonly tenantId: string | null;
     readonly search?: string;
+    readonly status?: ResellerStatusValue;
     readonly skip?: number;
     readonly take?: number;
   }): Promise<{
@@ -57,6 +64,7 @@ export class ResellerRepository implements IResellerRepository {
     const where: Prisma.ResellerWhereInput = {
       tenantId: params.tenantId,
       deletedAt: null,
+      ...(params.status ? { status: params.status } : {}),
       ...(keyword
         ? {
             OR: [
@@ -91,6 +99,7 @@ export class ResellerRepository implements IResellerRepository {
         phone: data.phone ?? null,
         address: data.address ?? null,
         notes: data.notes ?? null,
+        ...(data.status ? { status: data.status } : {}),
       },
     });
   }
@@ -103,7 +112,7 @@ export class ResellerRepository implements IResellerRepository {
   ): Promise<ResellerEntity> {
     const reseller = await this.findById(tenantId, id);
     if (!reseller) {
-      throw new Error("Reseller tidak ditemukan");
+      throw new ResellerNotFoundError();
     }
     return this.db.reseller.update({
       where: { id },
@@ -115,7 +124,7 @@ export class ResellerRepository implements IResellerRepository {
   async softDelete(tenantId: string | null, id: string): Promise<void> {
     const reseller = await this.findById(tenantId, id);
     if (!reseller) {
-      throw new Error("Reseller tidak ditemukan");
+      throw new ResellerNotFoundError();
     }
     await this.db.reseller.update({
       where: { id },
@@ -134,14 +143,17 @@ export class ResellerRepository implements IResellerRepository {
     return outlet;
   }
 
-  /** Find outlet by code under reseller. */
+  /**
+   * Find outlet by code under reseller, including soft-deleted rows, because
+   * the unique index `[tenantId, resellerId, code]` covers them as well.
+   */
   async findOutletByCode(
     tenantId: string | null,
     resellerId: string,
     code: string,
   ): Promise<ResellerOutletEntity | null> {
     const outlet = await this.db.resellerOutlet.findFirst({
-      where: { tenantId, resellerId, code, deletedAt: null },
+      where: { tenantId, resellerId, code },
     });
     return outlet;
   }
@@ -168,6 +180,7 @@ export class ResellerRepository implements IResellerRepository {
         name: data.name,
         phone: data.phone ?? null,
         address: data.address ?? null,
+        ...(data.status ? { status: data.status } : {}),
       },
     });
   }
@@ -180,7 +193,7 @@ export class ResellerRepository implements IResellerRepository {
   ): Promise<ResellerOutletEntity> {
     const outlet = await this.findOutletById(tenantId, id);
     if (!outlet) {
-      throw new Error("Outlet tidak ditemukan");
+      throw new ResellerNotFoundError(OUTLET_NOT_FOUND_MESSAGE);
     }
     return this.db.resellerOutlet.update({ where: { id }, data });
   }
@@ -189,7 +202,7 @@ export class ResellerRepository implements IResellerRepository {
   async softDeleteOutlet(tenantId: string | null, id: string): Promise<void> {
     const outlet = await this.findOutletById(tenantId, id);
     if (!outlet) {
-      throw new Error("Outlet tidak ditemukan");
+      throw new ResellerNotFoundError(OUTLET_NOT_FOUND_MESSAGE);
     }
     await this.db.resellerOutlet.update({
       where: { id },

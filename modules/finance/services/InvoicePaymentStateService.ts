@@ -87,6 +87,11 @@ export class InvoicePaymentStateService {
     if (becamePaid) {
       await this.publishInvoicePaid(invoice);
     } else if (
+      invoice.status === InvoiceStatus.PAID &&
+      nextStatus !== InvoiceStatus.PAID
+    ) {
+      await this.publishPaymentReverted(invoice, nextStatus);
+    } else if (
       nextStatus === InvoiceStatus.PARTIAL_PAID &&
       totalPaid > invoice.paidAmount
     ) {
@@ -138,10 +143,35 @@ export class InvoicePaymentStateService {
         invoice.pelangganId,
         Number(invoice.totalAmount),
         describePaidAmounts(invoice),
+        invoice.tenantId,
       );
     } catch (error) {
       logger.error(
         "[InvoicePaymentState] Failed to publish INVOICE_PAID event",
+        error instanceof Error ? error : undefined,
+      );
+    }
+  }
+
+  /**
+   * Tagihan yang sudah lunas turun lagi (payment di-refund/dihapus); efek
+   * turunan pelunasan yang belum final (komisi reseller ACCRUED) ditahan.
+   */
+  private async publishPaymentReverted(
+    invoice: InvoiceWithPayment,
+    nextStatus: InvoiceStatus,
+  ) {
+    try {
+      await BillingEventDispatcher.onInvoicePaymentReverted({
+        invoiceId: invoice.id,
+        pelangganId: invoice.pelangganId,
+        nextStatus,
+        revertedAt: new Date().toISOString(),
+        ...(invoice.tenantId ? { tenantId: invoice.tenantId } : {}),
+      });
+    } catch (error) {
+      logger.error(
+        "[InvoicePaymentState] Failed to publish INVOICE_PAYMENT_REVERTED event",
         error instanceof Error ? error : undefined,
       );
     }
@@ -154,6 +184,7 @@ export class InvoicePaymentStateService {
       invoice.id,
       invoice.pelangganId,
       Number(paid),
+      invoice.tenantId,
     ).catch((error) =>
       logger.error(
         "[InvoicePaymentState] Failed to publish INVOICE_PARTIALLY_PAID event",

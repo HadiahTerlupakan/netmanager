@@ -13,6 +13,7 @@ export interface CreateResellerData {
   readonly phone?: string | null;
   readonly address?: string | null;
   readonly notes?: string | null;
+  readonly status?: ResellerStatusValue;
 }
 
 export interface UpdateResellerData {
@@ -32,6 +33,7 @@ export interface CreateOutletData {
   readonly name: string;
   readonly phone?: string | null;
   readonly address?: string | null;
+  readonly status?: ResellerStatusValue;
 }
 
 export interface UpdateOutletData {
@@ -52,7 +54,11 @@ export interface UpsertPackagePriceData {
 }
 
 export interface IResellerRepository {
-  /** Find reseller by code within tenant scope. */
+  /**
+   * Find reseller by code within tenant scope, INCLUDING soft-deleted rows.
+   * Unique index `[tenantId, code]` also covers deleted rows, so a code held
+   * by a deleted reseller still cannot be reused.
+   */
   findByCode(
     tenantId: string | null,
     code: string,
@@ -64,6 +70,7 @@ export interface IResellerRepository {
     readonly tenantId: string | null;
     /** Kata kunci nama, kode, atau telepon. */
     readonly search?: string;
+    readonly status?: ResellerStatusValue;
     readonly skip?: number;
     readonly take?: number;
   }): Promise<{
@@ -85,7 +92,10 @@ export interface IResellerRepository {
     tenantId: string | null,
     id: string,
   ): Promise<ResellerOutletEntity | null>;
-  /** Find outlet by reseller code within tenant scope. */
+  /**
+   * Find outlet by reseller code within tenant scope, INCLUDING soft-deleted
+   * rows (unique index `[tenantId, resellerId, code]` covers them too).
+   */
   findOutletByCode(
     tenantId: string | null,
     resellerId: string,

@@ -31,6 +31,7 @@ function repoDengan(invoice: {
 }) {
   const row = {
     id: "inv-1",
+    tenantId: "tenant-1",
     pelangganId: "pel-1",
     status: "SENT",
     paidAmount: 0n,
@@ -72,11 +73,13 @@ describe("InvoicePaymentStateService.recompute — rincian INVOICE_PAID", () => 
 
     await new InvoicePaymentStateService(repo as never).recompute("inv-1");
 
-    expect(palsu.onInvoicePaid).toHaveBeenCalledWith("inv-1", "pel-1", 95000, {
-      amountPaid: 85000,
-      couponDiscount: 10000,
-      saldoUsed: 5000,
-    });
+    expect(palsu.onInvoicePaid).toHaveBeenCalledWith(
+      "inv-1",
+      "pel-1",
+      95000,
+      { amountPaid: 85000, couponDiscount: 10000, saldoUsed: 5000 },
+      "tenant-1",
+    );
   });
 
   // Kelebihan bayar punya pemberitahuannya sendiri (saldo kredit).
@@ -93,11 +96,13 @@ describe("InvoicePaymentStateService.recompute — rincian INVOICE_PAID", () => 
 
     await new InvoicePaymentStateService(repo as never).recompute("inv-1");
 
-    expect(palsu.onInvoicePaid).toHaveBeenCalledWith("inv-1", "pel-1", 100000, {
-      amountPaid: 100000,
-      couponDiscount: 0,
-      saldoUsed: 0,
-    });
+    expect(palsu.onInvoicePaid).toHaveBeenCalledWith(
+      "inv-1",
+      "pel-1",
+      100000,
+      { amountPaid: 100000, couponDiscount: 0, saldoUsed: 0 },
+      "tenant-1",
+    );
   });
 
   // Event yang gagal dikirim tidak membatalkan pelunasan yang sudah tersimpan.
@@ -137,11 +142,13 @@ describe("InvoicePaymentStateService.recompute — rincian INVOICE_PAID", () => 
       status: "PAID",
     });
     await expect(service.replayInvoicePaid("inv-1")).resolves.toBe(true);
-    expect(palsu.onInvoicePaid).toHaveBeenCalledWith("inv-1", "pel-1", 100000, {
-      amountPaid: 100000,
-      couponDiscount: 0,
-      saldoUsed: 0,
-    });
+    expect(palsu.onInvoicePaid).toHaveBeenCalledWith(
+      "inv-1",
+      "pel-1",
+      100000,
+      { amountPaid: 100000, couponDiscount: 0, saldoUsed: 0 },
+      "tenant-1",
+    );
     expect(repo.claimPaidTransition).not.toHaveBeenCalled();
   });
 });
