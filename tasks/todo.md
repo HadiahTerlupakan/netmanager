@@ -1,6 +1,6 @@
 # Rencana: Notifikasi WO bisa dibuka verifikator di mobile (2026-11-03)
 
-Status: **dikerjakan**
+Status: **selesai & terverifikasi di HP** (server `030e3e7b7` + `876a82ad0`, OTA mobile `b125034`)
 
 ## Temuan (uji di HP Redmi via adb)
 - Tap push "Work Order Baru" → Beranda: `data.url` = rute web `/admin/workorders/<id>`;
@@ -23,7 +23,8 @@ Status: **dikerjakan**
 - [x] Pemilih site web: `/api/sites` tanpa resource tidak lagi memakai `role.isRestricted`;
       pemilih PPP & mitra kirim resource-nya.
 - [x] Review independen; typecheck, lint, tes penuh kedua repo; changelog; commit lokal.
-- [ ] Push netmanager (deploy) + mobile (OTA) setelah "push"; uji ulang di HP.
+- [x] Push netmanager (deploy) + mobile (OTA) setelah "push"; uji ulang di HP: WO-20261103-0001
+      (PENDING, CARIU) dan WO-20261102-0012 (dikerjakan teknisi lain) terbuka "Mode lihat saja".
 
 # Rencana: Tegakkan pembatasan site/departemen di semua modul (2026-11-02 s/d 2026-11-03)
 
