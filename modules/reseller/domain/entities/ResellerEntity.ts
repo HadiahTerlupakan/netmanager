@@ -1,4 +1,12 @@
-export type ResellerStatusValue = "ACTIVE" | "INACTIVE";
+/**
+ * Status kemitraan reseller (enum DB bersama dengan outlet). SUSPENDED dan
+ * TERMINATED hanya dipakai reseller; validator outlet tetap ACTIVE/INACTIVE.
+ */
+export type ResellerStatusValue =
+  | "ACTIVE"
+  | "INACTIVE"
+  | "SUSPENDED"
+  | "TERMINATED";
 
 export interface ResellerEntity {
   readonly id: string;
@@ -10,6 +18,16 @@ export interface ResellerEntity {
   readonly address: string | null;
   readonly status: ResellerStatusValue;
   readonly notes: string | null;
+  readonly legalName: string | null;
+  readonly nib: string | null;
+  readonly kbliCode: string | null;
+  readonly standardCertificateNumber: string | null;
+  readonly brandName: string | null;
+  readonly licenseVerifiedAt: Date | null;
+  readonly licenseVerifiedById: string | null;
+  readonly statusReason: string | null;
+  readonly statusChangedAt: Date | null;
+  readonly statusChangedById: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly deletedAt: Date | null;

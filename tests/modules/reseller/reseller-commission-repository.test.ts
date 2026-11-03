@@ -83,6 +83,35 @@ describe("ResellerCommissionRepository", () => {
     );
   });
 
+  it("membawa status kemitraan dan waktu perubahannya untuk gerbang akrual", async () => {
+    const db = createDb();
+    const changedAt = new Date("2026-11-02T03:00:00.000Z");
+    db.pelanggan.findFirst.mockResolvedValueOnce({
+      id: "pelanggan-1",
+      tenantId: "tenant-1",
+      resellerId: "reseller-1",
+      hargaPaketId: "package-1",
+      reseller: { status: "SUSPENDED", statusChangedAt: changedAt },
+    });
+
+    const context = await createRepository(db).findCustomerContext(
+      "tenant-1",
+      "pelanggan-1",
+    );
+
+    expect(db.pelanggan.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          reseller: { select: { status: true, statusChangedAt: true } },
+        }),
+      }),
+    );
+    expect(context).toMatchObject({
+      resellerStatus: "SUSPENDED",
+      resellerStatusChangedAt: changedAt,
+    });
+  });
+
   // Audit #15: unique (tenantId, invoiceId) mencakup baris soft-deleted.
   it("counts soft-deleted commissions in the idempotency check", async () => {
     const db = createDb();
@@ -225,17 +254,22 @@ describe("ResellerCommissionRepository", () => {
   });
 
   // Audit #13: void hanya menghapus komisi yang belum disettle, idempoten.
-  it("soft-deletes only accrued, unsettled commissions of a voided invoice", async () => {
+  it("cancels only accrued, unsettled commissions of a voided invoice", async () => {
     const db = createDb();
+    const accrued = { id: "commission-1", deletedAt: null as Date | null };
+    db.resellerCommission.findMany.mockResolvedValueOnce([accrued]);
     db.resellerCommission.updateMany.mockResolvedValueOnce({ count: 1 });
 
-    const count = await createRepository(db).softDeleteAccruedByInvoiceId({
+    const cancelled = await createRepository(db).cancelAccruedByInvoiceId({
       tenantId: "tenant-1",
       invoiceId: "invoice-1",
     });
 
-    expect(count).toBe(1);
-    expect(db.resellerCommission.updateMany).toHaveBeenCalledWith({
+    expect(cancelled).toEqual([
+      { id: "commission-1", deletedAt: expect.any(Date) },
+    ]);
+    expect(db.$executeRaw).toHaveBeenCalled();
+    expect(db.resellerCommission.findMany).toHaveBeenCalledWith({
       where: {
         invoiceId: "invoice-1",
         tenantId: "tenant-1",
@@ -243,7 +277,27 @@ describe("ResellerCommissionRepository", () => {
         settlementId: null,
         deletedAt: null,
       },
+    });
+    expect(db.resellerCommission.updateMany).toHaveBeenCalledWith({
+      where: { id: "commission-1", deletedAt: null },
       data: { deletedAt: expect.any(Date) },
     });
+  });
+
+  // Pembatalan yang berlomba: baris yang sudah diklaim pembatalan lain tidak
+  // dilaporkan dua kali, jadi jurnal akrunya tidak dibalik dua kali.
+  it("does not report a commission another cancellation already claimed", async () => {
+    const db = createDb();
+    db.resellerCommission.findMany.mockResolvedValueOnce([
+      { id: "commission-1", deletedAt: null as Date | null },
+    ]);
+    db.resellerCommission.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const cancelled = await createRepository(db).cancelAccruedByInvoiceId({
+      tenantId: "tenant-1",
+      invoiceId: "invoice-1",
+    });
+
+    expect(cancelled).toEqual([]);
   });
 });

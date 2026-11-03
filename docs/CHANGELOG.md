@@ -41,6 +41,66 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-03] — Kepatuhan & status kemitraan reseller (model agen)
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/reseller`, `modules/legal`, `app/api/admin/resellers`, `app/admin/resellers`, `lib/`
+- **Author**: agent
+- **Deskripsi**: Menyesuaikan reseller dengan PM 5/2021 Ps 223(2) + Permenkomdigi 15/2025:
+  - Data izin reseller (badan usaha, NIB 13 digit, KBLI 5 digit, sertifikat standar,
+    merek co-branding, verifikasi; verifikasi gugur bila data izin berubah).
+  - Status PKS diturunkan dari dokumen Legal KONTRAK `partyType=RESELLER`
+    (NONE/PENDING/ACTIVE/EXPIRING/EXPIRED) via `LegalPartyContractReader`; badge "Belum patuh".
+  - Pengaturan tenant `RESELLER_COMPLIANCE_REQUIRED` (default OFF) +
+    `GET/PUT /api/admin/resellers/compliance-setting` (butuh `umum:update` + `reseller:update`);
+    bila ON, penugasan pelanggan baru ke reseller tak patuh ditolak 400.
+  - Status SUSPENDED/TERMINATED wajib alasan (juga saat keluar dari TERMINATED); hanya
+    reseller ACTIVE menerima pelanggan baru; komisi tidak diakru untuk pembayaran
+    setelah status berubah dari ACTIVE.
+  - Resource `reseller` (read/create/update/delete) masuk `RESOURCE_CAPABILITIES`.
+- **Migration**: `20261103110539_add_reseller_license_and_partnership_status`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Harga paket khusus reseller dihentikan
+
+- **Tipe**: [DEPRECATED]
+- **Scope**: `app/api/admin/resellers/[id]/package-prices`, `modules/reseller`
+- **Author**: agent
+- **Deskripsi**: Di model agen ISP yang menagih pelanggan dengan tarif ISP, jadi
+  `ResellerPackagePrice` tidak dipakai. POST/PATCH/DELETE kini 410
+  `RESELLER_PACKAGE_PRICE_DEPRECATED`; GET tetap (hanya-baca); UI diganti panel
+  "Kepatuhan & kemitraan". Tabel belum di-drop.
+- **Breaking**: ✅ Ya (endpoint tulis package-prices membalas 410)
+
+### [2026-11-03] — Aturan komisi, settlement, jurnal & laporan reseller
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/reseller`, `modules/accounting`, `modules/finance`, `lib/event-bus`, `app/api/admin/resellers`, `app/admin/resellers`
+- **Author**: agent
+- **Deskripsi**:
+  - CRUD aturan komisi (cek bentrok periode dengan lock), rentang tanggal WIB.
+  - Dasar komisi = DPP (total + saldo kredit terpakai − PPN), bukan total ber-PPN.
+  - Settlement DRAFT → APPROVED → PAID dengan rekening Kas & Bank (saldo dikurangi
+    atomik, 400 bila kurang); endpoint `GET /api/admin/resellers/[id]/payment-accounts`.
+  - Jurnal otomatis: akru Beban Komisi `5-820` / Utang Komisi `2-370`, pembalikan saat
+    komisi batal, pembayaran Utang / Kas; akru susulan saat bayar bila belum ada.
+    Tidak ada jalur yang mendebit akun REVENUE (basis BHP/USO tetap bruto).
+  - Laporan bulanan per reseller/outlet + ekspor CSV (aman dari injeksi rumus).
+- **Migration**: `20261103115524_add_reseller_settlement_payment_and_commission_journal_sources`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Template PKS Reseller model agen & merek ISP di tagihan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/legal`, `modules/notification`
+- **Author**: agent
+- **Deskripsi**: Template bawaan baru "PKS Reseller (Model Agen)" memuat klausul wajib
+  Ps 223(2) (pendapatan & tagihan atas nama ISP, IP/ASN ISP, standar kualitas,
+  keberlangsungan layanan, perlindungan konsumen, larangan sub-reseller, PDP). Template
+  bawaan yang ditandai kini juga dilengkapkan ke tenant lama tanpa menimpa. Pesan
+  WA/email tagihan ditutup dengan nama perusahaan (ISP) dari pengaturan umum.
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-03] — Perbaikan komisi & settlement reseller (hasil audit)
 
 - **Tipe**: [FIXED]

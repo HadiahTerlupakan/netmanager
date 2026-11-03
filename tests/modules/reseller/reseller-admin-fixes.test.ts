@@ -219,7 +219,9 @@ describe("ResellerCustomerRelationService — pelanggaran relasi = 400", () => {
   let service: ResellerCustomerRelationService;
 
   beforeEach(() => {
-    service = new ResellerCustomerRelationService(repository);
+    service = new ResellerCustomerRelationService(repository, {
+      assertCanAcceptNewCustomer: vi.fn().mockResolvedValue(undefined),
+    });
   });
 
   async function captureError(

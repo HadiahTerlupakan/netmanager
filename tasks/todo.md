@@ -1,6 +1,6 @@
 # Rencana: Sesuaikan modul Reseller dengan regulasi jual kembali (model agen) (2026-11-03)
 
-Status: **menunggu perbaikan bug audit selesai** (file yang sama)
+Status: **selesai (commit lokal), menunggu "push"**
 
 ## Keputusan user
 - Model **agen**: ISP menagih pelanggan reseller dengan merek ISP, seluruh pendapatan dibukukan
@@ -9,17 +9,26 @@ Status: **menunggu perbaikan bug audit selesai** (file yang sama)
   (UI disembunyikan, API tulis ditolak), tabel tidak di-drop.
 
 ## Langkah (acuan: docs/reports/REGULASI_RESELLER_KOMDIGI_2026-11-03.md §3)
-- [ ] Data izin reseller (badan usaha, NIB, KBLI, sertifikat standar, verifikasi) + tautan PKS
+- [x] Data izin reseller (badan usaha, NIB, KBLI, sertifikat standar, verifikasi) + tautan PKS
       aktif (modul Legal); peringatan dulu, blokir pelanggan baru bila tidak lengkap (konfigurasi).
       Migration aditif.
-- [ ] Status kemitraan SUSPENDED/TERMINATED + alasan/tanggal; komisi berhenti diakru. Migration aditif.
-- [ ] CRUD aturan komisi (API + UI); dasar komisi DPP (tanpa PPN).
-- [ ] Settlement approve/mark-paid + jurnal beban & utang komisi (event ke accounting, idempoten).
-- [ ] Laporan bulanan per reseller/outlet (pelanggan, tagihan bruto, terbayar, komisi), ekspor.
-- [ ] Template "PKS Reseller" (modul Legal) dengan klausul wajib model agen.
-- [ ] Verifikasi merek ISP di invoice/kuitansi/WA; `brandName` co-branding opsional.
-- [ ] Revisi draft PKS user (.docx) ke model agen.
-- [ ] Review independen; typecheck, lint, tes penuh; changelog; commit lokal; push setelah "push".
+- [x] Status kemitraan SUSPENDED/TERMINATED + alasan/tanggal; komisi berhenti diakru. Migration aditif.
+- [x] CRUD aturan komisi (API + UI); dasar komisi DPP (tanpa PPN).
+- [x] Settlement approve/mark-paid + jurnal beban & utang komisi (event ke accounting, idempoten).
+- [x] Laporan bulanan per reseller/outlet (pelanggan, tagihan bruto, terbayar, komisi), ekspor.
+- [x] Template "PKS Reseller" (modul Legal) dengan klausul wajib model agen.
+- [x] Verifikasi merek ISP di invoice/kuitansi/WA; `brandName` co-branding opsional.
+- [x] Revisi draft PKS user (.docx) ke model agen.
+- [x] Review independen; typecheck, lint, tes penuh; changelog; commit lokal; push setelah "push".
+
+## Review
+- 3 paket (A izin/PKS/status, B komisi/settlement/jurnal/laporan, C template/merek/docx),
+  masing-masing direview independen; semua temuan high/medium diperbaiki.
+- Migration: `20261103110539_add_reseller_license_and_partnership_status`,
+  `20261103115524_add_reseller_settlement_payment_and_commission_journal_sources` (aditif).
+- Revisi PKS: `~/Downloads/Draft PKS Jual Kembali Jasa Telekomunikasi - Revisi Model Agen.docx`.
+- Sisa (butuh keputusan): clawback komisi SETTLED/PAID; persen komisi desimal (kolom Int);
+  pemisahan tugas setuju/bayar; riwayat audit status; tes DB concurrency belum dijalankan.
 
 # Rencana: Audit modul Reseller (2026-11-03)
 

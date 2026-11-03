@@ -1,4 +1,5 @@
 import type { ResellerStatusValue } from "../domain/entities/ResellerEntity";
+import type { ComplianceIssue, PksStatus } from "../domain/reseller-compliance";
 
 export interface ResellerDTO {
   readonly id: string;
@@ -10,8 +11,44 @@ export interface ResellerDTO {
   readonly address: string | null;
   readonly status: ResellerStatusValue;
   readonly notes: string | null;
+  readonly legalName: string | null;
+  readonly nib: string | null;
+  readonly kbliCode: string | null;
+  readonly standardCertificateNumber: string | null;
+  readonly brandName: string | null;
+  readonly licenseVerifiedAt: string | null;
+  readonly licenseVerifiedById: string | null;
+  readonly statusReason: string | null;
+  readonly statusChangedAt: string | null;
+  readonly statusChangedById: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface ResellerPksDTO {
+  readonly status: PksStatus;
+  readonly documentId: string | null;
+  /** Tanggal mulai PKS; berguna untuk status PENDING (belum berlaku). */
+  readonly startDate: string | null;
+  readonly endDate: string | null;
+  readonly daysLeft: number | null;
+}
+
+export interface ResellerComplianceDTO {
+  readonly isCompliant: boolean;
+  readonly issues: readonly ComplianceIssue[];
+  /** Label Indonesia untuk tiap `issues`, urutannya sama. */
+  readonly issueLabels: readonly string[];
+  readonly pks: ResellerPksDTO;
+}
+
+/** Reseller beserta ringkasan kepatuhan (izin + PKS) untuk halaman admin. */
+export interface ResellerWithComplianceDTO extends ResellerDTO {
+  readonly compliance: ResellerComplianceDTO;
+}
+
+export interface ResellerComplianceSettingDTO {
+  readonly isComplianceRequired: boolean;
 }
 
 export interface ResellerOutletDTO {
@@ -27,6 +64,7 @@ export interface ResellerOutletDTO {
   readonly updatedAt: string;
 }
 
+/** @deprecated Harga khusus reseller tidak dipakai di model agen. */
 export interface ResellerPackagePriceDTO {
   readonly id: string;
   readonly tenantId: string | null;

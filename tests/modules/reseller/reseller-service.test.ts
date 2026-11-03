@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ResellerService } from "@/modules/reseller/services/ResellerService";
 import type { IResellerRepository } from "@/modules/reseller/domain/ports/IResellerRepository";
+import { EMPTY_RESELLER_COMPLIANCE_FIELDS } from "./reseller-fixtures";
 
 function createRepository(): IResellerRepository {
   return {
@@ -44,6 +45,7 @@ describe("ResellerService", () => {
       address: "Jl. Fiber",
       status: "ACTIVE",
       notes: null,
+      ...EMPTY_RESELLER_COMPLIANCE_FIELDS,
       createdAt: new Date("2026-07-08T00:00:00.000Z"),
       updatedAt: new Date("2026-07-08T00:00:00.000Z"),
       deletedAt: null,
@@ -65,15 +67,18 @@ describe("ResellerService", () => {
       name: "Reseller Satu",
       status: "ACTIVE",
     });
-    expect(repository.create).toHaveBeenCalledWith({
-      tenantId: "tenant-1",
-      code: "RSL-001",
-      name: "Reseller Satu",
-      email: "reseller@example.com",
-      phone: "628123456789",
-      address: "Jl. Fiber",
-      notes: null,
-    });
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant-1",
+        code: "RSL-001",
+        name: "Reseller Satu",
+        email: "reseller@example.com",
+        phone: "628123456789",
+        address: "Jl. Fiber",
+        notes: null,
+        status: "ACTIVE",
+      }),
+    );
   });
 
   it("rejects duplicate reseller code within the same tenant", async () => {
@@ -87,6 +92,7 @@ describe("ResellerService", () => {
       address: null,
       status: "ACTIVE",
       notes: null,
+      ...EMPTY_RESELLER_COMPLIANCE_FIELDS,
       createdAt: new Date("2026-07-08T00:00:00.000Z"),
       updatedAt: new Date("2026-07-08T00:00:00.000Z"),
       deletedAt: null,

@@ -82,3 +82,48 @@ export type CreateResellerSettlementSchema = z.infer<
 export type ResellerCommissionSummarySchema = z.infer<
   typeof resellerCommissionSummarySchema
 >;
+
+/** Cara bayar komisi ke reseller; selaras enum PaymentMethod modul finance. */
+export const SETTLEMENT_PAYMENT_METHODS = [
+  "BANK_TRANSFER",
+  "CASH",
+  "E_WALLET",
+  "OTHER",
+] as const;
+
+const MAX_PAYMENT_REFERENCE_LENGTH = 100;
+
+/**
+ * Tandai settlement dibayar. `accountId` adalah rekening Kas & Bank sumber
+ * dana; jurnalnya mengkredit COA rekening itu.
+ */
+export const payResellerSettlementSchema = z.object({
+  paidAt: z.coerce.date({ error: "Tanggal bayar wajib diisi" }),
+  paymentMethod: z.enum(SETTLEMENT_PAYMENT_METHODS, {
+    error: "Metode pembayaran tidak valid",
+  }),
+  paymentReference: z
+    .string()
+    .trim()
+    .max(MAX_PAYMENT_REFERENCE_LENGTH, "Referensi maksimal 100 karakter")
+    .optional()
+    .nullable()
+    .transform((value) => (value ? value : null)),
+  accountId: z.string().trim().min(1, "Rekening pembayaran wajib dipilih"),
+});
+
+export type PayResellerSettlementSchema = z.infer<
+  typeof payResellerSettlementSchema
+>;
+
+/** Periode laporan bulanan `YYYY-MM` (bulan 01–12). */
+export const resellerReportQuerySchema = z.object({
+  period: z
+    .string({ error: "Periode wajib diisi" })
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Periode harus berformat YYYY-MM"),
+  format: z.enum(["json", "csv"]).default("json"),
+});
+
+export type ResellerReportQuerySchema = z.infer<
+  typeof resellerReportQuerySchema
+>;

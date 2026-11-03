@@ -68,6 +68,9 @@ export const EVENT_NAMES = {
   INVESTOR_PAYOUT_COMPLETED: "investor:payout.completed",
   INVESTOR_DEPOSIT_COMPLETED: "investor:deposit.completed",
   INVESTOR_DEPOSIT_REJECTED: "investor:deposit.rejected",
+  RESELLER_COMMISSION_ACCRUED: "reseller:commission.accrued",
+  RESELLER_COMMISSION_CANCELLED: "reseller:commission.cancelled",
+  RESELLER_SETTLEMENT_PAID: "reseller:settlement.paid",
   INVESTOR_PROFIT_SHARE_APPROVED: "investor:profit_share.approved",
   MARKETING_POINT_CLAIM_APPROVED: "marketing:point_claim.approved",
   MARKETING_CANVASING_APPROVED: "marketing:canvasing.approved",
@@ -582,6 +585,55 @@ export interface MitraWithdrawalCompletedPayload extends BaseEventPayload {
   completedAt: string;
 }
 
+/**
+ * Komisi reseller terakru (model agen): akuntansi membukukan Dr Beban Komisi
+ * Reseller / Cr Utang Komisi Reseller. `accrualRef` unik per akrual (komisi
+ * yang dipulihkan mendapat ref baru), jadi jurnalnya idempoten per ref.
+ */
+export interface ResellerCommissionAccruedPayload extends BaseEventPayload {
+  tenantId: string;
+  commissionId: string;
+  accrualRef: string;
+  resellerId: string;
+  invoiceId: string;
+  /** Komisi dalam rupiah (bilangan bulat). */
+  amount: number;
+  accruedAt: string;
+}
+
+/** Komisi ACCRUED dibatalkan (invoice di-void/pelunasan ditarik): jurnal akrualnya dibalik. */
+export interface ResellerCommissionCancelledPayload extends BaseEventPayload {
+  tenantId: string;
+  commissionId: string;
+  accrualRef: string;
+  invoiceId: string;
+  cancelledAt: string;
+}
+
+/**
+ * Ref jurnal akru satu komisi reseller (bagian kontrak event): dipakai modul
+ * reseller saat mengirim RESELLER_COMMISSION_ACCRUED dan modul accounting saat
+ * menyusulkan jurnal akru ketika settlement dibayar, jadi keduanya harus sama
+ * persis agar unique (tenantId, source, sourceRefId) menjaga idempotensi.
+ */
+export function resellerCommissionAccrualRef(
+  commissionId: string,
+  accruedAt: Date,
+): string {
+  return `${commissionId}:${accruedAt.toISOString()}`;
+}
+
+/** Settlement komisi dibayar: Dr Utang Komisi Reseller / Cr Kas/Bank rekening terpilih. */
+export interface ResellerSettlementPaidPayload extends BaseEventPayload {
+  tenantId: string;
+  settlementId: string;
+  resellerId: string;
+  amount: number;
+  paidAt: string;
+  /** FinancialAccount (Kas & Bank) sumber dana. */
+  accountId: string;
+}
+
 export interface InvestorPayoutCompletedPayload extends BaseEventPayload {
   payoutId: string;
   tenantId: string;
@@ -836,6 +888,9 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVESTOR_PAYOUT_COMPLETED]: InvestorPayoutCompletedPayload;
   [EVENT_NAMES.INVESTOR_DEPOSIT_COMPLETED]: InvestorDepositCompletedPayload;
   [EVENT_NAMES.INVESTOR_DEPOSIT_REJECTED]: InvestorDepositRejectedPayload;
+  [EVENT_NAMES.RESELLER_COMMISSION_ACCRUED]: ResellerCommissionAccruedPayload;
+  [EVENT_NAMES.RESELLER_COMMISSION_CANCELLED]: ResellerCommissionCancelledPayload;
+  [EVENT_NAMES.RESELLER_SETTLEMENT_PAID]: ResellerSettlementPaidPayload;
   [EVENT_NAMES.INVESTOR_PROFIT_SHARE_APPROVED]: InvestorProfitShareApprovedPayload;
   [EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED]: MarketingPointClaimApprovedPayload;
   [EVENT_NAMES.MARKETING_CANVASING_APPROVED]: MarketingCanvasingApprovedPayload;
@@ -1290,6 +1345,27 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.INVESTOR_DEPOSIT_REJECTED]: {
     name: EVENT_NAMES.INVESTOR_DEPOSIT_REJECTED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.RESELLER_COMMISSION_ACCRUED]: {
+    name: EVENT_NAMES.RESELLER_COMMISSION_ACCRUED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.RESELLER_COMMISSION_CANCELLED]: {
+    name: EVENT_NAMES.RESELLER_COMMISSION_CANCELLED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.RESELLER_SETTLEMENT_PAID]: {
+    name: EVENT_NAMES.RESELLER_SETTLEMENT_PAID,
     category: "billing",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,

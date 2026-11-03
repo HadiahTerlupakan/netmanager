@@ -8,6 +8,32 @@ import type { IResellerRepository } from "@/modules/reseller/domain/ports/IResel
 
 const FIXED_DATE = new Date("2026-07-08T00:00:00.000Z");
 
+/** Kolom izin dan jejak status reseller yang masih kosong. */
+export const EMPTY_RESELLER_COMPLIANCE_FIELDS: Pick<
+  ResellerEntity,
+  | "legalName"
+  | "nib"
+  | "kbliCode"
+  | "standardCertificateNumber"
+  | "brandName"
+  | "licenseVerifiedAt"
+  | "licenseVerifiedById"
+  | "statusReason"
+  | "statusChangedAt"
+  | "statusChangedById"
+> = {
+  legalName: null,
+  nib: null,
+  kbliCode: null,
+  standardCertificateNumber: null,
+  brandName: null,
+  licenseVerifiedAt: null,
+  licenseVerifiedById: null,
+  statusReason: null,
+  statusChangedAt: null,
+  statusChangedById: null,
+};
+
 /** Port repository reseller dengan setiap method sebagai `vi.fn()`. */
 export function createResellerRepositoryMock(): IResellerRepository {
   return {
@@ -44,6 +70,7 @@ export function buildReseller(
     address: null,
     status: "ACTIVE",
     notes: null,
+    ...EMPTY_RESELLER_COMPLIANCE_FIELDS,
     createdAt: FIXED_DATE,
     updatedAt: FIXED_DATE,
     deletedAt: null,

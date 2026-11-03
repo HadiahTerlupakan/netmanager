@@ -3,6 +3,8 @@ import type { ResellerStatusValue } from "../domain/entities/ResellerEntity";
 import type {
   CreateResellerData,
   IResellerRepository,
+  ResellerLicenseData,
+  ResellerStatusAuditData,
   UpdateResellerData,
 } from "../domain/ports/IResellerRepository";
 import {
@@ -11,18 +13,41 @@ import {
 } from "../errors/reseller-errors";
 import { ResellerMapper } from "../mappers/ResellerMapper";
 import { ResellerRepository } from "../repositories/ResellerRepository";
+import {
+  type LicenseInput,
+  resolveLicenseData,
+  resolveStatusData,
+  type StatusInput,
+} from "./reseller-partnership-rules";
 import { trimOptionalText } from "./reseller-text";
 
 const DUPLICATE_CODE_MESSAGE = "Kode reseller sudah digunakan";
 const DELETED_CODE_MESSAGE =
   "Kode reseller sudah pernah dipakai reseller yang telah dihapus. Gunakan kode lain.";
 
-export interface CreateResellerInput extends Omit<
-  CreateResellerData,
-  "tenantId"
-> {
+/** Masukan pembuatan reseller dari route admin (sudah lolos Zod). */
+export interface CreateResellerInput
+  extends
+    Omit<
+      CreateResellerData,
+      "tenantId" | keyof ResellerLicenseData | keyof ResellerStatusAuditData
+    >,
+    LicenseInput,
+    StatusInput {
   readonly tenantId: string;
+  /** User yang membuat; dicatat sebagai pengubah status/verifikator izin. */
+  readonly actorId?: string | null;
 }
+
+/** Masukan perubahan reseller dari route admin (sudah lolos Zod). */
+export interface UpdateResellerInput
+  extends
+    Omit<
+      UpdateResellerData,
+      keyof ResellerLicenseData | keyof ResellerStatusAuditData
+    >,
+    LicenseInput,
+    StatusInput {}
 
 export class ResellerService {
   constructor(
@@ -76,11 +101,18 @@ export class ResellerService {
     return reseller ? ResellerMapper.toDTO(reseller) : null;
   }
 
-  /** Update reseller after validating existence and duplicate code. */
+  /**
+   * Update reseller after validating existence and duplicate code. Perubahan
+   * status dan verifikasi izin dicatat atas nama `actorId`.
+   *
+   * @throws ResellerValidationError alasan SUSPENDED/TERMINATED kosong, atau
+   *   izin ditandai terverifikasi padahal belum lengkap.
+   */
   async updateReseller(
     tenantId: string,
     id: string,
-    data: UpdateResellerData,
+    data: UpdateResellerInput,
+    actorId: string | null = null,
   ): Promise<ResellerDTO> {
     const existing = await this.repository.findById(tenantId, id);
     if (!existing) {
@@ -90,14 +122,16 @@ export class ResellerService {
     if (code && code !== existing.code) {
       await this.ensureCodeIsUnique(tenantId, code);
     }
+    const actor = { actorId, now: new Date() };
     const updated = await this.repository.update(tenantId, id, {
-      ...data,
       code,
       name: data.name?.trim(),
       email: trimOptionalText(data.email),
       phone: trimOptionalText(data.phone),
       address: trimOptionalText(data.address),
       notes: trimOptionalText(data.notes),
+      ...resolveStatusData(data, existing.status, actor),
+      ...resolveLicenseData(data, existing, actor),
     });
     return ResellerMapper.toDTO(updated);
   }
@@ -108,6 +142,7 @@ export class ResellerService {
   }
 
   private normalizeCreateData(data: CreateResellerInput): CreateResellerData {
+    const actor = { actorId: data.actorId ?? null, now: new Date() };
     return {
       tenantId: data.tenantId,
       code: data.code.trim(),
@@ -116,7 +151,8 @@ export class ResellerService {
       phone: trimOptionalText(data.phone) ?? null,
       address: trimOptionalText(data.address) ?? null,
       notes: trimOptionalText(data.notes) ?? null,
-      status: data.status,
+      ...resolveStatusData(data, null, actor),
+      ...resolveLicenseData(data, null, actor),
     };
   }
 

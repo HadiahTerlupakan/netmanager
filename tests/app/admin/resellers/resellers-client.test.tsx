@@ -89,9 +89,38 @@ function listBody(items: Reseller[], page = 1, totalPages = 1) {
   };
 }
 
+const ZERO_REPORT_FIGURES = {
+  activeCustomers: 0,
+  grossBilled: 0,
+  paid: 0,
+  commissionAccrued: 0,
+  commissionSettled: 0,
+  commissionPaid: 0,
+};
+
 function emptySuccess() {
   const noItems: unknown[] = [];
   return { body: { success: true, data: noItems } };
+}
+
+/** Balasan bawaan endpoint laporan bulanan: objek laporan kosong, bukan daftar. */
+function emptyReportSuccess(url: URL) {
+  return {
+    body: {
+      success: true,
+      data: {
+        period: url.searchParams.get("period") ?? "",
+        rows: [] as unknown[],
+        totals: ZERO_REPORT_FIGURES,
+      },
+    },
+  };
+}
+
+function defaultReply(url: URL) {
+  return url.pathname.endsWith("/report")
+    ? emptyReportSuccess(url)
+    : emptySuccess();
 }
 
 let root: Root | null = null;
@@ -179,7 +208,7 @@ beforeEach(() => {
         url: `${url.pathname}${url.search}`,
         method: init?.method ?? "GET",
       });
-      const reply = routeHandler(url, init) ?? emptySuccess();
+      const reply = routeHandler(url, init) ?? defaultReply(url);
       return jsonResponse(reply);
     }),
   );
@@ -418,9 +447,7 @@ describe("ResellersClient — pilihan reseller (#27/#28)", () => {
     await waitFor(() => container.textContent?.includes("Nama Baru"));
 
     expect(container.textContent).not.toContain("Nama Lama");
-    expect(container.textContent).toContain(
-      "Override harga paket aktif untuk Nama Baru",
-    );
+    expect(container.textContent).toContain("Outlet resellerNama Baru");
     expect(buttonByText("Outlet")).toBeUndefined();
   });
 });

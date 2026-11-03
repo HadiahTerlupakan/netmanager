@@ -3,6 +3,7 @@ import { ResellerCommissionService } from "@/modules/reseller/services/ResellerC
 import type { IResellerCommissionRepository } from "@/modules/reseller/domain/ports/IResellerCommissionRepository";
 import type { IResellerModuleGate } from "@/modules/reseller/domain/ports/IResellerModuleGate";
 import type { IInvoicePaymentStatusReader } from "@/modules/reseller/domain/ports/IInvoicePaymentStatusReader";
+import type { IResellerAccountingEvents } from "@/modules/reseller/domain/ports/IResellerAccountingEvents";
 import type {
   ResellerCommissionEntity,
   ResellerCommissionRuleEntity,
@@ -17,7 +18,7 @@ function createRepository(): IResellerCommissionRepository {
     findCommissionByInvoiceId: vi.fn(),
     createCommission: vi.fn(),
     resellerExists: vi.fn().mockResolvedValue(true),
-    softDeleteAccruedByInvoiceId: vi.fn(),
+    cancelAccruedByInvoiceId: vi.fn(),
     restoreCancelledCommission: vi.fn(),
     findCommissions: vi.fn(),
     createSettlement: vi.fn(),
@@ -56,6 +57,11 @@ const SETTLEMENT: ResellerSettlementEntity = {
   updatedAt: new Date("2026-07-31T00:00:00.000Z"),
   approvedAt: null,
   paidAt: null,
+  approvedById: null,
+  paidById: null,
+  paymentMethod: null,
+  paymentReference: null,
+  paymentAccountId: null,
   deletedAt: null,
 };
 
@@ -70,6 +76,8 @@ const CUSTOMER = {
   tenantId: "tenant-1",
   pelangganId: "pelanggan-1",
   resellerId: "reseller-1",
+  resellerStatus: "ACTIVE" as const,
+  resellerStatusChangedAt: null as Date | null,
   hargaPaketId: "package-1",
 };
 
@@ -117,16 +125,31 @@ describe("ResellerCommissionService", () => {
   let repository: IResellerCommissionRepository;
   let moduleGate: IResellerModuleGate;
   let invoiceStatus: IInvoicePaymentStatusReader;
+  let accountingEvents: IResellerAccountingEvents;
   let service: ResellerCommissionService;
 
   beforeEach(() => {
     repository = createRepository();
     moduleGate = { isEnabled: vi.fn().mockResolvedValue(true) };
-    invoiceStatus = { isPaid: vi.fn().mockResolvedValue(true) };
+    invoiceStatus = {
+      isPaid: vi.fn().mockResolvedValue(true),
+      // Invoice tanpa PPN: DPP = total = 200.000.
+      findPaidAmounts: vi.fn().mockResolvedValue({
+        totalAmount: 200000,
+        taxAmount: 0,
+        saldoKreditUsed: 0,
+      }),
+    };
+    accountingEvents = {
+      commissionAccrued: vi.fn(),
+      commissionCancelled: vi.fn(),
+      settlementPaid: vi.fn(),
+    };
     service = new ResellerCommissionService(
       repository,
       moduleGate,
       invoiceStatus,
+      accountingEvents,
     );
   });
 
@@ -136,6 +159,8 @@ describe("ResellerCommissionService", () => {
       tenantId: "tenant-1",
       pelangganId: "pelanggan-1",
       resellerId: "reseller-1",
+      resellerStatus: "ACTIVE",
+      resellerStatusChangedAt: null,
       hargaPaketId: "package-1",
     });
     vi.mocked(repository.findActiveCommissionRule).mockResolvedValueOnce({
@@ -205,6 +230,8 @@ describe("ResellerCommissionService", () => {
       tenantId: "tenant-1",
       pelangganId: "pelanggan-1",
       resellerId: "reseller-1",
+      resellerStatus: "ACTIVE",
+      resellerStatusChangedAt: null,
       hargaPaketId: "package-1",
     });
     vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValueOnce({
@@ -275,6 +302,8 @@ describe("ResellerCommissionService", () => {
       tenantId: "tenant-1",
       pelangganId: "pelanggan-1",
       resellerId: "reseller-1",
+      resellerStatus: "ACTIVE",
+      resellerStatusChangedAt: null,
       hargaPaketId: "package-1",
     });
     vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValueOnce(null);
@@ -310,6 +339,8 @@ describe("ResellerCommissionService", () => {
       tenantId: "tenant-1",
       pelangganId: "pelanggan-1",
       resellerId: "reseller-1",
+      resellerStatus: "ACTIVE",
+      resellerStatusChangedAt: null,
       hargaPaketId: "package-1",
     });
     vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValue(null);
@@ -330,7 +361,13 @@ describe("ResellerCommissionService", () => {
 
   // Audit #13: void invoice PAID membatalkan komisi yang belum disettle.
   it("cancels accrued commissions of a voided invoice", async () => {
-    vi.mocked(repository.softDeleteAccruedByInvoiceId).mockResolvedValueOnce(1);
+    const cancelledCommission = {
+      ...COMMISSION,
+      deletedAt: new Date("2026-07-10T00:00:00.000Z"),
+    };
+    vi.mocked(repository.cancelAccruedByInvoiceId).mockResolvedValueOnce([
+      cancelledCommission,
+    ]);
 
     vi.mocked(invoiceStatus.isPaid).mockResolvedValueOnce(false);
 
@@ -340,16 +377,20 @@ describe("ResellerCommissionService", () => {
     });
 
     expect(cancelled).toBe(1);
-    expect(repository.softDeleteAccruedByInvoiceId).toHaveBeenCalledWith({
+    expect(repository.cancelAccruedByInvoiceId).toHaveBeenCalledWith({
       tenantId: "tenant-1",
       invoiceId: "invoice-1",
     });
+    // Jurnal akrunya dibalik lewat event accounting.
+    expect(accountingEvents.commissionCancelled).toHaveBeenCalledWith(
+      cancelledCommission,
+    );
   });
 
   // Reviewer: INVOICE_PAID yang tiba/di-retry setelah invoice di-void atau
   // pelunasannya ditarik dulu tetap menerbitkan komisi yang tak pernah batal.
   it("does not accrue when the invoice is no longer paid", async () => {
-    vi.mocked(invoiceStatus.isPaid).mockResolvedValueOnce(false);
+    vi.mocked(invoiceStatus.findPaidAmounts).mockResolvedValueOnce(null);
     vi.mocked(repository.findCustomerContext).mockResolvedValueOnce(CUSTOMER);
     vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValue(null);
     vi.mocked(repository.findActiveCommissionRule).mockResolvedValue(RULE);
@@ -357,7 +398,7 @@ describe("ResellerCommissionService", () => {
     const result = await service.accrueFromPaidInvoice(PAID_INPUT);
 
     expect(result).toBeNull();
-    expect(invoiceStatus.isPaid).toHaveBeenCalledWith("invoice-1");
+    expect(invoiceStatus.findPaidAmounts).toHaveBeenCalledWith("invoice-1");
     expect(repository.createCommission).not.toHaveBeenCalled();
   });
 
@@ -387,6 +428,37 @@ describe("ResellerCommissionService", () => {
     expect(repository.createCommission).not.toHaveBeenCalled();
   });
 
+  // Reviewer: proses mati setelah komisi tersimpan dan sebelum event akru
+  // terkirim; ulangan INVOICE_PAID harus membentuk jurnal akrunya.
+  it("re-announces the accrual of an active commission on a duplicate paid event", async () => {
+    vi.mocked(repository.findCustomerContext).mockResolvedValueOnce(CUSTOMER);
+    vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValueOnce(
+      COMMISSION,
+    );
+
+    const result = await service.accrueFromPaidInvoice(PAID_INPUT);
+
+    expect(result).toBeNull();
+    expect(repository.createCommission).not.toHaveBeenCalled();
+    expect(repository.restoreCancelledCommission).not.toHaveBeenCalled();
+    expect(accountingEvents.commissionAccrued).toHaveBeenCalledTimes(1);
+    expect(accountingEvents.commissionAccrued).toHaveBeenCalledWith(COMMISSION);
+  });
+
+  it("does not announce a cancelled settled commission that stays cancelled", async () => {
+    vi.mocked(repository.findCustomerContext).mockResolvedValueOnce(CUSTOMER);
+    vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValueOnce({
+      ...COMMISSION,
+      status: "SETTLED",
+      settlementId: "settlement-1",
+      deletedAt: new Date("2026-07-09T00:00:00.000Z"),
+    });
+
+    await service.accrueFromPaidInvoice(PAID_INPUT);
+
+    expect(accountingEvents.commissionAccrued).not.toHaveBeenCalled();
+  });
+
   it("never restores a cancelled commission that was already settled", async () => {
     vi.mocked(repository.findCustomerContext).mockResolvedValueOnce(CUSTOMER);
     vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValueOnce({
@@ -413,7 +485,7 @@ describe("ResellerCommissionService", () => {
     });
 
     expect(cancelled).toBe(0);
-    expect(repository.softDeleteAccruedByInvoiceId).not.toHaveBeenCalled();
+    expect(repository.cancelAccruedByInvoiceId).not.toHaveBeenCalled();
   });
 
   // Audit #38: kondisi bisnis settlement dijawab 400/404/409, bukan 500.

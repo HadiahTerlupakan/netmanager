@@ -46,6 +46,7 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
         tenantId: true,
         resellerId: true,
         hargaPaketId: true,
+        reseller: { select: { status: true, statusChangedAt: true } },
       },
     });
     if (!pelanggan) return null;
@@ -53,6 +54,8 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
       tenantId: pelanggan.tenantId,
       pelangganId: pelanggan.id,
       resellerId: pelanggan.resellerId,
+      resellerStatus: pelanggan.reseller?.status ?? null,
+      resellerStatusChangedAt: pelanggan.reseller?.statusChangedAt ?? null,
       hargaPaketId: pelanggan.hargaPaketId,
     };
   }
@@ -143,22 +146,41 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
     return reseller !== null;
   }
 
-  /** Soft-delete komisi ACCRUED milik invoice yang dibatalkan (idempoten). */
-  async softDeleteAccruedByInvoiceId(params: {
+  /**
+   * Soft-delete komisi ACCRUED milik invoice yang dibatalkan (idempoten).
+   * Diserialkan dengan advisory lock yang sama dengan insert komisi, dan tiap
+   * baris diklaim bersyarat `deletedAt: null`, jadi dua pembatalan yang
+   * berlomba tidak sama-sama melaporkan baris yang sama.
+   */
+  async cancelAccruedByInvoiceId(params: {
     readonly tenantId: string | null;
     readonly invoiceId: string;
-  }): Promise<number> {
-    const result = await this.db.resellerCommission.updateMany({
-      where: {
-        invoiceId: params.invoiceId,
-        ...(params.tenantId ? { tenantId: params.tenantId } : {}),
-        status: ACCRUED_STATUS,
-        settlementId: null,
-        deletedAt: null,
-      },
-      data: { deletedAt: new Date() },
+  }): Promise<readonly ResellerCommissionEntity[]> {
+    return this.db.$transaction(async (tx) => {
+      const lockKey = `${COMMISSION_LOCK_PREFIX}${params.invoiceId}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+      const candidates = await tx.resellerCommission.findMany({
+        where: {
+          invoiceId: params.invoiceId,
+          ...(params.tenantId ? { tenantId: params.tenantId } : {}),
+          status: ACCRUED_STATUS,
+          settlementId: null,
+          deletedAt: null,
+        },
+      });
+      const cancelledAt = new Date();
+      const cancelled: ResellerCommissionEntity[] = [];
+      for (const candidate of candidates) {
+        const claim = await tx.resellerCommission.updateMany({
+          where: { id: candidate.id, deletedAt: null },
+          data: { deletedAt: cancelledAt },
+        });
+        if (claim.count === 1) {
+          cancelled.push({ ...candidate, deletedAt: cancelledAt });
+        }
+      }
+      return cancelled;
     });
-    return result.count;
   }
 
   /**

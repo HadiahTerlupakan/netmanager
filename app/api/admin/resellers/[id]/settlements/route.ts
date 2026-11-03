@@ -3,18 +3,10 @@ import {
   createResellerSettlementSchema,
   getResellerCommissionService,
   listResellerSettlementSchema,
+  RESELLER_FINANCE_PERMISSIONS,
   resellerCommissionSummarySchema,
   toSettlementDTO,
 } from "@/modules/reseller";
-
-/**
- * Settlement mengunci komisi ACCRUED menjadi SETTLED untuk dibayarkan, jadi
- * aksi keuangan: pengelola data reseller (`reseller:update`) saja tidak cukup,
- * ia juga harus boleh mencatat transaksi keuangan (`transactions:create`,
- * dimiliki template Staff Keuangan). Keduanya wajib, maka `permissionsAll`
- * — `permissions` bersifat "salah satu dari".
- */
-const SETTLEMENT_PERMISSIONS = ["reseller:update", "transactions:create"];
 
 function getTenantId(ctx: {
   session: { user: { tenantId?: string | null } } | null;
@@ -56,7 +48,9 @@ export const GET = createHandler(
 export const POST = createHandler(
   {
     auth: true,
-    permissionsAll: SETTLEMENT_PERMISSIONS,
+    // Settlement mengunci komisi ACCRUED menjadi SETTLED untuk dibayarkan:
+    // aksi keuangan, jadi izin reseller DAN izin transaksi keuangan.
+    permissionsAll: [...RESELLER_FINANCE_PERMISSIONS],
     schema: createResellerSettlementSchema,
     feature: "reseller",
   },

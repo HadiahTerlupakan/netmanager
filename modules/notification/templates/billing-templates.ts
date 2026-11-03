@@ -384,3 +384,16 @@ export const BILLING_TEMPLATES = {
 } satisfies Record<string, BillingTemplate>;
 
 export type BillingTemplateKey = keyof typeof BILLING_TEMPLATES;
+
+/**
+ * Tutup pesan WhatsApp/email dengan nama ISP penerbit tagihan. Pelanggan
+ * reseller (model agen) tetap ditagih atas merek ISP (PM 5/2021 Ps 223(2)b),
+ * jadi setiap pesan menyebut ISP secara eksplisit. Tanpa nama, teks tidak diubah.
+ */
+export function appendIssuerSignOff(
+  message: string,
+  issuerName: string | undefined,
+): string {
+  const name = issuerName?.trim();
+  return name ? `${message}\n\nSalam,\n${name}` : message;
+}

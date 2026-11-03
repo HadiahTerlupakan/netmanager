@@ -21,6 +21,8 @@ export type JournalSource =
   | "AUTO_TAX_PPH_4_2"
   | "AUTO_TAX_BHP"
   | "AUTO_TAX_USO"
+  | "AUTO_RESELLER_COMMISSION"
+  | "AUTO_RESELLER_SETTLEMENT_PAID"
   | "MANUAL"
   | "RECURRING"
   | "REVERSAL"

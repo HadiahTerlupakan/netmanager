@@ -131,6 +131,7 @@ describe("PelangganAdminMutationService — relasi reseller saat edit PPP", () =
       tenantId: "tenant-pelanggan",
       resellerId: "reseller-2",
       resellerOutletId: null,
+      currentResellerId: "reseller-1",
     });
   });
 

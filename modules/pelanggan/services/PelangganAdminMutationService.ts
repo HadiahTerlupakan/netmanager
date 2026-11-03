@@ -214,6 +214,7 @@ export class PelangganAdminMutationService {
       tenantId: existingPelanggan.tenantId,
       resellerId: nextRelation.resellerId,
       resellerOutletId: nextRelation.resellerOutletId,
+      currentResellerId: existingPelanggan.resellerId,
     });
   }
 

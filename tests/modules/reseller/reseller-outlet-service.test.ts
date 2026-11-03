@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ResellerOutletService } from "@/modules/reseller/services/ResellerOutletService";
 import type { IResellerRepository } from "@/modules/reseller/domain/ports/IResellerRepository";
+import { EMPTY_RESELLER_COMPLIANCE_FIELDS } from "./reseller-fixtures";
 
 function createRepository(): IResellerRepository {
   return {
@@ -43,6 +44,7 @@ describe("ResellerOutletService", () => {
       address: null,
       status: "ACTIVE",
       notes: null,
+      ...EMPTY_RESELLER_COMPLIANCE_FIELDS,
       createdAt: new Date("2026-07-08T00:00:00.000Z"),
       updatedAt: new Date("2026-07-08T00:00:00.000Z"),
       deletedAt: null,
@@ -93,6 +95,7 @@ describe("ResellerOutletService", () => {
       address: null,
       status: "INACTIVE",
       notes: null,
+      ...EMPTY_RESELLER_COMPLIANCE_FIELDS,
       createdAt: new Date("2026-07-08T00:00:00.000Z"),
       updatedAt: new Date("2026-07-08T00:00:00.000Z"),
       deletedAt: null,
@@ -118,6 +121,7 @@ describe("ResellerOutletService", () => {
       address: null,
       status: "ACTIVE",
       notes: null,
+      ...EMPTY_RESELLER_COMPLIANCE_FIELDS,
       createdAt: new Date("2026-07-08T00:00:00.000Z"),
       updatedAt: new Date("2026-07-08T00:00:00.000Z"),
       deletedAt: null,

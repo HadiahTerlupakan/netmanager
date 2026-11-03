@@ -99,6 +99,16 @@ export class ResellerRepository implements IResellerRepository {
         phone: data.phone ?? null,
         address: data.address ?? null,
         notes: data.notes ?? null,
+        legalName: data.legalName ?? null,
+        nib: data.nib ?? null,
+        kbliCode: data.kbliCode ?? null,
+        standardCertificateNumber: data.standardCertificateNumber ?? null,
+        brandName: data.brandName ?? null,
+        licenseVerifiedAt: data.licenseVerifiedAt ?? null,
+        licenseVerifiedById: data.licenseVerifiedById ?? null,
+        statusReason: data.statusReason ?? null,
+        statusChangedAt: data.statusChangedAt ?? null,
+        statusChangedById: data.statusChangedById ?? null,
         ...(data.status ? { status: data.status } : {}),
       },
     });
@@ -120,15 +130,23 @@ export class ResellerRepository implements IResellerRepository {
     });
   }
 
-  /** Soft delete reseller. */
+  /**
+   * Soft delete reseller. Status menjadi INACTIVE; waktu perubahannya dicatat
+   * agar komisi pembayaran sebelum penghapusan tetap terakru.
+   */
   async softDelete(tenantId: string | null, id: string): Promise<void> {
     const reseller = await this.findById(tenantId, id);
     if (!reseller) {
       throw new ResellerNotFoundError();
     }
+    const now = new Date();
     await this.db.reseller.update({
       where: { id },
-      data: { deletedAt: new Date(), status: "INACTIVE" },
+      data: {
+        deletedAt: now,
+        status: "INACTIVE",
+        ...(reseller.status === "INACTIVE" ? {} : { statusChangedAt: now }),
+      },
     });
   }
 
@@ -210,7 +228,10 @@ export class ResellerRepository implements IResellerRepository {
     });
   }
 
-  /** Find active reseller package price at a point in time. */
+  /**
+   * Find active reseller package price at a point in time.
+   * @deprecated Harga khusus reseller tidak dipakai di model agen.
+   */
   async findActivePackagePrice(params: {
     readonly tenantId: string | null;
     readonly resellerId: string;
@@ -243,7 +264,10 @@ export class ResellerRepository implements IResellerRepository {
     return packagePrice?.harga ?? null;
   }
 
-  /** List package prices for reseller. */
+  /**
+   * List package prices for reseller.
+   * @deprecated Harga khusus reseller tidak dipakai di model agen.
+   */
   async findPackagePricesByResellerId(
     tenantId: string | null,
     resellerId: string,
@@ -254,7 +278,10 @@ export class ResellerRepository implements IResellerRepository {
     });
   }
 
-  /** Create reseller package override. */
+  /**
+   * Create reseller package override.
+   * @deprecated Harga khusus reseller tidak dipakai di model agen.
+   */
   async upsertPackagePrice(
     data: UpsertPackagePriceData,
   ): Promise<ResellerPackagePriceEntity> {

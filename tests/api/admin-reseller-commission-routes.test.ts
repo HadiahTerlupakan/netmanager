@@ -29,9 +29,12 @@ vi.mock("@/modules/reseller", async () => {
   const validators =
     await import("@/modules/reseller/validators/reseller-commission");
   const dto = await import("@/modules/reseller/dto/commission.dto");
+  const permissions =
+    await import("@/modules/reseller/domain/reseller-finance-permissions");
   return {
     ...validators,
     ...dto,
+    ...permissions,
     getResellerCommissionService: () => mocks.service,
   };
 });

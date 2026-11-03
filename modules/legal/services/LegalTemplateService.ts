@@ -1,6 +1,9 @@
 import { AppError } from "@/lib/errors";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
-import { DEFAULT_LEGAL_TEMPLATES } from "../domain/default-templates";
+import {
+  DEFAULT_LEGAL_TEMPLATES,
+  type DefaultLegalTemplate,
+} from "../domain/default-templates";
 import type { LegalTemplateEntity } from "../domain/entities/LegalTemplate";
 import type { LegalAccess } from "../domain/ports/ILegalRepository";
 import type { ILegalTemplateRepository } from "../domain/ports/ILegalTemplateRepository";
@@ -19,11 +22,15 @@ export class LegalTemplateService {
   ) {}
 
   /**
-   * Daftar template. Saat tenant pertama kali membuka daftar (belum ada
-   * template sama sekali), template bawaan dibuat lebih dulu.
+   * Daftar template. Template bawaan yang belum dimiliki tenant dibuat lebih
+   * dulu (lihat `selectMissingDefaults`).
    */
   async list(): Promise<LegalTemplateEntity[]> {
-    await this.ensureDefaults();
+    const templates = await this.repository.listTemplates();
+    const missingDefaults = selectMissingDefaults(templates);
+    if (missingDefaults.length === 0) return templates;
+
+    await this.createBuiltInTemplates(missingDefaults);
     return this.repository.listTemplates();
   }
 
@@ -43,7 +50,11 @@ export class LegalTemplateService {
     access: LegalAccess,
   ): Promise<LegalTemplateEntity> {
     if (payload.categoryId) {
-      await this.categories.assertUsable(payload.categoryId, payload.documentType, access);
+      await this.categories.assertUsable(
+        payload.categoryId,
+        payload.documentType,
+        access,
+      );
     }
     const { tenantId } = await getTenantIdFromContext();
 
@@ -58,23 +69,45 @@ export class LegalTemplateService {
   ): Promise<LegalTemplateEntity> {
     const template = await this.getById(id);
     if (payload.categoryId) {
-      await this.categories.assertUsable(payload.categoryId, template.documentType, access);
+      await this.categories.assertUsable(
+        payload.categoryId,
+        template.documentType,
+        access,
+      );
     }
 
     return this.repository.updateTemplate(id, payload);
   }
 
-  private async ensureDefaults(): Promise<void> {
-    if ((await this.repository.countTemplates()) > 0) return;
-
+  private async createBuiltInTemplates(
+    defaults: DefaultLegalTemplate[],
+  ): Promise<void> {
     const { tenantId } = await getTenantIdFromContext();
     await this.repository.createTemplates(
-      DEFAULT_LEGAL_TEMPLATES.map((template) => ({
-        ...template,
-        content: [...template.content],
+      defaults.map(({ name, documentType, content }) => ({
+        name,
+        documentType,
+        content: [...content],
         isBuiltIn: true,
         tenantId,
       })),
     );
   }
+}
+
+/**
+ * Template bawaan yang perlu dibuat: semuanya bila tenant belum punya
+ * template; bila sudah, hanya template bertanda `isSeededForExistingTenants`
+ * yang namanya belum ada. Template tenant tidak pernah ditimpa.
+ */
+function selectMissingDefaults(
+  existing: LegalTemplateEntity[],
+): DefaultLegalTemplate[] {
+  if (existing.length === 0) return [...DEFAULT_LEGAL_TEMPLATES];
+
+  const existingNames = new Set(existing.map((template) => template.name));
+  return DEFAULT_LEGAL_TEMPLATES.filter(
+    (template) =>
+      template.isSeededForExistingTenants && !existingNames.has(template.name),
+  );
 }

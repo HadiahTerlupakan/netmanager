@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
  * Default COA code mapping per accounting event purpose.
  *
  * Setiap kode di sini WAJIB:
- *  - Ada di DEFAULT_COA (modules/accounting/services/coa/ChartOfAccountService.ts)
+ *  - Ada di DEFAULT_COA (modules/accounting/services/coa/default-coa.ts)
  *  - isPostable = true (tidak boleh akun header)
  *
  * Test verifikasi: tests/accounting/coa-mapping-config.test.ts
@@ -28,6 +28,7 @@ const DEFAULT_COA_MAPPING = {
   UTANG_BPJS: "2-360",
   UTANG_PPH_21: "2-400",
   HUTANG_INVESTOR: "2-600",
+  UTANG_KOMISI_RESELLER: "2-370",
 
   // Ekuitas
   MODAL_DISETOR: "3-100",
@@ -48,6 +49,7 @@ const DEFAULT_COA_MAPPING = {
   BEBAN_LAINNYA: "5-500",
   BEBAN_MITRA: "5-800",
   BEBAN_INVESTOR: "5-810",
+  BEBAN_KOMISI_RESELLER: "5-820",
 } as const;
 
 export type CoaPurpose = keyof typeof DEFAULT_COA_MAPPING;

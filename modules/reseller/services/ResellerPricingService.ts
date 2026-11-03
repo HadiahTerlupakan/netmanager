@@ -12,6 +12,21 @@ import { ResellerRepository } from "../repositories/ResellerRepository";
 
 const PACKAGE_NOT_FOUND_MESSAGE = "Harga Paket tidak ditemukan";
 
+/**
+ * Pesan 410 untuk tulis harga khusus reseller. Model agen (PM 5/2021 Ps
+ * 223(2)b.3): tagihan pelanggan reseller selalu memakai harga paket ISP dan
+ * seluruh pendapatan dibukukan ISP; reseller dibayar lewat komisi.
+ */
+export const RESELLER_PACKAGE_PRICE_DEPRECATED_MESSAGE =
+  "Harga khusus reseller sudah tidak dipakai. Pelanggan reseller selalu ditagih " +
+  "dengan harga paket ISP dan seluruh pendapatan dibukukan ISP; imbalan reseller " +
+  "diatur lewat komisi.";
+
+/**
+ * @deprecated Harga khusus reseller tidak sesuai model agen; data lama hanya
+ * bisa dibaca (`listPackagePrices`). Tabel `ResellerPackagePrice` tidak
+ * di-drop. Jangan sambungkan ke penagihan.
+ */
 export class ResellerPricingService {
   constructor(
     private readonly repository: IResellerRepository = new ResellerRepository(),
@@ -97,7 +112,10 @@ export class ResellerPricingService {
 
 let resellerPricingService: ResellerPricingService | null = null;
 
-/** Get singleton reseller pricing service. */
+/**
+ * Get singleton reseller pricing service.
+ * @deprecated Hanya untuk membaca data harga khusus lama.
+ */
 export function getResellerPricingService(): ResellerPricingService {
   if (!resellerPricingService) {
     resellerPricingService = new ResellerPricingService();

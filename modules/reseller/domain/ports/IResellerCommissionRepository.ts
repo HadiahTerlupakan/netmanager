@@ -92,13 +92,13 @@ export interface IResellerCommissionRepository {
   resellerExists(tenantId: string | null, resellerId: string): Promise<boolean>;
   /**
    * Soft-delete komisi ACCRUED milik invoice yang tidak lagi lunas (di-void
-   * atau pelunasannya ditarik). Idempoten;
-   * mengembalikan jumlah baris yang berubah.
+   * atau pelunasannya ditarik). Idempoten; mengembalikan komisi yang baru
+   * dibatalkan oleh panggilan ini (replay mengembalikan daftar kosong).
    */
-  softDeleteAccruedByInvoiceId(params: {
+  cancelAccruedByInvoiceId(params: {
     readonly tenantId: string | null;
     readonly invoiceId: string;
-  }): Promise<number>;
+  }): Promise<readonly ResellerCommissionEntity[]>;
   /**
    * Pulihkan komisi ACCRUED yang dibatalkan karena invoice-nya sempat tidak
    * lunas, dengan tanggal akru baru. Null bila tidak ada yang bisa dipulihkan.

@@ -9,13 +9,20 @@ import type {
   SettlementListParams,
 } from "../domain/ports/IResellerCommissionRepository";
 import type { IInvoicePaymentStatusReader } from "../domain/ports/IInvoicePaymentStatusReader";
+import type { IResellerAccountingEvents } from "../domain/ports/IResellerAccountingEvents";
 import type { IResellerModuleGate } from "../domain/ports/IResellerModuleGate";
+import {
+  calculateCommissionAmount,
+  calculateCommissionBase,
+} from "../domain/commission-base";
+import { isEligibleForCommissionAt } from "../domain/reseller-compliance";
 import {
   ResellerConflictError,
   ResellerNotFoundError,
   ResellerValidationError,
 } from "../errors/reseller-errors";
 import { ResellerCommissionRepository } from "../repositories/ResellerCommissionRepository";
+import { EventBusResellerAccountingEvents } from "./event-bus-accounting-events";
 import { FinanceInvoicePaymentStatusReader } from "./finance-invoice-status-reader";
 import { FeatureFlagResellerModuleGate } from "./reseller-module-gate";
 
@@ -48,6 +55,7 @@ export class ResellerCommissionService {
     private readonly repository: IResellerCommissionRepository = new ResellerCommissionRepository(),
     private readonly moduleGate: IResellerModuleGate = new FeatureFlagResellerModuleGate(),
     private readonly invoiceStatus: IInvoicePaymentStatusReader = new FinanceInvoicePaymentStatusReader(),
+    private readonly accountingEvents: IResellerAccountingEvents = new EventBusResellerAccountingEvents(),
   ) {}
 
   /**
@@ -61,6 +69,17 @@ export class ResellerCommissionService {
    * setelah invoice di-void atau pelunasannya ditarik tidak mengakru komisi.
    * Komisi yang dibatalkan saat invoice sempat tidak lunas dipulihkan bila
    * invoice lunas lagi.
+   *
+   * Model agen: hanya kemitraan ACTIVE yang berhak komisi. Status dinilai pada
+   * saat `paidAt`, bukan saat event diproses: pembayaran sebelum reseller
+   * di-suspend/diputus/dinonaktifkan tetap berkomisi. Aturan yang sama berlaku
+   * untuk pemulihan, karena pemulihan memakai `paidAt` pelunasan yang baru.
+   *
+   * Dasar komisi adalah DPP invoice (total tanpa PPN, lihat
+   * `calculateCommissionBase`), dibaca dari invoice, bukan dari `amount`
+   * payload yang sudah termasuk PPN. Aturan yang dipakai adalah aturan ACTIVE
+   * yang berlaku pada `paidAt` (aturan per paket didahulukan). Komisi yang
+   * terbit atau pulih dikabarkan ke accounting untuk jurnal akru.
    */
   async accrueFromPaidInvoice(
     input: PaidInvoiceInput,
@@ -71,19 +90,32 @@ export class ResellerCommissionService {
     );
     if (!customer?.resellerId) return null;
     if (
+      !customer.resellerStatus ||
+      !isEligibleForCommissionAt(
+        customer.resellerStatus,
+        customer.resellerStatusChangedAt,
+        input.paidAt,
+      )
+    ) {
+      return null;
+    }
+    if (
       customer.tenantId &&
       !(await this.moduleGate.isEnabled(customer.tenantId))
     ) {
       return null;
     }
 
-    if (!(await this.invoiceStatus.isPaid(input.invoiceId))) return null;
+    const paidAmounts = await this.invoiceStatus.findPaidAmounts(
+      input.invoiceId,
+    );
+    if (!paidAmounts) return null;
 
     const existing = await this.repository.findCommissionByInvoiceId(
       customer.tenantId,
       input.invoiceId,
     );
-    if (existing) return this.restoreIfCancelled(existing, input.paidAt);
+    if (existing) return this.handleExistingCommission(existing, input.paidAt);
 
     const rule = await this.repository.findActiveCommissionRule({
       tenantId: customer.tenantId,
@@ -93,13 +125,11 @@ export class ResellerCommissionService {
     });
     if (!rule) return null;
 
-    const commissionAmount =
-      rule.type === "PERCENTAGE"
-        ? Math.floor((input.amount * (rule.rate ?? 0)) / 100)
-        : (rule.fixedAmount ?? 0);
+    const baseAmount = calculateCommissionBase(paidAmounts);
+    const commissionAmount = calculateCommissionAmount(rule, baseAmount);
     if (commissionAmount <= 0) return null;
 
-    return this.repository.createCommission({
+    const created = await this.repository.createCommission({
       tenantId: customer.tenantId,
       resellerId: customer.resellerId,
       pelangganId: customer.pelangganId,
@@ -108,27 +138,60 @@ export class ResellerCommissionService {
       commissionRuleId: rule.id,
       type: rule.type,
       rate: rule.rate,
-      baseAmount: input.amount,
+      baseAmount,
       commissionAmount,
       period: toPeriod(input.paidAt),
       accruedAt: input.paidAt,
     });
+    return this.announceAccrual(created);
+  }
+
+  /**
+   * INVOICE_PAID yang diulang (at-least-once) untuk komisi yang sudah ada.
+   * Komisi yang dibatalkan dipulihkan. Komisi yang masih aktif tidak dibuat
+   * ulang, tetapi event akrunya dikirim ulang: bila proses mati setelah komisi
+   * tersimpan dan sebelum event terkirim, hanya ulangan inilah yang membentuk
+   * jurnal akrunya. Jurnalnya idempoten per ref, jadi kiriman ganda aman.
+   */
+  private async handleExistingCommission(
+    existing: ResellerCommissionEntity,
+    paidAt: Date,
+  ): Promise<null | ResellerCommissionEntity> {
+    if (existing.deletedAt === null) {
+      await this.accountingEvents.commissionAccrued(existing);
+      return null;
+    }
+    return this.announceAccrual(
+      await this.restoreIfCancelled(existing, paidAt),
+    );
+  }
+
+  private async announceAccrual(
+    commission: ResellerCommissionEntity | null,
+  ): Promise<ResellerCommissionEntity | null> {
+    if (commission) await this.accountingEvents.commissionAccrued(commission);
+    return commission;
   }
 
   /**
    * Batalkan komisi yang belum disettle untuk invoice yang tidak lagi lunas
    * (di-void atau pelunasannya ditarik). Idempoten. Dilewati bila invoice
    * sudah lunas lagi saat event diproses. Komisi yang sudah SETTLED/PAID tidak
-   * disentuh (butuh status pembalikan).
+   * disentuh (butuh status pembalikan). Tiap komisi yang batal dikabarkan ke
+   * accounting agar jurnal akrunya dibalik.
    */
   async cancelAccruedForUnpaidInvoice(
     input: UnpaidInvoiceInput,
   ): Promise<number> {
     if (await this.invoiceStatus.isPaid(input.invoiceId)) return 0;
-    return this.repository.softDeleteAccruedByInvoiceId({
+    const cancelled = await this.repository.cancelAccruedByInvoiceId({
       tenantId: input.tenantId ?? null,
       invoiceId: input.invoiceId,
     });
+    for (const commission of cancelled) {
+      await this.accountingEvents.commissionCancelled(commission);
+    }
+    return cancelled.length;
   }
 
   private async restoreIfCancelled(

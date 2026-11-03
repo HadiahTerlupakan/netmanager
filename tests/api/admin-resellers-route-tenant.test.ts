@@ -27,8 +27,10 @@ vi.mock("@/modules/reseller", async (importOriginal) => {
   return {
     ...actual,
     getResellerService: () => ({
-      listResellers: mockFns.listResellers,
       createReseller: mockFns.createReseller,
+    }),
+    getResellerComplianceService: () => ({
+      listResellersWithCompliance: mockFns.listResellers,
     }),
     getResellerOutletService: () => ({ listOutlets: mockFns.listOutlets }),
     getResellerPricingService: () => ({
@@ -92,15 +94,6 @@ describe("admin reseller routes — tenant sesi wajib", () => {
           params: { id: "r-1" },
         }),
     ],
-    [
-      "POST package price",
-      () =>
-        (upsertPackagePrice as unknown as RouteBody)(REQUEST, {
-          session: TENANTLESS_SESSION,
-          validated: { hargaPaketId: "p", price: 1 },
-          params: { id: "r-1" },
-        }),
-    ],
   ])(
     "%s tanpa tenant ditolak 400 sebelum menyentuh service",
     async (_label, run) => {
@@ -117,6 +110,25 @@ describe("admin reseller routes — tenant sesi wajib", () => {
       expect(mockFns.upsertPackagePrice).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("POST /api/admin/resellers/[id]/package-prices — dihentikan", () => {
+  it("membalas 410 dengan penjelasan model agen tanpa menyentuh service", async () => {
+    const response = await (upsertPackagePrice as unknown as RouteBody)(
+      REQUEST,
+      {
+        session: TENANT_SESSION,
+        validated: { hargaPaketId: "p", price: 1 },
+        params: { id: "r-1" },
+      },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(410);
+    expect(body.code).toBe("RESELLER_PACKAGE_PRICE_DEPRECATED");
+    expect(body.error).toContain("harga paket ISP");
+    expect(mockFns.upsertPackagePrice).not.toHaveBeenCalled();
+  });
 });
 
 describe("GET /api/admin/resellers — query divalidasi Zod", () => {

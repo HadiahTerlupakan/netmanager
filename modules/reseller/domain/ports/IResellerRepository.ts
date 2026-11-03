@@ -5,7 +5,26 @@ import type {
   ResellerStatusValue,
 } from "../entities/ResellerEntity";
 
-export interface CreateResellerData {
+/** Data izin dan merek reseller (PM 5/2021 Ps 223(2)a). */
+export interface ResellerLicenseData {
+  readonly legalName?: string | null;
+  readonly nib?: string | null;
+  readonly kbliCode?: string | null;
+  readonly standardCertificateNumber?: string | null;
+  readonly brandName?: string | null;
+  readonly licenseVerifiedAt?: Date | null;
+  readonly licenseVerifiedById?: string | null;
+}
+
+/** Jejak perubahan status kemitraan. */
+export interface ResellerStatusAuditData {
+  readonly statusReason?: string | null;
+  readonly statusChangedAt?: Date | null;
+  readonly statusChangedById?: string | null;
+}
+
+export interface CreateResellerData
+  extends ResellerLicenseData, ResellerStatusAuditData {
   readonly tenantId: string | null;
   readonly code: string;
   readonly name: string;
@@ -16,7 +35,8 @@ export interface CreateResellerData {
   readonly status?: ResellerStatusValue;
 }
 
-export interface UpdateResellerData {
+export interface UpdateResellerData
+  extends ResellerLicenseData, ResellerStatusAuditData {
   readonly code?: string;
   readonly name?: string;
   readonly email?: string | null;
@@ -116,7 +136,10 @@ export interface IResellerRepository {
   ): Promise<ResellerOutletEntity>;
   /** Soft delete outlet. */
   softDeleteOutlet(tenantId: string | null, id: string): Promise<void>;
-  /** Find active reseller package override. */
+  /**
+   * Find active reseller package override.
+   * @deprecated Harga khusus reseller tidak dipakai di model agen.
+   */
   findActivePackagePrice(params: {
     readonly tenantId: string | null;
     readonly resellerId: string;
@@ -128,12 +151,18 @@ export interface IResellerRepository {
     tenantId: string | null,
     hargaPaketId: string,
   ): Promise<number | null>;
-  /** List package prices for reseller. */
+  /**
+   * List package prices for reseller.
+   * @deprecated Harga khusus reseller tidak dipakai di model agen.
+   */
   findPackagePricesByResellerId(
     tenantId: string | null,
     resellerId: string,
   ): Promise<readonly ResellerPackagePriceEntity[]>;
-  /** Create reseller package override. */
+  /**
+   * Create reseller package override.
+   * @deprecated Harga khusus reseller tidak dipakai di model agen.
+   */
   upsertPackagePrice(
     data: UpsertPackagePriceData,
   ): Promise<ResellerPackagePriceEntity>;

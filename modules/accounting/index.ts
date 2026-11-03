@@ -211,3 +211,8 @@ export { handleInvestorPayoutAccounting } from "./services/event-handlers/invest
 export { handleInvestorDepositAccounting } from "./services/event-handlers/investor-deposit-accounting.handler";
 export { handleSalaryProcessedAccounting } from "./services/event-handlers/salary-processed-accounting.handler";
 export { handleAdvanceDisbursedAccounting } from "./services/event-handlers/advance-disbursed-accounting.handler";
+export {
+  handleResellerCommissionAccruedAccounting,
+  handleResellerCommissionCancelledAccounting,
+  handleResellerSettlementPaidAccounting,
+} from "./services/event-handlers/reseller-commission-accounting.handler";

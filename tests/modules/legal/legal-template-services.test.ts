@@ -2,10 +2,16 @@ import { PDFDocument } from "pdf-lib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/tenant-context", () => ({
-  getTenantIdFromContext: async () => ({ tenantId: "tenant-1", isSuperAdmin: false }),
+  getTenantIdFromContext: async () => ({
+    tenantId: "tenant-1",
+    isSuperAdmin: false,
+  }),
 }));
 
-import { DEFAULT_LEGAL_TEMPLATES } from "@/modules/legal/domain/default-templates";
+import {
+  DEFAULT_LEGAL_TEMPLATES,
+  PKS_RESELLER_TEMPLATE_NAME,
+} from "@/modules/legal/domain/default-templates";
 import type { TemplateBlock } from "@/modules/legal/domain/template-content";
 import { LegalTemplateDocumentService } from "@/modules/legal/services/LegalTemplateDocumentService";
 import {
@@ -25,7 +31,6 @@ const LETTERHEAD: Letterhead = {
 
 function buildTemplateRepository() {
   return {
-    countTemplates: vi.fn().mockResolvedValue(3),
     createTemplates: vi.fn(),
     listTemplates: vi.fn().mockResolvedValue([]),
     findTemplateById: vi.fn().mockResolvedValue(null),
@@ -37,7 +42,8 @@ function buildTemplateRepository() {
 describe("LegalTemplateService", () => {
   let repository: ReturnType<typeof buildTemplateRepository>;
   const categories = { assertUsable: vi.fn() };
-  const service = () => new LegalTemplateService(repository, categories as never);
+  const service = () =>
+    new LegalTemplateService(repository, categories as never);
 
   beforeEach(() => {
     repository = buildTemplateRepository();
@@ -45,8 +51,6 @@ describe("LegalTemplateService", () => {
   });
 
   it("membuat template bawaan saat tenant belum punya template", async () => {
-    repository.countTemplates.mockResolvedValue(0);
-
     await service().list();
 
     const created = repository.createTemplates.mock.calls[0][0] as Array<{
@@ -54,44 +58,105 @@ describe("LegalTemplateService", () => {
       isBuiltIn: boolean;
     }>;
     expect(created).toHaveLength(DEFAULT_LEGAL_TEMPLATES.length);
-    expect(created.every((item) => item.tenantId === "tenant-1" && item.isBuiltIn)).toBe(true);
+    expect(
+      created.every((item) => item.tenantId === "tenant-1" && item.isBuiltIn),
+    ).toBe(true);
+    expect(created[0]).not.toHaveProperty("isSeededForExistingTenants");
   });
 
-  it("tidak membuat ulang template bawaan bila sudah ada", async () => {
+  it("tidak membuat ulang template bawaan bila semuanya sudah ada", async () => {
+    repository.listTemplates.mockResolvedValue(
+      DEFAULT_LEGAL_TEMPLATES.map((template, index) => ({
+        id: `tpl-${index}`,
+        name: template.name,
+      })),
+    );
+
     await service().list();
 
     expect(repository.createTemplates).not.toHaveBeenCalled();
   });
 
+  it("tenant lama mendapat PKS Reseller model agen di samping template lamanya", async () => {
+    const existing = [
+      { id: "tpl-old", name: "PKS Reseller" },
+      { id: "tpl-kuasa", name: "Surat Kuasa Kantor" },
+    ];
+    repository.listTemplates
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce([
+        ...existing,
+        { id: "tpl-new", name: PKS_RESELLER_TEMPLATE_NAME },
+      ]);
+
+    const templates = await service().list();
+
+    const created = repository.createTemplates.mock.calls[0][0] as Array<{
+      name: string;
+    }>;
+    expect(created.map((item) => item.name)).toEqual([
+      PKS_RESELLER_TEMPLATE_NAME,
+    ]);
+    expect(repository.updateTemplate).not.toHaveBeenCalled();
+    expect(templates.map((item) => item.id)).toEqual([
+      "tpl-old",
+      "tpl-kuasa",
+      "tpl-new",
+    ]);
+  });
+
   it("template milik tenant lain / tidak ada dijawab 404", async () => {
-    await expect(service().getById("tpl-x")).rejects.toMatchObject({ statusCode: 404 });
+    await expect(service().getById("tpl-x")).rejects.toMatchObject({
+      statusCode: 404,
+    });
   });
 
   it("kategori template diperiksa sesuai jenis dokumen; tenant diisi dari konteks", async () => {
     await service().create(
-      { name: "PKS Vendor", documentType: "KONTRAK", categoryId: "cat-1", content: [] },
+      {
+        name: "PKS Vendor",
+        documentType: "KONTRAK",
+        categoryId: "cat-1",
+        content: [],
+      },
       ACCESS,
     );
 
-    expect(categories.assertUsable).toHaveBeenCalledWith("cat-1", "KONTRAK", ACCESS);
+    expect(categories.assertUsable).toHaveBeenCalledWith(
+      "cat-1",
+      "KONTRAK",
+      ACCESS,
+    );
     expect(repository.createTemplate).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: "tenant-1", name: "PKS Vendor" }),
     );
   });
 
   it("mengubah kategori memakai jenis dokumen template yang tersimpan", async () => {
-    repository.findTemplateById.mockResolvedValue({ id: "tpl-1", documentType: "IZIN" });
+    repository.findTemplateById.mockResolvedValue({
+      id: "tpl-1",
+      documentType: "IZIN",
+    });
 
     await service().update("tpl-1", { categoryId: "cat-2" }, ACCESS);
 
-    expect(categories.assertUsable).toHaveBeenCalledWith("cat-2", "IZIN", ACCESS);
-    expect(repository.updateTemplate).toHaveBeenCalledWith("tpl-1", { categoryId: "cat-2" });
+    expect(categories.assertUsable).toHaveBeenCalledWith(
+      "cat-2",
+      "IZIN",
+      ACCESS,
+    );
+    expect(repository.updateTemplate).toHaveBeenCalledWith("tpl-1", {
+      categoryId: "cat-2",
+    });
   });
 });
 
 describe("LegalTemplateDocumentService", () => {
   const content: TemplateBlock[] = [
-    { type: "paragraph", text: "{{perusahaan.nama}} dengan {{pihak.nama}} di {{pihak.alamat}}" },
+    {
+      type: "paragraph",
+      text: "{{perusahaan.nama}} dengan {{pihak.nama}} di {{pihak.alamat}}",
+    },
   ];
 
   function build(party: object | null = null) {
@@ -122,7 +187,9 @@ describe("LegalTemplateDocumentService", () => {
     await service.render(content, { partyType: "RESELLER", partyId: "rs-1" });
 
     expect(parties.findById).toHaveBeenCalledWith("RESELLER", "rs-1");
-    expect(renderedText(renderer)).toBe("PT RadPro Net dengan CV Maju di Jl. Mawar 3");
+    expect(renderedText(renderer)).toBe(
+      "PT RadPro Net dengan CV Maju di Jl. Mawar 3",
+    );
     expect(renderer.render.mock.calls[0][1]).toBe(LETTERHEAD);
   });
 
@@ -146,7 +213,11 @@ describe("LegalTemplateDocumentService", () => {
 
     expect(documents.create).toHaveBeenCalledWith(
       payload,
-      { buffer: Buffer.from("%PDF"), fileName: "PKS CV Maju.pdf", contentType: "application/pdf" },
+      {
+        buffer: Buffer.from("%PDF"),
+        fileName: "PKS CV Maju.pdf",
+        contentType: "application/pdf",
+      },
       context,
     );
   });
@@ -156,11 +227,14 @@ describe("LegalTemplateRenderer", () => {
   it("menghasilkan PDF valid dan berpindah halaman untuk isi panjang", async () => {
     const longContent: TemplateBlock[] = [
       { type: "heading", text: "PERJANJIAN" },
-      ...Array.from({ length: 30 }, (_, index): TemplateBlock => ({
-        type: "article",
-        title: `Ketentuan ${index + 1}`,
-        text: "Para pihak sepakat **mematuhi** ketentuan ini. ".repeat(6),
-      })),
+      ...Array.from(
+        { length: 30 },
+        (_, index): TemplateBlock => ({
+          type: "article",
+          title: `Ketentuan ${index + 1}`,
+          text: "Para pihak sepakat **mematuhi** ketentuan ini. ".repeat(6),
+        }),
+      ),
       {
         type: "signatures",
         left: { label: "PIHAK PERTAMA", name: "PT RadPro Net" },
@@ -168,7 +242,10 @@ describe("LegalTemplateRenderer", () => {
       },
     ];
 
-    const pdf = await new LegalTemplateRenderer().render(longContent, LETTERHEAD);
+    const pdf = await new LegalTemplateRenderer().render(
+      longContent,
+      LETTERHEAD,
+    );
     const parsed = await PDFDocument.load(pdf);
 
     expect(parsed.getPageCount()).toBeGreaterThan(1);

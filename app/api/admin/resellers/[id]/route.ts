@@ -4,15 +4,20 @@ import {
   createHandler,
   requireSessionTenantId,
 } from "@/lib/api";
-import { getResellerService, updateResellerSchema } from "@/modules/reseller";
+import {
+  getResellerComplianceService,
+  getResellerService,
+  updateResellerSchema,
+} from "@/modules/reseller";
 
 export const GET = createHandler(
   { auth: true, permissions: ["reseller:read"], feature: "reseller" },
   async (_req, ctx) => {
-    const reseller = await getResellerService().getResellerById(
-      requireSessionTenantId(ctx),
-      ctx.params.id,
-    );
+    const reseller =
+      await getResellerComplianceService().getResellerWithCompliance(
+        requireSessionTenantId(ctx),
+        ctx.params.id,
+      );
     if (!reseller) return ApiErrors.notFound("Reseller");
     return apiSuccess(reseller);
   },
@@ -30,6 +35,7 @@ export const PATCH = createHandler(
       requireSessionTenantId(ctx),
       ctx.params.id,
       ctx.validated,
+      ctx.session?.user.id ?? null,
     );
     return apiSuccess(reseller);
   },

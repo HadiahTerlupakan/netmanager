@@ -66,6 +66,8 @@ export { buildDailyExpenseIndicators } from "./client";
 
 // Repository Facade - Public API for other modules
 export { FinanceRepositoryFacade } from "./services/FinanceRepositoryFacade";
+// Saldo kredit yang dipakai tagihan (alat bayar, bukan potongan harga).
+export { readSaldoKreditUsed } from "./services/saldo-kredit-note";
 
 // Event handlers — exposed via public API supaya lib/event-bus tidak
 // import path internal services/.

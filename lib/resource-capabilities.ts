@@ -394,6 +394,12 @@ export const RESOURCE_CAPABILITIES: Record<string, ResourceCapability> = {
     ],
     description: "Data pelanggan; downgrade paket = boleh turunkan paket",
   },
+  reseller: {
+    // Tanpa `site_only`/`department_only`: `Reseller` tidak punya `siteId`;
+    // isolasinya hanya `tenantId`.
+    actions: ["read", "create", "update", "delete"],
+    description: "Reseller, outlet, kepatuhan izin/PKS, dan komisi",
+  },
 
   // ====== SETTINGS ======
   umum: {

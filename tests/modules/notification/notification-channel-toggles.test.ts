@@ -47,6 +47,7 @@ vi.mock("@/modules/notification/services/email-service", () => ({
 const mockToggles = vi.fn();
 vi.mock("@/modules/settings", () => ({
   getNotificationChannelToggles: (...args: unknown[]) => mockToggles(...args),
+  getGeneralSettings: async () => ({ perusahaan: "" }),
 }));
 
 const mockRecordDlq = vi.fn();

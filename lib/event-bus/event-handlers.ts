@@ -22,6 +22,9 @@ import {
   handleInvestorDepositAccounting,
   handleSalaryProcessedAccounting,
   handleAdvanceDisbursedAccounting,
+  handleResellerCommissionAccruedAccounting,
+  handleResellerCommissionCancelledAccounting,
+  handleResellerSettlementPaidAccounting,
 } from "@/modules/accounting";
 import {
   handleGoodsReceiptCreatedInventory,
@@ -629,6 +632,20 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.SALARY_ADVANCE_DISBURSED,
     handleAdvanceDisbursedAccounting,
+  );
+  // Komisi reseller (model agen): beban & utang komisi, bukan pengurang
+  // pendapatan, jadi basis BHP/USO tetap tagihan bruto.
+  registerEventHandler(
+    EVENT_NAMES.RESELLER_COMMISSION_ACCRUED,
+    handleResellerCommissionAccruedAccounting,
+  );
+  registerEventHandler(
+    EVENT_NAMES.RESELLER_COMMISSION_CANCELLED,
+    handleResellerCommissionCancelledAccounting,
+  );
+  registerEventHandler(
+    EVENT_NAMES.RESELLER_SETTLEMENT_PAID,
+    handleResellerSettlementPaidAccounting,
   );
 
   // --- TAX EVENTS ---

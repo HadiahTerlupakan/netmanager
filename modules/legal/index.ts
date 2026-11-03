@@ -71,6 +71,10 @@ export {
   type PartyOption,
 } from "./services/LegalPartyDirectory";
 export {
+  LegalPartyContractReader,
+  type PartyContractSnapshot,
+} from "./services/LegalPartyContractReader";
+export {
   LegalSigningService,
   type SendForSignatureInput,
 } from "./services/LegalSigningService";

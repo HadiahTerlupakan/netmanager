@@ -1047,25 +1047,42 @@ model ProratePaymentLog {
 }
 
 model Reseller {
-  id              String                   @id @default(uuid())
-  tenantId        String?
-  code            String
-  name            String
-  email           String?
-  phone           String?
-  address         String?
-  status          ResellerStatus           @default(ACTIVE)
-  notes           String?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  deletedAt       DateTime?
-  tenant          Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  outlets         ResellerOutlet[]
-  packagePrices   ResellerPackagePrice[]
-  commissionRules ResellerCommissionRule[]
-  commissions     ResellerCommission[]
-  settlements     ResellerSettlement[]
-  pelanggan       Pelanggan[]
+  id                        String                   @id @default(uuid())
+  tenantId                  String?
+  code                      String
+  name                      String
+  email                     String?
+  phone                     String?
+  address                   String?
+  status                    ResellerStatus           @default(ACTIVE)
+  notes                     String?
+  /// Nama badan usaha sesuai NIB (PM 5/2021 Ps 223(2)a).
+  legalName                 String?
+  /// Nomor Induk Berusaha, 13 digit.
+  nib                       String?
+  /// KBLI jual kembali jasa telekomunikasi (KBLI 2020: 61994; KBLI 2025 belum pasti).
+  kbliCode                  String?
+  /// Nomor Sertifikat Standar dari OSS (Permenkomdigi 15/2025).
+  standardCertificateNumber String?
+  /// Merek tambahan (co-branding); merek ISP tetap utama di tagihan.
+  brandName                 String?
+  licenseVerifiedAt         DateTime?
+  /// User yang memverifikasi data izin (tanpa FK lintas modul).
+  licenseVerifiedById       String?
+  /// Alasan perubahan status kemitraan terakhir; wajib untuk SUSPENDED/TERMINATED.
+  statusReason              String?
+  statusChangedAt           DateTime?
+  statusChangedById         String?
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  deletedAt                 DateTime?
+  tenant                    Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  outlets                   ResellerOutlet[]
+  packagePrices             ResellerPackagePrice[]
+  commissionRules           ResellerCommissionRule[]
+  commissions               ResellerCommission[]
+  settlements               ResellerSettlement[]
+  pelanggan                 Pelanggan[]
 
   @@unique([tenantId, code], name: "tenantId_resellerCode")
   @@index([tenantId])
@@ -1185,23 +1202,30 @@ model ResellerCommission {
 }
 
 model ResellerSettlement {
-  id              String                   @id @default(uuid())
-  tenantId        String?
-  resellerId      String
-  periodStart     DateTime
-  periodEnd       DateTime
-  totalAmount     Int
-  commissionCount Int
-  status          ResellerSettlementStatus @default(PENDING)
-  notes           String?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  approvedAt      DateTime?
-  paidAt          DateTime?
-  deletedAt       DateTime?
-  tenant          Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  reseller        Reseller                 @relation(fields: [resellerId], references: [id])
-  commissions     ResellerCommission[]
+  id               String                   @id @default(uuid())
+  tenantId         String?
+  resellerId       String
+  periodStart      DateTime
+  periodEnd        DateTime
+  totalAmount      Int
+  commissionCount  Int
+  status           ResellerSettlementStatus @default(PENDING)
+  notes            String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  approvedAt       DateTime?
+  paidAt           DateTime?
+  /// Pelaku approve/bayar (User.id). Tanpa FK agar modul reseller tidak terikat modul users.
+  approvedById     String?
+  paidById         String?
+  /// Cara bayar komisi (BANK_TRANSFER/CASH/E_WALLET/OTHER), nomor referensi, dan rekening Kas & Bank sumber dana.
+  paymentMethod    String?
+  paymentReference String?
+  paymentAccountId String?
+  deletedAt        DateTime?
+  tenant           Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller         Reseller                 @relation(fields: [resellerId], references: [id])
+  commissions      ResellerCommission[]
 
   @@index([tenantId])
   @@index([resellerId])
@@ -5272,6 +5296,8 @@ enum JournalSource {
   AUTO_TAX_PPH_4_2
   AUTO_TAX_BHP
   AUTO_TAX_USO
+  AUTO_RESELLER_COMMISSION
+  AUTO_RESELLER_SETTLEMENT_PAID
   MANUAL
   RECURRING
   REVERSAL
@@ -6317,6 +6343,8 @@ model IncidentUpdate {
 enum ResellerStatus {
   ACTIVE
   INACTIVE
+  SUSPENDED
+  TERMINATED
 }
 
 enum ResellerCommissionType {

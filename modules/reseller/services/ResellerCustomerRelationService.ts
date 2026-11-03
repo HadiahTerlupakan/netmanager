@@ -1,13 +1,43 @@
+import type {
+  ResellerEntity,
+  ResellerStatusValue,
+} from "../domain/entities/ResellerEntity";
 import type { IResellerRepository } from "../domain/ports/IResellerRepository";
+import { isPartnershipActive } from "../domain/reseller-compliance";
 import { ResellerValidationError } from "../errors/reseller-errors";
 import { ResellerRepository } from "../repositories/ResellerRepository";
+import { ResellerComplianceService } from "./ResellerComplianceService";
 
 const ACTIVE_STATUS = "ACTIVE";
+
+/** Pesan penolakan per status kemitraan yang tidak boleh menerima pelanggan. */
+const INACTIVE_PARTNERSHIP_MESSAGES: Record<
+  Exclude<ResellerStatusValue, "ACTIVE">,
+  string
+> = {
+  INACTIVE:
+    "Reseller tidak aktif; pilih reseller aktif atau kosongkan reseller",
+  SUSPENDED:
+    "Kemitraan reseller sedang ditangguhkan; pelanggan baru tidak bisa ditambahkan",
+  TERMINATED:
+    "Kemitraan reseller sudah diakhiri; pelanggan baru tidak bisa ditambahkan",
+};
+
+/** Gerbang kepatuhan yang dipakai saat pelanggan baru ditugaskan. */
+export type NewCustomerComplianceGate = Pick<
+  ResellerComplianceService,
+  "assertCanAcceptNewCustomer"
+>;
 
 export interface CustomerResellerRelationInput {
   readonly tenantId: string | null;
   readonly resellerId?: string | null;
   readonly resellerOutletId?: string | null;
+  /**
+   * Reseller pelanggan saat ini (edit). Gerbang kepatuhan hanya berlaku bila
+   * pelanggan baru masuk ke reseller ini; pelanggan lama tidak terdampak.
+   */
+  readonly currentResellerId?: string | null;
 }
 
 export interface CustomerResellerRelationResult {
@@ -18,6 +48,7 @@ export interface CustomerResellerRelationResult {
 export class ResellerCustomerRelationService {
   constructor(
     private readonly repository: IResellerRepository = new ResellerRepository(),
+    private readonly complianceGate: NewCustomerComplianceGate = new ResellerComplianceService(),
   ) {}
 
   /**
@@ -25,6 +56,8 @@ export class ResellerCustomerRelationService {
    * `tenantId` harus tenant pelanggan, bukan tenant sesi. Setiap pelanggaran
    * dilempar sebagai `ResellerValidationError` (400): yang salah adalah
    * pilihan di form pelanggan, bukan resource yang diminta.
+   * Reseller wajib ACTIVE; bila tenant mewajibkan kepatuhan, reseller yang
+   * baru dipilih juga harus patuh (izin + PKS aktif).
    */
   async validateCustomerRelation(
     input: CustomerResellerRelationInput,
@@ -47,9 +80,14 @@ export class ResellerCustomerRelationService {
         "Reseller tidak ditemukan atau sudah dihapus",
       );
     }
-    if (reseller.status !== ACTIVE_STATUS) {
-      throw new ResellerValidationError(
-        "Reseller tidak aktif; pilih reseller aktif atau kosongkan reseller",
+    // Pelanggan lama yang tetap di reseller yang sama (mis. pindah outlet)
+    // tidak dihadang status kemitraan maupun gerbang kepatuhan.
+    const isNewToReseller = resellerId !== (input.currentResellerId ?? null);
+    if (isNewToReseller) {
+      this.assertPartnershipActive(reseller);
+      await this.complianceGate.assertCanAcceptNewCustomer(
+        input.tenantId,
+        reseller,
       );
     }
     if (!resellerOutletId) {
@@ -74,6 +112,12 @@ export class ResellerCustomerRelationService {
       );
     }
     return { resellerId, resellerOutletId };
+  }
+
+  private assertPartnershipActive(reseller: ResellerEntity): void {
+    const status = reseller.status;
+    if (isPartnershipActive(status)) return;
+    throw new ResellerValidationError(INACTIVE_PARTNERSHIP_MESSAGES[status]);
   }
 }
 

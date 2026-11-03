@@ -11,47 +11,33 @@ import PageLoader from "@/components/ui/PageLoader";
 import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
-import { useApi } from "@/lib/hooks/useApi";
 import {
-  fetchWithHandling,
-  formatErrorMessage,
-  isFetchError,
-} from "@/lib/utils/fetch-wrapper";
+  RESELLER_COMPLIANCE_SETTING_PERMISSIONS,
+  RESELLER_FINANCE_PERMISSIONS,
+} from "@/modules/reseller/client";
+import { useApi } from "@/lib/hooks/useApi";
+import { CommissionRulesPanel } from "./CommissionRulesPanel";
+import { ComplianceSettingToggle } from "./ComplianceSettingToggle";
 import { LoadErrorState } from "./LoadErrorState";
 import { OutletModal } from "./OutletModal";
+import {
+  PartnershipStatusCell,
+  PksStatusBadge,
+} from "./ResellerComplianceBadges";
+import { ResellerCompliancePanel } from "./ResellerCompliancePanel";
 import { ResellerModal } from "./ResellerModal";
+import { ResellerReportPanel } from "./ResellerReportPanel";
+import { SettlementsPanel } from "./SettlementsPanel";
+import { getErrorMessage, sendResellerMutation } from "./reseller-requests";
 import type {
   OutletForm,
   Reseller,
   ResellerCommission,
   ResellerForm,
   ResellerOutlet,
-  ResellerPackagePrice,
 } from "./types";
-import { emptyOutletForm, emptyResellerForm } from "./types";
+import { emptyOutletForm, emptyResellerForm, toResellerForm } from "./types";
 import { RESELLER_LIST_URL, useResellerList } from "./useResellerList";
-
-/** Pesan galat untuk toast, termasuk detail validasi field dari server. */
-function getErrorMessage(error: unknown) {
-  if (isFetchError(error)) return formatErrorMessage(error);
-  if (error instanceof Error) return error.message;
-  return "Terjadi kesalahan";
-}
-
-/**
- * Kirim mutasi ke API reseller. `fetchWithHandling` membaca bentuk galat
- * standar `{ error, details }`, jadi alasan penolakan server sampai ke toast.
- */
-async function sendResellerMutation(
-  url: string,
-  method: "POST" | "PATCH" | "DELETE",
-  body?: unknown,
-): Promise<void> {
-  await fetchWithHandling(url, {
-    method,
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-}
 
 /** Hentikan klik tombol aksi agar tidak ikut memilih baris (kartu mobile). */
 function stopRowClick(event: MouseEvent) {
@@ -69,6 +55,13 @@ export default function ResellersClient() {
   const canCreate = hasPermission("reseller:create");
   const canUpdate = hasPermission("reseller:update");
   const canDelete = hasPermission("reseller:delete");
+  const canManageComplianceSetting =
+    RESELLER_COMPLIANCE_SETTING_PERMISSIONS.every((permission) =>
+      hasPermission(permission),
+    );
+  const canManageCommission = RESELLER_FINANCE_PERMISSIONS.every((permission) =>
+    hasPermission(permission),
+  );
   const [saving, setSaving] = useState(false);
   const [editingReseller, setEditingReseller] = useState<Reseller | null>(null);
   const [selectedResellerId, setSelectedResellerId] = useState<string | null>(
@@ -97,19 +90,15 @@ export default function ResellersClient() {
     null;
   const canAddOutlet = canUpdate && selectedReseller?.status === "ACTIVE";
   const outletUrl = selectedUrl ? `${selectedUrl}/outlets` : null;
-  const pricingUrl = selectedUrl ? `${selectedUrl}/package-prices` : null;
   const commissionUrl = selectedUrl
     ? `${selectedUrl}/commissions?limit=5`
     : null;
   const outletQuery = useApi<readonly ResellerOutlet[]>(outletUrl);
-  const pricingQuery = useApi<readonly ResellerPackagePrice[]>(pricingUrl);
   const commissionQuery = useApi<readonly ResellerCommission[]>(commissionUrl);
   const { data: outletData, mutate: mutateOutlets } = outletQuery;
-  const { data: pricingData, isLoading: isLoadingPricing } = pricingQuery;
   const { data: commissionData, isLoading: isLoadingCommissions } =
     commissionQuery;
   const outlets = [...(outletData ?? [])];
-  const packagePrices = [...(pricingData ?? [])];
   const commissions = [...(commissionData ?? [])];
   const totalRecentCommission = commissions.reduce(
     (total, commission) => total + commission.commissionAmount,
@@ -124,7 +113,18 @@ export default function ResellersClient() {
       priority: "secondary",
       render: (item) => item.phone || "-",
     },
-    { key: "status", header: "Status", priority: "secondary" },
+    {
+      key: "status",
+      header: "Status",
+      priority: "secondary",
+      render: (item) => <PartnershipStatusCell reseller={item} />,
+    },
+    {
+      key: "compliance",
+      header: "PKS",
+      priority: "secondary",
+      render: (item) => <PksStatusBadge reseller={item} />,
+    },
   ];
   const outletColumns: Column<ResellerOutlet>[] = [
     { key: "code", header: "Kode", priority: "primary" },
@@ -145,15 +145,7 @@ export default function ResellersClient() {
   };
   const openEditReseller = (reseller: Reseller) => {
     setEditingReseller(reseller);
-    setResellerForm({
-      code: reseller.code,
-      name: reseller.name,
-      email: reseller.email ?? "",
-      phone: reseller.phone ?? "",
-      address: reseller.address ?? "",
-      notes: reseller.notes ?? "",
-      status: reseller.status,
-    });
+    setResellerForm(toResellerForm(reseller));
     setIsResellerModalOpen(true);
   };
   const saveReseller = async () => {
@@ -263,7 +255,7 @@ export default function ResellersClient() {
             Reseller
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Kelola reseller, outlet, pricing, dan assignment pelanggan.
+            Kelola reseller, outlet, kepatuhan izin/PKS, dan komisi.
           </p>
         </div>
         {canCreate && (
@@ -272,6 +264,7 @@ export default function ResellersClient() {
           </Button>
         )}
       </div>
+      <ComplianceSettingToggle canUpdate={canManageComplianceSetting} />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           {resellerList.error ? (
@@ -383,51 +376,11 @@ export default function ResellersClient() {
       </div>
       {selectedReseller && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <ResellerCompliancePanel reseller={selectedReseller} />
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="mb-4">
               <h2 className="font-semibold text-gray-900 dark:text-white">
-                Pricing reseller
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Override harga paket aktif untuk {selectedReseller.name}.
-              </p>
-            </div>
-            {pricingQuery.error ? (
-              <LoadErrorState
-                title="Gagal memuat pricing reseller"
-                error={pricingQuery.error}
-                onRetry={() => void pricingQuery.refetch()}
-              />
-            ) : isLoadingPricing ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Memuat...
-              </p>
-            ) : packagePrices.length > 0 ? (
-              <div className="space-y-3">
-                {packagePrices.map((price) => (
-                  <div
-                    key={price.id}
-                    className="rounded-xl border border-gray-100 p-3 text-sm dark:border-gray-700"
-                  >
-                    <div className="font-medium text-gray-900 dark:text-white">
-                      {price.hargaPaketId}
-                    </div>
-                    <div className="text-gray-500 dark:text-gray-400">
-                      {rupiahFormatter.format(price.price)} · {price.status}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                Belum ada override pricing reseller.
-              </div>
-            )}
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-            <div className="mb-4">
-              <h2 className="font-semibold text-gray-900 dark:text-white">
-                Komisi & settlement
+                Komisi terbaru
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Total 5 komisi terakhir:{" "}
@@ -469,11 +422,28 @@ export default function ResellersClient() {
           </div>
         </div>
       )}
+      {selectedReseller && (
+        <>
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <CommissionRulesPanel
+              resellerId={selectedReseller.id}
+              canManage={canManageCommission}
+            />
+            <SettlementsPanel
+              resellerId={selectedReseller.id}
+              canManage={canManageCommission}
+              onChanged={() => void commissionQuery.refetch()}
+            />
+          </div>
+          <ResellerReportPanel resellerId={selectedReseller.id} />
+        </>
+      )}
       <ResellerModal
         isOpen={isResellerModalOpen}
         isEditing={Boolean(editingReseller)}
         saving={saving}
         form={resellerForm}
+        savedForm={editingReseller ? toResellerForm(editingReseller) : null}
         onClose={() => setIsResellerModalOpen(false)}
         onSave={() => void saveReseller()}
         onChange={setResellerForm}

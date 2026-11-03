@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ResellerCustomerRelationService } from "@/modules/reseller/services/ResellerCustomerRelationService";
 import type { IResellerRepository } from "@/modules/reseller/domain/ports/IResellerRepository";
+import { EMPTY_RESELLER_COMPLIANCE_FIELDS } from "./reseller-fixtures";
 
 function createRepository(): IResellerRepository {
   return {
@@ -29,7 +30,9 @@ describe("ResellerCustomerRelationService", () => {
 
   beforeEach(() => {
     repository = createRepository();
-    service = new ResellerCustomerRelationService(repository);
+    service = new ResellerCustomerRelationService(repository, {
+      assertCanAcceptNewCustomer: vi.fn().mockResolvedValue(undefined),
+    });
   });
 
   it("accepts empty customer reseller relation for direct ISP customers", async () => {
@@ -54,6 +57,7 @@ describe("ResellerCustomerRelationService", () => {
       address: null,
       status: "ACTIVE",
       notes: null,
+      ...EMPTY_RESELLER_COMPLIANCE_FIELDS,
       createdAt: new Date("2026-07-08T00:00:00.000Z"),
       updatedAt: new Date("2026-07-08T00:00:00.000Z"),
       deletedAt: null,
@@ -105,6 +109,7 @@ describe("ResellerCustomerRelationService", () => {
       address: null,
       status: "ACTIVE",
       notes: null,
+      ...EMPTY_RESELLER_COMPLIANCE_FIELDS,
       createdAt: new Date("2026-07-08T00:00:00.000Z"),
       updatedAt: new Date("2026-07-08T00:00:00.000Z"),
       deletedAt: null,

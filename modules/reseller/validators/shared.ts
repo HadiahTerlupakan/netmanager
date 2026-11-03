@@ -1,9 +1,19 @@
 import * as z from "zod";
 
-export const RESELLER_STATUS_VALUES = ["ACTIVE", "INACTIVE"] as const;
+export const RESELLER_STATUS_VALUES = [
+  "ACTIVE",
+  "INACTIVE",
+  "SUSPENDED",
+  "TERMINATED",
+] as const;
 
-/** Status reseller/outlet yang boleh dikirim klien. */
+/** Status kemitraan reseller yang boleh dikirim klien. */
 export const resellerStatusSchema = z.enum(RESELLER_STATUS_VALUES);
+
+export const OUTLET_STATUS_VALUES = ["ACTIVE", "INACTIVE"] as const;
+
+/** Status outlet: tanpa SUSPENDED/TERMINATED, yang khusus kemitraan reseller. */
+export const outletStatusSchema = z.enum(OUTLET_STATUS_VALUES);
 
 /**
  * Ubah string kosong atau berisi spasi saja menjadi null.
@@ -41,3 +51,23 @@ export const optionalEmailSchema = z.preprocess(
   normalizeBlankToNull,
   z.email().nullable().optional(),
 );
+
+/** Teks opsional dengan panjang maksimum: kosong menjadi null. */
+export function boundedOptionalTextSchema(maxLength: number) {
+  return z.preprocess(
+    normalizeBlankToNull,
+    z.string().max(maxLength).nullable().optional(),
+  );
+}
+
+/** Kolom angka berformat tetap (mis. NIB, KBLI): kosong menjadi null. */
+export function optionalDigitsSchema(length: number, message: string) {
+  return z.preprocess(
+    normalizeBlankToNull,
+    z
+      .string()
+      .regex(new RegExp(`^\\d{${length}}$`), message)
+      .nullable()
+      .optional(),
+  );
+}

@@ -6,6 +6,7 @@ import {
 } from "@/lib/api";
 import {
   createResellerSchema,
+  getResellerComplianceService,
   getResellerService,
   listResellersQuerySchema,
 } from "@/modules/reseller";
@@ -15,10 +16,11 @@ export const GET = createHandler(
   async (_req, ctx) => {
     const tenantId = requireSessionTenantId(ctx);
     const query = listResellersQuerySchema.parse(ctx.query);
-    const result = await getResellerService().listResellers({
-      tenantId,
-      ...query,
-    });
+    const result =
+      await getResellerComplianceService().listResellersWithCompliance({
+        tenantId,
+        ...query,
+      });
 
     return apiPaginated([...result.items], {
       page: query.page,
@@ -39,6 +41,7 @@ export const POST = createHandler(
     const reseller = await getResellerService().createReseller({
       ...ctx.validated,
       tenantId: requireSessionTenantId(ctx),
+      actorId: ctx.session?.user.id ?? null,
     });
     return apiSuccess(reseller, { status: 201 });
   },

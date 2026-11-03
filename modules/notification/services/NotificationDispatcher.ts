@@ -1,8 +1,12 @@
 import { logger } from "@/lib/logger";
-import { getNotificationChannelToggles } from "@/modules/settings";
+import {
+  getGeneralSettings,
+  getNotificationChannelToggles,
+} from "@/modules/settings";
 import { redis } from "@/lib/redis";
 import { resolveCustomerContact, type CustomerContact } from "./channel-router";
 import {
+  appendIssuerSignOff,
   BILLING_TEMPLATES,
   type BillingTemplate,
   type BillingTemplateKey,
@@ -97,12 +101,42 @@ export class NotificationDispatcher {
       requestedChannels,
       contact.tenantId,
     );
+    const issuerName = await this.resolveIssuerName(contact.tenantId);
 
     await Promise.allSettled(
       channels.map((channel) =>
-        this.sendChannel(channel, contact, template, enrichedParams, input),
+        this.sendChannel(
+          channel,
+          contact,
+          template,
+          enrichedParams,
+          input,
+          issuerName,
+        ),
       ),
     );
+  }
+
+  /**
+   * Nama ISP (Pengaturan Umum › perusahaan) milik tenant pelanggan, untuk
+   * penutup pesan WhatsApp/email. Best-effort: gagal membaca pengaturan tidak
+   * menahan notifikasi, pesan hanya dikirim tanpa penutup.
+   */
+  private async resolveIssuerName(
+    tenantId: string | null | undefined,
+  ): Promise<string | undefined> {
+    if (!tenantId) return undefined;
+    try {
+      const settings = await getGeneralSettings(undefined, tenantId);
+      return settings.perusahaan.trim() || undefined;
+    } catch (err) {
+      logger.warn(
+        `[NotificationDispatcher] Gagal membaca nama perusahaan tenant ${tenantId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return undefined;
+    }
   }
 
   /**
@@ -162,6 +196,7 @@ export class NotificationDispatcher {
     template: BillingTemplate,
     params: BillingTemplateParams,
     input: NotificationDispatchInput,
+    issuerName: string | undefined,
   ): Promise<void> {
     try {
       switch (channel) {
@@ -172,10 +207,10 @@ export class NotificationDispatcher {
           await this.sendPush(contact, template, params, input);
           return;
         case "whatsapp":
-          await this.sendWhatsApp(contact, template, params);
+          await this.sendWhatsApp(contact, template, params, issuerName);
           return;
         case "email":
-          await this.sendEmail(contact, template, params);
+          await this.sendEmail(contact, template, params, issuerName);
           return;
       }
     } catch (error) {
@@ -244,11 +279,12 @@ export class NotificationDispatcher {
     contact: CustomerContact,
     template: BillingTemplate,
     params: BillingTemplateParams,
+    issuerName: string | undefined,
   ): Promise<void> {
     if (!contact.noTelp) return;
     const result = await new WhatsAppSenderService().send({
       phone: contact.noTelp,
-      message: template.whatsapp(params),
+      message: appendIssuerSignOff(template.whatsapp(params), issuerName),
       tenantId: contact.tenantId ?? undefined,
       accountType: "CUSTOMER",
     });
@@ -266,6 +302,7 @@ export class NotificationDispatcher {
     contact: CustomerContact,
     template: BillingTemplate,
     params: BillingTemplateParams,
+    issuerName: string | undefined,
   ): Promise<void> {
     if (!contact.email) return;
     if (!contact.tenantId) {
@@ -279,7 +316,7 @@ export class NotificationDispatcher {
       to: contact.email,
       subject: emailContent.subject,
       html: emailContent.html,
-      text: emailContent.body,
+      text: appendIssuerSignOff(emailContent.body, issuerName),
       tenantId: contact.tenantId,
       // Dedup billing notification 5 menit — cegah scheduler/event handler
       // mengirim ulang reminder/invoice yang sama dalam waktu dekat.

@@ -1,8 +1,11 @@
 import type {
   ResellerCommissionEntity,
+  ResellerCommissionRuleEntity,
+  ResellerCommissionRuleListItem,
   ResellerCommissionSummaryEntity,
   ResellerSettlementEntity,
 } from "../domain/entities/ResellerCommissionEntity";
+import type { ResellerMonthlyReport } from "../domain/entities/ResellerReportEntity";
 
 export interface ResellerCommissionDTO {
   readonly id: string;
@@ -37,9 +40,49 @@ export interface ResellerSettlementDTO {
   readonly createdAt: string;
   readonly approvedAt: string | null;
   readonly paidAt: string | null;
+  readonly approvedById: string | null;
+  readonly paidById: string | null;
+  readonly paymentMethod: string | null;
+  readonly paymentReference: string | null;
+  readonly paymentAccountId: string | null;
+}
+
+export interface ResellerCommissionRuleDTO {
+  readonly id: string;
+  readonly resellerId: string;
+  readonly hargaPaketId: string | null;
+  /** Nama paket; null untuk aturan semua paket atau respons simpan. */
+  readonly hargaPaketName: string | null;
+  readonly type: "PERCENTAGE" | "FIXED";
+  /** Persen bulat; null untuk aturan nominal. */
+  readonly rate: number | null;
+  /** Rupiah per invoice lunas; null untuk aturan persen. */
+  readonly fixedAmount: number | null;
+  readonly status: "ACTIVE" | "INACTIVE";
+  readonly startsAt: string;
+  readonly endsAt: string | null;
 }
 
 export type ResellerCommissionSummaryDTO = ResellerCommissionSummaryEntity;
+export type ResellerMonthlyReportDTO = ResellerMonthlyReport;
+
+/** Map aturan komisi ke DTO API. */
+export function toCommissionRuleDTO(
+  entity: ResellerCommissionRuleEntity | ResellerCommissionRuleListItem,
+): ResellerCommissionRuleDTO {
+  return {
+    id: entity.id,
+    resellerId: entity.resellerId,
+    hargaPaketId: entity.hargaPaketId,
+    hargaPaketName: "hargaPaketName" in entity ? entity.hargaPaketName : null,
+    type: entity.type,
+    rate: entity.rate,
+    fixedAmount: entity.fixedAmount,
+    status: entity.status === "ACTIVE" ? "ACTIVE" : "INACTIVE",
+    startsAt: entity.startsAt.toISOString(),
+    endsAt: entity.endsAt?.toISOString() ?? null,
+  };
+}
 
 export function toCommissionDTO(
   entity: ResellerCommissionEntity,
@@ -81,5 +124,10 @@ export function toSettlementDTO(
     createdAt: entity.createdAt.toISOString(),
     approvedAt: entity.approvedAt?.toISOString() ?? null,
     paidAt: entity.paidAt?.toISOString() ?? null,
+    approvedById: entity.approvedById,
+    paidById: entity.paidById,
+    paymentMethod: entity.paymentMethod,
+    paymentReference: entity.paymentReference,
+    paymentAccountId: entity.paymentAccountId,
   };
 }

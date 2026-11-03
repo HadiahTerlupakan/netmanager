@@ -3,10 +3,15 @@ import type {
   ResellerOutletEntity,
   ResellerPackagePriceEntity,
 } from "../domain/entities/ResellerEntity";
+import {
+  COMPLIANCE_ISSUE_LABELS,
+  type ResellerComplianceResult,
+} from "../domain/reseller-compliance";
 import type {
   ResellerDTO,
   ResellerOutletDTO,
   ResellerPackagePriceDTO,
+  ResellerWithComplianceDTO,
 } from "../dto/reseller.dto";
 
 export class ResellerMapper {
@@ -22,8 +27,42 @@ export class ResellerMapper {
       address: entity.address,
       status: entity.status,
       notes: entity.notes,
+      legalName: entity.legalName,
+      nib: entity.nib,
+      kbliCode: entity.kbliCode,
+      standardCertificateNumber: entity.standardCertificateNumber,
+      brandName: entity.brandName,
+      licenseVerifiedAt: entity.licenseVerifiedAt?.toISOString() ?? null,
+      licenseVerifiedById: entity.licenseVerifiedById,
+      statusReason: entity.statusReason,
+      statusChangedAt: entity.statusChangedAt?.toISOString() ?? null,
+      statusChangedById: entity.statusChangedById,
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),
+    };
+  }
+
+  /** Map reseller entity plus compliance evaluation to admin DTO. */
+  static toWithComplianceDTO(
+    entity: ResellerEntity,
+    compliance: ResellerComplianceResult,
+  ): ResellerWithComplianceDTO {
+    return {
+      ...ResellerMapper.toDTO(entity),
+      compliance: {
+        isCompliant: compliance.isCompliant,
+        issues: compliance.issues,
+        issueLabels: compliance.issues.map(
+          (issue) => COMPLIANCE_ISSUE_LABELS[issue],
+        ),
+        pks: {
+          status: compliance.pks.status,
+          documentId: compliance.pks.documentId,
+          startDate: compliance.pks.startDate?.toISOString() ?? null,
+          endDate: compliance.pks.endDate?.toISOString() ?? null,
+          daysLeft: compliance.pks.daysLeft,
+        },
+      },
     };
   }
 
