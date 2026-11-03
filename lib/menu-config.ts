@@ -228,7 +228,7 @@ export const ADMIN_MENU_CONFIG: MenuConfig[] = [
       {
         code: "INVENTORY.JASA",
         name: "Master Jasa",
-        path: "/admin/inventory/jasa",
+        path: "/admin/inventory/barang?tab=jasa",
         icon: "HiOutlineWrench",
       },
       {

@@ -12,7 +12,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 import { AdminSidebarHeader } from "@/components/layout/admin-sidebar/AdminSidebarHeader";
@@ -46,6 +46,7 @@ export const useSidebar = () => useContext(SidebarContext);
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const search = useSearchParams().toString();
   const { data: session } = useSession();
   const { navItems, appName, logoUrl } = useSidebarBranding();
   const { isOpen, setIsOpen, isMenuExpanded, toggleMenu } =
@@ -88,6 +89,7 @@ export default function Sidebar() {
         <AdminSidebarNav
           items={navItems}
           pathname={pathname}
+          search={search}
           isMenuExpanded={isMenuExpanded}
           onToggleMenu={toggleMenu}
         />

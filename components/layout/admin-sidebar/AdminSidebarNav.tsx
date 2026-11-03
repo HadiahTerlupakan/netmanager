@@ -6,12 +6,15 @@ import { renderAdminSidebarIcon } from "./adminSidebarIcons";
 import {
   getSidebarSectionContentId,
   hasActiveSidebarChild,
+  isSidebarChildActive,
   isSidebarItemActive,
 } from "./adminSidebarMenu";
 
 type AdminSidebarNavProps = {
   items: MenuConfig[];
   pathname: string;
+  /** Query string saat ini (tanpa `?`) untuk menu yang path-nya membawa query. */
+  search: string;
   isMenuExpanded: (code: string) => boolean;
   onToggleMenu: (code: string) => void;
 };
@@ -20,6 +23,7 @@ type AdminSidebarNavProps = {
 export function AdminSidebarNav({
   items,
   pathname,
+  search,
   isMenuExpanded,
   onToggleMenu,
 }: AdminSidebarNavProps) {
@@ -45,6 +49,7 @@ export function AdminSidebarNav({
               <AdminSidebarParentItem
                 item={item}
                 pathname={pathname}
+                search={search}
                 isExpanded={isMenuExpanded(item.code)}
                 onToggleMenu={onToggleMenu}
               />
@@ -52,7 +57,11 @@ export function AdminSidebarNav({
           ) : (
             <div key={item.code}>
               {sectionHeader}
-              <AdminSidebarLinkItem item={item} pathname={pathname} />
+              <AdminSidebarLinkItem
+                item={item}
+                pathname={pathname}
+                search={search}
+              />
             </div>
           );
         })}
@@ -64,6 +73,7 @@ export function AdminSidebarNav({
 type AdminSidebarItemProps = {
   item: MenuConfig;
   pathname: string;
+  search: string;
 };
 
 type AdminSidebarParentItemProps = AdminSidebarItemProps & {
@@ -74,10 +84,11 @@ type AdminSidebarParentItemProps = AdminSidebarItemProps & {
 function AdminSidebarParentItem({
   item,
   pathname,
+  search,
   isExpanded,
   onToggleMenu,
 }: AdminSidebarParentItemProps) {
-  const isActive = isSidebarItemActive({ item, pathname });
+  const isActive = isSidebarItemActive({ item, pathname, search });
   const hasActiveChild = hasActiveSidebarChild(item.children, pathname);
   const collapsibleContentId = getSidebarSectionContentId(item.code);
 
@@ -133,7 +144,9 @@ function AdminSidebarParentItem({
                 <AdminSidebarChildLink
                   key={child.path || child.code}
                   item={child}
+                  siblings={item.children ?? []}
                   pathname={pathname}
+                  search={search}
                 />
               ))}
             </div>
@@ -144,8 +157,12 @@ function AdminSidebarParentItem({
   );
 }
 
-function AdminSidebarLinkItem({ item, pathname }: AdminSidebarItemProps) {
-  const isActive = isSidebarItemActive({ item, pathname });
+function AdminSidebarLinkItem({
+  item,
+  pathname,
+  search,
+}: AdminSidebarItemProps) {
+  const isActive = isSidebarItemActive({ item, pathname, search });
   const itemPath = item.path || "";
 
   return (
@@ -176,11 +193,18 @@ function AdminSidebarLinkItem({ item, pathname }: AdminSidebarItemProps) {
   );
 }
 
-function AdminSidebarChildLink({ item, pathname }: AdminSidebarItemProps) {
+function AdminSidebarChildLink({
+  item,
+  siblings,
+  pathname,
+  search,
+}: AdminSidebarItemProps & { siblings: MenuConfig[] }) {
   const childPath = item.path || "#";
-  const isActive = isSidebarItemActive({
-    item: { ...item, path: childPath },
+  const isActive = isSidebarChildActive({
+    item,
+    siblings,
     pathname,
+    search,
   });
 
   return (

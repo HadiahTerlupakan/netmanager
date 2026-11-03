@@ -1,10 +1,8 @@
-import { ensurePermission } from "@/lib/rbac";
-import JasaList from "./JasaList";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
+import { buildInventoryCatalogTabHref } from "../barang/catalogTabs";
 
-export default async function JasaPage() {
-  await ensurePermission("jasa:read");
-
-  return <JasaList />;
+/** Alamat lama Master Jasa; daftar jasa kini tab di halaman Manajemen Barang. */
+export default function JasaPage(): never {
+  redirect(buildInventoryCatalogTabHref("jasa"));
 }

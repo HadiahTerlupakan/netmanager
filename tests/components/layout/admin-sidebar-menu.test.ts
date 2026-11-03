@@ -4,6 +4,8 @@ import { ADMIN_MENU_CONFIG, type MenuConfig } from "@/lib/menu-config";
 import {
   filterAdminMenuItems,
   getSidebarSectionContentId,
+  hasActiveSidebarChild,
+  isSidebarChildActive,
   isSidebarItemActive,
 } from "@/components/layout/admin-sidebar/adminSidebarMenu";
 
@@ -135,5 +137,57 @@ describe("adminSidebarMenu", () => {
       "PENGATURAN.HALAMAN_ISOLIR",
     ]);
     expect(visibleChildren(["logo:read"])).toEqual(["PENGATURAN.LOGO"]);
+  });
+});
+
+describe("menu inventory Master Barang / Master Jasa (tab ?tab=jasa)", () => {
+  const inventoryChildren =
+    ADMIN_MENU_CONFIG.find((item) => item.code === "INVENTORY")?.children ?? [];
+  const barangMenu = inventoryChildren.find(
+    (child) => child.code === "INVENTORY.BARANG",
+  ) as MenuConfig;
+  const jasaMenu = inventoryChildren.find(
+    (child) => child.code === "INVENTORY.JASA",
+  ) as MenuConfig;
+
+  function activeNames(pathname: string, search: string): string[] {
+    return [barangMenu, jasaMenu]
+      .filter((item) =>
+        isSidebarChildActive({
+          item,
+          siblings: inventoryChildren,
+          pathname,
+          search,
+        }),
+      )
+      .map((item) => item.name);
+  }
+
+  it("Master Jasa menunjuk ke tab jasa di halaman barang", () => {
+    expect(jasaMenu.path).toBe("/admin/inventory/barang?tab=jasa");
+  });
+
+  it("hanya Master Jasa yang menyala di tab jasa", () => {
+    expect(activeNames("/admin/inventory/barang", "tab=jasa")).toEqual([
+      "Master Jasa",
+    ]);
+  });
+
+  it("hanya Master Barang yang menyala di tab barang dan halaman turunannya", () => {
+    expect(activeNames("/admin/inventory/barang", "")).toEqual([
+      "Master Barang",
+    ]);
+    expect(activeNames("/admin/inventory/barang", "tab=barang")).toEqual([
+      "Master Barang",
+    ]);
+    expect(activeNames("/admin/inventory/barang/new", "")).toEqual([
+      "Master Barang",
+    ]);
+  });
+
+  it("parent inventory tetap terbuka saat tab jasa aktif", () => {
+    expect(
+      hasActiveSidebarChild(inventoryChildren, "/admin/inventory/barang"),
+    ).toBe(true);
   });
 });

@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-03] — Tab Barang dan Jasa di Manajemen Barang
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/inventory/barang`, `app/admin/inventory/jasa`, `components/layout/admin-sidebar`, `lib/menu-config.ts`
+- **Author**: agent
+- **Deskripsi**: Halaman Manajemen Barang kini punya tab **Barang** dan **Jasa**
+  (`?tab=jasa`) agar barang dan jasa tidak bercampur. Daftar & form jasa dipindah
+  dari halaman Master Jasa (tanpa duplikasi); `/admin/inventory/jasa` mengalihkan
+  ke tab Jasa. Izin per tab tetap (`barang:read`/`jasa:read`, tombol tambah
+  `barang:create`/`jasa:create`); tab tanpa izin disembunyikan, statistik
+  inventory hanya untuk pemegang `barang:read`, pengguna jasa-saja diarahkan ke
+  tab Jasa. Sidebar kini mencocokkan query string sehingga "Master Jasa" menyala
+  di tab Jasa dan "Master Barang" tidak.
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-03] — Alias pembatas lingkup lama ikut terbaca
 
 - **Tipe**: [SECURITY]

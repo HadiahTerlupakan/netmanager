@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FiEdit2, FiPlus, FiSearch, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import toast from "react-hot-toast";
 
 import { deleteWithAuth, getWithAuth } from "@/lib/api-client";
 import { usePermission } from "@/hooks/use-permission";
 import type { Jasa } from "../restock/types";
-import JasaFormModal from "./JasaFormModal";
 import {
   describeClientError,
   readApiErrorMessage,
@@ -26,17 +25,21 @@ function formatRupiah(value: number): string {
   }).format(value);
 }
 
-export default function JasaList() {
+type JasaListProps = {
+  /** Naik setiap kali jasa tersimpan dari modal, memicu muat ulang daftar. */
+  reloadKey: number;
+  onEdit: (jasa: Jasa) => void;
+};
+
+/** Daftar jasa dengan pencarian, sunting, dan hapus; pembuatan jasa diurus panel tab. */
+export default function JasaList({ reloadKey, onEdit }: JasaListProps) {
   const { hasPermission } = usePermission();
-  const canCreate = hasPermission("jasa:create");
   const canUpdate = hasPermission("jasa:update");
   const canDelete = hasPermission("jasa:delete");
 
   const [jasaList, setJasaList] = useState<Jasa[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingJasa, setEditingJasa] = useState<Jasa | null>(null);
 
   const fetchJasa = useCallback(async () => {
     setLoading(true);
@@ -58,7 +61,7 @@ export default function JasaList() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchJasa();
-  }, [fetchJasa]);
+  }, [fetchJasa, reloadKey]);
 
   const handleDelete = async (id: string, nama: string) => {
     if (!window.confirm(`Hapus jasa "${nama}"?`)) return;
@@ -74,59 +77,22 @@ export default function JasaList() {
     }
   };
 
-  const handleOpenCreate = () => {
-    setEditingJasa(null);
-    setModalOpen(true);
-  };
-
-  const handleOpenEdit = (jasa: Jasa) => {
-    setEditingJasa(jasa);
-    setModalOpen(true);
-  };
-
-  const handleModalClose = () => {
-    setModalOpen(false);
-    setEditingJasa(null);
-  };
-
-  const handleModalSuccess = () => {
-    handleModalClose();
-    fetchJasa();
-  };
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-[2rem] font-black tracking-[-0.04em] text-gray-900 dark:text-white">
-            Master Jasa
-          </h1>
-          <p className="max-w-[42rem] text-sm font-medium text-gray-600 dark:text-gray-400">
-            Kelola daftar item jasa non-fisik untuk pengajuan restock
-          </p>
+    <div>
+      <div className="px-6 py-4">
+        <div className="relative max-w-sm">
+          <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-[0.95rem] text-gray-400" />
+          <input
+            type="text"
+            placeholder="Cari kode atau nama jasa..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-12 w-full rounded-[1.5rem] border border-gray-200 bg-white pl-11 pr-4 text-sm font-medium text-gray-800 shadow-sm transition-all placeholder:text-gray-400 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-violet-500 dark:focus:ring-violet-950/40"
+          />
         </div>
-        {canCreate && (
-          <button
-            onClick={handleOpenCreate}
-            className="inline-flex h-12 items-center justify-center gap-2 self-start rounded-[1.75rem] bg-violet-600 px-5 text-sm font-black tracking-[-0.03em] text-white shadow-lg shadow-violet-500/20 transition-all hover:bg-violet-500 active:scale-[0.98] md:self-auto"
-          >
-            <FiPlus className="text-base" /> Tambah Jasa
-          </button>
-        )}
       </div>
 
-      <div className="relative max-w-sm">
-        <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-[0.95rem] text-gray-400" />
-        <input
-          type="text"
-          placeholder="Cari kode atau nama jasa..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-12 w-full rounded-[1.5rem] border border-gray-200 bg-white pl-11 pr-4 text-sm font-medium text-gray-800 shadow-sm transition-all placeholder:text-gray-400 focus:border-violet-400 focus:outline-none focus:ring-4 focus:ring-violet-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-violet-500 dark:focus:ring-violet-950/40"
-        />
-      </div>
-
-      <div className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-xl shadow-slate-200/60 dark:border-gray-700 dark:bg-gray-800 dark:shadow-none">
+      <div className="overflow-hidden border-t border-gray-100 dark:border-gray-700">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent" />
@@ -224,7 +190,7 @@ export default function JasaList() {
                         <div className="flex items-center justify-end gap-1.5">
                           {canUpdate && (
                             <button
-                              onClick={() => handleOpenEdit(jasa)}
+                              onClick={() => onEdit(jasa)}
                               title="Edit"
                               aria-label={`Edit ${jasa.nama}`}
                               className="inline-flex min-w-[2.25rem] items-center justify-center rounded-xl p-2 text-blue-600 transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/30"
@@ -252,14 +218,6 @@ export default function JasaList() {
           </div>
         )}
       </div>
-
-      <JasaFormModal
-        key={editingJasa?.id ?? "create"}
-        isOpen={modalOpen}
-        editingJasa={editingJasa}
-        onClose={handleModalClose}
-        onSuccess={handleModalSuccess}
-      />
     </div>
   );
 }

@@ -23,7 +23,7 @@ export function QuickActions() {
       permission: "barang:create",
     },
     {
-      href: "/admin/inventory/jasa",
+      href: "/admin/inventory/barang?tab=jasa",
       label: "Master Jasa",
       icon: <FiTool className="w-5 h-5 text-white" />,
       color:

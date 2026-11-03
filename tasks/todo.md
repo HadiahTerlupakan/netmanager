@@ -1,3 +1,25 @@
+# Rencana: Tab Barang | Jasa di Manajemen Barang (2026-11-03)
+
+Status: **dikerjakan**
+
+## Temuan
+- `/admin/inventory/barang` hanya membaca tabel `barang`; jasa punya master sendiri
+  (`jasa`, 7 item) di menu terpisah "Master Jasa" (`/admin/inventory/jasa`).
+- Produksi: barang "Pasang Baru Listrik 220" (BRG740743153, pcs, stok 0) adalah jasa
+  yang juga ada di master Jasa (JSA-20260724-880) — data, tidak dihapus otomatis.
+
+## Keputusan
+- [Asumsi] Halaman Manajemen Barang punya tab **Barang** dan **Jasa**; tab Jasa memakai
+  `JasaList` yang ada; `?tab=jasa` bisa dibuka langsung; menu "Master Jasa" & rute lama
+  mengarah ke tab itu. Tab Jasa hanya tampil bila punya izin baca jasa. Tombol
+  "Tambah" mengikuti tab aktif.
+
+## Langkah
+- [x] Implementasi + tes; review independen (3 temuan diperbaiki: statistik tab Jasa untuk
+      pengguna jasa-saja, redirect tanpa `?tab`, tes); typecheck, lint, tes penuh
+      (1351 file / 10174 tes); changelog; commit lokal.
+- [ ] Push setelah "push"; cek halaman produksi.
+
 # Rencana: Notifikasi WO bisa dibuka verifikator di mobile (2026-11-03)
 
 Status: **selesai & terverifikasi di HP** (server `030e3e7b7` + `876a82ad0`, OTA mobile `b125034`)

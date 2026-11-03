@@ -42,6 +42,7 @@ describe("AdminSidebarNav", () => {
       <AdminSidebarNav
         items={[parentItem]}
         pathname="/admin/dashboard"
+        search=""
         isMenuExpanded={() => false}
         onToggleMenu={() => {}}
       />,
@@ -57,6 +58,7 @@ describe("AdminSidebarNav", () => {
       <AdminSidebarNav
         items={[parentItem]}
         pathname="/admin/system/log-login"
+        search=""
         isMenuExpanded={() => true}
         onToggleMenu={() => {}}
       />,

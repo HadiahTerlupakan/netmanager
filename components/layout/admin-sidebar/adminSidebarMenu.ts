@@ -27,6 +27,16 @@ type FilterAdminMenuItemsParams = {
 type SidebarPathCheckParams = {
   item: Pick<MenuConfig, "path" | "exact">;
   pathname: string;
+  /**
+   * Query string halaman saat ini (tanpa `?`). Hanya dipakai item yang
+   * path-nya membawa query, mis. `/admin/inventory/barang?tab=jasa`.
+   */
+  search?: string;
+};
+
+type SidebarChildCheckParams = SidebarPathCheckParams & {
+  item: MenuConfig;
+  siblings: MenuConfig[];
 };
 
 const MIKROTIK_API_MODE = "MIKROTIK_API";
@@ -54,15 +64,26 @@ export function filterAdminMenuItems({
     .filter((item): item is MenuConfig => item !== null);
 }
 
-/** Tujuan: menentukan status aktif item sidebar berdasarkan pathname saat ini. */
+/**
+ * Tujuan: menentukan status aktif item sidebar berdasarkan pathname saat ini.
+ * Item yang path-nya membawa query (mis. `?tab=jasa`) hanya aktif bila
+ * pathname sama persis dan seluruh pasangan query-nya ada di `search`.
+ */
 export function isSidebarItemActive({
   item,
   pathname,
+  search = "",
 }: SidebarPathCheckParams): boolean {
-  const itemPath = item.path || "";
+  const { basePath: itemPath, query: itemQuery } = splitMenuPath(
+    item.path || "",
+  );
 
   if (!itemPath) {
     return false;
+  }
+
+  if (itemQuery) {
+    return pathname === itemPath && hasAllQueryPairs(search, itemQuery);
   }
 
   if (item.exact) {
@@ -70,6 +91,33 @@ export function isSidebarItemActive({
   }
 
   return pathname === itemPath || pathname.startsWith(itemPath + "/");
+}
+
+/**
+ * Tujuan: status aktif sebuah child di antara saudaranya. Child tanpa query
+ * mengalah bila saudara ber-query yang lebih spesifik sedang aktif, supaya
+ * "Master Barang" tidak ikut menyala saat "Master Jasa" (`?tab=jasa`) aktif.
+ */
+export function isSidebarChildActive({
+  item,
+  siblings,
+  pathname,
+  search = "",
+}: SidebarChildCheckParams): boolean {
+  if (!isSidebarItemActive({ item, pathname, search })) {
+    return false;
+  }
+
+  if (splitMenuPath(item.path || "").query) {
+    return true;
+  }
+
+  return !siblings.some(
+    (sibling) =>
+      sibling !== item &&
+      Boolean(splitMenuPath(sibling.path || "").query) &&
+      isSidebarItemActive({ item: sibling, pathname, search }),
+  );
 }
 
 /** Tujuan: menentukan apakah parent sidebar memiliki child yang aktif. */
@@ -82,7 +130,31 @@ export function hasActiveSidebarChild(
   }
 
   return children.some((child) =>
-    isSidebarItemActive({ item: child, pathname }),
+    isSidebarItemActive({
+      item: {
+        path: splitMenuPath(child.path || "").basePath,
+        exact: child.exact,
+      },
+      pathname,
+    }),
+  );
+}
+
+function splitMenuPath(path: string): { basePath: string; query: string } {
+  const queryStart = path.indexOf("?");
+  if (queryStart === -1) {
+    return { basePath: path, query: "" };
+  }
+  return {
+    basePath: path.slice(0, queryStart),
+    query: path.slice(queryStart + 1),
+  };
+}
+
+function hasAllQueryPairs(search: string, requiredQuery: string): boolean {
+  const current = new URLSearchParams(search);
+  return Array.from(new URLSearchParams(requiredQuery)).every(
+    ([key, value]) => current.get(key) === value,
   );
 }
 
