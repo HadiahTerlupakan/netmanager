@@ -172,10 +172,9 @@ describe("/api/admin/resellers/compliance-setting", () => {
       validated: { isComplianceRequired: true },
     });
 
-    expect(mocks.updateComplianceSetting).toHaveBeenCalledWith(
-      "tenant-1",
-      true,
-    );
+    expect(mocks.updateComplianceSetting).toHaveBeenCalledWith("tenant-1", {
+      isComplianceRequired: true,
+    });
   });
 
   it("PUT butuh izin pengaturan umum DAN reseller (bukan salah satu)", () => {

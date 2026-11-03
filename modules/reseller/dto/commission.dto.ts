@@ -1,4 +1,5 @@
 import type {
+  ResellerCommissionAdjustmentEntity,
   ResellerCommissionEntity,
   ResellerCommissionRuleEntity,
   ResellerCommissionRuleListItem,
@@ -19,7 +20,7 @@ export interface ResellerCommissionDTO {
   readonly rate: number | null;
   readonly baseAmount: number;
   readonly commissionAmount: number;
-  readonly status: "ACCRUED" | "SETTLED" | "PAID";
+  readonly status: "ACCRUED" | "SETTLED" | "PAID" | "REVERSED";
   readonly period: string;
   readonly settlementId: string | null;
   readonly accruedAt: string;
@@ -33,7 +34,12 @@ export interface ResellerSettlementDTO {
   readonly resellerId: string;
   readonly periodStart: string;
   readonly periodEnd: string;
+  /** Yang dibayarkan: `grossAmount - adjustmentAmount`. */
   readonly totalAmount: number;
+  /** Jumlah komisi di settlement sebelum koreksi. */
+  readonly grossAmount: number;
+  /** Koreksi (clawback) yang dipotongkan. */
+  readonly adjustmentAmount: number;
   readonly commissionCount: number;
   readonly status: "PENDING" | "APPROVED" | "PAID";
   readonly notes: string | null;
@@ -45,6 +51,20 @@ export interface ResellerSettlementDTO {
   readonly paymentMethod: string | null;
   readonly paymentReference: string | null;
   readonly paymentAccountId: string | null;
+}
+
+/** Koreksi (clawback) komisi yang sudah dibayar. */
+export interface ResellerCommissionAdjustmentDTO {
+  readonly id: string;
+  readonly resellerId: string;
+  readonly pelangganId: string;
+  readonly invoiceId: string;
+  readonly sourceCommissionId: string;
+  readonly amount: number;
+  /** Bagian yang belum dipotongkan dari settlement. */
+  readonly remainingAmount: number;
+  readonly reason: string;
+  readonly createdAt: string;
 }
 
 export interface ResellerCommissionRuleDTO {
@@ -118,6 +138,8 @@ export function toSettlementDTO(
     periodStart: entity.periodStart.toISOString(),
     periodEnd: entity.periodEnd.toISOString(),
     totalAmount: entity.totalAmount,
+    grossAmount: entity.totalAmount + entity.adjustmentAmount,
+    adjustmentAmount: entity.adjustmentAmount,
     commissionCount: entity.commissionCount,
     status: entity.status,
     notes: entity.notes,
@@ -129,5 +151,22 @@ export function toSettlementDTO(
     paymentMethod: entity.paymentMethod,
     paymentReference: entity.paymentReference,
     paymentAccountId: entity.paymentAccountId,
+  };
+}
+
+/** Map koreksi komisi ke DTO API. */
+export function toCommissionAdjustmentDTO(
+  entity: ResellerCommissionAdjustmentEntity,
+): ResellerCommissionAdjustmentDTO {
+  return {
+    id: entity.id,
+    resellerId: entity.resellerId,
+    pelangganId: entity.pelangganId,
+    invoiceId: entity.invoiceId,
+    sourceCommissionId: entity.sourceCommissionId,
+    amount: entity.amount,
+    remainingAmount: entity.remainingAmount,
+    reason: entity.reason,
+    createdAt: entity.createdAt.toISOString(),
   };
 }

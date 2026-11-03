@@ -41,6 +41,68 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-03] — Clawback komisi reseller saat invoice di-void
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/reseller`, `modules/accounting`, `lib/event-bus`, `app/api/admin/resellers`, `app/admin/resellers`
+- **Author**: agent
+- **Deskripsi**: Void/penarikan pelunasan kini juga menangani komisi yang sudah disettle:
+  - Settlement PENDING/APPROVED: komisi dikeluarkan, jurnal akru dibalik, total dihitung
+    ulang; settlement APPROVED kembali ke PENDING (wajib disetujui ulang); settlement yang
+    jadi kosong dibatalkan.
+  - Settlement PAID: komisi `REVERSED` + koreksi (`ResellerCommissionAdjustment`) yang
+    otomatis memotong settlement berikutnya (tidak di bawah 0, sisa terbawa); jurnal
+    Dr Utang Komisi 2-370 / Cr Beban Komisi 5-820 via event `reseller:commission.clawed_back`.
+  - Invoice yang lunas lagi menerbitkan ulang komisi REVERSED; koreksi unik per akrual.
+  - Kunci invoice → reseller → settlement → komisi mencegah balapan dengan pembuatan settlement.
+  - Kolom "Koreksi" di panel settlement, laporan bulanan, dan CSV;
+    `GET /api/admin/resellers/[id]/commission-adjustments`.
+- **Migration**: `20261103132611_add_reseller_commission_clawback`,
+  `20261103140257_allow_repeat_reseller_commission_clawback_per_accrual`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Riwayat status kemitraan reseller
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/reseller`, `app/api/admin/resellers/[id]/status-history`, `app/admin/resellers`
+- **Author**: agent
+- **Deskripsi**: Tabel `ResellerStatusHistory` diisi dalam transaksi yang sama dengan setiap
+  perubahan status (create non-ACTIVE, update, soft delete; baris reseller dikunci).
+  Endpoint `GET /api/admin/resellers/[id]/status-history` (paginasi) dan daftar riwayat di
+  panel "Kepatuhan & kemitraan".
+- **Migration**: `20261103131523_add_reseller_status_history`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Persen komisi reseller desimal
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `modules/reseller`, `app/admin/resellers`
+- **Author**: agent
+- **Deskripsi**: `rate` di `ResellerCommissionRule` dan `ResellerCommission` diubah ke
+  `DECIMAL(5,2)` (0,01–100, maks 2 desimal; form menerima koma/titik). Hitungan memakai
+  basis poin bulat agar bebas galat float. Produksi: 0 baris terdampak (dicek 2026-11-03).
+- **Migration**: `20261103130731_change_reseller_commission_rate_to_decimal`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Opsi pemisahan penyetuju & pembayar settlement
+
+- **Tipe**: [ADDED]
+- **Scope**: `modules/reseller`, `app/api/admin/resellers/compliance-setting`, `app/admin/resellers`
+- **Author**: agent
+- **Deskripsi**: Pengaturan tenant `RESELLER_SETTLEMENT_SEPARATE_APPROVER` (default OFF);
+  bila ON, penyetuju tidak bisa menandai settlement PAID (403). Badge peringatan bila
+  penyetuju = pembayar. Endpoint compliance-setting kini menerima patch per sakelar.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-03] — Tes DB push FCM disesuaikan
+
+- **Tipe**: [FIXED]
+- **Scope**: `tests/db`
+- **Author**: agent
+- **Deskripsi**: `tests/db/customer-fcm-tokens.test.ts` masih mengharapkan push Expo yang
+  sudah dihapus di `7b9416f88`; kini memastikan push hanya lewat FCM.
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-03] — Kepatuhan & status kemitraan reseller (model agen)
 
 - **Tipe**: [ADDED]

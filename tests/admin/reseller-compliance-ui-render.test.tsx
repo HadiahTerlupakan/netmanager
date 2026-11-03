@@ -22,7 +22,10 @@ vi.mock("react-hot-toast", () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError },
 }));
 
-import { ComplianceSettingToggle } from "@/app/admin/resellers/ComplianceSettingToggle";
+import {
+  ComplianceSettingToggle,
+  SettlementApproverSettingToggle,
+} from "@/app/admin/resellers/ComplianceSettingToggle";
 import {
   PartnershipStatusCell,
   PksStatusBadge,
@@ -349,5 +352,48 @@ describe("ComplianceSettingToggle", () => {
 
   it("tanpa izin pengaturan sakelar dinonaktifkan", () => {
     expect(renderToggle(false).disabled).toBe(true);
+  });
+});
+
+describe("SettlementApproverSettingToggle", () => {
+  function renderToggle(isEnabled: boolean) {
+    mocks.useApi.mockReturnValue({
+      data: {
+        isComplianceRequired: true,
+        isSettlementSeparateApproverRequired: isEnabled,
+      },
+      mutate: mocks.mutate,
+    });
+    act(() => root.render(<SettlementApproverSettingToggle canUpdate />));
+    const checkbox = container.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
+    if (!checkbox) throw new Error("checkbox tidak ada");
+    return checkbox;
+  }
+
+  it("membaca sakelarnya sendiri, bukan sakelar kepatuhan", () => {
+    expect(renderToggle(false).checked).toBe(false);
+    expect(container.textContent).toContain(
+      "Pisahkan penyetuju dan pembayar settlement",
+    );
+  });
+
+  it("mengubah hanya sakelar pemisahan tugas lewat endpoint yang sama", async () => {
+    mocks.fetchWithHandling.mockResolvedValueOnce({});
+    const checkbox = renderToggle(false);
+
+    await act(async () => {
+      checkbox.click();
+    });
+
+    expect(mocks.fetchWithHandling).toHaveBeenCalledWith(
+      "/api/admin/resellers/compliance-setting",
+      {
+        method: "PUT",
+        body: JSON.stringify({ isSettlementSeparateApproverRequired: true }),
+      },
+    );
+    expect(mocks.mutate).toHaveBeenCalled();
   });
 });

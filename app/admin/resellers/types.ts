@@ -79,12 +79,22 @@ export type ResellerOutlet = {
   readonly status: OutletStatus;
 };
 
+/** Satu baris riwayat status kemitraan (`/status-history`). */
+export type ResellerStatusHistoryItem = {
+  readonly id: string;
+  readonly fromStatus: ResellerStatus | null;
+  readonly toStatus: ResellerStatus;
+  readonly reason: string | null;
+  readonly changedById: string | null;
+  readonly changedAt: string;
+};
+
 export type ResellerCommission = {
   readonly id: string;
   readonly invoiceId: string;
   readonly pelangganId: string;
   readonly commissionAmount: number;
-  readonly status: "ACCRUED" | "SETTLED" | "PAID";
+  readonly status: "ACCRUED" | "SETTLED" | "PAID" | "REVERSED";
   readonly period: string;
   readonly accruedAt: string;
 };

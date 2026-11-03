@@ -1,20 +1,26 @@
 import type { ResellerSettlementEntity } from "../domain/entities/ResellerCommissionEntity";
 import type { IResellerAccountingEvents } from "../domain/ports/IResellerAccountingEvents";
+import type { IResellerComplianceSettings } from "../domain/ports/IResellerComplianceSettings";
 import type {
   IResellerSettlementRepository,
   SettlementPaymentAccount,
 } from "../domain/ports/IResellerSettlementRepository";
 import {
   ResellerConflictError,
+  ResellerForbiddenError,
   ResellerNotFoundError,
   ResellerValidationError,
 } from "../errors/reseller-errors";
 import { ResellerSettlementRepository } from "../repositories/ResellerSettlementRepository";
 import { EventBusResellerAccountingEvents } from "./event-bus-accounting-events";
+import { TenantResellerComplianceSettings } from "./reseller-compliance-settings";
 
 const SETTLEMENT_NOT_FOUND_MESSAGE = "Settlement reseller tidak ditemukan";
 const INSUFFICIENT_BALANCE_MESSAGE =
   "Saldo rekening tidak mencukupi untuk membayar settlement ini";
+const SAME_APPROVER_PAYER_MESSAGE =
+  "Pemisahan tugas aktif: settlement harus dibayar oleh pengguna lain, " +
+  "bukan pengguna yang menyetujuinya";
 /** Toleransi jam server vs jam klien untuk tanggal bayar "hari ini". */
 const FUTURE_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
@@ -40,12 +46,20 @@ interface PaySettlementInput extends SettlementRef {
  * disetujui, setujui yang sudah dibayar) ditolak 409. Pembayaran dikabarkan
  * ke accounting (Dr Utang Komisi / Cr Kas/Bank); ulangan bayar mengirim ulang
  * event yang sama, dan jurnalnya idempoten per settlement.
+ *
+ * Bila tenant menyalakan RESELLER_SETTLEMENT_SEPARATE_APPROVER, pengguna yang
+ * menyetujui settlement tidak boleh menandainya dibayar (403). Pemeriksaan
+ * "penyetuju ≠ pembuat" belum ada karena settlement tidak menyimpan pembuat.
  */
 export class ResellerSettlementLifecycleService {
   constructor(
     private readonly repository: IResellerSettlementRepository = new ResellerSettlementRepository(),
     private readonly accountingEvents: IResellerAccountingEvents = new EventBusResellerAccountingEvents(),
     private readonly now: () => Date = () => new Date(),
+    private readonly settings: Pick<
+      IResellerComplianceSettings,
+      "isSettlementSeparateApproverRequired"
+    > = new TenantResellerComplianceSettings(),
   ) {}
 
   /**
@@ -75,6 +89,8 @@ export class ResellerSettlementLifecycleService {
    * @throws ResellerValidationError rekening bukan milik tenant/nonaktif,
    *   saldonya kurang dari total settlement, atau tanggal bayar di masa depan.
    * @throws ResellerConflictError settlement belum disetujui.
+   * @throws ResellerForbiddenError pemisahan tugas aktif dan pembayar adalah
+   *   penyetuju settlement.
    */
   async markPaid(input: PaySettlementInput): Promise<ResellerSettlementEntity> {
     const current = await this.findOrThrow(input);
@@ -87,6 +103,7 @@ export class ResellerSettlementLifecycleService {
         "Settlement harus disetujui sebelum ditandai dibayar",
       );
     }
+    await this.assertPayerIsNotApprover(current, input);
     await this.assertPaymentValid(input);
 
     const outcome = await this.repository.markPaid({
@@ -118,6 +135,23 @@ export class ResellerSettlementLifecycleService {
     tenantId: string,
   ): Promise<readonly SettlementPaymentAccount[]> {
     return this.repository.listPaymentAccounts(tenantId);
+  }
+
+  /**
+   * Pemisahan tugas: tolak bila pembayar = penyetuju dan tenant mewajibkannya.
+   * Penyetuju atau pembayar yang tidak diketahui (null) tidak bisa
+   * dibandingkan, jadi tidak diblokir.
+   */
+  private async assertPayerIsNotApprover(
+    settlement: ResellerSettlementEntity,
+    input: PaySettlementInput,
+  ): Promise<void> {
+    if (!input.tenantId || !input.actorId) return;
+    if (settlement.approvedById !== input.actorId) return;
+    const isSeparationRequired =
+      await this.settings.isSettlementSeparateApproverRequired(input.tenantId);
+    if (!isSeparationRequired) return;
+    throw new ResellerForbiddenError(SAME_APPROVER_PAYER_MESSAGE);
   }
 
   private async assertPaymentValid(input: PaySettlementInput): Promise<void> {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   calculateCommissionAmount,
   calculateCommissionBase,
+  percentToBasisPoints,
 } from "@/modules/reseller/domain/commission-base";
 import { ResellerCommissionService } from "@/modules/reseller/services/ResellerCommissionService";
 import type { IResellerCommissionRepository } from "@/modules/reseller/domain/ports/IResellerCommissionRepository";
@@ -84,6 +85,33 @@ describe("calculateCommissionAmount", () => {
     ).toBe(7000);
   });
 
+  it.each([
+    // 2,5% × 100.001 = 2.500,025 → 2.500
+    [2.5, 100001, 2500],
+    // 2,55% × 100.000 = 2.550 tepat; float naif (2.55*100000/100) = 2549.999…
+    [2.55, 100000, 2550],
+    [0.07, 1000000, 700],
+    [0.29, 100, 0],
+    [33.33, 300, 99],
+    [100, 123456, 123456],
+  ])(
+    "persen desimal %d%% dari DPP %d dihitung eksak = %d",
+    (rate, baseAmount, expected) => {
+      expect(
+        calculateCommissionAmount(
+          { type: "PERCENTAGE", rate, fixedAmount: null },
+          baseAmount,
+        ),
+      ).toBe(expected);
+    },
+  );
+
+  it("basis poin menyerap galat float persen", () => {
+    expect(percentToBasisPoints(2.55)).toBe(255);
+    expect(percentToBasisPoints(0.29)).toBe(29);
+    expect(percentToBasisPoints(10)).toBe(1000);
+  });
+
   it("memberi nominal tetap untuk DPP positif", () => {
     expect(
       calculateCommissionAmount(
@@ -144,8 +172,8 @@ function createRepository(): IResellerCommissionRepository {
         }) as ResellerCommissionEntity,
     ),
     resellerExists: vi.fn(),
-    cancelAccruedByInvoiceId: vi.fn(),
     restoreCancelledCommission: vi.fn(),
+    reaccrueReversedCommission: vi.fn(),
     findCommissions: vi.fn(),
     createSettlement: vi.fn(),
     findSettlements: vi.fn(),
@@ -162,6 +190,7 @@ function setup(amounts: {
   const accountingEvents = {
     commissionAccrued: vi.fn(),
     commissionCancelled: vi.fn(),
+    commissionClawedBack: vi.fn(),
     settlementPaid: vi.fn(),
   };
   const service = new ResellerCommissionService(

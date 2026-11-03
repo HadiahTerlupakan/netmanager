@@ -24,6 +24,7 @@ import {
   handleAdvanceDisbursedAccounting,
   handleResellerCommissionAccruedAccounting,
   handleResellerCommissionCancelledAccounting,
+  handleResellerCommissionClawedBackAccounting,
   handleResellerSettlementPaidAccounting,
 } from "@/modules/accounting";
 import {
@@ -642,6 +643,10 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.RESELLER_COMMISSION_CANCELLED,
     handleResellerCommissionCancelledAccounting,
+  );
+  registerEventHandler(
+    EVENT_NAMES.RESELLER_COMMISSION_CLAWED_BACK,
+    handleResellerCommissionClawedBackAccounting,
   );
   registerEventHandler(
     EVENT_NAMES.RESELLER_SETTLEMENT_PAID,

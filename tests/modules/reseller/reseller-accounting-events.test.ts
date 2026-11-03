@@ -6,6 +6,7 @@ vi.mock("@/lib/event-bus", () => ({
   EVENT_NAMES: {
     RESELLER_COMMISSION_ACCRUED: "reseller:commission.accrued",
     RESELLER_COMMISSION_CANCELLED: "reseller:commission.cancelled",
+    RESELLER_COMMISSION_CLAWED_BACK: "reseller:commission.clawed_back",
     RESELLER_SETTLEMENT_PAID: "reseller:settlement.paid",
   },
 }));
@@ -13,6 +14,7 @@ vi.mock("@/lib/event-bus", () => ({
 import { EventBusResellerAccountingEvents } from "@/modules/reseller/services/event-bus-accounting-events";
 import { resellerCommissionAccrualRef } from "@/lib/event-bus/types";
 import type {
+  ResellerCommissionAdjustmentEntity,
   ResellerCommissionEntity,
   ResellerSettlementEntity,
 } from "@/modules/reseller/domain/entities/ResellerCommissionEntity";
@@ -28,10 +30,46 @@ const COMMISSION = {
   deletedAt: null,
 } as ResellerCommissionEntity;
 
+const ADJUSTMENT: ResellerCommissionAdjustmentEntity = {
+  id: "adjustment-1",
+  tenantId: "tenant-1",
+  resellerId: "reseller-1",
+  pelangganId: "pelanggan-1",
+  invoiceId: "invoice-1",
+  sourceCommissionId: "commission-1",
+  amount: 10000,
+  reason: "Invoice di-void setelah komisi dibayar",
+  createdAt: new Date("2026-11-02T00:00:00.000Z"),
+  remainingAmount: 10000,
+};
+
 describe("EventBusResellerAccountingEvents", () => {
   const events = new EventBusResellerAccountingEvents();
 
   beforeEach(() => vi.clearAllMocks());
+
+  it("mengirim koreksi komisi bertenant dengan id koreksi sebagai kunci jurnal", async () => {
+    await events.commissionClawedBack(ADJUSTMENT);
+
+    expect(bus.publish).toHaveBeenCalledWith(
+      "reseller:commission.clawed_back",
+      {
+        tenantId: "tenant-1",
+        adjustmentId: "adjustment-1",
+        commissionId: "commission-1",
+        resellerId: "reseller-1",
+        invoiceId: "invoice-1",
+        amount: 10000,
+        recordedAt: "2026-11-02T00:00:00.000Z",
+      },
+    );
+  });
+
+  it("tidak mengirim koreksi tanpa tenant", async () => {
+    await events.commissionClawedBack({ ...ADJUSTMENT, tenantId: null });
+
+    expect(bus.publish).not.toHaveBeenCalled();
+  });
 
   it("mengirim akru komisi bertenant dengan ref per akrual", async () => {
     await events.commissionAccrued(COMMISSION);

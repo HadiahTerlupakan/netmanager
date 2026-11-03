@@ -38,6 +38,7 @@ import {
   buildRulePayload,
   currentPeriod,
   describeRulePeriod,
+  describeAdjustmentBalance,
   describeRuleValue,
   nextSettlementAction,
   type CommissionRule,
@@ -135,7 +136,40 @@ describe("helper komisi UI", () => {
     expect(period).toMatch(/^1 Nov 2026 – 31 Des 2026$/);
   });
 
-  it("menolak nilai bukan bilangan bulat positif", () => {
+  it.each([
+    ["2,5", 2.5],
+    ["2.5", 2.5],
+    [" 0,25 ", 0.25],
+    ["12,75", 12.75],
+    ["100", 100],
+  ])("menerima persen desimal %j dengan koma atau titik", (value, rate) => {
+    expect(
+      buildRulePayload({
+        type: "PERCENTAGE",
+        value,
+        hargaPaketId: "",
+        startsAt: "",
+        endsAt: "",
+      }),
+    ).toMatchObject({ type: "PERCENTAGE", rate });
+  });
+
+  it.each(["0", "0,00", "2,555", "1.000,5", "2,", ",5", "-1", "abc", ""])(
+    "menolak persen tidak sah %j",
+    (value) => {
+      expect(
+        buildRulePayload({
+          type: "PERCENTAGE",
+          value,
+          hargaPaketId: "",
+          startsAt: "",
+          endsAt: "",
+        }),
+      ).toBeNull();
+    },
+  );
+
+  it("menolak nominal bukan rupiah bulat positif", () => {
     const form = {
       type: "FIXED" as const,
       value: "2.5",
@@ -145,10 +179,13 @@ describe("helper komisi UI", () => {
     };
     expect(buildRulePayload(form)).toBeNull();
     expect(buildRulePayload({ ...form, value: "0" })).toBeNull();
+    expect(buildRulePayload({ ...form, value: "2,5" })).toBeNull();
   });
 
   it("menjelaskan nilai aturan", () => {
     expect(describeRuleValue(RULE)).toBe("10% dari DPP");
+    expect(describeRuleValue({ ...RULE, rate: 2.5 })).toBe("2,5% dari DPP");
+    expect(describeRuleValue({ ...RULE, rate: 0.75 })).toBe("0,75% dari DPP");
     expect(
       describeRuleValue({
         ...RULE,
@@ -193,11 +230,12 @@ describe("CommissionRulesPanel", () => {
     mocks.responses.set("/api/hargapakets", [{ id: "p1", name: "Paket 20M" }]);
     render(<CommissionRulesPanel resellerId="r1" canManage />);
 
-    const [valueInput] = container.querySelectorAll<HTMLInputElement>(
-      'input[type="number"]',
+    const valueInput = container.querySelector<HTMLInputElement>(
+      'input[inputmode="decimal"]',
     );
+    if (!valueInput) throw new Error("Input persen tidak ada");
     const packageSelect = container.querySelectorAll("select")[1];
-    act(() => setValue(valueInput, "15"));
+    act(() => setValue(valueInput, "2,5"));
     act(() => setValue(packageSelect, "p1"));
     await act(async () => buttonByText("Tambah aturan").click());
 
@@ -205,10 +243,25 @@ describe("CommissionRulesPanel", () => {
     expect(url).toBe(`${BASE}/commission-rules`);
     expect(JSON.parse(init.body)).toEqual({
       type: "PERCENTAGE",
-      rate: 15,
+      rate: 2.5,
       hargaPaketId: "p1",
       endsAt: null,
     });
+  });
+
+  it("menolak persen lebih dari 2 desimal tanpa mengirim", async () => {
+    mocks.responses.set(`${BASE}/commission-rules`, []);
+    render(<CommissionRulesPanel resellerId="r1" canManage />);
+
+    const valueInput = container.querySelector<HTMLInputElement>(
+      'input[inputmode="decimal"]',
+    );
+    if (!valueInput) throw new Error("Input persen tidak ada");
+    act(() => setValue(valueInput, "2,555"));
+    await act(async () => buttonByText("Tambah aturan").click());
+
+    expect(valueInput.validity.patternMismatch).toBe(true);
+    expect(mocks.fetchWithHandling).not.toHaveBeenCalled();
   });
 
   it("tanpa izin keuangan hanya menampilkan aturan", () => {
@@ -225,10 +278,14 @@ const SETTLEMENT: Settlement = {
   periodStart: "2026-10-01T00:00:00.000Z",
   periodEnd: "2026-10-31T23:59:59.999Z",
   totalAmount: 50000,
+  grossAmount: 50000,
+  adjustmentAmount: 0,
   commissionCount: 2,
   status: "PENDING",
   approvedAt: null,
   paidAt: null,
+  approvedById: null,
+  paidById: null,
   paymentMethod: null,
   paymentReference: null,
 };
@@ -280,6 +337,54 @@ describe("SettlementsPanel", () => {
     });
   });
 
+  it("menampilkan koreksi yang dipotong dari settlement", () => {
+    mocks.responses.set(`${BASE}/settlements`, [
+      {
+        ...SETTLEMENT,
+        totalAmount: 35000,
+        grossAmount: 50000,
+        adjustmentAmount: 15000,
+      },
+    ]);
+    render(<SettlementsPanel resellerId="r1" canManage />);
+
+    expect(container.textContent).toMatch(/Rp\s?35\.000/);
+    expect(container.textContent).toMatch(/Komisi Rp\s?50\.000/);
+    expect(container.textContent).toMatch(/Koreksi\s*−Rp\s?15\.000/);
+  });
+
+  it("tanpa koreksi tidak menampilkan baris koreksi", () => {
+    mocks.responses.set(`${BASE}/settlements`, [SETTLEMENT]);
+    render(<SettlementsPanel resellerId="r1" canManage />);
+
+    expect(container.textContent).not.toContain("Koreksi");
+  });
+
+  it("mendaftar koreksi komisi beserta sisanya", () => {
+    mocks.responses.set(`${BASE}/settlements`, [SETTLEMENT]);
+    mocks.responses.set(`${BASE}/commission-adjustments`, [
+      {
+        id: "adj-1",
+        invoiceId: "INV-9",
+        amount: 20000,
+        remainingAmount: 5000,
+        reason: "Invoice di-void setelah komisi dibayar",
+        createdAt: "2026-11-02T00:00:00.000Z",
+      },
+    ]);
+    render(<SettlementsPanel resellerId="r1" canManage />);
+
+    const list = container.querySelector(
+      'section[aria-labelledby="commission-adjustments-title"]',
+    );
+    expect(list?.textContent).toContain("Koreksi komisi");
+    expect(list?.textContent).toContain("INV-9");
+    expect(list?.textContent).toContain(
+      "Invoice di-void setelah komisi dibayar",
+    );
+    expect(list?.textContent).toMatch(/Sisa Rp\s?5\.000/);
+  });
+
   it("settlement yang sudah dibayar tidak punya aksi", () => {
     mocks.responses.set(`${BASE}/settlements`, [
       {
@@ -294,6 +399,39 @@ describe("SettlementsPanel", () => {
     expect(container.textContent).toContain("Dibayar");
     expect(container.textContent).toContain("Tunai");
     expect(container.textContent).not.toContain("Setujui");
+  });
+
+  it("memberi badge peringatan bila penyetuju juga pembayar", () => {
+    mocks.responses.set(`${BASE}/settlements`, [
+      {
+        ...SETTLEMENT,
+        status: "PAID",
+        paidAt: "2026-11-03T00:00:00.000Z",
+        approvedById: "user-1",
+        paidById: "user-1",
+      },
+    ]);
+    render(<SettlementsPanel resellerId="r1" canManage />);
+
+    expect(container.textContent).toContain(
+      "Disetujui & dibayar pengguna yang sama",
+    );
+  });
+
+  it("tanpa badge bila penyetuju dan pembayar berbeda atau belum dibayar", () => {
+    mocks.responses.set(`${BASE}/settlements`, [
+      {
+        ...SETTLEMENT,
+        status: "PAID",
+        paidAt: "2026-11-03T00:00:00.000Z",
+        approvedById: "user-1",
+        paidById: "user-2",
+      },
+      { ...SETTLEMENT, id: "s2", status: "APPROVED", approvedById: "user-1" },
+    ]);
+    render(<SettlementsPanel resellerId="r1" canManage />);
+
+    expect(container.textContent).not.toContain("pengguna yang sama");
   });
 });
 
@@ -313,6 +451,7 @@ describe("ResellerReportPanel", () => {
           commissionAccrued: 20000,
           commissionSettled: 10000,
           commissionPaid: 0,
+          commissionAdjusted: 3000,
         },
       ],
       totals: {
@@ -322,6 +461,7 @@ describe("ResellerReportPanel", () => {
         commissionAccrued: 20000,
         commissionSettled: 10000,
         commissionPaid: 0,
+        commissionAdjusted: 3000,
       },
     });
     render(<ResellerReportPanel resellerId="r1" />);
@@ -330,9 +470,28 @@ describe("ResellerReportPanel", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0].textContent).toContain("Outlet A");
     expect(rows[1].textContent).toContain("Total");
+    const headers = [...container.querySelectorAll("thead th")].map(
+      (header) => header.textContent,
+    );
+    expect(headers).toContain("Koreksi");
+    expect(rows[1].textContent).toMatch(/Rp\s?3\.000/);
     const link = container.querySelector("a[download]") as HTMLAnchorElement;
     expect(link.getAttribute("href")).toBe(
       `${BASE}/report?period=${period}&format=csv`,
+    );
+  });
+});
+
+describe("describeAdjustmentBalance", () => {
+  it("menyebut sisa yang akan dipotong", () => {
+    expect(describeAdjustmentBalance({ remainingAmount: 7500 })).toMatch(
+      /^Sisa Rp\s?7\.500 dipotong dari settlement berikutnya$/,
+    );
+  });
+
+  it("menandai koreksi yang sudah habis dipotong", () => {
+    expect(describeAdjustmentBalance({ remainingAmount: 0 })).toBe(
+      "Sudah dipotong dari settlement",
     );
   });
 });

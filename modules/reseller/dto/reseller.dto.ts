@@ -47,8 +47,11 @@ export interface ResellerWithComplianceDTO extends ResellerDTO {
   readonly compliance: ResellerComplianceDTO;
 }
 
+/** Pengaturan tata kelola reseller tenant; semua default mati. */
 export interface ResellerComplianceSettingDTO {
   readonly isComplianceRequired: boolean;
+  /** Pembayar settlement wajib berbeda dari penyetujunya. */
+  readonly isSettlementSeparateApproverRequired: boolean;
 }
 
 export interface ResellerOutletDTO {
@@ -80,4 +83,14 @@ export interface ResolvedPackagePriceDTO {
   readonly price: number;
   readonly source: "BASE_PACKAGE" | "RESELLER_OVERRIDE";
   readonly priceId: string | null;
+}
+
+/** Satu baris riwayat status kemitraan untuk admin. */
+export interface ResellerStatusHistoryDTO {
+  readonly id: string;
+  readonly fromStatus: ResellerStatusValue | null;
+  readonly toStatus: ResellerStatusValue;
+  readonly reason: string | null;
+  readonly changedById: string | null;
+  readonly changedAt: string;
 }

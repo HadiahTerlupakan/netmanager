@@ -17,12 +17,21 @@ import type {
   ResellerCustomerCommissionContext,
   ResellerSettlementEntity,
 } from "../domain/entities/ResellerCommissionEntity";
+import { withNumericRate } from "./commission-rate-mapper";
+import {
+  planAdjustmentDeduction,
+  recordAdjustmentApplications,
+} from "./commission-adjustment-tx";
+import {
+  lockInvoiceCommission,
+  lockResellerAdjustments,
+} from "./commission-locks";
 
 const ACTIVE_STATUS = "ACTIVE";
 const ACCRUED_STATUS = "ACCRUED";
 const SETTLED_STATUS = "SETTLED";
 const PAID_STATUS = "PAID";
-const COMMISSION_LOCK_PREFIX = "reseller-commission:";
+const REVERSED_STATUS = "REVERSED";
 
 /** Dilempar di dalam transaksi settlement agar Prisma me-rollback-nya. */
 class SettlementClaimConflict extends Error {
@@ -73,11 +82,13 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
           orderBy: { startsAt: "desc" },
         })
       : null;
-    if (packageRule) return packageRule;
-    return this.db.resellerCommissionRule.findFirst({
-      where: this.ruleWhere(params, null),
-      orderBy: { startsAt: "desc" },
-    });
+    const rule =
+      packageRule ??
+      (await this.db.resellerCommissionRule.findFirst({
+        where: this.ruleWhere(params, null),
+        orderBy: { startsAt: "desc" },
+      }));
+    return rule ? withNumericRate(rule) : null;
   }
 
   /**
@@ -89,9 +100,10 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
     tenantId: string | null,
     invoiceId: string,
   ): Promise<ResellerCommissionEntity | null> {
-    return this.db.resellerCommission.findFirst({
+    const commission = await this.db.resellerCommission.findFirst({
       where: { tenantId, invoiceId },
     });
+    return commission ? withNumericRate(commission) : null;
   }
 
   /**
@@ -129,8 +141,45 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
       },
     });
     if (restored.count === 0) return null;
-    return this.db.resellerCommission.findFirst({
+    const commission = await this.db.resellerCommission.findFirst({
       where: { id: params.commissionId },
+    });
+    return commission ? withNumericRate(commission) : null;
+  }
+
+  /**
+   * REVERSED → ACCRUED dengan akrual baru, di bawah kunci invoice yang sama
+   * dengan pembalikan. Tautan ke settlement lama yang sudah dibayar dilepas;
+   * jejak pembayarannya tetap ada di settlement itu dan di koreksinya.
+   */
+  async reaccrueReversedCommission(params: {
+    readonly commissionId: string;
+    readonly invoiceId: string;
+    readonly accruedAt: Date;
+    readonly period: string;
+  }): Promise<ResellerCommissionEntity | null> {
+    return this.db.$transaction(async (tx) => {
+      await lockInvoiceCommission(tx, params.invoiceId);
+      const reaccrued = await tx.resellerCommission.updateMany({
+        where: {
+          id: params.commissionId,
+          status: REVERSED_STATUS,
+          deletedAt: null,
+        },
+        data: {
+          status: ACCRUED_STATUS,
+          settlementId: null,
+          settledAt: null,
+          paidAt: null,
+          accruedAt: params.accruedAt,
+          period: params.period,
+        },
+      });
+      if (reaccrued.count === 0) return null;
+      const commission = await tx.resellerCommission.findFirst({
+        where: { id: params.commissionId },
+      });
+      return commission ? withNumericRate(commission) : null;
     });
   }
 
@@ -147,43 +196,6 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
   }
 
   /**
-   * Soft-delete komisi ACCRUED milik invoice yang dibatalkan (idempoten).
-   * Diserialkan dengan advisory lock yang sama dengan insert komisi, dan tiap
-   * baris diklaim bersyarat `deletedAt: null`, jadi dua pembatalan yang
-   * berlomba tidak sama-sama melaporkan baris yang sama.
-   */
-  async cancelAccruedByInvoiceId(params: {
-    readonly tenantId: string | null;
-    readonly invoiceId: string;
-  }): Promise<readonly ResellerCommissionEntity[]> {
-    return this.db.$transaction(async (tx) => {
-      const lockKey = `${COMMISSION_LOCK_PREFIX}${params.invoiceId}`;
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
-      const candidates = await tx.resellerCommission.findMany({
-        where: {
-          invoiceId: params.invoiceId,
-          ...(params.tenantId ? { tenantId: params.tenantId } : {}),
-          status: ACCRUED_STATUS,
-          settlementId: null,
-          deletedAt: null,
-        },
-      });
-      const cancelledAt = new Date();
-      const cancelled: ResellerCommissionEntity[] = [];
-      for (const candidate of candidates) {
-        const claim = await tx.resellerCommission.updateMany({
-          where: { id: candidate.id, deletedAt: null },
-          data: { deletedAt: cancelledAt },
-        });
-        if (claim.count === 1) {
-          cancelled.push({ ...candidate, deletedAt: cancelledAt });
-        }
-      }
-      return cancelled;
-    });
-  }
-
-  /**
    * Unique (tenantId, invoiceId) tidak berlaku bila tenantId NULL (Postgres
    * menganggap NULL selalu berbeda), jadi dua job yang berlomba diserialkan
    * dengan advisory lock per invoice lalu mengecek ulang di dalamnya.
@@ -192,8 +204,7 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
     data: CreateCommissionData,
   ): Promise<ResellerCommissionEntity | null> {
     return this.db.$transaction(async (tx) => {
-      const lockKey = `${COMMISSION_LOCK_PREFIX}${data.invoiceId}`;
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+      await lockInvoiceCommission(tx, data.invoiceId);
       const existing = await tx.resellerCommission.findFirst({
         where: { tenantId: data.tenantId, invoiceId: data.invoiceId },
         select: { id: true },
@@ -207,7 +218,7 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
     tx: Prisma.TransactionClient,
     data: CreateCommissionData,
   ): Promise<ResellerCommissionEntity> {
-    return tx.resellerCommission.create({
+    const commission = await tx.resellerCommission.create({
       data: {
         id: randomUUID(),
         tenantId: data.tenantId,
@@ -224,6 +235,7 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
         accruedAt: data.accruedAt,
       },
     });
+    return withNumericRate(commission);
   }
 
   /** List commissions for reseller. */
@@ -246,7 +258,7 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
       }),
       this.db.resellerCommission.count({ where }),
     ]);
-    return { items, total };
+    return { items: items.map(withNumericRate), total };
   }
 
   /**
@@ -257,6 +269,9 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
    * row lock transaksi pertama, lalu mengevaluasi ulang syaratnya setelah
    * commit dan tidak menemukan baris; jumlah yang tidak cocok me-rollback
    * settlement keduanya, jadi komisi tidak pernah disettle dua kali.
+   *
+   * Koreksi (clawback) terbuka reseller dipotongkan dari total, diserialkan
+   * per reseller agar sisa koreksi yang sama tidak terpotong dua kali.
    */
   async createSettlement(
     data: CreateSettlementData,
@@ -274,6 +289,7 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
     data: CreateSettlementData,
   ): Promise<ResellerSettlementEntity | null> {
     return this.db.$transaction(async (tx) => {
+      await lockResellerAdjustments(tx, data.resellerId);
       const commissions = await tx.resellerCommission.findMany({
         where: {
           tenantId: data.tenantId,
@@ -286,10 +302,11 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
         select: { id: true, commissionAmount: true },
       });
       if (commissions.length === 0) return null;
-      const totalAmount = commissions.reduce(
+      const grossAmount = commissions.reduce(
         (total, commission) => total + commission.commissionAmount,
         0,
       );
+      const deduction = await planAdjustmentDeduction(tx, data, grossAmount);
       const settlement = await tx.resellerSettlement.create({
         data: {
           id: randomUUID(),
@@ -297,7 +314,8 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
           resellerId: data.resellerId,
           periodStart: data.periodStart,
           periodEnd: data.periodEnd,
-          totalAmount,
+          totalAmount: grossAmount - deduction.deductedAmount,
+          adjustmentAmount: deduction.deductedAmount,
           commissionCount: commissions.length,
           notes: data.notes,
         },
@@ -318,6 +336,11 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
       if (claimed.count !== commissions.length) {
         throw new SettlementClaimConflict();
       }
+      await recordAdjustmentApplications(
+        tx,
+        { tenantId: data.tenantId, settlementId: settlement.id },
+        deduction.allocations,
+      );
       return settlement;
     });
   }
@@ -376,9 +399,19 @@ export class ResellerCommissionRepository implements IResellerCommissionReposito
           row.status === PAID_STATUS
             ? (row._sum.commissionAmount ?? 0)
             : summary.paidAmount,
+        reversedAmount:
+          row.status === REVERSED_STATUS
+            ? (row._sum.commissionAmount ?? 0)
+            : summary.reversedAmount,
         commissionCount: summary.commissionCount + row._count._all,
       }),
-      { accruedAmount: 0, settledAmount: 0, paidAmount: 0, commissionCount: 0 },
+      {
+        accruedAmount: 0,
+        settledAmount: 0,
+        paidAmount: 0,
+        reversedAmount: 0,
+        commissionCount: 0,
+      },
     );
   }
 

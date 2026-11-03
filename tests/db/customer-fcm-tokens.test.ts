@@ -14,8 +14,9 @@ import { updateMobileFcmToken } from "@/modules/notification/services/MobileFcmT
  *
  * Dibuktikan terhadap Postgres sungguhan: token pelanggan tersimpan tanpa
  * ganda dan tetap dalam tenant-nya, dilepas saat logout, push tagihan sampai
- * lewat FCM (dan lewat Expo ke token lama), dan token yang ditolak FCM dilepas
- * dari baris pelanggan. FCM dan Expo di-mock; tidak ada push sungguhan.
+ * lewat FCM saja (Expo dihapus 2026-11-02; token Expo lama di `pushToken`
+ * tidak lagi dikirimi), dan token yang ditolak FCM dilepas dari baris
+ * pelanggan. FCM dan Expo di-mock; tidak ada push sungguhan.
  * Dilewati tanpa `TEST_DATABASE_URL` dan `TEST_DATABASE_URL_MITRA` (lihat
  * ./scripts/setup-test-db.sh).
  */
@@ -219,7 +220,7 @@ describeDb("token FCM pelanggan", () => {
     expect(await tokenPelanggan()).toEqual([]);
   });
 
-  it("push tagihan dikirim lewat FCM ke token pelanggan dan lewat Expo ke token lama", async () => {
+  it("push tagihan dikirim lewat FCM saja, token Expo lama tidak dikirimi", async () => {
     await aturToken("fcm-a");
     await prismaAuth.pelanggan.update({
       where: { id: PELANGGAN },
@@ -241,7 +242,7 @@ describeDb("token FCM pelanggan", () => {
       channelId: "high-priority-bubble",
       tag: "billing",
     });
-    expect(tokenExpoTerkirim()).toEqual([TOKEN_EXPO_LAMA]);
+    expect(tokenExpoTerkirim()).toEqual([]);
   });
 
   it("token yang ditolak FCM dilepas dari pelanggan", async () => {

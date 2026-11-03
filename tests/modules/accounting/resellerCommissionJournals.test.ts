@@ -4,6 +4,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
 import {
   postResellerCommissionAccrual,
+  postResellerCommissionClawback,
   postResellerSettlementPayment,
   reverseResellerCommissionAccrual,
   type CommissionAccrualState,
@@ -446,6 +447,104 @@ describe("postResellerSettlementPayment — akru susulan", () => {
       entryDate: PAYMENT.paidAt,
     });
     expect(calls[2][1].source).toBe("AUTO_RESELLER_SETTLEMENT_PAID");
+  });
+});
+
+describe("postResellerCommissionClawback", () => {
+  const CLAWBACK = {
+    tenantId: "tenant-1",
+    adjustmentId: "adjustment-1",
+    invoiceId: "invoice-1",
+    amount: 10000,
+    recordedAt: new Date("2026-11-02T00:00:00.000Z"),
+  };
+
+  it("Dr Utang Komisi Reseller / Cr Beban Komisi Reseller, ref per koreksi", async () => {
+    const deps = createDeps();
+
+    expect(await postResellerCommissionClawback(CLAWBACK, deps)).toBe(true);
+
+    expect(deps.ensurePeriod).toHaveBeenCalledWith(
+      "tenant-1",
+      CLAWBACK.recordedAt,
+    );
+    expect(deps.posting.postAuto).toHaveBeenCalledWith("tenant-1", {
+      source: "AUTO_RESELLER_COMMISSION_CLAWBACK",
+      sourceRefType: "ResellerCommissionAdjustment",
+      sourceRefId: "adjustment-1",
+      entryDate: CLAWBACK.recordedAt,
+      description:
+        "Koreksi komisi reseller atas invoice invoice-1 yang tidak lagi lunas",
+      lines: [
+        { coaId: "coa-2-370", side: "DEBIT", amount: "10000" },
+        { coaId: "coa-5-820", side: "CREDIT", amount: "10000" },
+      ],
+    });
+    // Jurnal akru tidak dibalik: beban & pembayarannya memang pernah terjadi.
+    expect(deps.reverser.reverse).not.toHaveBeenCalled();
+  });
+
+  it("tidak pernah menyentuh akun REVENUE", async () => {
+    const tampered = SEEDED.map((entry) =>
+      entry.code === "5-820" ? { ...entry, type: "REVENUE" as const } : entry,
+    );
+    const deps = createDeps(tampered);
+
+    await expect(
+      postResellerCommissionClawback(CLAWBACK, deps),
+    ).rejects.toThrow(AccountingError);
+    expect(deps.posting.postAuto).not.toHaveBeenCalled();
+  });
+
+  it("disusulkan pada periode berjalan bila periode koreksi sudah ditutup", async () => {
+    const deps = createDeps();
+    vi.mocked(deps.posting.postAuto).mockRejectedValueOnce(
+      new PeriodClosedError(2026, 11),
+    );
+
+    await postResellerCommissionClawback(CLAWBACK, deps);
+
+    const calls = vi.mocked(deps.posting.postAuto).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[1][1]).toMatchObject({
+      source: "AUTO_RESELLER_COMMISSION_CLAWBACK",
+      sourceRefId: "adjustment-1",
+      entryDate: NOW,
+    });
+  });
+
+  it("melewati koreksi nol", async () => {
+    const deps = createDeps();
+
+    expect(
+      await postResellerCommissionClawback({ ...CLAWBACK, amount: 0 }, deps),
+    ).toBe(false);
+    expect(deps.posting.postAuto).not.toHaveBeenCalled();
+  });
+});
+
+describe("postResellerSettlementPayment — total bersih 0 setelah koreksi", () => {
+  const PAYMENT = {
+    tenantId: "tenant-1",
+    settlementId: "settlement-1",
+    amount: 0,
+    paidAt: new Date("2026-11-03T00:00:00.000Z"),
+    accountId: "account-1",
+  };
+
+  it("tetap menyusulkan akru komisi tetapi tidak membuat jurnal kas", async () => {
+    const deps = createDeps();
+    vi.mocked(deps.listSettlementCommissions).mockResolvedValueOnce([
+      ACTIVE_COMMISSION,
+    ]);
+
+    expect(await postResellerSettlementPayment(PAYMENT, deps)).toBe(false);
+
+    const sources = vi
+      .mocked(deps.posting.postAuto)
+      .mock.calls.map(([, params]) => params.source);
+    expect(sources).toEqual(["AUTO_RESELLER_COMMISSION"]);
+    expect(deps.findPaymentAccount).not.toHaveBeenCalled();
   });
 });
 

@@ -8,10 +8,16 @@ export interface ResellerReportFigures {
   readonly paid: number;
   /** Seluruh komisi yang terbit di periode. */
   readonly commissionAccrued: number;
-  /** Bagian komisi periode itu yang sudah masuk settlement (SETTLED/PAID). */
+  /** Bagian komisi periode itu yang sudah masuk settlement (SETTLED/PAID/REVERSED). */
   readonly commissionSettled: number;
-  /** Bagian komisi periode itu yang sudah dibayar (PAID). */
+  /** Bagian komisi periode itu yang sudah dibayar (PAID/REVERSED). */
   readonly commissionPaid: number;
+  /**
+   * Koreksi (clawback) yang dicatat di periode ini atas komisi yang sudah
+   * dibayar, apa pun periode komisinya. Bulan koreksi sama dengan tanggal
+   * jurnal pembaliknya.
+   */
+  readonly commissionAdjusted: number;
 }
 
 /** Baris per outlet; outlet null = pelanggan langsung reseller tanpa outlet. */

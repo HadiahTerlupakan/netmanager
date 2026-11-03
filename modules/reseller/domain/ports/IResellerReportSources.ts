@@ -19,7 +19,13 @@ export interface ReportCustomer {
 /** Komisi satu pelanggan per status pada periode laporan. */
 export interface ReportCommissionTotal {
   readonly pelangganId: string;
-  readonly status: "ACCRUED" | "SETTLED" | "PAID";
+  readonly status: "ACCRUED" | "SETTLED" | "PAID" | "REVERSED";
+  readonly amount: number;
+}
+
+/** Koreksi komisi satu pelanggan yang dicatat pada periode laporan. */
+export interface ReportAdjustmentTotal {
+  readonly pelangganId: string;
   readonly amount: number;
 }
 
@@ -52,6 +58,13 @@ export interface IResellerReportRepository {
     resellerId: string,
     period: string,
   ): Promise<readonly ReportCommissionTotal[]>;
+  /** Koreksi komisi yang dicatat dalam rentang tanggal, per pelanggan. */
+  sumAdjustments(params: {
+    readonly tenantId: string;
+    readonly resellerId: string;
+    readonly periodStart: Date;
+    readonly periodEnd: Date;
+  }): Promise<readonly ReportAdjustmentTotal[]>;
 }
 
 /** Tagihan pelanggan dari modul finance (database billing). */

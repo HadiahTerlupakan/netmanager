@@ -1,7 +1,9 @@
 import type { Job } from "bullmq";
 import * as z from "zod";
 import type { EventJobData } from "@/lib/event-bus/queues";
+import { EVENT_NAMES } from "@/lib/event-bus/types";
 import { logger } from "@/lib/logger";
+import { getResellerCommissionReversalService } from "./ResellerCommissionReversalService";
 import { getResellerCommissionService } from "./ResellerCommissionService";
 
 const optionalTenantIdSchema = z.string().min(1).optional();
@@ -39,10 +41,21 @@ export async function handleInvoicePaidResellerCommission(
   });
 }
 
+const CLAWBACK_REASON_VOIDED = "Invoice di-void setelah komisi dibayar";
+const CLAWBACK_REASON_PAYMENT_REVERTED =
+  "Pelunasan invoice ditarik setelah komisi dibayar";
+
+function clawbackReasonOf(eventName: string): string {
+  return eventName === EVENT_NAMES.INVOICE_VOIDED
+    ? CLAWBACK_REASON_VOIDED
+    : CLAWBACK_REASON_PAYMENT_REVERTED;
+}
+
 /**
- * Batalkan komisi reseller yang belum disettle saat invoice tidak lagi lunas:
- * INVOICE_VOIDED (di-void) dan INVOICE_PAYMENT_REVERTED (payment di-refund atau
- * dihapus). Idempoten: replay hanya menemukan baris yang sudah dihapus.
+ * Balik komisi reseller saat invoice tidak lagi lunas: INVOICE_VOIDED
+ * (di-void) dan INVOICE_PAYMENT_REVERTED (payment di-refund atau dihapus).
+ * Komisi yang belum dibayar dibatalkan; yang sudah dibayar ditagih balik
+ * lewat koreksi pada settlement berikutnya. Idempoten.
  */
 export async function handleInvoiceUnpaidResellerCommission(
   job: Job<EventJobData>,
@@ -52,14 +65,15 @@ export async function handleInvoiceUnpaidResellerCommission(
     throw new Error("Payload invoice unpaid tidak valid untuk komisi reseller");
   }
 
-  const cancelled =
-    await getResellerCommissionService().cancelAccruedForUnpaidInvoice({
+  const summary =
+    await getResellerCommissionReversalService().reverseForUnpaidInvoice({
       tenantId: parsed.data.tenantId ?? null,
       invoiceId: parsed.data.invoiceId,
+      reason: clawbackReasonOf(job.data.eventName),
     });
-  if (cancelled > 0) {
+  if (summary.cancelledCount > 0 || summary.clawbackCount > 0) {
     logger.info(
-      `[ResellerCommission] ${cancelled} komisi ACCRUED dibatalkan untuk invoice ${parsed.data.invoiceId} yang tidak lagi lunas (${job.data.eventName})`,
+      `[ResellerCommission] Invoice ${parsed.data.invoiceId} tidak lagi lunas (${job.data.eventName}): ${summary.cancelledCount} komisi dibatalkan, ${summary.clawbackCount} koreksi komisi dibayar`,
     );
   }
 }

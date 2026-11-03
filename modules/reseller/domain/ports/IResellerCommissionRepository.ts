@@ -91,20 +91,23 @@ export interface IResellerCommissionRepository {
   /** Cek reseller ada (belum dihapus) di tenant. */
   resellerExists(tenantId: string | null, resellerId: string): Promise<boolean>;
   /**
-   * Soft-delete komisi ACCRUED milik invoice yang tidak lagi lunas (di-void
-   * atau pelunasannya ditarik). Idempoten; mengembalikan komisi yang baru
-   * dibatalkan oleh panggilan ini (replay mengembalikan daftar kosong).
-   */
-  cancelAccruedByInvoiceId(params: {
-    readonly tenantId: string | null;
-    readonly invoiceId: string;
-  }): Promise<readonly ResellerCommissionEntity[]>;
-  /**
    * Pulihkan komisi ACCRUED yang dibatalkan karena invoice-nya sempat tidak
    * lunas, dengan tanggal akru baru. Null bila tidak ada yang bisa dipulihkan.
    */
   restoreCancelledCommission(params: {
     readonly commissionId: string;
+    readonly accruedAt: Date;
+    readonly period: string;
+  }): Promise<ResellerCommissionEntity | null>;
+  /**
+   * Terbitkan ulang komisi yang sudah ditagih balik (REVERSED) karena
+   * invoice-nya lunas lagi: kembali ACCRUED tanpa settlement dengan tanggal
+   * akru baru, sehingga koreksi yang sudah tercatat diimbangi akrual baru.
+   * Diserialkan dengan pembalikan per invoice. Null bila bukan REVERSED lagi.
+   */
+  reaccrueReversedCommission(params: {
+    readonly commissionId: string;
+    readonly invoiceId: string;
     readonly accruedAt: Date;
     readonly period: string;
   }): Promise<ResellerCommissionEntity | null>;
@@ -115,7 +118,8 @@ export interface IResellerCommissionRepository {
   }>;
   /**
    * Create settlement and claim accrued commissions atomically: komisi yang
-   * sudah diambil settlement lain membatalkan seluruh transaksi.
+   * sudah diambil settlement lain membatalkan seluruh transaksi. Koreksi
+   * (clawback) terbuka reseller dipotongkan dari totalnya, tidak di bawah 0.
    */
   createSettlement(data: CreateSettlementData): Promise<SettlementOutcome>;
   /** List settlements. */

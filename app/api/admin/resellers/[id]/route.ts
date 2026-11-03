@@ -47,6 +47,7 @@ export const DELETE = createHandler(
     await getResellerService().deleteReseller(
       requireSessionTenantId(ctx),
       ctx.params.id,
+      ctx.session?.user.id ?? null,
     );
     return apiSuccess({ message: "Reseller berhasil dihapus" });
   },

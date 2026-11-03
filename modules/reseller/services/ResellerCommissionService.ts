@@ -35,11 +35,6 @@ interface PaidInvoiceInput {
   readonly paidAt: Date;
 }
 
-interface UnpaidInvoiceInput {
-  readonly tenantId?: string | null;
-  readonly invoiceId: string;
-}
-
 interface CreateSettlementInput {
   readonly tenantId: string | null;
   readonly resellerId: string;
@@ -49,6 +44,8 @@ interface CreateSettlementInput {
 }
 
 const ACCRUED_STATUS = "ACCRUED";
+const REVERSED_STATUS = "REVERSED";
+const MIN_ACCRUAL_STEP_MS = 1;
 
 export class ResellerCommissionService {
   constructor(
@@ -152,11 +149,19 @@ export class ResellerCommissionService {
    * ulang, tetapi event akrunya dikirim ulang: bila proses mati setelah komisi
    * tersimpan dan sebelum event terkirim, hanya ulangan inilah yang membentuk
    * jurnal akrunya. Jurnalnya idempoten per ref, jadi kiriman ganda aman.
+   *
+   * Komisi yang sudah ditagih balik (REVERSED) terbit ulang sebagai akrual
+   * baru: koreksinya tetap dipotongkan dari settlement berikutnya dan akrual
+   * baru mengimbanginya, sehingga invoice yang benar-benar lunas tetap
+   * berkomisi sekali, sama seperti komisi yang belum sempat dibayar.
    */
   private async handleExistingCommission(
     existing: ResellerCommissionEntity,
     paidAt: Date,
   ): Promise<null | ResellerCommissionEntity> {
+    if (existing.status === REVERSED_STATUS) {
+      return this.announceAccrual(await this.reaccrue(existing, paidAt));
+    }
     if (existing.deletedAt === null) {
       await this.accountingEvents.commissionAccrued(existing);
       return null;
@@ -173,25 +178,18 @@ export class ResellerCommissionService {
     return commission;
   }
 
-  /**
-   * Batalkan komisi yang belum disettle untuk invoice yang tidak lagi lunas
-   * (di-void atau pelunasannya ditarik). Idempoten. Dilewati bila invoice
-   * sudah lunas lagi saat event diproses. Komisi yang sudah SETTLED/PAID tidak
-   * disentuh (butuh status pembalikan). Tiap komisi yang batal dikabarkan ke
-   * accounting agar jurnal akrunya dibalik.
-   */
-  async cancelAccruedForUnpaidInvoice(
-    input: UnpaidInvoiceInput,
-  ): Promise<number> {
-    if (await this.invoiceStatus.isPaid(input.invoiceId)) return 0;
-    const cancelled = await this.repository.cancelAccruedByInvoiceId({
-      tenantId: input.tenantId ?? null,
-      invoiceId: input.invoiceId,
+  private async reaccrue(
+    existing: ResellerCommissionEntity,
+    paidAt: Date,
+  ): Promise<ResellerCommissionEntity | null> {
+    if (existing.deletedAt !== null) return null;
+    const accruedAt = nextAccrualTime(existing.accruedAt, paidAt);
+    return this.repository.reaccrueReversedCommission({
+      commissionId: existing.id,
+      invoiceId: existing.invoiceId,
+      accruedAt,
+      period: toPeriod(accruedAt),
     });
-    for (const commission of cancelled) {
-      await this.accountingEvents.commissionCancelled(commission);
-    }
-    return cancelled.length;
   }
 
   private async restoreIfCancelled(
@@ -203,10 +201,11 @@ export class ResellerCommissionService {
       existing.status === ACCRUED_STATUS &&
       existing.settlementId === null;
     if (!isCancelledAccrual) return null;
+    const accruedAt = nextAccrualTime(existing.accruedAt, paidAt);
     return this.repository.restoreCancelledCommission({
       commissionId: existing.id,
-      accruedAt: paidAt,
-      period: toPeriod(paidAt),
+      accruedAt,
+      period: toPeriod(accruedAt),
     });
   }
 
@@ -276,6 +275,16 @@ export class ResellerCommissionService {
   }): Promise<ResellerCommissionSummaryEntity> {
     return this.repository.getCommissionSummary(params);
   }
+}
+
+/**
+ * Tanggal akrual baru, wajib setelah akrual sebelumnya: ref jurnal akru dan
+ * kunci koreksi memakai `accruedAt`, jadi akrual baru dengan tanggal yang sama
+ * (pelunasan lama yang diulang) akan tertahan jurnal dan koreksi akrual lama.
+ */
+function nextAccrualTime(previousAccruedAt: Date, paidAt: Date): Date {
+  if (paidAt.getTime() > previousAccruedAt.getTime()) return paidAt;
+  return new Date(previousAccruedAt.getTime() + MIN_ACCRUAL_STEP_MS);
 }
 
 function toPeriod(date: Date): string {

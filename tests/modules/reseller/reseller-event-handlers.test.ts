@@ -4,12 +4,20 @@ import type { EventJobData } from "@/lib/event-bus/queues";
 
 const fakeService = vi.hoisted(() => ({
   accrueFromPaidInvoice: vi.fn(),
-  cancelAccruedForUnpaidInvoice: vi.fn(),
+}));
+const fakeReversalService = vi.hoisted(() => ({
+  reverseForUnpaidInvoice: vi.fn(),
 }));
 
 vi.mock("@/modules/reseller/services/ResellerCommissionService", () => ({
   getResellerCommissionService: () => fakeService,
 }));
+vi.mock(
+  "@/modules/reseller/services/ResellerCommissionReversalService",
+  () => ({
+    getResellerCommissionReversalService: () => fakeReversalService,
+  }),
+);
 
 import {
   handleInvoicePaidResellerCommission,
@@ -21,8 +29,11 @@ import {
   registerDefaultHandlers,
 } from "@/lib/event-bus/event-handlers";
 
-function jobWith(payload: Record<string, unknown>): Job<EventJobData> {
-  return { data: { payload } } as unknown as Job<EventJobData>;
+function jobWith(
+  payload: Record<string, unknown>,
+  eventName = "billing:invoice.paid",
+): Job<EventJobData> {
+  return { data: { payload, eventName } } as unknown as Job<EventJobData>;
 }
 
 describe("reseller event handlers", () => {
@@ -54,18 +65,48 @@ describe("reseller event handlers", () => {
     ).rejects.toThrow("Payload invoice paid tidak valid");
   });
 
-  // Audit #13: void invoice PAID harus membatalkan komisi yang belum disettle.
-  it("cancels accrued commissions when a paid invoice is voided", async () => {
-    fakeService.cancelAccruedForUnpaidInvoice.mockResolvedValueOnce(1);
+  // Audit #13 + clawback: void membalik komisi; alasan koreksi mengikuti event.
+  it("reverses commissions when a paid invoice is voided", async () => {
+    fakeReversalService.reverseForUnpaidInvoice.mockResolvedValueOnce({
+      cancelledCount: 1,
+      clawbackCount: 0,
+    });
 
     await handleInvoiceUnpaidResellerCommission(
-      jobWith({ tenantId: "tenant-1", invoiceId: "invoice-1" }),
+      jobWith(
+        { tenantId: "tenant-1", invoiceId: "invoice-1" },
+        EVENT_NAMES.INVOICE_VOIDED,
+      ),
     );
 
-    expect(fakeService.cancelAccruedForUnpaidInvoice).toHaveBeenCalledWith({
+    expect(fakeReversalService.reverseForUnpaidInvoice).toHaveBeenCalledWith({
       tenantId: "tenant-1",
       invoiceId: "invoice-1",
+      reason: "Invoice di-void setelah komisi dibayar",
     });
+  });
+
+  it("records the payment-reverted reason on a reverted payment", async () => {
+    fakeReversalService.reverseForUnpaidInvoice.mockResolvedValueOnce({
+      cancelledCount: 0,
+      clawbackCount: 1,
+    });
+
+    await handleInvoiceUnpaidResellerCommission(
+      jobWith({ invoiceId: "invoice-1" }, EVENT_NAMES.INVOICE_PAYMENT_REVERTED),
+    );
+
+    expect(fakeReversalService.reverseForUnpaidInvoice).toHaveBeenCalledWith({
+      tenantId: null,
+      invoiceId: "invoice-1",
+      reason: "Pelunasan invoice ditarik setelah komisi dibayar",
+    });
+  });
+
+  it("rejects a malformed unpaid payload", async () => {
+    await expect(
+      handleInvoiceUnpaidResellerCommission(jobWith({ tenantId: "t" })),
+    ).rejects.toThrow("Payload invoice unpaid tidak valid");
   });
 
   it("registers the unpaid handler on INVOICE_VOIDED", () => {

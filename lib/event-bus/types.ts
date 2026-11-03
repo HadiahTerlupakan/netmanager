@@ -70,6 +70,7 @@ export const EVENT_NAMES = {
   INVESTOR_DEPOSIT_REJECTED: "investor:deposit.rejected",
   RESELLER_COMMISSION_ACCRUED: "reseller:commission.accrued",
   RESELLER_COMMISSION_CANCELLED: "reseller:commission.cancelled",
+  RESELLER_COMMISSION_CLAWED_BACK: "reseller:commission.clawed_back",
   RESELLER_SETTLEMENT_PAID: "reseller:settlement.paid",
   INVESTOR_PROFIT_SHARE_APPROVED: "investor:profit_share.approved",
   MARKETING_POINT_CLAIM_APPROVED: "marketing:point_claim.approved",
@@ -601,7 +602,7 @@ export interface ResellerCommissionAccruedPayload extends BaseEventPayload {
   accruedAt: string;
 }
 
-/** Komisi ACCRUED dibatalkan (invoice di-void/pelunasan ditarik): jurnal akrualnya dibalik. */
+/** Komisi belum dibayar dibatalkan (invoice di-void/pelunasan ditarik): jurnal akrualnya dibalik. */
 export interface ResellerCommissionCancelledPayload extends BaseEventPayload {
   tenantId: string;
   commissionId: string;
@@ -621,6 +622,20 @@ export function resellerCommissionAccrualRef(
   accruedAt: Date,
 ): string {
   return `${commissionId}:${accruedAt.toISOString()}`;
+}
+
+/**
+ * Komisi yang sudah dibayar ditagih balik (invoice di-void/pelunasan ditarik):
+ * Dr Utang Komisi Reseller / Cr Beban Komisi Reseller, idempoten per koreksi.
+ */
+export interface ResellerCommissionClawedBackPayload extends BaseEventPayload {
+  tenantId: string;
+  adjustmentId: string;
+  commissionId: string;
+  resellerId: string;
+  invoiceId: string;
+  amount: number;
+  recordedAt: string;
 }
 
 /** Settlement komisi dibayar: Dr Utang Komisi Reseller / Cr Kas/Bank rekening terpilih. */
@@ -890,6 +905,7 @@ export interface EventPayloadMap {
   [EVENT_NAMES.INVESTOR_DEPOSIT_REJECTED]: InvestorDepositRejectedPayload;
   [EVENT_NAMES.RESELLER_COMMISSION_ACCRUED]: ResellerCommissionAccruedPayload;
   [EVENT_NAMES.RESELLER_COMMISSION_CANCELLED]: ResellerCommissionCancelledPayload;
+  [EVENT_NAMES.RESELLER_COMMISSION_CLAWED_BACK]: ResellerCommissionClawedBackPayload;
   [EVENT_NAMES.RESELLER_SETTLEMENT_PAID]: ResellerSettlementPaidPayload;
   [EVENT_NAMES.INVESTOR_PROFIT_SHARE_APPROVED]: InvestorProfitShareApprovedPayload;
   [EVENT_NAMES.MARKETING_POINT_CLAIM_APPROVED]: MarketingPointClaimApprovedPayload;
@@ -1359,6 +1375,13 @@ export const EVENT_METADATA: Record<EventName, EventMetadata> = {
   },
   [EVENT_NAMES.RESELLER_COMMISSION_CANCELLED]: {
     name: EVENT_NAMES.RESELLER_COMMISSION_CANCELLED,
+    category: "billing",
+    priority: JOB_PRIORITIES.NORMAL,
+    persistent: true,
+    async: true,
+  },
+  [EVENT_NAMES.RESELLER_COMMISSION_CLAWED_BACK]: {
+    name: EVENT_NAMES.RESELLER_COMMISSION_CLAWED_BACK,
     category: "billing",
     priority: JOB_PRIORITIES.NORMAL,
     persistent: true,

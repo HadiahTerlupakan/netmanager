@@ -12,6 +12,7 @@ import type {
   ResellerCommissionRuleEntity,
   ResellerCommissionRuleListItem,
 } from "../domain/entities/ResellerCommissionEntity";
+import { toRateNumber, withNumericRate } from "./commission-rate-mapper";
 
 const ACTIVE_STATUS = "ACTIVE";
 const RULE_LOCK_PREFIX = "reseller-commission-rule";
@@ -61,6 +62,7 @@ export class ResellerCommissionRuleRepository implements IResellerCommissionRule
     });
     return rows.map(({ hargaPaket, ...rule }) => ({
       ...rule,
+      rate: toRateNumber(rule.rate),
       hargaPaketName: hargaPaket?.name ?? null,
     }));
   }
@@ -71,9 +73,10 @@ export class ResellerCommissionRuleRepository implements IResellerCommissionRule
     resellerId: string,
     ruleId: string,
   ): Promise<ResellerCommissionRuleEntity | null> {
-    return this.db.resellerCommissionRule.findFirst({
+    const rule = await this.db.resellerCommissionRule.findFirst({
       where: { id: ruleId, tenantId, resellerId, deletedAt: null },
     });
+    return rule ? withNumericRate(rule) : null;
   }
 
   /**
@@ -93,14 +96,15 @@ export class ResellerCommissionRuleRepository implements IResellerCommissionRule
       ...(window.endsAt ? { startsAt: { lte: window.endsAt } } : {}),
       ...(window.excludeRuleId ? { id: { not: window.excludeRuleId } } : {}),
     };
-    return this.db.resellerCommissionRule.findFirst({ where });
+    const rule = await this.db.resellerCommissionRule.findFirst({ where });
+    return rule ? withNumericRate(rule) : null;
   }
 
   /** Simpan aturan baru (ACTIVE). */
   async create(
     data: CreateCommissionRuleData,
   ): Promise<ResellerCommissionRuleEntity> {
-    return this.db.resellerCommissionRule.create({
+    const rule = await this.db.resellerCommissionRule.create({
       data: {
         id: randomUUID(),
         tenantId: data.tenantId,
@@ -113,6 +117,7 @@ export class ResellerCommissionRuleRepository implements IResellerCommissionRule
         endsAt: data.endsAt,
       },
     });
+    return withNumericRate(rule);
   }
 
   /** Ubah aturan; pemanggil sudah memastikan aturan milik tenant. */
@@ -120,10 +125,11 @@ export class ResellerCommissionRuleRepository implements IResellerCommissionRule
     ruleId: string,
     data: UpdateCommissionRuleData,
   ): Promise<ResellerCommissionRuleEntity> {
-    return this.db.resellerCommissionRule.update({
+    const rule = await this.db.resellerCommissionRule.update({
       where: { id: ruleId },
       data,
     });
+    return withNumericRate(rule);
   }
 
   /** Reseller ada (belum dihapus) di tenant. */

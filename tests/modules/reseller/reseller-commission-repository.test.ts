@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import { ResellerCommissionRepository } from "@/modules/reseller/repositories/ResellerCommissionRepository";
 
 /**
@@ -17,18 +17,48 @@ function createDb() {
   const resellerSettlement = {
     create: vi.fn().mockResolvedValue({ id: "settlement-1" }),
   };
+  const resellerCommissionAdjustment = {
+    findMany: vi.fn().mockResolvedValue([]),
+  };
+  const resellerCommissionAdjustmentApplication = {
+    createMany: vi.fn().mockResolvedValue({ count: 0 }),
+  };
   const $executeRaw = vi.fn().mockResolvedValue(1);
   const db = {
     pelanggan: { findFirst: vi.fn().mockResolvedValue(null) },
     reseller: { findFirst: vi.fn() },
     resellerCommission,
     resellerSettlement,
+    resellerCommissionAdjustment,
+    resellerCommissionAdjustmentApplication,
     $executeRaw,
     $transaction: vi.fn(async (run: (tx: unknown) => Promise<unknown>) =>
-      run({ resellerCommission, resellerSettlement, $executeRaw }),
+      run({
+        resellerCommission,
+        resellerSettlement,
+        resellerCommissionAdjustment,
+        resellerCommissionAdjustmentApplication,
+        $executeRaw,
+      }),
     ),
   };
   return db;
+}
+
+function adjustmentRow(id: string, amount: number, applied: number[]) {
+  return {
+    id,
+    tenantId: "tenant-1",
+    resellerId: "reseller-1",
+    pelangganId: "pelanggan-1",
+    invoiceId: `invoice-${id}`,
+    sourceCommissionId: `commission-${id}`,
+    amount,
+    reason: "Invoice di-void setelah komisi dibayar",
+    createdAt: new Date("2026-07-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-07-01T00:00:00.000Z"),
+    applications: applied.map((value) => ({ amount: value })),
+  };
 }
 
 function createRepository(db: ReturnType<typeof createDb>) {
@@ -164,7 +194,10 @@ describe("ResellerCommissionRepository", () => {
   it("restores only a cancelled, unsettled accrued commission", async () => {
     const db = createDb();
     db.resellerCommission.updateMany.mockResolvedValueOnce({ count: 1 });
-    db.resellerCommission.findFirst.mockResolvedValueOnce({ id: "c-1" });
+    db.resellerCommission.findFirst.mockResolvedValueOnce({
+      id: "c-1",
+      rate: new Prisma.Decimal("2.50"),
+    });
 
     const restored = await createRepository(db).restoreCancelledCommission({
       commissionId: "c-1",
@@ -172,7 +205,7 @@ describe("ResellerCommissionRepository", () => {
       period: "2026-08",
     });
 
-    expect(restored).toEqual({ id: "c-1" });
+    expect(restored).toEqual({ id: "c-1", rate: 2.5 });
     expect(db.resellerCommission.updateMany).toHaveBeenCalledWith({
       where: {
         id: "c-1",
@@ -227,6 +260,53 @@ describe("ResellerCommissionRepository", () => {
     });
   });
 
+  // Clawback: koreksi terbuka dipotong dari total, tidak di bawah 0, dan
+  // sisanya tetap terbuka untuk settlement berikutnya.
+  it("deducts open adjustments from the settlement total", async () => {
+    const db = createDb();
+    db.resellerCommission.findMany.mockResolvedValueOnce([
+      { id: "c-1", commissionAmount: 20000 },
+      { id: "c-2", commissionAmount: 30000 },
+    ]);
+    db.resellerCommission.updateMany.mockResolvedValueOnce({ count: 2 });
+    db.resellerCommissionAdjustment.findMany.mockResolvedValueOnce([
+      adjustmentRow("adj-1", 15000, [5000]),
+      adjustmentRow("adj-2", 60000, []),
+    ]);
+
+    const outcome =
+      await createRepository(db).createSettlement(SETTLEMENT_INPUT);
+
+    expect(outcome.kind).toBe("settled");
+    expect(db.resellerCommissionAdjustment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tenantId: "tenant-1", resellerId: "reseller-1" },
+      }),
+    );
+    expect(db.resellerSettlement.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        totalAmount: 0,
+        adjustmentAmount: 50000,
+        commissionCount: 2,
+      }),
+    });
+    expect(
+      db.resellerCommissionAdjustmentApplication.createMany,
+    ).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          adjustmentId: "adj-1",
+          settlementId: "settlement-1",
+          tenantId: "tenant-1",
+          amount: 10000,
+        }),
+        expect.objectContaining({ adjustmentId: "adj-2", amount: 40000 }),
+      ],
+    });
+    // Kunci per reseller + tidak ada kunci invoice di jalur settlement.
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+  });
+
   it("rolls back when a concurrent settlement claimed some commissions", async () => {
     const db = createDb();
     db.resellerCommission.findMany.mockResolvedValueOnce([
@@ -251,53 +331,5 @@ describe("ResellerCommissionRepository", () => {
 
     expect(outcome).toEqual({ kind: "empty" });
     expect(db.resellerSettlement.create).not.toHaveBeenCalled();
-  });
-
-  // Audit #13: void hanya menghapus komisi yang belum disettle, idempoten.
-  it("cancels only accrued, unsettled commissions of a voided invoice", async () => {
-    const db = createDb();
-    const accrued = { id: "commission-1", deletedAt: null as Date | null };
-    db.resellerCommission.findMany.mockResolvedValueOnce([accrued]);
-    db.resellerCommission.updateMany.mockResolvedValueOnce({ count: 1 });
-
-    const cancelled = await createRepository(db).cancelAccruedByInvoiceId({
-      tenantId: "tenant-1",
-      invoiceId: "invoice-1",
-    });
-
-    expect(cancelled).toEqual([
-      { id: "commission-1", deletedAt: expect.any(Date) },
-    ]);
-    expect(db.$executeRaw).toHaveBeenCalled();
-    expect(db.resellerCommission.findMany).toHaveBeenCalledWith({
-      where: {
-        invoiceId: "invoice-1",
-        tenantId: "tenant-1",
-        status: "ACCRUED",
-        settlementId: null,
-        deletedAt: null,
-      },
-    });
-    expect(db.resellerCommission.updateMany).toHaveBeenCalledWith({
-      where: { id: "commission-1", deletedAt: null },
-      data: { deletedAt: expect.any(Date) },
-    });
-  });
-
-  // Pembatalan yang berlomba: baris yang sudah diklaim pembatalan lain tidak
-  // dilaporkan dua kali, jadi jurnal akrunya tidak dibalik dua kali.
-  it("does not report a commission another cancellation already claimed", async () => {
-    const db = createDb();
-    db.resellerCommission.findMany.mockResolvedValueOnce([
-      { id: "commission-1", deletedAt: null as Date | null },
-    ]);
-    db.resellerCommission.updateMany.mockResolvedValueOnce({ count: 0 });
-
-    const cancelled = await createRepository(db).cancelAccruedByInvoiceId({
-      tenantId: "tenant-1",
-      invoiceId: "invoice-1",
-    });
-
-    expect(cancelled).toEqual([]);
   });
 });

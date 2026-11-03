@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
     listPaymentAccounts: vi.fn(),
   },
   report: { getMonthlyReport: vi.fn() },
+  reversal: { listAdjustments: vi.fn() },
 }));
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.getServerSession }));
@@ -49,6 +50,7 @@ vi.mock("@/modules/reseller", async () => {
     getResellerCommissionRuleService: () => mocks.rules,
     getResellerSettlementLifecycleService: () => mocks.lifecycle,
     getResellerReportService: () => mocks.report,
+    getResellerCommissionReversalService: () => mocks.reversal,
   };
 });
 
@@ -64,6 +66,7 @@ import { POST as approveSettlement } from "@/app/api/admin/resellers/[id]/settle
 import { POST as paySettlement } from "@/app/api/admin/resellers/[id]/settlements/[settlementId]/pay/route";
 import { GET as getReport } from "@/app/api/admin/resellers/[id]/report/route";
 import { GET as listPaymentAccounts } from "@/app/api/admin/resellers/[id]/payment-accounts/route";
+import { GET as listAdjustments } from "@/app/api/admin/resellers/[id]/commission-adjustments/route";
 import { ResellerConflictError } from "@/modules/reseller/errors/reseller-errors";
 import type {
   ResellerCommissionRuleEntity,
@@ -106,6 +109,7 @@ const SETTLEMENT: ResellerSettlementEntity = {
   paymentMethod: null,
   paymentReference: null,
   paymentAccountId: null,
+  adjustmentAmount: 0,
   deletedAt: null,
 };
 const REPORT: ResellerMonthlyReport = {
@@ -121,6 +125,7 @@ const REPORT: ResellerMonthlyReport = {
     commissionAccrued: 0,
     commissionSettled: 0,
     commissionPaid: 0,
+    commissionAdjusted: 0,
   },
 };
 
@@ -169,6 +174,62 @@ beforeEach(() => {
   mocks.lifecycle.listPaymentAccounts.mockResolvedValue([
     { id: "account-1", name: "BCA", type: "BANK", balance: 100000 },
   ]);
+});
+
+describe("commission-adjustments", () => {
+  it("mendaftar koreksi reseller di tenant sesi dengan paginasi", async () => {
+    signInWith(["reseller:read"]);
+    mocks.reversal.listAdjustments.mockResolvedValueOnce({
+      items: [
+        {
+          id: "adjustment-1",
+          tenantId: "tenant-1",
+          resellerId: "reseller-1",
+          pelangganId: "pelanggan-1",
+          invoiceId: "invoice-1",
+          sourceCommissionId: "commission-1",
+          amount: 10000,
+          remainingAmount: 4000,
+          reason: "Invoice di-void setelah komisi dibayar",
+          createdAt: new Date("2026-11-02T00:00:00.000Z"),
+        },
+      ],
+      total: 1,
+    });
+
+    const response = await listAdjustments(
+      request("commission-adjustments?limit=5&page=2"),
+      context(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.reversal.listAdjustments).toHaveBeenCalledWith({
+      tenantId: "tenant-1",
+      resellerId: "reseller-1",
+      skip: 5,
+      take: 5,
+    });
+    expect((await response.json()).data).toEqual([
+      expect.objectContaining({
+        id: "adjustment-1",
+        amount: 10000,
+        remainingAmount: 4000,
+        createdAt: "2026-11-02T00:00:00.000Z",
+      }),
+    ]);
+  });
+
+  it("menolak 403 tanpa reseller:read", async () => {
+    signInWith([]);
+
+    const response = await listAdjustments(
+      request("commission-adjustments"),
+      context(),
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.reversal.listAdjustments).not.toHaveBeenCalled();
+  });
 });
 
 // Reviewer: form bayar dulu memuat /api/finance/accounts (izin baca kas),

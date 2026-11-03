@@ -16,6 +16,14 @@ export {
   getResellerComplianceService,
 } from "./services/ResellerComplianceService";
 export {
+  ResellerStatusHistoryService,
+  getResellerStatusHistoryService,
+} from "./services/ResellerStatusHistoryService";
+export {
+  listResellerStatusHistoryQuerySchema,
+  MAX_STATUS_HISTORY_LIMIT,
+} from "./validators/reseller-status-history";
+export {
   ResellerCustomerRelationService,
   getResellerCustomerRelationService,
 } from "./services/ResellerCustomerRelationService";
@@ -23,6 +31,10 @@ export {
   ResellerCommissionService,
   getResellerCommissionService,
 } from "./services/ResellerCommissionService";
+export {
+  ResellerCommissionReversalService,
+  getResellerCommissionReversalService,
+} from "./services/ResellerCommissionReversalService";
 export {
   ResellerCommissionRuleService,
   getResellerCommissionRuleService,
@@ -61,6 +73,7 @@ export {
 export { upsertResellerPackagePriceSchema } from "./validators/reseller-pricing";
 export {
   createResellerSettlementSchema,
+  listResellerCommissionAdjustmentSchema,
   listResellerCommissionSchema,
   listResellerSettlementSchema,
   payResellerSettlementSchema,
@@ -74,6 +87,7 @@ export {
 } from "./validators/reseller-commission-rule";
 export {
   ResellerConflictError,
+  ResellerForbiddenError,
   ResellerNotFoundError,
   ResellerValidationError,
 } from "./errors/reseller-errors";
@@ -85,14 +99,17 @@ export type {
   ResellerWithComplianceDTO,
   ResellerOutletDTO,
   ResellerPackagePriceDTO,
+  ResellerStatusHistoryDTO,
   ResolvedPackagePriceDTO,
 } from "./dto/reseller.dto";
 export {
+  toCommissionAdjustmentDTO,
   toCommissionDTO,
   toCommissionRuleDTO,
   toSettlementDTO,
 } from "./dto/commission.dto";
 export type {
+  ResellerCommissionAdjustmentDTO,
   ResellerCommissionDTO,
   ResellerCommissionRuleDTO,
   ResellerMonthlyReportDTO,

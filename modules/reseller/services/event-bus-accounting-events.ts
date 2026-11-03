@@ -2,6 +2,7 @@ import { eventBus, EVENT_NAMES } from "@/lib/event-bus";
 import { resellerCommissionAccrualRef } from "@/lib/event-bus/types";
 import { logger } from "@/lib/logger";
 import type {
+  ResellerCommissionAdjustmentEntity,
   ResellerCommissionEntity,
   ResellerSettlementEntity,
 } from "../domain/entities/ResellerCommissionEntity";
@@ -42,6 +43,23 @@ export class EventBusResellerAccountingEvents implements IResellerAccountingEven
       accrualRef: accrualRefOf(commission),
       invoiceId: commission.invoiceId,
       cancelledAt: (commission.deletedAt ?? new Date()).toISOString(),
+    });
+  }
+
+  /** Publish RESELLER_COMMISSION_CLAWED_BACK. */
+  async commissionClawedBack(
+    adjustment: ResellerCommissionAdjustmentEntity,
+  ): Promise<void> {
+    const tenantId = requireTenant(adjustment.tenantId, adjustment.id);
+    if (!tenantId) return;
+    await publishSafely(EVENT_NAMES.RESELLER_COMMISSION_CLAWED_BACK, {
+      tenantId,
+      adjustmentId: adjustment.id,
+      commissionId: adjustment.sourceCommissionId,
+      resellerId: adjustment.resellerId,
+      invoiceId: adjustment.invoiceId,
+      amount: adjustment.amount,
+      recordedAt: adjustment.createdAt.toISOString(),
     });
   }
 

@@ -214,5 +214,6 @@ export { handleAdvanceDisbursedAccounting } from "./services/event-handlers/adva
 export {
   handleResellerCommissionAccruedAccounting,
   handleResellerCommissionCancelledAccounting,
+  handleResellerCommissionClawedBackAccounting,
   handleResellerSettlementPaidAccounting,
 } from "./services/event-handlers/reseller-commission-accounting.handler";

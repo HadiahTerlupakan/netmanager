@@ -6,6 +6,7 @@ import type {
 import type {
   IResellerBillingReader,
   IResellerReportRepository,
+  ReportAdjustmentTotal,
   ReportCommissionTotal,
   ReportCustomer,
   ReportInvoiceTotal,
@@ -23,7 +24,10 @@ const ZERO_FIGURES: ResellerReportFigures = {
   commissionAccrued: 0,
   commissionSettled: 0,
   commissionPaid: 0,
+  commissionAdjusted: 0,
 };
+const PAID_LIKE_STATUSES: ReadonlySet<ReportCommissionTotal["status"]> =
+  new Set(["PAID", "REVERSED"]);
 
 /** Rentang UTC satu bulan `YYYY-MM`, sama dengan `ResellerCommission.period`. */
 export function toPeriodRange(period: string): {
@@ -38,7 +42,7 @@ export function toPeriodRange(period: string): {
 
 /**
  * Laporan bulanan reseller per outlet: pelanggan aktif, tagihan bruto,
- * terbayar, dan komisi (terbit/settle/dibayar). Bukti bahwa seluruh tagihan
+ * terbayar, komisi (terbit/settle/dibayar), dan koreksi komisi. Bukti bahwa seluruh tagihan
  * pelanggan reseller dibukukan ISP (model agen), dan imbalan reseller tercatat
  * sebagai komisi.
  *
@@ -66,21 +70,29 @@ export class ResellerReportService {
     const reseller = await this.repository.findReseller(tenantId, resellerId);
     if (!reseller) throw new ResellerNotFoundError();
 
-    const [outlets, customers, commissions] = await Promise.all([
+    const periodRange = toPeriodRange(period);
+    const [outlets, customers, commissions, adjustments] = await Promise.all([
       this.repository.findOutlets(tenantId, resellerId),
       this.repository.findCustomers(tenantId, resellerId),
       this.repository.sumCommissions(tenantId, resellerId, period),
+      this.repository.sumAdjustments({ tenantId, resellerId, ...periodRange }),
     ]);
     const invoices =
       customers.length > 0
         ? await this.billing.summarizeInvoices({
             tenantId,
             pelangganIds: customers.map((customer) => customer.id),
-            ...toPeriodRange(period),
+            ...periodRange,
           })
         : [];
 
-    const rows = buildRows({ outlets, customers, commissions, invoices });
+    const rows = buildRows({
+      outlets,
+      customers,
+      commissions,
+      adjustments,
+      invoices,
+    });
     return {
       resellerId: reseller.id,
       resellerCode: reseller.code,
@@ -96,6 +108,7 @@ function buildRows(sources: {
   readonly outlets: readonly ReportOutlet[];
   readonly customers: readonly ReportCustomer[];
   readonly commissions: readonly ReportCommissionTotal[];
+  readonly adjustments: readonly ReportAdjustmentTotal[];
   readonly invoices: readonly ReportInvoiceTotal[];
 }): ResellerReportRow[] {
   const outletOfCustomer = new Map(
@@ -129,18 +142,24 @@ function buildRows(sources: {
       commissionFigures(commission),
     );
   }
+  for (const adjustment of sources.adjustments) {
+    add(outletOfCustomer.get(adjustment.pelangganId) ?? null, {
+      commissionAdjusted: adjustment.amount,
+    });
+  }
   return toRows(figures, sources.outlets);
 }
 
 function commissionFigures(
   commission: ReportCommissionTotal,
 ): Partial<ResellerReportFigures> {
-  const isSettled =
-    commission.status === "SETTLED" || commission.status === "PAID";
+  // REVERSED pernah disettle dan dibayar; tagih baliknya di `commissionAdjusted`.
+  const isPaid = PAID_LIKE_STATUSES.has(commission.status);
+  const isSettled = isPaid || commission.status === "SETTLED";
   return {
     commissionAccrued: commission.amount,
     commissionSettled: isSettled ? commission.amount : 0,
-    commissionPaid: commission.status === "PAID" ? commission.amount : 0,
+    commissionPaid: isPaid ? commission.amount : 0,
   };
 }
 
@@ -183,6 +202,7 @@ function addFigures(
     commissionAccrued: left.commissionAccrued + right.commissionAccrued,
     commissionSettled: left.commissionSettled + right.commissionSettled,
     commissionPaid: left.commissionPaid + right.commissionPaid,
+    commissionAdjusted: left.commissionAdjusted + right.commissionAdjusted,
   };
 }
 

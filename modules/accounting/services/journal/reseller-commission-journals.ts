@@ -38,7 +38,13 @@ import {
  * `modules/tax/services/BhpUsoService.ts`) tetap tagihan bruto:
  *   akru   : Dr Beban Komisi Reseller  / Cr Utang Komisi Reseller
  *   bayar  : Dr Utang Komisi Reseller  / Cr Kas/Bank rekening terpilih
- *   batal  : jurnal akru dibalik (JournalReverseService)
+ *   batal  : jurnal akru dibalik (JournalReverseService), selama komisinya
+ *            belum dibayar
+ *   tagih balik (komisi sudah dibayar lalu invoice di-void/pelunasan ditarik):
+ *            Dr Utang Komisi Reseller / Cr Beban Komisi Reseller. Utang komisi
+ *            bersaldo debit sebesar koreksi (reseller berutang) sampai
+ *            koreksinya dipotongkan dari pembayaran settlement berikutnya,
+ *            yang mendebit utang sebesar total bersih saja.
  *
  * Utang komisi tidak boleh bersaldo debit: setiap komisi yang dibayar harus
  * punya jurnal akru. Akru yang hilang (event gagal, COA belum di-seed saat
@@ -48,6 +54,7 @@ import {
 
 export const RESELLER_COMMISSION_REF_TYPE = "ResellerCommission";
 export const RESELLER_SETTLEMENT_REF_TYPE = "ResellerSettlement";
+export const RESELLER_ADJUSTMENT_REF_TYPE = "ResellerCommissionAdjustment";
 const SYSTEM_ACTOR = "system";
 const EXPENSE_PURPOSE: CoaPurpose = "BEBAN_KOMISI_RESELLER";
 const PAYABLE_PURPOSE: CoaPurpose = "UTANG_KOMISI_RESELLER";
@@ -141,6 +148,14 @@ export interface CommissionCancellationJournalInput {
   readonly tenantId: string;
   readonly accrualRef: string;
   readonly invoiceId: string;
+}
+
+export interface CommissionClawbackJournalInput {
+  readonly tenantId: string;
+  readonly adjustmentId: string;
+  readonly invoiceId: string;
+  readonly amount: number;
+  readonly recordedAt: Date;
 }
 
 export interface SettlementPaymentJournalInput {
@@ -282,25 +297,68 @@ function isAlreadyReversed(error: unknown): boolean {
 }
 
 /**
- * Bayar settlement: Dr Utang Komisi Reseller / Cr Kas/Bank rekening terpilih.
+ * Tagih balik komisi yang sudah dibayar: Dr Utang Komisi Reseller / Cr Beban
+ * Komisi Reseller, idempoten per koreksi (ref = id koreksi). Bertanggal saat
+ * koreksi dicatat; bila periode itu sudah ditutup, disusulkan pada periode
+ * berjalan. Jurnal akru komisinya tidak dibalik: beban dan pembayarannya
+ * memang pernah terjadi, koreksi inilah yang menghapus bebannya.
+ */
+export async function postResellerCommissionClawback(
+  input: CommissionClawbackJournalInput,
+  deps: ResellerCommissionJournalDeps = defaultDeps(),
+): Promise<boolean> {
+  if (input.amount <= 0) return false;
+  const { expense, payable } = await resolveCommissionAccounts(
+    deps,
+    input.tenantId,
+  );
+  const amount = String(input.amount);
+  const post = async (entryDate: Date, note: string) => {
+    await deps.ensurePeriod(input.tenantId, entryDate);
+    await deps.posting.postAuto(input.tenantId, {
+      source: "AUTO_RESELLER_COMMISSION_CLAWBACK",
+      sourceRefType: RESELLER_ADJUSTMENT_REF_TYPE,
+      sourceRefId: input.adjustmentId,
+      entryDate,
+      description: `Koreksi komisi reseller atas invoice ${input.invoiceId} yang tidak lagi lunas${note}`,
+      lines: [
+        { coaId: payable.id, side: "DEBIT", amount },
+        { coaId: expense.id, side: "CREDIT", amount },
+      ],
+    });
+  };
+  try {
+    await post(input.recordedAt, "");
+  } catch (error) {
+    if (!(error instanceof PeriodClosedError)) throw error;
+    await post(deps.now(), " (susulan: periode koreksi sudah ditutup)");
+  }
+  return true;
+}
+
+/**
+ * Bayar settlement: Dr Utang Komisi Reseller / Cr Kas/Bank rekening terpilih,
+ * sebesar total bersih (komisi dikurangi koreksi yang dipotongkan).
  *
  * Sebelum utang didebit, jurnal akru setiap komisi di settlement disusulkan
  * bila belum ada (idempoten per ref). Tanpa itu komisi yang akrunya tidak
  * pernah terjurnal membuat Utang Komisi bersaldo debit dan bebannya tidak
- * pernah diakui.
+ * pernah diakui. Susulan tetap berjalan untuk settlement bertotal bersih 0
+ * (seluruh komisinya habis dipotong koreksi); hanya jurnal kasnya yang
+ * dilewati.
  */
 export async function postResellerSettlementPayment(
   input: SettlementPaymentJournalInput,
   deps: ResellerCommissionJournalDeps = defaultDeps(),
 ): Promise<boolean> {
-  if (input.amount <= 0) return false;
+  if (input.amount < 0) return false;
   const { payable } = await resolveCommissionAccounts(deps, input.tenantId);
-  const cashCoaId = await resolvePaymentCoaId(
-    deps,
-    input.tenantId,
-    input.accountId,
-  );
+  const cashCoaId =
+    input.amount > 0
+      ? await resolvePaymentCoaId(deps, input.tenantId, input.accountId)
+      : null;
   await ensureSettlementAccruals(deps, input);
+  if (cashCoaId === null) return false;
   const amount = String(input.amount);
   await deps.ensurePeriod(input.tenantId, input.paidAt);
   await deps.posting.postAuto(input.tenantId, {

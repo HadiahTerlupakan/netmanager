@@ -72,10 +72,22 @@ export const createResellerSchema = resellerFieldsSchema.superRefine(
 
 export const updateResellerSchema = resellerFieldsSchema.partial();
 
-/** Body pengaturan "wajibkan kepatuhan reseller" per tenant. */
-export const updateResellerComplianceSettingSchema = z.object({
-  isComplianceRequired: z.boolean(),
-});
+/**
+ * Body pengaturan tata kelola reseller per tenant. Tiap sakelar opsional agar
+ * satu sakelar bisa diubah tanpa menyentuh yang lain; minimal satu wajib ada.
+ */
+export const updateResellerComplianceSettingSchema = z
+  .object({
+    isComplianceRequired: z.boolean().optional(),
+    isSettlementSeparateApproverRequired: z.boolean().optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.isComplianceRequired !== undefined ||
+      value.isSettlementSeparateApproverRequired !== undefined,
+    { message: "Minimal satu pengaturan wajib diisi" },
+  );
 
 /** Query list reseller: page/limit wajib angka positif, limit dibatasi. */
 export const listResellersQuerySchema = z.object({

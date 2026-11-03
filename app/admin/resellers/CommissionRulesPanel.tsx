@@ -7,12 +7,14 @@ import { useApi } from "@/lib/hooks/useApi";
 import {
   MAX_COMMISSION_PERCENT,
   MAX_FIXED_COMMISSION,
+  MIN_FIXED_COMMISSION,
 } from "@/modules/reseller/client";
 import { LoadErrorState } from "./LoadErrorState";
 import {
   buildRulePayload,
   describeRulePeriod,
   describeRuleValue,
+  PERCENT_INPUT_PATTERN,
   resellerApiUrl,
   type CommissionRule,
   type RuleForm,
@@ -77,7 +79,11 @@ export function CommissionRulesPanel({
   const createRule = async () => {
     const payload = buildRulePayload(form);
     if (!payload) {
-      toast.error("Nilai komisi harus bilangan bulat lebih dari 0");
+      toast.error(
+        form.type === "PERCENTAGE"
+          ? "Persen komisi harus lebih dari 0, maksimal 2 angka desimal (mis. 2,5)"
+          : "Nominal komisi harus rupiah bulat lebih dari 0",
+      );
       return;
     }
     await runMutation(async () => {
@@ -174,25 +180,47 @@ export function CommissionRulesPanel({
               <option value="FIXED">Nominal per invoice</option>
             </select>
           </label>
-          <label className="text-sm text-gray-700 dark:text-gray-300">
-            {form.type === "PERCENTAGE" ? "Persen (1–100)" : "Nominal (Rp)"}
-            <input
-              className={INPUT_CLASS}
-              type="number"
-              min={1}
-              max={
-                form.type === "PERCENTAGE"
-                  ? MAX_COMMISSION_PERCENT
-                  : MAX_FIXED_COMMISSION
-              }
-              step={1}
-              required
-              value={form.value}
-              onChange={(event) =>
-                setForm({ ...form, value: event.target.value })
-              }
-            />
-          </label>
+          {form.type === "PERCENTAGE" ? (
+            <label className="text-sm text-gray-700 dark:text-gray-300">
+              Persen (maks. {MAX_COMMISSION_PERCENT}, hingga 2 desimal)
+              <input
+                className={INPUT_CLASS}
+                type="text"
+                inputMode="decimal"
+                pattern={PERCENT_INPUT_PATTERN.source}
+                title="Angka lebih dari 0, hingga 2 desimal dengan koma atau titik, mis. 2,5"
+                placeholder="mis. 2,5"
+                aria-describedby="commission-percent-hint"
+                required
+                value={form.value}
+                onChange={(event) =>
+                  setForm({ ...form, value: event.target.value })
+                }
+              />
+              <span
+                id="commission-percent-hint"
+                className="mt-1 block text-xs text-gray-500 dark:text-gray-400"
+              >
+                Pakai koma atau titik untuk desimal, mis. 2,5 atau 2.5.
+              </span>
+            </label>
+          ) : (
+            <label className="text-sm text-gray-700 dark:text-gray-300">
+              Nominal (Rp)
+              <input
+                className={INPUT_CLASS}
+                type="number"
+                min={MIN_FIXED_COMMISSION}
+                max={MAX_FIXED_COMMISSION}
+                step={1}
+                required
+                value={form.value}
+                onChange={(event) =>
+                  setForm({ ...form, value: event.target.value })
+                }
+              />
+            </label>
+          )}
           <label className="text-sm text-gray-700 dark:text-gray-300">
             Paket
             <select

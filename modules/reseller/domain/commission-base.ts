@@ -1,7 +1,9 @@
 import type { PaidInvoiceAmounts } from "./ports/IInvoicePaymentStatusReader";
 import type { ResellerCommissionTypeValue } from "./entities/ResellerCommissionEntity";
 
-const PERCENT_DIVISOR = 100;
+/** Persen disimpan hingga 2 desimal → 1% = 100 basis poin. */
+const BASIS_POINTS_PER_PERCENT = 100;
+const BASIS_POINTS_DIVISOR = 10_000;
 
 /**
  * Dasar komisi reseller = DPP, yaitu nilai tagihan tanpa PPN.
@@ -31,16 +33,25 @@ export function calculateCommissionBase(amounts: PaidInvoiceAmounts): number {
 /** Aturan yang menentukan besar komisi. */
 export interface CommissionRate {
   readonly type: ResellerCommissionTypeValue;
-  /** Persen bulat 0–100 (kolom `rate` Int). */
+  /** Persen 0–100 hingga 2 desimal (kolom `rate` Decimal(5,2)), mis. 2.5. */
   readonly rate: number | null;
   /** Rupiah bulat per invoice lunas. */
   readonly fixedAmount: number | null;
 }
 
 /**
- * Komisi rupiah bulat (dibulatkan ke bawah) dari DPP. Invoice ber-DPP nol
- * (mis. tagihan Rp0 karena potongan penuh) tidak berkomisi, termasuk untuk
- * aturan nominal tetap.
+ * Persen (hingga 2 desimal) menjadi basis poin bulat: 2.5 → 250. Pembulatan
+ * menyerap galat biner float (mis. 2.55 * 100 = 254.99999999999997).
+ */
+export function percentToBasisPoints(percent: number): number {
+  return Math.round(percent * BASIS_POINTS_PER_PERCENT);
+}
+
+/**
+ * Komisi rupiah bulat (dibulatkan ke bawah) dari DPP. Persen dihitung lewat
+ * basis poin bulat agar perkaliannya eksak di aritmetika integer (tanpa galat
+ * float pada persen desimal). Invoice ber-DPP nol (mis. tagihan Rp0 karena
+ * potongan penuh) tidak berkomisi, termasuk untuk aturan nominal tetap.
  */
 export function calculateCommissionAmount(
   rule: CommissionRate,
@@ -48,7 +59,8 @@ export function calculateCommissionAmount(
 ): number {
   if (baseAmount <= 0) return 0;
   if (rule.type === "PERCENTAGE") {
-    return Math.floor((baseAmount * (rule.rate ?? 0)) / PERCENT_DIVISOR);
+    const basisPoints = percentToBasisPoints(rule.rate ?? 0);
+    return Math.floor((baseAmount * basisPoints) / BASIS_POINTS_DIVISOR);
   }
   return rule.fixedAmount ?? 0;
 }

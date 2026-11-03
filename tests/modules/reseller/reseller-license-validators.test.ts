@@ -92,4 +92,25 @@ describe("validator status kemitraan", () => {
       }).success,
     ).toBe(false);
   });
+
+  it("pengaturan tata kelola menerima satu sakelar saja, menolak body kosong", () => {
+    expect(
+      updateResellerComplianceSettingSchema.safeParse({
+        isSettlementSeparateApproverRequired: true,
+      }).success,
+    ).toBe(true);
+    expect(
+      updateResellerComplianceSettingSchema.safeParse({
+        isComplianceRequired: false,
+      }).success,
+    ).toBe(true);
+    expect(updateResellerComplianceSettingSchema.safeParse({}).success).toBe(
+      false,
+    );
+    expect(
+      updateResellerComplianceSettingSchema.safeParse({
+        isSettlementSeparateApproverRequired: "ya",
+      }).success,
+    ).toBe(false);
+  });
 });

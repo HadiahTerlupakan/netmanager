@@ -97,16 +97,29 @@ export interface IResellerRepository {
     readonly items: readonly ResellerEntity[];
     readonly total: number;
   }>;
-  /** Create reseller. */
+  /**
+   * Create reseller. Status awal selain ACTIVE dicatat ke riwayat status
+   * dalam transaksi yang sama.
+   */
   create(data: CreateResellerData): Promise<ResellerEntity>;
-  /** Update reseller. */
+  /**
+   * Update reseller. Bila status berubah, riwayatnya (alasan, pelaku, waktu
+   * dari `ResellerStatusAuditData`) dicatat dalam transaksi yang sama.
+   */
   update(
     tenantId: string | null,
     id: string,
     data: UpdateResellerData,
   ): Promise<ResellerEntity>;
-  /** Soft delete reseller. */
-  softDelete(tenantId: string | null, id: string): Promise<void>;
+  /**
+   * Soft delete reseller (status menjadi INACTIVE). Bila status berubah,
+   * riwayatnya dicatat atas nama `actorId`.
+   */
+  softDelete(
+    tenantId: string | null,
+    id: string,
+    actorId?: string | null,
+  ): Promise<void>;
   /** Find outlet by id within tenant scope. */
   findOutletById(
     tenantId: string | null,

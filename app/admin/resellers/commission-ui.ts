@@ -2,6 +2,10 @@ import { RESELLER_LIST_URL } from "./useResellerList";
 
 /** Zona tanggal kalender aturan komisi (WIB). */
 const WIB_OFFSET = "+07:00";
+/** Persen: angka bulat, opsional 1–2 desimal dengan koma atau titik. */
+export const PERCENT_INPUT_PATTERN = /^\d+(?:[.,]\d{1,2})?$/;
+/** Nominal: rupiah bulat tanpa pemisah. */
+const FIXED_INPUT_PATTERN = /^\d+$/;
 
 export type CommissionRuleType = "PERCENTAGE" | "FIXED";
 export type CommissionRuleStatus = "ACTIVE" | "INACTIVE";
@@ -28,14 +32,32 @@ export type Settlement = {
   readonly id: string;
   readonly periodStart: string;
   readonly periodEnd: string;
+  /** Yang dibayarkan: komisi bruto dikurangi koreksi. */
   readonly totalAmount: number;
+  readonly grossAmount: number;
+  readonly adjustmentAmount: number;
   readonly commissionCount: number;
   readonly status: SettlementStatus;
   readonly approvedAt: string | null;
   readonly paidAt: string | null;
+  readonly approvedById: string | null;
+  readonly paidById: string | null;
   readonly paymentMethod: string | null;
   readonly paymentReference: string | null;
 };
+
+/**
+ * True bila settlement dibayar oleh pengguna yang sama dengan penyetujunya
+ * (pemisahan tugas dilanggar). Pelaku yang tidak tercatat tidak dibandingkan.
+ */
+export function isPaidBySameApprover(
+  settlement: Pick<Settlement, "approvedById" | "paidById">,
+): boolean {
+  return (
+    settlement.paidById !== null &&
+    settlement.paidById === settlement.approvedById
+  );
+}
 
 export type ReportFigures = {
   readonly activeCustomers: number;
@@ -44,6 +66,17 @@ export type ReportFigures = {
   readonly commissionAccrued: number;
   readonly commissionSettled: number;
   readonly commissionPaid: number;
+  readonly commissionAdjusted: number;
+};
+
+/** Koreksi (clawback) komisi yang sudah dibayar. */
+export type CommissionAdjustment = {
+  readonly id: string;
+  readonly invoiceId: string;
+  readonly amount: number;
+  readonly remainingAmount: number;
+  readonly reason: string;
+  readonly createdAt: string;
 };
 
 export type ReportRow = ReportFigures & {
@@ -98,6 +131,10 @@ const dateFormatter = new Intl.DateTimeFormat("id-ID", {
   year: "numeric",
   timeZone: "UTC",
 });
+const percentFormatter = new Intl.NumberFormat("id-ID", {
+  maximumFractionDigits: 2,
+});
+
 /** Tanggal aturan komisi disimpan sebagai batas hari kalender WIB. */
 const ruleDateFormatter = new Intl.DateTimeFormat("id-ID", {
   day: "numeric",
@@ -116,10 +153,10 @@ export function formatDate(iso: string): string {
   return dateFormatter.format(new Date(iso));
 }
 
-/** "10%" atau "Rp 5.000 / invoice". */
+/** "2,5% dari DPP" atau "Rp 5.000 / invoice". */
 export function describeRuleValue(rule: CommissionRule): string {
   return rule.type === "PERCENTAGE"
-    ? `${rule.rate ?? 0}% dari DPP`
+    ? `${percentFormatter.format(rule.rate ?? 0)}% dari DPP`
     : `${formatRupiah(rule.fixedAmount ?? 0)} / invoice`;
 }
 
@@ -142,8 +179,26 @@ export function todayInputValue(now: Date = new Date()): string {
 }
 
 /**
- * Payload API aturan komisi dari form; null bila nilainya bukan bilangan
- * bulat positif (validasi rinci tetap di server). Tanggal form adalah tanggal
+ * Nilai komisi dari input form; null bila formatnya tidak sah atau tidak
+ * lebih dari 0. Persen menerima koma desimal Indonesia maupun titik, hingga 2
+ * desimal ("2,5" → 2.5); nominal harus rupiah bulat. Batas atas tetap
+ * divalidasi server.
+ */
+export function parseRuleValue(
+  type: CommissionRuleType,
+  rawValue: string,
+): number | null {
+  const trimmed = rawValue.trim();
+  const pattern =
+    type === "PERCENTAGE" ? PERCENT_INPUT_PATTERN : FIXED_INPUT_PATTERN;
+  if (!pattern.test(trimmed)) return null;
+  const value = Number(trimmed.replace(",", "."));
+  return value > 0 ? value : null;
+}
+
+/**
+ * Payload API aturan komisi dari form; null bila nilainya tidak sah (lihat
+ * `parseRuleValue`; validasi rinci tetap di server). Tanggal form adalah tanggal
  * kalender WIB: berlaku sejak 00:00 WIB tanggal mulai sampai 23:59:59 WIB
  * tanggal akhir. Tanggal polos akan dibaca sebagai tengah malam UTC (07:00
  * WIB), sehingga pelunasan dini hari tanggal mulai tidak mendapat aturan.
@@ -151,8 +206,8 @@ export function todayInputValue(now: Date = new Date()): string {
 export function buildRulePayload(
   form: RuleForm,
 ): Record<string, unknown> | null {
-  const value = Number(form.value);
-  if (!Number.isInteger(value) || value <= 0) return null;
+  const value = parseRuleValue(form.type, form.value);
+  if (value === null) return null;
   return {
     type: form.type,
     ...(form.type === "PERCENTAGE" ? { rate: value } : { fixedAmount: value }),
@@ -162,6 +217,15 @@ export function buildRulePayload(
       : {}),
     endsAt: form.endsAt ? `${form.endsAt}T23:59:59.999${WIB_OFFSET}` : null,
   };
+}
+
+/** "Sisa Rp 5.000" atau "Sudah dipotong" untuk satu koreksi. */
+export function describeAdjustmentBalance(
+  adjustment: Pick<CommissionAdjustment, "remainingAmount">,
+): string {
+  return adjustment.remainingAmount > 0
+    ? `Sisa ${formatRupiah(adjustment.remainingAmount)} dipotong dari settlement berikutnya`
+    : "Sudah dipotong dari settlement";
 }
 
 /** Aksi berikutnya yang tersedia untuk settlement. */

@@ -96,6 +96,7 @@ const ZERO_REPORT_FIGURES = {
   commissionAccrued: 0,
   commissionSettled: 0,
   commissionPaid: 0,
+  commissionAdjusted: 0,
 };
 
 function emptySuccess() {

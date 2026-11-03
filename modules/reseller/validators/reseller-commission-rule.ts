@@ -1,19 +1,31 @@
 import * as z from "zod";
 
 /**
- * Persen komisi disimpan di kolom `rate` Int, jadi presisinya persen bulat
- * (mis. 10 = 10%). Nominal tetap dalam rupiah bulat per invoice lunas.
+ * Persen komisi disimpan di kolom `rate` Decimal(5,2): lebih dari 0 sampai
+ * 100, hingga 2 angka desimal (mis. 2.5 = 2,5%). Nominal tetap dalam rupiah
+ * bulat per invoice lunas.
  */
-export const MIN_COMMISSION_PERCENT = 1;
+export const MIN_COMMISSION_PERCENT = 0.01;
 export const MAX_COMMISSION_PERCENT = 100;
+export const COMMISSION_PERCENT_DECIMALS = 2;
 export const MIN_FIXED_COMMISSION = 1;
 export const MAX_FIXED_COMMISSION = 100_000_000;
 
+const PERCENT_SCALE = 10 ** COMMISSION_PERCENT_DECIMALS;
+/** Toleransi galat biner float saat memeriksa jumlah desimal. */
+const DECIMAL_TOLERANCE = 1e-9;
+
+/** Benar bila persen punya paling banyak 2 angka desimal. */
+export function hasValidPercentPrecision(percent: number): boolean {
+  const scaled = percent * PERCENT_SCALE;
+  return Math.abs(scaled - Math.round(scaled)) < DECIMAL_TOLERANCE;
+}
+
 const percentSchema = z
   .number({ error: "Persen komisi wajib diisi" })
-  .int("Persen komisi harus bilangan bulat")
-  .min(MIN_COMMISSION_PERCENT, "Persen komisi minimal 1")
-  .max(MAX_COMMISSION_PERCENT, "Persen komisi maksimal 100");
+  .gt(0, "Persen komisi harus lebih dari 0")
+  .max(MAX_COMMISSION_PERCENT, "Persen komisi maksimal 100")
+  .refine(hasValidPercentPrecision, "Persen komisi maksimal 2 angka desimal");
 
 const fixedAmountSchema = z
   .number({ error: "Nominal komisi wajib diisi" })

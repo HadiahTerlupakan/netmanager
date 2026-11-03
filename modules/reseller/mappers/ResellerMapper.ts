@@ -2,6 +2,7 @@ import type {
   ResellerEntity,
   ResellerOutletEntity,
   ResellerPackagePriceEntity,
+  ResellerStatusHistoryEntity,
 } from "../domain/entities/ResellerEntity";
 import {
   COMPLIANCE_ISSUE_LABELS,
@@ -11,6 +12,7 @@ import type {
   ResellerDTO,
   ResellerOutletDTO,
   ResellerPackagePriceDTO,
+  ResellerStatusHistoryDTO,
   ResellerWithComplianceDTO,
 } from "../dto/reseller.dto";
 
@@ -39,6 +41,20 @@ export class ResellerMapper {
       statusChangedById: entity.statusChangedById,
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),
+    };
+  }
+
+  /** Map baris riwayat status kemitraan ke DTO admin. */
+  static toStatusHistoryDTO(
+    entity: ResellerStatusHistoryEntity,
+  ): ResellerStatusHistoryDTO {
+    return {
+      id: entity.id,
+      fromStatus: entity.fromStatus,
+      toStatus: entity.toStatus,
+      reason: entity.reason,
+      changedById: entity.changedById,
+      changedAt: entity.changedAt.toISOString(),
     };
   }
 

@@ -5,6 +5,7 @@ import type { EventJobData } from "@/lib/event-bus/queues";
 import { CoaNotFoundError } from "../../errors";
 import {
   postResellerCommissionAccrual,
+  postResellerCommissionClawback,
   postResellerSettlementPayment,
   reverseResellerCommissionAccrual,
 } from "../journal/reseller-commission-journals";
@@ -33,10 +34,19 @@ const cancelledSchema = z.object({
   invoiceId: z.string().min(1),
 });
 
+const clawedBackSchema = z.object({
+  tenantId: tenantIdSchema,
+  adjustmentId: z.string().min(1),
+  invoiceId: z.string().min(1),
+  amount: amountSchema,
+  recordedAt: z.string().min(1),
+});
+
+/** Settlement bisa bertotal bersih 0 bila seluruh komisinya habis dipotong koreksi. */
 const settlementPaidSchema = z.object({
   tenantId: tenantIdSchema,
   settlementId: z.string().min(1),
-  amount: amountSchema,
+  amount: z.number().int().nonnegative(),
   paidAt: z.string().min(1),
   accountId: z.string().min(1),
 });
@@ -90,6 +100,22 @@ export async function handleResellerCommissionCancelledAccounting(
   const payload = parsePayload(cancelledSchema, job);
   await skipWhenCoaMissing(payload.tenantId, () =>
     reverseResellerCommissionAccrual(payload),
+  );
+}
+
+/** RESELLER_COMMISSION_CLAWED_BACK → Dr Utang Komisi Reseller / Cr Beban Komisi Reseller. */
+export async function handleResellerCommissionClawedBackAccounting(
+  job: Job<EventJobData>,
+): Promise<void> {
+  const payload = parsePayload(clawedBackSchema, job);
+  await skipWhenCoaMissing(payload.tenantId, () =>
+    postResellerCommissionClawback({
+      tenantId: payload.tenantId,
+      adjustmentId: payload.adjustmentId,
+      invoiceId: payload.invoiceId,
+      amount: payload.amount,
+      recordedAt: new Date(payload.recordedAt),
+    }),
   );
 }
 

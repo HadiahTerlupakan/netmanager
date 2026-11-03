@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { AppError } from "@/lib/errors";
 import { ResellerSettlementLifecycleService } from "@/modules/reseller/services/ResellerSettlementLifecycleService";
 import type { IResellerSettlementRepository } from "@/modules/reseller/domain/ports/IResellerSettlementRepository";
@@ -27,6 +27,7 @@ const PENDING: ResellerSettlementEntity = {
   paymentMethod: null,
   paymentReference: null,
   paymentAccountId: null,
+  adjustmentAmount: 0,
   deletedAt: null,
 };
 const APPROVED: ResellerSettlementEntity = {
@@ -72,6 +73,11 @@ describe("ResellerSettlementLifecycleService", () => {
   let repository: IResellerSettlementRepository;
   let events: IResellerAccountingEvents;
   let service: ResellerSettlementLifecycleService;
+  let settings: {
+    isSettlementSeparateApproverRequired: Mock<
+      (tenantId: string) => Promise<boolean>
+    >;
+  };
 
   beforeEach(() => {
     repository = {
@@ -84,12 +90,17 @@ describe("ResellerSettlementLifecycleService", () => {
     events = {
       commissionAccrued: vi.fn(),
       commissionCancelled: vi.fn(),
+      commissionClawedBack: vi.fn(),
       settlementPaid: vi.fn(),
+    };
+    settings = {
+      isSettlementSeparateApproverRequired: vi.fn().mockResolvedValue(false),
     };
     service = new ResellerSettlementLifecycleService(
       repository,
       events,
       () => NOW,
+      settings,
     );
   });
 
@@ -213,6 +224,64 @@ describe("ResellerSettlementLifecycleService", () => {
     });
 
     expect(await service.markPaid(PAYMENT)).toBe(PAID);
+  });
+
+  describe("pemisahan tugas penyetuju & pembayar", () => {
+    it("menolak dengan 403 bila aktif dan pembayar adalah penyetuju", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce(APPROVED);
+      settings.isSettlementSeparateApproverRequired.mockResolvedValueOnce(true);
+
+      const error = await service.markPaid(PAYMENT).catch((caught) => caught);
+
+      expect((error as AppError).statusCode).toBe(403);
+      expect((error as AppError).message).toContain("Pemisahan tugas");
+      expect(
+        settings.isSettlementSeparateApproverRequired,
+      ).toHaveBeenCalledWith("tenant-1");
+      expect(repository.markPaid).not.toHaveBeenCalled();
+      expect(events.settlementPaid).not.toHaveBeenCalled();
+    });
+
+    it("mengizinkan pengguna lain membayar saat aktif", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce(APPROVED);
+      settings.isSettlementSeparateApproverRequired.mockResolvedValue(true);
+
+      await service.markPaid({ ...PAYMENT, actorId: "user-2" });
+
+      expect(repository.markPaid).toHaveBeenCalledWith(
+        expect.objectContaining({ paidById: "user-2" }),
+      );
+    });
+
+    it("mengizinkan penyetuju membayar saat pengaturan mati (default)", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce(APPROVED);
+
+      expect(await service.markPaid(PAYMENT)).toBe(PAID);
+      expect(settings.isSettlementSeparateApproverRequired).toHaveBeenCalled();
+    });
+
+    it("bayar ulang settlement PAID tetap idempoten walau aktif", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce(PAID);
+      settings.isSettlementSeparateApproverRequired.mockResolvedValue(true);
+
+      expect(await service.markPaid(PAYMENT)).toBe(PAID);
+      expect(events.settlementPaid).toHaveBeenCalledWith(PAID);
+    });
+
+    it("penyetuju tak diketahui tidak dibandingkan", async () => {
+      vi.mocked(repository.findById).mockResolvedValueOnce({
+        ...APPROVED,
+        approvedById: null,
+      });
+      settings.isSettlementSeparateApproverRequired.mockResolvedValue(true);
+
+      await service.markPaid(PAYMENT);
+
+      expect(
+        settings.isSettlementSeparateApproverRequired,
+      ).not.toHaveBeenCalled();
+      expect(repository.markPaid).toHaveBeenCalled();
+    });
   });
 
   it("menolak tanggal bayar di masa depan dengan 400", async () => {

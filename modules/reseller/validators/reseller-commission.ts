@@ -55,6 +55,8 @@ export const listResellerCommissionSchema = z.object({
 
 export const listResellerSettlementSchema = z.object(paginationShape);
 
+export const listResellerCommissionAdjustmentSchema = z.object(paginationShape);
+
 export const createResellerSettlementSchema = z.preprocess(
   extendDateOnlyPeriodEnd,
   z

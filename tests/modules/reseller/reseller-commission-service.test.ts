@@ -18,8 +18,8 @@ function createRepository(): IResellerCommissionRepository {
     findCommissionByInvoiceId: vi.fn(),
     createCommission: vi.fn(),
     resellerExists: vi.fn().mockResolvedValue(true),
-    cancelAccruedByInvoiceId: vi.fn(),
     restoreCancelledCommission: vi.fn(),
+    reaccrueReversedCommission: vi.fn(),
     findCommissions: vi.fn(),
     createSettlement: vi.fn(),
     findSettlements: vi.fn(),
@@ -62,6 +62,7 @@ const SETTLEMENT: ResellerSettlementEntity = {
   paymentMethod: null,
   paymentReference: null,
   paymentAccountId: null,
+  adjustmentAmount: 0,
   deletedAt: null,
 };
 
@@ -143,6 +144,7 @@ describe("ResellerCommissionService", () => {
     accountingEvents = {
       commissionAccrued: vi.fn(),
       commissionCancelled: vi.fn(),
+      commissionClawedBack: vi.fn(),
       settlementPaid: vi.fn(),
     };
     service = new ResellerCommissionService(
@@ -359,34 +361,6 @@ describe("ResellerCommissionService", () => {
     expect(repository.createCommission).not.toHaveBeenCalled();
   });
 
-  // Audit #13: void invoice PAID membatalkan komisi yang belum disettle.
-  it("cancels accrued commissions of a voided invoice", async () => {
-    const cancelledCommission = {
-      ...COMMISSION,
-      deletedAt: new Date("2026-07-10T00:00:00.000Z"),
-    };
-    vi.mocked(repository.cancelAccruedByInvoiceId).mockResolvedValueOnce([
-      cancelledCommission,
-    ]);
-
-    vi.mocked(invoiceStatus.isPaid).mockResolvedValueOnce(false);
-
-    const cancelled = await service.cancelAccruedForUnpaidInvoice({
-      tenantId: "tenant-1",
-      invoiceId: "invoice-1",
-    });
-
-    expect(cancelled).toBe(1);
-    expect(repository.cancelAccruedByInvoiceId).toHaveBeenCalledWith({
-      tenantId: "tenant-1",
-      invoiceId: "invoice-1",
-    });
-    // Jurnal akrunya dibalik lewat event accounting.
-    expect(accountingEvents.commissionCancelled).toHaveBeenCalledWith(
-      cancelledCommission,
-    );
-  });
-
   // Reviewer: INVOICE_PAID yang tiba/di-retry setelah invoice di-void atau
   // pelunasannya ditarik dulu tetap menerbitkan komisi yang tak pernah batal.
   it("does not accrue when the invoice is no longer paid", async () => {
@@ -474,18 +448,74 @@ describe("ResellerCommissionService", () => {
     expect(repository.restoreCancelledCommission).not.toHaveBeenCalled();
   });
 
-  // Reviewer: event INVOICE_PAYMENT_REVERTED yang diproses setelah invoice
-  // lunas lagi tidak boleh membatalkan komisi yang sah.
-  it("keeps the commission when the invoice is paid again by the time the event runs", async () => {
-    vi.mocked(invoiceStatus.isPaid).mockResolvedValueOnce(true);
+  // Clawback: komisi yang sudah ditagih balik terbit ulang sebagai akrual
+  // baru bila invoice lunas kembali, agar koreksinya diimbangi dan reseller
+  // tetap berkomisi sekali atas invoice yang benar-benar lunas.
+  it("re-accrues a reversed commission when the invoice is paid again", async () => {
+    const repaidAt = new Date("2026-08-10T00:00:00.000Z");
+    const reaccrued = {
+      ...COMMISSION,
+      accruedAt: repaidAt,
+      period: "2026-08",
+    };
+    vi.mocked(repository.findCustomerContext).mockResolvedValueOnce(CUSTOMER);
+    vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValueOnce({
+      ...COMMISSION,
+      status: "REVERSED",
+      settlementId: "settlement-1",
+    });
+    vi.mocked(repository.reaccrueReversedCommission).mockResolvedValueOnce(
+      reaccrued,
+    );
 
-    const cancelled = await service.cancelAccruedForUnpaidInvoice({
-      tenantId: "tenant-1",
-      invoiceId: "invoice-1",
+    const result = await service.accrueFromPaidInvoice({
+      ...PAID_INPUT,
+      paidAt: repaidAt,
     });
 
-    expect(cancelled).toBe(0);
-    expect(repository.cancelAccruedByInvoiceId).not.toHaveBeenCalled();
+    expect(result).toEqual(reaccrued);
+    expect(repository.reaccrueReversedCommission).toHaveBeenCalledWith({
+      commissionId: "commission-1",
+      invoiceId: "invoice-1",
+      accruedAt: repaidAt,
+      period: "2026-08",
+    });
+    expect(accountingEvents.commissionAccrued).toHaveBeenCalledWith(reaccrued);
+    expect(repository.createCommission).not.toHaveBeenCalled();
+  });
+
+  it("does not announce when the reversed commission was already re-accrued", async () => {
+    vi.mocked(repository.findCustomerContext).mockResolvedValueOnce(CUSTOMER);
+    vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValueOnce({
+      ...COMMISSION,
+      status: "REVERSED",
+    });
+    vi.mocked(repository.reaccrueReversedCommission).mockResolvedValueOnce(
+      null,
+    );
+
+    const result = await service.accrueFromPaidInvoice(PAID_INPUT);
+
+    expect(result).toBeNull();
+    expect(accountingEvents.commissionAccrued).not.toHaveBeenCalled();
+  });
+
+  // Ref jurnal akru dan kunci koreksi memakai accruedAt: akrual baru dengan
+  // tanggal yang sama (pelunasan lama diulang) akan tertahan akrual lama.
+  it("moves the new accrual strictly after the previous one", async () => {
+    vi.mocked(repository.findCustomerContext).mockResolvedValueOnce(CUSTOMER);
+    vi.mocked(repository.findCommissionByInvoiceId).mockResolvedValueOnce({
+      ...COMMISSION,
+      status: "REVERSED",
+    });
+
+    await service.accrueFromPaidInvoice(PAID_INPUT);
+
+    expect(repository.reaccrueReversedCommission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accruedAt: new Date(COMMISSION.accruedAt.getTime() + 1),
+      }),
+    );
   });
 
   // Audit #38: kondisi bisnis settlement dijawab 400/404/409, bukan 500.

@@ -45,6 +45,8 @@ function createSettings(isRequired: boolean): IResellerComplianceSettings {
   return {
     isComplianceRequired: vi.fn().mockResolvedValue(isRequired),
     setComplianceRequired: vi.fn().mockResolvedValue(undefined),
+    isSettlementSeparateApproverRequired: vi.fn().mockResolvedValue(false),
+    setSettlementSeparateApproverRequired: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -165,14 +167,50 @@ describe("ResellerComplianceService", () => {
 
     expect(await service.getComplianceSetting("tenant-1")).toEqual({
       isComplianceRequired: false,
+      isSettlementSeparateApproverRequired: false,
     });
-    expect(await service.updateComplianceSetting("tenant-1", true)).toEqual({
+    vi.mocked(settings.isComplianceRequired).mockResolvedValueOnce(true);
+    expect(
+      await service.updateComplianceSetting("tenant-1", {
+        isComplianceRequired: true,
+      }),
+    ).toEqual({
       isComplianceRequired: true,
+      isSettlementSeparateApproverRequired: false,
     });
     expect(settings.setComplianceRequired).toHaveBeenCalledWith(
       "tenant-1",
       true,
     );
+    expect(
+      settings.setSettlementSeparateApproverRequired,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("hanya menyimpan sakelar pemisahan tugas bila hanya itu yang dikirim", async () => {
+    const settings = createSettings(false);
+    const service = new ResellerComplianceService(
+      repository,
+      createPksDirectory({}),
+      settings,
+    );
+    vi.mocked(
+      settings.isSettlementSeparateApproverRequired,
+    ).mockResolvedValueOnce(true);
+
+    expect(
+      await service.updateComplianceSetting("tenant-1", {
+        isSettlementSeparateApproverRequired: true,
+      }),
+    ).toEqual({
+      isComplianceRequired: false,
+      isSettlementSeparateApproverRequired: true,
+    });
+    expect(settings.setSettlementSeparateApproverRequired).toHaveBeenCalledWith(
+      "tenant-1",
+      true,
+    );
+    expect(settings.setComplianceRequired).not.toHaveBeenCalled();
   });
 });
 

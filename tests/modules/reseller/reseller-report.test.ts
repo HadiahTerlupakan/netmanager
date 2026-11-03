@@ -43,6 +43,12 @@ function createRepository(): IResellerReportRepository {
       { pelangganId: "c3", status: "ACCRUED", amount: 2000 },
       // Pelanggan sudah pindah dari reseller ini: tetap dihitung di "Langsung".
       { pelangganId: "moved", status: "ACCRUED", amount: 1000 },
+      // Sudah dibayar lalu ditagih balik: tetap tercatat disettle & dibayar.
+      { pelangganId: "c2", status: "REVERSED", amount: 4000 },
+    ]),
+    sumAdjustments: vi.fn().mockResolvedValue([
+      { pelangganId: "c2", amount: 4000 },
+      { pelangganId: "moved", amount: 700 },
     ]),
   };
 }
@@ -67,6 +73,12 @@ describe("ResellerReportService", () => {
       "reseller-1",
       "2026-10",
     );
+    expect(repository.sumAdjustments).toHaveBeenCalledWith({
+      tenantId: "tenant-1",
+      resellerId: "reseller-1",
+      periodStart: new Date("2026-10-01T00:00:00.000Z"),
+      periodEnd: new Date("2026-10-31T23:59:59.999Z"),
+    });
     expect(billing.summarizeInvoices).toHaveBeenCalledWith({
       tenantId: "tenant-1",
       pelangganIds: ["c1", "c2", "c3"],
@@ -84,6 +96,7 @@ describe("ResellerReportService", () => {
         commissionAccrued: 3000,
         commissionSettled: 0,
         commissionPaid: 0,
+        commissionAdjusted: 700,
       },
       {
         outletId: "outlet-a",
@@ -92,9 +105,10 @@ describe("ResellerReportService", () => {
         activeCustomers: 1,
         grossBilled: 111000,
         paid: 111000,
-        commissionAccrued: 15000,
-        commissionSettled: 15000,
-        commissionPaid: 10000,
+        commissionAccrued: 19000,
+        commissionSettled: 19000,
+        commissionPaid: 14000,
+        commissionAdjusted: 4000,
       },
       expect.objectContaining({ outletId: "outlet-b", grossBilled: 0 }),
     ]);
@@ -102,9 +116,10 @@ describe("ResellerReportService", () => {
       activeCustomers: 2,
       grossBilled: 161000,
       paid: 111000,
-      commissionAccrued: 18000,
-      commissionSettled: 15000,
-      commissionPaid: 10000,
+      commissionAccrued: 22000,
+      commissionSettled: 19000,
+      commissionPaid: 14000,
+      commissionAdjusted: 4700,
     });
   });
 
@@ -112,6 +127,7 @@ describe("ResellerReportService", () => {
     const repository = createRepository();
     vi.mocked(repository.findCustomers).mockResolvedValueOnce([]);
     vi.mocked(repository.sumCommissions).mockResolvedValueOnce([]);
+    vi.mocked(repository.sumAdjustments).mockResolvedValueOnce([]);
     const emptyBilling = { summarizeInvoices: vi.fn() };
 
     const report = await new ResellerReportService(
@@ -162,6 +178,7 @@ describe("CSV laporan reseller", () => {
         commissionAccrued: 10000,
         commissionSettled: 10000,
         commissionPaid: 0,
+        commissionAdjusted: 2500,
       },
     ],
     totals: {
@@ -171,6 +188,7 @@ describe("CSV laporan reseller", () => {
       commissionAccrued: 10000,
       commissionSettled: 10000,
       commissionPaid: 0,
+      commissionAdjusted: 2500,
     },
   };
 
@@ -178,12 +196,12 @@ describe("CSV laporan reseller", () => {
     const lines = buildResellerReportCsv(report).split("\n");
 
     expect(lines[0]).toBe(
-      "Outlet,Kode outlet,Pelanggan aktif,Tagihan bruto (incl. PPN),Terbayar,Komisi terbit,Komisi disettle,Komisi dibayar",
+      "Outlet,Kode outlet,Pelanggan aktif,Tagihan bruto (incl. PPN),Terbayar,Komisi terbit,Komisi disettle,Komisi dibayar,Koreksi",
     );
     expect(lines[1]).toBe(
-      `"'=HYPERLINK(""x""), Outlet",A,1,111000,111000,10000,10000,0`,
+      `"'=HYPERLINK(""x""), Outlet",A,1,111000,111000,10000,10000,0,2500`,
     );
-    expect(lines[2]).toBe("TOTAL,,1,111000,111000,10000,10000,0");
+    expect(lines[2]).toBe("TOTAL,,1,111000,111000,10000,10000,0,2500");
   });
 
   it("menamai berkas dengan kode reseller yang aman untuk header", () => {

@@ -4,6 +4,7 @@ import type { EventJobData } from "@/lib/event-bus/queues";
 
 const journals = vi.hoisted(() => ({
   postResellerCommissionAccrual: vi.fn(),
+  postResellerCommissionClawback: vi.fn(),
   postResellerSettlementPayment: vi.fn(),
   reverseResellerCommissionAccrual: vi.fn(),
 }));
@@ -15,6 +16,7 @@ vi.mock(
 import {
   handleResellerCommissionAccruedAccounting,
   handleResellerCommissionCancelledAccounting,
+  handleResellerCommissionClawedBackAccounting,
   handleResellerSettlementPaidAccounting,
 } from "@/modules/accounting/services/event-handlers/reseller-commission-accounting.handler";
 import { CoaNotFoundError } from "@/modules/accounting/errors";
@@ -103,5 +105,58 @@ describe("handler akuntansi komisi reseller", () => {
         job("reseller:commission.accrued", { ...ACCRUED, amount: 10.5 }),
       ),
     ).rejects.toThrow("tidak valid");
+  });
+
+  it("membukukan koreksi komisi yang sudah dibayar", async () => {
+    await handleResellerCommissionClawedBackAccounting(
+      job("reseller:commission.clawed_back", {
+        tenantId: "tenant-1",
+        adjustmentId: "adjustment-1",
+        commissionId: "commission-1",
+        resellerId: "reseller-1",
+        invoiceId: "invoice-1",
+        amount: 10000,
+        recordedAt: "2026-11-02T00:00:00.000Z",
+      }),
+    );
+
+    expect(journals.postResellerCommissionClawback).toHaveBeenCalledWith({
+      tenantId: "tenant-1",
+      adjustmentId: "adjustment-1",
+      invoiceId: "invoice-1",
+      amount: 10000,
+      recordedAt: new Date("2026-11-02T00:00:00.000Z"),
+    });
+  });
+
+  it("menolak koreksi tanpa tenant", async () => {
+    await expect(
+      handleResellerCommissionClawedBackAccounting(
+        job("reseller:commission.clawed_back", {
+          adjustmentId: "adjustment-1",
+          invoiceId: "invoice-1",
+          amount: 10000,
+          recordedAt: "2026-11-02T00:00:00.000Z",
+        }),
+      ),
+    ).rejects.toThrow("tidak valid");
+    expect(journals.postResellerCommissionClawback).not.toHaveBeenCalled();
+  });
+
+  it("menerima settlement bertotal bersih 0 (habis dipotong koreksi)", async () => {
+    await handleResellerSettlementPaidAccounting(
+      job("reseller:settlement.paid", {
+        tenantId: "tenant-1",
+        settlementId: "settlement-1",
+        resellerId: "reseller-1",
+        amount: 0,
+        paidAt: "2026-11-03T00:00:00.000Z",
+        accountId: "account-1",
+      }),
+    );
+
+    expect(journals.postResellerSettlementPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ settlementId: "settlement-1", amount: 0 }),
+    );
   });
 });

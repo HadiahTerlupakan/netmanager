@@ -16,10 +16,81 @@ import type {
   ResellerPackagePriceEntity,
   ResellerStatusValue,
 } from "../domain/entities/ResellerEntity";
+import type { ResellerStatusAuditData } from "../domain/ports/IResellerRepository";
 import { ResellerNotFoundError } from "../errors/reseller-errors";
 
 const ACTIVE_STATUS = "ACTIVE";
+const INACTIVE_STATUS = "INACTIVE";
+const SOFT_DELETE_STATUS_REASON = "Reseller dihapus";
 const OUTLET_NOT_FOUND_MESSAGE = "Outlet reseller tidak ditemukan";
+
+type ResellerDbClient = Pick<PrismaClient, "reseller">;
+
+function findActiveReseller(
+  client: ResellerDbClient,
+  tenantId: string | null,
+  id: string,
+): Promise<ResellerEntity | null> {
+  return client.reseller.findFirst({
+    where: { id, tenantId, deletedAt: null },
+  });
+}
+
+/**
+ * Baca reseller aktif dengan row lock (SELECT ... FOR UPDATE) di dalam
+ * transaksi. Perubahan status yang berlomba antre di sini, jadi status lama
+ * yang dicatat di riwayat adalah status sesudah perubahan sebelumnya commit.
+ */
+async function findActiveResellerForUpdate(
+  tx: Prisma.TransactionClient,
+  tenantId: string | null,
+  id: string,
+): Promise<ResellerEntity | null> {
+  await tx.$queryRaw`SELECT "id" FROM "Reseller" WHERE "id" = ${id} FOR UPDATE`;
+  return findActiveReseller(tx, tenantId, id);
+}
+
+/**
+ * Status yang diminta sudah berlaku (perubahan yang sama baru saja commit):
+ * jangan geser waktu dan pelaku perubahan status, karena kelayakan komisi
+ * dinilai dari `statusChangedAt`.
+ */
+function withoutNoopStatusChange(
+  data: UpdateResellerData,
+  currentStatus: ResellerStatusValue,
+): UpdateResellerData {
+  if (data.status === undefined || data.status !== currentStatus) return data;
+  const {
+    statusChangedAt: _staleChangedAt,
+    statusChangedById: _staleChangedById,
+    ...rest
+  } = data;
+  return rest;
+}
+
+/**
+ * Tulis satu baris riwayat status. Dipanggil hanya di dalam transaksi
+ * perubahan status agar riwayat dan status selalu konsisten.
+ */
+async function recordStatusChange(
+  tx: Prisma.TransactionClient,
+  reseller: Pick<ResellerEntity, "id" | "tenantId" | "status">,
+  fromStatus: ResellerStatusValue | null,
+  audit: ResellerStatusAuditData,
+): Promise<void> {
+  await tx.resellerStatusHistory.create({
+    data: {
+      id: randomUUID(),
+      tenantId: reseller.tenantId,
+      resellerId: reseller.id,
+      fromStatus,
+      toStatus: reseller.status,
+      reason: audit.statusReason ?? null,
+      changedById: audit.statusChangedById ?? null,
+      changedAt: audit.statusChangedAt ?? new Date(),
+    },
+  });
+}
 
 export class ResellerRepository implements IResellerRepository {
   constructor(private readonly db: PrismaClient = prisma) {}
@@ -43,10 +114,7 @@ export class ResellerRepository implements IResellerRepository {
     tenantId: string | null,
     id: string,
   ): Promise<ResellerEntity | null> {
-    const reseller = await this.db.reseller.findFirst({
-      where: { id, tenantId, deletedAt: null },
-    });
-    return reseller;
+    return findActiveReseller(this.db, tenantId, id);
   }
 
   /** List resellers within tenant scope. */
@@ -87,66 +155,100 @@ export class ResellerRepository implements IResellerRepository {
     return { items, total };
   }
 
-  /** Create reseller. */
+  /**
+   * Create reseller. Status awal selain ACTIVE dicatat ke riwayat status
+   * (dari `null`) dalam transaksi yang sama.
+   */
   async create(data: CreateResellerData): Promise<ResellerEntity> {
-    return this.db.reseller.create({
-      data: {
-        id: randomUUID(),
-        tenantId: data.tenantId,
-        code: data.code,
-        name: data.name,
-        email: data.email ?? null,
-        phone: data.phone ?? null,
-        address: data.address ?? null,
-        notes: data.notes ?? null,
-        legalName: data.legalName ?? null,
-        nib: data.nib ?? null,
-        kbliCode: data.kbliCode ?? null,
-        standardCertificateNumber: data.standardCertificateNumber ?? null,
-        brandName: data.brandName ?? null,
-        licenseVerifiedAt: data.licenseVerifiedAt ?? null,
-        licenseVerifiedById: data.licenseVerifiedById ?? null,
-        statusReason: data.statusReason ?? null,
-        statusChangedAt: data.statusChangedAt ?? null,
-        statusChangedById: data.statusChangedById ?? null,
-        ...(data.status ? { status: data.status } : {}),
-      },
+    return this.db.$transaction(async (tx) => {
+      const reseller = await tx.reseller.create({
+        data: {
+          id: randomUUID(),
+          tenantId: data.tenantId,
+          code: data.code,
+          name: data.name,
+          email: data.email ?? null,
+          phone: data.phone ?? null,
+          address: data.address ?? null,
+          notes: data.notes ?? null,
+          legalName: data.legalName ?? null,
+          nib: data.nib ?? null,
+          kbliCode: data.kbliCode ?? null,
+          standardCertificateNumber: data.standardCertificateNumber ?? null,
+          brandName: data.brandName ?? null,
+          licenseVerifiedAt: data.licenseVerifiedAt ?? null,
+          licenseVerifiedById: data.licenseVerifiedById ?? null,
+          statusReason: data.statusReason ?? null,
+          statusChangedAt: data.statusChangedAt ?? null,
+          statusChangedById: data.statusChangedById ?? null,
+          ...(data.status ? { status: data.status } : {}),
+        },
+      });
+      if (reseller.status !== ACTIVE_STATUS) {
+        await recordStatusChange(tx, reseller, null, data);
+      }
+      return reseller;
     });
   }
 
-  /** Update reseller. */
+  /**
+   * Update reseller. Bila status berubah, riwayatnya dicatat dalam transaksi
+   * yang sama sehingga status dan jejaknya tidak pernah berselisih. Baris
+   * reseller dikunci lebih dulu agar status lama di riwayat tidak basi.
+   */
   async update(
     tenantId: string | null,
     id: string,
     data: UpdateResellerData,
   ): Promise<ResellerEntity> {
-    const reseller = await this.findById(tenantId, id);
-    if (!reseller) {
-      throw new ResellerNotFoundError();
-    }
-    return this.db.reseller.update({
-      where: { id },
-      data,
+    return this.db.$transaction(async (tx) => {
+      const existing = await findActiveResellerForUpdate(tx, tenantId, id);
+      if (!existing) {
+        throw new ResellerNotFoundError();
+      }
+      const updated = await tx.reseller.update({
+        where: { id },
+        data: withoutNoopStatusChange(data, existing.status),
+      });
+      if (updated.status !== existing.status) {
+        await recordStatusChange(tx, updated, existing.status, data);
+      }
+      return updated;
     });
   }
 
   /**
    * Soft delete reseller. Status menjadi INACTIVE; waktu perubahannya dicatat
-   * agar komisi pembayaran sebelum penghapusan tetap terakru.
+   * agar komisi pembayaran sebelum penghapusan tetap terakru, dan riwayat
+   * status ditulis dalam transaksi yang sama.
    */
-  async softDelete(tenantId: string | null, id: string): Promise<void> {
-    const reseller = await this.findById(tenantId, id);
-    if (!reseller) {
-      throw new ResellerNotFoundError();
-    }
-    const now = new Date();
-    await this.db.reseller.update({
-      where: { id },
-      data: {
-        deletedAt: now,
-        status: "INACTIVE",
-        ...(reseller.status === "INACTIVE" ? {} : { statusChangedAt: now }),
-      },
+  async softDelete(
+    tenantId: string | null,
+    id: string,
+    actorId: string | null = null,
+  ): Promise<void> {
+    await this.db.$transaction(async (tx) => {
+      const reseller = await findActiveResellerForUpdate(tx, tenantId, id);
+      if (!reseller) {
+        throw new ResellerNotFoundError();
+      }
+      const isStatusChanged = reseller.status !== INACTIVE_STATUS;
+      const now = new Date();
+      const deleted = await tx.reseller.update({
+        where: { id },
+        data: {
+          deletedAt: now,
+          status: INACTIVE_STATUS,
+          ...(isStatusChanged ? { statusChangedAt: now } : {}),
+        },
+      });
+      if (isStatusChanged) {
+        await recordStatusChange(tx, deleted, reseller.status, {
+          statusReason: SOFT_DELETE_STATUS_REASON,
+          statusChangedAt: now,
+          statusChangedById: actorId,
+        });
+      }
     });
   }
 

@@ -48,6 +48,7 @@ function setup(
     {
       commissionAccrued: vi.fn(),
       commissionCancelled: vi.fn(),
+      commissionClawedBack: vi.fn(),
       settlementPaid: vi.fn(),
     },
   );

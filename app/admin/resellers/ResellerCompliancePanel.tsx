@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PksStatusBadge } from "./ResellerComplianceBadges";
+import { ResellerStatusHistoryList } from "./ResellerStatusHistoryList";
 import type { Reseller } from "./types";
 import { RESELLER_STATUS_LABELS } from "./types";
 
@@ -36,7 +37,7 @@ const LINK_CLASS = "text-blue-600 underline dark:text-blue-400";
 
 /**
  * Detail kepatuhan reseller: data izin (Ps 223(2)a), PKS di modul Legal
- * (Ps 223(2)b), dan status kemitraan beserta alasannya.
+ * (Ps 223(2)b), dan status kemitraan beserta alasan dan riwayatnya.
  */
 export function ResellerCompliancePanel({
   reseller,
@@ -115,6 +116,10 @@ export function ResellerCompliancePanel({
           </>
         )}
       </p>
+      <ResellerStatusHistoryList
+        resellerId={reseller.id}
+        statusChangedAt={reseller.statusChangedAt}
+      />
     </div>
   );
 }

@@ -34,3 +34,13 @@ export class ResellerValidationError extends AppError {
     super(message, 400, "RESELLER_VALIDATION_ERROR");
   }
 }
+
+/**
+ * Aksi ditolak oleh aturan tata kelola tenant, mis. pemisahan tugas: pengguna
+ * yang menyetujui settlement tidak boleh juga membayarnya.
+ */
+export class ResellerForbiddenError extends AppError {
+  constructor(message: string) {
+    super(message, 403, "RESELLER_FORBIDDEN");
+  }
+}

@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type {
   IResellerReportRepository,
+  ReportAdjustmentTotal,
   ReportCommissionTotal,
   ReportCustomer,
   ReportOutlet,
@@ -67,6 +68,28 @@ export class ResellerReportRepository implements IResellerReportRepository {
       pelangganId: row.pelangganId,
       status: row.status,
       amount: row._sum.commissionAmount ?? 0,
+    }));
+  }
+
+  /** Koreksi komisi yang dicatat dalam rentang tanggal, per pelanggan. */
+  async sumAdjustments(params: {
+    readonly tenantId: string;
+    readonly resellerId: string;
+    readonly periodStart: Date;
+    readonly periodEnd: Date;
+  }): Promise<readonly ReportAdjustmentTotal[]> {
+    const rows = await this.db.resellerCommissionAdjustment.groupBy({
+      by: ["pelangganId"],
+      where: {
+        tenantId: params.tenantId,
+        resellerId: params.resellerId,
+        createdAt: { gte: params.periodStart, lte: params.periodEnd },
+      },
+      _sum: { amount: true },
+    });
+    return rows.map((row) => ({
+      pelangganId: row.pelangganId,
+      amount: row._sum.amount ?? 0,
     }));
   }
 }

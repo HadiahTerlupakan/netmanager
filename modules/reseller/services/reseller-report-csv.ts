@@ -12,6 +12,7 @@ const CSV_HEADERS = [
   "Komisi terbit",
   "Komisi disettle",
   "Komisi dibayar",
+  "Koreksi",
 ];
 /** Awalan yang dibaca spreadsheet sebagai rumus (CSV injection). */
 const FORMULA_PREFIX = /^[=+\-@\t\r]/;
@@ -30,6 +31,7 @@ function figureCells(figures: ResellerReportFigures): string[] {
     figures.commissionAccrued,
     figures.commissionSettled,
     figures.commissionPaid,
+    figures.commissionAdjusted,
   ].map(String);
 }
 

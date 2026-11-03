@@ -1,7 +1,15 @@
 import type { ResellerStatusValue } from "./ResellerEntity";
 
 export type ResellerCommissionTypeValue = "PERCENTAGE" | "FIXED";
-export type ResellerCommissionStatusValue = "ACCRUED" | "SETTLED" | "PAID";
+/**
+ * REVERSED: komisi yang sudah dibayar lalu ditagih balik (clawback) karena
+ * invoice-nya di-void atau pelunasannya ditarik.
+ */
+export type ResellerCommissionStatusValue =
+  | "ACCRUED"
+  | "SETTLED"
+  | "PAID"
+  | "REVERSED";
 export type ResellerSettlementStatusValue = "PENDING" | "APPROVED" | "PAID";
 
 export interface ResellerCommissionRuleEntity {
@@ -64,7 +72,31 @@ export interface ResellerSettlementEntity {
   readonly paymentReference: string | null;
   /** Rekening Kas & Bank (FinancialAccount) sumber pembayaran. */
   readonly paymentAccountId: string | null;
+  /**
+   * Koreksi (clawback) yang dipotongkan dari settlement ini. `totalAmount`
+   * adalah yang dibayarkan: jumlah komisi dikurangi `adjustmentAmount`.
+   */
+  readonly adjustmentAmount: number;
   readonly deletedAt: Date | null;
+}
+
+/**
+ * Koreksi (clawback) satu komisi yang sudah dibayar: reseller berutang
+ * `amount`, dipotongkan dari settlement berikutnya. Sisanya
+ * (`remainingAmount`) terbawa ke settlement sesudahnya.
+ */
+export interface ResellerCommissionAdjustmentEntity {
+  readonly id: string;
+  readonly tenantId: string | null;
+  readonly resellerId: string;
+  readonly pelangganId: string;
+  readonly invoiceId: string;
+  readonly sourceCommissionId: string;
+  readonly amount: number;
+  readonly reason: string;
+  readonly createdAt: Date;
+  /** Bagian yang belum dipotongkan dari settlement mana pun. */
+  readonly remainingAmount: number;
 }
 
 /** Aturan komisi beserta nama paketnya untuk daftar admin. */
@@ -87,5 +119,7 @@ export interface ResellerCommissionSummaryEntity {
   readonly accruedAmount: number;
   readonly settledAmount: number;
   readonly paidAmount: number;
+  /** Komisi yang sudah dibayar lalu ditagih balik (REVERSED). */
+  readonly reversedAmount: number;
   readonly commissionCount: number;
 }

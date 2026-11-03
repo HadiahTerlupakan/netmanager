@@ -17,7 +17,10 @@ import {
 } from "@/modules/reseller/client";
 import { useApi } from "@/lib/hooks/useApi";
 import { CommissionRulesPanel } from "./CommissionRulesPanel";
-import { ComplianceSettingToggle } from "./ComplianceSettingToggle";
+import {
+  ComplianceSettingToggle,
+  SettlementApproverSettingToggle,
+} from "./ComplianceSettingToggle";
 import { LoadErrorState } from "./LoadErrorState";
 import { OutletModal } from "./OutletModal";
 import {
@@ -264,7 +267,12 @@ export default function ResellersClient() {
           </Button>
         )}
       </div>
-      <ComplianceSettingToggle canUpdate={canManageComplianceSetting} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ComplianceSettingToggle canUpdate={canManageComplianceSetting} />
+        <SettlementApproverSettingToggle
+          canUpdate={canManageComplianceSetting}
+        />
+      </div>
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           {resellerList.error ? (

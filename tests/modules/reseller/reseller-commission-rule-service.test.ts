@@ -274,7 +274,10 @@ describe("validator aturan komisi", () => {
   it.each([
     [{ type: "PERCENTAGE", rate: 0 }],
     [{ type: "PERCENTAGE", rate: 101 }],
-    [{ type: "PERCENTAGE", rate: 2.5 }],
+    [{ type: "PERCENTAGE", rate: 2.555 }],
+    [{ type: "PERCENTAGE", rate: 100.01 }],
+    [{ type: "PERCENTAGE", rate: -1 }],
+    [{ type: "PERCENTAGE", rate: Number.NaN }],
     [{ type: "PERCENTAGE" }],
     [{ type: "FIXED", fixedAmount: 0 }],
     [{ type: "FIXED", rate: 10 }],
@@ -303,6 +306,24 @@ describe("validator aturan komisi", () => {
       rate: 100,
       hargaPaketId: null,
     });
+  });
+
+  it.each([0.01, 0.5, 2.5, 2.55, 12.75, 99.99, 1])(
+    "menerima persen hingga 2 desimal (%d)",
+    (rate) => {
+      expect(
+        createResellerCommissionRuleSchema.parse({ type: "PERCENTAGE", rate }),
+      ).toMatchObject({ rate });
+    },
+  );
+
+  it("ubahan persen juga dibatasi 2 desimal", () => {
+    expect(updateResellerCommissionRuleSchema.parse({ rate: 2.5 })).toEqual({
+      rate: 2.5,
+    });
+    expect(
+      updateResellerCommissionRuleSchema.safeParse({ rate: 2.505 }).success,
+    ).toBe(false);
   });
 
   it("menolak ubahan yang berisi persen dan nominal sekaligus", () => {

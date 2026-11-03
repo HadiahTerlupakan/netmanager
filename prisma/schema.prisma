@@ -1047,14 +1047,14 @@ model ProratePaymentLog {
 }
 
 model Reseller {
-  id                        String                   @id @default(uuid())
+  id                        String                         @id @default(uuid())
   tenantId                  String?
   code                      String
   name                      String
   email                     String?
   phone                     String?
   address                   String?
-  status                    ResellerStatus           @default(ACTIVE)
+  status                    ResellerStatus                 @default(ACTIVE)
   notes                     String?
   /// Nama badan usaha sesuai NIB (PM 5/2021 Ps 223(2)a).
   legalName                 String?
@@ -1073,15 +1073,17 @@ model Reseller {
   statusReason              String?
   statusChangedAt           DateTime?
   statusChangedById         String?
-  createdAt                 DateTime                 @default(now())
-  updatedAt                 DateTime                 @updatedAt
+  createdAt                 DateTime                       @default(now())
+  updatedAt                 DateTime                       @updatedAt
   deletedAt                 DateTime?
-  tenant                    Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant                    Tenant?                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   outlets                   ResellerOutlet[]
   packagePrices             ResellerPackagePrice[]
   commissionRules           ResellerCommissionRule[]
   commissions               ResellerCommission[]
   settlements               ResellerSettlement[]
+  commissionAdjustments     ResellerCommissionAdjustment[]
+  statusHistories           ResellerStatusHistory[]
   pelanggan                 Pelanggan[]
 
   @@unique([tenantId, code], name: "tenantId_resellerCode")
@@ -1143,7 +1145,8 @@ model ResellerCommissionRule {
   resellerId   String
   hargaPaketId String?
   type         ResellerCommissionType
-  rate         Int?
+  /// Persen komisi dari DPP, hingga 2 desimal (mis. 2.50 = 2,5%).
+  rate         Decimal?               @db.Decimal(5, 2)
   fixedAmount  Int?
   status       ResellerStatus         @default(ACTIVE)
   startsAt     DateTime               @default(now())
@@ -1165,7 +1168,7 @@ model ResellerCommissionRule {
 }
 
 model ResellerCommission {
-  id               String                   @id @default(uuid())
+  id               String                         @id @default(uuid())
   tenantId         String?
   resellerId       String
   pelangganId      String
@@ -1173,22 +1176,24 @@ model ResellerCommission {
   paymentId        String?
   commissionRuleId String
   type             ResellerCommissionType
-  rate             Int?
+  /// Salinan persen aturan saat akrual, hingga 2 desimal.
+  rate             Decimal?                       @db.Decimal(5, 2)
   baseAmount       Int
   commissionAmount Int
-  status           ResellerCommissionStatus @default(ACCRUED)
+  status           ResellerCommissionStatus       @default(ACCRUED)
   period           String
   settlementId     String?
-  accruedAt        DateTime                 @default(now())
+  accruedAt        DateTime                       @default(now())
   settledAt        DateTime?
   paidAt           DateTime?
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
   deletedAt        DateTime?
-  tenant           Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  reseller         Reseller                 @relation(fields: [resellerId], references: [id])
-  commissionRule   ResellerCommissionRule   @relation(fields: [commissionRuleId], references: [id])
-  settlement       ResellerSettlement?      @relation(fields: [settlementId], references: [id])
+  tenant           Tenant?                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller         Reseller                       @relation(fields: [resellerId], references: [id])
+  commissionRule   ResellerCommissionRule         @relation(fields: [commissionRuleId], references: [id])
+  settlement       ResellerSettlement?            @relation(fields: [settlementId], references: [id])
+  clawbacks        ResellerCommissionAdjustment[]
 
   @@unique([tenantId, invoiceId], name: "tenantId_resellerCommissionInvoiceId")
   @@index([tenantId])
@@ -1202,36 +1207,104 @@ model ResellerCommission {
 }
 
 model ResellerSettlement {
-  id               String                   @id @default(uuid())
-  tenantId         String?
-  resellerId       String
-  periodStart      DateTime
-  periodEnd        DateTime
-  totalAmount      Int
-  commissionCount  Int
-  status           ResellerSettlementStatus @default(PENDING)
-  notes            String?
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
-  approvedAt       DateTime?
-  paidAt           DateTime?
+  id                     String                                    @id @default(uuid())
+  tenantId               String?
+  resellerId             String
+  periodStart            DateTime
+  periodEnd              DateTime
+  totalAmount            Int
+  commissionCount        Int
+  status                 ResellerSettlementStatus                  @default(PENDING)
+  notes                  String?
+  createdAt              DateTime                                  @default(now())
+  updatedAt              DateTime                                  @updatedAt
+  approvedAt             DateTime?
+  paidAt                 DateTime?
   /// Pelaku approve/bayar (User.id). Tanpa FK agar modul reseller tidak terikat modul users.
-  approvedById     String?
-  paidById         String?
+  approvedById           String?
+  paidById               String?
   /// Cara bayar komisi (BANK_TRANSFER/CASH/E_WALLET/OTHER), nomor referensi, dan rekening Kas & Bank sumber dana.
-  paymentMethod    String?
-  paymentReference String?
-  paymentAccountId String?
-  deletedAt        DateTime?
-  tenant           Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  reseller         Reseller                 @relation(fields: [resellerId], references: [id])
-  commissions      ResellerCommission[]
+  paymentMethod          String?
+  paymentReference       String?
+  paymentAccountId       String?
+  /// Koreksi (clawback) yang dipotongkan; totalAmount = komisi - adjustmentAmount.
+  adjustmentAmount       Int                                       @default(0)
+  deletedAt              DateTime?
+  tenant                 Tenant?                                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller               Reseller                                  @relation(fields: [resellerId], references: [id])
+  commissions            ResellerCommission[]
+  adjustmentApplications ResellerCommissionAdjustmentApplication[]
 
   @@index([tenantId])
   @@index([resellerId])
   @@index([status])
   @@index([periodStart, periodEnd])
   @@index([deletedAt])
+}
+
+/// Koreksi (clawback) komisi yang sudah dibayar lalu invoice-nya di-void atau
+/// pelunasannya ditarik. Reseller berutang `amount`; dipotongkan dari
+/// settlement berikutnya lewat ResellerCommissionAdjustmentApplication.
+/// Satu komisi paling banyak satu koreksi (unique sourceCommissionId).
+model ResellerCommissionAdjustment {
+  id                 String                                    @id @default(uuid())
+  tenantId           String?
+  resellerId         String
+  pelangganId        String
+  invoiceId          String
+  sourceCommissionId String
+  /// `accruedAt` akrual yang ditagih balik. Komisi yang terbit ulang setelah
+  /// clawback (invoice lunas lagi) punya akrual baru, jadi bisa ditagih balik lagi.
+  sourceAccruedAt    DateTime
+  /// Rupiah positif yang ditagih balik dari reseller.
+  amount             Int
+  reason             String
+  createdAt          DateTime                                  @default(now())
+  updatedAt          DateTime                                  @updatedAt
+  tenant             Tenant?                                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller           Reseller                                  @relation(fields: [resellerId], references: [id])
+  sourceCommission   ResellerCommission                        @relation(fields: [sourceCommissionId], references: [id])
+  applications       ResellerCommissionAdjustmentApplication[]
+
+  @@unique([sourceCommissionId, sourceAccruedAt])
+  @@index([tenantId, resellerId, createdAt])
+}
+
+/// Bagian koreksi yang dipotongkan pada satu settlement. Sisa koreksi
+/// (amount - jumlah aplikasi) terbawa ke settlement berikutnya.
+model ResellerCommissionAdjustmentApplication {
+  id           String                       @id @default(uuid())
+  tenantId     String?
+  adjustmentId String
+  settlementId String
+  amount       Int
+  createdAt    DateTime                     @default(now())
+  tenant       Tenant?                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  adjustment   ResellerCommissionAdjustment @relation(fields: [adjustmentId], references: [id])
+  settlement   ResellerSettlement           @relation(fields: [settlementId], references: [id])
+
+  @@unique([adjustmentId, settlementId])
+  @@index([tenantId])
+  @@index([settlementId])
+}
+
+/// Riwayat perubahan status kemitraan reseller (append-only). Ditulis dalam
+/// transaksi yang sama dengan perubahan status di tabel Reseller.
+model ResellerStatusHistory {
+  id          String          @id @default(uuid())
+  tenantId    String?
+  resellerId  String
+  /// Null untuk status awal saat reseller dibuat.
+  fromStatus  ResellerStatus?
+  toStatus    ResellerStatus
+  reason      String?
+  /// User pelaku (User.id). Tanpa FK agar modul reseller tidak terikat modul users.
+  changedById String?
+  changedAt   DateTime        @default(now())
+  tenant      Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  reseller    Reseller        @relation(fields: [resellerId], references: [id])
+
+  @@index([tenantId, resellerId, changedAt])
 }
 
 model Permission {
@@ -4209,191 +4282,194 @@ model LoanPayment {
 }
 
 model Tenant {
-  id                        String                      @id @default(uuid())
-  name                      String
-  domain                    String?                     @unique
-  isActive                  Boolean                     @default(true)
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime                    @updatedAt
-  aRAgingSnapshot           ARAgingSnapshot[]
-  announcement              Announcement[]
-  announcementRead          AnnouncementRead[]
-  attendance                Attendance[]
-  attendanceEvaluation      AttendanceEvaluation[]
-  attendanceEvaluationAudit AttendanceEvaluationAudit[]
-  bandwidth                 Bandwidth[]
-  conversation              Conversation[]
-  conversationParticipant   ConversationParticipant[]
-  coupon                    Coupon[]
-  couponUsage               CouponUsage[]
-  customerCohort            CustomerCohort[]
-  expense                   Expense[]
-  expenseCategory           ExpenseCategory[]
-  hargaPaket                HargaPaket[]
-  holiday                   Holiday[]
-  incident                  Incident[]
-  incidentUpdate            IncidentUpdate[]
-  investor                  Investor[]
-  investorPayout            InvestorPayout[]
-  joinbox                   Joinbox[]
-  joinboxInput              JoinboxInput[]
-  joinboxOutput             JoinboxOutput[]
-  kmzFile                   KmzFile[]
-  leaveBalance              LeaveBalance[]
-  leaveRequest              LeaveRequest[]
-  mRRMovement               MRRMovement[]
-  message                   Message[]
-  mikroTikRouter            MikroTikRouter[]
-  isolirPage                IsolirPage?
-  vpnServers                TenantVpnServer[]
-  accelPppServer            AccelPppServer[]
-  odc                       Odc[]
-  odcOutput                 OdcOutput[]
-  odp                       Odp[]
-  odpOutput                 OdpOutput[]
-  otb                       Otb[]
-  otbCore                   OtbCore[]
-  overtime                  Overtime[]
-  pelanggan                 Pelanggan[]
-  permission                Permission[]
-  pole                      Pole[]
-  profilePPP                ProfilePPP[]
-  rabInvestor               RabInvestor[]
-  reminderLog               ReminderLog[]
-  revenueSnapshot           RevenueSnapshot[]
-  settings                  Settings[]
-  sampleInvoiceBatches      SampleInvoiceBatch[]
-  shift                     Shift[]
-  systemLog                 SystemLog[]
-  user                      User[]
-  acsVendor                 AcsVendor[]
-  acsWifiSecurity           AcsWifiSecurity[]
-  assetDepreciationLog      AssetDepreciationLog[]
-  asset                     Asset[]
-  barang                    Barang[]
-  barangGudang              BarangGudang[]
-  barangKeluar              BarangKeluar[]
-  barangMasuk               BarangMasuk[]
-  canvasing                 Canvasing[]
-  presurveiKegiatan         PresurveiKegiatan[]
-  presurveiKegiatanRiwayat  PresurveiKegiatanRiwayat[]
-  presurveiProspek          PresurveiProspek[]
-  presurveiIklan            PresurveiIklan[]
-  presurveiTarget           PresurveiTarget[]
-  presurveiRencana          PresurveiRencana[]
-  companyBankAccount        CompanyBankAccount[]
-  configurationRestores     ConfigurationRestores[]
-  customerUsage             CustomerUsage[]
-  departments               Departments[]
-  deviceBackups             DeviceBackups[]
-  employeeLoan              EmployeeLoan[]
-  employeeLocation          EmployeeLocation[]
-  financialAccount          FinancialAccount[]
-  treasuryMutations         TreasuryMutation[]
-  gudang                    Gudang[]
-  loanPayment               LoanPayment[]
-  mapSettings               MapSettings[]
-  mappingEdge               MappingEdge[]
-  mappingNode               MappingNode[]
-  networkAlerts             NetworkAlerts[]
-  networkPerformance        NetworkPerformance[]
-  notifications             Notifications[]
-  oauthProviderConfigs      OauthProviderConfigs[]
-  pointClaim                PointClaim[]
-  positions                 Positions[]
-  purchaseOrderItem         PurchaseOrderItem[]
-  purchaseOrderJasaItem     PurchaseOrderJasaItem[]
-  purchaseOrder             PurchaseOrder[]
-  goodsReceipts             GoodsReceipt[]
-  goodsReceiptItems         GoodsReceiptItem[]
-  goodsReturns              GoodsReturn[]
-  goodsReturnItems          GoodsReturnItem[]
-  approvalThresholds        ApprovalThreshold[]
-  purchaseRequestItem       PurchaseRequestItem[]
-  purchaseRequestJasaItem   PurchaseRequestJasaItem[]
-  purchaseRequest           PurchaseRequest[]
-  jasa                      Jasa[]
-  rabActualAchievement      RabActualAchievement[]
-  rabApproval               RabApproval[]
-  rabDisbursement           RabDisbursement[]
-  rabItem                   RabItem[]
-  rabProject                RabProject[]
-  rabRevisionApproval       RabRevisionApproval[]
-  rabRevisionItem           RabRevisionItem[]
-  rabRevision               RabRevision[]
-  rabWbs                    RabWbs[]
-  registrations             Registrations[]
-  restockAlerts             RestockAlerts[]
-  restockSettings           RestockSettings[]
-  role                      Role[]
-  salary                    Salary[]
-  salaryComponent           SalaryComponent[]
-  salaryDetail              SalaryDetail[]
-  salaryRevision            SalaryRevision[]
-  serviceSuspension         ServiceSuspension[]
-  sites                     Sites[]
-  sla                       Sla[]
-  stockOpname               StockOpname[]
-  stockOpnameAuditLog       StockOpnameAuditLog[]
-  stockOpnameAturan         StockOpnameAturan[]
-  stockOpnameJadwal         StockOpnameJadwal[]
-  supplier                  Supplier[]
-  supportTickets            SupportTickets[]
-  ticketReplies             TicketReplies[]
-  transferAntarGudang       TransferAntarGudang[]
-  usageAnalytics            UsageAnalytics[]
-  userSalaryComponent       UserSalaryComponent[]
-  userSite                  UserSite[]
-  workOrderAssignments      WorkOrderAssignments[]
-  workOrderAttachments      WorkOrderAttachments[]
-  workOrderEscalations      WorkOrderEscalations[]
-  workOrderMaterial         WorkOrderMaterial[]
-  workOrderTasks            WorkOrderTasks[]
-  workOrderTemplateItem     WorkOrderTemplateItem[]
-  workOrderTemplates        WorkOrderTemplates[]
-  workOrderUpdates          WorkOrderUpdates[]
-  workOrders                WorkOrders[]
-  whatsAppAccounts          WhatsAppAccount[]
-  whatsAppMessages          WhatsAppMessage[]
-  tenantSettings            TenantSettings?
-  proratePaymentLog         ProratePaymentLog[]
-  reseller                  Reseller[]
-  resellerOutlet            ResellerOutlet[]
-  resellerPackagePrice      ResellerPackagePrice[]
-  emailDeliveryLogs         EmailDeliveryLog[]
-  notificationDeadLetters   NotificationDeadLetter[]
-  paySchedules              PaySchedule[]
-  payrollPeriods            PayrollPeriod[]
-  payrollRuns               PayrollRun[]
-  payrollEntries            PayrollEntry[]
-  payrollLines              PayrollLine[]
-  payrollComponents         PayrollComponent[]
-  employeePayrollProfiles   EmployeePayrollProfile[]
-  employeeComponents        EmployeeComponent[]
-  salaryAdvances            SalaryAdvance[]
-  payrollApprovalWorkflows  PayrollApprovalWorkflow[]
-  regionalMinimumWages      RegionalMinimumWage[]
-  payrollAuditLogs          PayrollAuditLog[]
-  tenantDomain              TenantDomain?
-  featureFlags              TenantFeatureFlag[]
-  resellerCommissionRules   ResellerCommissionRule[]
-  resellerCommissions       ResellerCommission[]
-  resellerSettlements       ResellerSettlement[]
-  planning                  Planning[]
-  planningItems             PlanningItem[]
-  planningMilestones        PlanningMilestone[]
-  planningDocuments         PlanningDocument[]
-  planningAuditLogs         PlanningAuditLog[]
-  planningTemplates         PlanningTemplate[]
-  planningTemplateItems     PlanningTemplateItem[]
-  endorsements              Endorsement[]
-  endorsementSigners        EndorsementSigner[]
-  legalCategories           LegalCategory[]
-  legalDocuments            LegalDocument[]
-  legalObligations          LegalObligation[]
-  legalReminderLogs         LegalReminderLog[]
-  legalTemplates            LegalTemplate[]
-  endorsementEvents         EndorsementEvent[]
+  id                                       String                                    @id @default(uuid())
+  name                                     String
+  domain                                   String?                                   @unique
+  isActive                                 Boolean                                   @default(true)
+  createdAt                                DateTime                                  @default(now())
+  updatedAt                                DateTime                                  @updatedAt
+  aRAgingSnapshot                          ARAgingSnapshot[]
+  announcement                             Announcement[]
+  announcementRead                         AnnouncementRead[]
+  attendance                               Attendance[]
+  attendanceEvaluation                     AttendanceEvaluation[]
+  attendanceEvaluationAudit                AttendanceEvaluationAudit[]
+  bandwidth                                Bandwidth[]
+  conversation                             Conversation[]
+  conversationParticipant                  ConversationParticipant[]
+  coupon                                   Coupon[]
+  couponUsage                              CouponUsage[]
+  customerCohort                           CustomerCohort[]
+  expense                                  Expense[]
+  expenseCategory                          ExpenseCategory[]
+  hargaPaket                               HargaPaket[]
+  holiday                                  Holiday[]
+  incident                                 Incident[]
+  incidentUpdate                           IncidentUpdate[]
+  investor                                 Investor[]
+  investorPayout                           InvestorPayout[]
+  joinbox                                  Joinbox[]
+  joinboxInput                             JoinboxInput[]
+  joinboxOutput                            JoinboxOutput[]
+  kmzFile                                  KmzFile[]
+  leaveBalance                             LeaveBalance[]
+  leaveRequest                             LeaveRequest[]
+  mRRMovement                              MRRMovement[]
+  message                                  Message[]
+  mikroTikRouter                           MikroTikRouter[]
+  isolirPage                               IsolirPage?
+  vpnServers                               TenantVpnServer[]
+  accelPppServer                           AccelPppServer[]
+  odc                                      Odc[]
+  odcOutput                                OdcOutput[]
+  odp                                      Odp[]
+  odpOutput                                OdpOutput[]
+  otb                                      Otb[]
+  otbCore                                  OtbCore[]
+  overtime                                 Overtime[]
+  pelanggan                                Pelanggan[]
+  permission                               Permission[]
+  pole                                     Pole[]
+  profilePPP                               ProfilePPP[]
+  rabInvestor                              RabInvestor[]
+  reminderLog                              ReminderLog[]
+  revenueSnapshot                          RevenueSnapshot[]
+  settings                                 Settings[]
+  sampleInvoiceBatches                     SampleInvoiceBatch[]
+  shift                                    Shift[]
+  systemLog                                SystemLog[]
+  user                                     User[]
+  acsVendor                                AcsVendor[]
+  acsWifiSecurity                          AcsWifiSecurity[]
+  assetDepreciationLog                     AssetDepreciationLog[]
+  asset                                    Asset[]
+  barang                                   Barang[]
+  barangGudang                             BarangGudang[]
+  barangKeluar                             BarangKeluar[]
+  barangMasuk                              BarangMasuk[]
+  canvasing                                Canvasing[]
+  presurveiKegiatan                        PresurveiKegiatan[]
+  presurveiKegiatanRiwayat                 PresurveiKegiatanRiwayat[]
+  presurveiProspek                         PresurveiProspek[]
+  presurveiIklan                           PresurveiIklan[]
+  presurveiTarget                          PresurveiTarget[]
+  presurveiRencana                         PresurveiRencana[]
+  companyBankAccount                       CompanyBankAccount[]
+  configurationRestores                    ConfigurationRestores[]
+  customerUsage                            CustomerUsage[]
+  departments                              Departments[]
+  deviceBackups                            DeviceBackups[]
+  employeeLoan                             EmployeeLoan[]
+  employeeLocation                         EmployeeLocation[]
+  financialAccount                         FinancialAccount[]
+  treasuryMutations                        TreasuryMutation[]
+  gudang                                   Gudang[]
+  loanPayment                              LoanPayment[]
+  mapSettings                              MapSettings[]
+  mappingEdge                              MappingEdge[]
+  mappingNode                              MappingNode[]
+  networkAlerts                            NetworkAlerts[]
+  networkPerformance                       NetworkPerformance[]
+  notifications                            Notifications[]
+  oauthProviderConfigs                     OauthProviderConfigs[]
+  pointClaim                               PointClaim[]
+  positions                                Positions[]
+  purchaseOrderItem                        PurchaseOrderItem[]
+  purchaseOrderJasaItem                    PurchaseOrderJasaItem[]
+  purchaseOrder                            PurchaseOrder[]
+  goodsReceipts                            GoodsReceipt[]
+  goodsReceiptItems                        GoodsReceiptItem[]
+  goodsReturns                             GoodsReturn[]
+  goodsReturnItems                         GoodsReturnItem[]
+  approvalThresholds                       ApprovalThreshold[]
+  purchaseRequestItem                      PurchaseRequestItem[]
+  purchaseRequestJasaItem                  PurchaseRequestJasaItem[]
+  purchaseRequest                          PurchaseRequest[]
+  jasa                                     Jasa[]
+  rabActualAchievement                     RabActualAchievement[]
+  rabApproval                              RabApproval[]
+  rabDisbursement                          RabDisbursement[]
+  rabItem                                  RabItem[]
+  rabProject                               RabProject[]
+  rabRevisionApproval                      RabRevisionApproval[]
+  rabRevisionItem                          RabRevisionItem[]
+  rabRevision                              RabRevision[]
+  rabWbs                                   RabWbs[]
+  registrations                            Registrations[]
+  restockAlerts                            RestockAlerts[]
+  restockSettings                          RestockSettings[]
+  role                                     Role[]
+  salary                                   Salary[]
+  salaryComponent                          SalaryComponent[]
+  salaryDetail                             SalaryDetail[]
+  salaryRevision                           SalaryRevision[]
+  serviceSuspension                        ServiceSuspension[]
+  sites                                    Sites[]
+  sla                                      Sla[]
+  stockOpname                              StockOpname[]
+  stockOpnameAuditLog                      StockOpnameAuditLog[]
+  stockOpnameAturan                        StockOpnameAturan[]
+  stockOpnameJadwal                        StockOpnameJadwal[]
+  supplier                                 Supplier[]
+  supportTickets                           SupportTickets[]
+  ticketReplies                            TicketReplies[]
+  transferAntarGudang                      TransferAntarGudang[]
+  usageAnalytics                           UsageAnalytics[]
+  userSalaryComponent                      UserSalaryComponent[]
+  userSite                                 UserSite[]
+  workOrderAssignments                     WorkOrderAssignments[]
+  workOrderAttachments                     WorkOrderAttachments[]
+  workOrderEscalations                     WorkOrderEscalations[]
+  workOrderMaterial                        WorkOrderMaterial[]
+  workOrderTasks                           WorkOrderTasks[]
+  workOrderTemplateItem                    WorkOrderTemplateItem[]
+  workOrderTemplates                       WorkOrderTemplates[]
+  workOrderUpdates                         WorkOrderUpdates[]
+  workOrders                               WorkOrders[]
+  whatsAppAccounts                         WhatsAppAccount[]
+  whatsAppMessages                         WhatsAppMessage[]
+  tenantSettings                           TenantSettings?
+  proratePaymentLog                        ProratePaymentLog[]
+  reseller                                 Reseller[]
+  resellerOutlet                           ResellerOutlet[]
+  resellerPackagePrice                     ResellerPackagePrice[]
+  emailDeliveryLogs                        EmailDeliveryLog[]
+  notificationDeadLetters                  NotificationDeadLetter[]
+  paySchedules                             PaySchedule[]
+  payrollPeriods                           PayrollPeriod[]
+  payrollRuns                              PayrollRun[]
+  payrollEntries                           PayrollEntry[]
+  payrollLines                             PayrollLine[]
+  payrollComponents                        PayrollComponent[]
+  employeePayrollProfiles                  EmployeePayrollProfile[]
+  employeeComponents                       EmployeeComponent[]
+  salaryAdvances                           SalaryAdvance[]
+  payrollApprovalWorkflows                 PayrollApprovalWorkflow[]
+  regionalMinimumWages                     RegionalMinimumWage[]
+  payrollAuditLogs                         PayrollAuditLog[]
+  tenantDomain                             TenantDomain?
+  featureFlags                             TenantFeatureFlag[]
+  resellerCommissionRules                  ResellerCommissionRule[]
+  resellerCommissions                      ResellerCommission[]
+  resellerSettlements                      ResellerSettlement[]
+  resellerCommissionAdjustments            ResellerCommissionAdjustment[]
+  resellerCommissionAdjustmentApplications ResellerCommissionAdjustmentApplication[]
+  resellerStatusHistories                  ResellerStatusHistory[]
+  planning                                 Planning[]
+  planningItems                            PlanningItem[]
+  planningMilestones                       PlanningMilestone[]
+  planningDocuments                        PlanningDocument[]
+  planningAuditLogs                        PlanningAuditLog[]
+  planningTemplates                        PlanningTemplate[]
+  planningTemplateItems                    PlanningTemplateItem[]
+  endorsements                             Endorsement[]
+  endorsementSigners                       EndorsementSigner[]
+  legalCategories                          LegalCategory[]
+  legalDocuments                           LegalDocument[]
+  legalObligations                         LegalObligation[]
+  legalReminderLogs                        LegalReminderLog[]
+  legalTemplates                           LegalTemplate[]
+  endorsementEvents                        EndorsementEvent[]
 }
 
 model TenantDomain {
@@ -5298,6 +5374,7 @@ enum JournalSource {
   AUTO_TAX_USO
   AUTO_RESELLER_COMMISSION
   AUTO_RESELLER_SETTLEMENT_PAID
+  AUTO_RESELLER_COMMISSION_CLAWBACK
   MANUAL
   RECURRING
   REVERSAL
@@ -6356,6 +6433,8 @@ enum ResellerCommissionStatus {
   ACCRUED
   SETTLED
   PAID
+  /// Sudah dibayar lalu ditagih balik (clawback) lewat ResellerCommissionAdjustment.
+  REVERSED
 }
 
 enum ResellerSettlementStatus {

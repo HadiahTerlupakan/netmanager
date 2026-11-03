@@ -26,6 +26,7 @@ const FIGURE_COLUMNS: readonly {
   { key: "commissionAccrued", label: "Komisi terbit", isMoney: true },
   { key: "commissionSettled", label: "Disettle", isMoney: true },
   { key: "commissionPaid", label: "Dibayar", isMoney: true },
+  { key: "commissionAdjusted", label: "Koreksi", isMoney: true },
 ];
 
 function FigureCells({ figures }: { readonly figures: ReportFigures }) {
@@ -72,7 +73,8 @@ export function ResellerReportPanel({
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Pelanggan dikelompokkan menurut outlet saat ini. Tagihan bruto
-            termasuk PPN.
+            termasuk PPN. Koreksi adalah komisi yang sudah dibayar lalu ditagih
+            balik pada bulan ini.
           </p>
         </div>
         <div className="flex items-end gap-2">

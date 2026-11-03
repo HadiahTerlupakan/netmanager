@@ -60,3 +60,16 @@ export interface ResellerPackagePriceEntity {
   readonly updatedAt: Date;
   readonly deletedAt: Date | null;
 }
+
+/** Satu baris riwayat perubahan status kemitraan reseller. */
+export interface ResellerStatusHistoryEntity {
+  readonly id: string;
+  readonly tenantId: string | null;
+  readonly resellerId: string;
+  /** Null untuk status awal saat reseller dibuat. */
+  readonly fromStatus: ResellerStatusValue | null;
+  readonly toStatus: ResellerStatusValue;
+  readonly reason: string | null;
+  readonly changedById: string | null;
+  readonly changedAt: Date;
+}

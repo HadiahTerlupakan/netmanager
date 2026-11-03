@@ -136,9 +136,16 @@ export class ResellerService {
     return ResellerMapper.toDTO(updated);
   }
 
-  /** Soft-delete reseller by tenant and id. */
-  async deleteReseller(tenantId: string, id: string): Promise<void> {
-    await this.repository.softDelete(tenantId, id);
+  /**
+   * Soft-delete reseller by tenant and id. `actorId` dicatat sebagai pelaku
+   * perubahan status di riwayat kemitraan.
+   */
+  async deleteReseller(
+    tenantId: string,
+    id: string,
+    actorId: string | null = null,
+  ): Promise<void> {
+    await this.repository.softDelete(tenantId, id, actorId);
   }
 
   private normalizeCreateData(data: CreateResellerInput): CreateResellerData {

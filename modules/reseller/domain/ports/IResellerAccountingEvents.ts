@@ -1,4 +1,5 @@
 import type {
+  ResellerCommissionAdjustmentEntity,
   ResellerCommissionEntity,
   ResellerSettlementEntity,
 } from "../entities/ResellerCommissionEntity";
@@ -11,8 +12,18 @@ import type {
 export interface IResellerAccountingEvents {
   /** Komisi terakru atau dipulihkan → jurnal akru. */
   commissionAccrued(commission: ResellerCommissionEntity): Promise<void>;
-  /** Komisi ACCRUED dibatalkan → jurnal akrunya dibalik. */
+  /**
+   * Komisi yang belum dibayar (ACCRUED, atau SETTLED di settlement yang belum
+   * dibayar) dibatalkan → jurnal akrunya dibalik.
+   */
   commissionCancelled(commission: ResellerCommissionEntity): Promise<void>;
+  /**
+   * Komisi yang sudah dibayar ditagih balik → Dr Utang Komisi / Cr Beban
+   * Komisi (idempoten per koreksi).
+   */
+  commissionClawedBack(
+    adjustment: ResellerCommissionAdjustmentEntity,
+  ): Promise<void>;
   /** Settlement dibayar → Dr Utang Komisi / Cr Kas/Bank. */
   settlementPaid(settlement: ResellerSettlementEntity): Promise<void>;
 }

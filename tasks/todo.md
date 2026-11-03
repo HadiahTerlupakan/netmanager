@@ -1,3 +1,29 @@
+# Rencana: Sisa pekerjaan reseller model agen (2026-11-03)
+
+Status: **selesai (commit lokal), menunggu "push"**
+
+## Asumsi
+- Clawback: komisi SETTLED (settlement belum dibayar) dikeluarkan dari settlement + total dihitung
+  ulang; komisi PAID → potongan (adjustment) yang mengurangi settlement berikutnya + jurnal pembalik.
+- `ResellerCommissionRule.rate` Int → Decimal(5,2) (pelebaran tipe, tanpa data loss).
+- Pemisahan penyetuju/pembayar: pengaturan tenant, default OFF; peringatan di UI bila sama orang.
+- Riwayat status: tabel baru `ResellerStatusHistory`, ditampilkan di panel kemitraan.
+
+## Langkah
+- [x] Persen komisi desimal (migration).
+- [x] Riwayat status kemitraan (migration + UI).
+- [x] Clawback komisi SETTLED/PAID saat invoice void/revert (migration + jurnal + UI).
+- [x] Pemisahan tugas setuju/bayar (pengaturan tenant).
+- [x] Tes DB `tests/db/reseller-commission-concurrency.test.ts` dijalankan di test DB.
+- [x] Review independen; typecheck, lint, tes penuh; changelog; commit lokal.
+
+## Review
+- 5 tugas berurutan + 3 reviewer (akuntansi, keamanan, arsitektur) + verifikasi adversarial:
+  6 temuan terkonfirmasi (balapan pembalikan vs settlement, REVERSED tak terbit ulang, settlement
+  APPROVED berubah tanpa persetujuan ulang, riwayat status tanpa lock) → semua diperbaiki + tes DB.
+- Tes DB: 19 file, 176 lulus. Produksi: 0 aturan/komisi/settlement reseller.
+- Belum: cek "penyetuju ≠ pembuat" (tidak ada kolom createdById di settlement).
+
 # Rencana: Sesuaikan modul Reseller dengan regulasi jual kembali (model agen) (2026-11-03)
 
 Status: **selesai (commit lokal), menunggu "push"**

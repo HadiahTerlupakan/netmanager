@@ -4,21 +4,25 @@ import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { useApi } from "@/lib/hooks/useApi";
+import { CommissionAdjustmentsList } from "./CommissionAdjustmentsList";
 import { LoadErrorState } from "./LoadErrorState";
 import { SettlementPaymentForm } from "./SettlementPaymentForm";
 import {
   formatDate,
   formatRupiah,
+  isPaidBySameApprover,
   nextSettlementAction,
   PAYMENT_METHOD_LABELS,
   resellerApiUrl,
   SETTLEMENT_STATUS_LABELS,
+  type CommissionAdjustment,
   type PaymentForm,
   type Settlement,
   type SettlementPaymentMethod,
 } from "./commission-ui";
 import { getErrorMessage, sendResellerMutation } from "./reseller-requests";
 
+const ADJUSTMENT_LIST_LIMIT = 10;
 const INPUT_CLASS =
   "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-white";
 
@@ -33,6 +37,7 @@ type SettlementsPanelProps = {
 /**
  * Settlement komisi: PENDING → disetujui → dibayar dari rekening Kas & Bank.
  * Pembayaran membuat jurnal Dr Utang Komisi Reseller / Cr rekening terpilih.
+ * Koreksi (clawback) komisi yang sudah dibayar dipotongkan dari totalnya.
  */
 export function SettlementsPanel({
   resellerId,
@@ -42,6 +47,9 @@ export function SettlementsPanel({
   const settlementsUrl = resellerApiUrl(resellerId, "settlements");
   const settlementsQuery = useApi<readonly Settlement[]>(
     `${settlementsUrl}?limit=10`,
+  );
+  const adjustmentsQuery = useApi<readonly CommissionAdjustment[]>(
+    `${resellerApiUrl(resellerId, "commission-adjustments")}?limit=${ADJUSTMENT_LIST_LIMIT}`,
   );
   const [period, setPeriod] = useState({ periodStart: "", periodEnd: "" });
   const [payingId, setPayingId] = useState<string | null>(null);
@@ -56,7 +64,8 @@ export function SettlementsPanel({
     try {
       await action();
       toast.success(successMessage);
-      await settlementsQuery.mutate();
+      // Sisa koreksi berubah saat settlement baru memotongnya.
+      await Promise.all([settlementsQuery.mutate(), adjustmentsQuery.mutate()]);
       onChanged?.();
       return true;
     } catch (error) {
@@ -177,6 +186,12 @@ export function SettlementsPanel({
                       {formatDate(settlement.periodEnd)} ·{" "}
                       {formatRupiah(settlement.totalAmount)}
                     </div>
+                    {settlement.adjustmentAmount > 0 && (
+                      <div className="text-amber-700 dark:text-amber-300">
+                        Komisi {formatRupiah(settlement.grossAmount)} · Koreksi
+                        −{formatRupiah(settlement.adjustmentAmount)}
+                      </div>
+                    )}
                     <div className="text-gray-500 dark:text-gray-400">
                       {settlement.commissionCount} komisi ·{" "}
                       {SETTLEMENT_STATUS_LABELS[settlement.status]}
@@ -186,6 +201,14 @@ export function SettlementsPanel({
                       {settlement.paymentReference &&
                         ` · Ref ${settlement.paymentReference}`}
                     </div>
+                    {isPaidBySameApprover(settlement) && (
+                      <span
+                        className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                        title="Settlement disetujui dan dibayar oleh pengguna yang sama. Nyalakan pemisahan penyetuju dan pembayar settlement untuk mencegahnya."
+                      >
+                        Disetujui &amp; dibayar pengguna yang sama
+                      </span>
+                    )}
                   </div>
                   {action === "approve" && (
                     <Button
@@ -220,6 +243,11 @@ export function SettlementsPanel({
           })}
         </ul>
       )}
+      <CommissionAdjustmentsList
+        adjustments={adjustmentsQuery.data ?? []}
+        error={adjustmentsQuery.error}
+        onRetry={() => void adjustmentsQuery.refetch()}
+      />
     </section>
   );
 }

@@ -20,6 +20,7 @@ vi.mock("@/modules/settings", () => ({
 import { LegalResellerPksDirectory } from "@/modules/reseller/services/legal-pks-directory";
 import {
   RESELLER_COMPLIANCE_REQUIRED_KEY,
+  RESELLER_SETTLEMENT_SEPARATE_APPROVER_KEY,
   TenantResellerComplianceSettings,
 } from "@/modules/reseller/services/reseller-compliance-settings";
 
@@ -136,6 +137,48 @@ describe("TenantResellerComplianceSettings", () => {
       expect.objectContaining({
         key: RESELLER_COMPLIANCE_REQUIRED_KEY,
         value: "true",
+      }),
+    ]);
+  });
+});
+
+describe("TenantResellerComplianceSettings — pemisahan tugas settlement", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("default mati di kunci RESELLER_SETTLEMENT_SEPARATE_APPROVER", async () => {
+    mocks.getTenantSettingsMap.mockImplementationOnce(
+      async (_tenant, fields) => ({
+        [fields[0].key]: fields[0].defaultValue,
+      }),
+    );
+
+    expect(
+      await new TenantResellerComplianceSettings().isSettlementSeparateApproverRequired(
+        "tenant-1",
+      ),
+    ).toBe(false);
+    expect(mocks.getTenantSettingsMap).toHaveBeenCalledWith("tenant-1", [
+      {
+        key: RESELLER_SETTLEMENT_SEPARATE_APPROVER_KEY,
+        defaultValue: "false",
+      },
+    ]);
+  });
+
+  it("aktif bila tersimpan 'true' dan menyimpan per tenant", async () => {
+    mocks.getTenantSettingsMap.mockResolvedValueOnce({
+      [RESELLER_SETTLEMENT_SEPARATE_APPROVER_KEY]: "true",
+    });
+    const settings = new TenantResellerComplianceSettings();
+
+    expect(
+      await settings.isSettlementSeparateApproverRequired("tenant-1"),
+    ).toBe(true);
+    await settings.setSettlementSeparateApproverRequired("tenant-9", false);
+    expect(mocks.upsertTenantSettings).toHaveBeenCalledWith("tenant-9", [
+      expect.objectContaining({
+        key: RESELLER_SETTLEMENT_SEPARATE_APPROVER_KEY,
+        value: "false",
       }),
     ]);
   });

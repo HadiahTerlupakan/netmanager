@@ -106,22 +106,45 @@ export class ResellerComplianceService {
     );
   }
 
-  /** Pengaturan "wajibkan kepatuhan reseller" tenant (default mati). */
+  /** Pengaturan tata kelola reseller tenant (semua default mati). */
   async getComplianceSetting(
     tenantId: string,
   ): Promise<ResellerComplianceSettingDTO> {
-    return {
-      isComplianceRequired: await this.settings.isComplianceRequired(tenantId),
-    };
+    const [isComplianceRequired, isSettlementSeparateApproverRequired] =
+      await Promise.all([
+        this.settings.isComplianceRequired(tenantId),
+        this.settings.isSettlementSeparateApproverRequired(tenantId),
+      ]);
+    return { isComplianceRequired, isSettlementSeparateApproverRequired };
   }
 
-  /** Simpan pengaturan "wajibkan kepatuhan reseller" tenant. */
+  /**
+   * Simpan sakelar tata kelola yang dikirim saja; sakelar yang tidak dikirim
+   * dibiarkan. Mengembalikan keadaan lengkap setelah disimpan.
+   */
   async updateComplianceSetting(
     tenantId: string,
-    isComplianceRequired: boolean,
+    patch: Partial<ResellerComplianceSettingDTO>,
   ): Promise<ResellerComplianceSettingDTO> {
-    await this.settings.setComplianceRequired(tenantId, isComplianceRequired);
-    return { isComplianceRequired };
+    const writes: Promise<void>[] = [];
+    if (patch.isComplianceRequired !== undefined) {
+      writes.push(
+        this.settings.setComplianceRequired(
+          tenantId,
+          patch.isComplianceRequired,
+        ),
+      );
+    }
+    if (patch.isSettlementSeparateApproverRequired !== undefined) {
+      writes.push(
+        this.settings.setSettlementSeparateApproverRequired(
+          tenantId,
+          patch.isSettlementSeparateApproverRequired,
+        ),
+      );
+    }
+    await Promise.all(writes);
+    return this.getComplianceSetting(tenantId);
   }
 
   private async evaluateOne(
