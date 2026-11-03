@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-03] — Alias pembatas lingkup lama ikut terbaca
+
+- **Tipe**: [SECURITY]
+- **Scope**: `lib/permission-aliases.ts`, `lib/auth/permissions.ts`, `lib/mobile-auth.ts`
+- **Author**: agent
+- **Deskripsi**: Kapabilitas baca memakai alias (`list:read` → `workorders:read`),
+  tetapi pembatas lingkup dicocokkan persis, sehingga role ber-`list:read` +
+  `list:site_only` lolos baca namun tidak terbaca terbatas (semua site). Pemuat
+  izin web dan token mobile kini menambahkan nama standar pembatas lingkup
+  (`tambahkanAliasPembatasLingkup`). Hanya mempersempit. Tidak ada peran
+  produksi yang terdampak (semua pemegang `list:site_only` juga memegang
+  `workorders:site_only`).
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-03] — Detail WO mobile mode lihat saja untuk verifikator
 
 - **Tipe**: [CHANGED]

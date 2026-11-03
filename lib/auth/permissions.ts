@@ -1,3 +1,4 @@
+import { tambahkanAliasPembatasLingkup } from "@/lib/permission-aliases";
 import { redis } from "@/lib/redis";
 import { prismaAuth } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
@@ -65,8 +66,8 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
     }
 
     const validPermissions = user.role.permission;
-    const permissions = validPermissions.map(
-      (p) => `${p.resource}:${p.action}`,
+    const permissions = tambahkanAliasPembatasLingkup(
+      validPermissions.map((p) => `${p.resource}:${p.action}`),
     );
 
     try {

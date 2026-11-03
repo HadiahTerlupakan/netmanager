@@ -226,3 +226,33 @@ export function hasCapability(
 
   return hasPermissionWithAlias(permissions, requiredPermission);
 }
+
+const AKSI_PEMBATASAN_LINGKUP = ["site_only", "department_only"] as const;
+
+/** Apakah permission adalah pembatas lingkup (`<resource>:site_only|department_only`). */
+function isIzinPembatasLingkup(permission: string): boolean {
+  return AKSI_PEMBATASAN_LINGKUP.some((aksi) =>
+    permission.endsWith(`:${aksi}`),
+  );
+}
+
+/**
+ * Tambahkan nama standar untuk pembatas lingkup bernama lama, mis.
+ * `list:site_only` → juga `workorders:site_only`.
+ *
+ * Pembatas lingkup dicocokkan PERSIS (`includes`), sedangkan kapabilitas baca
+ * memakai alias (`hasCapability`). Tanpa ini, role ber-`list:read` +
+ * `list:site_only` lolos cek baca lewat alias tetapi tidak terbaca terbatas —
+ * lingkupnya melebar ke seluruh site. Hanya menambah pembatas (mempersempit),
+ * tidak pernah menambah kapabilitas.
+ */
+export function tambahkanAliasPembatasLingkup(permissions: string[]): string[] {
+  const hasil = new Set(permissions);
+  for (const permission of permissions) {
+    if (!isIzinPembatasLingkup(permission)) continue;
+    for (const kanonik of PERMISSION_ALIASES[permission] ?? []) {
+      if (isIzinPembatasLingkup(kanonik)) hasil.add(kanonik);
+    }
+  }
+  return Array.from(hasil);
+}

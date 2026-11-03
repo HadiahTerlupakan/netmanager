@@ -1,3 +1,4 @@
+import { tambahkanAliasPembatasLingkup } from "@/lib/permission-aliases";
 import { logger } from "@/lib/logger";
 import { isSuperAdminRole } from "@/lib/auth/helpers";
 import { SignJWT, jwtVerify } from "jose";
@@ -481,10 +482,12 @@ async function verifyValidatedMobileToken(
       dbUser.role?.isSuperAdmin || isSuperAdminRole(roleName);
     const permissions = isSuperAdmin
       ? ["*"]
-      : dbUser.role?.permission.map(
-          (permission: { resource: string; action: string }) =>
-            `${permission.resource}:${permission.action}`,
-        ) || [];
+      : tambahkanAliasPembatasLingkup(
+          dbUser.role?.permission.map(
+            (permission: { resource: string; action: string }) =>
+              `${permission.resource}:${permission.action}`,
+          ) || [],
+        );
 
     const siteIds = dbUser.userSites.map((s) => s.siteId);
 
