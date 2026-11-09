@@ -44,8 +44,8 @@ function createService() {
     }),
     findPurchaseOrderStatus: vi.fn().mockResolvedValue("ORDERED"),
     hasOutstandingItems: vi.fn().mockResolvedValue(true),
-    markPurchaseOrderReceived: vi.fn(),
-    markPurchaseRequestReceived: vi.fn(),
+    countPurchaseRequestsForPurchaseOrder: vi.fn().mockResolvedValue(1),
+    applyReceiptSettlement: vi.fn().mockResolvedValue(true),
   };
   return new RestockGoodsReceiptService(
     repository as never,

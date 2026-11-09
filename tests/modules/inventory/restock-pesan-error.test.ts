@@ -29,7 +29,7 @@ import { resolveOverReceipts } from "@/modules/inventory/services/restock-over-r
 describe("pesan restock untuk petugas", () => {
   it("menerjemahkan status ke kata biasa", () => {
     expect(restockCannotEditMessage("ORDERED")).toBe(
-      "Pengajuan ini sedang dibelanjakan, jadi tidak bisa diubah lagi. Yang bisa diubah hanya pengajuan yang belum disetujui.",
+      "Pengajuan ini sudah dibeli dan menunggu barangnya datang, jadi tidak bisa diubah lagi. Yang bisa diubah hanya pengajuan yang belum disetujui.",
     );
     expect(restockAlreadyDecidedMessage("REJECTED", "disetujui")).toContain(
       "Pengajuan ini sudah ditolak, jadi tidak bisa disetujui lagi.",

@@ -10,6 +10,7 @@ import {
   RestockReceiptForbiddenError,
   RestockReceiptInvalidError,
   RestockReceiptNotFoundError,
+  type RestockReceiptResult,
   restockForbiddenMessage,
   restockServerErrorMessage,
 } from "@/modules/inventory";
@@ -18,8 +19,9 @@ import { ensureRestockRequestSiteAccess } from "../../../_lib/restock-site-acces
 const goodsReceiptService = createRestockGoodsReceiptService();
 
 /**
- * Terima barang dari pre-request restock via GRN service.
- * Mendukung substitusi barang bila yang datang berbeda dari yang dipesan.
+ * Catat barang yang datang dari pengajuan restock via GRN service.
+ * Mendukung substitusi barang, kelebihan kiriman, sisa yang tidak jadi
+ * datang, dan menyelesaikan pesanan tanpa kiriman (semua jumlah 0).
  */
 export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
@@ -39,7 +41,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   if (!body) return ApiErrors.badRequest(RESTOCK_MESSAGES.unreadableBody);
 
   try {
-    const goodsReceipt = await goodsReceiptService.receive({
+    const result = await goodsReceiptService.receive({
       purchaseRequestId: ctx.params.id,
       receivedItems: (body.items ?? {}) as Record<string, number>,
       substitutions: (body.substitutions ?? {}) as Record<string, string>,
@@ -53,8 +55,10 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     });
 
     return NextResponse.json({
-      data: goodsReceipt,
-      message: "Barang berhasil diterima dan GRN tercatat",
+      data: result.goodsReceipt,
+      purchaseOrderStatus: result.purchaseOrderStatus,
+      purchaseRequestStatus: result.purchaseRequestStatus,
+      message: describeReceiptOutcome(result),
     });
   } catch (error) {
     const mappedResponse = mapReceiptError(error);
@@ -82,6 +86,22 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     return response;
   }
 });
+
+/** Ringkasan hasil penyimpanan untuk petugas gudang. */
+function describeReceiptOutcome(result: RestockReceiptResult): string {
+  if (result.purchaseRequestStatus === "CANCELLED") {
+    return "Pesanan dibatalkan. Tidak ada barang yang masuk gudang.";
+  }
+  const isFinished = result.purchaseRequestStatus === "RECEIVED";
+  if (result.goodsReceipt) {
+    return isFinished
+      ? "Tersimpan. Barang sudah masuk gudang. Pesanan selesai."
+      : "Tersimpan. Barang sudah masuk gudang. Sisanya masih ditunggu.";
+  }
+  return isFinished
+    ? "Tersimpan. Pesanan selesai. Sisa barangnya tidak jadi datang."
+    : "Tersimpan. Barang yang tidak jadi datang sudah dicatat. Sisanya masih ditunggu.";
+}
 
 function describeErrorForLog(error: unknown): string | undefined {
   if (error === undefined) return undefined;

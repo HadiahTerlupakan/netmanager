@@ -10,8 +10,11 @@ export type RestockCancellationMap = Record<string, string>;
 
 export const MAX_CANCEL_REASON_LENGTH = 255;
 
-/** Alasan anulir otomatis untuk sisa pesanan saat operator menutup pesanan. */
-export const CLOSE_ORDER_CANCEL_REASON = "Pesanan ditutup";
+/**
+ * Alasan bawaan untuk sisa barang yang tidak jadi datang saat pesanan
+ * diselesaikan tanpa alasan per barang.
+ */
+export const CLOSE_ORDER_CANCEL_REASON = "Toko tidak mengirim sisanya";
 
 export interface ApplyRestockCancellationInput {
   purchaseOrderId: string;
@@ -24,7 +27,7 @@ export interface ApplyRestockCancellationInput {
   referenceNumber: string;
 }
 
-interface ResolvedCancellation {
+export interface ResolvedCancellation {
   purchaseOrderItemId: string;
   barangId: string;
   cancelledQuantity: number;
@@ -32,17 +35,22 @@ interface ResolvedCancellation {
 }
 
 /**
- * Menutup pesanan berarti sisa barang tidak akan datang, jadi sisa itu dianulir
+ * Menutup pesanan berarti sisa barang tidak akan datang, jadi sisa itu dicoret
  * (bukan dicatat diterima, yang akan menambah stok yang tidak pernah ada).
  * Alasan yang diisi operator tetap dipakai; sisanya memakai alasan baku.
+ * `ownedBarangIds` membatasi pencoretan ke barang milik pengajuan yang
+ * sedang dicatat, supaya barang pengajuan lain di pesanan gabungan (yang
+ * tidak terlihat oleh petugas) tidak ikut dicoret.
  */
 export function withClosingCancellations(
   cancellations: RestockCancellationMap,
   purchaseOrderItems: RestockPurchaseOrderItem[],
   receivedQuantityByItemId: Record<string, number>,
+  ownedBarangIds: ReadonlySet<string> | null = null,
 ): RestockCancellationMap {
   const result = { ...cancellations };
   for (const item of purchaseOrderItems) {
+    if (ownedBarangIds && !ownedBarangIds.has(item.barangId)) continue;
     const remaining =
       item.quantity -
       item.receivedQuantity -
@@ -81,7 +89,12 @@ export class RestockItemCancellationService {
    * stok tercatat dua kali.
    */
   validate(input: ApplyRestockCancellationInput): void {
-    this.resolveAgainstPurchaseOrder(
+    this.resolve(input);
+  }
+
+  /** Hitung pencoretan yang akan dicatat tanpa menulis apa pun. */
+  resolve(input: ApplyRestockCancellationInput): ResolvedCancellation[] {
+    return this.resolveAgainstPurchaseOrder(
       this.parseRequestedCancellations(input.cancellations),
       input.purchaseOrderItems,
       input.receivedQuantityByItemId,
@@ -115,7 +128,7 @@ export class RestockItemCancellationService {
       })),
     });
 
-    await this.logCancellation(resolved, input);
+    await this.recordActivity(resolved, input);
 
     return resolved;
   }
@@ -141,7 +154,7 @@ export class RestockItemCancellationService {
     for (const cancellation of requested) {
       if (cancellation.reason.length > MAX_CANCEL_REASON_LENGTH) {
         throw new RestockCancellationInvalidError(
-          `Alasan barang tidak jadi dibeli terlalu panjang. Paling banyak ${MAX_CANCEL_REASON_LENGTH} huruf.`,
+          `Alasan barang tidak jadi datang terlalu panjang. Paling banyak ${MAX_CANCEL_REASON_LENGTH} huruf.`,
         );
       }
 
@@ -150,7 +163,7 @@ export class RestockItemCancellationService {
       );
       if (!purchaseOrderItem) {
         throw new RestockCancellationInvalidError(
-          "Barang yang mau dibatalkan tidak ada di pesanan ini. Muat ulang halaman, lalu coba lagi.",
+          "Barang yang dicatat tidak jadi datang tidak ada di pesanan ini. Muat ulang halaman, lalu coba lagi.",
         );
       }
 
@@ -160,7 +173,7 @@ export class RestockItemCancellationService {
       );
       if (remaining <= 0) {
         throw new RestockCancellationInvalidError(
-          `${purchaseOrderItem.barang?.nama ?? "Barang ini"} sudah tidak punya sisa pesanan, jadi tidak ada yang bisa dibatalkan. Hapus alasan batalnya.`,
+          `${purchaseOrderItem.barang?.nama ?? "Barang ini"} sudah tidak punya sisa yang ditunggu, jadi tidak ada yang bisa dicatat tidak jadi datang. Hapus alasannya.`,
         );
       }
 
@@ -188,10 +201,12 @@ export class RestockItemCancellationService {
     );
   }
 
-  private async logCancellation(
+  /** Catat pencoretan yang sudah tertulis ke activity log. */
+  async recordActivity(
     resolved: ResolvedCancellation[],
     input: ApplyRestockCancellationInput,
   ): Promise<void> {
+    if (resolved.length === 0) return;
     await logger.logActivity({
       userId: input.actorId,
       tenantId: input.tenantId,

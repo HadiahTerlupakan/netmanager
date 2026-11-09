@@ -52,8 +52,9 @@ interface CreateGoodsReceiptServiceInput {
  * Aturan utama:
  * - PO harus exist dan punya tenantId yang sama dengan caller
  * - Setiap item GRN harus punya `purchaseOrderItemId` yang valid milik PO ini
- * - `quantity` GRN tidak boleh > sisa quantity (PO.quantity - PO.receivedQuantity)
- * - PO yang sudah RECEIVED penuh ditolak (cegah over-receive)
+ * - `quantity` GRN tidak boleh > sisa (quantity − receivedQuantity − cancelledQuantity)
+ * - PO yang sudah RECEIVED atau CANCELLED ditolak (cegah barang masuk untuk
+ *   sisa yang sudah dinyatakan tidak jadi datang)
  */
 export class GoodsReceiptService {
   constructor(
@@ -151,15 +152,18 @@ export class GoodsReceiptService {
     }
     if (po.status === "CANCELLED") {
       throw new GoodsReceiptInvalidError(
-        "Purchase Order sudah dibatalkan, tidak bisa menerima barang",
+        "Pesanan ini sudah dibatalkan, jadi barangnya tidak bisa dicatat datang.",
       );
     }
-    const hasRemaining = po.items.some(
-      (it) => it.quantity > it.receivedQuantity,
-    );
+    if (po.status === "RECEIVED") {
+      throw new GoodsReceiptInvalidError(
+        "Pesanan ini sudah selesai, jadi barangnya tidak bisa dicatat datang lagi.",
+      );
+    }
+    const hasRemaining = po.items.some((it) => getRemainingQuantity(it) > 0);
     if (!hasRemaining) {
       throw new GoodsReceiptInvalidError(
-        "Semua barang di Purchase Order ini sudah diterima penuh",
+        "Semua barang di pesanan ini sudah datang atau tidak jadi datang. Tidak ada sisa yang bisa dicatat.",
       );
     }
   }
@@ -181,13 +185,18 @@ export class GoodsReceiptService {
           "Barang GRN tidak cocok dengan barang di item PO",
         );
       }
-      const remaining = poItem.quantity - poItem.receivedQuantity;
+      const remaining = getRemainingQuantity(poItem);
       if (grnItem.quantity > remaining) {
         const barangNama = poItem.barang?.nama ?? grnItem.barangId;
         throw new GoodsReceiptInvalidError(
-          `Quantity ${barangNama} melebihi sisa: ${remaining}`,
+          `Jumlah ${barangNama} melebihi sisa yang masih ditunggu: ${remaining}`,
         );
       }
     }
   }
+}
+
+/** Sisa yang masih ditunggu = dipesan − sudah datang − tidak jadi datang. */
+function getRemainingQuantity(item: PurchaseOrderItemWithBarang): number {
+  return item.quantity - item.receivedQuantity - (item.cancelledQuantity ?? 0);
 }

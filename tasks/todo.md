@@ -1,3 +1,36 @@
+# Rencana: Penerimaan restock yang mudah dipahami orang awam (2026-11-08)
+
+Status: **selesai (belum di-commit)**
+
+## Asumsi
+- Tanpa migration: status yang dilihat pengguna diturunkan dari status PR + PO + jumlah per baris.
+- "Sudah dibeli" = PO bukan DRAFT atau sudah ada barang datang; tombol "Tandai Sudah Dibeli" →
+  `/process` (isi `issuedAt`); penerimaan pertama pada PO DRAFT otomatis mencatat sudah dibeli.
+- Checkbox "Tutup Pesanan" diganti pertanyaan "Apakah masih ada barang yang akan menyusul?";
+  jawaban "Tidak" wajib alasan + konfirmasi.
+- Selesaikan tanpa barang datang diizinkan: tanpa foto/GRN; PO+PR CANCELLED bila belum ada yang
+  diterima dan PO hanya milik PR ini, selain itu RECEIVED.
+- Kosakata tetap: "toko" (bukan supplier/pemasok/PO), "tidak jadi datang" (bukan anulir).
+
+## Langkah
+- [x] Backend: read-model (PO, riwayat kiriman), /process isi issuedAt, tutup tanpa kiriman,
+      sinkron PR satu PO, GRN procurement hitung yang dianulir, larang hapus PR yang sudah ada
+      kiriman, hapus kode mati RECEIVE, pesan awam, tes.
+- [x] UI: status turunan + kalimat penjelas, tombol per status, modal "Catat Barang yang Datang",
+      detail dengan perjalanan pesanan & riwayat kiriman, toast, PDF, tes.
+- [x] Review adversarial (termasuk pembaca awam); typecheck, lint, tes; changelog.
+
+## Review
+- Workflow: 3 pembaca → 3 konsep desain → 3 juri (staf gudang awam, engineer, pemilik) → konsep
+  "Perjalanan Pesanan" + cangkokan → 2 implementer → integrasi → 5 reviewer → 2 verifikator per
+  temuan: 34 temuan, 32 terkonfirmasi, semua diperbaiki (tes refetch-saat-ditolak dilewati).
+- Temuan penting: tutup pesanan gabungan ikut mencoret barang pengajuan lain; pesanan berisi jasa
+  atau sudah dibayar bisa dibatalkan; tutup tanpa kiriman tidak atomik.
+- Cek manual: `RestockGoodsReceiptService` 822 baris (melewati batas 800 tes arsitektur) → kontrak
+  dan helper murni dipisah, re-export dibatasi ke nama yang sudah publik.
+- Typecheck 0 galat; 1175 file / 9451 tes lulus; eslint + prettier bersih untuk 95 file.
+- Belum: uji di browser; tagihan pesanan yang selesai-kurang masih bernilai penuh (perilaku lama).
+
 # Rencana: Keputusan approval restock per item (2026-11-08)
 
 Status: **selesai (belum di-commit)**

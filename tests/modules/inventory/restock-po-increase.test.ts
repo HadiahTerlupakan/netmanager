@@ -100,3 +100,24 @@ describe("RestockGoodsReceiptRepository.increaseItemQuantities", () => {
     });
   });
 });
+
+describe("RestockGoodsReceiptRepository.recordPurchaseOrderPurchase", () => {
+  it("hanya mengisi tanggal beli yang masih kosong, tidak menimpa catatan belanja", async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const db = { purchaseOrder: { updateMany } };
+    const issuedAt = new Date("2026-11-09T03:00:00Z");
+
+    await new RestockGoodsReceiptRepository(
+      db as never,
+    ).recordPurchaseOrderPurchase({
+      purchaseOrderId: "po-1",
+      processedById: "gudang-1",
+      issuedAt,
+    });
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: "po-1", issuedAt: null },
+      data: { processedById: "gudang-1", issuedAt },
+    });
+  });
+});

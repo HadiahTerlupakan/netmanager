@@ -109,12 +109,14 @@ describe("RestockItemSubstitutionService", () => {
   it("menolak penggantian item yang sudah diterima sebagian", async () => {
     const { service } = createService();
 
-    await expect(
-      service.apply({
-        ...baseInput,
-        substitutions: { "barang-2": "barang-9" },
-      }),
-    ).rejects.toThrow(RestockSubstitutionInvalidError);
+    const attempt = service.apply({
+      ...baseInput,
+      substitutions: { "barang-2": "barang-9" },
+    });
+    await expect(attempt).rejects.toThrow(RestockSubstitutionInvalidError);
+    await expect(attempt).rejects.toThrow(
+      /sudah datang sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi\. Catat sisanya/,
+    );
   });
 
   it("menolak barang asli yang tidak ada di purchase order", async () => {

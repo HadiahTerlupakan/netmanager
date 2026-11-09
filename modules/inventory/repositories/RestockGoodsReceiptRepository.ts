@@ -5,15 +5,28 @@ import { prisma } from "@/modules/database";
 import type {
   ApplyItemCancellationInput,
   ApplyItemSubstitutionInput,
+  ApplyReceiptSettlementInput,
   BarangSubstitutionCandidate,
+  FinishWithoutDeliveryInput,
   IncreaseItemQuantitiesInput,
   IRestockGoodsReceiptRepository,
   PurchaseOrderIncreaseUndo,
+  PurchaseOrderPurchaseRecord,
+  RestockOrderedPurchaseOrder,
   RestockPurchaseOrderForReceipt,
   RestockPurchaseRequestForReceipt,
 } from "../domain/ports/IRestockGoodsReceiptRepository";
+import { revokePurchaseLinksWithin } from "./restock-purchase-link-revocation";
 
 type PrismaClientLike = PrismaClient;
+
+/** Status pengajuan yang sudah final dan tidak boleh ditimpa. */
+const FINAL_REQUEST_STATUSES = ["RECEIVED", "CANCELLED", "REJECTED"] as const;
+const CANCELLABLE_ORDER_STATUSES = ["DRAFT", "ORDERED"] as const;
+const CLOSED_ORDER_STATUSES = ["RECEIVED", "CANCELLED"] as const;
+
+/** Dilempar di dalam transaksi supaya semua tulisan dibatalkan. */
+class ReceiptConcurrentChange extends Error {}
 
 /**
  * Akses data untuk alur verifikasi kedatangan barang restock.
@@ -27,7 +40,7 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
     id: string,
     tenantId: string,
   ): Promise<RestockPurchaseRequestForReceipt | null> {
-    return this.db.purchaseRequest.findFirst({
+    const request = await this.db.purchaseRequest.findFirst({
       where: { id, tenantId },
       select: {
         id: true,
@@ -35,20 +48,35 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
         gudangId: true,
         status: true,
         nomorRequest: true,
+        items: {
+          where: { statusApproval: { not: "REJECTED" } },
+          select: { barangId: true },
+        },
       },
     });
+    if (!request) return null;
+    const { items, ...rest } = request;
+    return {
+      ...rest,
+      receivableBarangIds: items?.map((item) => item.barangId),
+    };
   }
 
   /** Ambil purchase order beserta item-nya untuk validasi penerimaan. */
   async findPurchaseOrderWithItems(
     purchaseOrderId: string,
   ): Promise<RestockPurchaseOrderForReceipt | null> {
-    return this.db.purchaseOrder.findUnique({
+    const purchaseOrder = await this.db.purchaseOrder.findUnique({
       where: { id: purchaseOrderId },
       select: {
         id: true,
         poNumber: true,
         status: true,
+        issuedAt: true,
+        processedById: true,
+        tenantId: true,
+        paymentStatus: true,
+        _count: { select: { jasaItems: true, goodsReceipts: true } },
         items: {
           select: {
             id: true,
@@ -56,11 +84,19 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
             quantity: true,
             receivedQuantity: true,
             cancelledQuantity: true,
+            purchasedQuantity: true,
             barang: { select: { id: true, nama: true } },
           },
         },
       },
     });
+    if (!purchaseOrder) return null;
+    const { _count, ...rest } = purchaseOrder;
+    return {
+      ...rest,
+      jasaItemCount: _count?.jasaItems ?? 0,
+      goodsReceiptCount: _count?.goodsReceipts ?? 0,
+    };
   }
 
   /** Ambil status terkini purchase order. */
@@ -101,9 +137,13 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
           where: { id: substitution.purchaseOrderItemId },
           data: { barangId: substitution.toBarangId },
         });
+        // Baris PR yang ditolak penyetuju tidak ikut PO, jadi tidak ikut
+        // diganti. `barangIdDiminta` sengaja tidak disentuh: kolom itu
+        // mencatat permintaan awal, bukan barang yang datang.
         await tx.purchaseRequestItem.updateMany({
           where: {
             barangId: substitution.fromBarangId,
+            statusApproval: { not: "REJECTED" },
             purchaseRequest: {
               purchaseOrderId: input.purchaseOrderId,
               tenantId: input.tenantId,
@@ -253,9 +293,15 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
   }
 
   /** Cek apakah masih ada item PO yang belum diterima maupun dianulir. */
-  async hasOutstandingItems(purchaseOrderId: string): Promise<boolean> {
+  async hasOutstandingItems(
+    purchaseOrderId: string,
+    barangIds?: string[],
+  ): Promise<boolean> {
     const items = await this.db.purchaseOrderItem.findMany({
-      where: { purchaseOrderId },
+      where: {
+        purchaseOrderId,
+        ...(barangIds ? { barangId: { in: barangIds } } : {}),
+      },
       select: {
         quantity: true,
         receivedQuantity: true,
@@ -268,22 +314,189 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
     );
   }
 
-  /** Tandai purchase order sebagai diterima penuh. */
-  async markPurchaseOrderReceived(
+  /** Hitung purchase request yang tergabung di PO ini. */
+  async countPurchaseRequestsForPurchaseOrder(
     purchaseOrderId: string,
-    actorId: string,
-  ): Promise<void> {
-    await this.db.purchaseOrder.update({
-      where: { id: purchaseOrderId },
-      data: { status: "RECEIVED", receivedById: actorId },
+  ): Promise<number> {
+    return this.db.purchaseRequest.count({ where: { purchaseOrderId } });
+  }
+
+  /** Terapkan akibat penyimpanan penerimaan ke status PO & PR. */
+  async applyReceiptSettlement(
+    input: ApplyReceiptSettlementInput,
+  ): Promise<boolean> {
+    return this.runGuarded(input.purchaseOrderId, (tx) =>
+      this.writeSettlement(tx, input),
+    );
+  }
+
+  /** Coret sisa (bersyarat snapshot) dan terapkan status dalam satu transaksi. */
+  async finishPurchaseOrderWithoutDelivery(
+    input: FinishWithoutDeliveryInput,
+  ): Promise<boolean> {
+    return this.runGuarded(input.purchaseOrderId, async (tx) => {
+      for (const cancellation of input.cancellations) {
+        const result = await tx.purchaseOrderItem.updateMany({
+          where: {
+            id: cancellation.purchaseOrderItemId,
+            purchaseOrderId: input.purchaseOrderId,
+            quantity: cancellation.expected.quantity,
+            receivedQuantity: cancellation.expected.receivedQuantity,
+            cancelledQuantity: cancellation.expected.cancelledQuantity,
+          },
+          data: {
+            cancelledQuantity: { increment: cancellation.cancelledQuantity },
+            cancelReason: cancellation.reason,
+            cancelledAt: input.cancelledAt,
+          },
+        });
+        if (result.count === 0) throw new ReceiptConcurrentChange();
+      }
+      await this.writeSettlement(tx, input);
     });
   }
 
-  /** Tandai purchase request sebagai diterima. */
-  async markPurchaseRequestReceived(purchaseRequestId: string): Promise<void> {
-    await this.db.purchaseRequest.update({
-      where: { id: purchaseRequestId },
-      data: { status: "RECEIVED" },
+  /**
+   * Jalankan penutupan dalam satu transaksi yang diawali kunci baris pesanan
+   * (`FOR UPDATE`). Urutannya sama dengan pencatatan belanja: pesanan, lalu
+   * item, lalu link. Tanpa kunci awal ini, item dikunci lebih dulu lalu link
+   * dicabut, sementara pencatatan lewat link memegang kunci link sambil
+   * menunggu item, dan keduanya saling menunggu (deadlock).
+   */
+  private async runGuarded(
+    purchaseOrderId: string,
+    work: (tx: Prisma.TransactionClient) => Promise<void>,
+  ): Promise<boolean> {
+    try {
+      await this.db.$transaction(async (tx: Prisma.TransactionClient) => {
+        await tx.$queryRaw`
+          SELECT id FROM purchase_orders WHERE id = ${purchaseOrderId} FOR UPDATE`;
+        await work(tx);
+      });
+      return true;
+    } catch (error) {
+      if (error instanceof ReceiptConcurrentChange) return false;
+      throw error;
+    }
+  }
+
+  /**
+   * Terapkan status penutupan, lalu cabut link belanja pengajuan yang kini
+   * sudah final (selesai/dibatalkan) di transaksi yang sama.
+   */
+  private async writeSettlement(
+    tx: Prisma.TransactionClient,
+    input: ApplyReceiptSettlementInput,
+  ): Promise<void> {
+    await this.writeSettlementStatuses(tx, input);
+    if (input.settlement === "KEEP_OPEN") return;
+    await revokePurchaseLinksWithin(tx, {
+      scope: {
+        OR: [
+          { id: input.purchaseRequestId },
+          { purchaseOrderId: input.purchaseOrderId },
+        ],
+        status: { in: [...FINAL_REQUEST_STATUSES] },
+      },
+      revokedById: null,
+      now: new Date(),
+    });
+  }
+
+  private async writeSettlementStatuses(
+    tx: Prisma.TransactionClient,
+    input: ApplyReceiptSettlementInput,
+  ): Promise<void> {
+    const openRequest = {
+      status: { notIn: [...FINAL_REQUEST_STATUSES] },
+    };
+    switch (input.settlement) {
+      case "KEEP_OPEN":
+        return;
+      case "SETTLE_REQUEST":
+        await tx.purchaseRequest.updateMany({
+          where: { id: input.purchaseRequestId, ...openRequest },
+          data: { status: "RECEIVED" },
+        });
+        return;
+      case "SETTLE_ORDER":
+        await tx.purchaseOrder.updateMany({
+          where: {
+            id: input.purchaseOrderId,
+            status: { notIn: [...CLOSED_ORDER_STATUSES] },
+          },
+          data: { status: "RECEIVED", receivedById: input.actorId },
+        });
+        await tx.purchaseRequest.updateMany({
+          where: { purchaseOrderId: input.purchaseOrderId, ...openRequest },
+          data: { status: "RECEIVED" },
+        });
+        return;
+      case "CANCEL_ORDER": {
+        // Bersyarat: GRN, pembayaran, atau catatan belanja yang masuk
+        // bersamaan membatalkan pembatalan ini, bukan ditimpa CANCELLED.
+        // Barang yang sudah dibeli di toko tidak boleh hilang jejaknya.
+        const result = await tx.purchaseOrder.updateMany({
+          where: {
+            id: input.purchaseOrderId,
+            status: { in: [...CANCELLABLE_ORDER_STATUSES] },
+            paymentStatus: "UNPAID",
+            goodsReceipts: { none: {} },
+            jasaItems: { none: {} },
+            purchaseRecords: { none: { voidedAt: null } },
+            items: {
+              none: {
+                OR: [
+                  { receivedQuantity: { gt: 0 } },
+                  { purchasedQuantity: { gt: 0 } },
+                ],
+              },
+            },
+          },
+          data: { status: "CANCELLED" },
+        });
+        if (result.count === 0) throw new ReceiptConcurrentChange();
+        await tx.purchaseRequest.updateMany({
+          where: { id: input.purchaseRequestId, ...openRequest },
+          data: { status: "CANCELLED" },
+        });
+        return;
+      }
+    }
+  }
+
+  /** DRAFT → ORDERED secara atomik; null bila PO sudah tidak DRAFT. */
+  async markPurchaseOrderOrdered(
+    record: PurchaseOrderPurchaseRecord,
+  ): Promise<RestockOrderedPurchaseOrder | null> {
+    const result = await this.db.purchaseOrder.updateMany({
+      where: { id: record.purchaseOrderId, status: "DRAFT" },
+      data: {
+        status: "ORDERED",
+        processedById: record.processedById,
+        issuedAt: record.issuedAt,
+      },
+    });
+    if (result.count === 0) return null;
+    return this.db.purchaseOrder.findUnique({
+      where: { id: record.purchaseOrderId },
+    });
+  }
+
+  /**
+   * Catat pembeli dan tanggal beli PO tanpa mengubah statusnya. Hanya bila
+   * tanggal beli masih kosong: catatan belanja yang tersimpan lebih dulu
+   * (tanggal belanja & pencatatnya) tidak boleh ditimpa.
+   */
+  async recordPurchaseOrderPurchase(
+    record: PurchaseOrderPurchaseRecord,
+  ): Promise<void> {
+    await this.db.purchaseOrder.updateMany({
+      where: { id: record.purchaseOrderId, issuedAt: null },
+      data: {
+        processedById: record.processedById,
+        issuedAt: record.issuedAt,
+      },
     });
   }
 }

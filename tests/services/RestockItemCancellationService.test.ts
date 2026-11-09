@@ -125,7 +125,7 @@ describe("RestockItemCancellationService", () => {
         ...baseInput,
         cancellations: { "barang-2": "Tidak dibelikan" },
       }),
-    ).rejects.toThrow("sudah tidak punya sisa pesanan");
+    ).rejects.toThrow("sudah tidak punya sisa yang ditunggu");
   });
 
   it("menolak barang yang tidak ada di purchase order", async () => {

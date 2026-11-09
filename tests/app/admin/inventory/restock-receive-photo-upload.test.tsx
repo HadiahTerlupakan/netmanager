@@ -72,8 +72,10 @@ function ReceiveModalHarness({
       onOverReceiptsChange={() => {}}
       receivedPhotos={receivedPhotos}
       onReceivedPhotosChange={setReceivedPhotos}
-      isFinishingPO={false}
-      onIsFinishingPOChange={() => {}}
+      isFinishingOrder={false}
+      onIsFinishingOrderChange={() => {}}
+      closeReason=""
+      onCloseReasonChange={() => {}}
       submitting={false}
       photoUploadRef={photoUploadRef}
       onClose={() => {}}

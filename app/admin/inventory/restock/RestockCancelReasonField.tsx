@@ -1,29 +1,21 @@
 "use client";
 
-import { FiSlash, FiX } from "react-icons/fi";
+import { FiRotateCcw } from "react-icons/fi";
 
-/** Alasan siap pakai untuk barang yang tidak jadi dibelikan. */
-export const RESTOCK_CANCEL_REASONS = [
-  "Tidak dibelikan",
-  "Stok supplier kosong",
-  "Harga tidak sesuai",
-  "Dibatalkan pemesan",
-] as const;
-
-const OTHER_REASON_VALUE = "__lainnya__";
+import { RestockNotComingReasonSelect } from "./RestockNotComingReasonSelect";
 
 interface RestockCancelReasonFieldProps {
   itemName: string;
   satuan: string;
   remainingQuantity: number;
-  /** null = tidak dianulir, "" = ditandai anulir tapi alasan belum diisi. */
+  /** null = masih ditunggu, "" = ditandai tidak datang tapi alasan belum diisi. */
   reason: string | null;
   onReasonChange: (reason: string | null) => void;
 }
 
 /**
- * Kontrol anulir sisa pesanan satu item: tandai barang tidak jadi dibelikan
- * dan wajib sertakan alasannya.
+ * Tanda "sisa barang ini tidak akan datang" untuk satu barang, lengkap dengan
+ * alasan wajib dan jalan kembali bila ternyata barangnya masih datang.
  */
 export function RestockCancelReasonField({
   itemName,
@@ -32,81 +24,43 @@ export function RestockCancelReasonField({
   reason,
   onReasonChange,
 }: RestockCancelReasonFieldProps) {
-  const isCancelled = reason !== null;
-  const isPresetReason = RESTOCK_CANCEL_REASONS.some(
-    (preset) => preset === reason,
-  );
-  const selectValue = isPresetReason
-    ? (reason as string)
-    : reason
-      ? OTHER_REASON_VALUE
-      : "";
-
-  if (!isCancelled) {
+  if (reason === null) {
     return (
-      <button
-        type="button"
-        onClick={() => onReasonChange("")}
-        className="flex items-center gap-1.5 text-[11px] font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400"
-      >
-        <FiSlash />
-        Anulir sisa {remainingQuantity} {satuan} — tidak dibelikan
-      </button>
+      <div>
+        <button
+          type="button"
+          onClick={() => onReasonChange("")}
+          aria-label={`Sisa ${remainingQuantity} ${satuan} ini tidak akan datang? (${itemName})`}
+          className="min-h-[44px] text-left text-sm font-semibold text-orange-800 underline underline-offset-2 hover:text-orange-900 dark:text-orange-300 sm:min-h-0"
+        >
+          Sisa {remainingQuantity} {satuan} ini tidak akan datang?
+        </button>
+        <p className="text-xs text-gray-600 dark:text-gray-400">
+          Tekan hanya kalau sisa barang ini pasti tidak dikirim. Kalau masih
+          akan datang, biarkan saja.
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-rose-100 bg-rose-50/60 p-3 dark:border-rose-900/40 dark:bg-rose-950/20">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
-          Anulir {remainingQuantity} {satuan}
-        </span>
-        <button
-          type="button"
-          aria-label={`Batalkan anulir ${itemName}`}
-          onClick={() => onReasonChange(null)}
-          className="flex items-center gap-1 text-[11px] font-bold text-gray-500 hover:text-gray-700"
-        >
-          <FiX /> Batal
-        </button>
-      </div>
-
-      <select
-        aria-label={`Alasan anulir ${itemName}`}
-        value={selectValue}
-        onChange={(event) =>
-          onReasonChange(
-            event.target.value === OTHER_REASON_VALUE ? "" : event.target.value,
-          )
-        }
-        className="mt-2 w-full rounded-xl border-none bg-white px-3 py-2 text-xs font-bold text-gray-700 focus:ring-2 focus:ring-rose-500 dark:bg-gray-900 dark:text-gray-200"
+    <div className="space-y-2 rounded-2xl border border-orange-200 bg-orange-50 p-3 dark:border-orange-900/40 dark:bg-orange-950/20">
+      <p className="text-sm font-bold text-orange-900 dark:text-orange-200">
+        {remainingQuantity} {satuan} {itemName} tidak akan datang
+      </p>
+      <RestockNotComingReasonSelect
+        itemName={itemName}
+        reason={reason}
+        onReasonChange={onReasonChange}
+      />
+      <button
+        type="button"
+        aria-label={`Ternyata masih datang (${itemName})`}
+        onClick={() => onReasonChange(null)}
+        className="flex min-h-[44px] items-center gap-1.5 text-sm font-bold text-gray-700 hover:text-gray-900 dark:text-gray-300 sm:min-h-0"
       >
-        <option value="">Pilih alasan...</option>
-        {RESTOCK_CANCEL_REASONS.map((preset) => (
-          <option key={preset} value={preset}>
-            {preset}
-          </option>
-        ))}
-        <option value={OTHER_REASON_VALUE}>Lainnya...</option>
-      </select>
-
-      {!isPresetReason && (
-        <input
-          type="text"
-          maxLength={255}
-          aria-label={`Alasan lain anulir ${itemName}`}
-          value={reason}
-          onChange={(event) => onReasonChange(event.target.value)}
-          placeholder="Tulis alasan anulir..."
-          className="mt-2 w-full rounded-xl border-none bg-white px-3 py-2 text-xs font-semibold text-gray-700 focus:ring-2 focus:ring-rose-500 dark:bg-gray-900 dark:text-gray-200"
-        />
-      )}
-
-      {reason.trim().length === 0 && (
-        <div className="mt-2 text-[11px] font-bold text-rose-600 dark:text-rose-400">
-          Alasan anulir wajib diisi.
-        </div>
-      )}
+        <FiRotateCcw aria-hidden="true" /> Ternyata masih datang
+      </button>
     </div>
   );
 }

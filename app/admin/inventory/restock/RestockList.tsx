@@ -2,15 +2,19 @@
 
 import { usePermission } from "@/hooks/use-permission";
 
+import { RestockApprovalModal } from "./RestockApprovalModal";
 import { RestockDetailModal } from "./RestockDetailModal";
 import { RestockFormModal } from "./RestockFormModal";
+import { RestockPurchaseRecordModal } from "./RestockPurchaseRecordModal";
 import { RestockReceiveModal } from "./RestockReceiveModal";
 import { RestockConfirmJasaModal } from "./RestockConfirmJasaModal";
 import { RestockTable } from "./RestockTable";
+import { useDetailChainedFocus } from "./useDetailChainedFocus";
 import { useRestockPage } from "./useRestockPage";
 
 export default function RestockCRUDPage() {
-  const { hasPermission } = usePermission();
+  const { hasPermission, user } = usePermission();
+  const currentUserName = (user as { name?: string | null } | undefined)?.name;
   const canApprove = hasPermission("restock:approve");
   const canUpdate = hasPermission("restock:update");
   const canVerify = hasPermission("restock:verify");
@@ -49,6 +53,7 @@ export default function RestockCRUDPage() {
     setFormItems,
     viewingPR,
     setViewingPR,
+    fetchData,
     receivingPR,
     receivedItems,
     setReceivedItems,
@@ -60,8 +65,10 @@ export default function RestockCRUDPage() {
     setReceivedOverReceipts,
     receivedPhotos,
     setReceivedPhotos,
-    isFinishingPO,
-    setIsFinishingPO,
+    isFinishingOrder,
+    setIsFinishingOrder,
+    receiveCloseReason,
+    setReceiveCloseReason,
     submitting,
     photoUploadRef,
     openCreate,
@@ -69,7 +76,8 @@ export default function RestockCRUDPage() {
     closeForm,
     saveRequest,
     deleteRequest,
-    approveRequest,
+    approval,
+    purchaseRecord,
     openReceive,
     closeReceive,
     submitReceipt,
@@ -81,6 +89,9 @@ export default function RestockCRUDPage() {
     jasaPhotoUploadRefs,
     submitConfirmJasa,
   } = useRestockPage();
+  const { rememberDetailTrigger, markOpenedFromDetail } = useDetailChainedFocus(
+    purchaseRecord.request !== null || !!receivingPR,
+  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -106,9 +117,13 @@ export default function RestockCRUDPage() {
         canDelete={canDelete}
         onOpenCreate={openCreate}
         onOpenEdit={openEdit}
-        onOpenDetail={setViewingPR}
-        onApprove={approveRequest}
+        onOpenDetail={(request) => {
+          rememberDetailTrigger();
+          setViewingPR(request);
+        }}
+        onOpenApproval={approval.open}
         onOpenReceive={openReceive}
+        onRecordPurchase={purchaseRecord.open}
         onOpenConfirmJasa={openConfirmJasa}
         onDelete={deleteRequest}
       />
@@ -134,12 +149,32 @@ export default function RestockCRUDPage() {
         onSubmit={saveRequest}
       />
 
+      <RestockApprovalModal approval={approval} allBarangs={allBarangs} />
+
       <RestockDetailModal
         request={viewingPR}
         onClose={() => setViewingPR(null)}
+        canVerify={canVerify}
+        onOpenReceive={(request) => {
+          markOpenedFromDetail();
+          setViewingPR(null);
+          openReceive(request);
+        }}
+        onRecordPurchase={(request) => {
+          markOpenedFromDetail();
+          setViewingPR(null);
+          purchaseRecord.open(request);
+        }}
+        onPurchaseVoided={fetchData}
+      />
+
+      <RestockPurchaseRecordModal
+        purchaseRecord={purchaseRecord}
+        currentUserName={currentUserName ?? null}
       />
 
       <RestockReceiveModal
+        key={receivingPR?.id ?? "no-receipt"}
         request={receivingPR}
         receivedItems={receivedItems}
         onReceivedItemsChange={setReceivedItems}
@@ -152,8 +187,10 @@ export default function RestockCRUDPage() {
         onOverReceiptsChange={setReceivedOverReceipts}
         receivedPhotos={receivedPhotos}
         onReceivedPhotosChange={setReceivedPhotos}
-        isFinishingPO={isFinishingPO}
-        onIsFinishingPOChange={setIsFinishingPO}
+        isFinishingOrder={isFinishingOrder}
+        onIsFinishingOrderChange={setIsFinishingOrder}
+        closeReason={receiveCloseReason}
+        onCloseReasonChange={setReceiveCloseReason}
         submitting={submitting}
         photoUploadRef={photoUploadRef}
         onClose={closeReceive}

@@ -41,6 +41,61 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-08] — Penerimaan restock mudah dipahami: sudah dibeli, datang sebagian
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/inventory/restock`, `modules/inventory`, `app/api/inventory/restock/requests/[id]`
+- **Author**: agent
+- **Deskripsi**:
+  - Status yang dilihat pengguna diturunkan dari status pengajuan + pesanan + jumlah per baris
+    (`restockProgress.ts`): Belum Dibeli, Dibeli Sebagian, Sudah Dibeli Semua (Tunggu Barangnya), Datang Sebagian
+    ("Kabel Fiber datang 6 dari 10 roll"), Menunggu Jasa Selesai, Selesai Lengkap/Kurang,
+    Dibatalkan — masing-masing dengan kalimat penjelas dan tombol yang sesuai.
+  - Pembelian dicatat lewat "Catat Belanja" (lihat entri catatan belanja per toko di atas).
+    `PATCH /process` (START_SHOPPING) tetap mengisi `issuedAt` untuk kompatibilitas, tapi UI
+    tidak memakainya lagi. Kiriman pertama pada pesanan yang belum dibeli otomatis mencatat
+    sudah dibeli.
+  - Modal "Catat Barang yang Datang": jumlah "Datang hari ini" per barang dengan progres
+    dipesan/sudah datang/masih ditunggu, tombol "Semua datang lengkap", pertanyaan "Apakah masih
+    ada barang yang akan menyusul?" menggantikan checkbox "Tutup Pesanan" (jawaban "Tidak" wajib
+    alasan + konfirmasi), ringkasan langsung, tombol simpan yang labelnya mengikuti hasil.
+  - Detail pengajuan: garis waktu Diajukan → Disetujui → Belanja ke-N → Kiriman ke-N (tanggal,
+    dicatat siapa, isinya) → Selesai, plus tabel dipesan/sudah datang/masih ditunggu.
+  - Kosakata awam di UI, PDF, dan pesan backend alur ini: "toko", "tidak jadi datang",
+    "daftar belanja" (tanpa PO/anulir/supplier/verifikasi/Pre Request).
+  - `RestockGoodsReceiptService` dipecah: kontrak ke `restock-goods-receipt.contracts.ts`,
+    keputusan penyelesaian murni ke `restock-receipt-settlement.ts`.
+- **Files**: `app/admin/inventory/restock/restockProgress.ts`, `app/admin/inventory/restock/RestockReceiveModal.tsx`,
+  `app/admin/inventory/restock/RestockTimeline.tsx`, `modules/inventory/services/restock-receipt-settlement.ts`,
+  `modules/inventory/services/RestockGoodsReceiptService.ts`
+- **Breaking**: ❌ Tidak — bentuk respons `/receive` tetap, hanya bertambah `purchaseOrderStatus`/`purchaseRequestStatus`.
+
+### [2026-11-08] — Pesanan restock bisa diselesaikan walau barang tidak datang
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory/services/RestockGoodsReceiptService.ts`, `modules/inventory/repositories/RestockGoodsReceiptRepository.ts`
+- **Author**: agent
+- **Deskripsi**: Dulu sisa barang hanya bisa dicatat "tidak jadi datang" sambil menerima minimal 1
+  barang, dan pesannya menyuruh "batalkan pesanan" padahal tidak ada jalurnya. Kini bila semua
+  jumlah 0 dan sisa dinyatakan tidak datang, pesanan diselesaikan tanpa foto/GRN dalam satu
+  transaksi bersyarat. Pesanan + pengajuan menjadi CANCELLED hanya bila belum ada yang datang,
+  tanpa jasa, belum dibayar, dan hanya dipakai pengajuan ini; selain itu RECEIVED. Pada pesanan
+  gabungan hanya barang pengajuan ini yang dicoret, dan semua pengajuan ikut selesai bila
+  pesanannya tuntas. Log aktivitas baru `FINISH_WITHOUT_DELIVERY`.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-08] — Penerimaan GRN tidak lagi menambah stok barang yang dicoret
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/procurement/services/GoodsReceiptService.ts`, `app/api/inventory/restock/requests/[id]/route.ts`, `modules/inventory/services/RestockPurchaseOrderStatusService.ts`
+- **Author**: agent
+- **Deskripsi**: GRN procurement menghitung sisa tanpa `cancelledQuantity` dan menerima pesanan
+  yang sudah selesai/dibatalkan, sehingga barang yang tidak jadi datang bisa masuk stok. Kini sisa
+  memperhitungkan yang dicoret dan pesanan RECEIVED/CANCELLED ditolak. Hapus pengajuan yang sudah
+  ada barang datang kini 409 (dulu 500). Cabang RECEIVE lama tanpa GRN beserta
+  `RestockStockReceiptService` dihapus.
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-08] — Approval restock per item: tolak, ubah jumlah, ganti barang
 
 - **Tipe**: [ADDED] [MIGRATION]

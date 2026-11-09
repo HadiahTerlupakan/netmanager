@@ -105,7 +105,7 @@ export class RestockItemSubstitutionService {
       }
       if (purchaseOrderItem.receivedQuantity > 0) {
         throw new RestockSubstitutionInvalidError(
-          `${this.describeItem(purchaseOrderItem)} sudah pernah diterima sebagian, jadi tidak bisa diganti dengan barang lain. Terima sisanya dengan barang yang sama.`,
+          `${this.describeItem(purchaseOrderItem)} sudah datang sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi. Catat sisanya dengan barang yang sama.`,
         );
       }
       if (usedBarangIds.has(substitution.toBarangId)) {
