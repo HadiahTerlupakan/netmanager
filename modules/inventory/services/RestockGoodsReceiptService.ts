@@ -30,6 +30,7 @@ import {
   canCancelUnfulfilledOrder,
   decideRestockReceiptSettlement,
   describeSettlementStatuses,
+  findForeignReceiptLine,
   hasOutstandingForBarang,
   resolveOwnedBarangIds,
   toGuardedCancellations,
@@ -63,6 +64,7 @@ import {
   RestockReceiptInvalidError,
   RestockReceiptForbiddenError,
   RestockReceiptFailedError,
+  describeForeignReceiptLine,
   isFinishingWithoutDelivery,
   isNothingReceived,
   type ReceiveRestockRequestInput,
@@ -128,6 +130,16 @@ export class RestockGoodsReceiptService {
     input: ReceiveRestockRequestInput,
   ): Promise<RestockReceiptResult> {
     const context = await this.loadReceiptContext(input);
+    const foreignLine = findForeignReceiptLine(
+      input,
+      context.purchaseOrder.items,
+      context.ownedBarangIds,
+    );
+    if (foreignLine) {
+      throw new RestockReceiptInvalidError(
+        describeForeignReceiptLine(foreignLine),
+      );
+    }
     if (isFinishingWithoutDelivery(input)) {
       return this.finishWithoutDelivery(context);
     }

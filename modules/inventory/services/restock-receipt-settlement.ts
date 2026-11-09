@@ -190,3 +190,43 @@ export function toGuardedCancellations(
     ];
   });
 }
+
+/** Isian penyimpanan yang menyentuh baris pesanan. */
+export interface RestockReceiptLineInput {
+  receivedItems: Record<string, number>;
+  substitutions?: Record<string, string>;
+  cancellations?: Record<string, string>;
+}
+
+/**
+ * Pada pesanan gabungan, cari barang milik pengajuan lain yang ikut diterima,
+ * dicoret, atau diganti lewat pengajuan ini. Mengembalikan nama barangnya,
+ * atau null bila semua isian milik pengajuan ini (atau pesanan tidak gabungan).
+ */
+export function findForeignReceiptLine(
+  input: RestockReceiptLineInput,
+  items: RestockPurchaseOrderItem[],
+  ownedBarangIds: ReadonlySet<string> | null,
+): string | null {
+  if (ownedBarangIds === null) return null;
+  const foreignItem = (key: string) =>
+    items.find(
+      (item) =>
+        (item.barangId === key || item.id === key) &&
+        !ownedBarangIds.has(item.barangId),
+    );
+  const touchedKeys = [
+    ...Object.entries(input.receivedItems)
+      .filter(([, quantity]) => Number(quantity) > 0)
+      .map(([key]) => key),
+    ...Object.keys(input.substitutions ?? {}),
+    ...Object.entries(input.cancellations ?? {})
+      .filter(([, reason]) => (reason ?? "").trim().length > 0)
+      .map(([key]) => key),
+  ];
+  for (const key of touchedKeys) {
+    const item = foreignItem(key);
+    if (item) return item.barang?.nama ?? item.barangId;
+  }
+  return null;
+}

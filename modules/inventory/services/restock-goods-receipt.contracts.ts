@@ -100,3 +100,8 @@ export function isNothingReceived(input: ReceiveRestockRequestInput): boolean {
     (quantity) => Number(quantity) === 0,
   );
 }
+
+/** Pesan saat pesanan gabungan dicatat dari pengajuan yang bukan pemilik barangnya. */
+export function describeForeignReceiptLine(barangName: string): string {
+  return `${barangName} milik pengajuan lain yang digabung dalam pesanan ini. Catat barang itu dari pengajuan pemiliknya.`;
+}

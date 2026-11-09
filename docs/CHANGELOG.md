@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-09] — Penerimaan pesanan gabungan tidak bisa menyentuh barang pengajuan lain
+
+- **Tipe**: [SECURITY]
+- **Scope**: `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Pada pesanan gabungan (satu pesanan dipakai beberapa pengajuan), "Catat Barang
+  yang Datang" dari pengajuan A bisa ikut menerima, mencoret, atau mengganti barang yang hanya
+  milik pengajuan B, sehingga barang B masuk ke gudang A atau sisanya dicoret. Sekarang
+  `RestockGoodsReceiptService.receive` menolak (400, pesan awam) setiap isian jumlah datang,
+  pencoretan, atau penggantian untuk barang di luar baris pengajuan ini, sebelum apa pun
+  ditulis, baik untuk kiriman biasa maupun selesai tanpa kiriman. Layar penerimaan sudah hanya
+  mengirim baris milik pengajuan sendiri, jadi pemakaian normal tidak berubah.
+- **Files**: `modules/inventory/services/RestockGoodsReceiptService.ts`,
+  `modules/inventory/services/restock-receipt-settlement.ts`,
+  `tests/modules/inventory/restock-receipt-foreign-lines.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-09] — Perbaiki pembatalan belanja, urutan kunci, dan fokus keyboard
 
 - **Tipe**: [FIXED] [SECURITY]
