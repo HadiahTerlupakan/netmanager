@@ -96,7 +96,8 @@ function renderTable(
       onOpenDetail={vi.fn()}
       onOpenApproval={props?.onOpenApproval ?? vi.fn()}
       onOpenReceive={props?.onOpenReceive ?? vi.fn()}
-      onRecordPurchase={props?.onRecordPurchase ?? vi.fn()}
+      onOpenPurchaseLink={props?.onOpenPurchaseLink ?? vi.fn()}
+      onOpenCloseUnpurchased={props?.onOpenCloseUnpurchased ?? vi.fn()}
       onOpenConfirmJasa={props?.onOpenConfirmJasa ?? vi.fn()}
       onDelete={vi.fn()}
     />,
@@ -206,26 +207,61 @@ describe("RestockTable action visibility", () => {
     barang: { nama: "Kabel Fiber", kode: "BRG-1", satuan: "roll" },
   });
 
-  it("offers recording a purchase plus recording goods while not yet bought", () => {
+  it("offers only the shopping link while nothing was reported bought", () => {
     const markup = renderActions(
       orderedRequest("DRAFT", [fiberLine(0)]),
       verifyOnly,
     );
 
-    expect(markup).toContain("Catat Belanja");
-    expect(markup).toContain('aria-label="Catat Belanja, pengajuan PR-001"');
-    expect(markup).toContain("Catat Barang Datang");
+    expect(markup).toContain("Kirim Link Belanja");
+    expect(markup).toContain(
+      'aria-label="Kirim Link Belanja, pengajuan PR-001"',
+    );
+    expect(markup).not.toContain("Catat Belanja");
+    // Tahap pembelian belum dilaporkan: barang belum bisa dicatat datang.
+    expect(markup).not.toContain("Catat Barang Datang");
     expect(markup).toContain('title="Hapus"');
   });
 
-  it("keeps offering a purchase while only part was bought", () => {
+  it("keeps offering the shopping link while only part was bought", () => {
     const markup = renderActions(
       orderedRequest("ORDERED", [fiberLine(0, 4)]),
       verifyOnly,
     );
 
-    expect(markup).toContain("Catat Belanja");
+    expect(markup).toContain("Kirim Link Belanja");
     expect(markup).toContain("Catat Barang Datang");
+    // Link tetap tombol utama selama tahap pembelian belum selesai.
+    expect(markup.indexOf("Kirim Link Belanja")).toBeLessThan(
+      markup.indexOf("Catat Barang Datang"),
+    );
+  });
+
+  it("offers nothing to record once everything bought has arrived", () => {
+    const markup = renderActions(
+      orderedRequest("PARTIAL", [fiberLine(4, 4)]),
+      verifyOnly,
+    );
+
+    expect(markup).toContain("Kirim Link Belanja");
+    expect(markup).not.toContain("Catat");
+  });
+
+  it("merged orders get no shopping link; recording goods stays primary", () => {
+    const merged: PurchaseRequest = {
+      ...orderedRequest("DRAFT", [fiberLine(0)]),
+      purchaseOrder: {
+        id: "po-1",
+        poNumber: "PO-1",
+        status: "DRAFT",
+        _count: { purchaseRequests: 2 },
+      },
+    };
+    const markup = renderActions(merged, verifyOnly);
+
+    expect(markup).not.toContain("Kirim Link Belanja");
+    expect(markup).toContain("Catat Barang Datang");
+    expect(markup).toContain("bg-indigo-700");
   });
 
   it("offers recording goods once bought and the next delivery once partial", () => {
@@ -234,13 +270,13 @@ describe("RestockTable action visibility", () => {
       verifyOnly,
     );
     const partial = renderActions(
-      orderedRequest("PARTIAL", [fiberLine(6)]),
+      orderedRequest("PARTIAL", [fiberLine(6, 10)]),
       verifyOnly,
     );
 
     expect(bought).toContain("Catat Barang Datang");
     expect(bought).toContain('aria-label="Catat Barang Datang untuk PR-001"');
-    expect(bought).not.toContain("Catat Belanja");
+    expect(bought).not.toContain("Kirim Link Belanja");
     expect(partial).toContain("Catat Kiriman Berikutnya");
     expect(partial).toContain(
       'aria-label="Catat Kiriman Berikutnya untuk PR-001"',
@@ -262,7 +298,7 @@ describe("RestockTable action visibility", () => {
 
     expect(finished).not.toContain("Catat");
     expect(noPermission).not.toContain("Catat");
-    expect(noPermission).not.toContain("Catat Belanja");
+    expect(noPermission).not.toContain("Kirim Link Belanja");
   });
 
   it("hides delete once the goods were bought or anything arrived", () => {
@@ -274,20 +310,50 @@ describe("RestockTable action visibility", () => {
     ).not.toContain('title="Hapus"');
   });
 
-  it("calls the record-purchase handler with the whole request", () => {
-    const onRecordPurchase = vi.fn();
+  it("opens the shopping-link panel with the whole request", () => {
+    const onOpenPurchaseLink = vi.fn();
     const request = orderedRequest("DRAFT", [fiberLine(0)]);
-    const props = renderTable({ requests: [request], onRecordPurchase });
+    const props = renderTable({ requests: [request], onOpenPurchaseLink });
     const actionColumn = props.columns.find(
       (column) => column.key === "actions",
     );
 
     findActionByLabel(
       actionColumn?.render(request),
-      "Catat Belanja, pengajuan PR-001",
+      "Kirim Link Belanja, pengajuan PR-001",
     )?.onClick?.();
 
-    expect(onRecordPurchase).toHaveBeenCalledWith(request);
+    expect(onOpenPurchaseLink).toHaveBeenCalledWith(request);
+  });
+
+  it("offers closing a request stuck without a shopping list", () => {
+    const onOpenCloseUnpurchased = vi.fn();
+    const request: PurchaseRequest = {
+      ...baseRequest,
+      status: "APPROVED",
+      purchaseOrder: null,
+      items: [
+        {
+          id: "item-1",
+          barangId: "barang-1",
+          jumlah: 5,
+          receivedQuantity: 0,
+          barang: { nama: "Kabel Fiber", kode: "BRG-1", satuan: "roll" },
+        },
+      ],
+    };
+    const props = renderTable({ requests: [request], onOpenCloseUnpurchased });
+    const actionColumn = props.columns.find(
+      (column) => column.key === "actions",
+    );
+    const label = "Tutup sisa yang tidak jadi dibeli untuk PR-001";
+
+    findActionByLabel(actionColumn?.render(request), label)?.onClick?.();
+
+    expect(onOpenCloseUnpurchased).toHaveBeenCalledWith(request);
+    expect(renderActions(request, { canVerify: false })).not.toContain(
+      "Tutup sisa",
+    );
   });
 
   it("uses tighter column sizing and right-aligned action layout for denser table rhythm", () => {

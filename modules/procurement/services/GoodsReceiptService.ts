@@ -15,6 +15,13 @@ import type {
 import { GoodsReceiptRepository } from "../repositories/GoodsReceiptRepository";
 import { PurchaseOrderRepository } from "../repositories/PurchaseOrderRepository";
 import { PurchaseOrderNotFoundError } from "./PurchaseOrderService";
+import { GoodsReceiptRestockOrderError } from "../domain/goods-receipt-errors";
+
+export {
+  GoodsReceiptExceedsPurchasedError,
+  GoodsReceiptRestockOrderError,
+  RESTOCK_ORDER_RECEIPT_MESSAGE,
+} from "../domain/goods-receipt-errors";
 
 export class GoodsReceiptNotFoundError extends Error {
   constructor(id: string) {
@@ -44,6 +51,8 @@ interface CreateGoodsReceiptServiceInput {
     quantity: number;
     notes?: string | null;
   }>;
+  /** Lihat `GoodsReceiptCreateInput.isLimitedToPurchased`. */
+  isLimitedToPurchased?: boolean;
 }
 
 /**
@@ -72,6 +81,24 @@ export class GoodsReceiptService {
     return grn;
   }
 
+  /**
+   * Penerimaan dari halaman Pembelian. Pesanan dari pengajuan restock ditolak:
+   * belanjanya dilaporkan lewat link dan barangnya dicatat dari halaman
+   * Restock, supaya tahap pembelian tidak terlewati. `create()` sendiri tetap
+   * menerima pesanan restock karena dipakai alur restock.
+   */
+  async createFromProcurementPage(
+    input: CreateGoodsReceiptServiceInput,
+  ): Promise<GoodsReceiptEntity> {
+    const linkedRestockRequestCount =
+      await this.poRepo.countLinkedRestockRequests(input.purchaseOrderId);
+    if (linkedRestockRequestCount > 0) {
+      throw new GoodsReceiptRestockOrderError();
+    }
+    return this.create(input);
+  }
+
+  /** Buat GRN untuk pesanan apa pun yang lolos aturan sisa pesanan. */
   async create(
     input: CreateGoodsReceiptServiceInput,
   ): Promise<GoodsReceiptEntity> {
@@ -93,6 +120,7 @@ export class GoodsReceiptService {
       notes: input.notes ?? null,
       fotoBukti: input.fotoBukti ?? [],
       tenantId: input.tenantId,
+      isLimitedToPurchased: input.isLimitedToPurchased ?? false,
       items: input.items.map((it) => ({
         purchaseOrderItemId: it.purchaseOrderItemId,
         barangId: it.barangId,

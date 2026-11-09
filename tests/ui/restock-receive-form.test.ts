@@ -519,11 +519,32 @@ describe("receive messages", () => {
 });
 
 describe("receive form helpers", () => {
-  it("fills every line with its remainder", () => {
+  it("fills every line with what was bought and has not arrived yet", () => {
     expect(
       fillAllRemaining(
         {
           ...request,
+          items: [
+            makeItem({ receivedQuantity: 6, purchasedQuantity: 8 }),
+            { ...ontItem, purchasedQuantity: 5 },
+            { ...konektorItem, purchasedQuantity: 0 },
+          ],
+        },
+        { fiber: 0, ont: 1 },
+      ),
+    ).toEqual({ fiber: 2, ont: 5, konektor: 0 });
+  });
+
+  it("fills the whole remainder on a legacy order bought at once", () => {
+    expect(
+      fillAllRemaining(
+        {
+          ...request,
+          purchaseOrder: {
+            id: "po-1",
+            status: "ORDERED",
+            issuedAt: "2026-10-01T00:00:00.000Z",
+          },
           items: [makeItem({ receivedQuantity: 6 }), ontItem],
         },
         { fiber: 0, ont: 1 },
@@ -542,5 +563,62 @@ describe("receive form helpers", () => {
     expect(getNotComingReasonSelectValue("Supir sakit", false)).toBe(
       RESTOCK_OTHER_REASON_OPTION.value,
     );
+  });
+});
+
+describe("tahap pembelian di modal catat barang datang", () => {
+  const boughtRequest: PurchaseRequest = {
+    ...request,
+    items: [
+      makeItem({ purchasedQuantity: 4 }),
+      { ...ontItem, purchasedQuantity: 0 },
+    ],
+  };
+
+  it("menolak jumlah datang yang melebihi yang sudah dibeli", () => {
+    const problems = getRestockReceiveProblems({
+      ...formInput({
+        request: boughtRequest,
+        receivedItems: { fiber: 6, ont: 1 },
+      }),
+      overReceipts: {},
+      closeReason: "",
+      photoCount: 1,
+    });
+    expect(problems).toContain(
+      "Kabel Fiber: baru 4 roll yang sudah dibeli dan belum datang. Isi paling banyak 4.",
+    );
+    expect(problems).toContain(
+      "ONT: baru 0 pcs yang sudah dibeli dan belum datang. Isi paling banyak 0.",
+    );
+    expect(problems).not.toContain(
+      "Tulis alasan barang yang datang lebih banyak.",
+    );
+  });
+
+  it("menerima jumlah sampai batas yang sudah dibeli", () => {
+    const problems = getRestockReceiveProblems({
+      ...formInput({
+        request: boughtRequest,
+        receivedItems: { fiber: 4, ont: 0 },
+      }),
+      overReceipts: {},
+      closeReason: "",
+      photoCount: 1,
+    });
+    expect(problems).toEqual([]);
+  });
+
+  it("tidak mengirim kelebihan kiriman pada pesanan yang belanjanya lewat link", () => {
+    const payload = buildRestockReceivePayload({
+      ...formInput({
+        request: boughtRequest,
+        receivedItems: { fiber: 12, ont: 0 },
+      }),
+      overReceipts: { fiber: "bonus dari toko" },
+      closeReason: "",
+      fotoBukti: ["/a.webp"],
+    });
+    expect(payload.overReceipts).toEqual({});
   });
 });

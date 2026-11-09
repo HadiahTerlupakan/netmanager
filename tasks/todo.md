@@ -1,3 +1,122 @@
+# Rencana: Tahap tegas pengajuan → approval → pembelian → verifikasi sampai (2026-11-09)
+
+Status: **selesai (belum di-commit)**
+
+## Asumsi
+- Verifikasi barang sampai hanya untuk barang yang sudah dilaporkan dibeli lewat link: per barang,
+  jumlah datang ≤ dibeli − sudah datang. Tombol "Catat Barang Datang" baru muncul bila ada barang
+  yang sudah dibeli tapi belum datang. Ditegakkan di server (layanan penerimaan restock) dan di
+  halaman Pembelian (terima barang untuk pesanan restock ditolak, arahkan ke halaman restock).
+- Aturan lama "barang datang dihitung sudah dibeli" tidak berlaku untuk data baru.
+- Pengecualian: data lama (pesanan sudah berjalan tanpa catatan belanja sama sekali) dan pesanan
+  gabungan (link tidak tersedia) tetap boleh diverifikasi seperti sebelumnya.
+- Barang yang tidak bisa dibeli: admin tetap bisa menutup sisa ("tidak jadi dibeli") tanpa
+  verifikasi, supaya pengajuan tidak macet.
+- Tanpa migration.
+
+## Langkah
+- [x] Penjaga server penerimaan + halaman Pembelian + tes.
+- [x] UI: 4 tahap jelas di status, tabel, detail/garis waktu, modal verifikasi (batas = sudah dibeli).
+- [x] Review adversarial; typecheck, lint, tes; changelog.
+- [x] Perbaikan temuan review (13 temuan): data lama dikenali link belanja di server, pesan
+  tolak dibedakan, ramalan "Tutup sisa" sama dengan server, data lama PARTIAL tanpa tanggal,
+  pesan 409 tidak diduplikasi, label tahap gabungan/NO_ORDER/ditolak/dibatalkan, modal verifikasi.
+
+## Review
+- Domain bersama `restock-receipt-eligibility.ts` (diekspor `index.ts` & `client.ts`):
+  `isLegacyPurchasedOrder`, `canReceiveWithoutPurchaseReport`, `getReceiveLimit`,
+  `getPurchasedAwaitingArrival`, `getUnpurchasedRemainder` (dipakai juga `getRemainingToBuy`).
+  Server dan layar memakai satu tabel kasus data lama yang sama di tes.
+- Server: `RestockGoodsReceiptService` menolak barang belum dibeli / melebihi batas sebelum
+  substitusi & GRN; pengajuan tanpa daftar belanja ditolak sebelum daftar dibuat; GRN dikirim
+  `isLimitedToPurchased` (UPDATE bersyarat + kunci pesanan di `createAndPost`). Data lama tanpa
+  tanggal beli diberi tanggal 1 detik sebelum kiriman. Penutupan tanpa kiriman dipindah ke
+  `RestockReceiptClosure` (selesai tanpa kiriman + "Tutup sisa yang tidak jadi dibeli" yang
+  mencabut link walau KEEP_OPEN); aturan tahap pembelian di `restock-receipt-purchase-stage.ts`
+  supaya service tetap < 800 baris. Void ditolak `ALREADY_RECEIVED` → 409.
+- Procurement: `createFromProcurementPage` menolak pesanan restock (409, route GRN); tombol
+  "Buat GRN" disembunyikan, halaman buat GRN menampilkan arahan ke Restock. `create()` tetap
+  dipakai alur restock. Tidak ada jalur mobile/karyawan lain yang menaikkan jumlah datang.
+- UI: tahap di tabel/detail/garis waktu/PDF; tombol tabel link (tahap 3) + catat hanya bila ada
+  barang dibeli belum datang; modal verifikasi dibatasi sudah dibeli; modal & hook baru
+  "Tutup sisa yang tidak jadi dibeli"; tombol batal belanja diganti teks bila barang sudah datang.
+- Verifikasi: typecheck penuh 0 galat; eslint 0 peringatan & prettier pada semua file yang
+  diubah; `npx vitest run` penuh 1455 file / 11455 tes lulus; `npm run test:db` (DB uji lokal)
+  21 file / 200 tes lulus, termasuk `tests/db/restock-receipt-purchase-cap.test.ts`
+  (rollback GRN, void vs GRN bersamaan, penjaga jumlah dibeli, pencabutan link) diulang 3x.
+- Perbaikan temuan review (2026-11-09):
+  - Data lama kini = tanpa catatan belanja & tanpa jumlah dibeli, plus (barang sudah datang |
+    tanggal beli terisi | ORDERED/PARTIAL). Barang datang tanpa catatan pasti dari alur lama
+    (sejak aturan ini hanya pesanan gabungan yang bisa begitu), jadi PARTIAL tanpa tanggal dari
+    halaman Pembelian dan tanggal beli yang diisi sesudah kiriman ikut dikecualikan.
+    `firstReceiptAt` tidak dipakai lagi dan dihapus dari bukti/repository/layar.
+  - Link belanja: konteks membawa `isLegacyPurchased` (mapper, `LEGACY_PURCHASE_ORDER_SELECT`);
+    daftar publik INACTIVE, ketersediaan ALL_PURCHASED, service menolak, dan transaksi belanja
+    memeriksa ulang sesudah pesanan dikunci. Masker UI di panel link dihapus.
+  - `describePurchaseStageProblem`: "yang sudah dibeli sudah datang semua" vs "belum ada yang
+    dibeli".
+  - `predictCloseUnpurchasedOutcome` (batal/selesai/tetap ditunggu) mencerminkan
+    `canCancelUnfulfilledOrder`, termasuk jasa pada pengajuan tanpa pesanan.
+  - Pesan 409 lewat `modules/procurement/client.ts`.
+  - Progres: gabungan tanpa kiriman = "Menunggu Barang" tahap 4; PARTIAL tahap 3 diganti
+    PURCHASING (satu warna) + `isVerificationStarted`; `stoppedStage` untuk ditolak/dibatalkan;
+    langkah riwayat gabungan/NO_ORDER; NO_ORDER menunjuk "Tutup sisa" dan tabel memberi tombolnya.
+  - Modal verifikasi: satuan, "Isi semua yang sudah dibeli", teks "Ya, sisanya masih ditunggu"
+    memisahkan yang belum dibeli, tanpa ganti barang pada baris belum dibeli.
+  - Verifikasi: typecheck penuh 0 galat; eslint `--max-warnings=0` & prettier pada file yang
+    diubah; `npx vitest run` penuh 1456 file / 11483 tes lulus; tes DB restock 25 tes lulus.
+- Risiko tersisa:
+  1. (Tertutup) Laporan lewat link pada data lama kini ditolak di transaksi, jadi pengecualian
+     data lama tidak bisa hilang di tengah verifikasi.
+  2. Substitusi tertulis sebelum GRN; bila GRN gagal karena batas berubah, substitusi tetap
+     (perilaku lama untuk semua kegagalan GRN).
+  3. (Tertutup) Pesanan lama yang barangnya datang tanpa catatan kini data lama. Void lama yang
+     membuat dibeli < datang tetap memberi batas 0 sampai ada laporan baru.
+  4. Kelebihan kiriman tidak bisa dicatat pada pesanan link; petugas mencatat sesuai laporan dan
+     membuat pengajuan baru untuk kelebihannya.
+  5. Sebelum deploy, cek di produksi (read-only) jumlah pesanan restock
+     `status IN ('ORDERED','PARTIAL')` tanpa `purchase_records` (kini data lama: link belanjanya
+     tidak berlaku lagi dan barangnya dicatat datang tanpa batas dibeli).
+  6. `PurchaseOrderItemChange` (ubah item di halaman PO) di luar cakupan; sudah memakai
+     `max(diterima, dibeli)` sebagai batas bawah jumlah pesanan.
+
+# Rencana: Belanja hanya dicatat lewat link (2026-11-09)
+
+Status: **selesai (belum di-commit)**
+
+## Asumsi
+- "Sudah dibeli atau belum" hanya diputuskan dari link belanja. Dihapus: tombol/modal "Catat
+  Belanja" di admin, `POST /api/inventory/restock/requests/[id]/purchases`, dan
+  `PATCH .../process` (START_SHOPPING, tidak dipakai UI maupun mobile).
+- Tetap ada: admin membuat/mematikan link, melihat rincian belanja & tanda tangan, dan
+  "Batalkan catatan belanja" (koreksi, bukan mencatat). Barang yang dicatat datang oleh gudang
+  tetap dihitung sudah dibeli (gudang tidak diblokir).
+- Tombol di baris "Belum Dibeli" diganti "Buat link belanja" yang membuka panel link.
+- Pesanan gabungan: link tidak tersedia (0 di produksi per 2026-11-09); statusnya mengikuti
+  barang datang. Tanpa migration (enum `source` ADMIN dibiarkan untuk data lama).
+
+## Langkah
+- [x] Hapus jalur catat belanja admin (UI, hook, route, START_SHOPPING) beserta tesnya.
+- [x] Panel link jadi aksi utama di tabel & detail; teks status disesuaikan.
+- [x] Review adversarial; typecheck, lint, tes; changelog.
+
+## Review
+- Dihapus: modal/hook/form/baris "Catat Belanja", `POST .../purchases`, `PATCH .../process`,
+  `RestockPurchaseOrderStatusService`, `markPurchaseOrderOrdered`, `getPurchaseRequestProcessInfo`,
+  `START_SHOPPING`, `restockPurchaseRecordSchema`, cek toko terdaftar & foto nota di service.
+  Route `purchases/[recordId]/signature` & `void` tetap.
+- Tabel: "Kirim Link Belanja" membuka detail dan memfokuskan judul panel link setelah statusnya
+  dimuat. Panel: "Link belanja aktif"; link hanya ditampilkan sekali seperti sebelumnya.
+- Pesanan gabungan: tanpa link; kalimat status menjelaskan belanja tidak dicatat dan status
+  mengikuti barang datang; "Catat Barang Datang" jadi tombol utama.
+- Verifikasi: 80 file tes inventory/restock lulus (907 tes), eslint 0 peringatan, typecheck penuh.
+- Tindak lanjut review (7 temuan): "Proses Order" pembelian menolak pesanan restock (dulu
+  membuat status "Sudah Dibeli" tanpa link); port tulis catatan belanja dipersempit ke link;
+  panel link tidak lagi bertentangan dengan pesan pesanan gabungan/penyimpanan mati/semua
+  dibeli, data lama yang sudah dibeli tidak ditawari link; kalimat status netral, ajakan kirim
+  link hanya untuk `restock:verify`.
+
+
 # Rencana: Catat belanja per barang & per toko (2026-11-09)
 
 Status: **selesai (belum di-commit)**

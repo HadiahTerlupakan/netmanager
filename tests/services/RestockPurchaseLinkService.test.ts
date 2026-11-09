@@ -35,6 +35,7 @@ function context(
       status: "ORDERED",
       tenantId: "tenant-1",
       linkedRequestCount,
+      isLegacyPurchased: false,
       items: [
         {
           id: "poi-1",
@@ -183,7 +184,7 @@ describe("RestockPurchaseLinkService", () => {
       success: false,
       code: "UNAVAILABLE",
       error:
-        "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi link belanja tidak bisa dipakai. Catat belanja dari aplikasi.",
+        "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi link belanja tidak bisa dipakai dan belanjanya tidak dicatat. Statusnya mengikuti barang yang datang.",
     });
   });
 

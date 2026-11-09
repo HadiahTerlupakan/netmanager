@@ -4,6 +4,7 @@ import type { PhotoUploadRef } from "@/components/inventory/PhotoUpload";
 import { OFFLINE_MESSAGE } from "@/components/inventory/form-shared/inventoryRequestMessages";
 
 import { isLineRejected } from "./approvalUtils";
+import { getRestockLineReceiveLimit } from "./restockPurchase";
 import type {
   Barang,
   BarangGudang,
@@ -125,14 +126,17 @@ export function getPendingJasaItems(
   );
 }
 
-/** Jumlah diterima awal per barang: sisa pesanan baris yang tidak ditolak. */
+/**
+ * Jumlah diterima awal per barang (baris yang tidak ditolak): yang sudah
+ * dibeli dan belum datang, atau seluruh sisa pada data lama & pesanan gabungan.
+ */
 export function buildInitialReceivedItems(
   request: PurchaseRequest,
 ): Record<string, number> {
   return getReceivableRestockItems(request).reduce<Record<string, number>>(
     (acc, item) => {
-      const remainingQuantity = Math.max(getRestockItemRemaining(item), 0);
-      acc[item.barangId] = (acc[item.barangId] || 0) + remainingQuantity;
+      const receivableNow = getRestockLineReceiveLimit(item, request);
+      acc[item.barangId] = (acc[item.barangId] || 0) + receivableNow;
       return acc;
     },
     {},

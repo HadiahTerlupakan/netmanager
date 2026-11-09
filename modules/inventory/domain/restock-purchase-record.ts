@@ -8,15 +8,13 @@ import type {
   RestockPurchaseContext,
   RestockPurchaseContextItem,
 } from "./ports/IRestockPurchaseRecordRepository";
+import { getUnpurchasedRemainder } from "./restock-receipt-eligibility";
 
 /** Pesan untuk petugas; tanpa istilah teknis. */
 export const RESTOCK_PURCHASE_MESSAGES = {
   notPartOfRequest:
     "Ada barang yang bukan bagian pengajuan ini. Muat ulang halaman, lalu coba lagi.",
-  supplierNotFound:
-    "Toko yang dipilih tidak ditemukan. Pilih lagi atau kosongkan.",
   futureDate: "Tanggal belanja tidak boleh di hari yang akan datang.",
-  untrustedPhoto: "Foto nota tidak terbaca. Hapus fotonya, lalu unggah ulang.",
   closed:
     "Pesanan ini sudah selesai atau dibatalkan, jadi belanjanya tidak bisa dicatat lagi. Muat ulang halaman.",
   conflict:
@@ -26,6 +24,8 @@ export const RESTOCK_PURCHASE_MESSAGES = {
   savedPartial: (storeName: string) =>
     `Tersimpan. Belanja di ${storeName} sudah dicatat. Masih ada barang yang belum dibeli.`,
   fullyPurchased: (nama: string) => `${nama} sudah dibeli semua.`,
+  legacyPurchased:
+    "Barang pesanan ini sudah dibeli sebelum ada link belanja, jadi belanjanya tidak perlu dicatat lagi.",
   recordNotFound: "Catatan belanja tidak ditemukan. Muat ulang halaman.",
   alreadyVoided:
     "Catatan belanja ini sudah dibatalkan sebelumnya. Muat ulang halaman.",
@@ -35,6 +35,8 @@ export const RESTOCK_PURCHASE_MESSAGES = {
     "Pesanan ini sudah selesai atau dibatalkan, jadi catatan belanjanya tidak bisa dibatalkan lagi.",
   voided:
     "Catatan belanja dibatalkan. Jumlah barangnya kembali jadi belum dibeli.",
+  voidAlreadyReceived: (lines: string) =>
+    `Belanja ini tidak bisa dibatalkan karena barangnya sudah dicatat datang di gudang (${lines}). Kalau dibatalkan, barang yang sudah datang jadi tercatat belum dibeli.`,
   overLimit: (nama: string, remaining: number, satuan: string | null) =>
     `${nama}: tinggal ${remaining}${satuan ? ` ${satuan}` : ""} yang belum dibeli. Isi paling banyak ${remaining}.`,
 } as const;
@@ -65,8 +67,10 @@ type PurchaseLimitItem = Pick<
 >;
 
 /**
- * Jumlah yang dianggap sudah dibeli: barang yang sudah datang dihitung
- * sudah dibeli walau tidak ada catatan belanja.
+ * Jumlah yang dianggap sudah dibeli. Pengaman data lama: barang yang datang
+ * sebelum aturan tahap pembelian berlaku (dicatat datang tanpa laporan
+ * belanja) tetap dihitung sudah dibeli. Untuk data baru, barang datang tidak
+ * pernah melebihi yang dibeli, jadi nilainya sama dengan jumlah dibeli.
  */
 export function getEffectivePurchased(
   item: Pick<PurchaseLimitItem, "purchasedQuantity" | "receivedQuantity">,
@@ -81,10 +85,7 @@ export function getEffectivePurchased(
  * sisa selalu berkurang sebesar yang dicatat.
  */
 export function getRemainingToBuy(item: PurchaseLimitItem): number {
-  return Math.max(
-    item.quantity - item.cancelledQuantity - getEffectivePurchased(item),
-    0,
-  );
+  return getUnpurchasedRemainder(item);
 }
 
 export interface PurchaseRecordLineInput {

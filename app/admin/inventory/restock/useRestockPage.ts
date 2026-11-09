@@ -54,7 +54,7 @@ import type {
 import type { JasaConfirmState } from "./RestockConfirmJasaModal";
 import { showRestockError, uploadPhotosWithToast } from "./restockToasts";
 import { useRestockApproval } from "./useRestockApproval";
-import { useRestockPurchaseRecord } from "./useRestockPurchaseRecord";
+import { useRestockCloseUnpurchased } from "./useRestockCloseUnpurchased";
 
 /** Penolakan penerimaan karena pesanan sudah berubah di server. */
 const STALE_RECEIPT_STATUSES = [400, 404, 409];
@@ -595,7 +595,7 @@ export function useRestockPage() {
     fetchData,
     allBarangs: allBarangsSource,
   });
-  const purchaseRecord = useRestockPurchaseRecord({ fetchData });
+  const closeUnpurchased = useRestockCloseUnpurchased({ fetchData });
 
   return {
     fetchData,
@@ -654,7 +654,7 @@ export function useRestockPage() {
     saveRequest,
     deleteRequest,
     approval,
-    purchaseRecord,
+    closeUnpurchased,
     openReceive,
     closeReceive,
     submitReceipt,

@@ -1,10 +1,14 @@
 import { isLineRejected } from "./approvalUtils";
 import {
+  canCloseRestockUnpurchased,
+  canRestockReceiveWithoutPurchaseReport,
+  canSendRestockPurchaseLink,
   getRestockLinePurchase,
   getRestockPurchaseRecords,
   getRestockPurchaseState,
+  hasRestockItemsAwaitingArrival,
   hasRestockPurchaseActivity,
-  isRestockLegacyPurchased,
+  isRestockMergedOrder,
   type RestockPurchaseState,
 } from "./restockPurchase";
 import type {
@@ -31,8 +35,34 @@ export type RestockProgressKey =
   | "SERVICE_PENDING"
   | "CANCELLED";
 
+/** Tahap pengajuan: 1 Pengajuan, 2 Persetujuan, 3 Pembelian, 4 Verifikasi. */
+export type RestockStageNumber = 1 | 2 | 3 | 4;
+
+export const RESTOCK_STAGE_TITLES: Record<RestockStageNumber, string> = {
+  1: "Pengajuan",
+  2: "Persetujuan",
+  3: "Pembelian",
+  4: "Verifikasi barang sampai",
+};
+
+export const RESTOCK_STAGE_COUNT = 4;
+
 export interface RestockProgress {
   key: RestockProgressKey;
+  /** Tahap yang sedang berjalan; null bila pengajuan dibatalkan. */
+  stage: RestockStageNumber | null;
+  /**
+   * Tahap tempat pengajuan berhenti tanpa selesai: 2 bila ditolak, tahap
+   * terakhir yang dicapai bila dibatalkan. Null bila tidak berhenti.
+   */
+  stoppedStage: RestockStageNumber | null;
+  /**
+   * Tahap pembelian belum selesai tetapi barang yang sudah dibeli mulai
+   * datang: tahap verifikasi ikut berjalan bersamaan.
+   */
+  isVerificationStarted: boolean;
+  /** "Tahap 3 dari 4: Pembelian"; kosong bila dibatalkan. */
+  stageText: string;
   label: string;
   /** Kalimat pendek yang menjelaskan keadaan sekarang. */
   sentence: string;
@@ -60,9 +90,18 @@ export interface RestockPurchaseStep {
   processedByName: string | null;
 }
 
-/** Tindakan penerimaan yang tersedia untuk satu status turunan. */
+/** Tindakan lanjutan yang tersedia untuk satu pengajuan. */
 export interface RestockProgressActions {
+  /** Tombol catat barang datang; null bila belum ada barang yang bisa dicatat. */
   receiveLabel: string | null;
+  /** Tahap pembelian: link belanja bisa dikirim ke yang belanja. */
+  canSendLink: boolean;
+  /**
+   * Tidak ada tombol lain tetapi sisanya bisa ditutup ("Tutup sisa yang
+   * tidak jadi dibeli"), mis. daftar belanja belum ada. Tanpa ini pengajuan
+   * macet tanpa petunjuk di tabel.
+   */
+  canCloseUnpurchased: boolean;
 }
 
 const PURCHASE_ORDER_DRAFT = "DRAFT";
@@ -73,16 +112,6 @@ const MAX_LINES_FOR_UNIT_SENTENCE = 2;
 
 const RECEIVE_LABEL_FIRST = "Catat Barang Datang";
 const RECEIVE_LABEL_NEXT = "Catat Kiriman Berikutnya";
-/**
- * Status yang menunggu kiriman pertama. NO_ORDER ikut: server membuat daftar
- * belanjanya otomatis saat barang dicatat datang.
- */
-const RECEIVE_FIRST_KEYS: RestockProgressKey[] = [
-  "NOT_PURCHASED",
-  "PURCHASING",
-  "PURCHASED",
-  "NO_ORDER",
-];
 
 const BADGE_CLASS: Record<RestockProgressKey, string> = {
   AWAITING_APPROVAL:
@@ -106,6 +135,21 @@ const BADGE_CLASS: Record<RestockProgressKey, string> = {
     "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100",
 };
 
+/** Tahap bawaan tiap status; AWAITING_APPROVAL bisa bergeser ke tahap 1. */
+const STAGE_BY_KEY: Record<RestockProgressKey, RestockStageNumber | null> = {
+  AWAITING_APPROVAL: 2,
+  REJECTED: 2,
+  NO_ORDER: 3,
+  NOT_PURCHASED: 3,
+  PURCHASING: 3,
+  PURCHASED: 4,
+  PARTIAL: 4,
+  COMPLETE: 4,
+  COMPLETE_SHORT: 4,
+  SERVICE_PENDING: 4,
+  CANCELLED: null,
+};
+
 const FIXED_COPY: Partial<
   Record<RestockProgressKey, { label: string; sentence: string }>
 > = {
@@ -115,18 +159,19 @@ const FIXED_COPY: Partial<
   },
   REJECTED: { label: "Ditolak", sentence: "Pengajuan ini tidak disetujui." },
   NO_ORDER: {
-    label: "Disetujui, belum bisa dibeli",
+    label: "Belum Bisa Dibeli",
     sentence:
-      "Daftar belanjanya belum ada. Hubungi admin. Kalau barangnya sudah datang, tetap bisa dicatat.",
+      'Daftar belanjanya belum ada, jadi link belanja belum bisa dibuat. Bila barangnya tidak jadi dibeli, tutup pengajuan ini lewat "Tutup sisa yang tidak jadi dibeli".',
   },
   NOT_PURCHASED: {
     label: "Belum Dibeli",
-    sentence: "Sudah disetujui. Belum ada barang yang dibeli.",
+    sentence:
+      "Tahap pembelian: menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli.",
   },
   PURCHASING: { label: "Dibeli Sebagian", sentence: "" },
   PURCHASED: {
-    label: "Sudah Dibeli Semua, Tunggu Barangnya",
-    sentence: "Semua barang sudah dibeli. Tunggu barangnya datang.",
+    label: "Menunggu Barang",
+    sentence: "Semua barang sudah dibeli. Catat barangnya saat datang.",
   },
   COMPLETE: {
     label: "Selesai, Lengkap",
@@ -233,10 +278,16 @@ function describePartialLine(item: PurchaseRequestItem): string {
   return parts.join(" ");
 }
 
+/**
+ * "Kabel dibeli 6 dari 10 roll, sudah datang 2 roll." Jumlah datang hanya
+ * disebut bila sudah ada, supaya yang dibeli dan yang datang tidak tercampur.
+ */
 function describePurchasingLine(item: PurchaseRequestItem): string {
   const { limit, purchased } = getRestockLinePurchase(item, false);
+  const { received } = getRestockLineProgress(item);
   const { nama, satuan } = getLineName(item);
-  return `${nama} dibeli ${purchased} dari ${limit} ${satuan}.`;
+  const arrived = received > 0 ? `, sudah datang ${received} ${satuan}` : "";
+  return `${nama} dibeli ${purchased} dari ${limit} ${satuan}${arrived}.`;
 }
 
 /**
@@ -263,10 +314,35 @@ function describePurchasingProgress(lines: PurchaseRequestItem[]): string {
     parts.push(`${partlyBoughtCount} baru dibeli sebagian`);
   }
   if (notBoughtCount > 0) parts.push(`${notBoughtCount} belum dibeli`);
-  return `${parts.join(", ")}.`;
+  const arrivedCount = lines.filter(
+    (item) => getRestockLineProgress(item).received > 0,
+  ).length;
+  const arrivedText =
+    arrivedCount > 0 ? ` ${arrivedCount} jenis barang sudah mulai datang.` : "";
+  return `${parts.join(", ")}.${arrivedText}`;
 }
 
-const NOT_YET_BOUGHT_SUFFIX = " Masih ada barang yang belum dibeli.";
+/** Sisa belanja hanya dilaporkan lewat link belanja. */
+const AWAITING_LINK_SUFFIX =
+  " Tahap pembelian: sisanya menunggu laporan belanja dari link.";
+const PURCHASED_CAN_ARRIVE_SUFFIX =
+  " Barang yang sudah dibeli bisa dicatat datang.";
+const PURCHASED_ALL_ARRIVED_SUFFIX =
+  " Barang yang sudah dibeli sudah datang semua.";
+const DRAFT_COPY = {
+  label: "Belum Diajukan",
+  sentence: "Pengajuan belum dikirim ke atasan.",
+};
+/**
+ * Ajakan untuk yang boleh membuat link belanja, ditambahkan di bawah
+ * kalimat status. Kalimat status sendiri netral karena dibaca semua orang.
+ */
+export const SEND_PURCHASE_LINK_HINT =
+  "Kirim link belanja ke orang yang belanja.";
+/** Pesanan gabungan: belanja tidak dicatat, status ikut barang datang. */
+const MERGED_ORDER_SENTENCE =
+  "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi belanjanya tidak dicatat. Statusnya mengikuti barang yang datang.";
+const MERGED_CAN_ARRIVE_SUFFIX = " Barangnya bisa langsung dicatat datang.";
 
 const PURCHASE_STATE_PROGRESS: Record<
   RestockPurchaseState,
@@ -293,18 +369,63 @@ function describePartialProgress(lines: PurchaseRequestItem[]): string {
   return `${completeCount} dari ${lines.length} jenis barang sudah lengkap.${shortText} Sisanya masih ditunggu.`;
 }
 
+/** "Tahap 3 dari 4: Pembelian"; kosong bila tidak ada tahap. */
+export function describeRestockStage(stage: RestockStageNumber | null): string {
+  if (stage === null) return "";
+  return `Tahap ${stage} dari ${RESTOCK_STAGE_COUNT}: ${RESTOCK_STAGE_TITLES[stage]}`;
+}
+
+interface ProgressOverrides {
+  sentence?: string;
+  label?: string;
+  stage?: RestockStageNumber | null;
+  stoppedStage?: RestockStageNumber | null;
+  isVerificationStarted?: boolean;
+}
+
 function buildProgress(
   key: RestockProgressKey,
-  sentence?: string,
-  label?: string,
+  overrides: ProgressOverrides = {},
 ): RestockProgress {
   const copy = FIXED_COPY[key];
+  const stage =
+    overrides.stage === undefined ? STAGE_BY_KEY[key] : overrides.stage;
   return {
     key,
-    label: label ?? copy?.label ?? key,
-    sentence: sentence ?? copy?.sentence ?? "",
+    stage,
+    stoppedStage: overrides.stoppedStage ?? null,
+    isVerificationStarted: overrides.isVerificationStarted ?? false,
+    stageText: describeRestockStage(stage),
+    label: overrides.label ?? copy?.label ?? key,
+    sentence: overrides.sentence ?? copy?.sentence ?? "",
     badgeClassName: BADGE_CLASS[key],
   };
+}
+
+/**
+ * Tahap terakhir yang dicapai pengajuan yang dibatalkan: verifikasi bila
+ * sudah ada barang datang, pembelian bila sudah disetujui, selain itu
+ * persetujuan.
+ */
+function getCancelledStage(request: PurchaseRequest): RestockStageNumber {
+  if (hasRestockReceivedAnything(request) || hasGoodsReceipt(request)) return 4;
+  if (request.approvedAt || request.purchaseOrder) return 3;
+  return 2;
+}
+
+function buildCancelledProgress(request: PurchaseRequest): RestockProgress {
+  return buildProgress("CANCELLED", {
+    stoppedStage: getCancelledStage(request),
+  });
+}
+
+/**
+ * Satu baris status untuk PDF dan pembaca layar:
+ * "Tahap 3 dari 4 (Pembelian): Belum Dibeli".
+ */
+export function describeRestockStatusLine(progress: RestockProgress): string {
+  if (progress.stage === null) return progress.label;
+  return `Tahap ${progress.stage} dari ${RESTOCK_STAGE_COUNT} (${RESTOCK_STAGE_TITLES[progress.stage]}): ${progress.label}`;
 }
 
 function describeShortLines(lines: PurchaseRequestItem[]): string {
@@ -325,11 +446,10 @@ function getFinishedProgress(lines: PurchaseRequestItem[]): RestockProgress {
     (item) => getRestockLineProgress(item, true).cancelled > 0,
   );
   if (shortLines.length === 0) return buildProgress("COMPLETE");
-  return buildProgress(
-    "COMPLETE_SHORT",
-    describeShortLines(shortLines),
-    "Selesai, Kurang",
-  );
+  return buildProgress("COMPLETE_SHORT", {
+    sentence: describeShortLines(shortLines),
+    label: "Selesai, Kurang",
+  });
 }
 
 /** Pengajuan jasa saja: tidak ada barang untuk dicatat datang. */
@@ -340,14 +460,59 @@ function getServiceOnlyProgress(request: PurchaseRequest): RestockProgress {
   if (hasPendingService && request.status !== "RECEIVED") {
     return buildProgress("SERVICE_PENDING");
   }
-  return buildProgress("COMPLETE", "Semua jasa sudah selesai.");
+  return buildProgress("COMPLETE", { sentence: "Semua jasa sudah selesai." });
+}
+
+/** Masih ada barang yang sudah dibeli tetapi belum datang. */
+function hasPurchasedAwaitingArrival(lines: PurchaseRequestItem[]): boolean {
+  return lines.some((item) => {
+    const { purchased } = getRestockLinePurchase(item, false);
+    return purchased > getRestockLineProgress(item).received;
+  });
+}
+
+/**
+ * Tahap pembelian masih berjalan (lewat link). Barang yang sudah dibeli dan
+ * sudah datang ikut disebut, dan tahap verifikasi ditandai ikut berjalan.
+ */
+function getPurchasingProgress(
+  lines: PurchaseRequestItem[],
+  hasArrivals: boolean,
+): RestockProgress {
+  const arrivalSuffix = hasPurchasedAwaitingArrival(lines)
+    ? PURCHASED_CAN_ARRIVE_SUFFIX
+    : PURCHASED_ALL_ARRIVED_SUFFIX;
+  return buildProgress("PURCHASING", {
+    sentence: `${describePurchasingProgress(lines)}${AWAITING_LINK_SUFFIX}${arrivalSuffix}`,
+    isVerificationStarted: hasArrivals,
+  });
+}
+
+/**
+ * Belum ada barang datang: status mengikuti belanja yang dicatat lewat link.
+ * Pesanan gabungan tidak punya link dan barangnya boleh langsung dicatat
+ * datang, jadi langsung berada di tahap verifikasi ("Menunggu Barang").
+ */
+function getNotYetArrivedProgress(
+  request: PurchaseRequest,
+  lines: PurchaseRequestItem[],
+  purchaseState: RestockPurchaseState,
+): RestockProgress {
+  if (isRestockMergedOrder(request)) {
+    return buildProgress("PURCHASED", {
+      sentence: `${MERGED_ORDER_SENTENCE}${MERGED_CAN_ARRIVE_SUFFIX}`,
+    });
+  }
+  const key = PURCHASE_STATE_PROGRESS[purchaseState];
+  if (key === "PURCHASING") return getPurchasingProgress(lines, false);
+  return buildProgress(key);
 }
 
 function getOngoingProgress(request: PurchaseRequest): RestockProgress {
   // Pesanan bisa ditutup/dibatalkan tanpa pengajuan ini ikut berubah (data
   // lama atau pesanan gabungan); tombol catat akan selalu ditolak server.
   const orderStatus = request.purchaseOrder?.status;
-  if (orderStatus === "CANCELLED") return buildProgress("CANCELLED");
+  if (orderStatus === "CANCELLED") return buildCancelledProgress(request);
   const lines = getReceivableLines(request);
   if (orderStatus === "RECEIVED") return getFinishedProgress(lines);
 
@@ -356,33 +521,36 @@ function getOngoingProgress(request: PurchaseRequest): RestockProgress {
   );
   const purchaseState = getRestockPurchaseState(request);
   if (!hasReceived) {
-    const key = PURCHASE_STATE_PROGRESS[purchaseState];
-    return key === "PURCHASING"
-      ? buildProgress(key, describePurchasingProgress(lines))
-      : buildProgress(key);
+    return getNotYetArrivedProgress(request, lines, purchaseState);
   }
   const hasOutstanding = lines.some(
     (item) => getRestockLineProgress(item).remaining > 0,
   );
   if (!hasOutstanding) return getFinishedProgress(lines);
-  const suffix = purchaseState === "ALL" ? "" : NOT_YET_BOUGHT_SUFFIX;
-  return buildProgress(
-    "PARTIAL",
-    `${describePartialProgress(lines)}${suffix}`,
-    "Datang Sebagian",
-  );
+  const isStillPurchasing =
+    purchaseState !== "ALL" && !canRestockReceiveWithoutPurchaseReport(request);
+  if (isStillPurchasing) return getPurchasingProgress(lines, true);
+  return buildProgress("PARTIAL", {
+    sentence: describePartialProgress(lines),
+    label: "Datang Sebagian",
+  });
 }
 
 /** Status turunan satu pengajuan beserta kalimat penjelasnya. */
 export function getRestockProgress(request: PurchaseRequest): RestockProgress {
   switch (request.status) {
     case "DRAFT":
+      return buildProgress("AWAITING_APPROVAL", {
+        sentence: DRAFT_COPY.sentence,
+        label: DRAFT_COPY.label,
+        stage: 1,
+      });
     case "SUBMITTED":
       return buildProgress("AWAITING_APPROVAL");
     case "REJECTED":
-      return buildProgress("REJECTED");
+      return buildProgress("REJECTED", { stoppedStage: 2 });
     case "CANCELLED":
-      return buildProgress("CANCELLED");
+      return buildCancelledProgress(request);
     case "RECEIVED":
       if (isRestockServiceOnly(request)) return getServiceOnlyProgress(request);
       return getFinishedProgress(getReceivableLines(request));
@@ -394,15 +562,30 @@ export function getRestockProgress(request: PurchaseRequest): RestockProgress {
   }
 }
 
-/** Tombol penerimaan yang cocok untuk status turunan. */
+/**
+ * Tombol lanjutan satu pengajuan. Catat barang datang hanya muncul bila ada
+ * barang yang sudah dilaporkan dibeli tapi belum datang (atau pada data lama
+ * dan pesanan gabungan, bila masih ada sisa). Link belanja muncul selama
+ * tahap pembelian belum selesai.
+ */
 export function getRestockProgressActions(
-  key: RestockProgressKey,
+  request: PurchaseRequest,
 ): RestockProgressActions {
-  if (RECEIVE_FIRST_KEYS.includes(key)) {
-    return { receiveLabel: RECEIVE_LABEL_FIRST };
+  const canSendLink = canSendRestockPurchaseLink(request);
+  if (!hasRestockItemsAwaitingArrival(request)) {
+    return {
+      receiveLabel: null,
+      canSendLink,
+      canCloseUnpurchased: !canSendLink && canCloseRestockUnpurchased(request),
+    };
   }
-  if (key === "PARTIAL") return { receiveLabel: RECEIVE_LABEL_NEXT };
-  return { receiveLabel: null };
+  return {
+    receiveLabel: hasRestockReceivedAnything(request)
+      ? RECEIVE_LABEL_NEXT
+      : RECEIVE_LABEL_FIRST,
+    canSendLink,
+    canCloseUnpurchased: false,
+  };
 }
 
 /**
@@ -439,8 +622,10 @@ export function formatRestockDateTime(value: string): string {
   return `${formatRestockDate(value)} ${time}`;
 }
 
-const RECEIVED_WITHOUT_RECORD_LABEL =
-  "Sudah dibeli semua (dihitung dari barang yang datang)";
+const AWAITING_PURCHASE_REPORT_LABEL =
+  "Tahap pembelian: menunggu laporan belanja dari link";
+const MERGED_PURCHASE_STEP_LABEL = "Belanja pesanan gabungan tidak dicatat";
+const NO_ORDER_PURCHASE_STEP_LABEL = "Daftar belanja belum ada";
 
 function getBoughtAtOnceLabel(issuedAt: string | null): string {
   return issuedAt
@@ -448,10 +633,23 @@ function getBoughtAtOnceLabel(issuedAt: string | null): string {
     : "Sudah dibeli semua (tanggal tidak tercatat)";
 }
 
+/** Langkah pembelian yang belum selesai; label menurut keadaannya. */
+function describePendingPurchaseLabel(
+  request: PurchaseRequest,
+  state: RestockPurchaseState,
+  isFinished: boolean,
+): string {
+  if (state === "PARTIAL") return "Masih ada barang yang belum dibeli";
+  if (isFinished) return "Tidak jadi dibeli";
+  if (!request.purchaseOrder) return NO_ORDER_PURCHASE_STEP_LABEL;
+  return AWAITING_PURCHASE_REPORT_LABEL;
+}
+
 /**
  * Langkah pembelian di riwayat di luar tiap catatan belanja. null bila semua
  * sudah tergambar lewat catatan belanja, atau pesanan sudah ditutup setelah
- * sebagian dibeli (kirimannya yang bercerita).
+ * sebagian dibeli (kirimannya yang bercerita). Pesanan gabungan tidak punya
+ * link, jadi langkahnya hanya menjelaskan bahwa belanjanya tidak dicatat.
  */
 export function getRestockPurchaseStep(
   request: PurchaseRequest,
@@ -462,16 +660,16 @@ export function getRestockPurchaseStep(
   const isFinished = isRestockOrderFinished(request);
   const state = getRestockPurchaseState(request);
 
+  if (hasRecords && state === "ALL") return null;
+  if (!hasRecords && isRestockMergedOrder(request)) {
+    return {
+      isDone: true,
+      label: MERGED_PURCHASE_STEP_LABEL,
+      issuedAt: null,
+      processedByName: null,
+    };
+  }
   if (state === "ALL") {
-    if (hasRecords) return null;
-    if (!isRestockLegacyPurchased(request)) {
-      return {
-        isDone: true,
-        label: RECEIVED_WITHOUT_RECORD_LABEL,
-        issuedAt: null,
-        processedByName: null,
-      };
-    }
     const issuedAt = order?.issuedAt ?? null;
     return {
       isDone: true,
@@ -481,13 +679,12 @@ export function getRestockPurchaseStep(
     };
   }
   if (state === "PARTIAL" && isFinished) return null;
-  const label =
-    state === "PARTIAL"
-      ? "Masih ada barang yang belum dibeli"
-      : isFinished
-        ? "Tidak jadi dibeli"
-        : "Belum dibeli";
-  return { isDone: false, label, issuedAt: null, processedByName };
+  return {
+    isDone: false,
+    label: describePendingPurchaseLabel(request, state, isFinished),
+    issuedAt: null,
+    processedByName,
+  };
 }
 
 /** Kiriman barang pengajuan ini, urut dari yang paling lama. */

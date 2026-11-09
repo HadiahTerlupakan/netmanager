@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useDetailChainedFocus } from "@/app/admin/inventory/restock/useDetailChainedFocus";
 
 /**
- * Tabel → detail → "Catat Belanja": detail tertutup bersamaan dengan modal
- * belanja terbuka, jadi tombol pemicunya hilang dari halaman.
+ * Tabel → detail → "Catat Barang Datang": detail tertutup bersamaan dengan
+ * modal terima barang terbuka, jadi tombol pemicunya hilang dari halaman.
  */
 function Harness() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -37,7 +37,7 @@ function Harness() {
             setIsPurchaseOpen(true);
           }}
         >
-          Catat Belanja
+          Catat Barang Datang
         </button>
       )}
       {isPurchaseOpen && (

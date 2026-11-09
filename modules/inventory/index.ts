@@ -33,7 +33,6 @@ export { createRestockGoodsReceiptService } from "./factories/RestockGoodsReceip
 export { createRestockPurchaseRecordService } from "./factories/RestockPurchaseRecordFactory";
 export type {
   RecordRestockPurchaseCommand,
-  RestockPurchaseRecordErrorCode,
   VoidRestockPurchaseCommand,
   VoidRestockPurchaseErrorCode,
   RestockPurchaseRecordResult,
@@ -45,6 +44,20 @@ export {
   createRestockPublicPurchaseService,
   createRestockPurchaseSignatureReader,
 } from "./factories/RestockPurchaseLinkFactory";
+// Aturan tahap verifikasi barang sampai (server & layar memakai yang sama).
+export {
+  canReceiveWithoutPurchaseReport,
+  getOutstandingQuantity,
+  getPurchasedAwaitingArrival,
+  getReceiveLimit,
+  getUnpurchasedRemainder,
+  isLegacyPurchasedOrder,
+  isMergedRestockOrder,
+  RESTOCK_RECEIPT_ELIGIBILITY_MESSAGES,
+  type RestockPurchaseEvidence,
+  type RestockReceiptItemQuantities,
+  type RestockReceiptItemWithPurchase,
+} from "./domain/restock-receipt-eligibility";
 export { buildPurchaseLinkUrl } from "./services/restock-purchase-link-url";
 export {
   PURCHASE_LINK_MESSAGES,

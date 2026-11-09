@@ -13,6 +13,7 @@ import {
   toGoodsReceiptListItemDTO,
   GoodsReceiptInvalidError,
   GoodsReceiptNotFoundError,
+  GoodsReceiptRestockOrderError,
   PurchaseOrderNotFoundError,
   type CreateGoodsReceiptInput,
 } from "@/modules/procurement";
@@ -88,7 +89,7 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   const tenantId = ctx.session?.user.tenantId ?? null;
 
   try {
-    const grn = await getGoodsReceiptService().create({
+    const grn = await getGoodsReceiptService().createFromProcurementPage({
       purchaseOrderId: data.purchaseOrderId,
       gudangId: data.gudangId,
       receivedAt: data.receivedAt ? new Date(data.receivedAt) : undefined,
@@ -109,6 +110,9 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
   } catch (error) {
     if (error instanceof PurchaseOrderNotFoundError) {
       return ApiErrors.notFound(error.message);
+    }
+    if (error instanceof GoodsReceiptRestockOrderError) {
+      return ApiErrors.conflict(error.message);
     }
     if (error instanceof GoodsReceiptInvalidError) {
       return ApiErrors.badRequest(error.message);

@@ -39,6 +39,7 @@ function createService() {
           quantity: 10,
           receivedQuantity: 0,
           cancelledQuantity: 0,
+          purchasedQuantity: 6,
         },
       ],
     }),

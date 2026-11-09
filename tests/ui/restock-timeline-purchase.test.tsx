@@ -71,7 +71,7 @@ describe("RestockTimeline purchase records", () => {
 
     expect(markup).toContain("dibeli Andi");
     expect(markup).not.toContain("Admin Pembuat Link");
-    expect(markup).toContain("lewat link");
+    expect(markup).toContain(">lewat link</span>");
     expect(markup).toContain(
       'src="/api/inventory/restock/requests/pr-1/purchases/rec-1/signature"',
     );
@@ -94,7 +94,8 @@ describe("RestockTimeline purchase records", () => {
     );
 
     expect(markup).toContain("dibeli Siti");
-    expect(markup).not.toContain("lewat link");
+    // Label catatan, bukan kalimat status "menunggu dibelikan lewat link".
+    expect(markup).not.toContain(">lewat link</span>");
     expect(markup).not.toContain("/signature");
   });
 

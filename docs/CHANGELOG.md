@@ -41,6 +41,118 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-09] — Verifikasi barang sampai hanya setelah dilaporkan dibeli
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/inventory` | `modules/procurement` | `app/admin/inventory/restock` | `app/admin/procurement`
+- **Author**: agent
+- **Deskripsi**: Pengajuan restock kini punya 4 tahap tegas: 1 Pengajuan → 2 Persetujuan →
+  3 Pembelian (dilaporkan lewat link belanja) → 4 Verifikasi barang sampai. Aturan baru:
+  - Barang hanya boleh dicatat datang sebanyak yang sudah dilaporkan dibeli dan belum datang
+    (per barang: datang ≤ dibeli − sudah datang). Ditegakkan di `RestockGoodsReceiptService`
+    sebelum substitusi/GRN ditulis, dan di transaksi GRN (`GoodsReceiptRepository.createAndPost`
+    mengunci pesanan `FOR UPDATE` lalu menaikkan jumlah datang secara bersyarat
+    `received + q ≤ purchased`, opsi `isLimitedToPurchased`; gagal → `GoodsReceiptExceedsPurchasedError`,
+    seluruh transaksi batal). Layar: batas per barang, "Sudah dibeli X · Sudah datang Y · Bisa
+    dicatat sekarang Z", baris belum dibeli dinonaktifkan, kelebihan kiriman hanya untuk
+    pengecualian. Pengajuan tanpa daftar belanja ditolak sebelum daftar belanja dibuat.
+  - Pengecualian dalam satu fungsi domain bersama `canReceiveWithoutPurchaseReport`
+    (`modules/inventory/domain/restock-receipt-eligibility.ts`, diekspor lewat `index.ts` &
+    `client.ts`): data lama dan pesanan gabungan. Data lama = tanpa catatan belanja sama sekali
+    (termasuk yang dibatalkan) dan tanpa jumlah dibeli, lalu salah satu: sudah ada barang datang
+    (alur lama, termasuk yang dulu diterima di halaman Pembelian saat pesanan DRAFT), tanggal
+    beli terisi, atau status ORDERED/PARTIAL. Layar (`isRestockLegacyPurchased`) dan server
+    memakai aturan yang sama (`buildRestockOrderPurchaseEvidence`). Data lama tanpa tanggal beli
+    diberi tanggal 1 detik sebelum kiriman.
+  - Link belanja di server mengenal data lama: konteks belanja membawa `isLegacyPurchased`;
+    pemegang link lama melihat link tidak berlaku, admin melihat "Semua barang sudah dibeli"
+    (`ALL_PURCHASED`), `RestockPurchaseRecordService` menolak laporan, dan transaksi pencatatan
+    belanja memeriksa ulang aturan data lama sesudah pesanan dikunci. Laporan lewat link lama
+    tidak lagi bisa menghapus pengecualian data lama atau mencatat belanja dua kali.
+  - "Barang datang dihitung sudah dibeli" tidak lagi dipakai untuk data baru (rumus
+    `GREATEST` saat mencatat belanja dipertahankan hanya sebagai pengaman data lama).
+  - Pembatalan catatan belanja ditolak (409) bila membuat jumlah dibeli < jumlah datang.
+  - GRN dari halaman Pembelian untuk pesanan restock ditolak 409 ("Pesanan ini dari pengajuan
+    restock. Catat barang datang dari halaman Restock.") lewat `createFromProcurementPage`;
+    tombol "Buat GRN" disembunyikan dan halaman buat GRN menampilkan arahan ke Restock.
+  - Aksi baru "Tutup sisa yang tidak jadi dibeli" (`restock:verify`) di detail (dan di tabel
+    untuk pengajuan yang macet tanpa daftar belanja): mencoret hanya bagian yang belum dibeli
+    (dijaga jumlah dibeli tidak berubah), mencabut link belanja di transaksi yang sama walau
+    pesanan masih terbuka, atau membatalkan pengajuan bila belum ada yang dibeli/datang. Modal
+    meramal akibatnya sama dengan server (`predictCloseUnpurchasedOutcome`: batal / selesai /
+    barang dibeli tetap ditunggu), termasuk pengajuan berjasa yang selesai, bukan batal. Body
+    `PATCH .../receive` mendapat field aditif `closeUnpurchased` dan `closeReason`.
+  - Pesan penolakan dibedakan: "belum ada yang dibeli" vs "yang sudah dibeli sudah datang semua,
+    sisanya tunggu laporan belanja".
+  - Tampilan: tahap di tabel (di atas badge), daftar 4 tahap di detail (`aria-current="step"`),
+    garis waktu dikelompokkan per tahap, tombol tabel "Kirim Link Belanja" (tahap 3) dan
+    "Catat Barang Datang" hanya bila ada barang dibeli yang belum datang, PDF menulis
+    "Tahap n dari 4 (…): status". Pesanan gabungan langsung "Menunggu Barang" di tahap 4;
+    riwayat menulis "Belanja pesanan gabungan tidak dicatat" / "Daftar belanja belum ada".
+    Daftar tahap menandai tahap tempat pengajuan ditolak/dibatalkan, dan tahap 4 ikut berjalan
+    saat barang yang sudah dibeli mulai datang. "Dibeli Sebagian" satu warna dan kalimatnya
+    memisahkan yang dibeli dari yang sudah datang. Modal verifikasi: satuan di tiap angka,
+    "Isi semua yang sudah dibeli", tanpa ganti barang untuk baris yang belum dibeli.
+  - Pesan 409 halaman Pembelian dipakai klien lewat entri baru `modules/procurement/client.ts`.
+  - Sebelum deploy, hitung read-only di produksi: pesanan restock PARTIAL/ORDERED tanpa
+    `purchase_records` (kini dihitung data lama).
+- **Files**: `modules/inventory/domain/restock-receipt-eligibility.ts`,
+  `modules/inventory/services/RestockGoodsReceiptService.ts`,
+  `modules/inventory/services/RestockReceiptClosure.ts`,
+  `modules/inventory/services/restock-receipt-purchase-stage.ts`,
+  `modules/inventory/services/restock-receipt-context.ts`,
+  `modules/inventory/repositories/RestockGoodsReceiptRepository.ts`,
+  `modules/inventory/repositories/RestockPurchaseRecordRepository.ts`,
+  `modules/procurement/repositories/GoodsReceiptRepository.ts`,
+  `modules/procurement/services/GoodsReceiptService.ts`,
+  `modules/procurement/domain/goods-receipt-errors.ts`,
+  `app/api/admin/procurement/goods-receipts/route.ts`,
+  `modules/inventory/domain/restock-purchase-link.ts`,
+  `modules/inventory/repositories/restock-purchase-record.mapper.ts`,
+  `modules/inventory/services/RestockPurchaseRecordService.ts`, `modules/procurement/client.ts`,
+  `app/admin/inventory/restock/restockProgress.ts`, `restockPurchase.ts`, `RestockStageList.tsx`,
+  `RestockCloseUnpurchasedModal.tsx`, `restockCloseUnpurchased.ts`, `useRestockCloseUnpurchased.ts`,
+  `RestockTable.tsx`, `RestockReceiveItemRow.tsx`, `RestockReceiveSections.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-09] — Belanja hanya dicatat lewat link belanja
+
+- **Tipe**: [REMOVED][CHANGED]
+- **Scope**: `modules/inventory` | `modules/procurement` | `app/api/inventory/restock` | `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Sudah dibeli atau belum kini hanya diputuskan dari link belanja tanpa login.
+  Dihapus: tombol & modal "Catat Belanja" di admin (form, baris barang, hook),
+  `POST /api/inventory/restock/requests/[id]/purchases`, `PATCH .../process` (START_SHOPPING,
+  tidak dipakai UI maupun aplikasi mobile) beserta `RestockPurchaseOrderStatusService`,
+  `markPurchaseOrderOrdered`, `getPurchaseRequestProcessInfo`, konstanta log `START_SHOPPING`
+  (log lama tetap tersimpan apa adanya), schema `restockPurchaseRecordSchema`, cek toko
+  terdaftar (`isActiveSupplier`) dan foto nota di service. `RestockPurchaseRecordService` kini
+  hanya menerima asal link (catatan lama ber-`source` ADMIN tetap terbaca). Di tabel, aksi utama
+  "Belum Dibeli"/"Dibeli Sebagian" menjadi "Kirim Link Belanja" yang membuka detail dan langsung
+  memfokuskan panel link; panel menampilkan "Link belanja aktif" dan menjelaskan bahwa belanja
+  hanya dicatat lewat link. Pesanan gabungan tidak mendapat link: kalimat statusnya menjelaskan
+  belanja tidak dicatat dan status mengikuti barang yang datang. "Catat Barang yang Datang",
+  rincian belanja, tanda tangan, PDF, dan "Batalkan catatan belanja" tetap ada. Tanpa migration.
+  Tindak lanjut review: "Proses Order" di halaman pembelian kini menolak pesanan milik pengajuan
+  restock (`PurchaseOrderIsRestockError`, 409) dan tombolnya disembunyikan, karena dulu mengisi
+  tanggal beli sehingga restock tampil "Sudah Dibeli" tanpa link. Port tulis
+  `CreatePurchaseRecordInput` dipersempit ke catatan lewat link (tanpa `supplierId`, `fotoNota`,
+  `source`; link & `clientRequestId` wajib). Panel link: kalimat pembuka hanya tampil bila link
+  bisa dibuat, pesanan gabungan tanpa link aktif tidak menampilkan panel, data lama yang sudah
+  ditandai dibeli sekaligus tidak ditawari link baru, dan teks "penyimpanan belum aktif"
+  menyebut "Catat Barang Datang" tetap bisa dipakai. Kalimat status kini netral ("Menunggu
+  dibelikan lewat link belanja"); ajakan "Kirim link belanja..." hanya untuk yang boleh membuat link.
+- **Files**: `modules/inventory/services/RestockPurchaseRecordService.ts`,
+  `modules/procurement/services/PurchaseOrderService.ts`,
+  `app/admin/procurement/purchase-orders/[id]/PurchaseOrderEditClient.tsx`,
+  `app/admin/inventory/restock/RestockTable.tsx`,
+  `app/admin/inventory/restock/RestockDetailModal.tsx`,
+  `app/admin/inventory/restock/RestockPurchaseLinkPanel.tsx`,
+  `app/admin/inventory/restock/restockPurchase.ts`,
+  `app/admin/inventory/restock/restockProgress.ts`
+- **Breaking**: ✅ Ya (`POST .../purchases` dan `PATCH .../process` dihapus; `POST
+  /api/admin/procurement/purchase-orders/[id]/process` menolak pesanan restock)
+
 ### [2026-11-09] — Penerimaan pesanan gabungan tidak bisa menyentuh barang pengajuan lain
 
 - **Tipe**: [SECURITY]

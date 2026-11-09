@@ -298,7 +298,7 @@ describe("RestockDetailModal order journey", () => {
           },
         ],
       },
-      { canVerify: true, onRecordPurchase: vi.fn(), onOpenReceive: vi.fn() },
+      { canVerify: true, onOpenReceive: vi.fn() },
     );
 
     expect(markup.indexOf("Belanja ke-1 · 3 Nov 2026 · Toko A")).toBeLessThan(
@@ -309,11 +309,11 @@ describe("RestockDetailModal order journey", () => {
     expect(markup).toContain("Catatan: Bayar tunai");
     expect(markup).toContain("Dibeli 5 dari 8 roll (Toko A 3, Toko B 2)");
     expect(markup).toContain("Masih ada barang yang belum dibeli");
-    expect(markup).toContain("Catat Belanja");
+    expect(markup).not.toContain("Catat Belanja");
     expect(markup).toContain("Dibeli Sebagian");
   });
 
-  it("offers recording a purchase inside the purchase step", () => {
+  it("points to the shopping link instead of recording a purchase", () => {
     const markup = renderDetail(
       {
         ...ordered,
@@ -328,15 +328,129 @@ describe("RestockDetailModal order journey", () => {
           },
         ],
       },
-      { canVerify: true, onRecordPurchase: vi.fn(), onOpenReceive: vi.fn() },
+      {
+        canVerify: true,
+        onOpenReceive: vi.fn(),
+        onOpenCloseUnpurchased: vi.fn(),
+      },
     );
 
-    expect(markup).toContain("Belum dibeli");
-    expect(markup).toContain('aria-label="Catat Belanja, pengajuan PR-001"');
-    expect(markup).toContain("Catat Barang Datang");
+    expect(markup).toContain(
+      "Tahap pembelian: menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli. Kirim link belanja ke orang yang belanja.",
+    );
+    expect(markup).toContain("Link belanja");
+    expect(markup).not.toContain("Catat Belanja");
+    // Belum ada yang dilaporkan dibeli: belum bisa dicatat datang.
+    expect(markup).not.toContain("Catat Barang Datang");
+    // Pembelian tidak macet: sisa yang tidak jadi dibeli bisa ditutup.
+    expect(markup).toContain(
+      'aria-label="Tutup sisa yang tidak jadi dibeli untuk PR-001"',
+    );
   });
 
-  it("orders purchases and deliveries by date, with the open step last", () => {
+  it("shows the four stages with the purchase stage as the current one", () => {
+    const markup = renderDetail(
+      {
+        ...ordered,
+        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
+        goodsReceipts: [],
+        items: [
+          {
+            ...ordered.items[0],
+            receivedQuantity: 0,
+            cancelledQuantity: 0,
+            purchaseOrderItemId: "poi-1",
+          },
+        ],
+      },
+      { canVerify: true },
+    );
+
+    expect(markup).toContain('aria-label="Tahap pengajuan"');
+    const current = markup.match(/<li aria-current="step"[^>]*>.*?<\/li>/)?.[0];
+    expect(current).toContain("Pembelian");
+    expect(markup).toContain('Pengajuan<span class="sr-only">, selesai</span>');
+    expect(markup).toContain(
+      'Verifikasi barang sampai<span class="sr-only">, belum</span>',
+    );
+    // Garis waktu dikelompokkan per tahap.
+    for (const heading of [
+      "1 Pengajuan",
+      "2 Persetujuan",
+      "3 Pembelian",
+      "4 Verifikasi barang sampai",
+    ]) {
+      expect(markup).toContain(heading);
+    }
+    // Kalimat keadaan sekarang hanya tampil sekali.
+    expect(markup.split("Sekarang:").length).toBe(2);
+  });
+
+  it("hides closing the unbought remainder on merged and legacy orders", () => {
+    const base: PurchaseRequest = {
+      ...ordered,
+      goodsReceipts: [],
+      items: [
+        {
+          ...ordered.items[0],
+          receivedQuantity: 0,
+          cancelledQuantity: 0,
+          purchaseOrderItemId: "poi-1",
+        },
+      ],
+    };
+    const merged = renderDetail(
+      {
+        ...base,
+        purchaseOrder: {
+          id: "po-1",
+          status: "DRAFT",
+          _count: { purchaseRequests: 2 },
+        },
+      },
+      { canVerify: true, onOpenCloseUnpurchased: vi.fn() },
+    );
+    const legacy = renderDetail(
+      {
+        ...base,
+        purchaseOrder: {
+          id: "po-1",
+          status: "ORDERED",
+          issuedAt: "2026-11-03T03:00:00.000Z",
+        },
+      },
+      { canVerify: true, onOpenCloseUnpurchased: vi.fn() },
+    );
+
+    expect(merged).not.toContain("Tutup sisa yang tidak jadi dibeli");
+    expect(legacy).not.toContain("Tutup sisa yang tidak jadi dibeli");
+  });
+
+  it("does not tell read-only viewers to send a shopping link", () => {
+    const notBought: PurchaseRequest = {
+      ...ordered,
+      purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
+      goodsReceipts: [],
+      items: [
+        {
+          ...ordered.items[0],
+          receivedQuantity: 0,
+          cancelledQuantity: 0,
+          purchaseOrderItemId: "poi-1",
+        },
+      ],
+    };
+
+    const markup = renderDetail(notBought, { canVerify: false });
+
+    expect(markup).toContain(
+      "Tahap pembelian: menunggu laporan belanja dari link.",
+    );
+    expect(markup).not.toContain("Kirim link belanja");
+    expect(markup).not.toContain("Tutup sisa yang tidak jadi dibeli");
+  });
+
+  it("groups purchases under stage 3 and deliveries under stage 4", () => {
     const purchaseLine = {
       id: "ri-1",
       purchaseOrderItemId: "poi-1",
@@ -403,36 +517,41 @@ describe("RestockDetailModal order journey", () => {
           },
         ],
       },
-      { canVerify: true, onRecordPurchase: vi.fn(), onOpenReceive: vi.fn() },
+      { canVerify: true, onOpenReceive: vi.fn() },
     );
 
+    const purchaseStage = markup.indexOf("3 Pembelian");
     const storeA = markup.indexOf("Belanja ke-1 · 4 Nov 2026 · Toko A");
-    const delivery = markup.indexOf("Kiriman ke-1");
     const storeB = markup.indexOf("Belanja ke-2 · 6 Nov 2026 · Toko B");
     const openStep = markup.indexOf("Masih ada barang yang belum dibeli");
-    expect(storeA).toBeGreaterThan(-1);
-    expect(storeA).toBeLessThan(delivery);
-    expect(delivery).toBeLessThan(storeB);
+    const receiptStage = markup.indexOf("4 Verifikasi barang sampai");
+    const delivery = markup.indexOf("Kiriman ke-1");
+    expect(purchaseStage).toBeGreaterThan(-1);
+    expect(purchaseStage).toBeLessThan(storeA);
+    expect(storeA).toBeLessThan(storeB);
     expect(storeB).toBeLessThan(openStep);
-    expect(openStep).toBeLessThan(markup.indexOf("Belum selesai"));
+    expect(openStep).toBeLessThan(receiptStage);
+    expect(receiptStage).toBeLessThan(delivery);
+    expect(delivery).toBeLessThan(markup.indexOf("Belum selesai"));
   });
 
-  it("keeps recording a purchase as the main button while receiving is second", () => {
+  it("keeps the shopping link as the main action while receiving is second", () => {
     const markup = renderDetail(
       {
         ...ordered,
-        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
+        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "ORDERED" },
         goodsReceipts: [],
         items: [
           {
             ...ordered.items[0],
             receivedQuantity: 0,
             cancelledQuantity: 0,
+            purchasedQuantity: 3,
             purchaseOrderItemId: "poi-1",
           },
         ],
       },
-      { canVerify: true, onRecordPurchase: vi.fn(), onOpenReceive: vi.fn() },
+      { canVerify: true, onOpenReceive: vi.fn() },
     );
 
     const receiveButton = markup.match(
@@ -447,11 +566,9 @@ describe("RestockDetailModal order journey", () => {
     const markup = renderDetail(ordered, {
       canVerify: true,
       onOpenReceive: vi.fn(),
-      onRecordPurchase: vi.fn(),
     });
 
     expect(markup).toContain("Catat Kiriman Berikutnya");
-    // Baris tanpa item pesanan tidak bisa dicatat belanjanya.
     expect(markup).not.toContain("Catat Belanja");
   });
 
@@ -532,5 +649,61 @@ describe("RestockDetailModal order journey", () => {
     expect(forVerifier).toContain("Batalkan catatan belanja");
     expect(forViewer).not.toContain("Batalkan catatan belanja");
     expect(forClosedOrder).not.toContain("Batalkan catatan belanja");
+  });
+
+  it("replaces the void action once the purchased goods have arrived", () => {
+    const record: PurchaseRecordSummary = {
+      id: "rec-1",
+      storeName: "Toko A",
+      supplierId: null,
+      purchasedAt: "2026-11-08T05:00:00.000Z",
+      createdAt: "2026-11-08T06:00:00.000Z",
+      recordedBy: { name: "Sari" },
+      buyerName: "Andi",
+      source: "PUBLIC_LINK",
+      hasSignature: false,
+      notes: null,
+      fotoNota: [],
+      items: [
+        {
+          id: "ri-1",
+          purchaseOrderItemId: "poi-1",
+          barangId: request.items[0].barangId,
+          nama: "Kabel",
+          satuan: "roll",
+          quantity: 3,
+          unitPrice: null,
+        },
+      ],
+    };
+    const arrived: PurchaseRequest = {
+      ...request,
+      status: "ORDERED",
+      purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "PARTIAL" },
+      purchaseRecords: [record],
+      items: [
+        {
+          ...request.items[0],
+          purchaseOrderItemId: "poi-1",
+          purchasedQuantity: 3,
+          receivedQuantity: 2,
+          cancelledQuantity: 0,
+        },
+      ],
+    };
+
+    const markup = renderToStaticMarkup(
+      <RestockDetailModal
+        request={arrived}
+        onClose={vi.fn()}
+        canVerify
+        onPurchaseVoided={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    expect(markup).not.toContain("Batalkan catatan belanja");
+    expect(markup).toContain(
+      "Tidak bisa dibatalkan: barangnya sudah dicatat datang.",
+    );
   });
 });

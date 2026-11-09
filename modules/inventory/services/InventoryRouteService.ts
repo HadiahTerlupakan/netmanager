@@ -325,11 +325,6 @@ export class InventoryRouteService {
     return this.repository.hasPurchaseRecords(purchaseOrderId);
   }
 
-  /** Ambil info proses purchase request milik tenant tertentu. */
-  async getPurchaseRequestProcessInfo(id: string, tenantId: string) {
-    return this.repository.findPurchaseRequestProcessInfo(id, tenantId);
-  }
-
   /** Ambil summary opname inventory, dibatasi site pengguna. */
   async getOpnameSummary(input: {
     pengguna: PenggunaInventory;

@@ -10,7 +10,7 @@ function getFocusedElement(): HTMLElement | null {
 
 /**
  * Fokus untuk modal yang dibuka dari dalam detail pengajuan. Detail tertutup
- * saat modal berikutnya (catat belanja, terima barang) dibuka, sehingga tombol
+ * saat modal berikutnya (terima barang) dibuka, sehingga tombol
  * pemicunya hilang dari halaman. Hook ini mengingat tombol di tabel yang
  * membuka detail, lalu mengembalikan fokus ke sana saat modal berikutnya
  * ditutup.

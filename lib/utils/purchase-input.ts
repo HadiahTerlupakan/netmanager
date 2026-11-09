@@ -1,6 +1,6 @@
 /**
- * Pembacaan isian belanja yang dipakai bersama form "Catat Belanja" admin dan
- * halaman daftar belanja publik. Murni, tanpa I/O.
+ * Pembacaan isian belanja di halaman daftar belanja lewat link. Murni, tanpa
+ * I/O.
  */
 
 const PRICE_PATTERN = /^\d+$/;

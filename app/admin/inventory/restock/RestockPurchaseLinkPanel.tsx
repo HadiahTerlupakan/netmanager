@@ -18,15 +18,19 @@ import {
 
 interface RestockPurchaseLinkPanelProps {
   request: PurchaseRequest;
+  /** Gulir & fokus ke panel setelah statusnya dimuat (dibuka dari tabel). */
+  isFocusedOnOpen?: boolean;
 }
 
 /**
  * Availability yang membuat panel disembunyikan, tetapi hanya selama tidak
  * ada link aktif: link yang masih hidup selalu bisa dilihat dan dimatikan.
+ * Pesanan gabungan sudah dijelaskan di kalimat status ("Sekarang: ...").
  */
 const HIDDEN_AVAILABILITIES = new Set<PurchaseLinkAvailability>([
   "CLOSED",
   "NOT_APPROVED",
+  "MERGED_ORDER",
 ]);
 
 /** Pengajuan yang masih terbuka untuk belanja. */
@@ -43,9 +47,9 @@ const UNAVAILABLE_TEXT: Record<
   CLOSED:
     "Pengajuan ini sudah selesai atau dibatalkan, jadi link belanja tidak bisa dipakai.",
   MERGED_ORDER:
-    "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi link belanja tidak bisa dipakai. Catat belanja dari aplikasi.",
+    "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi link belanja tidak bisa dipakai dan belanjanya tidak dicatat. Statusnya mengikuti barang yang datang.",
   STORAGE_OFF:
-    "Link belanja belum bisa dibuat karena penyimpanan tanda tangan belum aktif. Hubungi admin sistem.",
+    "Link belanja belum bisa dibuat karena penyimpanan tanda tangan belum aktif. Hubungi admin sistem. Barang yang datang tetap bisa dicatat lewat tombol Catat Barang Datang.",
 };
 
 const PRIMARY_BUTTON_CLASS =
@@ -220,13 +224,14 @@ function ManageButtons({
 function LinkBody({
   state,
   request,
+  availability,
 }: {
   state: RestockPurchaseLinkState;
   request: PurchaseRequest;
+  availability: PurchaseLinkAvailability;
 }) {
   const { status, createdUrl, isBusy, create } = state;
   const link = status?.link ?? null;
-  const availability = status?.availability ?? "AVAILABLE";
   const canCreate = availability === "AVAILABLE";
   const unavailableText =
     availability === "AVAILABLE" ? null : UNAVAILABLE_TEXT[availability];
@@ -249,6 +254,9 @@ function LinkBody({
   return (
     <div className="space-y-3">
       {createdUrl && <CreatedLink url={createdUrl} request={request} />}
+      <p className="text-sm font-bold text-emerald-800 dark:text-emerald-200">
+        Link belanja aktif
+      </p>
       <p className={TEXT_CLASS}>{describePurchaseLinkInfo(link)}</p>
       {unavailableText && (
         <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
@@ -271,9 +279,11 @@ function LinkBody({
 function PanelBody({
   state,
   request,
+  availability,
 }: {
   state: RestockPurchaseLinkState;
   request: PurchaseRequest;
+  availability: PurchaseLinkAvailability | undefined;
 }) {
   const { status, isLoading, errorMessage, reload } = state;
   if (isLoading && !status) {
@@ -295,20 +305,52 @@ function PanelBody({
       </div>
     );
   }
-  return <LinkBody state={state} request={request} />;
+  return (
+    <LinkBody
+      state={state}
+      request={request}
+      availability={availability ?? "AVAILABLE"}
+    />
+  );
 }
 
 /**
- * Panel "Link belanja" di detail pengajuan: buat, salin, kirim lewat
- * WhatsApp, buat ulang, atau matikan link daftar belanja tanpa login.
- * Disembunyikan bila pengajuan belum disetujui atau sudah ditutup, kecuali
- * masih ada link aktif (selalu bisa dimatikan).
+ * Sekali saja, setelah status link dimuat: gulir ke panel dan fokuskan
+ * judulnya, supaya tombol "Kirim Link Belanja" di tabel langsung membawa
+ * admin ke sini.
+ */
+function useFocusOnceLoaded(isEnabled: boolean, isLoaded: boolean) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const isPendingRef = useRef(isEnabled);
+
+  useEffect(() => {
+    if (!isPendingRef.current || !isLoaded) return;
+    const heading = headingRef.current;
+    if (!heading) return;
+    isPendingRef.current = false;
+    // jsdom dan peramban lama tidak punya scrollIntoView.
+    heading.scrollIntoView?.({ block: "center" });
+    heading.focus({ preventScroll: true });
+  }, [isLoaded]);
+
+  return headingRef;
+}
+
+/**
+ * Panel "Link belanja" di detail pengajuan: satu-satunya jalan mencatat
+ * barang sudah dibeli. Buat, salin, kirim lewat WhatsApp, buat ulang, atau
+ * matikan link daftar belanja tanpa login. Disembunyikan bila pengajuan belum
+ * disetujui, sudah ditutup, atau pesanannya digabung, kecuali masih ada link
+ * aktif (selalu bisa dimatikan).
  */
 export function RestockPurchaseLinkPanel({
   request,
+  isFocusedOnOpen = false,
 }: RestockPurchaseLinkPanelProps) {
   const headingId = useId();
   const state = useRestockPurchaseLink(request.id);
+  const headingRef = useFocusOnceLoaded(isFocusedOnOpen, state.status !== null);
+  // Data lama sudah dijawab server sebagai ALL_PURCHASED.
   const availability = state.status?.availability;
   const hasActiveLink = !!state.status?.link;
   // Pengajuan yang sudah ditutup hanya menampilkan panel bila ternyata masih
@@ -332,17 +374,22 @@ export function RestockPurchaseLinkPanel({
       className="space-y-3 rounded-2xl border border-indigo-100 bg-white p-4 dark:border-indigo-900/50 dark:bg-gray-800"
     >
       <h3
+        ref={headingRef}
         id={headingId}
-        className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white"
+        tabIndex={-1}
+        className="flex items-center gap-2 rounded text-sm font-bold text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-white"
       >
         <FiLink aria-hidden="true" /> Link belanja
       </h3>
-      <p className={TEXT_CLASS}>
-        Kirim link ini ke orang yang belanja. Dia bisa mencentang barang yang
-        sudah dibeli dan tanda tangan tanpa perlu masuk ke aplikasi. Link mati
-        sendiri kalau semua barang sudah dibeli.
-      </p>
-      <PanelBody state={state} request={request} />
+      {availability === "AVAILABLE" && (
+        <p className={TEXT_CLASS}>
+          Barang sudah dibeli atau belum hanya dicatat lewat link ini. Kirim
+          linknya ke orang yang belanja. Dia mencentang barang yang sudah dibeli
+          dan tanda tangan tanpa perlu masuk ke aplikasi. Link mati sendiri
+          kalau semua barang sudah dibeli.
+        </p>
+      )}
+      <PanelBody state={state} request={request} availability={availability} />
       {hasStatus && state.errorMessage && (
         <p role="alert" className="text-sm text-red-800 dark:text-red-200">
           {state.errorMessage}

@@ -235,10 +235,15 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
       data: {
         status: "ORDERED",
         processedById: actorId,
-        // issuedAt dipakai sebagai "tanggal dibeli" di alur restock.
         issuedAt: new Date(),
         updatedAt: new Date(),
       },
+    });
+  }
+
+  async countLinkedRestockRequests(id: string): Promise<number> {
+    return this.client.purchaseRequest.count({
+      where: { purchaseOrderId: id },
     });
   }
 

@@ -33,16 +33,9 @@ export interface RestockPurchaseOrderForReceipt {
   /** Jumlah baris jasa di pesanan; pesanan berjasa tidak dibatalkan. */
   jasaItemCount?: number;
   goodsReceiptCount?: number;
+  /** Semua catatan belanja pesanan ini, termasuk yang dibatalkan. */
+  purchaseRecordCount?: number;
   items: RestockPurchaseOrderItem[];
-}
-
-/** Pesanan setelah ditandai sudah dibeli. */
-export interface RestockOrderedPurchaseOrder {
-  id: string;
-  poNumber: string;
-  status: string;
-  processedById: string | null;
-  issuedAt: Date | null;
 }
 
 /** Catatan siapa dan kapan barang pesanan dibeli ke toko. */
@@ -86,6 +79,12 @@ export interface GuardedItemCancellation {
     quantity: number;
     receivedQuantity: number;
     cancelledQuantity: number;
+    /**
+     * Diisi saat menutup sisa yang tidak jadi dibeli: laporan belanja yang
+     * masuk bersamaan membuat penutupan gagal, bukan ikut mencoret barang
+     * yang baru dibeli.
+     */
+    purchasedQuantity?: number;
   };
 }
 
@@ -106,6 +105,11 @@ export interface ApplyReceiptSettlementInput {
 export interface FinishWithoutDeliveryInput extends ApplyReceiptSettlementInput {
   cancelledAt: Date;
   cancellations: GuardedItemCancellation[];
+  /**
+   * true: link belanja pengajuan ini dicabut di transaksi yang sama walau
+   * pesanannya masih terbuka (sisa yang belum dibeli sudah ditutup).
+   */
+  revokeRequestLinks?: boolean;
 }
 
 export interface IncreaseItemQuantitiesInput {
@@ -181,15 +185,6 @@ export interface IRestockGoodsReceiptRepository {
   finishPurchaseOrderWithoutDelivery(
     input: FinishWithoutDeliveryInput,
   ): Promise<boolean>;
-
-  /**
-   * DRAFT → ORDERED beserta pembeli dan tanggal belinya, lalu kembalikan
-   * pesanan terbarunya. Null bila pesanan sudah tidak DRAFT (misalnya sudah
-   * ditandai orang lain bersamaan).
-   */
-  markPurchaseOrderOrdered(
-    record: PurchaseOrderPurchaseRecord,
-  ): Promise<RestockOrderedPurchaseOrder | null>;
 
   /** Catat pembeli dan tanggal beli tanpa mengubah status pesanan. */
   recordPurchaseOrderPurchase(

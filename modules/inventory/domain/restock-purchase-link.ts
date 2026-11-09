@@ -66,7 +66,7 @@ export const PURCHASE_LINK_MESSAGES = {
     CLOSED:
       "Pengajuan ini sudah selesai atau dibatalkan, jadi link belanja tidak bisa dibuat.",
     MERGED_ORDER:
-      "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi link belanja tidak bisa dipakai. Catat belanja dari aplikasi.",
+      "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi link belanja tidak bisa dipakai dan belanjanya tidak dicatat. Statusnya mengikuti barang yang datang.",
     STORAGE_OFF:
       "Link belanja belum bisa dibuat karena penyimpanan tanda tangan belum aktif. Hubungi admin sistem.",
   },
@@ -115,6 +115,17 @@ export function isMergedPurchaseOrder(
   return (context.purchaseOrder?.linkedRequestCount ?? 0) > 1;
 }
 
+/**
+ * Pesanan data lama: sudah dibeli sebelum belanja wajib dilaporkan lewat
+ * link. Belanjanya tidak dicatat lagi; laporan baru justru menghapus
+ * pengecualian data lama dan bisa membuat belanja tercatat dua kali.
+ */
+export function isLegacyPurchaseContext(
+  context: RestockPurchaseContext,
+): boolean {
+  return context.purchaseOrder?.isLegacyPurchased ?? false;
+}
+
 function isFullyReceived(item: RestockPurchaseContextItem): boolean {
   return item.receivedQuantity >= item.quantity - item.cancelledQuantity;
 }
@@ -143,13 +154,16 @@ function evaluateOwnListState(
 /**
  * Keadaan daftar seperti dilihat pemegang link. INACTIVE bila pengajuan/
  * pesanan tidak lagi terbuka untuk belanja, pesanannya digabung dengan
- * pengajuan lain, tidak ada barang milik pengajuan, atau semua barangnya
- * sudah datang. ALL_PURCHASED bila semua sudah dibeli. Selain itu ACTIVE.
+ * pengajuan lain, pesanannya data lama, tidak ada barang milik pengajuan,
+ * atau semua barangnya sudah datang. ALL_PURCHASED bila semua sudah dibeli.
+ * Selain itu ACTIVE.
  */
 export function evaluatePurchaseListState(
   context: RestockPurchaseContext,
 ): PurchaseListState {
-  if (isMergedPurchaseOrder(context)) return "INACTIVE";
+  if (isMergedPurchaseOrder(context) || isLegacyPurchaseContext(context)) {
+    return "INACTIVE";
+  }
   return evaluateOwnListState(context);
 }
 
@@ -164,7 +178,9 @@ export function describePurchaseLinkAvailability(
   const state = evaluateOwnListState(context);
   if (state === "INACTIVE") return "CLOSED";
   if (isMergedPurchaseOrder(context)) return "MERGED_ORDER";
-  if (state === "ALL_PURCHASED") return "ALL_PURCHASED";
+  if (state === "ALL_PURCHASED" || isLegacyPurchaseContext(context)) {
+    return "ALL_PURCHASED";
+  }
   return isStorageAvailable ? "AVAILABLE" : "STORAGE_OFF";
 }
 

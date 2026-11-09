@@ -270,7 +270,6 @@ export class RestockPublicPurchaseService {
         purchaseRequestId: link.purchaseRequestId,
         tenantId: link.tenantId,
         origin: {
-          kind: "PUBLIC_LINK",
           linkId: link.id,
           linkCreatorId: link.createdById,
           linkCreatedAt: link.createdAt,
@@ -281,10 +280,8 @@ export class RestockPublicPurchaseService {
           userAgent: truncate(client.userAgent, MAX_USER_AGENT_LENGTH),
         },
         storeName: input.storeName,
-        supplierId: null,
         purchasedAt: input.purchasedAt,
         notes: input.notes,
-        fotoNota: [],
         items: input.items,
       });
     } catch (error) {

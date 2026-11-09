@@ -94,7 +94,9 @@ async function seed() {
     data: {
       id: ORDER,
       poNumber: "PO-UJI-LINK",
-      status: "ORDERED",
+      // Alur baru: pesanan baru menjadi ORDERED oleh belanja pertama lewat
+      // link. ORDERED tanpa catatan belanja adalah data lama.
+      status: "DRAFT",
       totalAmount: 0,
       createdBy: USER,
       tenantId: TENANT,
@@ -146,11 +148,9 @@ function recordInput(
     tenantId: TENANT,
     recordedById: USER,
     storeName: "Toko Uji",
-    supplierId: null,
     purchasedAt: now,
     issuedAt: now,
     notes: null,
-    fotoNota: [],
     lines: [
       {
         purchaseOrderItemId: ORDER_ITEM,
@@ -162,8 +162,8 @@ function recordInput(
     ],
     buyerName: "Joko",
     buyerSignatureKey: `restock-belanja/${TENANT}/${REQUEST}/ttd-uji.png`,
-    source: "PUBLIC_LINK",
-    purchaseLinkId: null,
+    // Selalu diganti pemanggil dengan id link yang dibuat lewat `createLink`.
+    purchaseLinkId: "link-tidak-ada",
     clientRequestId: CLIENT_REQUEST_ID,
     ipAddress: "10.0.0.1",
     userAgent: "Uji",
@@ -348,17 +348,6 @@ describeDb("Link belanja restock — Postgres", () => {
     });
   }
 
-  function fullPurchase(
-    purchaseLinkId: string | null,
-    clientRequestId: string,
-  ) {
-    const base = recordInput({ purchaseLinkId, clientRequestId });
-    return {
-      ...base,
-      lines: base.lines.map((line) => ({ ...line, quantity: 10 })),
-    };
-  }
-
   it("belanja yang melengkapi daftar mencabut link di transaksi yang sama", async () => {
     const link = await createLink("1".repeat(64));
 
@@ -385,20 +374,6 @@ describeDb("Link belanja restock — Postgres", () => {
     expect(row.revokedById).toBeNull();
   });
 
-  it("jalur aplikasi yang melengkapi daftar juga mencabut link", async () => {
-    await createLink("2".repeat(64));
-
-    const outcome = await records.createPurchaseRecord({
-      ...fullPurchase(null, ""),
-      source: "ADMIN",
-      clientRequestId: null,
-      buyerSignatureKey: null,
-    });
-
-    expect(outcome.kind).toBe("CREATED");
-    expect(await activeLinkCount()).toBe(0);
-  });
-
   it("pesanan yang digabung setelah link dibuat → LINK_INACTIVE, tidak ada yang tertulis", async () => {
     const link = await createLink("3".repeat(64));
     await prismaAuth.purchaseRequest.update({
@@ -414,6 +389,28 @@ describeDb("Link belanja restock — Postgres", () => {
     expect(outcome.kind).toBe("LINK_INACTIVE");
     expect(await purchasedQuantity()).toBe(0);
     expect(context?.purchaseOrder?.linkedRequestCount).toBe(2);
+  });
+
+  it("pesanan data lama (ditandai dibeli sekaligus, tanpa catatan) → LINK_INACTIVE, tidak ada yang tertulis", async () => {
+    const link = await createLink("8".repeat(64));
+    await prismaAuth.purchaseOrder.update({
+      where: { id: ORDER },
+      data: { status: "ORDERED", issuedAt: new Date() },
+    });
+
+    const context = await records.findPurchaseContext(REQUEST, TENANT);
+    const outcome = await records.createPurchaseRecord(
+      recordInput({ purchaseLinkId: link.id }),
+    );
+
+    expect(context?.purchaseOrder?.isLegacyPurchased).toBe(true);
+    expect(outcome.kind).toBe("LINK_INACTIVE");
+    expect(await purchasedQuantity()).toBe(0);
+    expect(
+      await prismaAuth.purchaseRecord.count({
+        where: { purchaseOrderId: ORDER },
+      }),
+    ).toBe(0);
   });
 
   it("batas 30 catatan per link dihitung di transaksi (termasuk yang dibatalkan)", async () => {
@@ -492,8 +489,9 @@ describeDb("Link belanja restock — Postgres", () => {
   });
 
   it("pembatalan tidak menurunkan jumlah di bawah nol", async () => {
+    const link = await createLink("b2".repeat(32));
     const created = await records.createPurchaseRecord(
-      recordInput({ purchaseLinkId: null, source: "ADMIN" }),
+      recordInput({ purchaseLinkId: link.id }),
     );
     if (created.kind !== "CREATED") throw new Error(created.kind);
     await prismaAuth.purchaseOrderItem.update({
@@ -514,8 +512,9 @@ describeDb("Link belanja restock — Postgres", () => {
   });
 
   it("pembatalan ditolak untuk pengajuan lain maupun tenant lain", async () => {
+    const link = await createLink("c3".repeat(32));
     const created = await records.createPurchaseRecord(
-      recordInput({ purchaseLinkId: null, source: "ADMIN" }),
+      recordInput({ purchaseLinkId: link.id }),
     );
     if (created.kind !== "CREATED") throw new Error(created.kind);
 
@@ -563,9 +562,9 @@ describeDb("Link belanja restock — Postgres", () => {
   });
 
   it("pesanan dengan catatan yang sudah dibatalkan saja tetap bisa dihapus", async () => {
-    await createLink("0".repeat(64));
+    const link = await createLink("0".repeat(64));
     const created = await records.createPurchaseRecord(
-      recordInput({ purchaseLinkId: null, source: "ADMIN" }),
+      recordInput({ purchaseLinkId: link.id }),
     );
     if (created.kind !== "CREATED") throw new Error(created.kind);
     await records.voidPurchaseRecord({
@@ -634,29 +633,44 @@ describeDb("Link belanja restock — Postgres", () => {
         },
       },
     });
-    const base = recordInput({
-      purchaseRequestId: OTHER_REQUEST,
-      receivableBarangIds: [BARANG, BARANG_LAIN],
-      purchaseLinkId: null,
-      source: "ADMIN",
-      clientRequestId: null,
-      buyerSignatureKey: null,
-    });
-    const created = await records.createPurchaseRecord({
-      ...base,
-      lines: [
-        ...base.lines,
-        {
-          purchaseOrderItemId: ORDER_ITEM_LAIN,
-          barangId: BARANG_LAIN,
-          quantity: 2,
-          unitPrice: null,
-          expected: { quantity: 5, cancelledQuantity: 0 },
+    // Catatan lama dari sebelum belanja hanya dicatat lewat link: pesanan
+    // gabungan tidak bisa dicatat lewat link, jadi data ini ditulis langsung.
+    const created = await prismaAuth.purchaseRecord.create({
+      data: {
+        purchaseOrderId: ORDER,
+        storeName: "Toko Uji",
+        purchasedAt: now,
+        recordedById: USER,
+        tenantId: TENANT,
+        source: "ADMIN",
+        items: {
+          create: [
+            {
+              purchaseOrderItemId: ORDER_ITEM,
+              barangId: BARANG,
+              quantity: 3,
+              tenantId: TENANT,
+            },
+            {
+              purchaseOrderItemId: ORDER_ITEM_LAIN,
+              barangId: BARANG_LAIN,
+              quantity: 2,
+              tenantId: TENANT,
+            },
+          ],
         },
-      ],
+      },
+      select: { id: true },
     });
-    if (created.kind !== "CREATED") throw new Error(created.kind);
-    return created.record.id;
+    await prismaAuth.purchaseOrderItem.update({
+      where: { id: ORDER_ITEM },
+      data: { purchasedQuantity: 3 },
+    });
+    await prismaAuth.purchaseOrderItem.update({
+      where: { id: ORDER_ITEM_LAIN },
+      data: { purchasedQuantity: 2 },
+    });
+    return created.id;
   }
 
   async function otherPurchasedQuantity(): Promise<number> {

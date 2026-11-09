@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
+import { RESTOCK_ORDER_RECEIPT_MESSAGE } from "@/modules/procurement/client";
 import { ProcurementPageShell } from "../../_components/ProcurementPageShell";
 
 interface PurchaseOrderItem {
@@ -27,6 +28,8 @@ interface PurchaseOrderDetail {
   vendorNpwp: string | null;
   fakturPajakNo: string | null;
   fakturPajakDate: string | null;
+  /** Pesanan milik pengajuan restock; dicatat datang dari halaman Restock. */
+  isRestockOrder?: boolean;
 }
 
 interface PurchaseOrderListItem {
@@ -318,76 +321,93 @@ export function GoodsReceiptCreateClient({
               PO ini tidak punya item.
             </p>
           )}
-          {selectedPoId && !loading && lines.length > 0 && (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300">
-                <tr className="text-left">
-                  <th className="px-2 py-2 font-medium">Barang</th>
-                  <th className="px-2 py-2 font-medium text-right">Order</th>
-                  <th className="px-2 py-2 font-medium text-right">
-                    Sudah Terima
-                  </th>
-                  <th className="px-2 py-2 font-medium text-right">Sisa</th>
-                  <th className="px-2 py-2 font-medium text-right">
-                    Terima Sekarang
-                  </th>
-                  <th className="px-2 py-2 font-medium">Catatan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((line, idx) => (
-                  <tr
-                    key={line.purchaseOrderItemId}
-                    className="border-t border-gray-100 dark:border-gray-800"
-                  >
-                    <td className="px-2 py-2">
-                      <div className="font-medium">{line.barangNama}</div>
-                      <div className="text-xs text-gray-500 font-mono">
-                        {line.barangKode}
-                      </div>
-                    </td>
-                    <td className="px-2 py-2 text-right">{line.ordered}</td>
-                    <td className="px-2 py-2 text-right">
-                      {line.alreadyReceived}
-                    </td>
-                    <td className="px-2 py-2 text-right font-medium">
-                      {line.remaining}
-                    </td>
-                    <td className="px-2 py-2 text-right">
-                      <input
-                        type="number"
-                        min={0}
-                        max={line.remaining}
-                        value={line.receiveNow}
-                        onChange={(e) =>
-                          updateLine(idx, {
-                            receiveNow: Math.min(
-                              line.remaining,
-                              Math.max(0, parseInt(e.target.value, 10) || 0),
-                            ),
-                          })
-                        }
-                        disabled={line.remaining === 0}
-                        className="w-20 px-2 py-1 border border-gray-100 dark:border-gray-700 rounded text-right bg-white dark:bg-gray-800 dark:text-gray-100"
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        type="text"
-                        value={line.notes}
-                        onChange={(e) =>
-                          updateLine(idx, { notes: e.target.value })
-                        }
-                        placeholder="opsional"
-                        maxLength={500}
-                        className="w-full px-2 py-1 border border-gray-100 dark:border-gray-700 rounded bg-white dark:bg-gray-800 dark:text-gray-100"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {selectedPoId && !loading && poDetail?.isRestockOrder && (
+            <p
+              role="status"
+              className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-100"
+            >
+              {RESTOCK_ORDER_RECEIPT_MESSAGE}{" "}
+              <Link
+                href="/admin/inventory/restock"
+                className="font-bold underline"
+              >
+                Buka halaman Restock
+              </Link>
+            </p>
           )}
+          {selectedPoId &&
+            !loading &&
+            !poDetail?.isRestockOrder &&
+            lines.length > 0 && (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50/80 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300">
+                  <tr className="text-left">
+                    <th className="px-2 py-2 font-medium">Barang</th>
+                    <th className="px-2 py-2 font-medium text-right">Order</th>
+                    <th className="px-2 py-2 font-medium text-right">
+                      Sudah Terima
+                    </th>
+                    <th className="px-2 py-2 font-medium text-right">Sisa</th>
+                    <th className="px-2 py-2 font-medium text-right">
+                      Terima Sekarang
+                    </th>
+                    <th className="px-2 py-2 font-medium">Catatan</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line, idx) => (
+                    <tr
+                      key={line.purchaseOrderItemId}
+                      className="border-t border-gray-100 dark:border-gray-800"
+                    >
+                      <td className="px-2 py-2">
+                        <div className="font-medium">{line.barangNama}</div>
+                        <div className="text-xs text-gray-500 font-mono">
+                          {line.barangKode}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 text-right">{line.ordered}</td>
+                      <td className="px-2 py-2 text-right">
+                        {line.alreadyReceived}
+                      </td>
+                      <td className="px-2 py-2 text-right font-medium">
+                        {line.remaining}
+                      </td>
+                      <td className="px-2 py-2 text-right">
+                        <input
+                          type="number"
+                          min={0}
+                          max={line.remaining}
+                          value={line.receiveNow}
+                          onChange={(e) =>
+                            updateLine(idx, {
+                              receiveNow: Math.min(
+                                line.remaining,
+                                Math.max(0, parseInt(e.target.value, 10) || 0),
+                              ),
+                            })
+                          }
+                          disabled={line.remaining === 0}
+                          className="w-20 px-2 py-1 border border-gray-100 dark:border-gray-700 rounded text-right bg-white dark:bg-gray-800 dark:text-gray-100"
+                        />
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          type="text"
+                          value={line.notes}
+                          onChange={(e) =>
+                            updateLine(idx, { notes: e.target.value })
+                          }
+                          placeholder="opsional"
+                          maxLength={500}
+                          className="w-full px-2 py-1 border border-gray-100 dark:border-gray-700 rounded bg-white dark:bg-gray-800 dark:text-gray-100"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
         </fieldset>
 
         <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
@@ -404,7 +424,11 @@ export function GoodsReceiptCreateClient({
             </Link>
             <Button
               type="submit"
-              disabled={submitting || totalReceiveNow === 0}
+              disabled={
+                submitting ||
+                totalReceiveNow === 0 ||
+                !!poDetail?.isRestockOrder
+              }
             >
               {submitting ? "Menyimpan..." : "Simpan & Post Stok"}
             </Button>

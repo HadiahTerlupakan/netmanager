@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   publicPurchaseListSchema,
   publicPurchaseRecordSchema,
-  restockPurchaseRecordSchema,
 } from "@/lib/validations/restock";
 
 const TOKEN = "A".repeat(43);
@@ -136,28 +135,6 @@ describe("publicPurchaseListSchema", () => {
     expect(
       publicPurchaseListSchema.safeParse({ token: TOKEN, lain: 1 }).success,
     ).toBe(false);
-  });
-});
-
-describe("restockPurchaseRecordSchema.buyerName (admin)", () => {
-  const admin = {
-    storeName: "Toko",
-    purchasedAt: "2026-11-09",
-    items: [{ purchaseOrderItemId: "poi-1", quantity: 1 }],
-  };
-
-  it.each([
-    [undefined, undefined],
-    [null, null],
-    ["   ", null],
-    [" Pak  Joko ", "Pak Joko"],
-  ])("%j → %j", (input, expected) => {
-    const result = restockPurchaseRecordSchema.safeParse({
-      ...admin,
-      buyerName: input,
-    });
-    expect(result.success).toBe(true);
-    expect(result.data?.buyerName).toBe(expected);
   });
 });
 

@@ -53,6 +53,7 @@ function context(
       status: "ORDERED",
       tenantId: "tenant-1",
       linkedRequestCount,
+      isLegacyPurchased: false,
       items,
     },
   };
@@ -313,10 +314,7 @@ describe("RestockPublicPurchaseService.submit", () => {
     expect(command).toMatchObject({
       purchaseRequestId: "pr-1",
       tenantId: "tenant-1",
-      supplierId: null,
-      fotoNota: [],
       origin: {
-        kind: "PUBLIC_LINK",
         linkId: "link-1",
         linkCreatorId: "admin-1",
         linkCreatedAt: link.createdAt,

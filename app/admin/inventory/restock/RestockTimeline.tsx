@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 import { FiCheck } from "react-icons/fi";
 
 import {
@@ -10,7 +10,10 @@ import {
   getRestockGoodsReceipts,
   getRestockProgress,
   getRestockPurchaseStep,
+  RESTOCK_STAGE_TITLES,
+  SEND_PURCHASE_LINK_HINT,
   type RestockProgressKey,
+  type RestockStageNumber,
 } from "./restockProgress";
 import {
   buildPurchaseSignatureUrl,
@@ -28,8 +31,13 @@ import type {
 
 interface RestockTimelineProps {
   request: PurchaseRequest;
-  /** Tombol "Catat Belanja" di langkah pembelian; null bila tidak boleh. */
-  recordPurchaseAction?: ReactNode;
+  /** Tambahkan ajakan kirim link belanja (hanya untuk yang boleh membuatnya). */
+  isShowingPurchaseLinkHint?: boolean;
+  /**
+   * Tampilkan kalimat "Sekarang: …" di bawah riwayat. Detail pengajuan
+   * mematikannya karena kalimat itu sudah tampil di bawah daftar tahap.
+   */
+  isShowingCurrentSentence?: boolean;
   /**
    * Aksi pembatalan untuk satu catatan belanja yang masih berlaku; tidak
    * diisi bila pengguna tidak boleh membatalkan.
@@ -245,6 +253,9 @@ function ReceiptStep({
 
 function DecisionStep({ request }: { request: PurchaseRequest }) {
   const approverName = request.approver?.name ?? null;
+  if (request.status === "DRAFT") {
+    return <TimelineStep isDone={false} title="Belum dikirim ke atasan" />;
+  }
   if (UNDECIDED_STATUSES.has(request.status)) {
     return <TimelineStep isDone={false} title="Menunggu keputusan atasan" />;
   }
@@ -281,15 +292,21 @@ function toTime(value: string | null | undefined): number {
   return Number.isNaN(time) ? 0 : time;
 }
 
-/** Belanja dan kiriman digabung lalu diurutkan menurut tanggal. */
-function buildPurchaseAndReceiptEvents(
+function sortByTime(events: TimelineEvent[]): ReactNode[] {
+  // Array.prototype.sort stabil: urutan asal dipakai bila waktunya sama.
+  return [...events]
+    .sort((left, right) => left.time - right.time)
+    .map((event) => event.node);
+}
+
+/** Catatan belanja (tahap 3), urut menurut tanggal belanja. */
+function buildPurchaseNodes(
   requestId: string,
   purchaseRecords: PurchaseRecordSummary[],
-  receipts: GoodsReceiptSummary[],
   renderVoidAction?: RestockTimelineProps["renderPurchaseVoidAction"],
-): TimelineEvent[] {
-  const events: TimelineEvent[] = [
-    ...purchaseRecords.map((record, index) => ({
+): ReactNode[] {
+  return sortByTime(
+    purchaseRecords.map((record, index) => ({
       time: toTime(record.purchasedAt) - PURCHASE_DAY_OFFSET_MS,
       node: (
         <PurchaseStep
@@ -301,7 +318,13 @@ function buildPurchaseAndReceiptEvents(
         />
       ),
     })),
-    ...receipts.map((receipt, index) => ({
+  );
+}
+
+/** Kiriman barang (tahap 4), urut menurut waktu datang. */
+function buildReceiptNodes(receipts: GoodsReceiptSummary[]): ReactNode[] {
+  return sortByTime(
+    receipts.map((receipt, index) => ({
       time: toTime(receipt.receivedAt),
       node: (
         <ReceiptStep
@@ -311,19 +334,50 @@ function buildPurchaseAndReceiptEvents(
         />
       ),
     })),
-  ];
-  // Array.prototype.sort stabil: pada waktu sama, belanja tetap di depan.
-  return events.sort((left, right) => left.time - right.time);
+  );
+}
+
+/** Satu kelompok tahap di riwayat: "3 Pembelian" beserta langkahnya. */
+function StageGroup({
+  stage,
+  children,
+}: {
+  stage: RestockStageNumber;
+  children: ReactNode;
+}) {
+  const headingId = `${useId()}-stage-${stage}`;
+  return (
+    <li aria-labelledby={headingId} className="space-y-2">
+      <h3
+        id={headingId}
+        className="text-xs font-bold uppercase tracking-wide text-gray-700 dark:text-gray-300"
+      >
+        {stage} {RESTOCK_STAGE_TITLES[stage]}
+      </h3>
+      <ol className="space-y-0">{children}</ol>
+    </li>
+  );
+}
+
+/** Kalimat keadaan sekarang, ditambah ajakan kirim link bila diminta. */
+export function describeCurrentRestockSentence(
+  sentence: string,
+  isShowingPurchaseLinkHint: boolean,
+): string {
+  return isShowingPurchaseLinkHint
+    ? `${sentence} ${SEND_PURCHASE_LINK_HINT}`
+    : sentence;
 }
 
 /**
- * Riwayat pengajuan dari diajukan sampai selesai: siapa dan kapan disetujui,
- * tiap belanja di toko dan tiap kiriman menurut urutan tanggal, lalu langkah
- * yang belum selesai di bagian akhir.
+ * Riwayat pengajuan dari diajukan sampai selesai, dikelompokkan per tahap:
+ * 1 Pengajuan, 2 Persetujuan, 3 Pembelian (tiap belanja lewat link), dan
+ * 4 Verifikasi barang sampai (tiap kiriman, lalu penutup).
  */
 export function RestockTimeline({
   request,
-  recordPurchaseAction,
+  isShowingPurchaseLinkHint = false,
+  isShowingCurrentSentence = true,
   renderPurchaseVoidAction,
 }: RestockTimelineProps) {
   const progress = getRestockProgress(request);
@@ -334,12 +388,15 @@ export function RestockTimeline({
     ? getAllRestockPurchaseRecords(request)
     : [];
   const purchaseStep = isDecided ? getRestockPurchaseStep(request) : null;
-  const receipts = getRestockGoodsReceipts(request);
-  const events = buildPurchaseAndReceiptEvents(
+  const purchaseNodes = buildPurchaseNodes(
     request.id,
     purchaseRecords,
-    receipts,
     renderPurchaseVoidAction,
+  );
+  const receiptNodes = buildReceiptNodes(getRestockGoodsReceipts(request));
+  const currentSentence = describeCurrentRestockSentence(
+    progress.sentence,
+    isShowingPurchaseLinkHint,
   );
   const finalLabel = FINAL_STEP_LABELS[progress.key];
   const poNumber = request.purchaseOrder?.poNumber;
@@ -350,36 +407,47 @@ export function RestockTimeline({
         purchaseStep.label,
         purchaseStep.isDone ? purchaseStep.processedByName : null,
       ])}
-    >
-      {!purchaseStep.isDone && recordPurchaseAction}
-    </TimelineStep>
+    />
   );
 
   return (
     <section aria-label="Perjalanan pesanan" className="space-y-3">
-      <ol className="space-y-0">
-        <TimelineStep
-          isDone
-          title={joinParts([
-            "Diajukan",
-            formatRestockDate(request.tanggal || request.createdAt),
-            request.requester?.name,
-          ])}
-        />
-        <DecisionStep request={request} />
-        {purchaseStep?.isDone && purchaseStepNode}
-        {events.map((event) => event.node)}
-        {purchaseStep && !purchaseStep.isDone && purchaseStepNode}
-        {isDecided && (
+      <ol className="space-y-4">
+        <StageGroup stage={1}>
           <TimelineStep
-            isDone={!!finalLabel}
-            title={finalLabel ?? "Belum selesai"}
+            isDone={request.status !== "DRAFT"}
+            title={joinParts([
+              request.status === "DRAFT" ? "Belum diajukan" : "Diajukan",
+              formatRestockDate(request.tanggal || request.createdAt),
+              request.requester?.name,
+            ])}
           />
+        </StageGroup>
+        <StageGroup stage={2}>
+          <DecisionStep request={request} />
+        </StageGroup>
+        {isDecided && (purchaseStep || purchaseNodes.length > 0) && (
+          <StageGroup stage={3}>
+            {purchaseStep?.isDone && purchaseStepNode}
+            {purchaseNodes}
+            {purchaseStep && !purchaseStep.isDone && purchaseStepNode}
+          </StageGroup>
+        )}
+        {isDecided && (
+          <StageGroup stage={4}>
+            {receiptNodes}
+            <TimelineStep
+              isDone={!!finalLabel}
+              title={finalLabel ?? "Belum selesai"}
+            />
+          </StageGroup>
         )}
       </ol>
-      <p className="rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-        Sekarang: {progress.sentence}
-      </p>
+      {isShowingCurrentSentence && (
+        <p className="rounded-xl bg-gray-50 p-3 text-sm font-semibold text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+          Sekarang: {currentSentence}
+        </p>
+      )}
       {poNumber && (
         <p className="text-xs text-gray-600 dark:text-gray-400">
           Kode pesanan: {poNumber}

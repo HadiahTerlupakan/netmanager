@@ -5,6 +5,7 @@ import {
   describeGoodsReceiptContents,
   getRestockGoodsReceipts,
   getRestockLineProgress,
+  describeRestockStatusLine,
   getRestockProgress,
   getRestockProgressActions,
   getRestockPurchaseStep,
@@ -59,11 +60,23 @@ const konektor = makeItem({
 });
 
 describe("getRestockProgress", () => {
-  it("waits for the approver while the request is a draft", () => {
-    const progress = getRestockProgress(makeRequest({ status: "DRAFT" }));
-    expect(progress.key).toBe("AWAITING_APPROVAL");
-    expect(progress.label).toBe("Menunggu Persetujuan");
-    expect(progress.sentence).toBe("Belum diputuskan atasan.");
+  it("keeps a draft at stage 1 and a submitted request at stage 2", () => {
+    const draft = getRestockProgress(makeRequest({ status: "DRAFT" }));
+    expect(draft.key).toBe("AWAITING_APPROVAL");
+    expect(draft).toMatchObject({
+      stage: 1,
+      stageText: "Tahap 1 dari 4: Pengajuan",
+      label: "Belum Diajukan",
+      sentence: "Pengajuan belum dikirim ke atasan.",
+    });
+
+    const submitted = getRestockProgress(makeRequest({ status: "SUBMITTED" }));
+    expect(submitted).toMatchObject({
+      stage: 2,
+      stageText: "Tahap 2 dari 4: Persetujuan",
+      label: "Menunggu Persetujuan",
+      sentence: "Belum diputuskan atasan.",
+    });
   });
 
   it("explains a rejected request", () => {
@@ -72,40 +85,50 @@ describe("getRestockProgress", () => {
     expect(progress.sentence).toBe("Pengajuan ini tidak disetujui.");
   });
 
-  it("asks for admin help when the approved request has no order", () => {
+  it("points to closing the request when the approved request has no order", () => {
     const progress = getRestockProgress(
       makeRequest({ status: "APPROVED", purchaseOrder: null }),
     );
     expect(progress.key).toBe("NO_ORDER");
-    expect(progress.label).toBe("Disetujui, belum bisa dibeli");
+    expect(progress.stage).toBe(3);
+    expect(progress.label).toBe("Belum Bisa Dibeli");
     expect(progress.sentence).toBe(
-      "Daftar belanjanya belum ada. Hubungi admin. Kalau barangnya sudah datang, tetap bisa dicatat.",
+      'Daftar belanjanya belum ada, jadi link belanja belum bisa dibuat. Bila barangnya tidak jadi dibeli, tutup pengajuan ini lewat "Tutup sisa yang tidak jadi dibeli".',
     );
-    // Server membuat daftar belanjanya otomatis saat barang dicatat datang.
-    expect(getRestockProgressActions(progress.key).receiveLabel).toBe(
-      "Catat Barang Datang",
-    );
+    // Tanpa laporan belanja tidak ada yang bisa dicatat datang.
+    expect(
+      getRestockProgressActions(
+        makeRequest({ status: "APPROVED", purchaseOrder: null }),
+      ),
+    ).toEqual({
+      receiveLabel: null,
+      canSendLink: false,
+      canCloseUnpurchased: true,
+    });
   });
 
   it("shows not bought while the order is still a draft", () => {
     const progress = getRestockProgress(makeRequest());
     expect(progress.key).toBe("NOT_PURCHASED");
+    expect(progress.stage).toBe(3);
+    expect(progress.stageText).toBe("Tahap 3 dari 4: Pembelian");
     expect(progress.label).toBe("Belum Dibeli");
     expect(progress.sentence).toBe(
-      "Sudah disetujui. Belum ada barang yang dibeli.",
+      "Tahap pembelian: menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli.",
     );
   });
 
-  it("shows bought and waiting once the order left draft", () => {
+  it("moves to stage 4 once a legacy order was marked bought at once", () => {
     const progress = getRestockProgress(
       makeRequest({
         purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "ORDERED" },
       }),
     );
     expect(progress.key).toBe("PURCHASED");
-    expect(progress.label).toBe("Sudah Dibeli Semua, Tunggu Barangnya");
+    expect(progress.stage).toBe(4);
+    expect(progress.label).toBe("Menunggu Barang");
     expect(progress.sentence).toBe(
-      "Semua barang sudah dibeli. Tunggu barangnya datang.",
+      "Semua barang sudah dibeli. Catat barangnya saat datang.",
     );
   });
 
@@ -232,16 +255,25 @@ describe("getRestockProgress", () => {
       }),
     );
     expect(received.key).toBe("COMPLETE_SHORT");
-    expect(getRestockProgressActions(received.key).receiveLabel).toBeNull();
+    expect(
+      getRestockProgressActions(
+        makeRequest({
+          status: "ORDERED",
+          purchaseOrder: { id: "po-1", status: "RECEIVED" },
+          items: [makeItem({ receivedQuantity: 6 })],
+        }),
+      ).receiveLabel,
+    ).toBeNull();
 
-    const cancelled = getRestockProgress(
-      makeRequest({
-        status: "ORDERED",
-        purchaseOrder: { id: "po-1", status: "CANCELLED" },
-      }),
-    );
+    const cancelledRequest = makeRequest({
+      status: "ORDERED",
+      purchaseOrder: { id: "po-1", status: "CANCELLED" },
+    });
+    const cancelled = getRestockProgress(cancelledRequest);
     expect(cancelled.key).toBe("CANCELLED");
-    expect(getRestockProgressActions(cancelled.key).receiveLabel).toBeNull();
+    expect(cancelled.stage).toBeNull();
+    expect(cancelled.stageText).toBe("");
+    expect(getRestockProgressActions(cancelledRequest).receiveLabel).toBeNull();
   });
 
   it("offers no receive or mark-bought action on a jasa-only request", () => {
@@ -254,12 +286,13 @@ describe("getRestockProgress", () => {
       statusKonfirmasi: "PENDING" as const,
       jasa: { id: "jasa-1", kode: "J-1", nama: "Tarik Kabel", satuan: "titik" },
     };
-    const pending = getRestockProgress(
-      makeRequest({ items: [], jasaItems: [jasa] }),
-    );
+    const pendingRequest = makeRequest({ items: [], jasaItems: [jasa] });
+    const pending = getRestockProgress(pendingRequest);
     expect(pending.key).toBe("SERVICE_PENDING");
-    expect(getRestockProgressActions(pending.key)).toEqual({
+    expect(getRestockProgressActions(pendingRequest)).toEqual({
       receiveLabel: null,
+      canSendLink: false,
+      canCloseUnpurchased: false,
     });
 
     const done = getRestockProgress(
@@ -345,23 +378,195 @@ describe("restock progress helpers", () => {
     });
   });
 
-  it("maps derived status to the receive actions", () => {
-    expect(getRestockProgressActions("NOT_PURCHASED")).toEqual({
-      receiveLabel: "Catat Barang Datang",
-    });
-    expect(getRestockProgressActions("PURCHASING").receiveLabel).toBe(
-      "Catat Barang Datang",
-    );
-    expect(getRestockProgressActions("PURCHASED").receiveLabel).toBe(
-      "Catat Barang Datang",
-    );
-    expect(getRestockProgressActions("PARTIAL").receiveLabel).toBe(
-      "Catat Kiriman Berikutnya",
-    );
-    expect(getRestockProgressActions("COMPLETE").receiveLabel).toBeNull();
+  it("offers recording goods only for what was reported bought", () => {
+    // Belum dibeli: hanya link belanja.
     expect(
-      getRestockProgressActions("SERVICE_PENDING").receiveLabel,
-    ).toBeNull();
+      getRestockProgressActions(
+        makeRequest({ items: [makeItem({ purchaseOrderItemId: "poi-1" })] }),
+      ),
+    ).toEqual({
+      receiveLabel: null,
+      canSendLink: true,
+      canCloseUnpurchased: false,
+    });
+    // Dibeli sebagian: link tetap ada, barang yang sudah dibeli bisa dicatat.
+    expect(
+      getRestockProgressActions(
+        makeRequest({
+          purchaseOrder: { id: "po-1", status: "ORDERED" },
+          items: [
+            makeItem({ purchaseOrderItemId: "poi-1", purchasedQuantity: 4 }),
+          ],
+        }),
+      ),
+    ).toEqual({
+      receiveLabel: "Catat Barang Datang",
+      canSendLink: true,
+      canCloseUnpurchased: false,
+    });
+    // Sudah dibeli semua: hanya catat.
+    expect(
+      getRestockProgressActions(
+        makeRequest({
+          purchaseOrder: { id: "po-1", status: "ORDERED" },
+          items: [makeItem({ purchasedQuantity: 10 })],
+        }),
+      ),
+    ).toEqual({
+      receiveLabel: "Catat Barang Datang",
+      canSendLink: false,
+      canCloseUnpurchased: false,
+    });
+    // Sudah datang sebagian: kiriman berikutnya.
+    expect(
+      getRestockProgressActions(
+        makeRequest({
+          purchaseOrder: { id: "po-1", status: "PARTIAL" },
+          items: [makeItem({ purchasedQuantity: 10, receivedQuantity: 4 })],
+        }),
+      ).receiveLabel,
+    ).toBe("Catat Kiriman Berikutnya");
+    // Semua yang dibeli sudah datang, sisanya belum dibeli: tidak ada catat.
+    expect(
+      getRestockProgressActions(
+        makeRequest({
+          purchaseOrder: { id: "po-1", status: "PARTIAL" },
+          items: [
+            makeItem({
+              purchaseOrderItemId: "poi-1",
+              purchasedQuantity: 4,
+              receivedQuantity: 4,
+            }),
+          ],
+        }),
+      ),
+    ).toEqual({
+      receiveLabel: null,
+      canSendLink: true,
+      canCloseUnpurchased: false,
+    });
+  });
+
+  it("keeps the old receive action for legacy and merged orders", () => {
+    const legacy = makeRequest({
+      purchaseOrder: {
+        id: "po-1",
+        status: "ORDERED",
+        issuedAt: "2026-11-01T00:00:00.000Z",
+      },
+    });
+    expect(getRestockProgressActions(legacy)).toEqual({
+      receiveLabel: "Catat Barang Datang",
+      canSendLink: false,
+      canCloseUnpurchased: false,
+    });
+    const merged = makeRequest({
+      purchaseOrder: {
+        id: "po-1",
+        status: "DRAFT",
+        _count: { purchaseRequests: 2 },
+      },
+    });
+    expect(getRestockProgressActions(merged)).toEqual({
+      receiveLabel: "Catat Barang Datang",
+      canSendLink: false,
+      canCloseUnpurchased: false,
+    });
+    expect(getRestockProgress(merged).sentence).toContain(
+      "Barangnya bisa langsung dicatat datang.",
+    );
+  });
+
+  it("describes the status line for the PDF and screen readers", () => {
+    expect(describeRestockStatusLine(getRestockProgress(makeRequest()))).toBe(
+      "Tahap 3 dari 4 (Pembelian): Belum Dibeli",
+    );
+    expect(
+      describeRestockStatusLine(
+        getRestockProgress(makeRequest({ status: "CANCELLED" })),
+      ),
+    ).toBe("Dibatalkan");
+  });
+
+  it("keeps a partial arrival in the purchase stage while buying continues", () => {
+    const progress = getRestockProgress(
+      makeRequest({
+        purchaseOrder: { id: "po-1", status: "PARTIAL" },
+        items: [makeItem({ purchasedQuantity: 6, receivedQuantity: 6 })],
+      }),
+    );
+    // Label dan warna sama dengan "Dibeli Sebagian" sebelum ada barang datang.
+    expect(progress).toMatchObject({
+      key: "PURCHASING",
+      stage: 3,
+      label: "Dibeli Sebagian",
+      isVerificationStarted: true,
+    });
+    expect(progress.sentence).toBe(
+      "Kabel Fiber dibeli 6 dari 10 roll, sudah datang 6 roll. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli sudah datang semua.",
+    );
+  });
+
+  it("separates bought-and-on-the-way from not bought yet", () => {
+    const progress = getRestockProgress(
+      makeRequest({
+        purchaseOrder: { id: "po-1", status: "PARTIAL" },
+        items: [makeItem({ purchasedQuantity: 6, receivedQuantity: 2 })],
+      }),
+    );
+    expect(progress.sentence).toBe(
+      "Kabel Fiber dibeli 6 dari 10 roll, sudah datang 2 roll. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
+    );
+  });
+
+  it("puts a merged order without arrivals in stage 4 as waiting for goods", () => {
+    const progress = getRestockProgress(
+      makeRequest({
+        purchaseOrder: {
+          id: "po-1",
+          status: "DRAFT",
+          _count: { purchaseRequests: 2 },
+        },
+      }),
+    );
+    expect(progress).toMatchObject({
+      key: "PURCHASED",
+      stage: 4,
+      label: "Menunggu Barang",
+      stageText: "Tahap 4 dari 4: Verifikasi barang sampai",
+    });
+    expect(progress.sentence).toContain("belanjanya tidak dicatat");
+  });
+
+  it("marks where a rejected or cancelled request stopped", () => {
+    expect(
+      getRestockProgress(makeRequest({ status: "REJECTED" })),
+    ).toMatchObject({ stage: 2, stoppedStage: 2 });
+    expect(
+      getRestockProgress(
+        makeRequest({
+          status: "CANCELLED",
+          approvedAt: "2026-11-01T00:00:00.000Z",
+        }),
+      ),
+    ).toMatchObject({ stage: null, stoppedStage: 3 });
+    expect(
+      getRestockProgress(
+        makeRequest({
+          status: "CANCELLED",
+          purchaseOrder: null,
+          approvedAt: undefined,
+        }),
+      ).stoppedStage,
+    ).toBe(2);
+    expect(
+      getRestockProgress(
+        makeRequest({
+          status: "CANCELLED",
+          items: [makeItem({ receivedQuantity: 2 })],
+        }),
+      ).stoppedStage,
+    ).toBe(4);
   });
 
   it("hides delete once goods were bought or arrived", () => {
@@ -393,7 +598,9 @@ describe("restock progress helpers", () => {
   });
 
   it("labels the purchase step, including legacy orders without a date", () => {
-    expect(getRestockPurchaseStep(makeRequest())?.label).toBe("Belum dibeli");
+    expect(getRestockPurchaseStep(makeRequest())?.label).toBe(
+      "Tahap pembelian: menunggu laporan belanja dari link",
+    );
     expect(
       getRestockPurchaseStep(
         makeRequest({

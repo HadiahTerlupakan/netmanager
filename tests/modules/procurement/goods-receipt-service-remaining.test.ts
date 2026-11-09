@@ -6,10 +6,14 @@ vi.mock("@/lib/event-bus", () => ({
 
 import {
   GoodsReceiptInvalidError,
+  GoodsReceiptRestockOrderError,
   GoodsReceiptService,
 } from "@/modules/procurement/services/GoodsReceiptService";
 
-function createService(purchaseOrder: Record<string, unknown>) {
+function createService(
+  purchaseOrder: Record<string, unknown>,
+  linkedRestockRequestCount = 0,
+) {
   const grnRepo = {
     generateGrnNumber: vi.fn().mockResolvedValue("GRN-001"),
     createAndPost: vi
@@ -24,6 +28,9 @@ function createService(purchaseOrder: Record<string, unknown>) {
       status: "PARTIAL",
       ...purchaseOrder,
     }),
+    countLinkedRestockRequests: vi
+      .fn()
+      .mockResolvedValue(linkedRestockRequestCount),
   };
   return {
     grnRepo,
@@ -91,5 +98,40 @@ describe("GoodsReceiptService — sisa yang masih ditunggu", () => {
 
     await expect(service.create(createInput(1))).rejects.toThrow(message);
     expect(grnRepo.createAndPost).not.toHaveBeenCalled();
+  });
+});
+
+describe("GoodsReceiptService — pesanan dari pengajuan restock", () => {
+  it("halaman Pembelian menolak pesanan restock tanpa membuat dokumen apa pun", async () => {
+    const { service, grnRepo } = createService({ items: [kabel] }, 1);
+
+    const attempt = service.createFromProcurementPage(createInput(1));
+
+    await expect(attempt).rejects.toBeInstanceOf(GoodsReceiptRestockOrderError);
+    await expect(attempt).rejects.toThrow(
+      "Pesanan ini dari pengajuan restock. Catat barang datang dari halaman Restock.",
+    );
+    expect(grnRepo.generateGrnNumber).not.toHaveBeenCalled();
+    expect(grnRepo.createAndPost).not.toHaveBeenCalled();
+  });
+
+  it("halaman Pembelian tetap menerima pesanan biasa", async () => {
+    const { service, grnRepo } = createService({ items: [kabel] }, 0);
+
+    await service.createFromProcurementPage(createInput(1));
+
+    expect(grnRepo.createAndPost).toHaveBeenCalledWith(
+      expect.objectContaining({ isLimitedToPurchased: false }),
+    );
+  });
+
+  it("alur restock sendiri tetap bisa memakai create() untuk pesanan restock", async () => {
+    const { service, grnRepo } = createService({ items: [kabel] }, 1);
+
+    await service.create({ ...createInput(1), isLimitedToPurchased: true });
+
+    expect(grnRepo.createAndPost).toHaveBeenCalledWith(
+      expect.objectContaining({ isLimitedToPurchased: true }),
+    );
   });
 });

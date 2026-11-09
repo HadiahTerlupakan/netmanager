@@ -38,6 +38,13 @@ export interface ReceiveRestockRequestInput {
   canIncreasePurchaseOrder: boolean;
   fotoBukti: string[];
   closePO: boolean;
+  /**
+   * "Tutup sisa yang tidak jadi dibeli": coret bagian yang belum dibeli tanpa
+   * ada barang datang. Tidak boleh digabung dengan jumlah datang.
+   */
+  closeUnpurchased?: boolean;
+  /** Alasan sisa tidak jadi dibeli; wajib bila `closeUnpurchased`. */
+  closeReason?: string;
   actorId: string;
   tenantId: string;
 }
@@ -92,6 +99,13 @@ export function isFinishingWithoutDelivery(
     (reason) => typeof reason === "string" && reason.trim().length > 0,
   );
   return input.closePO || hasCancellation;
+}
+
+/** Penutupan sisa yang belum dibeli, tanpa barang datang. */
+export function isClosingUnpurchased(
+  input: ReceiveRestockRequestInput,
+): boolean {
+  return Boolean(input.closeUnpurchased) && isNothingReceived(input);
 }
 
 /** Semua jumlah datang yang dikirim bernilai 0 (atau tidak diisi). */

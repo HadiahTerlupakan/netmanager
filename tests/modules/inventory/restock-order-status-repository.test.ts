@@ -6,90 +6,6 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 import { RestockGoodsReceiptRepository } from "@/modules/inventory/repositories/RestockGoodsReceiptRepository";
-import { RestockPurchaseOrderStatusService } from "@/modules/inventory/services/RestockPurchaseOrderStatusService";
-
-function createRepository(status: string) {
-  return {
-    findPurchaseOrderWithItems: vi.fn().mockResolvedValue({
-      id: "po-1",
-      poNumber: "PO-20261108-0001",
-      status,
-      tenantId: "tenant-1",
-      items: [],
-    }),
-    findPurchaseOrderStatus: vi.fn().mockResolvedValue(status),
-    markPurchaseOrderOrdered: vi
-      .fn()
-      .mockResolvedValue({ id: "po-1", status: "ORDERED" }),
-  };
-}
-
-describe("Tandai Sudah Dibeli (START_SHOPPING)", () => {
-  it("mencatat pembeli dan tanggal beli saat pesanan DRAFT ditandai", async () => {
-    const repository = createRepository("DRAFT");
-    const service = new RestockPurchaseOrderStatusService(repository as never);
-
-    const response = await service.patchRestockRequestStatus({
-      purchaseOrderId: "po-1",
-      action: "START_SHOPPING",
-      actorId: "user-belanja",
-    });
-
-    expect(response.status).toBe(200);
-    expect(repository.markPurchaseOrderOrdered).toHaveBeenCalledWith({
-      purchaseOrderId: "po-1",
-      processedById: "user-belanja",
-      issuedAt: expect.any(Date),
-    });
-    expect(await response.json()).toMatchObject({ status: "ORDERED" });
-  });
-
-  it("menolak dengan bahasa biasa bila pesanan sudah ditandai", async () => {
-    const repository = createRepository("ORDERED");
-    const service = new RestockPurchaseOrderStatusService(repository as never);
-
-    const response = await service.patchRestockRequestStatus({
-      purchaseOrderId: "po-1",
-      action: "START_SHOPPING",
-      actorId: "user-belanja",
-    });
-
-    expect(response.status).toBe(400);
-    expect(repository.markPurchaseOrderOrdered).not.toHaveBeenCalled();
-    const { error } = await response.json();
-    expect(error).toContain("Pesanan ini sudah tercatat dibeli.");
-    expect(error).not.toMatch(/\bPO\b|ORDERED/);
-  });
-
-  it("menolak bila pesanan sudah ditandai orang lain bersamaan", async () => {
-    const repository = createRepository("DRAFT");
-    repository.markPurchaseOrderOrdered.mockResolvedValue(null);
-    repository.findPurchaseOrderStatus.mockResolvedValue("ORDERED");
-    const service = new RestockPurchaseOrderStatusService(repository as never);
-
-    const response = await service.patchRestockRequestStatus({
-      purchaseOrderId: "po-1",
-      action: "START_SHOPPING",
-      actorId: "user-belanja",
-    });
-
-    expect(response.status).toBe(400);
-  });
-
-  it("menolak tindakan selain START_SHOPPING", async () => {
-    const repository = createRepository("DRAFT");
-    const service = new RestockPurchaseOrderStatusService(repository as never);
-
-    const response = await service.patchRestockRequestStatus({
-      purchaseOrderId: "po-1",
-      action: "RECEIVE",
-      actorId: "user-belanja",
-    });
-
-    expect(response.status).toBe(400);
-    expect(repository.findPurchaseOrderWithItems).not.toHaveBeenCalled();
-  });
-});
 
 describe("RestockGoodsReceiptRepository — status pesanan", () => {
   function createDb() {
@@ -170,40 +86,6 @@ describe("RestockGoodsReceiptRepository — status pesanan", () => {
       expect(lockSql.join("?")).toMatch(/FROM purchase_orders .*FOR UPDATE/s);
     },
   );
-
-  it("mengubah DRAFT ke ORDERED bersama issuedAt hanya bila masih DRAFT", async () => {
-    const db = createDb();
-    const issuedAt = new Date("2026-11-08T09:00:00Z");
-
-    await new RestockGoodsReceiptRepository(
-      db as never,
-    ).markPurchaseOrderOrdered({
-      purchaseOrderId: "po-1",
-      processedById: "user-1",
-      issuedAt,
-    });
-
-    expect(db.purchaseOrder.updateMany).toHaveBeenCalledWith({
-      where: { id: "po-1", status: "DRAFT" },
-      data: { status: "ORDERED", processedById: "user-1", issuedAt },
-    });
-  });
-
-  it("mengembalikan null bila pesanan sudah tidak DRAFT", async () => {
-    const db = createDb();
-    db.purchaseOrder.updateMany.mockResolvedValue({ count: 0 });
-
-    const result = await new RestockGoodsReceiptRepository(
-      db as never,
-    ).markPurchaseOrderOrdered({
-      purchaseOrderId: "po-1",
-      processedById: "user-1",
-      issuedAt: new Date(),
-    });
-
-    expect(result).toBeNull();
-    expect(db.purchaseOrder.findUnique).not.toHaveBeenCalled();
-  });
 
   it("menandai semua pengajuan di pesanan itu selesai, kecuali yang sudah final", async () => {
     const db = createDb();

@@ -85,22 +85,93 @@ describe("RestockReceiveModal", () => {
 
     expect(markup).toContain("Pengajuan PR-001");
     expect(markup).toContain("Kode pesanan: PO-2026-001");
-    expect(markup).toContain("Sudah Dibeli Semua, Tunggu Barangnya");
+    expect(markup).toContain("Menunggu Barang");
     expect(markup).toContain("Masuk ke gudang: Gudang A");
     expect(markup).not.toContain("Belum ada catatan belanja");
   });
 
-  it("reassures staff when nothing was recorded as bought yet", () => {
+  it("explains that only goods reported bought can be recorded", () => {
+    const markup = renderReceiveModal({
+      request: {
+        ...request,
+        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "ORDERED" },
+        items: [
+          {
+            ...request.items[0],
+            purchaseOrderItemId: "poi-1",
+            purchasedQuantity: 4,
+            receivedQuantity: 1,
+          },
+        ],
+      },
+      receivedItems: { "barang-1": 3 },
+    });
+
+    expect(markup).toContain(
+      "Hanya barang yang sudah dilaporkan dibeli yang bisa dicatat datang.",
+    );
+    expect(markup).toContain(
+      "Sudah dibeli 4 roll · Sudah datang 1 roll · Bisa dicatat sekarang 3 roll",
+    );
+    expect(markup).toContain(
+      "Sudah terisi semua yang sudah dibeli. Ubah kalau yang datang lebih sedikit.",
+    );
+    expect(markup).not.toContain("dihitung sudah dibeli");
+    // Mode terbatas: tombol isi otomatis tidak menjanjikan "lengkap", dan
+    // sisa yang belum dibeli tidak disuruh dicatat sebagai kiriman berikutnya.
+    expect(markup).toContain("Isi semua yang sudah dibeli");
+    expect(markup).not.toContain("Semua datang lengkap");
+    expect(markup).toContain(
+      "Barang yang belum dibeli dicatat setelah dibeli lewat link dan datang.",
+    );
+  });
+
+  it("disables a line that was not reported bought yet", () => {
     const markup = renderReceiveModal({
       request: {
         ...request,
         purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
+        items: [
+          {
+            ...request.items[0],
+            purchaseOrderItemId: "poi-1",
+            purchasedQuantity: 0,
+          },
+        ],
       },
+      receivedItems: { "barang-1": 0 },
     });
 
     expect(markup).toContain(
-      "Belum ada catatan belanja. Tidak apa-apa, barang yang datang dihitung sudah dibeli.",
+      "Belum dibeli. Bisa dicatat setelah dilaporkan dibeli lewat link.",
     );
+    expect(markup).toMatch(
+      /aria-label="Jumlah Kabel Fiber yang datang hari ini"[^>]*disabled=""/,
+    );
+    // Barang yang belum dibeli tidak mungkin datang sebagai barang lain.
+    expect(markup).not.toContain("Yang datang barang lain?");
+  });
+
+  it("rejects more than was bought and hides the larger-delivery box", () => {
+    const markup = renderReceiveModal({
+      request: {
+        ...request,
+        items: [
+          {
+            ...request.items[0],
+            purchaseOrderItemId: "poi-1",
+            purchasedQuantity: 4,
+          },
+        ],
+      },
+      receivedItems: { "barang-1": 12 },
+      receivedPhotos: photo,
+    });
+
+    expect(markup).toContain(
+      "Kabel Fiber: baru 4 roll yang sudah dibeli dan belum datang. Isi paling banyak 4.",
+    );
+    expect(markup).not.toContain("lebih banyak dari pesanan");
   });
 
   it("stays quiet once part of the goods was recorded as bought", () => {
@@ -132,9 +203,16 @@ describe("RestockReceiveModal", () => {
 
   it("shows the order progress of each line", () => {
     const fresh = renderReceiveModal();
+    // Data lama: ditandai dibeli sekaligus sebelum barang datang.
     const partial = renderReceiveModal({
       request: {
         ...request,
+        purchaseOrder: {
+          id: "po-1",
+          poNumber: "PO-2026-001",
+          status: "PARTIAL",
+          issuedAt: "2026-04-01T00:00:00.000Z",
+        },
         items: [{ ...request.items[0], receivedQuantity: 6 }],
       },
       receivedItems: { "barang-1": 4 },
@@ -142,8 +220,9 @@ describe("RestockReceiveModal", () => {
 
     expect(fresh).toContain("Dipesan 10 roll · Belum ada yang datang");
     expect(partial).toContain(
-      "Dipesan 10 roll · Sudah datang 6 · Masih ditunggu 4",
+      "Dipesan 10 roll · Sudah datang 6 roll · Masih ditunggu 4 roll",
     );
+    expect(partial).toContain("Semua datang lengkap");
     expect(partial).toContain(
       "Sudah terisi semua sisa. Ubah kalau yang datang lebih sedikit.",
     );

@@ -34,3 +34,18 @@ export {
 
 export { describeInventoryMutationProblems } from "./services/inventory-route-validation.helpers";
 export { labelKondisiBarang } from "./domain/inventory-user-error";
+
+// Aturan tahap verifikasi barang sampai (dipakai layar restock).
+export {
+  canReceiveWithoutPurchaseReport,
+  getOutstandingQuantity,
+  getPurchasedAwaitingArrival,
+  getReceiveLimit,
+  getUnpurchasedRemainder,
+  isLegacyPurchasedOrder,
+  isMergedRestockOrder,
+  RESTOCK_RECEIPT_ELIGIBILITY_MESSAGES,
+  type RestockPurchaseEvidence,
+  type RestockReceiptItemQuantities,
+  type RestockReceiptItemWithPurchase,
+} from "./domain/restock-receipt-eligibility";

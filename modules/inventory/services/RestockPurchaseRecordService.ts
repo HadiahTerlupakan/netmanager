@@ -26,30 +26,21 @@ import { RESTOCK_MESSAGES } from "./restock-messages";
 export type { RestockPurchaseRecordView } from "../domain/ports/IRestockPurchaseRecordRepository";
 
 /**
- * Siapa yang mencatat: petugas di aplikasi, atau pembeli lewat link tanpa
- * login. Catatan lewat link tetap punya penanggung jawab internal (pembuat
- * link) di `recordedById`; identitas pembeli ada di `buyerName` & tanda tangan.
+ * Asal catatan belanja: pembeli lewat link tanpa login. Catatan tetap punya
+ * penanggung jawab internal (pembuat link) di `recordedById`; identitas
+ * pembeli ada di `buyerName` & tanda tangan.
  */
-export type PurchaseRecordOrigin =
-  | {
-      kind: "ADMIN";
-      actorId: string;
-      /** Isian nama pembeli; kosong berarti nama pencatat. */
-      buyerName: string | null;
-      actorName: string | null;
-    }
-  | {
-      kind: "PUBLIC_LINK";
-      linkId: string;
-      linkCreatorId: string;
-      /** Tanggal belanja lewat link tidak boleh jauh sebelum link dibuat. */
-      linkCreatedAt: Date;
-      buyerName: string;
-      signatureKey: string;
-      clientRequestId: string;
-      ipAddress: string | null;
-      userAgent: string | null;
-    };
+export interface PurchaseRecordOrigin {
+  linkId: string;
+  linkCreatorId: string;
+  /** Tanggal belanja lewat link tidak boleh jauh sebelum link dibuat. */
+  linkCreatedAt: Date;
+  buyerName: string;
+  signatureKey: string;
+  clientRequestId: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+}
 
 /** Isian satu catatan belanja. */
 export interface RecordRestockPurchaseCommand {
@@ -57,11 +48,9 @@ export interface RecordRestockPurchaseCommand {
   tenantId: string;
   origin: PurchaseRecordOrigin;
   storeName: string;
-  supplierId: string | null;
   /** Tanggal belanja "YYYY-MM-DD". */
   purchasedAt: string;
   notes: string | null;
-  fotoNota: string[];
   items: Array<{
     purchaseOrderItemId: string;
     quantity: number;
@@ -73,9 +62,9 @@ export type RestockPurchaseRecordErrorCode =
   | "INVALID"
   | "NOT_FOUND"
   | "CONFLICT"
-  /** Link dicabut/kedaluwarsa saat dicatat (hanya untuk catatan lewat link). */
+  /** Link dicabut/kedaluwarsa saat dicatat. */
   | "LINK_INACTIVE"
-  /** Link sudah mencapai batas jumlah catatan (hanya untuk catatan lewat link). */
+  /** Link sudah mencapai batas jumlah catatan. */
   | "LIMIT_REACHED";
 
 export type RestockPurchaseRecordResult =
@@ -119,21 +108,20 @@ function fail(
 
 /** Belanja lewat link tidak boleh bertanggal sebelum daftarnya dikirim. */
 function isBeforeLinkCreated(command: RecordRestockPurchaseCommand): boolean {
-  const { origin } = command;
   return (
-    origin.kind === "PUBLIC_LINK" &&
-    command.purchasedAt < getEarliestLinkPurchaseDate(origin.linkCreatedAt)
+    command.purchasedAt <
+    getEarliestLinkPurchaseDate(command.origin.linkCreatedAt)
   );
 }
 
 /**
- * Mencatat belanja restock per toko. Satu pengajuan tetap satu pesanan dan
- * satu tagihan; catatan ini hanya merekam barang mana dibeli di toko mana.
+ * Mencatat belanja restock per toko, hanya lewat link belanja. Satu pengajuan
+ * tetap satu pesanan dan satu tagihan; catatan ini hanya merekam barang mana
+ * dibeli di toko mana.
  */
 export class RestockPurchaseRecordService {
   constructor(
     private readonly repository: IRestockPurchaseRecordRepository,
-    private readonly isTrustedPhotoUrl: (raw: string) => Promise<boolean>,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -148,9 +136,6 @@ export class RestockPurchaseRecordService {
     if (isBeforeLinkCreated(command)) {
       return fail("INVALID", PURCHASE_LINK_MESSAGES.dateBeforeLink);
     }
-    if (!(await this.areAllPhotosTrusted(command.fotoNota))) {
-      return fail("INVALID", RESTOCK_PURCHASE_MESSAGES.untrustedPhoto);
-    }
 
     const context = await this.repository.findPurchaseContext(
       command.purchaseRequestId,
@@ -164,15 +149,10 @@ export class RestockPurchaseRecordService {
     if (!purchaseOrder) {
       return fail("NOT_FOUND", RESTOCK_MESSAGES.purchaseOrderNotFound);
     }
-
-    if (
-      command.supplierId &&
-      !(await this.repository.isActiveSupplier(
-        command.supplierId,
-        command.tenantId,
-      ))
-    ) {
-      return fail("INVALID", RESTOCK_PURCHASE_MESSAGES.supplierNotFound);
+    // Data lama sudah dibeli lewat alur lama; laporan baru akan menghapus
+    // pengecualiannya dan mencatat belanja dua kali.
+    if (purchaseOrder.isLegacyPurchased) {
+      return fail("LINK_INACTIVE", RESTOCK_PURCHASE_MESSAGES.legacyPurchased);
     }
 
     const plan = planPurchaseRecord(
@@ -262,6 +242,20 @@ export class RestockPurchaseRecordService {
           success: false,
           code: "CONFLICT",
           error: RESTOCK_PURCHASE_MESSAGES.voidClosed,
+        };
+      case "ALREADY_RECEIVED":
+        return {
+          success: false,
+          code: "CONFLICT",
+          error: RESTOCK_PURCHASE_MESSAGES.voidAlreadyReceived(
+            outcome.lines
+              .map((line) =>
+                [line.nama, line.received, line.satuan, "sudah datang"]
+                  .filter((part) => part !== null && part !== "")
+                  .join(" "),
+              )
+              .join(", "),
+          ),
         };
       case "VOIDED":
         this.logVoid(command, outcome);
@@ -366,58 +360,36 @@ export class RestockPurchaseRecordService {
     },
   ): void {
     const { origin } = command;
-    const baseDetails = {
-      purchaseRequestId: command.purchaseRequestId,
-      purchaseRecordId: outcome.record.id,
-      toko: command.storeName,
-      tanggalBelanja: command.purchasedAt,
-      barang: lines.map((line) => ({
-        barangId: line.barangId,
-        jumlah: line.quantity,
-        hargaSatuan: line.unitPrice,
-      })),
-      statusLama: outcome.previousStatus,
-      statusBaru: outcome.purchaseOrderStatus,
-      ...(outcome.revokedLinkCount > 0
-        ? { linkBelanjaDimatikan: outcome.revokedLinkCount }
-        : {}),
-    };
-    const common = {
+    // Tanpa token, hash, maupun kunci tanda tangan.
+    recordInventoryActivity({
       action: INVENTORY_ACTIVITY_ACTIONS.RECORD_PURCHASE,
       subject: INVENTORY_ACTIVITY_SUBJECTS.PURCHASE_ORDER,
       reference: poNumber,
       tenantId: command.tenantId,
-    };
-
-    if (origin.kind === "ADMIN") {
-      recordInventoryActivity({
-        ...common,
-        actorId: origin.actorId,
-        details: baseDetails,
-      });
-      return;
-    }
-    // Tanpa token, hash, maupun kunci tanda tangan.
-    recordInventoryActivity({
-      ...common,
       externalActor: { type: "purchase_link", id: origin.linkId },
       ipAddress: origin.ipAddress,
       userAgent: origin.userAgent,
       details: {
-        ...baseDetails,
+        purchaseRequestId: command.purchaseRequestId,
+        purchaseRecordId: outcome.record.id,
+        toko: command.storeName,
+        tanggalBelanja: command.purchasedAt,
+        barang: lines.map((line) => ({
+          barangId: line.barangId,
+          jumlah: line.quantity,
+          hargaSatuan: line.unitPrice,
+        })),
+        statusLama: outcome.previousStatus,
+        statusBaru: outcome.purchaseOrderStatus,
+        ...(outcome.revokedLinkCount > 0
+          ? { linkBelanjaDimatikan: outcome.revokedLinkCount }
+          : {}),
         lewatLink: true,
         namaPembeli: origin.buyerName,
         linkId: origin.linkId,
         keterangan: `Dicatat lewat link belanja oleh ${origin.buyerName}`,
       },
     });
-  }
-
-  private async areAllPhotosTrusted(urls: string[]): Promise<boolean> {
-    const checks = await Promise.all(
-      urls.map((url) => this.isTrustedPhotoUrl(url)),
-    );
-    return checks.every(Boolean);
   }
 }
 
@@ -429,12 +401,13 @@ interface CreateInputParts {
   now: Date;
 }
 
-/** Susun isian tulis sesuai asal catatan (aplikasi atau link). */
+/** Susun isian tulis untuk catatan belanja lewat link. */
 function buildCreateInput(
   command: RecordRestockPurchaseCommand,
   parts: CreateInputParts,
 ): CreatePurchaseRecordInput {
-  const shared = {
+  const { origin } = command;
+  return {
     purchaseOrderId: parts.purchaseOrderId,
     purchaseRequestId: command.purchaseRequestId,
     receivableBarangIds: parts.context.request.receivableBarangIds,
@@ -443,35 +416,12 @@ function buildCreateInput(
     purchasedAt: parts.purchasedAt,
     notes: command.notes,
     lines: parts.lines,
-  };
-  const { origin } = command;
-  if (origin.kind === "ADMIN") {
-    return {
-      ...shared,
-      issuedAt: parts.purchasedAt,
-      recordedById: origin.actorId,
-      supplierId: command.supplierId,
-      fotoNota: command.fotoNota,
-      buyerName: origin.buyerName ?? origin.actorName,
-      buyerSignatureKey: null,
-      source: "ADMIN",
-      purchaseLinkId: null,
-      clientRequestId: null,
-      ipAddress: null,
-      userAgent: null,
-    };
-  }
-  return {
-    ...shared,
     // Tanggal dari link diisi pihak luar; tanggal beli pesanan memakai waktu
     // server supaya tidak bisa dimundurkan.
     issuedAt: parts.now,
     recordedById: origin.linkCreatorId,
-    supplierId: null,
-    fotoNota: [],
     buyerName: origin.buyerName,
     buyerSignatureKey: origin.signatureKey,
-    source: "PUBLIC_LINK",
     purchaseLinkId: origin.linkId,
     clientRequestId: origin.clientRequestId,
     ipAddress: origin.ipAddress,

@@ -21,6 +21,8 @@ import { isRequestFullyPurchased } from "../domain/restock-purchase-record";
 import { revokePurchaseLinksWithin } from "./restock-purchase-link-revocation";
 import {
   CONTEXT_ITEM_SELECT,
+  isLegacyPurchaseOrderRow,
+  LEGACY_PURCHASE_ORDER_SELECT,
   PURCHASE_CONTEXT_SELECT,
   PURCHASE_RECORD_VIEW_SELECT,
   toPurchaseContext,
@@ -53,6 +55,34 @@ interface OwnedPurchaseRecord {
 /** Dilempar di dalam transaksi supaya semua tulisan dibatalkan. */
 class PurchaseRecordConcurrentChange extends Error {}
 
+interface VoidCandidateLine {
+  quantity: number;
+  purchaseOrderItem: {
+    purchasedQuantity: number;
+    receivedQuantity: number;
+    barang: { nama: string; satuan: string | null } | null;
+  } | null;
+}
+
+/** Baris yang barangnya sudah datang melebihi jumlah dibeli sesudah dibatalkan. */
+function findLinesAlreadyReceived(
+  lines: VoidCandidateLine[],
+): Array<{ nama: string; received: number; satuan: string | null }> {
+  return lines.flatMap((line) => {
+    const item = line.purchaseOrderItem;
+    if (!item) return [];
+    const purchasedAfter = Math.max(item.purchasedQuantity - line.quantity, 0);
+    if (purchasedAfter >= item.receivedQuantity) return [];
+    return [
+      {
+        nama: item.barang?.nama ?? "Barang",
+        received: item.receivedQuantity,
+        satuan: item.barang?.satuan ?? null,
+      },
+    ];
+  });
+}
+
 function isConcurrencyFailure(error: unknown): boolean {
   if (error instanceof PurchaseRecordConcurrentChange) return true;
   if (isPrismaErrorCode(error, WRITE_CONFLICT_CODE)) return true;
@@ -78,17 +108,6 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
       select: PURCHASE_CONTEXT_SELECT,
     });
     return request ? toPurchaseContext(request, tenantId) : null;
-  }
-
-  /** Toko terdaftar milik tenant yang tidak di-blacklist. */
-  async isActiveSupplier(
-    supplierId: string,
-    tenantId: string,
-  ): Promise<boolean> {
-    const count = await this.db.supplier.count({
-      where: { id: supplierId, tenantId, status: { not: "BLACKLISTED" } },
-    });
-    return count > 0;
   }
 
   /**
@@ -123,7 +142,7 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
       if (isConcurrencyFailure(error)) return { kind: "CONFLICT" };
       // `clientRequestId` milik catatan yang sudah dibatalkan: kiriman ini
       // diperlakukan sebagai konflik supaya peramban membuat penanda baru.
-      if (input.purchaseLinkId && isPrismaUniqueConstraintError(error)) {
+      if (isPrismaUniqueConstraintError(error)) {
         return { kind: "CONFLICT" };
       }
       throw error;
@@ -147,6 +166,10 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
    * Batalkan catatan belanja. Pesanan dikunci (`FOR UPDATE`) seperti saat
    * mencatat, lalu catatan ditandai batal secara bersyarat (belum batal) dan
    * jumlah dibeli tiap barisnya diturunkan, tidak sampai di bawah nol.
+   * Ditolak bila jumlah dibeli sesudahnya lebih kecil dari jumlah yang sudah
+   * datang: barang di gudang tidak boleh tercatat belum dibeli. Pencatatan
+   * barang datang mengunci pesanan yang sama lebih dulu, jadi pemeriksaan
+   * ini tidak bisa disusul kiriman yang masuk bersamaan.
    */
   async voidPurchaseRecord(
     input: VoidPurchaseRecordInput,
@@ -171,6 +194,25 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
         return { kind: "SHARED_WITH_OTHER_REQUEST" };
       }
 
+      const lines = await tx.purchaseRecordItem.findMany({
+        where: { purchaseRecordId: input.recordId, tenantId: input.tenantId },
+        select: {
+          purchaseOrderItemId: true,
+          quantity: true,
+          purchaseOrderItem: {
+            select: {
+              purchasedQuantity: true,
+              receivedQuantity: true,
+              barang: { select: { nama: true, satuan: true } },
+            },
+          },
+        },
+      });
+      const receivedLines = findLinesAlreadyReceived(lines);
+      if (receivedLines.length > 0) {
+        return { kind: "ALREADY_RECEIVED", lines: receivedLines };
+      }
+
       const marked = await tx.purchaseRecord.updateMany({
         where: { id: input.recordId, tenantId: input.tenantId, voidedAt: null },
         data: {
@@ -181,10 +223,6 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
       });
       if (marked.count === 0) return { kind: "ALREADY_VOIDED" };
 
-      const lines = await tx.purchaseRecordItem.findMany({
-        where: { purchaseRecordId: input.recordId, tenantId: input.tenantId },
-        select: { purchaseOrderItemId: true, quantity: true },
-      });
       for (const line of lines) {
         await tx.$executeRaw`
           UPDATE purchase_order_items
@@ -339,7 +377,6 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
   private async findLinkDuplicate(
     input: CreatePurchaseRecordInput,
   ): Promise<RestockPurchaseRecordView | null> {
-    if (!input.purchaseLinkId || !input.clientRequestId) return null;
     return this.findByClientRequestId(
       input.purchaseLinkId,
       input.clientRequestId,
@@ -359,14 +396,12 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
     const previousStatus = locked[0]?.status;
     if (!previousStatus) throw new PurchaseRecordConcurrentChange();
 
-    if (input.purchaseLinkId) {
-      const linkBlock = await this.checkLinkWithin(tx, {
-        purchaseLinkId: input.purchaseLinkId,
-        purchaseOrderId: input.purchaseOrderId,
-        tenantId: input.tenantId,
-      });
-      if (linkBlock) return linkBlock;
-    }
+    const linkBlock = await this.checkLinkWithin(tx, {
+      purchaseLinkId: input.purchaseLinkId,
+      purchaseOrderId: input.purchaseOrderId,
+      tenantId: input.tenantId,
+    });
+    if (linkBlock) return linkBlock;
     if (CLOSED_ORDER_STATUSES.includes(previousStatus)) {
       return { kind: "CLOSED" };
     }
@@ -407,15 +442,15 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
       data: {
         purchaseOrderId: input.purchaseOrderId,
         storeName: input.storeName,
-        supplierId: input.supplierId,
+        supplierId: null,
         purchasedAt: input.purchasedAt,
         recordedById: input.recordedById,
         notes: input.notes,
-        fotoNota: input.fotoNota,
+        fotoNota: [],
         tenantId: input.tenantId,
         buyerName: input.buyerName,
         buyerSignatureKey: input.buyerSignatureKey,
-        source: input.source,
+        source: "PUBLIC_LINK",
         purchaseLinkId: input.purchaseLinkId,
         clientRequestId: input.clientRequestId,
         ipAddress: input.ipAddress,
@@ -466,8 +501,9 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
   /**
    * Pemeriksaan link di dalam transaksi (pesanan sudah dikunci): link masih
    * berlaku, pesanannya tidak dipakai pengajuan lain (penggabungan bisa
-   * terjadi setelah link dibuat), dan batas jumlah catatan belum tercapai.
-   * Null bila boleh lanjut.
+   * terjadi setelah link dibuat), pesanannya bukan data lama (sudah dibeli
+   * sebelum ada link), dan batas jumlah catatan belum tercapai. Null bila
+   * boleh lanjut.
    */
   private async checkLinkWithin(
     tx: Prisma.TransactionClient,
@@ -482,10 +518,14 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
     ) {
       return { kind: "LINK_INACTIVE" };
     }
-    const linkedRequestCount = await tx.purchaseRequest.count({
-      where: { purchaseOrderId: input.purchaseOrderId },
+    const order = await tx.purchaseOrder.findUnique({
+      where: { id: input.purchaseOrderId },
+      select: LEGACY_PURCHASE_ORDER_SELECT,
     });
-    if (linkedRequestCount > 1) return { kind: "LINK_INACTIVE" };
+    if (!order) throw new PurchaseRecordConcurrentChange();
+    if (order._count.purchaseRequests > 1 || isLegacyPurchaseOrderRow(order)) {
+      return { kind: "LINK_INACTIVE" };
+    }
 
     const linkRecordCount = await tx.purchaseRecord.count({
       where: { purchaseLinkId: input.purchaseLinkId, tenantId: input.tenantId },

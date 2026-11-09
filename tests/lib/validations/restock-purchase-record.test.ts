@@ -2,18 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import {
   describeRestockValidationError,
+  publicPurchaseRecordSchema,
   RESTOCK_PURCHASE_RECORD_LIST_LABELS,
-  restockPurchaseRecordSchema,
 } from "@/lib/validations/restock";
 
 const valid = {
+  token: "A".repeat(43),
+  clientRequestId: "6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f",
+  buyerName: "Joko",
   storeName: "Toko Sinar",
   purchasedAt: "2026-11-09",
+  signatureDataUrl: "data:image/png;base64,iVBORw0KGgo=",
   items: [{ purchaseOrderItemId: "poi-1", quantity: 2 }],
 };
 
 function problemsOf(body: unknown): string {
-  const parsed = restockPurchaseRecordSchema.safeParse(body);
+  const parsed = publicPurchaseRecordSchema.safeParse(body);
   if (parsed.success) return "";
   return describeRestockValidationError(
     parsed.error,
@@ -21,9 +25,9 @@ function problemsOf(body: unknown): string {
   );
 }
 
-describe("restockPurchaseRecordSchema", () => {
-  it("merapikan isian: nama toko di-trim, catatan kosong jadi null, foto default kosong", () => {
-    const parsed = restockPurchaseRecordSchema.parse({
+describe("publicPurchaseRecordSchema: isian belanja", () => {
+  it("merapikan isian: nama toko di-trim, catatan kosong jadi null", () => {
+    const parsed = publicPurchaseRecordSchema.parse({
       ...valid,
       storeName: "  Toko Sinar ",
       notes: "   ",
@@ -32,7 +36,6 @@ describe("restockPurchaseRecordSchema", () => {
     expect(parsed).toMatchObject({
       storeName: "Toko Sinar",
       notes: null,
-      fotoNota: [],
     });
   });
 
@@ -69,7 +72,7 @@ describe("restockPurchaseRecordSchema", () => {
     ).toBe("Barang ke-2: Barang ini tercantum dua kali. Hapus salah satunya.");
   });
 
-  it("membatasi harga, catatan, dan jumlah foto", () => {
+  it("membatasi harga dan catatan", () => {
     expect(
       problemsOf({
         ...valid,
@@ -88,9 +91,6 @@ describe("restockPurchaseRecordSchema", () => {
     expect(problemsOf({ ...valid, notes: "x".repeat(501) })).toBe(
       "Catatan terlalu panjang. Paling banyak 500 huruf.",
     );
-    expect(problemsOf({ ...valid, fotoNota: Array(6).fill("a") })).toBe(
-      "Foto nota paling banyak 5.",
-    );
   });
 
   it("menolak jumlah 0", () => {
@@ -102,19 +102,13 @@ describe("restockPurchaseRecordSchema", () => {
     ).toBe("Barang ke-1: Jumlah dibeli paling sedikit 1.");
   });
 
-  it("membatasi jumlah barang dan panjang alamat foto nota", () => {
+  it("membatasi jumlah barang", () => {
     const items = Array.from({ length: 201 }, (_, index) => ({
       purchaseOrderItemId: `poi-${index}`,
       quantity: 1,
     }));
     expect(
-      restockPurchaseRecordSchema.safeParse({ ...valid, items }).success,
-    ).toBe(false);
-    expect(
-      restockPurchaseRecordSchema.safeParse({
-        ...valid,
-        fotoNota: [`https://app.test/${"a".repeat(2048)}`],
-      }).success,
+      publicPurchaseRecordSchema.safeParse({ ...valid, items }).success,
     ).toBe(false);
   });
 });

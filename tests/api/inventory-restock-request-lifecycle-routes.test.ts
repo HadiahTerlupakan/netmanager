@@ -12,7 +12,6 @@ const mockFns = vi.hoisted(() => ({
   createRestockRequest: vi.fn(),
   getRestockRequestDetail: vi.fn(),
   patchRestockRequestLifecycle: vi.fn(),
-  patchRestockRequestStatus: vi.fn(),
   generatePOFromPRs: vi.fn(),
   getUserPermissions: vi.fn(),
 }));
@@ -50,7 +49,6 @@ vi.mock("@/modules/inventory", async () => {
     createRestockRequest: mockFns.createRestockRequest,
     getRestockRequestDetail: mockFns.getRestockRequestDetail,
     patchRestockRequestLifecycle: mockFns.patchRestockRequestLifecycle,
-    patchRestockRequestStatus: mockFns.patchRestockRequestStatus,
   };
 });
 
@@ -65,6 +63,7 @@ vi.mock("@/modules/procurement", () => ({
   getGoodsReceiptService: vi.fn(() => ({ create: mockGrnCreate })),
   PurchaseOrderNotFoundError: class extends Error {},
   GoodsReceiptInvalidError: class extends Error {},
+  GoodsReceiptExceedsPurchasedError: class extends Error {},
 }));
 
 import { POST as postRestockRequests } from "@/app/api/inventory/restock/requests/route";
@@ -73,7 +72,6 @@ import {
   GET as getRestockRequestById,
   PATCH as patchRestockRequestById,
 } from "@/app/api/inventory/restock/requests/[id]/route";
-import { PATCH as patchRestockRequestProcess } from "@/app/api/inventory/restock/requests/[id]/process/route";
 import { PATCH as patchRestockRequestReceive } from "@/app/api/inventory/restock/requests/[id]/receive/route";
 import { PUT as putRestockRequestById } from "@/app/api/inventory/restock/requests/[id]/route";
 
@@ -590,38 +588,6 @@ describe("inventory restock request lifecycle routes", () => {
     );
   });
 
-  it("maps request process to linked purchase order start-shopping helper", async () => {
-    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
-      id: "pr-1",
-      purchaseOrderId: "po-1",
-    });
-
-    mockFns.patchRestockRequestStatus.mockResolvedValue(
-      NextResponse.json({ id: "po-1", status: "ORDERED" }, { status: 200 }),
-    );
-
-    const response = await patchRestockRequestProcess(
-      new NextRequest(
-        "http://localhost/api/inventory/restock/requests/pr-1/process",
-        {
-          method: "PATCH",
-        },
-      ),
-      { params: Promise.resolve({ id: "pr-1" }) },
-    );
-
-    expect(prismaMock.purchaseRequest.findFirst).toHaveBeenCalledWith({
-      where: { id: "pr-1", tenantId: "tenant-1" },
-      select: { purchaseOrderId: true, status: true },
-    });
-    expect(mockFns.patchRestockRequestStatus).toHaveBeenCalledWith({
-      purchaseOrderId: "po-1",
-      action: "START_SHOPPING",
-      actorId: "user-1",
-    });
-    expect(response.status).toBe(200);
-  });
-
   it("returns 500 when auto-generate PO fails for receive flow", async () => {
     prismaMock.purchaseRequest.findFirst.mockResolvedValue({
       id: "pr-1",
@@ -651,31 +617,6 @@ describe("inventory restock request lifecycle routes", () => {
     expect(mockGrnCreate).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when request has no linked purchase order for process flow", async () => {
-    prismaMock.purchaseRequest.findFirst.mockResolvedValue({
-      id: "pr-1",
-      purchaseOrderId: null,
-    });
-
-    const response = await patchRestockRequestProcess(
-      new NextRequest(
-        "http://localhost/api/inventory/restock/requests/pr-1/process",
-        {
-          method: "PATCH",
-        },
-      ),
-      { params: Promise.resolve({ id: "pr-1" }) },
-    );
-
-    const json = await response.json();
-    expect(response.status).toBe(400);
-    expect(json).toMatchObject({
-      error:
-        "Pengajuan ini belum punya daftar belanja. Setujui pengajuannya dulu, nanti daftar belanjanya dibuat otomatis.",
-    });
-    expect(mockFns.patchRestockRequestStatus).not.toHaveBeenCalled();
-  });
-
   describe("receiving a partial or larger delivery", () => {
     function mockOrder(items: Array<Record<string, unknown>>) {
       prismaMock.$transaction.mockImplementation(async (callback: unknown) =>
@@ -688,10 +629,14 @@ describe("inventory restock request lifecycle routes", () => {
         status: "ORDERED",
         nomorRequest: "PR-20261012-0001",
       });
+      // Data lama: ditandai dibeli sekaligus sebelum kiriman pertama, tanpa
+      // catatan belanja, jadi boleh dicatat datang sampai seluruh sisa.
       prismaMock.purchaseOrder.findUnique.mockResolvedValue({
         id: "po-1",
         poNumber: "PO/2026/10/0008",
         status: "PARTIAL",
+        issuedAt: new Date("2026-10-01T03:00:00Z"),
+        goodsReceipts: [{ receivedAt: new Date("2026-10-05T03:00:00Z") }],
         items,
       });
       prismaMock.purchaseOrderItem.findMany.mockResolvedValue([]);
@@ -821,6 +766,8 @@ describe("inventory restock request lifecycle routes", () => {
         id: "po-1",
         poNumber: "PO/2026/10/0008",
         status: "PARTIAL",
+        issuedAt: new Date("2026-10-01T03:00:00Z"),
+        goodsReceipts: [{ receivedAt: new Date("2026-10-05T03:00:00Z") }],
         items: [pigtail],
         ppnRate: 0,
         paymentStatus: "UNPAID",
@@ -937,6 +884,8 @@ describe("inventory restock request lifecycle routes", () => {
         id: "po-1",
         poNumber: "PO/2026/10/0008",
         status: "PARTIAL",
+        issuedAt: new Date("2026-10-01T03:00:00Z"),
+        goodsReceipts: [{ receivedAt: new Date("2026-10-05T03:00:00Z") }],
         items: [pigtail],
         ppnRate: 0,
         paymentStatus: "PAID",

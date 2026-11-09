@@ -7,14 +7,22 @@ import { RestockDetailLines } from "./RestockDetailLines";
 import { RestockLineApprovalInfo } from "./RestockLineApprovalInfo";
 import { RestockPurchaseLinkPanel } from "./RestockPurchaseLinkPanel";
 import { RestockPurchaseVoidControl } from "./RestockPurchaseVoidControl";
+import { RestockStageList } from "./RestockStageList";
 import { RestockStatusBadge } from "./RestockStatusBadge";
-import { RestockTimeline } from "./RestockTimeline";
+import {
+  describeCurrentRestockSentence,
+  RestockTimeline,
+} from "./RestockTimeline";
 import {
   getRestockProgress,
   getRestockProgressActions,
   isRestockOrderFinished,
 } from "./restockProgress";
-import { canRecordRestockPurchase } from "./restockPurchase";
+import {
+  canCloseRestockUnpurchased,
+  canVoidRestockPurchaseRecord,
+} from "./restockPurchase";
+import { CLOSE_UNPURCHASED_TITLE } from "./restockCloseUnpurchased";
 import type { PurchaseRequest } from "./types";
 
 interface RestockDetailModalProps {
@@ -22,9 +30,12 @@ interface RestockDetailModalProps {
   onClose: () => void;
   canVerify?: boolean;
   onOpenReceive?: (request: PurchaseRequest) => void;
-  onRecordPurchase?: (request: PurchaseRequest) => void;
+  /** Detail dibuka dari tombol "Kirim Link Belanja": langsung ke panel link. */
+  isFocusingPurchaseLink?: boolean;
   /** Muat ulang data setelah catatan belanja dibatalkan. */
   onPurchaseVoided?: () => Promise<void>;
+  /** Buka modal "Tutup sisa yang tidak jadi dibeli". */
+  onOpenCloseUnpurchased?: (request: PurchaseRequest) => void;
 }
 
 const UNDECIDED_STATUSES = new Set(["DRAFT", "SUBMITTED", "REJECTED"]);
@@ -43,7 +54,10 @@ const PURCHASE_LINK_STATUSES = new Set([
 const CLOSED_ORDER_STATUSES = new Set(["RECEIVED", "CANCELLED"]);
 const ACTION_BUTTON_CLASS =
   "min-h-[44px] w-full rounded-2xl bg-indigo-700 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-800";
-/** Tombol kedua: dipakai terima barang selama "Catat Belanja" masih utama. */
+/** Teks pengganti tombol batal pada catatan belanja yang barangnya sudah datang. */
+const VOID_BLOCKED_TEXT =
+  "Tidak bisa dibatalkan: barangnya sudah dicatat datang.";
+/** Tombol kedua: dipakai terima barang selama link belanja masih aksi utama. */
 const SECONDARY_ACTION_BUTTON_CLASS =
   "min-h-[44px] w-full rounded-2xl border border-indigo-300 bg-white px-4 py-3 text-sm font-bold text-indigo-800 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-gray-800 dark:text-indigo-200";
 
@@ -53,19 +67,20 @@ export function RestockDetailModal({
   onClose,
   canVerify = false,
   onOpenReceive,
-  onRecordPurchase,
+  isFocusingPurchaseLink = false,
   onPurchaseVoided,
+  onOpenCloseUnpurchased,
 }: RestockDetailModalProps) {
   const barangItems = request?.items ?? [];
   const jasaItems = request?.jasaItems ?? [];
-  const actions = request
-    ? getRestockProgressActions(getRestockProgress(request).key)
-    : null;
-  const canRecordPurchase =
+  const progress = request ? getRestockProgress(request) : null;
+  const actions = request ? getRestockProgressActions(request) : null;
+  const isPurchaseLinkPrimary = canVerify && !!actions?.canSendLink;
+  const isShowingCloseUnpurchased =
     canVerify &&
-    !!onRecordPurchase &&
     !!request &&
-    canRecordRestockPurchase(request);
+    !!onOpenCloseUnpurchased &&
+    canCloseRestockUnpurchased(request);
   const receiveLabel =
     canVerify && onOpenReceive ? actions?.receiveLabel : null;
   const canManagePurchaseLink =
@@ -103,38 +118,47 @@ export function RestockDetailModal({
           </div>
         </div>
 
+        {request && progress && (
+          <RestockStageList
+            progress={progress}
+            sentence={describeCurrentRestockSentence(
+              progress.sentence,
+              isPurchaseLinkPrimary,
+            )}
+          />
+        )}
+
         {request && (
           <RestockTimeline
             request={request}
-            recordPurchaseAction={
-              canRecordPurchase ? (
-                <button
-                  type="button"
-                  onClick={() => onRecordPurchase?.(request)}
-                  aria-label={`Catat Belanja, pengajuan ${request.nomorRequest}`}
-                  className="min-h-[44px] rounded-xl bg-indigo-700 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-800"
-                >
-                  Catat Belanja
-                </button>
-              ) : null
-            }
+            isShowingPurchaseLinkHint={isPurchaseLinkPrimary}
+            isShowingCurrentSentence={false}
             renderPurchaseVoidAction={
               canVoidPurchase
-                ? (record, label) => (
-                    <RestockPurchaseVoidControl
-                      requestId={request.id}
-                      recordId={record.id}
-                      recordLabel={label}
-                      onVoided={onPurchaseVoided}
-                    />
-                  )
+                ? (record, label) =>
+                    canVoidRestockPurchaseRecord(record, request) ? (
+                      <RestockPurchaseVoidControl
+                        requestId={request.id}
+                        recordId={record.id}
+                        recordLabel={label}
+                        onVoided={onPurchaseVoided}
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        {VOID_BLOCKED_TEXT}
+                      </p>
+                    )
                 : undefined
             }
           />
         )}
 
         {request && canManagePurchaseLink && (
-          <RestockPurchaseLinkPanel key={request.id} request={request} />
+          <RestockPurchaseLinkPanel
+            key={request.id}
+            request={request}
+            isFocusedOnOpen={isFocusingPurchaseLink}
+          />
         )}
 
         {(request?.approver || request?.catatanApproval) && (
@@ -257,12 +281,23 @@ export function RestockDetailModal({
             onClick={() => onOpenReceive?.(request)}
             aria-label={`${receiveLabel} untuk ${request.nomorRequest}`}
             className={
-              canRecordPurchase
+              isPurchaseLinkPrimary
                 ? SECONDARY_ACTION_BUTTON_CLASS
                 : ACTION_BUTTON_CLASS
             }
           >
             {receiveLabel}
+          </button>
+        )}
+
+        {request && isShowingCloseUnpurchased && (
+          <button
+            type="button"
+            onClick={() => onOpenCloseUnpurchased?.(request)}
+            aria-label={`${CLOSE_UNPURCHASED_TITLE} untuk ${request.nomorRequest}`}
+            className={SECONDARY_ACTION_BUTTON_CLASS}
+          >
+            {CLOSE_UNPURCHASED_TITLE}
           </button>
         )}
 

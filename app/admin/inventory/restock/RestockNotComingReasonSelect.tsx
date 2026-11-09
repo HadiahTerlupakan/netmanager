@@ -14,7 +14,11 @@ interface RestockNotComingReasonSelectProps {
   itemName?: string;
   reason: string;
   onReasonChange: (reason: string) => void;
+  /** Pertanyaan di atas pilihan; bawaan "Kenapa tidak datang". */
+  question?: string;
 }
+
+const DEFAULT_QUESTION = "Kenapa tidak datang";
 
 /**
  * Pilihan "Kenapa tidak datang?". Kolom tulis sendiri hanya muncul setelah
@@ -24,6 +28,7 @@ export function RestockNotComingReasonSelect({
   itemName,
   reason,
   onReasonChange,
+  question = DEFAULT_QUESTION,
 }: RestockNotComingReasonSelectProps) {
   const selectId = useId();
   const [isOtherSelected, setIsOtherSelected] = useState(
@@ -45,11 +50,11 @@ export function RestockNotComingReasonSelect({
         htmlFor={selectId}
         className="block text-sm font-bold text-gray-800 dark:text-gray-100"
       >
-        Kenapa tidak datang?
+        {question}?
       </label>
       <select
         id={selectId}
-        aria-label={`Kenapa tidak datang${suffix}`}
+        aria-label={`${question}${suffix}`}
         value={selectValue}
         onChange={(event) => handleSelectChange(event.target.value)}
         className="min-h-[44px] w-full rounded-xl border border-orange-200 bg-white px-3 py-2 text-sm font-semibold text-gray-800 focus:ring-2 focus:ring-orange-500 dark:border-orange-900/50 dark:bg-gray-900 dark:text-gray-100"

@@ -15,13 +15,12 @@ import { toast } from "react-hot-toast";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 
 import { generatePurchaseRequestPdf } from "./pdf";
+import { CLOSE_UNPURCHASED_TITLE } from "./restockCloseUnpurchased";
 import { RestockProgressStatus } from "./RestockStatusBadge";
 import {
   canDeleteRestockRequest,
-  getRestockProgress,
   getRestockProgressActions,
 } from "./restockProgress";
-import { canRecordRestockPurchase } from "./restockPurchase";
 import {
   canApprovePurchaseRequest,
   canEditPurchaseRequest,
@@ -59,7 +58,10 @@ interface RestockTableProps {
   onOpenDetail: (request: PurchaseRequest) => void;
   onOpenApproval: (request: PurchaseRequest) => void;
   onOpenReceive: (request: PurchaseRequest) => void;
-  onRecordPurchase?: (request: PurchaseRequest) => void;
+  /** Buka detail pengajuan dan langsung ke panel link belanja. */
+  onOpenPurchaseLink?: (request: PurchaseRequest) => void;
+  /** Buka "Tutup sisa yang tidak jadi dibeli" untuk pengajuan yang macet. */
+  onOpenCloseUnpurchased?: (request: PurchaseRequest) => void;
   onOpenConfirmJasa?: (request: PurchaseRequest) => void;
   onDelete: (id: string) => void;
 }
@@ -69,7 +71,10 @@ interface RestockActionHandlers {
   onOpenDetail: (request: PurchaseRequest) => void;
   onOpenApproval: (request: PurchaseRequest) => void;
   onOpenReceive: (request: PurchaseRequest) => void;
-  onRecordPurchase?: (request: PurchaseRequest) => void;
+  /** Buka detail pengajuan dan langsung ke panel link belanja. */
+  onOpenPurchaseLink?: (request: PurchaseRequest) => void;
+  /** Buka "Tutup sisa yang tidak jadi dibeli" untuk pengajuan yang macet. */
+  onOpenCloseUnpurchased?: (request: PurchaseRequest) => void;
   onOpenConfirmJasa?: (request: PurchaseRequest) => void;
   onDelete: (id: string) => void;
 }
@@ -231,26 +236,39 @@ const RECEIVE_ACTION_CLASS =
 const SECONDARY_ACTION_CLASS =
   "inline-flex min-h-[44px] min-w-[8.5rem] items-center justify-center rounded-xl border border-indigo-300 bg-white px-3 py-2 text-xs font-bold text-indigo-800 transition-all hover:bg-indigo-50 dark:border-indigo-700 dark:bg-gray-800 dark:text-indigo-200 sm:min-h-0";
 
+const SEND_LINK_LABEL = "Kirim Link Belanja";
+
 /** aria-label diawali teks tombol yang terlihat (WCAG 2.5.3). */
 function getReceiveActionAriaLabel(label: string, nomorRequest: string) {
   return `${label} untuk ${nomorRequest}`;
 }
 
 /**
- * Tombol perjalanan pesanan: "Catat Belanja" selama masih ada barang yang
- * belum dibeli, lalu "Catat Barang Datang" / "Catat Kiriman Berikutnya"
- * sampai pesanan selesai.
+ * Tombol perjalanan pesanan. Tahap pembelian: "Kirim Link Belanja" jadi
+ * tombol utama. Barang yang sudah dilaporkan dibeli tapi belum datang bisa
+ * dicatat lebih dulu lewat "Catat Barang Datang" (tombol kedua selama link
+ * masih tombol utama). Tahap verifikasi: hanya tombol catat. Pengajuan
+ * yang macet tanpa daftar belanja: "Tutup sisa yang tidak jadi dibeli".
  */
 function renderProgressActions(
   request: PurchaseRequest,
   input: RestockActionHandlers & RestockActionPermissions,
 ) {
   if (!input.canVerify) return null;
-  const actions = getRestockProgressActions(getRestockProgress(request).key);
-  if (!actions.receiveLabel) return null;
-  const canRecordPurchase =
-    canRecordRestockPurchase(request) && !!input.onRecordPurchase;
-  const receiveAction = (
+  const actions = getRestockProgressActions(request);
+  if (actions.canCloseUnpurchased && input.onOpenCloseUnpurchased) {
+    return (
+      <PrimaryActionButton
+        label={`${CLOSE_UNPURCHASED_TITLE} untuk ${request.nomorRequest}`}
+        onClick={() => input.onOpenCloseUnpurchased?.(request)}
+        className={SECONDARY_ACTION_CLASS}
+      >
+        {CLOSE_UNPURCHASED_TITLE}
+      </PrimaryActionButton>
+    );
+  }
+  const canSendLink = actions.canSendLink && !!input.onOpenPurchaseLink;
+  const receiveAction = actions.receiveLabel ? (
     <PrimaryActionButton
       label={getReceiveActionAriaLabel(
         actions.receiveLabel,
@@ -258,24 +276,24 @@ function renderProgressActions(
       )}
       onClick={() => input.onOpenReceive(request)}
       className={
-        canRecordPurchase
+        canSendLink
           ? SECONDARY_ACTION_CLASS
           : `${RECEIVE_ACTION_CLASS} bg-indigo-700 hover:bg-indigo-800`
       }
     >
       {actions.receiveLabel}
     </PrimaryActionButton>
-  );
-  if (!canRecordPurchase) return receiveAction;
+  ) : null;
+  if (!canSendLink) return receiveAction;
 
   return (
     <>
       <PrimaryActionButton
-        label={`Catat Belanja, pengajuan ${request.nomorRequest}`}
-        onClick={() => input.onRecordPurchase?.(request)}
+        label={`${SEND_LINK_LABEL}, pengajuan ${request.nomorRequest}`}
+        onClick={() => input.onOpenPurchaseLink?.(request)}
         className={`${RECEIVE_ACTION_CLASS} bg-indigo-700 hover:bg-indigo-800`}
       >
-        Catat Belanja
+        {SEND_LINK_LABEL}
       </PrimaryActionButton>
       {receiveAction}
     </>
@@ -363,7 +381,8 @@ export function RestockTable({
   onOpenDetail,
   onOpenApproval,
   onOpenReceive,
-  onRecordPurchase,
+  onOpenPurchaseLink,
+  onOpenCloseUnpurchased,
   onOpenConfirmJasa,
   onDelete,
 }: RestockTableProps) {
@@ -382,7 +401,8 @@ export function RestockTable({
       onOpenDetail,
       onOpenApproval,
       onOpenReceive,
-      onRecordPurchase,
+      onOpenPurchaseLink,
+      onOpenCloseUnpurchased,
       onOpenConfirmJasa,
       onDelete,
     });

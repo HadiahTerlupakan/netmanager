@@ -8,7 +8,6 @@ import {
 import { prisma } from "@/modules/database";
 import { createRestockRequestLifecycleService } from "../factories/RestockRequestLifecycleFactory";
 import { InventoryPurchaseRequestRepository } from "../repositories/InventoryPurchaseRequestRepository";
-import { RestockPurchaseOrderStatusService } from "./RestockPurchaseOrderStatusService";
 import type {
   RestockLifecycleCommand,
   RestockLifecycleResult,
@@ -28,7 +27,6 @@ export * from "./restock-messages";
 const REQUEST_NUMBER_PAD_LENGTH = 4;
 const ONE_DAY_OFFSET = 1;
 
-const purchaseOrderStatusService = new RestockPurchaseOrderStatusService();
 const requestLifecycleService = createRestockRequestLifecycleService();
 const purchaseRequestRepository = new InventoryPurchaseRequestRepository(
   prisma,
@@ -55,12 +53,6 @@ interface CreateRestockRequestInput {
   requesterId: string;
   tenantId?: string | null;
   apiPath: string;
-}
-
-interface RestockRequestStatusInput {
-  purchaseOrderId: string;
-  action: unknown;
-  actorId: string;
 }
 
 /**
@@ -179,13 +171,6 @@ export async function patchRestockRequestLifecycle(
   command: RestockLifecycleCommand,
 ): Promise<RestockLifecycleResult> {
   return requestLifecycleService.patchRestockRequestLifecycle(command);
-}
-
-/** Tandai pesanan dari pengajuan restock sudah dibeli (START_SHOPPING). */
-export async function patchRestockRequestStatus(
-  input: RestockRequestStatusInput,
-) {
-  return purchaseOrderStatusService.patchRestockRequestStatus(input);
 }
 
 function validateRestockRequestInput(input: CreateRestockRequestInput) {

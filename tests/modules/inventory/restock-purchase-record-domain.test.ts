@@ -51,6 +51,7 @@ function context(
       status: overrides.orderStatus ?? "DRAFT",
       tenantId: "tenant-1",
       linkedRequestCount: 1,
+      isLegacyPurchased: false,
       items,
     },
   };

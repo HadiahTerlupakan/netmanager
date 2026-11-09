@@ -11,6 +11,7 @@ import {
 } from "./approvalUtils";
 import {
   getRestockLineProgress,
+  describeRestockStatusLine,
   getRestockProgress,
   isRestockOrderFinished,
 } from "./restockProgress";
@@ -265,19 +266,21 @@ export async function generatePurchaseRequestPdf(request: PurchaseRequest) {
     59,
   );
   writeMetadataRow(doc, "Prioritas:", request.prioritas || "-", leftCol, 66);
+  // Baris status memuat tahap ("Tahap 3 dari 4 (Pembelian): …"), jadi
+  // ditulis di kolom kiri yang lebar, bukan di kolom kanan.
   writeMetadataRow(
     doc,
     "Status:",
-    getRestockProgress(request).label,
-    rightCol,
-    45,
+    describeRestockStatusLine(getRestockProgress(request)),
+    leftCol,
+    73,
   );
   writeMetadataRow(
     doc,
     "Kode Pesanan:",
     request.purchaseOrder?.poNumber || "-",
     rightCol,
-    52,
+    45,
   );
 
   if (request.approvedAt) {
@@ -286,7 +289,7 @@ export async function generatePurchaseRequestPdf(request: PurchaseRequest) {
       "Tanggal Disetujui:",
       formatPurchaseRequestDate(request.approvedAt),
       rightCol,
-      59,
+      52,
     );
   }
 

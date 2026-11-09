@@ -6,8 +6,8 @@ import type {
   IPurchaseOrderRepository,
   PurchaseOrderListFilter,
   PurchaseOrderListResult,
+  PurchaseOrderDetail,
   PurchaseOrderMetadataUpdate,
-  PurchaseOrderWithRelations,
 } from "../domain/ports/IPurchaseOrderRepository";
 import type { ISupplierRepository } from "../domain/ports/ISupplierRepository";
 import type { IApprovalThresholdRepository } from "../domain/ports/IApprovalThresholdRepository";
@@ -26,6 +26,19 @@ export class PurchaseOrderNotEditableError extends Error {
   constructor(message = "Purchase Order tidak dapat diubah pada status ini") {
     super(message);
     this.name = "PurchaseOrderNotEditableError";
+  }
+}
+
+/**
+ * PO milik pengajuan restock tidak boleh diproses dari halaman pembelian:
+ * sudah dibeli atau belum hanya dicatat lewat link belanja di halaman restock.
+ */
+export class PurchaseOrderIsRestockError extends PurchaseOrderNotEditableError {
+  constructor() {
+    super(
+      "Pesanan ini dibuat dari pengajuan restock. Sudah dibeli atau belum dicatat lewat link belanja di halaman restock, jadi tidak bisa diproses dari sini.",
+    );
+    this.name = "PurchaseOrderIsRestockError";
   }
 }
 
@@ -76,10 +89,13 @@ export class PurchaseOrderService {
     return this.poRepo.list(filter);
   }
 
-  async getById(id: string): Promise<PurchaseOrderWithRelations> {
+  /** Detail PO beserta penanda apakah PO ini milik pengajuan restock. */
+  async getById(id: string): Promise<PurchaseOrderDetail> {
     const po = await this.poRepo.findByIdWithRelations(id);
     if (!po) throw new PurchaseOrderNotFoundError(id);
-    return po;
+    const restockRequestCount =
+      await this.poRepo.countLinkedRestockRequests(id);
+    return { ...po, isRestockOrder: restockRequestCount > 0 };
   }
 
   async create(
@@ -156,6 +172,7 @@ export class PurchaseOrderService {
     if (outcome === "HAS_PURCHASES") throw new PurchaseOrderHasPurchasesError();
   }
 
+  /** DRAFT → ORDERED untuk PO biasa; PO restock ditolak. */
   async process(id: string, actorId: string): Promise<PurchaseOrderEntity> {
     const existing = await this.poRepo.findById(id);
     if (!existing) throw new PurchaseOrderNotFoundError(id);
@@ -163,6 +180,9 @@ export class PurchaseOrderService {
       throw new PurchaseOrderNotEditableError(
         "Hanya PO Draft yang bisa diproses menjadi Ordered",
       );
+    }
+    if ((await this.poRepo.countLinkedRestockRequests(id)) > 0) {
+      throw new PurchaseOrderIsRestockError();
     }
     return this.poRepo.processToOrdered(id, actorId);
   }

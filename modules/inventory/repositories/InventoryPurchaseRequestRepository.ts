@@ -237,12 +237,4 @@ export class InventoryPurchaseRequestRepository {
     ]);
     return purchaseRecordCount > 0 || purchasedItemCount > 0;
   }
-
-  /** Ambil ringkasan purchase request untuk proses receive/start shopping. */
-  async findPurchaseRequestProcessInfo(id: string, tenantId: string) {
-    return this.db.purchaseRequest.findFirst({
-      where: { id, tenantId },
-      select: { purchaseOrderId: true, status: true },
-    });
-  }
 }

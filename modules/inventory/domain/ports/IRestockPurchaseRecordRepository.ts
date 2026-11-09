@@ -28,6 +28,11 @@ export interface RestockPurchaseContext {
     tenantId: string | null;
     /** Jumlah pengajuan yang memakai pesanan ini; lebih dari 1 = gabungan. */
     linkedRequestCount: number;
+    /**
+     * Data lama (`isLegacyPurchasedOrder`): sudah dibeli sebelum belanja
+     * wajib dilaporkan lewat link, jadi belanjanya tidak dicatat lagi.
+     */
+    isLegacyPurchased: boolean;
     items: RestockPurchaseContextItem[];
   } | null;
 }
@@ -43,9 +48,16 @@ export interface CreatePurchaseRecordLine {
   expected: { quantity: number; cancelledQuantity: number };
 }
 
-/** Asal catatan belanja: dari aplikasi atau dari link tanpa login. */
+/**
+ * Asal catatan belanja. Catatan baru selalu lewat link tanpa login; ADMIN
+ * hanya ada di data lama dari sebelum pencatatan dari aplikasi dihapus.
+ */
 export type PurchaseRecordSourceKind = "ADMIN" | "PUBLIC_LINK";
 
+/**
+ * Isian tulis catatan belanja. Catatan baru selalu lewat link tanpa login,
+ * jadi asalnya, toko terdaftar, dan foto nota tidak ikut di sini.
+ */
 export interface CreatePurchaseRecordInput {
   purchaseOrderId: string;
   /** Pengajuan yang dicatat; link aktifnya dicabut bila semua sudah dibeli. */
@@ -53,22 +65,20 @@ export interface CreatePurchaseRecordInput {
   /** Barang milik pengajuan (baris tidak ditolak), untuk cek "semua dibeli". */
   receivableBarangIds: string[];
   tenantId: string;
+  /** Pembuat link: penanggung jawab internal catatan ini. */
   recordedById: string;
   storeName: string;
-  supplierId: string | null;
   purchasedAt: Date;
   /** Tanggal beli pesanan bila belanja ini mengubahnya dari DRAFT. */
   issuedAt: Date;
   notes: string | null;
-  fotoNota: string[];
   lines: CreatePurchaseRecordLine[];
-  buyerName: string | null;
+  buyerName: string;
   /** Kunci objek tanda tangan di penyimpanan; tidak pernah ikut ke tampilan. */
-  buyerSignatureKey: string | null;
-  source: PurchaseRecordSourceKind;
-  /** Diisi untuk catatan lewat link; link dikunci & diperiksa di transaksi. */
-  purchaseLinkId: string | null;
-  clientRequestId: string | null;
+  buyerSignatureKey: string;
+  /** Link dikunci & diperiksa di transaksi. */
+  purchaseLinkId: string;
+  clientRequestId: string;
   ipAddress: string | null;
   userAgent: string | null;
 }
@@ -165,7 +175,15 @@ export type VoidPurchaseRecordOutcome =
    */
   | { kind: "SHARED_WITH_OTHER_REQUEST" }
   /** Pesanan sudah RECEIVED/CANCELLED. */
-  | { kind: "CLOSED" };
+  | { kind: "CLOSED" }
+  /**
+   * Barangnya sudah dicatat datang: membatalkan catatan akan membuat jumlah
+   * dibeli lebih kecil dari jumlah datang.
+   */
+  | {
+      kind: "ALREADY_RECEIVED";
+      lines: Array<{ nama: string; received: number; satuan: string | null }>;
+    };
 
 export interface IRestockPurchaseRecordRepository {
   /** Pengajuan milik tenant beserta pesanan & itemnya; null bila tidak ada. */
@@ -173,9 +191,6 @@ export interface IRestockPurchaseRecordRepository {
     purchaseRequestId: string,
     tenantId: string,
   ): Promise<RestockPurchaseContext | null>;
-
-  /** True bila toko terdaftar milik tenant dan tidak di-blacklist. */
-  isActiveSupplier(supplierId: string, tenantId: string): Promise<boolean>;
 
   /**
    * Simpan catatan belanja dan naikkan jumlah dibeli per item dalam satu

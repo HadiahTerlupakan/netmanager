@@ -138,7 +138,7 @@ describe("generatePurchaseRequestPdf", () => {
             "Barang tidak tersedia",
             "2 -",
             "2 -",
-            "1 -\n(1 tanpa catatan belanja)",
+            "2 -\n(2 tanpa catatan belanja)",
             "1 -",
             "-",
             "Untuk ODP baru",
@@ -167,8 +167,10 @@ describe("generatePurchaseRequestPdf", () => {
       expect.any(Number),
       expect.any(Number),
     );
+    // Barang datang tanpa laporan belanja (data lama): sisanya masih di
+    // tahap pembelian.
     expect(pdfMocks.text).toHaveBeenCalledWith(
-      "Datang Sebagian",
+      "Tahap 4 dari 4 (Verifikasi barang sampai): Datang Sebagian",
       expect.any(Number),
       expect.any(Number),
     );
@@ -232,7 +234,7 @@ describe("generatePurchaseRequestPdf", () => {
             "Kabel Fiber",
             "2 roll",
             "2 roll",
-            "1 roll\n(1 tanpa catatan belanja)",
+            "2 roll\n(2 tanpa catatan belanja)",
             "1 roll",
             "-",
             "Untuk ODP baru",
@@ -269,7 +271,7 @@ describe("generatePurchaseRequestPdf", () => {
         "Kabel Fiber (pengganti Kabel Lama)",
         "8 roll",
         "5 roll",
-        "1 roll\n(1 tanpa catatan belanja)",
+        "5 roll\n(5 tanpa catatan belanja)",
         "1 roll",
         "-",
         "Untuk ODP baru\nCatatan atasan: Stok gudang masih ada",
@@ -295,7 +297,7 @@ describe("generatePurchaseRequestPdf", () => {
       "1 roll\n(Barang habis di toko)",
     );
     expect(pdfMocks.text).toHaveBeenCalledWith(
-      "Selesai, Kurang",
+      "Tahap 4 dari 4 (Verifikasi barang sampai): Selesai, Kurang",
       expect.any(Number),
       expect.any(Number),
     );

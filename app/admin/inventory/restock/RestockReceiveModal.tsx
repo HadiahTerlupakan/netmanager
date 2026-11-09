@@ -18,9 +18,15 @@ import {
   RestockShortfallConfirm,
 } from "./RestockReceiveSections";
 import { RestockStatusBadge } from "./RestockStatusBadge";
-import { getRestockPurchaseState } from "./restockPurchase";
+import {
+  canRestockReceiveWithoutPurchaseReport,
+  getRestockLineReceiveLimit,
+  getRestockPurchaseState,
+  hasRestockItemsToBuy,
+} from "./restockPurchase";
 import {
   fillAllRemaining,
+  getFillAllLabel,
   getRestockReceiveProblems,
   getRestockReceiveSubmitLabel,
   getRestockReceiveSummary,
@@ -93,8 +99,9 @@ function getPurchaseNote({
     return "Belum ada barang yang datang. Kalau disimpan, pesanan ini dibatalkan.";
   }
   if (mode === "FINISH_WITHOUT_DELIVERY") return null;
-  if (getRestockPurchaseState(request) !== "NONE") return null;
-  return "Belum ada catatan belanja. Tidak apa-apa, barang yang datang dihitung sudah dibeli.";
+  if (canRestockReceiveWithoutPurchaseReport(request)) return null;
+  if (getRestockPurchaseState(request) === "ALL") return null;
+  return "Hanya barang yang sudah dilaporkan dibeli yang bisa dicatat datang.";
 }
 
 function RestockReceiveHeader(props: RestockReceiveHeaderProps) {
@@ -190,6 +197,7 @@ export function RestockReceiveModal({
   const substitutedCount = Object.keys(substitutions).length;
   const isPhotoNeeded = summary.mode !== "FINISH_WITHOUT_DELIVERY";
   const isCancellingOrder = isRestockFinishCancellingOrder(request, summary);
+  const isLimitedToPurchased = !canRestockReceiveWithoutPurchaseReport(request);
   const isSubmitDisabled = submitting || problems.length > 0;
 
   const handleSubmitClick = () => {
@@ -244,7 +252,7 @@ export function RestockReceiveModal({
             }
             className="min-h-[44px] rounded-2xl border border-indigo-200 bg-white px-4 py-2 text-sm font-bold text-indigo-800 hover:bg-indigo-50 dark:border-indigo-800 dark:bg-gray-800 dark:text-indigo-200"
           >
-            Semua datang lengkap
+            {getFillAllLabel(isLimitedToPurchased)}
           </button>
           <div className="space-y-3">
             {receivableItems.map((item) => (
@@ -273,6 +281,8 @@ export function RestockReceiveModal({
                   )
                 }
                 canMarkNotComing={summary.allowsLineCancellation}
+                receiveLimit={getRestockLineReceiveLimit(item, request)}
+                isLimitedToPurchased={isLimitedToPurchased}
                 overReceiptReason={overReceipts[item.barangId] ?? ""}
                 onOverReceiptReasonChange={(reason) =>
                   onOverReceiptsChange({
@@ -322,6 +332,9 @@ export function RestockReceiveModal({
           }}
           closeReason={closeReason}
           onCloseReasonChange={onCloseReasonChange}
+          hasUnpurchasedRemainder={
+            isLimitedToPurchased && hasRestockItemsToBuy(request)
+          }
         />
 
         <RestockReceiveSummaryPanel summary={summary} />

@@ -1,3 +1,7 @@
+import {
+  buildRestockOrderPurchaseEvidence,
+  isLegacyPurchasedOrder,
+} from "../domain/restock-receipt-eligibility";
 import type {
   PurchaseRecordSourceKind,
   RestockPurchaseContext,
@@ -16,6 +20,49 @@ export const CONTEXT_ITEM_SELECT = {
   barang: { select: { nama: true, satuan: true } },
 } as const;
 
+/**
+ * Kolom pesanan untuk aturan data lama (`isLegacyPurchasedOrder`). Dipakai
+ * konteks belanja dan pemeriksaan ulang di transaksi pencatatan belanja.
+ */
+export const LEGACY_PURCHASE_ORDER_SELECT = {
+  status: true,
+  issuedAt: true,
+  items: { select: { purchasedQuantity: true, receivedQuantity: true } },
+  _count: {
+    select: {
+      purchaseRequests: true,
+      purchaseRecords: true,
+      goodsReceipts: true,
+    },
+  },
+} as const;
+
+/** Bentuk baris hasil `LEGACY_PURCHASE_ORDER_SELECT`. */
+export interface LegacyPurchaseOrderRow {
+  status: string;
+  issuedAt: Date | null;
+  items: Array<{ purchasedQuantity: number; receivedQuantity: number }>;
+  _count: {
+    purchaseRequests: number;
+    purchaseRecords: number;
+    goodsReceipts: number;
+  };
+}
+
+/** Pesanan termasuk data lama: sudah dibeli sebelum ada link belanja. */
+export function isLegacyPurchaseOrderRow(row: LegacyPurchaseOrderRow): boolean {
+  return isLegacyPurchasedOrder(
+    buildRestockOrderPurchaseEvidence({
+      status: row.status,
+      issuedAt: row.issuedAt,
+      purchaseRecordCount: row._count.purchaseRecords,
+      goodsReceiptCount: row._count.goodsReceipts,
+      linkedRequestCount: row._count.purchaseRequests,
+      items: row.items,
+    }),
+  );
+}
+
 /** Pengajuan beserta pesanan & item pesanannya, untuk konteks belanja. */
 export const PURCHASE_CONTEXT_SELECT = {
   id: true,
@@ -28,12 +75,11 @@ export const PURCHASE_CONTEXT_SELECT = {
   },
   purchaseOrder: {
     select: {
+      ...LEGACY_PURCHASE_ORDER_SELECT,
       id: true,
       poNumber: true,
-      status: true,
       tenantId: true,
       items: { select: CONTEXT_ITEM_SELECT },
-      _count: { select: { purchaseRequests: true } },
     },
   },
 } as const;
@@ -49,9 +95,10 @@ export interface PurchaseContextRow {
     id: string;
     poNumber: string;
     status: string;
+    issuedAt: Date | null;
     tenantId: string | null;
     items: RestockPurchaseContextItem[];
-    _count: { purchaseRequests: number };
+    _count: LegacyPurchaseOrderRow["_count"];
   } | null;
 }
 
@@ -77,8 +124,12 @@ export function toPurchaseContext(
 function toContextOrder(
   order: NonNullable<PurchaseContextRow["purchaseOrder"]>,
 ): NonNullable<RestockPurchaseContext["purchaseOrder"]> {
-  const { _count, ...rest } = order;
-  return { ...rest, linkedRequestCount: _count.purchaseRequests };
+  const { _count, issuedAt: _issuedAt, ...rest } = order;
+  return {
+    ...rest,
+    linkedRequestCount: _count.purchaseRequests,
+    isLegacyPurchased: isLegacyPurchaseOrderRow(order),
+  };
 }
 
 /** Kolom catatan belanja yang dibaca untuk ditampilkan; sengaja minimal. */

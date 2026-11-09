@@ -12,7 +12,6 @@ import type {
   IRestockGoodsReceiptRepository,
   PurchaseOrderIncreaseUndo,
   PurchaseOrderPurchaseRecord,
-  RestockOrderedPurchaseOrder,
   RestockPurchaseOrderForReceipt,
   RestockPurchaseRequestForReceipt,
 } from "../domain/ports/IRestockGoodsReceiptRepository";
@@ -76,7 +75,13 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
         processedById: true,
         tenantId: true,
         paymentStatus: true,
-        _count: { select: { jasaItems: true, goodsReceipts: true } },
+        _count: {
+          select: {
+            jasaItems: true,
+            goodsReceipts: true,
+            purchaseRecords: true,
+          },
+        },
         items: {
           select: {
             id: true,
@@ -96,6 +101,7 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
       ...rest,
       jasaItemCount: _count?.jasaItems ?? 0,
       goodsReceiptCount: _count?.goodsReceipts ?? 0,
+      purchaseRecordCount: _count?.purchaseRecords ?? 0,
     };
   }
 
@@ -343,6 +349,9 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
             quantity: cancellation.expected.quantity,
             receivedQuantity: cancellation.expected.receivedQuantity,
             cancelledQuantity: cancellation.expected.cancelledQuantity,
+            ...(cancellation.expected.purchasedQuantity === undefined
+              ? {}
+              : { purchasedQuantity: cancellation.expected.purchasedQuantity }),
           },
           data: {
             cancelledQuantity: { increment: cancellation.cancelledQuantity },
@@ -353,6 +362,13 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
         if (result.count === 0) throw new ReceiptConcurrentChange();
       }
       await this.writeSettlement(tx, input);
+      if (input.revokeRequestLinks) {
+        await revokePurchaseLinksWithin(tx, {
+          scope: { id: input.purchaseRequestId },
+          revokedById: null,
+          now: new Date(),
+        });
+      }
     });
   }
 
@@ -463,24 +479,6 @@ export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptReposi
         return;
       }
     }
-  }
-
-  /** DRAFT → ORDERED secara atomik; null bila PO sudah tidak DRAFT. */
-  async markPurchaseOrderOrdered(
-    record: PurchaseOrderPurchaseRecord,
-  ): Promise<RestockOrderedPurchaseOrder | null> {
-    const result = await this.db.purchaseOrder.updateMany({
-      where: { id: record.purchaseOrderId, status: "DRAFT" },
-      data: {
-        status: "ORDERED",
-        processedById: record.processedById,
-        issuedAt: record.issuedAt,
-      },
-    });
-    if (result.count === 0) return null;
-    return this.db.purchaseOrder.findUnique({
-      where: { id: record.purchaseOrderId },
-    });
   }
 
   /**

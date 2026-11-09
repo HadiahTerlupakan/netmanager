@@ -1,20 +1,22 @@
 "use client";
 
+import { useState } from "react";
+
 import { usePermission } from "@/hooks/use-permission";
 
 import { RestockApprovalModal } from "./RestockApprovalModal";
+import { RestockCloseUnpurchasedModal } from "./RestockCloseUnpurchasedModal";
 import { RestockDetailModal } from "./RestockDetailModal";
 import { RestockFormModal } from "./RestockFormModal";
-import { RestockPurchaseRecordModal } from "./RestockPurchaseRecordModal";
 import { RestockReceiveModal } from "./RestockReceiveModal";
 import { RestockConfirmJasaModal } from "./RestockConfirmJasaModal";
 import { RestockTable } from "./RestockTable";
 import { useDetailChainedFocus } from "./useDetailChainedFocus";
 import { useRestockPage } from "./useRestockPage";
+import type { PurchaseRequest } from "./types";
 
 export default function RestockCRUDPage() {
-  const { hasPermission, user } = usePermission();
-  const currentUserName = (user as { name?: string | null } | undefined)?.name;
+  const { hasPermission } = usePermission();
   const canApprove = hasPermission("restock:approve");
   const canUpdate = hasPermission("restock:update");
   const canVerify = hasPermission("restock:verify");
@@ -77,7 +79,7 @@ export default function RestockCRUDPage() {
     saveRequest,
     deleteRequest,
     approval,
-    purchaseRecord,
+    closeUnpurchased,
     openReceive,
     closeReceive,
     submitReceipt,
@@ -90,8 +92,15 @@ export default function RestockCRUDPage() {
     submitConfirmJasa,
   } = useRestockPage();
   const { rememberDetailTrigger, markOpenedFromDetail } = useDetailChainedFocus(
-    purchaseRecord.request !== null || !!receivingPR,
+    !!receivingPR || !!closeUnpurchased.request,
   );
+  const [isFocusingPurchaseLink, setIsFocusingPurchaseLink] = useState(false);
+
+  const openDetail = (request: PurchaseRequest, focusPurchaseLink: boolean) => {
+    rememberDetailTrigger();
+    setIsFocusingPurchaseLink(focusPurchaseLink);
+    setViewingPR(request);
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -117,13 +126,11 @@ export default function RestockCRUDPage() {
         canDelete={canDelete}
         onOpenCreate={openCreate}
         onOpenEdit={openEdit}
-        onOpenDetail={(request) => {
-          rememberDetailTrigger();
-          setViewingPR(request);
-        }}
+        onOpenDetail={(request) => openDetail(request, false)}
         onOpenApproval={approval.open}
         onOpenReceive={openReceive}
-        onRecordPurchase={purchaseRecord.open}
+        onOpenPurchaseLink={(request) => openDetail(request, true)}
+        onOpenCloseUnpurchased={closeUnpurchased.open}
         onOpenConfirmJasa={openConfirmJasa}
         onDelete={deleteRequest}
       />
@@ -160,18 +167,16 @@ export default function RestockCRUDPage() {
           setViewingPR(null);
           openReceive(request);
         }}
-        onRecordPurchase={(request) => {
+        isFocusingPurchaseLink={isFocusingPurchaseLink}
+        onPurchaseVoided={fetchData}
+        onOpenCloseUnpurchased={(request) => {
           markOpenedFromDetail();
           setViewingPR(null);
-          purchaseRecord.open(request);
+          closeUnpurchased.open(request);
         }}
-        onPurchaseVoided={fetchData}
       />
 
-      <RestockPurchaseRecordModal
-        purchaseRecord={purchaseRecord}
-        currentUserName={currentUserName ?? null}
-      />
+      <RestockCloseUnpurchasedModal state={closeUnpurchased} />
 
       <RestockReceiveModal
         key={receivingPR?.id ?? "no-receipt"}

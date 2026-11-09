@@ -8,7 +8,9 @@ import {
 } from "@/app/admin/inventory/restock/restockProgress";
 import {
   buildPurchaseVoidUrl,
-  canRecordRestockPurchase,
+  canSendRestockPurchaseLink,
+  hasRestockItemsToBuy,
+  isRestockMergedOrder,
   describeLinePurchaseBreakdown,
   describePurchaseRecordContents,
   describePurchaseRecordVoid,
@@ -18,7 +20,13 @@ import {
   hasRestockPurchaseActivity,
   getRestockPurchaseState,
   isRestockLegacyPurchased,
+  canCloseRestockUnpurchased,
+  canRestockReceiveWithoutPurchaseReport,
+  canVoidRestockPurchaseRecord,
+  getRestockLineReceiveLimit,
+  hasRestockItemsAwaitingArrival,
 } from "@/app/admin/inventory/restock/restockPurchase";
+import { LEGACY_PURCHASE_CASES } from "../modules/inventory/restock-legacy-purchase-cases";
 import type {
   PurchaseRecordSummary,
   PurchaseRequest,
@@ -116,7 +124,9 @@ describe("status belanja di daftar pengajuan", () => {
     );
     expect(partialQuantity.key).toBe("PURCHASING");
     expect(partialQuantity.label).toBe("Dibeli Sebagian");
-    expect(partialQuantity.sentence).toBe("Kabel Fiber dibeli 3 dari 10 roll.");
+    expect(partialQuantity.sentence).toBe(
+      "Kabel Fiber dibeli 3 dari 10 roll. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
+    );
     expect(partialQuantity.badgeClassName).toContain("bg-sky-100");
 
     const partialKinds = getRestockProgress(
@@ -128,7 +138,7 @@ describe("status belanja di daftar pengajuan", () => {
     );
     expect(partialKinds.key).toBe("PURCHASING");
     expect(partialKinds.sentence).toBe(
-      "Kabel Fiber dibeli 10 dari 10 roll. ONT dibeli 0 dari 10 pcs.",
+      "Kabel Fiber dibeli 10 dari 10 roll. ONT dibeli 0 dari 10 pcs. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
     );
 
     const all = getRestockProgress(
@@ -139,7 +149,7 @@ describe("status belanja di daftar pengajuan", () => {
       }),
     );
     expect(all.key).toBe("PURCHASED");
-    expect(all.label).toBe("Sudah Dibeli Semua, Tunggu Barangnya");
+    expect(all.label).toBe("Menunggu Barang");
   });
 
   it("meringkas per jenis barang bila lebih dari dua barang", () => {
@@ -155,7 +165,7 @@ describe("status belanja di daftar pengajuan", () => {
       }),
     );
     expect(progress.sentence).toBe(
-      "Dari 3 jenis barang: 1 sudah dibeli semua, 1 baru dibeli sebagian, 1 belum dibeli.",
+      "Dari 3 jenis barang: 1 sudah dibeli semua, 1 baru dibeli sebagian, 1 belum dibeli. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
     );
   });
 
@@ -177,7 +187,7 @@ describe("status belanja di daftar pengajuan", () => {
     );
     expect(progress.label).toBe("Dibeli Sebagian");
     expect(progress.sentence).toBe(
-      "Dari 3 jenis barang: 0 sudah dibeli semua, 3 baru dibeli sebagian.",
+      "Dari 3 jenis barang: 0 sudah dibeli semua, 3 baru dibeli sebagian. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
     );
   });
 
@@ -190,7 +200,7 @@ describe("status belanja di daftar pengajuan", () => {
       expect(isRestockLegacyPurchased(request)).toBe(true);
       expect(getRestockPurchaseState(request)).toBe("ALL");
       expect(getRestockProgress(request).key).toBe("PURCHASED");
-      expect(canRecordRestockPurchase(request)).toBe(false);
+      expect(hasRestockItemsToBuy(request)).toBe(false);
     }
   });
 
@@ -213,11 +223,11 @@ describe("status belanja di daftar pengajuan", () => {
     });
     expect(isRestockLegacyPurchased(request)).toBe(true);
     expect(getRestockPurchaseState(request)).toBe("ALL");
-    expect(canRecordRestockPurchase(request)).toBe(false);
+    expect(hasRestockItemsToBuy(request)).toBe(false);
     expect(getRestockProgress(request).sentence).not.toContain("belum dibeli");
   });
 
-  it("tanggal beli yang diisi otomatis oleh kiriman pertama bukan data lama", () => {
+  it("barang datang lewat alur lama tetap data lama walau tanggal beli diisi sesudahnya", () => {
     const request = makeRequest({
       purchaseOrder: {
         ...ordered,
@@ -234,29 +244,34 @@ describe("status belanja di daftar pengajuan", () => {
       },
       items: [makeItem({ receivedQuantity: 3 })],
     });
-    expect(isRestockLegacyPurchased(request)).toBe(false);
-    expect(getRestockPurchaseState(request)).toBe("PARTIAL");
-    expect(canRecordRestockPurchase(request)).toBe(true);
+    expect(isRestockLegacyPurchased(request)).toBe(true);
+    expect(getRestockPurchaseState(request)).toBe("ALL");
+    expect(hasRestockItemsToBuy(request)).toBe(false);
   });
 
-  it("menghitung barang yang sudah datang sebagai sudah dibeli, walau tanpa catatan", () => {
+  it("barang yang datang tanpa catatan belanja (mis. dari halaman Pembelian) adalah data lama", () => {
     const request = makeRequest({
       purchaseOrder: { ...ordered, status: "PARTIAL" },
       items: [makeItem({ receivedQuantity: 4 })],
     });
-    expect(isRestockLegacyPurchased(request)).toBe(false);
+    expect(isRestockLegacyPurchased(request)).toBe(true);
     expect(getRestockLinePurchase(request.items[0], false)).toMatchObject({
       limit: 10,
       purchased: 4,
       remainingToBuy: 6,
     });
-    expect(getRestockPurchaseState(request)).toBe("PARTIAL");
-    // Gudang tidak diblokir: sisanya tetap bisa dicatat belanjanya.
-    expect(canRecordRestockPurchase(request)).toBe(true);
+    // Data lama dianggap sudah dibeli semua: sisanya tetap bisa dicatat
+    // datang tanpa laporan belanja, dan link tidak ditawarkan.
+    expect(getRestockPurchaseState(request)).toBe("ALL");
+    expect(hasRestockItemsToBuy(request)).toBe(false);
     const progress = getRestockProgress(request);
-    expect(progress.key).toBe("PARTIAL");
+    expect(progress).toMatchObject({
+      key: "PARTIAL",
+      stage: 4,
+      label: "Datang Sebagian",
+    });
     expect(progress.sentence).toBe(
-      "Kabel Fiber datang 4 dari 10 roll. Masih ditunggu 6 roll. Masih ada barang yang belum dibeli.",
+      "Kabel Fiber datang 4 dari 10 roll. Masih ditunggu 6 roll.",
     );
     expect(isRestockPurchased(request)).toBe(true);
   });
@@ -302,24 +317,24 @@ describe("status belanja di daftar pengajuan", () => {
   });
 });
 
-describe("canRecordRestockPurchase", () => {
+describe("hasRestockItemsToBuy", () => {
   it("hanya muncul bila masih ada barang yang bisa dibeli", () => {
-    expect(canRecordRestockPurchase(makeRequest())).toBe(true);
-    expect(canRecordRestockPurchase(makeRequest({ purchaseOrder: null }))).toBe(
+    expect(hasRestockItemsToBuy(makeRequest())).toBe(true);
+    expect(hasRestockItemsToBuy(makeRequest({ purchaseOrder: null }))).toBe(
       false,
     );
     for (const status of ["RECEIVED", "CANCELLED"]) {
       expect(
-        canRecordRestockPurchase(
+        hasRestockItemsToBuy(
           makeRequest({ purchaseOrder: { id: "po-1", status } }),
         ),
       ).toBe(false);
     }
-    expect(canRecordRestockPurchase(makeRequest({ status: "RECEIVED" }))).toBe(
+    expect(hasRestockItemsToBuy(makeRequest({ status: "RECEIVED" }))).toBe(
       false,
     );
     expect(
-      canRecordRestockPurchase(
+      hasRestockItemsToBuy(
         makeRequest({
           purchaseOrder: ordered,
           purchaseRecords: [makeRecord()],
@@ -331,7 +346,7 @@ describe("canRecordRestockPurchase", () => {
 
   it("tidak muncul pada pengajuan jasa saja atau baris tanpa item pesanan", () => {
     expect(
-      canRecordRestockPurchase(
+      hasRestockItemsToBuy(
         makeRequest({
           items: [],
           jasaItems: [
@@ -354,10 +369,48 @@ describe("canRecordRestockPurchase", () => {
       ),
     ).toBe(false);
     expect(
-      canRecordRestockPurchase(
+      hasRestockItemsToBuy(
         makeRequest({ items: [makeItem({ purchaseOrderItemId: null })] }),
       ),
     ).toBe(false);
+  });
+});
+
+describe("canSendRestockPurchaseLink", () => {
+  const merged = {
+    id: "po-1",
+    status: "DRAFT",
+    _count: { purchaseRequests: 2 },
+  };
+
+  it("aksi utama selama masih ada barang yang belum dibeli", () => {
+    expect(canSendRestockPurchaseLink(makeRequest())).toBe(true);
+    expect(
+      canSendRestockPurchaseLink(
+        makeRequest({
+          purchaseOrder: ordered,
+          items: [makeItem({ purchasedQuantity: 10 })],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("pesanan gabungan tidak memakai link; statusnya ikut barang datang", () => {
+    const request = makeRequest({ purchaseOrder: merged });
+
+    expect(isRestockMergedOrder(request)).toBe(true);
+    expect(hasRestockItemsToBuy(request)).toBe(true);
+    expect(canSendRestockPurchaseLink(request)).toBe(false);
+    expect(getRestockProgress(request).sentence).toBe(
+      "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi belanjanya tidak dicatat. Statusnya mengikuti barang yang datang. Barangnya bisa langsung dicatat datang.",
+    );
+  });
+
+  it("belum dibeli mengarahkan ke link belanja", () => {
+    expect(isRestockMergedOrder(makeRequest())).toBe(false);
+    expect(getRestockProgress(makeRequest()).sentence).toBe(
+      "Tahap pembelian: menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli.",
+    );
   });
 });
 
@@ -405,7 +458,7 @@ describe("rincian belanja", () => {
       ],
     });
     expect(getRestockPurchaseState(request)).toBe("ALL");
-    expect(canRecordRestockPurchase(request)).toBe(false);
+    expect(hasRestockItemsToBuy(request)).toBe(false);
     expect(describeLinePurchaseBreakdown(request.items[0], request)).toBe(
       "Toko B 3, 5 lainnya tanpa catatan belanja",
     );
@@ -450,7 +503,7 @@ describe("rincian belanja", () => {
       items: [makeItem({ receivedQuantity: 4 })],
     });
     expect(describeLinePurchaseBreakdown(request.items[0], request)).toBe(
-      "4 tanpa catatan belanja",
+      "10 tanpa catatan belanja",
     );
   });
 
@@ -515,7 +568,7 @@ describe("langkah pembelian di riwayat", () => {
     });
   });
 
-  it("menyebut barang yang dihitung dibeli dari kiriman", () => {
+  it("barang yang datang tanpa catatan dicatat sebagai dibeli sekaligus (data lama)", () => {
     expect(
       getRestockPurchaseStep(
         makeRequest({
@@ -526,8 +579,39 @@ describe("langkah pembelian di riwayat", () => {
       ),
     ).toMatchObject({
       isDone: true,
-      label: "Sudah dibeli semua (dihitung dari barang yang datang)",
+      label: "Sudah dibeli semua (tanggal tidak tercatat)",
     });
+  });
+
+  it("pesanan gabungan: belanjanya tidak dicatat, bukan menunggu link", () => {
+    const merged = {
+      ...ordered,
+      status: "DRAFT",
+      _count: { purchaseRequests: 2 },
+    };
+    expect(
+      getRestockPurchaseStep(makeRequest({ purchaseOrder: merged })),
+    ).toMatchObject({
+      isDone: true,
+      label: "Belanja pesanan gabungan tidak dicatat",
+    });
+    expect(
+      getRestockPurchaseStep(
+        makeRequest({
+          purchaseOrder: { ...merged, status: "RECEIVED" },
+          status: "RECEIVED",
+          items: [makeItem({ receivedQuantity: 10 })],
+        }),
+      )?.label,
+    ).toBe("Belanja pesanan gabungan tidak dicatat");
+  });
+
+  it("tanpa daftar belanja: langkahnya menyebut daftar belanja belum ada", () => {
+    expect(
+      getRestockPurchaseStep(
+        makeRequest({ status: "APPROVED", purchaseOrder: null }),
+      ),
+    ).toMatchObject({ isDone: false, label: "Daftar belanja belum ada" });
   });
 });
 
@@ -608,13 +692,13 @@ describe("catatan belanja yang dibatalkan", () => {
 
     expect(isRestockLegacyPurchased(request)).toBe(false);
     expect(getRestockPurchaseState(request)).toBe("NONE");
-    expect(canRecordRestockPurchase(request)).toBe(true);
+    expect(hasRestockItemsToBuy(request)).toBe(true);
     expect(getRestockLinePurchase(request.items[0], false).remainingToBuy).toBe(
       10,
     );
     expect(getRestockPurchaseStep(request)).toMatchObject({
       isDone: false,
-      label: "Belum dibeli",
+      label: "Tahap pembelian: menunggu laporan belanja dari link",
     });
   });
 
@@ -631,5 +715,156 @@ describe("catatan belanja yang dibatalkan", () => {
     expect(buildPurchaseVoidUrl("pr 1", "rec/1")).toBe(
       "/api/inventory/restock/requests/pr%201/purchases/rec%2F1/void",
     );
+  });
+});
+
+describe("aturan data lama sama dengan server", () => {
+  it.each(LEGACY_PURCHASE_CASES)("$name", (testCase) => {
+    const request = makeRequest({
+      status: "ORDERED",
+      purchaseOrder: {
+        id: "po-1",
+        status: testCase.purchaseOrderStatus,
+        issuedAt: testCase.issuedAt,
+      },
+      purchaseRecords: Array.from(
+        { length: testCase.voidedRecordCount },
+        (_, index) =>
+          makeRecord({
+            id: `rec-${index}`,
+            voidedAt: "2026-10-02T00:00:00.000Z",
+          }),
+      ),
+      goodsReceipts: testCase.firstReceiptAt
+        ? [
+            {
+              id: "grn-1",
+              grnNumber: "GRN-1",
+              fotoBukti: [],
+              receivedAt: testCase.firstReceiptAt,
+            },
+          ]
+        : [],
+      items: [
+        makeItem({
+          purchasedQuantity: testCase.purchasedQuantity,
+          receivedQuantity: testCase.receivedQuantity,
+        }),
+      ],
+    });
+
+    expect(isRestockLegacyPurchased(request)).toBe(testCase.expected);
+  });
+});
+
+describe("batas catat barang datang di layar", () => {
+  it("hanya yang sudah dibeli dan belum datang pada pesanan lewat link", () => {
+    const request = makeRequest({
+      status: "ORDERED",
+      purchaseOrder: ordered,
+      items: [makeItem({ purchasedQuantity: 6, receivedQuantity: 2 })],
+    });
+    expect(canRestockReceiveWithoutPurchaseReport(request)).toBe(false);
+    expect(getRestockLineReceiveLimit(request.items[0], request)).toBe(4);
+    expect(hasRestockItemsAwaitingArrival(request)).toBe(true);
+    expect(hasRestockItemsAwaitingArrival(makeRequest())).toBe(false);
+  });
+
+  it("seluruh sisa pada pesanan gabungan", () => {
+    const request = makeRequest({
+      purchaseOrder: {
+        id: "po-1",
+        status: "DRAFT",
+        _count: { purchaseRequests: 2 },
+      },
+    });
+    expect(canRestockReceiveWithoutPurchaseReport(request)).toBe(true);
+    expect(getRestockLineReceiveLimit(request.items[0], request)).toBe(10);
+  });
+});
+
+describe("canVoidRestockPurchaseRecord", () => {
+  it("boleh bila barangnya belum datang", () => {
+    const request = makeRequest({
+      purchaseOrder: ordered,
+      items: [makeItem({ purchasedQuantity: 3 })],
+    });
+    expect(canVoidRestockPurchaseRecord(makeRecord(), request)).toBe(true);
+  });
+
+  it("ditolak bila sesudah dibatalkan jumlah dibeli < jumlah datang", () => {
+    const request = makeRequest({
+      purchaseOrder: { ...ordered, status: "PARTIAL" },
+      items: [makeItem({ purchasedQuantity: 3, receivedQuantity: 1 })],
+    });
+    expect(canVoidRestockPurchaseRecord(makeRecord(), request)).toBe(false);
+  });
+
+  it("boleh bila belanja lain masih menutup barang yang sudah datang", () => {
+    const request = makeRequest({
+      purchaseOrder: { ...ordered, status: "PARTIAL" },
+      items: [makeItem({ purchasedQuantity: 8, receivedQuantity: 5 })],
+    });
+    expect(canVoidRestockPurchaseRecord(makeRecord(), request)).toBe(true);
+  });
+});
+
+describe("canCloseRestockUnpurchased", () => {
+  it("tersedia selama masih ada yang belum dibeli", () => {
+    expect(canCloseRestockUnpurchased(makeRequest())).toBe(true);
+    expect(
+      canCloseRestockUnpurchased(
+        makeRequest({
+          purchaseOrder: ordered,
+          items: [makeItem({ purchasedQuantity: 4 })],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("tersedia walau daftar belanja belum ada", () => {
+    expect(
+      canCloseRestockUnpurchased(makeRequest({ purchaseOrder: null })),
+    ).toBe(true);
+  });
+
+  it("tidak tersedia bila semua sudah dibeli, pesanan tutup, atau dikecualikan", () => {
+    expect(
+      canCloseRestockUnpurchased(
+        makeRequest({
+          purchaseOrder: ordered,
+          items: [makeItem({ purchasedQuantity: 10 })],
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      canCloseRestockUnpurchased(
+        makeRequest({ purchaseOrder: { ...ordered, status: "RECEIVED" } }),
+      ),
+    ).toBe(false);
+    expect(
+      canCloseRestockUnpurchased(
+        makeRequest({
+          purchaseOrder: {
+            id: "po-1",
+            status: "DRAFT",
+            _count: { purchaseRequests: 2 },
+          },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      canCloseRestockUnpurchased(
+        makeRequest({
+          purchaseOrder: {
+            ...ordered,
+            issuedAt: "2026-10-01T00:00:00.000Z",
+          },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      canCloseRestockUnpurchased(makeRequest({ status: "SUBMITTED" })),
+    ).toBe(false);
   });
 });

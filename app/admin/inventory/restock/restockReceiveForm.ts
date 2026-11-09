@@ -7,7 +7,12 @@ import type {
   RestockSubstitutionMap,
 } from "./types";
 import { hasRestockReceivedAnything } from "./restockProgress";
-import { hasRestockPurchaseActivity } from "./restockPurchase";
+import {
+  canRestockReceiveWithoutPurchaseReport,
+  getRestockLineReceiveLimit,
+  hasRestockPurchaseActivity,
+  isRestockMergedOrder,
+} from "./restockPurchase";
 import {
   buildCancellationPayload,
   buildOverReceiptPayload,
@@ -218,12 +223,44 @@ export function getRestockReceiveProblems(
   if (summary.allowsLineCancellation) {
     problems.push(...describeLineCancellationProblems(input, items));
   }
-  if (
+  if (!canRestockReceiveWithoutPurchaseReport(input.request)) {
+    problems.push(...describeOverPurchasedProblems(input, items));
+  } else if (
     hasMissingOverReceiptReason(items, input.receivedItems, input.overReceipts)
   ) {
     problems.push("Tulis alasan barang yang datang lebih banyak.");
   }
   return problems;
+}
+
+/** Pesan saat jumlah datang melebihi yang sudah dibeli dan belum datang. */
+export function describeOverPurchasedProblem(
+  nama: string,
+  limit: number,
+  satuan: string,
+): string {
+  return `${nama}: baru ${limit} ${satuan} yang sudah dibeli dan belum datang. Isi paling banyak ${limit}.`;
+}
+
+/**
+ * Tahap pembelian: barang hanya boleh dicatat datang sebanyak yang sudah
+ * dilaporkan dibeli dan belum datang. Server menolak hal yang sama.
+ */
+function describeOverPurchasedProblems(
+  input: RestockReceiveFormInput,
+  items: PurchaseRequestItem[],
+): string[] {
+  return items.flatMap((item) => {
+    const limit = getRestockLineReceiveLimit(item, input.request);
+    if (getTodayQuantity(item, input.receivedItems) <= limit) return [];
+    return [
+      describeOverPurchasedProblem(
+        getDisplayedName(item, input),
+        limit,
+        item.barang.satuan,
+      ),
+    ];
+  });
 }
 
 function getDisplayedName(
@@ -295,11 +332,13 @@ export function buildRestockReceivePayload(
     items: input.receivedItems,
     substitutions: buildSubstitutionPayload(input.substitutions),
     cancellations: buildCancellationsForMode(input, summary),
-    overReceipts: buildOverReceiptPayload(
-      getReceivableRestockItems(input.request),
-      input.receivedItems,
-      input.overReceipts,
-    ),
+    overReceipts: canRestockReceiveWithoutPurchaseReport(input.request)
+      ? buildOverReceiptPayload(
+          getReceivableRestockItems(input.request),
+          input.receivedItems,
+          input.overReceipts,
+        )
+      : {},
     fotoBukti: summary.hasArrivalToday ? input.fotoBukti : [],
     closePO: input.isFinishingOrder && summary.hasRemainderAfterToday,
   };
@@ -399,7 +438,7 @@ export function isRestockFinishCancellingOrder(
   if ((order.goodsReceipts?.length ?? 0) > 0) return false;
   if ((order.paymentStatus ?? "UNPAID") !== "UNPAID") return false;
   if ((order._count?.jasaItems ?? 0) > 0) return false;
-  return (order._count?.purchaseRequests ?? 1) <= 1;
+  return !isRestockMergedOrder(request);
 }
 
 /** Kalimat dialog konfirmasi sebelum menyelesaikan pesanan dengan kekurangan. */
@@ -434,14 +473,44 @@ export function readRestockReceiptRequestStatus(body: unknown): string | null {
     : null;
 }
 
-/** Isi setiap baris dengan seluruh sisanya (tombol "Semua datang lengkap"). */
+const FILL_ALL_LABEL = "Semua datang lengkap";
+const FILL_ALL_PURCHASED_LABEL = "Isi semua yang sudah dibeli";
+
+/**
+ * Label tombol isi otomatis. Pada mode terbatas tombol hanya mengisi yang
+ * sudah dibeli, jadi tidak menjanjikan "lengkap".
+ */
+export function getFillAllLabel(isLimitedToPurchased: boolean): string {
+  return isLimitedToPurchased ? FILL_ALL_PURCHASED_LABEL : FILL_ALL_LABEL;
+}
+
+/**
+ * Penjelasan pilihan "Ya, sisanya masih ditunggu". Barang yang belum dibeli
+ * tidak bisa dicatat datang sebelum dilaporkan lewat link, jadi kalimatnya
+ * memisahkan keduanya.
+ */
+export function getAwaitedFollowUpDescription(
+  hasUnpurchasedRemainder: boolean,
+): string {
+  const nextDelivery =
+    'Saat sisanya datang, buka pengajuan ini lagi dan tekan "Catat Kiriman Berikutnya".';
+  return hasUnpurchasedRemainder
+    ? `${nextDelivery} Barang yang belum dibeli dicatat setelah dibeli lewat link dan datang.`
+    : nextDelivery;
+}
+
+/**
+ * Isi setiap baris dengan semua yang boleh dicatat sekarang (tombol "Semua
+ * datang lengkap" / "Isi semua yang sudah dibeli"): yang sudah dibeli dan belum datang, atau seluruh sisa
+ * pada data lama dan pesanan gabungan.
+ */
 export function fillAllRemaining(
   request: PurchaseRequest,
   receivedItems: Record<string, number>,
 ): Record<string, number> {
   return getReceivableRestockItems(request).reduce<Record<string, number>>(
     (acc, item) => {
-      acc[item.barangId] = Math.max(getRestockItemRemaining(item), 0);
+      acc[item.barangId] = getRestockLineReceiveLimit(item, request);
       return acc;
     },
     { ...receivedItems },

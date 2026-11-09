@@ -20,6 +20,11 @@ export interface GoodsReceiptCreateInput {
   fotoBukti?: string[];
   tenantId: string | null;
   items: GoodsReceiptItemCreateInput[];
+  /**
+   * true: jumlah datang per item tidak boleh melebihi jumlah yang sudah
+   * dilaporkan dibeli (pesanan restock yang belanjanya lewat link).
+   */
+  isLimitedToPurchased?: boolean;
 }
 
 export interface GoodsReceiptListFilter {

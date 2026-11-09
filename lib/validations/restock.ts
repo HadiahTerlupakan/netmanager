@@ -288,9 +288,6 @@ export type RestockJasaConfirmInput = z.infer<typeof restockJasaConfirmSchema>;
 export const RESTOCK_PURCHASE_LIMITS = {
   storeName: 120,
   notes: 500,
-  fotoNota: 5,
-  /** Panjang maksimal satu alamat foto nota hasil unggahan. */
-  fotoNotaUrl: 2048,
   /** Jumlah barang maksimal dalam satu catatan belanja. */
   items: 200,
   unitPrice: 1_000_000_000,
@@ -403,33 +400,6 @@ function refineUniquePurchaseLines(
   });
 }
 
-/** Schema catatan belanja: satu toko, satu tanggal, beberapa barang. */
-export const restockPurchaseRecordSchema = z
-  .object({
-    storeName: purchaseStoreNameSchema,
-    supplierId: z.string().trim().min(1).nullable().optional(),
-    purchasedAt: purchaseDateSchema,
-    notes: purchaseNotesSchema,
-    /** Nama yang belanja; kosong berarti nama pencatat. */
-    buyerName: z.preprocess(
-      (value) =>
-        typeof value === "string" && value.trim() === "" ? null : value,
-      buyerNameSchema.nullable().optional(),
-    ),
-    fotoNota: z
-      .array(
-        z.string().min(1).max(RESTOCK_PURCHASE_LIMITS.fotoNotaUrl, {
-          error: "Foto nota tidak terbaca. Hapus fotonya, lalu unggah ulang.",
-        }),
-      )
-      .max(RESTOCK_PURCHASE_LIMITS.fotoNota, {
-        error: `Foto nota paling banyak ${RESTOCK_PURCHASE_LIMITS.fotoNota}.`,
-      })
-      .default([]),
-    items: purchaseLinesSchema,
-  })
-  .superRefine(refineUniquePurchaseLines);
-
 /** Batas alasan pembatalan catatan belanja. */
 export const PURCHASE_VOID_REASON_LIMITS = { min: 5, max: 500 } as const;
 
@@ -500,9 +470,6 @@ export const RESTOCK_PURCHASE_RECORD_LIST_LABELS: Readonly<
   items: "Barang",
 };
 
-export type RestockPurchaseRecordInput = z.infer<
-  typeof restockPurchaseRecordSchema
->;
 export type PublicPurchaseRecordInput = z.infer<
   typeof publicPurchaseRecordSchema
 >;

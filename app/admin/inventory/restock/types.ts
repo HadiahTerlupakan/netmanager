@@ -25,7 +25,7 @@ export interface PurchaseRequestItem extends RestockLineApprovalFields {
   receivedQuantity: number;
   cancelledQuantity?: number;
   cancelReason?: string | null;
-  /** Item PO untuk mencatat belanja; null bila ditolak / belum ada PO. Pada pesanan gabungan dipakai bersama. */
+  /** Item PO untuk catatan belanja; null bila ditolak / belum ada PO. Pada pesanan gabungan dipakai bersama. */
   purchaseOrderItemId?: string | null;
   /** Jumlah tercatat dibeli (level item PO; pesanan gabungan = total semua pengajuan). */
   purchasedQuantity?: number;
@@ -121,34 +121,6 @@ export interface PurchaseRecordSummary {
   voidReason?: string | null;
   /** Hanya baris milik pengajuan ini. */
   items: PurchaseRecordLineSummary[];
-}
-
-/** Body POST /api/inventory/restock/requests/[id]/purchases. */
-export interface RestockPurchaseRecordPayload {
-  storeName: string;
-  supplierId?: string | null;
-  /** "YYYY-MM-DD", tanggal lokal. */
-  purchasedAt: string;
-  notes?: string | null;
-  /** Nama yang belanja; kosong/null berarti nama pencatat. */
-  buyerName?: string | null;
-  /** URL hasil PhotoUpload. */
-  fotoNota: string[];
-  items: Array<{
-    purchaseOrderItemId: string;
-    quantity: number;
-    unitPrice?: number | null;
-  }>;
-}
-
-/** Respons 201. Galat: { error: string } dengan status 400/403/404/409/500. */
-export interface RestockPurchaseRecordResponse {
-  data: PurchaseRecordSummary;
-  /** "ORDERED" | "PARTIAL" | ... */
-  purchaseOrderStatus: string;
-  isFullyPurchased: boolean;
-  /** Siap ditampilkan. */
-  message: string;
 }
 
 /** Alasan link belanja boleh/tidak boleh dibuat. */

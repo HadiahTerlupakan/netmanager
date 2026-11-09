@@ -3,9 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   logActivitySafe: vi.fn(),
   purchaseRequestFindFirst: vi.fn(),
-  purchaseOrderFindUnique: vi.fn(),
   purchaseOrderUpdate: vi.fn(),
-  purchaseOrderUpdateMany: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -24,9 +22,7 @@ vi.mock("@/modules/database", () => ({
   prisma: {
     purchaseRequest: { findFirst: mocks.purchaseRequestFindFirst },
     purchaseOrder: {
-      findUnique: mocks.purchaseOrderFindUnique,
       update: mocks.purchaseOrderUpdate,
-      updateMany: mocks.purchaseOrderUpdateMany,
     },
     $transaction: mocks.transaction,
   },
@@ -34,7 +30,6 @@ vi.mock("@/modules/database", () => ({
 
 import { createRestockRequest } from "@/modules/inventory/services/RestockRequestService";
 import { InventoryRouteService } from "@/modules/inventory/services/InventoryRouteService";
-import { RestockPurchaseOrderStatusService } from "@/modules/inventory/services/RestockPurchaseOrderStatusService";
 
 function lastActivity() {
   expect(mocks.logActivitySafe).toHaveBeenCalledTimes(1);
@@ -127,35 +122,6 @@ describe("Log Aktivitas pengajuan restock", () => {
       subject: "Pengajuan Restock PR-20261017-0001",
       tenantId: "tenant-1",
       details: { purchaseRequestId: "pr-1", purchaseOrderId: "po-1" },
-    });
-  });
-
-  it("mencatat mulai belanja pada purchase order", async () => {
-    mocks.purchaseOrderFindUnique.mockResolvedValue({
-      id: "po-1",
-      poNumber: "PO-20261017-0001",
-      status: "DRAFT",
-      tenantId: "tenant-1",
-      items: [],
-    });
-    mocks.purchaseOrderUpdateMany.mockResolvedValue({ count: 1 });
-
-    await new RestockPurchaseOrderStatusService().patchRestockRequestStatus({
-      purchaseOrderId: "po-1",
-      action: "START_SHOPPING",
-      actorId: "user-1",
-    });
-
-    expect(lastActivity()).toMatchObject({
-      action: "START_SHOPPING",
-      subject: "Purchase Order PO-20261017-0001",
-      userId: "user-1",
-      tenantId: "tenant-1",
-      details: {
-        purchaseOrderId: "po-1",
-        statusLama: "DRAFT",
-        statusBaru: "ORDERED",
-      },
     });
   });
 });

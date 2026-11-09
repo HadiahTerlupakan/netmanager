@@ -64,7 +64,10 @@ function createDb(
         },
       ]),
     },
-    purchaseOrder: { update: vi.fn().mockResolvedValue({}) },
+    purchaseOrder: {
+      update: vi.fn().mockResolvedValue({}),
+      findUnique: vi.fn().mockResolvedValue(legacyEvidenceRow()),
+    },
     purchaseRecord: {
       create: vi.fn().mockResolvedValue(recordRow),
       count: vi.fn().mockResolvedValue(0),
@@ -83,9 +86,31 @@ function createDb(
     ),
     purchaseRequest: { findFirst: vi.fn() },
     purchaseRecord: { findFirst: vi.fn().mockResolvedValue(null) },
-    supplier: { count: vi.fn() },
   };
   return { db, tx, callOrder };
+}
+
+/** Baris pesanan untuk aturan data lama; bawaan: pesanan lewat link biasa. */
+function legacyEvidenceRow(
+  overrides: {
+    status?: string;
+    issuedAt?: Date | null;
+    purchaseRequests?: number;
+    purchaseRecords?: number;
+    goodsReceipts?: number;
+  } = {},
+) {
+  return {
+    status: overrides.status ?? "ORDERED",
+    issuedAt:
+      overrides.issuedAt === undefined ? purchasedAt : overrides.issuedAt,
+    items: [{ purchasedQuantity: 3, receivedQuantity: 0 }],
+    _count: {
+      purchaseRequests: overrides.purchaseRequests ?? 1,
+      purchaseRecords: overrides.purchaseRecords ?? 1,
+      goodsReceipts: overrides.goodsReceipts ?? 0,
+    },
+  };
 }
 
 function input(
@@ -98,11 +123,9 @@ function input(
     tenantId: "tenant-1",
     recordedById: "user-1",
     storeName: "Toko Sinar",
-    supplierId: null,
     purchasedAt,
     issuedAt: purchasedAt,
     notes: null,
-    fotoNota: [],
     lines: [
       {
         purchaseOrderItemId: "poi-1",
@@ -112,11 +135,10 @@ function input(
         expected: { quantity: 10, cancelledQuantity: 2 },
       },
     ],
-    buyerName: null,
-    buyerSignatureKey: null,
-    source: "ADMIN",
-    purchaseLinkId: null,
-    clientRequestId: null,
+    buyerName: "Budi",
+    buyerSignatureKey: "signatures/restock/sig-1.png",
+    purchaseLinkId: "link-1",
+    clientRequestId: "11111111-1111-4111-8111-111111111111",
     ipAddress: null,
     userAgent: null,
     ...overrides,
@@ -131,7 +153,7 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
       input(),
     );
 
-    expect(callOrder).toEqual(["lock", "increment"]);
+    expect(callOrder).toEqual(["lock", "lock-link", "increment"]);
     const lockSql = (tx.$queryRaw.mock.calls[0] as unknown[])[0] as string[];
     expect(lockSql.join("?")).toContain("FOR UPDATE");
     const [sqlParts, ...values] = tx.$executeRaw.mock.calls[0] as unknown as [
@@ -177,11 +199,11 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
     });
   });
 
-  it("menyimpan snapshot barang di tiap baris catatan", async () => {
+  it("menyimpan snapshot barang di tiap baris catatan, selalu sebagai catatan lewat link", async () => {
     const { db, tx } = createDb("ORDERED");
 
     await new RestockPurchaseRecordRepository(db as never).createPurchaseRecord(
-      input({ fotoNota: ["https://app.test/uploads/a.webp"] }),
+      input(),
     );
 
     expect(tx.purchaseRecord.create).toHaveBeenCalledWith(
@@ -189,7 +211,11 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
         data: expect.objectContaining({
           purchaseOrderId: "po-1",
           storeName: "Toko Sinar",
-          fotoNota: ["https://app.test/uploads/a.webp"],
+          supplierId: null,
+          fotoNota: [],
+          source: "PUBLIC_LINK",
+          purchaseLinkId: "link-1",
+          buyerName: "Budi",
           tenantId: "tenant-1",
           items: {
             create: [
@@ -227,13 +253,7 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
 
     const outcome = await new RestockPurchaseRecordRepository(
       db as never,
-    ).createPurchaseRecord(
-      input({
-        source: "PUBLIC_LINK",
-        purchaseLinkId: "link-1",
-        clientRequestId: "11111111-1111-4111-8111-111111111111",
-      }),
-    );
+    ).createPurchaseRecord(input());
 
     expect(outcome).toMatchObject({
       kind: "DUPLICATE",
@@ -260,28 +280,16 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
 
     const outcome = await new RestockPurchaseRecordRepository(
       db as never,
-    ).createPurchaseRecord(
-      input({
-        source: "PUBLIC_LINK",
-        purchaseLinkId: "link-1",
-        clientRequestId: "11111111-1111-4111-8111-111111111111",
-      }),
-    );
+    ).createPurchaseRecord(input());
 
     expect(outcome).toEqual({ kind: "CONFLICT" });
   });
-
-  const LINK_INPUT = {
-    source: "PUBLIC_LINK" as const,
-    purchaseLinkId: "link-1",
-    clientRequestId: "11111111-1111-4111-8111-111111111111",
-  };
 
   it("lewat link: pesanan dikunci dulu, baru link (urutan kunci tetap)", async () => {
     const { db, callOrder } = createDb("ORDERED");
 
     await new RestockPurchaseRecordRepository(db as never).createPurchaseRecord(
-      input(LINK_INPUT),
+      input(),
     );
 
     expect(callOrder.slice(0, 3)).toEqual(["lock", "lock-link", "increment"]);
@@ -289,18 +297,54 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
 
   it("lewat link: pesanan yang kini dipakai pengajuan lain → LINK_INACTIVE tanpa menulis", async () => {
     const { db, tx } = createDb("ORDERED");
-    tx.purchaseRequest.count.mockResolvedValue(2);
+    tx.purchaseOrder.findUnique.mockResolvedValue(
+      legacyEvidenceRow({ purchaseRequests: 2 }),
+    );
 
     const outcome = await new RestockPurchaseRecordRepository(
       db as never,
-    ).createPurchaseRecord(input(LINK_INPUT));
+    ).createPurchaseRecord(input());
 
     expect(outcome).toEqual({ kind: "LINK_INACTIVE" });
-    expect(tx.purchaseRequest.count).toHaveBeenCalledWith({
-      where: { purchaseOrderId: "po-1" },
-    });
+    expect(tx.purchaseOrder.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "po-1" } }),
+    );
     expect(tx.$executeRaw).not.toHaveBeenCalled();
     expect(tx.purchaseRecord.create).not.toHaveBeenCalled();
+  });
+
+  it("lewat link: pesanan data lama (dibeli tanpa catatan belanja) → LINK_INACTIVE tanpa menulis", async () => {
+    const { db, tx } = createDb("ORDERED");
+    tx.purchaseOrder.findUnique.mockResolvedValue({
+      ...legacyEvidenceRow({ purchaseRecords: 0 }),
+      items: [{ purchasedQuantity: 0, receivedQuantity: 0 }],
+    });
+
+    const outcome = await new RestockPurchaseRecordRepository(
+      db as never,
+    ).createPurchaseRecord(input());
+
+    expect(outcome).toEqual({ kind: "LINK_INACTIVE" });
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+    expect(tx.purchaseRecord.create).not.toHaveBeenCalled();
+  });
+
+  it("lewat link: belanja pertama pada DRAFT biasa tetap boleh", async () => {
+    const { db, tx } = createDb("DRAFT");
+    tx.purchaseOrder.findUnique.mockResolvedValue({
+      ...legacyEvidenceRow({
+        status: "DRAFT",
+        issuedAt: null,
+        purchaseRecords: 0,
+      }),
+      items: [{ purchasedQuantity: 0, receivedQuantity: 0 }],
+    });
+
+    const outcome = await new RestockPurchaseRecordRepository(
+      db as never,
+    ).createPurchaseRecord(input());
+
+    expect(outcome.kind).toBe("CREATED");
   });
 
   it("lewat link: batas 30 catatan per link (termasuk yang dibatalkan) → LINK_LIMIT", async () => {
@@ -309,7 +353,7 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
 
     const outcome = await new RestockPurchaseRecordRepository(
       db as never,
-    ).createPurchaseRecord(input(LINK_INPUT));
+    ).createPurchaseRecord(input());
 
     expect(outcome).toEqual({ kind: "LINK_LIMIT" });
     expect(tx.purchaseRecord.count).toHaveBeenCalledWith({
@@ -324,7 +368,7 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
 
     const outcome = await new RestockPurchaseRecordRepository(
       db as never,
-    ).createPurchaseRecord(input(LINK_INPUT));
+    ).createPurchaseRecord(input());
 
     expect(outcome).toMatchObject({ kind: "CREATED" });
   });
@@ -339,7 +383,7 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
 
     const outcome = await new RestockPurchaseRecordRepository(
       db as never,
-    ).createPurchaseRecord(input(LINK_INPUT));
+    ).createPurchaseRecord(input());
 
     expect(outcome).toEqual({ kind: "LINK_INACTIVE" });
     expect(tx.$executeRaw).not.toHaveBeenCalled();
@@ -356,7 +400,7 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
 
     const outcome = await new RestockPurchaseRecordRepository(
       db as never,
-    ).createPurchaseRecord(input(LINK_INPUT));
+    ).createPurchaseRecord(input());
 
     expect(outcome).toMatchObject({
       kind: "DUPLICATE",
@@ -369,7 +413,7 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
     const serverTime = new Date("2026-11-09T08:15:00Z");
 
     await new RestockPurchaseRecordRepository(db as never).createPurchaseRecord(
-      input({ ...LINK_INPUT, issuedAt: serverTime }),
+      input({ issuedAt: serverTime }),
     );
 
     expect(tx.purchaseOrder.update).toHaveBeenCalledWith(
@@ -420,7 +464,7 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
 
     const outcome = await new RestockPurchaseRecordRepository(
       db as never,
-    ).createPurchaseRecord(input(LINK_INPUT));
+    ).createPurchaseRecord(input());
 
     expect(outcome).toEqual({ kind: "CONFLICT" });
   });
@@ -490,9 +534,10 @@ describe("RestockPurchaseRecordRepository — baca konteks", () => {
         id: "po-1",
         poNumber: "PO-1",
         status: "DRAFT",
+        issuedAt: null,
         tenantId: "tenant-lain",
         items: [],
-        _count: { purchaseRequests: 1 },
+        _count: { purchaseRequests: 1, purchaseRecords: 0, goodsReceipts: 0 },
       },
     });
 
@@ -516,24 +561,6 @@ describe("RestockPurchaseRecordRepository — baca konteks", () => {
       purchaseOrder: null,
     });
   });
-
-  it("menganggap toko blacklist sebagai tidak aktif", async () => {
-    const { db } = createDb();
-    db.supplier.count.mockResolvedValue(0);
-
-    const isActive = await new RestockPurchaseRecordRepository(
-      db as never,
-    ).isActiveSupplier("supplier-1", "tenant-1");
-
-    expect(isActive).toBe(false);
-    expect(db.supplier.count).toHaveBeenCalledWith({
-      where: {
-        id: "supplier-1",
-        tenantId: "tenant-1",
-        status: { not: "BLACKLISTED" },
-      },
-    });
-  });
 });
 
 describe("RestockPurchaseRecordRepository — jumlah pengajuan di pesanan", () => {
@@ -549,9 +576,10 @@ describe("RestockPurchaseRecordRepository — jumlah pengajuan di pesanan", () =
         id: "po-1",
         poNumber: "PO-1",
         status: "ORDERED",
+        issuedAt: null,
         tenantId: "tenant-1",
         items: [],
-        _count: { purchaseRequests: 2 },
+        _count: { purchaseRequests: 2, purchaseRecords: 1, goodsReceipts: 0 },
       },
     });
 
@@ -566,7 +594,44 @@ describe("RestockPurchaseRecordRepository — jumlah pengajuan di pesanan", () =
       tenantId: "tenant-1",
       items: [],
       linkedRequestCount: 2,
+      isLegacyPurchased: false,
     });
+  });
+
+  it("konteks menandai pesanan data lama: barang datang tanpa catatan belanja", async () => {
+    const { db } = createDb();
+    db.purchaseRequest.findFirst.mockResolvedValue({
+      id: "pr-1",
+      nomorRequest: "PR-1",
+      status: "ORDERED",
+      purchaseOrderId: "po-1",
+      items: [{ barangId: "barang-1" }],
+      purchaseOrder: {
+        id: "po-1",
+        poNumber: "PO-1",
+        status: "PARTIAL",
+        issuedAt: null,
+        tenantId: "tenant-1",
+        items: [
+          {
+            id: "poi-1",
+            barangId: "barang-1",
+            quantity: 10,
+            cancelledQuantity: 0,
+            receivedQuantity: 4,
+            purchasedQuantity: 0,
+            barang: { nama: "Kabel", satuan: "roll" },
+          },
+        ],
+        _count: { purchaseRequests: 1, purchaseRecords: 0, goodsReceipts: 1 },
+      },
+    });
+
+    const context = await new RestockPurchaseRecordRepository(
+      db as never,
+    ).findPurchaseContext("pr-1", "tenant-1");
+
+    expect(context?.purchaseOrder?.isLegacyPurchased).toBe(true);
   });
 });
 
@@ -587,6 +652,7 @@ describe("RestockPurchaseRecordRepository.voidPurchaseRecord", () => {
       markedCount?: number;
       linkedRequestCount?: number;
       foreignLineCount?: number;
+      lines?: Array<Record<string, unknown>>;
     } = {},
   ) {
     const callOrder: string[] = [];
@@ -621,10 +687,12 @@ describe("RestockPurchaseRecordRepository.voidPurchaseRecord", () => {
       },
       purchaseRecordItem: {
         count: vi.fn().mockResolvedValue(options.foreignLineCount ?? 0),
-        findMany: vi.fn().mockResolvedValue([
-          { purchaseOrderItemId: "poi-1", quantity: 3 },
-          { purchaseOrderItemId: "poi-2", quantity: 2 },
-        ]),
+        findMany: vi.fn().mockResolvedValue(
+          options.lines ?? [
+            { purchaseOrderItemId: "poi-1", quantity: 3 },
+            { purchaseOrderItemId: "poi-2", quantity: 2 },
+          ],
+        ),
       },
       $queryRaw: vi.fn(async () => {
         callOrder.push("lock");
@@ -674,6 +742,64 @@ describe("RestockPurchaseRecordRepository.voidPurchaseRecord", () => {
       poNumber: "PO-1",
       record: { id: "rec-1", voidReason: "Bukan belanja kita" },
     });
+  });
+
+  it("ALREADY_RECEIVED tanpa menulis apa pun bila barangnya sudah datang", async () => {
+    const { db, tx } = createVoidDb({
+      lines: [
+        {
+          purchaseOrderItemId: "poi-1",
+          quantity: 3,
+          purchaseOrderItem: {
+            purchasedQuantity: 3,
+            receivedQuantity: 2,
+            barang: { nama: "Kabel", satuan: "roll" },
+          },
+        },
+        {
+          purchaseOrderItemId: "poi-2",
+          quantity: 2,
+          purchaseOrderItem: {
+            purchasedQuantity: 6,
+            receivedQuantity: 4,
+            barang: { nama: "ONT", satuan: "pcs" },
+          },
+        },
+      ],
+    });
+
+    const outcome = await new RestockPurchaseRecordRepository(
+      db as never,
+    ).voidPurchaseRecord(voidInput);
+
+    expect(outcome).toEqual({
+      kind: "ALREADY_RECEIVED",
+      lines: [{ nama: "Kabel", received: 2, satuan: "roll" }],
+    });
+    expect(tx.purchaseRecord.updateMany).not.toHaveBeenCalled();
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it("tetap boleh dibatalkan bila barangnya belum datang", async () => {
+    const { db } = createVoidDb({
+      lines: [
+        {
+          purchaseOrderItemId: "poi-1",
+          quantity: 3,
+          purchaseOrderItem: {
+            purchasedQuantity: 3,
+            receivedQuantity: 0,
+            barang: { nama: "Kabel", satuan: "roll" },
+          },
+        },
+      ],
+    });
+
+    const outcome = await new RestockPurchaseRecordRepository(
+      db as never,
+    ).voidPurchaseRecord(voidInput);
+
+    expect(outcome.kind).toBe("VOIDED");
   });
 
   it("NOT_FOUND bila catatan bukan milik pesanan pengajuan ini", async () => {

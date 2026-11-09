@@ -40,6 +40,8 @@ const LINK = {
   createdByName: "Budi",
 };
 const LINK_URL = "https://situs.test/belanja#abcDEF_-123";
+const INTRO_TEXT =
+  "Barang sudah dibeli atau belum hanya dicatat lewat link ini.";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -57,9 +59,17 @@ async function flush() {
   });
 }
 
-async function renderPanel(request: PurchaseRequest = REQUEST) {
+async function renderPanel(
+  request: PurchaseRequest = REQUEST,
+  isFocusedOnOpen = false,
+) {
   await act(async () => {
-    root.render(<RestockPurchaseLinkPanel request={request} />);
+    root.render(
+      <RestockPurchaseLinkPanel
+        request={request}
+        isFocusedOnOpen={isFocusedOnOpen}
+      />,
+    );
   });
   await flush();
 }
@@ -91,8 +101,8 @@ afterEach(() => {
 });
 
 describe("RestockPurchaseLinkPanel", () => {
-  it.each(["CLOSED", "NOT_APPROVED"])(
-    "tidak tampil bila availability %s",
+  it.each(["CLOSED", "NOT_APPROVED", "MERGED_ORDER"])(
+    "tidak tampil bila availability %s tanpa link aktif",
     async (availability) => {
       mocks.getWithAuth.mockResolvedValue(
         jsonResponse(200, { data: { link: null, availability } }),
@@ -116,6 +126,9 @@ describe("RestockPurchaseLinkPanel", () => {
       expect(container.textContent).toContain("Link dibuat");
       expect(container.textContent).toContain("Link ini masih berlaku");
       expect(() => button("Buat link baru")).toThrow();
+      // Kalimat "hanya dicatat lewat link ini" tidak bertentangan dengan
+      // alasan link tidak bisa dipakai.
+      expect(container.textContent).not.toContain(INTRO_TEXT);
 
       await click("Matikan link");
       await click("Ya, matikan");
@@ -143,16 +156,68 @@ describe("RestockPurchaseLinkPanel", () => {
     expect(container.textContent).toContain("Matikan link");
   });
 
-  it("pesanan gabungan tanpa link: penjelasan awam, tanpa tombol", async () => {
+  it("pesanan gabungan dengan link sisa: penjelasan awam tanpa kalimat pembuka", async () => {
     mocks.getWithAuth.mockResolvedValueOnce(
       jsonResponse(200, {
-        data: { link: null, availability: "MERGED_ORDER" },
+        data: { link: LINK, availability: "MERGED_ORDER" },
       }),
     );
     await renderPanel();
     expect(container.textContent).toContain(
-      "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi link belanja tidak bisa dipakai. Catat belanja dari aplikasi.",
+      "Pengajuan ini digabung dengan pengajuan lain dalam satu pesanan, jadi link belanja tidak bisa dipakai dan belanjanya tidak dicatat. Statusnya mengikuti barang yang datang.",
     );
+    expect(container.textContent).not.toContain(INTRO_TEXT);
+  });
+
+  it("penyimpanan belum aktif: menyebut barang datang tetap bisa dicatat", async () => {
+    mocks.getWithAuth.mockResolvedValueOnce(
+      jsonResponse(200, { data: { link: null, availability: "STORAGE_OFF" } }),
+    );
+    await renderPanel();
+    expect(container.textContent).toContain(
+      "Barang yang datang tetap bisa dicatat lewat tombol Catat Barang Datang.",
+    );
+    expect(container.textContent).not.toContain(INTRO_TEXT);
+    expect(container.querySelector("button")).toBeNull();
+  });
+
+  it("data lama yang sudah ditandai dibeli sekaligus tidak ditawari link baru", async () => {
+    const legacy = {
+      ...REQUEST,
+      items: [
+        {
+          id: "ri-1",
+          barangId: "b-1",
+          jumlah: 10,
+          orderedQuantity: 10,
+          purchasedQuantity: 0,
+          receivedQuantity: 0,
+          cancelledQuantity: 0,
+          purchaseOrderItemId: "poi-1",
+          statusApproval: "APPROVED",
+        },
+      ],
+      purchaseRecords: [],
+      goodsReceipts: [],
+      purchaseOrder: {
+        id: "po-1",
+        poNumber: "PO-1",
+        status: "ORDERED",
+        issuedAt: "2026-10-01T03:00:00.000Z",
+      },
+    } as unknown as PurchaseRequest;
+    // Server kini mengenal data lama dan menjawab ALL_PURCHASED.
+    mocks.getWithAuth.mockResolvedValueOnce(
+      jsonResponse(200, {
+        data: { link: null, availability: "ALL_PURCHASED" },
+      }),
+    );
+    await renderPanel(legacy);
+
+    expect(container.textContent).toContain(
+      "Semua barang sudah dibeli, jadi link belanja tidak diperlukan lagi.",
+    );
+    expect(container.textContent).not.toContain(INTRO_TEXT);
     expect(container.querySelector("button")).toBeNull();
   });
 
@@ -212,6 +277,7 @@ describe("RestockPurchaseLinkPanel", () => {
     );
     await renderPanel();
 
+    expect(container.textContent).toContain("Link belanja aktif");
     expect(container.querySelector("input")).toBeNull();
     expect(container.textContent).toMatch(
       /Link dibuat 9 Nov 2026 oleh Budi, berlaku sampai 9 Des 2026\. Terakhir dibuka: belum pernah\./,
@@ -272,5 +338,27 @@ describe("RestockPurchaseLinkPanel", () => {
     expect(container.textContent).toContain(
       "Link belanja belum bisa dibuat karena penyimpanan tanda tangan belum aktif.",
     );
+  });
+
+  it("dibuka dari tabel: fokus ke judul panel setelah status dimuat", async () => {
+    mocks.getWithAuth.mockResolvedValueOnce(
+      jsonResponse(200, { data: { link: null, availability: "AVAILABLE" } }),
+    );
+    await renderPanel(REQUEST, true);
+
+    const heading = container.querySelector("h3");
+    expect(heading?.textContent).toContain("Link belanja");
+    expect(document.activeElement).toBe(heading);
+    expect(button("Buat link belanja")).toBeTruthy();
+    expect(container.textContent).toContain(INTRO_TEXT);
+  });
+
+  it("dibuka biasa: fokus tidak dipindahkan", async () => {
+    mocks.getWithAuth.mockResolvedValueOnce(
+      jsonResponse(200, { data: { link: null, availability: "AVAILABLE" } }),
+    );
+    await renderPanel();
+
+    expect(document.activeElement).not.toBe(container.querySelector("h3"));
   });
 });

@@ -26,14 +26,36 @@ interface RestockReceiveItemRowProps {
   canMarkNotComing: boolean;
   overReceiptReason: string;
   onOverReceiptReasonChange: (reason: string) => void;
+  /** Jumlah yang boleh dicatat datang sekarang untuk barang ini. */
+  receiveLimit: number;
+  /**
+   * true: hanya barang yang sudah dilaporkan dibeli yang bisa dicatat (bukan
+   * data lama/pesanan gabungan); kelebihan kiriman tidak tersedia.
+   */
+  isLimitedToPurchased: boolean;
 }
 
-/** "Dipesan 10 roll · Sudah datang 6 · Masih ditunggu 4". */
-export function describeReceiveLineProgress(item: PurchaseRequestItem): string {
+const NOT_PURCHASED_YET_TEXT =
+  "Belum dibeli. Bisa dicatat setelah dilaporkan dibeli lewat link.";
+
+/**
+ * "Sudah dibeli 6 roll · Sudah datang 2 roll · Bisa dicatat sekarang 4 roll"
+ * pada pesanan yang belanjanya lewat link; "Dipesan 10 roll · Sudah datang 6
+ * roll · Masih ditunggu 4 roll" pada data lama dan pesanan gabungan.
+ */
+export function describeReceiveLineProgress(
+  item: PurchaseRequestItem,
+  purchaseLimit?: { receiveLimit: number },
+): string {
   const { ordered, received, remaining } = getRestockLineProgress(item);
-  const orderedText = `Dipesan ${ordered} ${item.barang.satuan}`;
+  const withUnit = (quantity: number) =>
+    [String(quantity), item.barang.satuan].filter(Boolean).join(" ");
+  if (purchaseLimit) {
+    return `Sudah dibeli ${withUnit(item.purchasedQuantity ?? 0)} · Sudah datang ${withUnit(received)} · Bisa dicatat sekarang ${withUnit(purchaseLimit.receiveLimit)}`;
+  }
+  const orderedText = `Dipesan ${withUnit(ordered)}`;
   if (received === 0) return `${orderedText} · Belum ada yang datang`;
-  return `${orderedText} · Sudah datang ${received} · Masih ditunggu ${remaining}`;
+  return `${orderedText} · Sudah datang ${withUnit(received)} · Masih ditunggu ${withUnit(remaining)}`;
 }
 
 /**
@@ -53,6 +75,8 @@ export function RestockReceiveItemRow({
   canMarkNotComing,
   overReceiptReason,
   onOverReceiptReasonChange,
+  receiveLimit,
+  isLimitedToPurchased,
 }: RestockReceiveItemRowProps) {
   const inputId = useId();
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -79,10 +103,19 @@ export function RestockReceiveItemRow({
   const displayedSatuan = substituteBarang?.satuan ?? satuan;
   const { remaining, received, cancelled } = getRestockLineProgress(item);
   const outstandingQuantity = getRemainingAfterToday(item, receivedQuantity);
-  const excessQuantity = getRestockItemExcess(item, receivedQuantity);
+  const excessQuantity = isLimitedToPurchased
+    ? 0
+    : getRestockItemExcess(item, receivedQuantity);
+  const prefillQuantity = isLimitedToPurchased ? receiveLimit : remaining;
   const isPrefilledWithRemaining =
-    remaining > 0 && receivedQuantity === remaining;
+    prefillQuantity > 0 && receivedQuantity === prefillQuantity;
+  const isNotPurchasedYet = isLimitedToPurchased && receiveLimit === 0;
+  const isInputDisabled = isNotPurchasedYet && receivedQuantity === 0;
   const isNotArrivingToday = receivedQuantity <= 0;
+  // Barang yang belum dibeli tidak mungkin datang sebagai barang lain.
+  const isSubstituteOffered =
+    canSubstitute && (!isNotPurchasedYet || !!substituteBarangId);
+  const notPurchasedId = useId();
 
   return (
     <div
@@ -101,8 +134,19 @@ export function RestockReceiveItemRow({
             )}
           </div>
           <p className="text-sm text-gray-700 dark:text-gray-300">
-            {describeReceiveLineProgress(item)}
+            {describeReceiveLineProgress(
+              item,
+              isLimitedToPurchased ? { receiveLimit } : undefined,
+            )}
           </p>
+          {isNotPurchasedYet && (
+            <p
+              id={notPurchasedId}
+              className="text-sm font-semibold text-amber-900 dark:text-amber-200"
+            >
+              {NOT_PURCHASED_YET_TEXT}
+            </p>
+          )}
         </div>
         <div className="shrink-0">
           <label
@@ -118,13 +162,16 @@ export function RestockReceiveItemRow({
               min="0"
               inputMode="numeric"
               aria-label={`Jumlah ${displayedName} yang datang hari ini`}
+              aria-describedby={isNotPurchasedYet ? notPurchasedId : undefined}
+              disabled={isInputDisabled}
+              max={isLimitedToPurchased ? receiveLimit : undefined}
               value={receivedQuantity}
               onChange={(event) =>
                 onReceivedQuantityChange(
                   Math.max(parseInt(event.target.value) || 0, 0),
                 )
               }
-              className="min-h-[44px] w-24 rounded-xl border border-gray-300 bg-white px-3 text-right text-base font-bold text-gray-900 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+              className="min-h-[44px] w-24 rounded-xl border border-gray-300 bg-white px-3 text-right text-base font-bold text-gray-900 focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600 dark:border-gray-600 dark:bg-gray-900 dark:text-white dark:disabled:bg-gray-800 dark:disabled:text-gray-400"
             />
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               {displayedSatuan}
@@ -135,12 +182,14 @@ export function RestockReceiveItemRow({
 
       {isPrefilledWithRemaining && (
         <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-          Sudah terisi semua sisa. Ubah kalau yang datang lebih sedikit.
+          {isLimitedToPurchased
+            ? "Sudah terisi semua yang sudah dibeli. Ubah kalau yang datang lebih sedikit."
+            : "Sudah terisi semua sisa. Ubah kalau yang datang lebih sedikit."}
         </p>
       )}
 
       <div className="mt-3 space-y-2">
-        {canSubstitute ? (
+        {isSubstituteOffered ? (
           <>
             <button
               type="button"
@@ -173,10 +222,12 @@ export function RestockReceiveItemRow({
             )}
           </>
         ) : (
-          <p className="text-xs text-gray-600 dark:text-gray-400">
-            Sudah datang {received} {satuan} sebelumnya, jadi barangnya tidak
-            bisa diganti lagi.
-          </p>
+          !canSubstitute && (
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              Sudah datang {received} {satuan} sebelumnya, jadi barangnya tidak
+              bisa diganti lagi.
+            </p>
+          )
         )}
 
         {cancelled > 0 && (

@@ -5,6 +5,7 @@ import { FiCheckCircle } from "react-icons/fi";
 
 import { RestockNotComingReasonSelect } from "./RestockNotComingReasonSelect";
 import {
+  getAwaitedFollowUpDescription,
   getRestockShortfallConfirmMessage,
   type RestockReceiveLine,
   type RestockReceiveSummary,
@@ -20,6 +21,8 @@ interface RestockFollowUpSectionProps {
   onIsFinishingOrderChange: (value: boolean) => void;
   closeReason: string;
   onCloseReasonChange: (reason: string) => void;
+  /** Masih ada barang yang belum dibeli (dicatat setelah dibeli lewat link). */
+  hasUnpurchasedRemainder: boolean;
 }
 
 function RestockReceiveLineList({ lines }: { lines: RestockReceiveLine[] }) {
@@ -84,6 +87,7 @@ export function RestockFollowUpSection({
   onIsFinishingOrderChange,
   closeReason,
   onCloseReasonChange,
+  hasUnpurchasedRemainder,
 }: RestockFollowUpSectionProps) {
   const radioName = useId();
   if (!summary.hasRemainderAfterToday) {
@@ -104,7 +108,7 @@ export function RestockFollowUpSection({
         name={radioName}
         isChecked={!isFinishingOrder}
         title="Ya, sisanya masih ditunggu"
-        description='Saat sisanya datang, buka pengajuan ini lagi dan tekan "Catat Kiriman Berikutnya".'
+        description={getAwaitedFollowUpDescription(hasUnpurchasedRemainder)}
         onSelect={() => onIsFinishingOrderChange(false)}
       />
       <FollowUpOption

@@ -1,3 +1,11 @@
+import {
+  canReceiveWithoutPurchaseReport,
+  getReceiveLimit,
+  isLegacyPurchasedOrder,
+  isMergedRestockOrder,
+  type RestockPurchaseEvidence,
+} from "@/modules/inventory/client";
+
 import { isLineRejected } from "./approvalUtils";
 import type {
   PurchaseRecordSummary,
@@ -9,7 +17,10 @@ import type {
 export interface RestockLinePurchase {
   /** Jumlah yang perlu dibeli: dipesan dikurangi yang tidak jadi datang. */
   limit: number;
-  /** Sudah dibeli, paling banyak `limit` (barang datang ikut dihitung). */
+  /**
+   * Sudah dibeli, paling banyak `limit`. Barang yang datang tanpa catatan
+   * belanja (data lama, sebelum tahap pembelian wajib) ikut dihitung.
+   */
   purchased: number;
   remainingToBuy: number;
   /**
@@ -24,12 +35,10 @@ export interface RestockLinePurchase {
 /** NONE = belum ada yang dibeli, PARTIAL = sebagian, ALL = semua sudah dibeli. */
 export type RestockPurchaseState = "NONE" | "PARTIAL" | "ALL";
 
-/** Status pengajuan yang masih boleh dicatat belanjanya. */
+/** Status pengajuan yang masih boleh dibelikan. */
 const PURCHASABLE_REQUEST_STATUSES = ["APPROVED", "ORDERED"];
-/** Status pesanan yang sudah ditutup; belanja tidak bisa dicatat lagi. */
+/** Status pesanan yang sudah ditutup; tidak ada lagi yang dibeli. */
 const CLOSED_ORDER_STATUSES = ["RECEIVED", "CANCELLED"];
-/** Status pesanan lama yang pasti sudah lewat langkah "dibeli". */
-const LEGACY_PURCHASED_ORDER_STATUSES = ["ORDERED", "PARTIAL"];
 
 const QUANTITY_FORMAT = new Intl.NumberFormat("id-ID");
 const PRICE_FORMAT = new Intl.NumberFormat("id-ID", {
@@ -113,59 +122,122 @@ export function hasRestockPurchaseActivity(request: PurchaseRequest): boolean {
 }
 
 function hasArrivedGoods(request: PurchaseRequest): boolean {
-  if (getRestockGoodsReceiptTimes(request).length > 0) return true;
+  const receipts =
+    request.goodsReceipts ?? request.purchaseOrder?.goodsReceipts ?? [];
+  if (receipts.length > 0) return true;
   return getReceivableLines(request).some(
     (item) => (item.receivedQuantity || 0) > 0,
   );
 }
 
-function getRestockGoodsReceiptTimes(request: PurchaseRequest): number[] {
-  const receipts =
-    request.goodsReceipts ?? request.purchaseOrder?.goodsReceipts ?? [];
-  return receipts.map((receipt) =>
-    receipt.receivedAt ? Date.parse(receipt.receivedAt) : Number.NaN,
-  );
-}
-
 /**
- * Tanggal beli diisi sebelum kiriman pertama datang: pesanan ditandai dibeli
- * sekaligus (tombol lama atau dari halaman pembelian), bukan diisi otomatis
- * oleh penerimaan pertama.
+ * Bukti pembelian pesanan pengajuan ini, dalam bentuk yang sama dengan yang
+ * dipakai server untuk memutuskan boleh/tidaknya barang dicatat datang.
  */
-function wasMarkedPurchasedBeforeArrival(
+export function buildRestockPurchaseEvidence(
   request: PurchaseRequest,
-  issuedAt: string,
-): boolean {
-  const receiptTimes = getRestockGoodsReceiptTimes(request);
-  if (receiptTimes.length === 0) return true;
-  const knownTimes = receiptTimes.filter((time) => !Number.isNaN(time));
-  if (knownTimes.length === 0) return true;
-  return Date.parse(issuedAt) < Math.min(...knownTimes);
+): RestockPurchaseEvidence {
+  const order = request.purchaseOrder;
+  return {
+    purchaseOrderStatus: order?.status ?? null,
+    issuedAt: order?.issuedAt ?? null,
+    purchaseRecordCount: getAllRestockPurchaseRecords(request).length,
+    hasPurchasedQuantity: getReceivableLines(request).some(
+      (item) => (item.purchasedQuantity ?? 0) > 0,
+    ),
+    hasArrivedGoods: hasArrivedGoods(request),
+    linkedRequestCount: order?._count?.purchaseRequests ?? 1,
+  };
 }
 
 /**
- * Data lama: pesanan sudah ditandai dibeli sekaligus tanpa satu pun catatan
- * belanja. Pesanan seperti ini tetap "sudah dibeli semua" walau barangnya
- * mulai datang, supaya statusnya tidak mundur. Penerimaan pertama pada
- * pesanan yang belum ditandai dibeli juga mengisi tanggal beli; pesanan itu
- * bukan data lama, karena tanggalnya baru terisi sesudah barang datang.
- *
- * Pesanan yang pernah punya catatan belanja, walau semuanya sudah
- * dibatalkan, juga bukan data lama: tanggal belinya diisi catatan pertama,
- * dan setelah dibatalkan barangnya memang kembali belum dibeli.
+ * Data lama: pesanan yang sudah ditandai dibeli atau sudah ada barang datang
+ * tanpa satu pun catatan belanja (termasuk yang dibatalkan). Pesanan seperti
+ * ini tetap "sudah dibeli semua" dan link belanjanya tidak tersedia. Aturannya
+ * sama persis dengan server (`isLegacyPurchasedOrder`).
  */
 export function isRestockLegacyPurchased(request: PurchaseRequest): boolean {
-  const order = request.purchaseOrder;
-  if (!order) return false;
-  if (getAllRestockPurchaseRecords(request).length > 0) return false;
-  if (hasRestockPurchaseActivity(request)) return false;
-  if (order.issuedAt) {
-    return wasMarkedPurchasedBeforeArrival(request, order.issuedAt);
-  }
-  return (
-    LEGACY_PURCHASED_ORDER_STATUSES.includes(order.status ?? "") &&
-    !hasArrivedGoods(request)
+  if (!request.purchaseOrder) return false;
+  return isLegacyPurchasedOrder(buildRestockPurchaseEvidence(request));
+}
+
+/**
+ * Barang boleh dicatat datang tanpa laporan belanja: data lama atau pesanan
+ * gabungan. Selain itu, hanya barang yang sudah dilaporkan dibeli.
+ */
+export function canRestockReceiveWithoutPurchaseReport(
+  request: PurchaseRequest,
+): boolean {
+  if (!request.purchaseOrder) return false;
+  return canReceiveWithoutPurchaseReport(buildRestockPurchaseEvidence(request));
+}
+
+/** Jumlah yang boleh dicatat datang sekarang untuk satu baris barang. */
+export function getRestockLineReceiveLimit(
+  item: PurchaseRequestItem,
+  request: PurchaseRequest,
+): number {
+  return getReceiveLimit(
+    {
+      quantity: item.orderedQuantity ?? item.jumlah,
+      receivedQuantity: item.receivedQuantity || 0,
+      cancelledQuantity: item.cancelledQuantity ?? 0,
+      purchasedQuantity: item.purchasedQuantity ?? 0,
+    },
+    canRestockReceiveWithoutPurchaseReport(request),
   );
+}
+
+function isRestockOrderOpen(request: PurchaseRequest): boolean {
+  if (!request.purchaseOrder) return false;
+  if (!PURCHASABLE_REQUEST_STATUSES.includes(request.status)) return false;
+  return !CLOSED_ORDER_STATUSES.includes(request.purchaseOrder.status ?? "");
+}
+
+/** Pesanan terbuka dan ada barang yang boleh dicatat datang sekarang. */
+export function hasRestockItemsAwaitingArrival(
+  request: PurchaseRequest,
+): boolean {
+  if (!isRestockOrderOpen(request)) return false;
+  return getReceivableLines(request).some(
+    (item) => getRestockLineReceiveLimit(item, request) > 0,
+  );
+}
+
+/**
+ * "Tutup sisa yang tidak jadi dibeli" tersedia: tahap pembelian belum
+ * selesai (atau daftar belanjanya belum ada), pada pesanan yang belanjanya
+ * dilaporkan lewat link.
+ */
+export function canCloseRestockUnpurchased(request: PurchaseRequest): boolean {
+  if (!PURCHASABLE_REQUEST_STATUSES.includes(request.status)) return false;
+  if (!request.purchaseOrder) return getReceivableLines(request).length > 0;
+  if (CLOSED_ORDER_STATUSES.includes(request.purchaseOrder.status ?? "")) {
+    return false;
+  }
+  if (canRestockReceiveWithoutPurchaseReport(request)) return false;
+  return hasRestockItemsToBuy(request);
+}
+
+/**
+ * Catatan belanja masih boleh dibatalkan: sesudah dibatalkan, jumlah dibeli
+ * tiap barisnya tidak lebih kecil dari jumlah yang sudah datang.
+ */
+export function canVoidRestockPurchaseRecord(
+  record: PurchaseRecordSummary,
+  request: PurchaseRequest,
+): boolean {
+  return record.items.every((line) => {
+    const item = request.items.find(
+      (candidate) => candidate.purchaseOrderItemId === line.purchaseOrderItemId,
+    );
+    if (!item) return true;
+    const purchasedAfter = Math.max(
+      (item.purchasedQuantity ?? 0) - line.quantity,
+      0,
+    );
+    return purchasedAfter >= (item.receivedQuantity || 0);
+  });
 }
 
 /** Angka belanja satu baris; `purchased` tidak pernah melebihi batasnya. */
@@ -207,12 +279,20 @@ export function getRestockPurchaseState(
   return "PARTIAL";
 }
 
-/** Tombol "Catat Belanja" muncul selama masih ada barang yang belum dibeli. */
-export function canRecordRestockPurchase(request: PurchaseRequest): boolean {
-  const order = request.purchaseOrder;
-  if (!order) return false;
-  if (!PURCHASABLE_REQUEST_STATUSES.includes(request.status)) return false;
-  if (CLOSED_ORDER_STATUSES.includes(order.status ?? "")) return false;
+/**
+ * Pesanan dipakai lebih dari satu pengajuan. Belanjanya tidak dicatat lewat
+ * link (pemegang link akan ikut melihat barang pengajuan lain); statusnya
+ * mengikuti barang yang datang.
+ */
+export function isRestockMergedOrder(request: PurchaseRequest): boolean {
+  return isMergedRestockOrder(
+    request.purchaseOrder?._count?.purchaseRequests ?? 1,
+  );
+}
+
+/** Pengajuan masih terbuka dan masih ada barang yang belum dibeli. */
+export function hasRestockItemsToBuy(request: PurchaseRequest): boolean {
+  if (!isRestockOrderOpen(request)) return false;
   const isLegacy = isRestockLegacyPurchased(request);
   return getReceivableLines(request).some(
     (item) =>
@@ -222,8 +302,16 @@ export function canRecordRestockPurchase(request: PurchaseRequest): boolean {
 }
 
 /**
+ * Aksi utama "Kirim Link Belanja": masih ada barang yang belum dibeli dan
+ * pesanannya tidak digabung. Sudah dibeli atau belum hanya dicatat lewat link.
+ */
+export function canSendRestockPurchaseLink(request: PurchaseRequest): boolean {
+  return hasRestockItemsToBuy(request) && !isRestockMergedOrder(request);
+}
+
+/**
  * Rincian toko untuk satu barang: "Toko A 3, Toko B 2". Jumlah yang dibeli
- * tanpa catatan (misalnya langsung dicatat datang) ditulis terpisah.
+ * tanpa catatan (hanya pada data lama) ditulis terpisah.
  */
 export function describeLinePurchaseBreakdown(
   item: PurchaseRequestItem,

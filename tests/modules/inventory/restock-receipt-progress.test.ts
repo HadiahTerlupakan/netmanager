@@ -145,10 +145,11 @@ describe("RestockGoodsReceiptService — perjalanan pesanan", () => {
   });
 
   describe("barang datang", () => {
-    it("mencatat pembeli dan tanggal beli saat kiriman pertama pada pesanan DRAFT", async () => {
+    it("mencatat pembeli dan tanggal beli saat kiriman pertama pada pesanan gabungan DRAFT", async () => {
       const repository = createRepository({
         status: "DRAFT",
         statusAfter: "PARTIAL",
+        linkedRequests: 2,
       });
 
       await receive(repository, {
@@ -173,6 +174,7 @@ describe("RestockGoodsReceiptService — perjalanan pesanan", () => {
         status: "DRAFT",
         processedById: "user-belanja",
         issuedAt,
+        linkedRequests: 2,
       });
 
       await receive(repository, {
@@ -188,7 +190,11 @@ describe("RestockGoodsReceiptService — perjalanan pesanan", () => {
     });
 
     it("tidak mencatat ulang tanggal beli pada pesanan yang sudah dibeli", async () => {
-      const repository = createRepository({ status: "ORDERED" });
+      const repository = createRepository({
+        status: "ORDERED",
+        issuedAt: new Date("2026-11-01T05:00:00Z"),
+        items: [{ ...kabel, purchasedQuantity: 10 }],
+      });
 
       await receive(repository, {
         receivedItems: { "b-1": 6 },
@@ -319,7 +325,10 @@ describe("RestockGoodsReceiptService — perjalanan pesanan", () => {
     });
 
     it("tetap menyimpan kiriman walau tanggal beli gagal dicatat", async () => {
-      const repository = createRepository({ status: "DRAFT" });
+      const repository = createRepository({
+        status: "DRAFT",
+        linkedRequests: 2,
+      });
       repository.recordPurchaseOrderPurchase.mockRejectedValue(
         new Error("koneksi putus"),
       );

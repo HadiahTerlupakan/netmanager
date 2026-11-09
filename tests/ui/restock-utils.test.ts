@@ -163,6 +163,12 @@ describe("restock utils", () => {
       requester: { name: "Rohadim" },
       gudangId: "gudang-a",
       gudang: { id: "gudang-a", nama: "Gudang A" },
+      // Data lama: ditandai dibeli sekaligus, jadi seluruh sisa boleh dicatat.
+      purchaseOrder: {
+        id: "po-1",
+        status: "ORDERED",
+        issuedAt: "2026-04-01T00:00:00.000Z",
+      },
       items: [
         {
           id: "item-1",
@@ -186,6 +192,42 @@ describe("restock utils", () => {
     });
   });
 
+  it("prefills only what was bought and has not arrived on a link order", () => {
+    const request: PurchaseRequest = {
+      id: "pr-1",
+      nomorRequest: "PR-001",
+      status: "ORDERED",
+      createdAt: "2026-04-19T00:00:00.000Z",
+      requester: { name: "Rohadim" },
+      gudangId: "gudang-a",
+      gudang: { id: "gudang-a", nama: "Gudang A" },
+      purchaseOrder: { id: "po-1", status: "ORDERED" },
+      items: [
+        {
+          id: "item-1",
+          barangId: "barang-1",
+          jumlah: 10,
+          receivedQuantity: 2,
+          purchasedQuantity: 5,
+          barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
+        },
+        {
+          id: "item-2",
+          barangId: "barang-2",
+          jumlah: 5,
+          receivedQuantity: 0,
+          purchasedQuantity: 0,
+          barang: { nama: "Pigtail", kode: "BRG-002", satuan: "pcs" },
+        },
+      ],
+    };
+
+    expect(buildInitialReceivedItems(request)).toEqual({
+      "barang-1": 3,
+      "barang-2": 0,
+    });
+  });
+
   it("excludes cancelled quantities from the initial received items", () => {
     const request: PurchaseRequest = {
       id: "pr-1",
@@ -195,6 +237,12 @@ describe("restock utils", () => {
       requester: { name: "Rohadim" },
       gudangId: "gudang-a",
       gudang: { id: "gudang-a", nama: "Gudang A" },
+      // Data lama: ditandai dibeli sekaligus, jadi seluruh sisa boleh dicatat.
+      purchaseOrder: {
+        id: "po-1",
+        status: "ORDERED",
+        issuedAt: "2026-04-01T00:00:00.000Z",
+      },
       items: [
         {
           id: "item-1",
@@ -485,6 +533,12 @@ describe("restock utils", () => {
       requester: { name: "Rohadim" },
       gudangId: "gudang-a",
       gudang: { id: "gudang-a", nama: "Gudang A" },
+      // Data lama: ditandai dibeli sekaligus, jadi seluruh sisa boleh dicatat.
+      purchaseOrder: {
+        id: "po-1",
+        status: "ORDERED",
+        issuedAt: "2026-04-01T00:00:00.000Z",
+      },
       items: [
         {
           id: "item-1",

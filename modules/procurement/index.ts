@@ -158,6 +158,9 @@ export {
   GoodsReceiptService,
   GoodsReceiptNotFoundError,
   GoodsReceiptInvalidError,
+  GoodsReceiptExceedsPurchasedError,
+  GoodsReceiptRestockOrderError,
+  RESTOCK_ORDER_RECEIPT_MESSAGE,
 } from "./services/GoodsReceiptService";
 
 export type {

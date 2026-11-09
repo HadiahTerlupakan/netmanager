@@ -68,6 +68,15 @@ export interface PurchaseOrderWithRelations extends PurchaseOrderWithSupplier {
   jasaItems: PurchaseOrderJasaItemWithJasa[];
 }
 
+/** Detail PO untuk halaman pembelian, plus penanda PO milik pengajuan restock. */
+export interface PurchaseOrderDetail extends PurchaseOrderWithRelations {
+  /**
+   * PO dibuat dari pengajuan restock. Status belinya hanya dicatat lewat link
+   * belanja (dan barang datang), jadi tidak boleh diproses dari sini.
+   */
+  isRestockOrder: boolean;
+}
+
 export interface PurchaseOrderListResult {
   items: PurchaseOrderWithSupplier[];
   total: number;
@@ -158,6 +167,9 @@ export interface IPurchaseOrderRepository {
   create(input: PurchaseOrderCreateInput): Promise<PurchaseOrderEntity>;
 
   processToOrdered(id: string, actorId: string): Promise<PurchaseOrderEntity>;
+
+  /** Jumlah pengajuan restock yang memakai PO ini (0 = PO biasa). */
+  countLinkedRestockRequests(id: string): Promise<number>;
 
   /**
    * Hapus PO beserta itemnya. "HAS_PURCHASES" bila PO sudah punya catatan

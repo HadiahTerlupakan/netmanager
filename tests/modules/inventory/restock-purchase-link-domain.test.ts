@@ -39,6 +39,7 @@ function context(
     items?: RestockPurchaseContextItem[];
     receivable?: string[];
     linkedRequestCount?: number;
+    isLegacyPurchased?: boolean;
   } = {},
 ): RestockPurchaseContext {
   return {
@@ -58,6 +59,7 @@ function context(
             status: options.orderStatus ?? "ORDERED",
             tenantId: "tenant-1",
             linkedRequestCount: options.linkedRequestCount ?? 1,
+            isLegacyPurchased: options.isLegacyPurchased ?? false,
             items: options.items ?? [item()],
           },
   };
@@ -238,4 +240,37 @@ it("buildPurchaseLinkExpiry = sekarang + 30 hari", () => {
   expect(buildPurchaseLinkExpiry(NOW).toISOString()).toBe(
     "2026-12-09T03:00:00.000Z",
   );
+});
+
+describe("link belanja pada pesanan data lama", () => {
+  it("pemegang link lama melihat link tidak berlaku", () => {
+    expect(
+      evaluatePurchaseListState(context({ isLegacyPurchased: true })),
+    ).toBe("INACTIVE");
+  });
+
+  it("admin melihat semua sudah dibeli, jadi link tidak bisa dibuat", () => {
+    expect(
+      describePurchaseLinkAvailability(
+        context({ isLegacyPurchased: true }),
+        true,
+      ),
+    ).toBe("ALL_PURCHASED");
+  });
+
+  it("pesanan biasa tetap bisa dibuatkan link", () => {
+    expect(describePurchaseLinkAvailability(context(), true)).toBe("AVAILABLE");
+  });
+
+  it("data lama yang barangnya sudah datang semua tetap tertutup", () => {
+    expect(
+      describePurchaseLinkAvailability(
+        context({
+          isLegacyPurchased: true,
+          items: [item({ receivedQuantity: 10 })],
+        }),
+        true,
+      ),
+    ).toBe("CLOSED");
+  });
 });

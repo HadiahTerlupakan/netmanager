@@ -54,6 +54,7 @@ function purchaseContext(
             status: "DRAFT",
             tenantId: "tenant-1",
             linkedRequestCount: 1,
+            isLegacyPurchased: false,
             items: [poItem()],
           }
         : purchaseOrder,
@@ -67,9 +68,9 @@ const recordView: RestockPurchaseRecordView = {
   purchasedAt: new Date("2026-11-09T05:00:00Z"),
   createdAt: NOW,
   recordedBy: { name: "Sari" },
-  buyerName: null,
-  source: "ADMIN",
-  hasSignature: false,
+  buyerName: "Joko",
+  source: "PUBLIC_LINK",
+  hasSignature: true,
   notes: null,
   fotoNota: [],
   voidedAt: null,
@@ -78,23 +79,27 @@ const recordView: RestockPurchaseRecordView = {
   items: [],
 };
 
+const linkOrigin = {
+  linkId: "link-1",
+  linkCreatorId: "admin-1",
+  linkCreatedAt: new Date("2026-11-05T02:00:00Z"),
+  buyerName: "Joko",
+  signatureKey: "restock-belanja/tenant-1/pr-1/ttd-x.png",
+  clientRequestId: "11111111-1111-4111-8111-111111111111",
+  ipAddress: "10.0.0.1",
+  userAgent: "HP Android",
+};
+
 function command(
   overrides: Partial<RecordRestockPurchaseCommand> = {},
 ): RecordRestockPurchaseCommand {
   return {
     purchaseRequestId: "pr-1",
     tenantId: "tenant-1",
-    origin: {
-      kind: "ADMIN",
-      actorId: "user-1",
-      buyerName: null,
-      actorName: "Sari",
-    },
+    origin: linkOrigin,
     storeName: "Toko Sinar",
-    supplierId: null,
     purchasedAt: "2026-11-09",
     notes: null,
-    fotoNota: [],
     items: [{ purchaseOrderItemId: "poi-1", quantity: 10, unitPrice: 12000 }],
     ...overrides,
   };
@@ -103,7 +108,6 @@ function command(
 function setup() {
   const repository = {
     findPurchaseContext: vi.fn().mockResolvedValue(purchaseContext()),
-    isActiveSupplier: vi.fn().mockResolvedValue(true),
     createPurchaseRecord: vi.fn().mockResolvedValue({
       kind: "CREATED",
       record: recordView,
@@ -116,17 +120,40 @@ function setup() {
     findSignatureKey: vi.fn().mockResolvedValue(null),
     voidPurchaseRecord: vi.fn(),
   } satisfies IRestockPurchaseRecordRepository;
-  const isTrustedPhotoUrl = vi.fn().mockResolvedValue(true);
-  const service = new RestockPurchaseRecordService(
-    repository,
-    isTrustedPhotoUrl,
-    () => NOW,
-  );
-  return { repository, isTrustedPhotoUrl, service };
+  const service = new RestockPurchaseRecordService(repository, () => NOW);
+  return { repository, service };
 }
 
 describe("RestockPurchaseRecordService.recordPurchase", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("pesanan data lama ditolak sebelum apa pun ditulis", async () => {
+    const { repository, service } = setup();
+    repository.findPurchaseContext.mockResolvedValue(
+      purchaseContext(
+        {},
+        {
+          id: "po-1",
+          poNumber: "PO-1",
+          status: "ORDERED",
+          tenantId: "tenant-1",
+          linkedRequestCount: 1,
+          isLegacyPurchased: true,
+          items: [poItem()],
+        },
+      ),
+    );
+
+    const result = await service.recordPurchase(command());
+
+    expect(result).toEqual({
+      success: false,
+      code: "LINK_INACTIVE",
+      error:
+        "Barang pesanan ini sudah dibeli sebelum ada link belanja, jadi belanjanya tidak perlu dicatat lagi.",
+    });
+    expect(repository.createPurchaseRecord).not.toHaveBeenCalled();
+  });
 
   it("belanja semua barang pada pesanan DRAFT → ORDERED dan sudah dibeli semua", async () => {
     const { repository, service } = setup();
@@ -149,14 +176,13 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
       purchaseRequestId: "pr-1",
       receivableBarangIds: ["barang-1"],
       tenantId: "tenant-1",
-      recordedById: "user-1",
+      // Penanggung jawab = pembuat link.
+      recordedById: "admin-1",
       storeName: "Toko Sinar",
-      supplierId: null,
       purchasedAt: new Date("2026-11-09T05:00:00Z"),
-      // Dari aplikasi: tanggal beli pesanan = tanggal belanja isian.
-      issuedAt: new Date("2026-11-09T05:00:00Z"),
+      // Tanggal beli pesanan memakai waktu server, bukan tanggal isian.
+      issuedAt: NOW,
       notes: null,
-      fotoNota: [],
       lines: [
         {
           purchaseOrderItemId: "poi-1",
@@ -166,13 +192,12 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
           expected: { quantity: 10, cancelledQuantity: 0 },
         },
       ],
-      buyerName: "Sari",
-      buyerSignatureKey: null,
-      source: "ADMIN",
-      purchaseLinkId: null,
-      clientRequestId: null,
-      ipAddress: null,
-      userAgent: null,
+      buyerName: "Joko",
+      buyerSignatureKey: linkOrigin.signatureKey,
+      purchaseLinkId: "link-1",
+      clientRequestId: linkOrigin.clientRequestId,
+      ipAddress: "10.0.0.1",
+      userAgent: "HP Android",
     });
   });
 
@@ -203,26 +228,27 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
     });
   });
 
-  it("mencatat aktivitas RECORD_PURCHASE", async () => {
+  it("mencatat aktivitas RECORD_PURCHASE atas nama link", async () => {
     const { service } = setup();
 
     await service.recordPurchase(command());
 
-    expect(logActivitySafe).toHaveBeenCalledWith({
-      action: "RECORD_PURCHASE",
-      subject: "Purchase Order PO-1",
-      userId: "user-1",
-      tenantId: "tenant-1",
-      details: {
-        purchaseRequestId: "pr-1",
-        purchaseRecordId: "rec-1",
-        toko: "Toko Sinar",
-        tanggalBelanja: "2026-11-09",
-        barang: [{ barangId: "barang-1", jumlah: 10, hargaSatuan: 12000 }],
-        statusLama: "DRAFT",
-        statusBaru: "ORDERED",
-      },
-    });
+    expect(logActivitySafe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "RECORD_PURCHASE",
+        subject: "Purchase Order PO-1",
+        tenantId: "tenant-1",
+        details: expect.objectContaining({
+          purchaseRequestId: "pr-1",
+          purchaseRecordId: "rec-1",
+          toko: "Toko Sinar",
+          tanggalBelanja: "2026-11-09",
+          barang: [{ barangId: "barang-1", jumlah: 10, hargaSatuan: 12000 }],
+          statusLama: "DRAFT",
+          statusBaru: "ORDERED",
+        }),
+      }),
+    );
   });
 
   it("NOT_FOUND bila pengajuan tidak ada", async () => {
@@ -261,26 +287,6 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
     );
   });
 
-  it("INVALID bila toko terdaftar tidak ada atau di-blacklist", async () => {
-    const { repository, service } = setup();
-    repository.isActiveSupplier.mockResolvedValue(false);
-
-    const result = await service.recordPurchase(
-      command({ supplierId: "supplier-x" }),
-    );
-
-    expect(repository.isActiveSupplier).toHaveBeenCalledWith(
-      "supplier-x",
-      "tenant-1",
-    );
-    expect(result).toEqual({
-      success: false,
-      code: "INVALID",
-      error: "Toko yang dipilih tidak ditemukan. Pilih lagi atau kosongkan.",
-    });
-    expect(repository.createPurchaseRecord).not.toHaveBeenCalled();
-  });
-
   it("INVALID bila tanggal belanja di hari yang akan datang", async () => {
     const { repository, service } = setup();
 
@@ -294,22 +300,6 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
       error: "Tanggal belanja tidak boleh di hari yang akan datang.",
     });
     expect(repository.findPurchaseContext).not.toHaveBeenCalled();
-  });
-
-  it("INVALID bila foto nota bukan upload tepercaya", async () => {
-    const { isTrustedPhotoUrl, repository, service } = setup();
-    isTrustedPhotoUrl.mockResolvedValue(false);
-
-    const result = await service.recordPurchase(
-      command({ fotoNota: ["https://evil.example/x.jpg"] }),
-    );
-
-    expect(result).toEqual({
-      success: false,
-      code: "INVALID",
-      error: "Foto nota tidak terbaca. Hapus fotonya, lalu unggah ulang.",
-    });
-    expect(repository.createPurchaseRecord).not.toHaveBeenCalled();
   });
 
   it("meneruskan pesanan tertutup sebagai CONFLICT", async () => {
@@ -357,68 +347,11 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
     expect(repository.createPurchaseRecord).not.toHaveBeenCalled();
   });
 
-  it("ADMIN: nama pembeli isian dipakai bila diisi", async () => {
-    const { repository, service } = setup();
-
-    await service.recordPurchase(
-      command({
-        origin: {
-          kind: "ADMIN",
-          actorId: "user-1",
-          buyerName: "Pak Joko",
-          actorName: "Sari",
-        },
-      }),
-    );
-
-    expect(repository.createPurchaseRecord).toHaveBeenCalledWith(
-      expect.objectContaining({
-        buyerName: "Pak Joko",
-        recordedById: "user-1",
-      }),
-    );
-  });
-
   describe("lewat link belanja", () => {
-    const linkOrigin = {
-      kind: "PUBLIC_LINK" as const,
-      linkId: "link-1",
-      linkCreatorId: "admin-1",
-      linkCreatedAt: new Date("2026-11-05T02:00:00Z"),
-      buyerName: "Joko",
-      signatureKey: "restock-belanja/tenant-1/pr-1/ttd-x.png",
-      clientRequestId: "11111111-1111-4111-8111-111111111111",
-      ipAddress: "10.0.0.1",
-      userAgent: "HP Android",
-    };
-
-    it("penanggung jawab = pembuat link; toko terdaftar & foto nota dikosongkan", async () => {
-      const { repository, service } = setup();
-
-      await service.recordPurchase(
-        command({ origin: linkOrigin, supplierId: null, fotoNota: [] }),
-      );
-
-      expect(repository.createPurchaseRecord).toHaveBeenCalledWith(
-        expect.objectContaining({
-          recordedById: "admin-1",
-          supplierId: null,
-          fotoNota: [],
-          buyerName: "Joko",
-          buyerSignatureKey: linkOrigin.signatureKey,
-          source: "PUBLIC_LINK",
-          purchaseLinkId: "link-1",
-          clientRequestId: linkOrigin.clientRequestId,
-          ipAddress: "10.0.0.1",
-          userAgent: "HP Android",
-        }),
-      );
-    });
-
     it("log memakai pelaku link, tanpa userId, token, atau kunci tanda tangan", async () => {
       const { service } = setup();
 
-      await service.recordPurchase(command({ origin: linkOrigin }));
+      await service.recordPurchase(command());
 
       const entry = logActivitySafe.mock.calls[0][0];
       expect(entry.userId).toBeUndefined();
@@ -440,9 +373,7 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
         record: recordView,
       });
 
-      const result = await service.recordPurchase(
-        command({ origin: linkOrigin }),
-      );
+      const result = await service.recordPurchase(command());
 
       expect(result).toMatchObject({ success: true, data: { isReplay: true } });
       expect(logActivitySafe).not.toHaveBeenCalled();
@@ -461,6 +392,7 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
               status: "ORDERED",
               tenantId: "tenant-1",
               linkedRequestCount: 1,
+              isLegacyPurchased: false,
               items: [poItem({ purchasedQuantity: 10 })],
             },
           ),
@@ -470,9 +402,7 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
         record: recordView,
       });
 
-      const result = await service.recordPurchase(
-        command({ origin: linkOrigin }),
-      );
+      const result = await service.recordPurchase(command());
 
       expect(result).toMatchObject({
         success: true,
@@ -487,9 +417,7 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
     it("tanggal beli pesanan DRAFT memakai waktu server, bukan tanggal isian", async () => {
       const { repository, service } = setup();
 
-      await service.recordPurchase(
-        command({ origin: linkOrigin, purchasedAt: "2026-11-05" }),
-      );
+      await service.recordPurchase(command({ purchasedAt: "2026-11-05" }));
 
       expect(repository.createPurchaseRecord).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -504,7 +432,7 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
 
       // Link dibuat 5 Nov 09.00 WIB → paling awal 4 Nov.
       const result = await service.recordPurchase(
-        command({ origin: linkOrigin, purchasedAt: "2026-11-04" }),
+        command({ purchasedAt: "2026-11-04" }),
       );
 
       expect(result.success).toBe(true);
@@ -515,7 +443,7 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
       const { repository, service } = setup();
 
       const result = await service.recordPurchase(
-        command({ origin: linkOrigin, purchasedAt: "2026-11-03" }),
+        command({ purchasedAt: "2026-11-03" }),
       );
 
       expect(result).toEqual({
@@ -527,23 +455,11 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
       expect(repository.createPurchaseRecord).not.toHaveBeenCalled();
     });
 
-    it("dari aplikasi tanggal lama tetap boleh", async () => {
-      const { service } = setup();
-
-      const result = await service.recordPurchase(
-        command({ purchasedAt: "2026-01-02" }),
-      );
-
-      expect(result.success).toBe(true);
-    });
-
     it("LIMIT_REACHED bila link sudah mencapai batas catatan", async () => {
       const { repository, service } = setup();
       repository.createPurchaseRecord.mockResolvedValue({ kind: "LINK_LIMIT" });
 
-      expect(
-        await service.recordPurchase(command({ origin: linkOrigin })),
-      ).toEqual({
+      expect(await service.recordPurchase(command())).toEqual({
         success: false,
         code: "LIMIT_REACHED",
         error:
@@ -562,7 +478,7 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
         revokedLinkCount: 1,
       });
 
-      await service.recordPurchase(command({ origin: linkOrigin }));
+      await service.recordPurchase(command());
 
       expect(logActivitySafe.mock.calls[0][0].details).toMatchObject({
         linkBelanjaDimatikan: 1,
@@ -575,9 +491,10 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
         kind: "LINK_INACTIVE",
       });
 
-      expect(
-        await service.recordPurchase(command({ origin: linkOrigin })),
-      ).toMatchObject({ success: false, code: "LINK_INACTIVE" });
+      expect(await service.recordPurchase(command())).toMatchObject({
+        success: false,
+        code: "LINK_INACTIVE",
+      });
     });
   });
 });
@@ -692,6 +609,25 @@ describe("RestockPurchaseRecordService.voidPurchase", () => {
 
     expect(result).toMatchObject({ success: false, code });
     expect(result.success === false && result.error).toContain(message);
+    expect(logActivitySafe).not.toHaveBeenCalled();
+  });
+
+  it("ALREADY_RECEIVED → CONFLICT dengan pesan awam yang menyebut barangnya", async () => {
+    const { repository, service } = setup();
+    repository.voidPurchaseRecord.mockResolvedValue({
+      kind: "ALREADY_RECEIVED",
+      lines: [
+        { nama: "Kabel", received: 3, satuan: "roll" },
+        { nama: "ONT", received: 1, satuan: null },
+      ],
+    });
+
+    const result = await service.voidPurchase(voidCommand);
+
+    expect(result).toMatchObject({ success: false, code: "CONFLICT" });
+    expect(result.success === false && result.error).toBe(
+      "Belanja ini tidak bisa dibatalkan karena barangnya sudah dicatat datang di gudang (Kabel 3 roll sudah datang, ONT 1 sudah datang). Kalau dibatalkan, barang yang sudah datang jadi tercatat belum dibeli.",
+    );
     expect(logActivitySafe).not.toHaveBeenCalled();
   });
 });

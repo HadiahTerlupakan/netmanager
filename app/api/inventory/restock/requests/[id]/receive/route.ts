@@ -21,7 +21,8 @@ const goodsReceiptService = createRestockGoodsReceiptService();
 /**
  * Catat barang yang datang dari pengajuan restock via GRN service.
  * Mendukung substitusi barang, kelebihan kiriman, sisa yang tidak jadi
- * datang, dan menyelesaikan pesanan tanpa kiriman (semua jumlah 0).
+ * datang, menyelesaikan pesanan tanpa kiriman (semua jumlah 0), dan menutup
+ * sisa yang tidak jadi dibeli (`closeUnpurchased`).
  */
 export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
@@ -50,6 +51,9 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
       canIncreasePurchaseOrder: await hasPermission("purchase_orders:update"),
       fotoBukti: (body.fotoBukti ?? []) as string[],
       closePO: Boolean(body.closePO),
+      closeUnpurchased: body.closeUnpurchased === true,
+      closeReason:
+        typeof body.closeReason === "string" ? body.closeReason : undefined,
       actorId: user.id as string,
       tenantId: user.tenantId as string,
     });
