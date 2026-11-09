@@ -10,7 +10,8 @@ import {
   type UploadedPhoto,
 } from "@/components/inventory/PhotoUpload";
 
-import type { PurchaseRequest, PurchaseRequestJasaItem } from "./types";
+import type { PurchaseRequest } from "./types";
+import { getPendingJasaItems } from "./utils";
 
 interface JasaConfirmState {
   tanggalSelesai: string;
@@ -31,12 +32,6 @@ interface RestockConfirmJasaModalProps {
   onSubmit: () => void;
 }
 
-function pendingJasaItems(request: PurchaseRequest): PurchaseRequestJasaItem[] {
-  return (request.jasaItems ?? []).filter(
-    (item) => item.statusKonfirmasi === "PENDING",
-  );
-}
-
 function isJasaItemReady(state: JasaConfirmState | undefined): boolean {
   if (!state) return false;
   return state.confirmed && state.buktiSelesai.length > 0;
@@ -51,7 +46,7 @@ export function RestockConfirmJasaModal({
   onClose,
   onSubmit,
 }: RestockConfirmJasaModalProps) {
-  const pending = request ? pendingJasaItems(request) : [];
+  const pending = request ? getPendingJasaItems(request) : [];
   const readyCount = pending.filter((item) =>
     isJasaItemReady(jasaConfirmStates[item.id]),
   ).length;

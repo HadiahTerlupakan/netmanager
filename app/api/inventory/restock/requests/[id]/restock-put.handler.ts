@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import {
   getInventoryRouteService,
   isRestockMissingReferenceError,
+  isRestockRequestNotEditableError,
   RESTOCK_MESSAGES,
   restockCannotEditMessage,
   restockForbiddenMessage,
@@ -122,6 +123,17 @@ export async function handleRestockPutRequest(req: NextRequest, id: string) {
       message: "Pengajuan berhasil diperbarui",
     });
   } catch (error: unknown) {
+    if (isRestockRequestNotEditableError(error)) {
+      return error.currentStatus === null
+        ? NextResponse.json(
+            { error: RESTOCK_MESSAGES.requestNotFound },
+            { status: 404 },
+          )
+        : NextResponse.json(
+            { error: restockCannotEditMessage(error.currentStatus) },
+            { status: 409 },
+          );
+    }
     if (isRestockMissingReferenceError(error)) {
       return NextResponse.json(
         { error: RESTOCK_MESSAGES.missingReference },

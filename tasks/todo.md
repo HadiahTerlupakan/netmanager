@@ -1,3 +1,36 @@
+# Rencana: Keputusan approval restock per item (2026-11-08)
+
+Status: **selesai (belum di-commit)**
+
+## Asumsi
+- Keputusan disimpan di baris pengajuan: `barangId`/`jumlah` ditimpa nilai yang disetujui, nilai asli
+  di snapshot `barangIdDiminta`/`jumlahDiminta` (seluruh alur terima/PO mencocokkan lewat barangId).
+- `statusApproval` PENDING|APPROVED|REJECTED, default PENDING; hanya REJECTED yang tidak ikut PO.
+- Jasa: bisa ditolak / diubah jumlah, tidak bisa diganti.
+- Catatan per item wajib bila ditolak, diganti, atau jumlah diubah; catatan wajib untuk Tolak Pengajuan.
+- Semua item ditolak lewat Setujui → 409, arahkan ke Tolak Pengajuan.
+- PO tetap best-effort setelah commit (kontrak `_poError` tetap).
+- Keputusan dikunci `restock:approve` (sama dengan tombol UI); route lama `[id]/approve` dihapus.
+- Tanpa SoD pemohon ≠ penyetuju (di luar permintaan).
+
+## Langkah
+- [x] Schema + migration `20261108105656_add_approval_decision_to_purchase_request_items`.
+- [x] Backend: validator, aturan keputusan murni, repository transaksional, service, route, filter PO,
+      read-model, penerimaan & konfirmasi jasa abaikan item ditolak, tes.
+- [x] UI: modal Keputusan Pengajuan (setuju/tolak per item, jumlah, ganti barang, catatan), detail & PDF
+      tampilkan diminta vs disetujui, modal terima abaikan item ditolak, tes.
+- [x] Review adversarial; typecheck, lint, tes; changelog.
+
+## Review
+- Workflow: 6 pembaca + kritikus → 2 implementer paralel → integrasi → 4 reviewer + 2 verifikator
+  per temuan → 14 temuan terkonfirmasi, semua ditangani (supplier PO: sebagian — PR hanya punya
+  satu PO, jadi supplier dipilih deterministik + semua supplier baris dicek aktif).
+- Temuan susulan saat cek manual: Enter pada tombol Kosongkan `SearchableSelect` ikut membuka
+  daftar → diperbaiki + tes regresi (dibuktikan gagal tanpa perbaikan).
+- Typecheck penuh 0 galat; 320 file / 2488 tes lulus; eslint bersih; migration-job-safety lulus.
+- Belum: cek read-only produksi role yang punya `restock:update` tanpa `restock:approve`
+  (query ditolak pembatas izin); belum diuji di browser.
+
 # Rencana: Sisa pekerjaan reseller model agen (2026-11-03)
 
 Status: **selesai (commit lokal), menunggu "push"**

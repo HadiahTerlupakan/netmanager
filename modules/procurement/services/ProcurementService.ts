@@ -57,7 +57,9 @@ export class ProcurementService {
       overrideSupplierId,
     );
 
-    await this.assertSupplierGroupsActive(purchaseRequestsBySupplier);
+    await this.assertSuppliersActive(
+      collectSuppliersToVerify(purchaseRequests, overrideSupplierId),
+    );
 
     return await this.createPurchaseOrders(purchaseRequestsBySupplier, userId);
   }
@@ -126,16 +128,11 @@ export class ProcurementService {
   }
 
   /**
-   * Tolak generate PO jika ada supplier non-aktif/blacklisted di grup.
-   * Cegah PR yang sudah approved nyangkut ke vendor bermasalah.
+   * Tolak generate PO jika ada supplier non-aktif/blacklisted. Dicek per baris,
+   * bukan hanya supplier grup: barang pengganti dari approver bisa berasal dari
+   * supplier lain, dan PR tetap masuk satu PO (PR hanya punya satu PO).
    */
-  private async assertSupplierGroupsActive(
-    groups: Map<string, PurchaseRequestEntity[]>,
-  ): Promise<void> {
-    const supplierIds = Array.from(groups.keys())
-      .map(normalizeSupplierId)
-      .filter((id): id is string => Boolean(id));
-
+  private async assertSuppliersActive(supplierIds: string[]): Promise<void> {
     for (const supplierId of supplierIds) {
       const supplier = await this.supplierRepository.findById(supplierId);
       if (supplier && supplier.status !== "ACTIVE") {
@@ -147,6 +144,16 @@ export class ProcurementService {
       }
     }
   }
+}
+
+/** Supplier yang wajib aktif: override bila dipilih, selain itu supplier setiap baris. */
+function collectSuppliersToVerify(
+  purchaseRequests: PurchaseRequestEntity[],
+  overrideSupplierId?: string,
+): string[] {
+  if (overrideSupplierId) return [overrideSupplierId];
+  const supplierIds = purchaseRequests.flatMap(getLineSupplierIds);
+  return Array.from(new Set(supplierIds)).sort();
 }
 
 function validatePurchaseRequests(
@@ -180,6 +187,10 @@ function groupPRsBySupplier(
   return groupedPurchaseRequests;
 }
 
+/**
+ * Supplier tujuan PO untuk satu PR: supplier yang paling banyak barisnya,
+ * seri dipecah urutan id supaya hasilnya tidak bergantung urutan baris dari DB.
+ */
 function resolveSupplierGroupKey(
   purchaseRequest: PurchaseRequestEntity,
   overrideSupplierId?: string,
@@ -188,20 +199,30 @@ function resolveSupplierGroupKey(
     return overrideSupplierId;
   }
 
-  const supplierIds = getUniqueSupplierIds(purchaseRequest);
-  return supplierIds[0] ?? NO_SUPPLIER_KEY;
+  const lineCountBySupplier = new Map<string, number>();
+  for (const supplierId of getLineSupplierIds(purchaseRequest)) {
+    lineCountBySupplier.set(
+      supplierId,
+      (lineCountBySupplier.get(supplierId) ?? 0) + 1,
+    );
+  }
+  const [dominantSupplier] = Array.from(lineCountBySupplier.entries()).sort(
+    ([idA, countA], [idB, countB]) => countB - countA || idA.localeCompare(idB),
+  );
+  return dominantSupplier?.[0] ?? NO_SUPPLIER_KEY;
 }
 
-function getUniqueSupplierIds(
-  purchaseRequest: PurchaseRequestEntity,
-): string[] {
-  const barangSupplierIds = purchaseRequest.items
-    .map((item) => item.barang.supplierId)
-    .filter((supplierId): supplierId is string => Boolean(supplierId));
-  const jasaSupplierIds = (purchaseRequest.jasaItems ?? [])
-    .map((item) => item.jasa.supplierId)
-    .filter((supplierId): supplierId is string => Boolean(supplierId));
-  return Array.from(new Set([...barangSupplierIds, ...jasaSupplierIds]));
+/** Supplier setiap baris barang dan jasa PR (boleh berulang, tanpa yang kosong). */
+function getLineSupplierIds(purchaseRequest: PurchaseRequestEntity): string[] {
+  const barangSupplierIds = purchaseRequest.items.map(
+    (item) => item.barang.supplierId,
+  );
+  const jasaSupplierIds = (purchaseRequest.jasaItems ?? []).map(
+    (item) => item.jasa.supplierId,
+  );
+  return [...barangSupplierIds, ...jasaSupplierIds].filter(
+    (supplierId): supplierId is string => Boolean(supplierId),
+  );
 }
 
 function normalizeSupplierId(supplierKey: string): string | null {

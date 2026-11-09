@@ -69,11 +69,13 @@ vi.mock("@/modules/procurement", () => ({
 
 import { POST as postRestockRequests } from "@/app/api/inventory/restock/requests/route";
 import {
+  DELETE as deleteRestockRequestById,
   GET as getRestockRequestById,
   PATCH as patchRestockRequestById,
 } from "@/app/api/inventory/restock/requests/[id]/route";
 import { PATCH as patchRestockRequestProcess } from "@/app/api/inventory/restock/requests/[id]/process/route";
 import { PATCH as patchRestockRequestReceive } from "@/app/api/inventory/restock/requests/[id]/receive/route";
+import { PUT as putRestockRequestById } from "@/app/api/inventory/restock/requests/[id]/route";
 
 describe("inventory restock request lifecycle routes", () => {
   beforeEach(() => {
@@ -86,6 +88,8 @@ describe("inventory restock request lifecycle routes", () => {
     mockFns.authHasPermission.mockResolvedValue(true);
     mockFns.generatePOFromPRs.mockResolvedValue([]);
     mockFns.getUserPermissions.mockResolvedValue([]);
+    // Penutupan pengajuan mencabut link belanjanya di transaksi yang sama.
+    prismaMock.restockPurchaseLink.updateMany.mockResolvedValue({ count: 0 });
     mockFns.createRestockRequest.mockResolvedValue(
       NextResponse.json(
         { id: "pr-1", nomorRequest: "PR-20260311-0001" },
@@ -226,23 +230,29 @@ describe("inventory restock request lifecycle routes", () => {
   });
 
   it("delegates request approval updates to shared purchase request helper", async () => {
-    mockFns.patchRestockRequestLifecycle.mockResolvedValue(
-      NextResponse.json({ id: "pr-1", status: "APPROVED" }, { status: 200 }),
-    );
+    mockFns.patchRestockRequestLifecycle.mockResolvedValue({
+      success: true,
+      data: { id: "pr-1", status: "APPROVED" },
+    });
 
     const response = await patchRestockRequestById(
       new NextRequest("http://localhost/api/inventory/restock/requests/pr-1", {
         method: "PATCH",
-        body: JSON.stringify({ action: "APPROVE" }),
+        body: JSON.stringify({
+          action: "APPROVE",
+          items: [{ itemId: "item-1", keputusan: "APPROVED", jumlah: 2 }],
+        }),
       }),
       { params: Promise.resolve({ id: "pr-1" }) },
     );
 
+    expect(mockFns.rbacHasPermission).toHaveBeenCalledWith("restock:approve");
     expect(mockFns.patchRestockRequestLifecycle).toHaveBeenCalledTimes(1);
     expect(mockFns.patchRestockRequestLifecycle).toHaveBeenCalledWith({
       id: "pr-1",
       action: "APPROVE",
-      catatan: undefined,
+      items: [{ itemId: "item-1", keputusan: "APPROVED", jumlah: 2 }],
+      jasaItems: [],
       actorId: "user-1",
       tenantId: "tenant-1",
     });
@@ -359,6 +369,7 @@ describe("inventory restock request lifecycle routes", () => {
     expect(prismaMock.purchaseRequestItem.updateMany).toHaveBeenCalledWith({
       where: {
         barangId: "barang-1",
+        statusApproval: { not: "REJECTED" },
         purchaseRequest: { purchaseOrderId: "po-1", tenantId: "tenant-1" },
       },
       data: { barangId: "barang-9" },
@@ -635,7 +646,7 @@ describe("inventory restock request lifecycle routes", () => {
     expect(response.status).toBe(500);
     expect(json).toMatchObject({
       error:
-        "Pesanan pembelian (PO) untuk pengajuan ini belum bisa dibuat, jadi barang belum bisa diterima. Tidak ada stok yang berubah. Minta bagian pembelian membuat PO-nya, lalu coba lagi.",
+        "Daftar belanja untuk pengajuan ini belum bisa dibuat, jadi barangnya belum bisa dicatat datang. Tidak ada barang yang masuk gudang. Hubungi admin.",
     });
     expect(mockGrnCreate).not.toHaveBeenCalled();
   });
@@ -660,7 +671,7 @@ describe("inventory restock request lifecycle routes", () => {
     expect(response.status).toBe(400);
     expect(json).toMatchObject({
       error:
-        "Pengajuan ini belum punya pesanan pembelian (PO). Setujui pengajuannya dulu, nanti PO dibuat otomatis.",
+        "Pengajuan ini belum punya daftar belanja. Setujui pengajuannya dulu, nanti daftar belanjanya dibuat otomatis.",
     });
     expect(mockFns.patchRestockRequestStatus).not.toHaveBeenCalled();
   });
@@ -744,14 +755,14 @@ describe("inventory restock request lifecycle routes", () => {
         where: { id: "po-item-1" },
         data: expect.objectContaining({
           cancelledQuantity: { increment: 20 },
-          cancelReason: "Pesanan ditutup",
+          cancelReason: "Toko tidak mengirim sisanya",
         }),
       });
       expect(prismaMock.purchaseOrderItem.update).toHaveBeenCalledWith({
         where: { id: "po-item-2" },
         data: expect.objectContaining({
           cancelledQuantity: { increment: 100 },
-          cancelReason: "Pesanan ditutup",
+          cancelReason: "Toko tidak mengirim sisanya",
         }),
       });
     });
@@ -1079,5 +1090,276 @@ describe("inventory restock request lifecycle routes", () => {
       ].join("\n"),
     );
     expect(mockFns.createRestockRequest).not.toHaveBeenCalled();
+  });
+  describe("finishing an order without a delivery", () => {
+    const kabel = {
+      id: "po-item-1",
+      barangId: "barang-1",
+      quantity: 10,
+      receivedQuantity: 0,
+      cancelledQuantity: 0,
+      barang: { id: "barang-1", nama: "Kabel Fiber" },
+    };
+
+    function mockOrder(linkedRequests: number) {
+      prismaMock.purchaseRequest.findFirst.mockResolvedValue({
+        id: "pr-1",
+        purchaseOrderId: "po-1",
+        gudangId: "gudang-1",
+        status: "ORDERED",
+        nomorRequest: "PR-20261108-0001",
+        items: [{ barangId: "barang-1" }],
+      });
+      prismaMock.purchaseOrder.findUnique.mockResolvedValue({
+        id: "po-1",
+        poNumber: "PO/2026/11/0001",
+        status: "ORDERED",
+        paymentStatus: "UNPAID",
+        _count: { jasaItems: 0, goodsReceipts: 0 },
+        items: [kabel],
+      });
+      prismaMock.purchaseRequest.count.mockResolvedValue(linkedRequests);
+      prismaMock.$transaction.mockImplementation(async (callback: unknown) =>
+        typeof callback === "function" ? callback(prismaMock) : callback,
+      );
+      prismaMock.purchaseOrderItem.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.purchaseOrder.updateMany.mockResolvedValue({ count: 1 });
+      prismaMock.purchaseRequest.updateMany.mockResolvedValue({ count: 1 });
+    }
+
+    function finish(body: Record<string, unknown>) {
+      return patchRestockRequestReceive(
+        new NextRequest(
+          "http://localhost/api/inventory/restock/requests/pr-1/receive",
+          { method: "PATCH", body: JSON.stringify(body) },
+        ),
+        { params: Promise.resolve({ id: "pr-1" }) },
+      );
+    }
+
+    it("cancels the order without a photo or GRN when nothing ever arrived", async () => {
+      mockOrder(1);
+
+      const response = await finish({
+        items: { "barang-1": 0 },
+        cancellations: { "barang-1": "Barang habis di toko" },
+        closePO: true,
+      });
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: null,
+        purchaseOrderStatus: "CANCELLED",
+        purchaseRequestStatus: "CANCELLED",
+        message: "Pesanan dibatalkan. Tidak ada barang yang masuk gudang.",
+      });
+      expect(mockGrnCreate).not.toHaveBeenCalled();
+      expect(prismaMock.purchaseOrderItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: "po-item-1",
+            receivedQuantity: 0,
+            cancelledQuantity: 0,
+          }),
+        }),
+      );
+      expect(prismaMock.purchaseOrder.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: "po-1",
+            paymentStatus: "UNPAID",
+          }),
+          data: { status: "CANCELLED" },
+        }),
+      );
+      expect(prismaMock.purchaseRequest.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "pr-1",
+          status: { notIn: ["RECEIVED", "CANCELLED", "REJECTED"] },
+        },
+        data: { status: "CANCELLED" },
+      });
+    });
+
+    it("refuses without writing when the order changed meanwhile", async () => {
+      mockOrder(1);
+      prismaMock.purchaseOrderItem.updateMany.mockResolvedValue({ count: 0 });
+
+      const response = await finish({ items: {}, closePO: true });
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toContain("baru saja diubah");
+      expect(prismaMock.purchaseOrder.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("closes a shared order as received for every request on it", async () => {
+      mockOrder(2);
+
+      const response = await finish({ items: {}, closePO: true });
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        purchaseRequestStatus: "RECEIVED",
+      });
+      expect(prismaMock.purchaseOrder.updateMany).toHaveBeenCalledWith({
+        where: { id: "po-1", status: { notIn: ["RECEIVED", "CANCELLED"] } },
+        data: { status: "RECEIVED", receivedById: "user-1" },
+      });
+      expect(prismaMock.purchaseRequest.updateMany).toHaveBeenCalledWith({
+        where: {
+          purchaseOrderId: "po-1",
+          status: { notIn: ["RECEIVED", "CANCELLED", "REJECTED"] },
+        },
+        data: { status: "RECEIVED" },
+      });
+    });
+
+    it("asks to save later when nothing arrived and nothing is closed", async () => {
+      mockOrder(1);
+
+      const response = await finish({ items: { "barang-1": 0 } });
+
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe(
+        "Belum ada jumlah barang yang diisi. Kalau barangnya belum datang, simpan nanti saat barang tiba.",
+      );
+    });
+  });
+
+  describe("deleting a request", () => {
+    function remove() {
+      return deleteRestockRequestById(
+        new NextRequest(
+          "http://localhost/api/inventory/restock/requests/pr-1",
+          { method: "DELETE" },
+        ),
+        { params: Promise.resolve({ id: "pr-1" }) },
+      );
+    }
+
+    it("refuses once goods of its order have arrived", async () => {
+      prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+        id: "pr-1",
+        nomorRequest: "PR-20261108-0001",
+        status: "ORDERED",
+        purchaseOrderId: "po-1",
+        gudangId: "gudang-1",
+      });
+      // Model GRN tidak ada di tipe MockPrismaClient, tapi dibuat oleh proxy-nya.
+      const { goodsReceipt } = prismaMock as unknown as {
+        goodsReceipt: { count: ReturnType<typeof vi.fn> };
+      };
+      goodsReceipt.count.mockResolvedValue(1);
+      prismaMock.purchaseOrderItem.count.mockResolvedValue(0);
+
+      const response = await remove();
+
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toBe(
+        "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang datang.",
+      );
+      expect(prismaMock.purchaseRequest.delete).not.toHaveBeenCalled();
+    });
+
+    it("refuses once goods of its order have been bought, even before they arrive", async () => {
+      prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+        id: "pr-1",
+        nomorRequest: "PR-20261108-0001",
+        status: "ORDERED",
+        purchaseOrderId: "po-1",
+        gudangId: "gudang-1",
+      });
+      const { goodsReceipt, purchaseRecord } = prismaMock as unknown as {
+        goodsReceipt: { count: ReturnType<typeof vi.fn> };
+        purchaseRecord: { count: ReturnType<typeof vi.fn> };
+      };
+      goodsReceipt.count.mockResolvedValue(0);
+      purchaseRecord.count.mockResolvedValue(1);
+      prismaMock.purchaseOrderItem.count.mockResolvedValue(0);
+
+      const response = await remove();
+
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toBe(
+        "Barang pengajuan ini sudah ada yang dibeli, jadi pengajuannya tidak bisa dihapus.",
+      );
+      expect(prismaMock.purchaseRequest.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("editing a request that was decided meanwhile", () => {
+    function sendEdit() {
+      return putRestockRequestById(
+        new NextRequest(
+          "http://localhost/api/inventory/restock/requests/pr-1",
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              gudangId: "gudang-1",
+              keterangan: "Stok habis",
+              items: [{ barangId: "barang-1", quantity: 10 }],
+            }),
+          },
+        ),
+        { params: Promise.resolve({ id: "pr-1" }) },
+      );
+    }
+
+    beforeEach(() => {
+      prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+        id: "pr-1",
+        gudangId: "gudang-1",
+        status: "DRAFT",
+      });
+    });
+
+    it("keeps the approver's line decisions when the PR was approved after the form opened", async () => {
+      prismaMock.purchaseRequest.updateMany.mockResolvedValue({ count: 0 });
+      prismaMock.purchaseRequest.findFirst.mockResolvedValue({
+        status: "APPROVED",
+      });
+
+      const response = await sendEdit();
+
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toContain("sudah disetujui");
+      expect(prismaMock.purchaseRequest.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: "pr-1",
+            tenantId: "tenant-1",
+            status: { in: ["DRAFT", "SUBMITTED"] },
+          },
+        }),
+      );
+      expect(prismaMock.purchaseRequestItem.deleteMany).not.toHaveBeenCalled();
+      expect(prismaMock.purchaseRequestItem.createMany).not.toHaveBeenCalled();
+    });
+
+    it("claims the PR row before replacing its lines", async () => {
+      const callOrder: string[] = [];
+      prismaMock.purchaseRequest.updateMany.mockImplementation((async () => {
+        callOrder.push("claim");
+        return { count: 1 };
+      }) as never);
+      prismaMock.purchaseRequestItem.deleteMany.mockImplementation(
+        (async () => {
+          callOrder.push("deleteItems");
+          return { count: 1 };
+        }) as never,
+      );
+      prismaMock.purchaseRequest.findUnique.mockResolvedValue({
+        id: "pr-1",
+        gudangId: "gudang-1",
+        status: "DRAFT",
+        nomorRequest: "PR-1",
+        items: [],
+      });
+
+      const response = await sendEdit();
+
+      expect(response.status).toBe(200);
+      expect(callOrder).toEqual(["claim", "deleteItems"]);
+    });
   });
 });

@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import {
-  FiAlertTriangle,
   FiCheck,
   FiFilter,
   FiPackage,
@@ -14,6 +13,7 @@ import {
 import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
+import { RestockProblemList } from "./RestockProblemList";
 import {
   canRemoveRestockFormItem,
   getMinStockForBarang,
@@ -167,7 +167,7 @@ export function RestockFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? "Edit Pre Request" : "Buat Pre Request"}
+      title={isEditing ? "Ubah Pengajuan" : "Buat Pengajuan"}
       size="3xl"
     >
       <div className="p-0 flex flex-col h-[85vh] md:h-auto overflow-hidden">
@@ -532,7 +532,10 @@ export function RestockFormModal({
 
         <div className="p-8 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 rounded-b-[3rem]">
           {!submitting && formProblems.length > 0 && (
-            <RestockFormProblemList problems={formProblems} />
+            <RestockProblemList
+              problems={formProblems}
+              title="Belum bisa disimpan:"
+            />
           )}
           <div className="flex gap-4">
             <button
@@ -558,27 +561,5 @@ export function RestockFormModal({
         </div>
       </div>
     </Modal>
-  );
-}
-
-/**
- * Alasan tombol simpan mati. Tanpa daftar ini petugas hanya melihat tombol
- * pudar tanpa tahu apa yang kurang.
- */
-function RestockFormProblemList({ problems }: { problems: string[] }) {
-  return (
-    <div
-      role="status"
-      className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300"
-    >
-      <p className="flex items-center gap-2 font-bold">
-        <FiAlertTriangle aria-hidden="true" /> Belum bisa disimpan:
-      </p>
-      <ul className="mt-1 list-disc space-y-0.5 pl-6">
-        {problems.map((problem) => (
-          <li key={problem}>{problem}</li>
-        ))}
-      </ul>
-    </div>
   );
 }

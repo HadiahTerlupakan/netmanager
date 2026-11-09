@@ -18,12 +18,15 @@ interface SearchableSelectProps {
   disabled?: boolean;
   className?: string;
   onSearchChange?: (query: string) => void;
+  /** Nama yang dibacakan pembaca layar, misalnya "Barang pengganti untuk Kabel". */
+  ariaLabel?: string;
 }
 
 function normalizeAlphanumeric(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+/** Dropdown dengan pencarian untuk memilih satu opsi dari daftar panjang. */
 export function SearchableSelect({
   options,
   value,
@@ -32,6 +35,7 @@ export function SearchableSelect({
   disabled = false,
   className = "",
   onSearchChange,
+  ariaLabel,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -85,7 +89,24 @@ export function SearchableSelect({
     >
       {/* Trigger */}
       <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-label={
+          ariaLabel && selectedOption
+            ? `${ariaLabel}: ${selectedOption.label}`
+            : ariaLabel
+        }
+        aria-expanded={isOpen}
+        aria-disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
+        onKeyDown={(event) => {
+          // Enter/Spasi pada tombol Kosongkan di dalam trigger harus tetap
+          // menjalankan tombol itu, bukan membuka daftar.
+          if (event.target !== event.currentTarget) return;
+          if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
+          event.preventDefault();
+          setIsOpen(!isOpen);
+        }}
         className={`group flex items-center justify-between px-4 py-3.5 min-h-[52px] bg-white dark:bg-gray-900/50 border rounded-2xl cursor-pointer transition-all duration-200 ${
           isOpen
             ? "ring-4 ring-indigo-500/10 border-indigo-500 shadow-lg shadow-indigo-500/5"
@@ -119,6 +140,9 @@ export function SearchableSelect({
         <div className="flex items-center gap-3 ml-3 border-l border-gray-100 dark:border-gray-800 pl-3">
           {value && !disabled && (
             <button
+              aria-label={
+                ariaLabel ? `Kosongkan ${ariaLabel}` : "Kosongkan pilihan"
+              }
               onClick={(e) => {
                 e.stopPropagation();
                 onChange("");
@@ -143,6 +167,7 @@ export function SearchableSelect({
               <input
                 autoFocus
                 type="text"
+                aria-label={ariaLabel ? `Cari ${ariaLabel}` : undefined}
                 placeholder="Cari nama atau kode barang..."
                 value={search}
                 onChange={(e) => {

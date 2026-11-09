@@ -29,6 +29,16 @@ const PO_NUMBER_MONTH_OFFSET = 1;
 const PO_NUMBER_PAD_CHARACTER = "0";
 const PO_NUMBER_SEPARATOR = "/";
 
+const REJECTED_LINE_STATUS = "REJECTED";
+
+/** Baris yang ditolak penyetuju tidak ikut PO. */
+const NOT_REJECTED_LINE: Prisma.PurchaseRequestItemWhereInput = {
+  statusApproval: { not: REJECTED_LINE_STATUS },
+};
+const NOT_REJECTED_JASA_LINE: Prisma.PurchaseRequestJasaItemWhereInput = {
+  statusApproval: { not: REJECTED_LINE_STATUS },
+};
+
 export class ProcurementRepository implements IProcurementRepository {
   /** Mengambil purchase request APPROVED yang belum terkait purchase order. */
   async findApprovedPRs(prIds: string[]): Promise<PurchaseRequestEntity[]> {
@@ -40,11 +50,13 @@ export class ProcurementRepository implements IProcurementRepository {
       },
       include: {
         items: {
+          where: NOT_REJECTED_LINE,
           include: {
             barang: { select: { id: true, nama: true, supplierId: true } },
           },
         },
         jasaItems: {
+          where: NOT_REJECTED_JASA_LINE,
           include: {
             jasa: {
               select: {
@@ -118,7 +130,9 @@ export class ProcurementRepository implements IProcurementRepository {
       prisma.purchaseRequest.findMany({
         where,
         include: {
-          items: { select: { jumlah: true, totalHarga: true } },
+          items: {
+            select: { jumlah: true, totalHarga: true, statusApproval: true },
+          },
           requester: { select: { name: true } },
           gudang: { select: { nama: true } },
         },
@@ -160,10 +174,11 @@ function toPurchaseRequestSummary(record: {
   approvedAt: Date | null;
   purchaseOrderId: string | null;
   tenantId: string | null;
-  items: { jumlah: number; totalHarga: number }[];
+  items: { jumlah: number; totalHarga: number; statusApproval: string }[];
   requester: { name: string | null } | null;
   gudang: { nama: string | null } | null;
 }): PurchaseRequestSummaryEntity {
+  const countedItems = selectSummaryLines(record.status, record.items);
   return {
     id: record.id,
     nomorRequest: record.nomorRequest,
@@ -175,9 +190,21 @@ function toPurchaseRequestSummary(record: {
     tenantId: record.tenantId,
     requesterName: record.requester?.name ?? null,
     gudangNama: record.gudang?.nama ?? null,
-    totalItems: record.items.reduce((sum, item) => sum + item.jumlah, 0),
-    totalNilai: record.items.reduce((sum, item) => sum + item.totalHarga, 0),
+    totalItems: countedItems.reduce((sum, item) => sum + item.jumlah, 0),
+    totalNilai: countedItems.reduce((sum, item) => sum + item.totalHarga, 0),
   };
+}
+
+/**
+ * Baris yang dihitung di ringkasan. PR yang ditolak utuh tetap menampilkan
+ * nilai yang diajukan; selain itu baris yang ditolak approver tidak dihitung.
+ */
+function selectSummaryLines<T extends { statusApproval: string }>(
+  purchaseRequestStatus: string,
+  items: T[],
+): T[] {
+  if (purchaseRequestStatus === PurchaseRequestStatus.REJECTED) return items;
+  return items.filter((item) => item.statusApproval !== REJECTED_LINE_STATUS);
 }
 
 function buildPurchaseOrderCreateData(input: CreatePurchaseOrderInput) {

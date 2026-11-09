@@ -6,8 +6,13 @@ import {
   isPrismaUniqueConstraintError,
 } from "@/lib/prisma-errors";
 import { prisma } from "@/modules/database";
+import { createRestockRequestLifecycleService } from "../factories/RestockRequestLifecycleFactory";
+import { InventoryPurchaseRequestRepository } from "../repositories/InventoryPurchaseRequestRepository";
 import { RestockPurchaseOrderStatusService } from "./RestockPurchaseOrderStatusService";
-import { RestockRequestLifecycleService } from "./RestockRequestLifecycleService";
+import type {
+  RestockLifecycleCommand,
+  RestockLifecycleResult,
+} from "./RestockRequestLifecycleService";
 import {
   INVENTORY_ACTIVITY_ACTIONS,
   INVENTORY_ACTIVITY_SUBJECTS,
@@ -24,7 +29,10 @@ const REQUEST_NUMBER_PAD_LENGTH = 4;
 const ONE_DAY_OFFSET = 1;
 
 const purchaseOrderStatusService = new RestockPurchaseOrderStatusService();
-const requestLifecycleService = new RestockRequestLifecycleService();
+const requestLifecycleService = createRestockRequestLifecycleService();
+const purchaseRequestRepository = new InventoryPurchaseRequestRepository(
+  prisma,
+);
 
 interface RestockRequestItemInput {
   barangId: string;
@@ -49,21 +57,10 @@ interface CreateRestockRequestInput {
   apiPath: string;
 }
 
-interface RestockRequestLifecycleInput {
-  id: string;
-  action: unknown;
-  catatan: string | null | undefined;
-  actorId: string;
-  tenantId: string;
-}
-
 interface RestockRequestStatusInput {
   purchaseOrderId: string;
   action: unknown;
-  items?: Record<string, number>;
-  closePO?: boolean;
   actorId: string;
-  fotoBukti?: string[];
 }
 
 /**
@@ -150,10 +147,8 @@ function handleRequestCreationError(error: unknown, apiPath: string) {
 /** Ambil detail purchase request restock milik tenant tertentu. */
 export async function getRestockRequestDetail(id: string, tenantId: string) {
   try {
-    const purchaseRequest = await fetchPurchaseRequestWithRelations(
-      id,
-      tenantId,
-    );
+    const purchaseRequest =
+      await purchaseRequestRepository.findPurchaseRequestDetail(id, tenantId);
 
     if (!purchaseRequest) {
       return NextResponse.json(
@@ -176,58 +171,17 @@ export async function getRestockRequestDetail(id: string, tenantId: string) {
   }
 }
 
-function fetchPurchaseRequestWithRelations(id: string, tenantId: string) {
-  return prisma.purchaseRequest.findFirst({
-    where: { id, tenantId },
-    include: {
-      requester: { select: { name: true, email: true } },
-      gudang: { select: { nama: true, kode: true } },
-      items: {
-        include: {
-          barang: { select: { nama: true, kode: true, satuan: true } },
-        },
-      },
-      jasaItems: {
-        include: {
-          jasa: {
-            select: {
-              id: true,
-              kode: true,
-              nama: true,
-              satuan: true,
-              hargaEstimasi: true,
-            },
-          },
-        },
-      },
-      purchaseOrder: {
-        select: {
-          id: true,
-          poNumber: true,
-          status: true,
-          goodsReceipts: {
-            select: {
-              id: true,
-              grnNumber: true,
-              fotoBukti: true,
-              receivedAt: true,
-            },
-            orderBy: { receivedAt: "desc" },
-          },
-        },
-      },
-    },
-  });
-}
-
-/** Ubah lifecycle approval purchase request restock. */
+/**
+ * Setujui atau tolak pengajuan restock. Mengembalikan hasil bertipe; route
+ * yang memetakan kode galatnya ke status HTTP.
+ */
 export async function patchRestockRequestLifecycle(
-  input: RestockRequestLifecycleInput,
-) {
-  return requestLifecycleService.patchRestockRequestLifecycle(input);
+  command: RestockLifecycleCommand,
+): Promise<RestockLifecycleResult> {
+  return requestLifecycleService.patchRestockRequestLifecycle(command);
 }
 
-/** Ubah status proses purchase order dari restock request. */
+/** Tandai pesanan dari pengajuan restock sudah dibeli (START_SHOPPING). */
 export async function patchRestockRequestStatus(
   input: RestockRequestStatusInput,
 ) {

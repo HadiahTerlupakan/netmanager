@@ -1713,34 +1713,35 @@ model VerificationToken {
 }
 
 model Barang {
-  id                   String                @id
-  kode                 String
-  nama                 String
-  satuan               String
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime
-  isWorkOrderMaterial  Boolean               @default(false)
-  supplierId           String?
-  jenis                JenisBarang           @default(HABIS_PAKAI)
-  kategoriAset         KategoriAset?
-  minStokDefault       Int                   @default(0)
-  tenantId             String?
-  assets               Asset[]
-  supplier             Supplier?             @relation(fields: [supplierId], references: [id])
-  tenant               Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  barangGudang         BarangGudang[]
-  barang_keluar        BarangKeluar[]
-  barang_masuk         BarangMasuk[]
-  purchaseOrderItems   PurchaseOrderItem[]
-  purchaseRequestItems PurchaseRequestItem[]
-  goodsReceiptItems    GoodsReceiptItem[]
-  goodsReturnItems     GoodsReturnItem[]
-  restockAlerts        RestockAlerts[]
-  restockSettings      RestockSettings[]
-  stockOpname          StockOpname[]
-  transferAntarGudang  TransferAntarGudang[]
-  usageAnalytics       UsageAnalytics[]
-  workOrderMaterials   WorkOrderMaterial[]
+  id                          String                @id
+  kode                        String
+  nama                        String
+  satuan                      String
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime
+  isWorkOrderMaterial         Boolean               @default(false)
+  supplierId                  String?
+  jenis                       JenisBarang           @default(HABIS_PAKAI)
+  kategoriAset                KategoriAset?
+  minStokDefault              Int                   @default(0)
+  tenantId                    String?
+  assets                      Asset[]
+  supplier                    Supplier?             @relation(fields: [supplierId], references: [id])
+  tenant                      Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  barangGudang                BarangGudang[]
+  barang_keluar               BarangKeluar[]
+  barang_masuk                BarangMasuk[]
+  purchaseOrderItems          PurchaseOrderItem[]
+  purchaseRequestItems        PurchaseRequestItem[]
+  purchaseRequestItemsDiminta PurchaseRequestItem[] @relation("PurchaseRequestItemBarangDiminta")
+  goodsReceiptItems           GoodsReceiptItem[]
+  goodsReturnItems            GoodsReturnItem[]
+  restockAlerts               RestockAlerts[]
+  restockSettings             RestockSettings[]
+  stockOpname                 StockOpname[]
+  transferAntarGudang         TransferAntarGudang[]
+  usageAnalytics              UsageAnalytics[]
+  workOrderMaterials          WorkOrderMaterial[]
 
   @@unique([tenantId, kode], name: "tenantId_kode")
   @@index([tenantId])
@@ -3319,19 +3320,32 @@ model PurchaseRequest {
 }
 
 model PurchaseRequestItem {
-  id                String          @id
+  id                String                            @id
   purchaseRequestId String
   barangId          String
   jumlah            Int
-  hargaPerUnit      Float           @default(0)
-  totalHarga        Float           @default(0)
+  hargaPerUnit      Float                             @default(0)
+  totalHarga        Float                             @default(0)
   keterangan        String?
+  /// Keputusan penyetuju untuk baris ini. PENDING = belum diputuskan (dan
+  /// baris lama/tambahan change order); hanya REJECTED yang tidak ikut PO.
+  statusApproval    PurchaseRequestItemApprovalStatus @default(PENDING)
+  /// Alasan penyetuju menolak, mengganti barang, atau mengubah jumlah.
+  catatanApproval   String?
+  /// Jumlah yang diajukan pemohon, diisi hanya bila penyetuju mengubah jumlah.
+  /// `jumlah` selalu berisi jumlah yang berlaku (yang dipesan di PO).
+  jumlahDiminta     Int?
+  /// Barang yang diajukan pemohon, diisi hanya bila penyetuju mengganti barang.
+  /// `barangId` selalu berisi barang yang berlaku (yang dipesan di PO).
+  barangIdDiminta   String?
   tenantId          String?
-  barang            Barang          @relation(fields: [barangId], references: [id])
-  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
-  tenant            Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  barang            Barang                            @relation(fields: [barangId], references: [id])
+  barangDiminta     Barang?                           @relation("PurchaseRequestItemBarangDiminta", fields: [barangIdDiminta], references: [id], onDelete: SetNull)
+  purchaseRequest   PurchaseRequest                   @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  tenant            Tenant?                           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
+  @@index([barangIdDiminta])
   @@map("purchase_request_items")
 }
 
@@ -3366,24 +3380,30 @@ model Jasa {
 /// Item jasa pada purchase request. Tidak terkait stok/gudang. Penyelesaian
 /// dikonfirmasi manual dengan upload bukti (foto/dokumen) dan tanggal selesai.
 model PurchaseRequestJasaItem {
-  id                String          @id @default(uuid())
+  id                String                            @id @default(uuid())
   purchaseRequestId String
   jasaId            String
-  jumlah            Int             @default(1)
-  hargaPerUnit      Float           @default(0)
-  totalHarga        Float           @default(0)
+  jumlah            Int                               @default(1)
+  hargaPerUnit      Float                             @default(0)
+  totalHarga        Float                             @default(0)
   keterangan        String?
   tanggalSelesai    DateTime?
   buktiSelesai      String[]
-  statusKonfirmasi  String          @default("PENDING")
+  statusKonfirmasi  String                            @default("PENDING")
   confirmedAt       DateTime?
   confirmedBy       String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  /// Keputusan penyetuju untuk baris jasa ini; hanya REJECTED yang tidak ikut PO.
+  statusApproval    PurchaseRequestItemApprovalStatus @default(PENDING)
+  /// Alasan penyetuju menolak atau mengubah jumlah jasa.
+  catatanApproval   String?
+  /// Jumlah yang diajukan pemohon, diisi hanya bila penyetuju mengubah jumlah.
+  jumlahDiminta     Int?
+  createdAt         DateTime                          @default(now())
+  updatedAt         DateTime                          @updatedAt
   tenantId          String?
-  jasa              Jasa            @relation(fields: [jasaId], references: [id])
-  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
-  tenant            Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  jasa              Jasa                              @relation(fields: [jasaId], references: [id])
+  purchaseRequest   PurchaseRequest                   @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  tenant            Tenant?                           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@index([purchaseRequestId])
@@ -5034,6 +5054,13 @@ enum PresurveiChannelIklan {
   WHATSAPP
   OFFLINE
   LAINNYA
+}
+
+/// Keputusan penyetuju per baris pengajuan restock.
+enum PurchaseRequestItemApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum PurchaseRequestStatus {

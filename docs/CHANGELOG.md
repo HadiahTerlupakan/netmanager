@@ -41,6 +41,77 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-08] — Approval restock per item: tolak, ubah jumlah, ganti barang
+
+- **Tipe**: [ADDED] [MIGRATION]
+- **Scope**: `modules/inventory`, `modules/procurement`, `app/api/inventory/restock/requests/[id]`, `app/admin/inventory/restock`, `lib/validations/restock.ts`
+- **Author**: agent
+- **Deskripsi**:
+  - Tombol Approve diganti modal "Keputusan Pengajuan". Per baris barang: setujui/tolak, ubah
+    jumlah, ganti barang. Per baris jasa: setujui/tolak, ubah jumlah. Catatan baris wajib bila
+    ditolak, diganti, atau jumlah diubah. "Tolak Pengajuan" wajib catatan.
+  - `barangId`/`jumlah` berisi nilai yang disetujui (dipakai PO, penerimaan, read-model). Nilai
+    asli pemohon disimpan di `barangIdDiminta`/`jumlahDiminta`. Hanya baris `REJECTED` yang
+    tidak ikut PO (`findApprovedPRs`), penerimaan, konfirmasi jasa, dan total ringkasan.
+  - Keputusan + status ditulis dalam satu transaksi dengan klaim bersyarat `status = DRAFT`.
+    Baris yang dikirim harus sama persis dengan isi pengajuan. Semua baris ditolak → 409.
+    Barang pengganti dicek per tenant, tidak boleh sama dengan barang asli atau bentrok
+    dengan baris lain. PO tetap dibuat best-effort setelah commit (`_poError` tidak berubah).
+  - Detail & PDF menampilkan diminta vs disetujui, "Diganti dari", badge Ditolak, catatan
+    approver. Supplier PO kini deterministik (supplier terbanyak) dan semua supplier baris
+    dicek aktif.
+  - `RestockRequestLifecycleService` dipindah ke repository + port, tidak lagi mengembalikan
+    `NextResponse`; aturan keputusan murni di `domain/restock-approval-decision.ts`.
+- **Files**: `modules/inventory/domain/restock-approval-decision.ts`,
+  `modules/inventory/repositories/RestockApprovalRepository.ts`,
+  `modules/inventory/services/RestockRequestLifecycleService.ts`,
+  `app/api/inventory/restock/requests/[id]/restock-lifecycle.handler.ts`,
+  `app/admin/inventory/restock/RestockApprovalModal.tsx`, `app/admin/inventory/restock/useRestockApproval.ts`
+- **Migration**: `20261108105656_add_approval_decision_to_purchase_request_items`
+- **Breaking**: ✅ Ya — body PATCH `/api/inventory/restock/requests/[id]` berubah (APPROVE wajib
+  `items`/`jasaItems`, REJECT wajib `catatan`); pengajuan yang sudah diputuskan kini 409 (dulu 400).
+
+### [2026-11-08] — Keputusan restock dikunci `restock:approve`, route lama dihapus
+
+- **Tipe**: [SECURITY] [REMOVED]
+- **Scope**: `app/api/inventory/restock/requests/[id]`
+- **Author**: agent
+- **Deskripsi**: PATCH keputusan dulu hanya memeriksa `restock:update`, sehingga pemegang izin
+  edit tanpa izin approve bisa menyetujui lewat API. Kini memakai `restock:approve`, sama dengan
+  tombol UI. Route `PATCH [id]/approve` yang tidak dipakai UI (setuju tanpa catatan dan tanpa PO)
+  dihapus beserta rantai `approvePurchaseRequest`. Role kustom yang hanya punya `restock:update`
+  tidak lagi bisa memutuskan pengajuan.
+- **Breaking**: ✅ Ya
+
+### [2026-11-08] — Edit pengajuan tidak bisa menimpa keputusan approval
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory/repositories/InventoryPurchaseRequestRepository.ts`, `app/api/inventory/restock/requests/[id]/restock-put.handler.ts`
+- **Author**: agent
+- **Deskripsi**: PUT memeriksa status lalu menghapus/menulis ulang item di langkah terpisah, jadi
+  edit yang berbarengan dengan approval bisa menghapus keputusan per baris. Kini PR diklaim dulu
+  dengan `updateMany` bersyarat status DRAFT di dalam transaksi; bila sudah diputuskan → 409.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-08] — Tombol Konfirmasi Jasa restock kembali muncul
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/inventory/restock/RestockTable.tsx`
+- **Author**: agent
+- **Deskripsi**: `onOpenConfirmJasa` tidak diteruskan ke aksi baris, sehingga tombol Konfirmasi
+  Jasa tidak pernah tampil. Kini diteruskan; jasa yang ditolak tidak dihitung.
+- **Breaking**: ❌ Tidak
+
+### [2026-11-08] — SearchableSelect bisa dipakai lewat keyboard dan pembaca layar
+
+- **Tipe**: [FIXED]
+- **Scope**: `components/ui/SearchableSelect.tsx`
+- **Author**: agent
+- **Deskripsi**: Trigger kini `role="button"`, bisa difokus dengan Tab dan dibuka dengan
+  Enter/Spasi, punya `aria-expanded`, dan prop opsional `ariaLabel`. Tombol Kosongkan punya
+  label dan tetap berfungsi dengan Enter (tidak ikut membuka daftar).
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-03] — Pembuat settlement reseller tak boleh menyetujuinya
 
 - **Tipe**: [ADDED]

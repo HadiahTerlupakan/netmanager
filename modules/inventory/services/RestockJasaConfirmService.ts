@@ -40,8 +40,14 @@ export async function confirmRestockJasaItems(input: ConfirmRestockJasaInput) {
     const purchaseRequest = await prisma.purchaseRequest.findFirst({
       where: { id: input.purchaseRequestId, tenantId: input.tenantId },
       include: {
-        jasaItems: { include: { jasa: { select: { nama: true } } } },
-        items: true,
+        jasaItems: {
+          where: { statusApproval: { not: "REJECTED" } },
+          include: { jasa: { select: { nama: true } } },
+        },
+        items: {
+          where: { statusApproval: { not: "REJECTED" } },
+          select: { id: true },
+        },
       },
     });
 
@@ -90,6 +96,7 @@ export async function confirmRestockJasaItems(input: ConfirmRestockJasaInput) {
         where: {
           purchaseRequestId: input.purchaseRequestId,
           statusKonfirmasi: "PENDING",
+          statusApproval: { not: "REJECTED" },
         },
       });
 
@@ -175,7 +182,7 @@ function findJasaConfirmationProblem(
     const jasaName = jasaNameById.get(item.jasaItemId);
     if (!jasaName) {
       problems.push(
-        "Ada jasa yang tidak termasuk pengajuan ini. Muat ulang halaman, lalu coba lagi.",
+        "Ada jasa yang tidak termasuk pengajuan ini atau sudah ditolak penyetuju. Muat ulang halaman, lalu coba lagi.",
       );
       continue;
     }
