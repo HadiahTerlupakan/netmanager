@@ -303,18 +303,26 @@ export class InventoryRouteService {
     return result;
   }
 
-  /** Setujui purchase request dan catat penyetujunya. */
-  async approvePurchaseRequest(input: { id: string; approverId: string }) {
-    const approved = await this.repository.approvePurchaseRequest(input);
-    recordInventoryActivity({
-      action: INVENTORY_ACTIVITY_ACTIONS.APPROVE,
-      subject: INVENTORY_ACTIVITY_SUBJECTS.RESTOCK_REQUEST,
-      reference: approved.nomorRequest,
-      actorId: input.approverId,
-      tenantId: approved.tenantId,
-      details: { purchaseRequestId: input.id },
-    });
-    return approved;
+  /**
+   * Pengajuan yang pesanannya sudah menerima barang tidak boleh dihapus,
+   * karena barangnya sudah masuk gudang.
+   */
+  async hasPurchaseRequestArrivedGoods(
+    purchaseOrderId: string | null | undefined,
+  ): Promise<boolean> {
+    if (!purchaseOrderId) return false;
+    return this.repository.hasArrivedGoods(purchaseOrderId);
+  }
+
+  /**
+   * Pengajuan yang barangnya sudah ada yang dibeli tidak boleh dihapus:
+   * catatan belanja (uang yang sudah keluar) akan ikut terhapus.
+   */
+  async hasPurchaseRequestPurchases(
+    purchaseOrderId: string | null | undefined,
+  ): Promise<boolean> {
+    if (!purchaseOrderId) return false;
+    return this.repository.hasPurchaseRecords(purchaseOrderId);
   }
 
   /** Ambil info proses purchase request milik tenant tertentu. */

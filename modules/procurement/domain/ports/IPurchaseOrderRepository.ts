@@ -51,6 +51,8 @@ export interface PurchaseOrderJasaItemJasaSummary {
 
 export interface PurchaseOrderItemWithBarang extends PurchaseOrderItemEntity {
   barang: PurchaseOrderItemBarangSummary | null;
+  /** Jumlah yang dinyatakan tidak jadi datang (short close). */
+  cancelledQuantity?: number;
 }
 
 export interface PurchaseOrderJasaItemWithJasa extends PurchaseOrderJasaItemEntity {
@@ -127,6 +129,12 @@ export interface PurchaseOrderTaxRecord {
   supplier: { name: string } | null;
 }
 
+/** Hasil penghapusan PO. */
+export type PurchaseOrderDeleteOutcome =
+  | "DELETED"
+  | "NOT_FOUND"
+  | "HAS_PURCHASES";
+
 export interface IPurchaseOrderRepository {
   findById(id: string): Promise<PurchaseOrderEntity | null>;
 
@@ -151,7 +159,11 @@ export interface IPurchaseOrderRepository {
 
   processToOrdered(id: string, actorId: string): Promise<PurchaseOrderEntity>;
 
-  delete(id: string): Promise<void>;
+  /**
+   * Hapus PO beserta itemnya. "HAS_PURCHASES" bila PO sudah punya catatan
+   * belanja (diperiksa di dalam transaksi yang sama dengan penghapusan).
+   */
+  delete(id: string): Promise<PurchaseOrderDeleteOutcome>;
 
   generatePoNumber(tenantId: string | null): Promise<string>;
 

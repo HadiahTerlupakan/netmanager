@@ -10,15 +10,22 @@ import {
   FiTrash2,
 } from "react-icons/fi";
 
+import { toast } from "react-hot-toast";
+
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 
 import { generatePurchaseRequestPdf } from "./pdf";
-import { RestockStatusBadge } from "./RestockStatusBadge";
+import { RestockProgressStatus } from "./RestockStatusBadge";
+import {
+  canDeleteRestockRequest,
+  getRestockProgress,
+  getRestockProgressActions,
+} from "./restockProgress";
+import { canRecordRestockPurchase } from "./restockPurchase";
 import {
   canApprovePurchaseRequest,
-  canDeletePurchaseRequest,
   canEditPurchaseRequest,
-  canReceivePurchaseRequest,
+  getPendingJasaItems,
 } from "./utils";
 import type { PurchaseRequest } from "./types";
 
@@ -50,8 +57,9 @@ interface RestockTableProps {
   onOpenCreate: () => void;
   onOpenEdit: (request: PurchaseRequest) => void;
   onOpenDetail: (request: PurchaseRequest) => void;
-  onApprove: (id: string) => void;
+  onOpenApproval: (request: PurchaseRequest) => void;
   onOpenReceive: (request: PurchaseRequest) => void;
+  onRecordPurchase?: (request: PurchaseRequest) => void;
   onOpenConfirmJasa?: (request: PurchaseRequest) => void;
   onDelete: (id: string) => void;
 }
@@ -59,8 +67,9 @@ interface RestockTableProps {
 interface RestockActionHandlers {
   onOpenEdit: (request: PurchaseRequest) => void;
   onOpenDetail: (request: PurchaseRequest) => void;
-  onApprove: (id: string) => void;
+  onOpenApproval: (request: PurchaseRequest) => void;
   onOpenReceive: (request: PurchaseRequest) => void;
+  onRecordPurchase?: (request: PurchaseRequest) => void;
   onOpenConfirmJasa?: (request: PurchaseRequest) => void;
   onDelete: (id: string) => void;
 }
@@ -144,15 +153,27 @@ function renderBaseActions(
         <FiEye className="text-[0.95rem]" />
       </IconActionButton>
       <IconActionButton
-        title="Download PR"
-        label={`Download PR ${request.nomorRequest}`}
-        onClick={() => generatePurchaseRequestPdf(request)}
+        title="Unduh PDF"
+        label={`Unduh PDF pengajuan ${request.nomorRequest}`}
+        onClick={() => void downloadRequestPdf(request)}
         className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
       >
         <FiDownload className="text-[0.95rem]" />
       </IconActionButton>
     </>
   );
+}
+
+/** Unduh PDF pengajuan; tanda tangan pembeli dimuat dulu, jadi ada jeda. */
+async function downloadRequestPdf(request: PurchaseRequest) {
+  const loadingToastId = toast.loading("Menyiapkan PDF…");
+  try {
+    await generatePurchaseRequestPdf(request);
+  } catch {
+    toast.error("PDF gagal dibuat. Coba lagi.");
+  } finally {
+    toast.dismiss(loadingToastId);
+  }
 }
 
 function renderStatusActions(
@@ -163,7 +184,7 @@ function renderStatusActions(
     <>
       {renderEditAction(request, input)}
       {renderApproveAction(request, input)}
-      {renderReceiveAction(request, input)}
+      {renderProgressActions(request, input)}
       {renderConfirmJasaAction(request, input)}
       {renderDeleteAction(request, input)}
     </>
@@ -196,29 +217,68 @@ function renderApproveAction(
 
   return (
     <PrimaryActionButton
-      label={`Approve ${request.nomorRequest}`}
-      onClick={() => input.onApprove(request.id)}
+      label={`Tinjau dan putuskan ${request.nomorRequest}`}
+      onClick={() => input.onOpenApproval(request)}
       className="inline-flex min-w-[6.75rem] items-center justify-center rounded-xl bg-emerald-600 px-3 py-2 text-[11px] font-black tracking-[-0.02em] text-white transition-all hover:bg-emerald-500"
     >
-      Approve
+      Tinjau &amp; Putuskan
     </PrimaryActionButton>
   );
 }
 
-function renderReceiveAction(
+const RECEIVE_ACTION_CLASS =
+  "inline-flex min-h-[44px] min-w-[8.5rem] items-center justify-center rounded-xl px-3 py-2 text-xs font-bold text-white transition-all sm:min-h-0";
+const SECONDARY_ACTION_CLASS =
+  "inline-flex min-h-[44px] min-w-[8.5rem] items-center justify-center rounded-xl border border-indigo-300 bg-white px-3 py-2 text-xs font-bold text-indigo-800 transition-all hover:bg-indigo-50 dark:border-indigo-700 dark:bg-gray-800 dark:text-indigo-200 sm:min-h-0";
+
+/** aria-label diawali teks tombol yang terlihat (WCAG 2.5.3). */
+function getReceiveActionAriaLabel(label: string, nomorRequest: string) {
+  return `${label} untuk ${nomorRequest}`;
+}
+
+/**
+ * Tombol perjalanan pesanan: "Catat Belanja" selama masih ada barang yang
+ * belum dibeli, lalu "Catat Barang Datang" / "Catat Kiriman Berikutnya"
+ * sampai pesanan selesai.
+ */
+function renderProgressActions(
   request: PurchaseRequest,
   input: RestockActionHandlers & RestockActionPermissions,
 ) {
-  if (!canReceivePurchaseRequest(request.status, input.canVerify)) return null;
+  if (!input.canVerify) return null;
+  const actions = getRestockProgressActions(getRestockProgress(request).key);
+  if (!actions.receiveLabel) return null;
+  const canRecordPurchase =
+    canRecordRestockPurchase(request) && !!input.onRecordPurchase;
+  const receiveAction = (
+    <PrimaryActionButton
+      label={getReceiveActionAriaLabel(
+        actions.receiveLabel,
+        request.nomorRequest,
+      )}
+      onClick={() => input.onOpenReceive(request)}
+      className={
+        canRecordPurchase
+          ? SECONDARY_ACTION_CLASS
+          : `${RECEIVE_ACTION_CLASS} bg-indigo-700 hover:bg-indigo-800`
+      }
+    >
+      {actions.receiveLabel}
+    </PrimaryActionButton>
+  );
+  if (!canRecordPurchase) return receiveAction;
 
   return (
-    <PrimaryActionButton
-      label={`Verifikasi barang sampai ${request.nomorRequest}`}
-      onClick={() => input.onOpenReceive(request)}
-      className="inline-flex min-w-[8.5rem] items-center justify-center rounded-xl bg-indigo-600 px-3 py-2 text-[11px] font-black tracking-[-0.02em] text-white transition-all hover:bg-indigo-500"
-    >
-      Verifikasi Sampai
-    </PrimaryActionButton>
+    <>
+      <PrimaryActionButton
+        label={`Catat Belanja, pengajuan ${request.nomorRequest}`}
+        onClick={() => input.onRecordPurchase?.(request)}
+        className={`${RECEIVE_ACTION_CLASS} bg-indigo-700 hover:bg-indigo-800`}
+      >
+        Catat Belanja
+      </PrimaryActionButton>
+      {receiveAction}
+    </>
   );
 }
 
@@ -227,10 +287,7 @@ function renderConfirmJasaAction(
   input: RestockActionHandlers & RestockActionPermissions,
 ) {
   if (!input.canVerify || !input.onOpenConfirmJasa) return null;
-  const hasPendingJasa = (request.jasaItems ?? []).some(
-    (item) => item.statusKonfirmasi === "PENDING",
-  );
-  if (!hasPendingJasa) return null;
+  if (getPendingJasaItems(request).length === 0) return null;
   if (!["APPROVED", "ORDERED", "RECEIVED"].includes(request.status)) {
     return null;
   }
@@ -250,7 +307,7 @@ function renderDeleteAction(
   request: PurchaseRequest,
   input: RestockActionHandlers & RestockActionPermissions,
 ) {
-  if (!canDeletePurchaseRequest(request.status, input.canDelete)) return null;
+  if (!canDeleteRestockRequest(request, input.canDelete)) return null;
 
   return (
     <IconActionButton
@@ -304,8 +361,10 @@ export function RestockTable({
   onOpenCreate,
   onOpenEdit,
   onOpenDetail,
-  onApprove,
+  onOpenApproval,
   onOpenReceive,
+  onRecordPurchase,
+  onOpenConfirmJasa,
   onDelete,
 }: RestockTableProps) {
   const hasActiveFilter = Boolean(
@@ -321,8 +380,10 @@ export function RestockTable({
       canDelete,
       onOpenEdit,
       onOpenDetail,
-      onApprove,
+      onOpenApproval,
       onOpenReceive,
+      onRecordPurchase,
+      onOpenConfirmJasa,
       onDelete,
     });
 
@@ -342,7 +403,9 @@ export function RestockTable({
             })}
           </p>
         </div>
-        <RestockStatusBadge status={request.status} />
+      </div>
+      <div className="mt-3">
+        <RestockProgressStatus request={request} />
       </div>
       <div className="mt-4 space-y-2 rounded-2xl bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600 dark:bg-gray-900/50 dark:text-gray-300">
         <div>Gudang: {request.gudang?.nama || "-"}</div>
@@ -414,9 +477,9 @@ export function RestockTable({
       key: "status",
       header: "Status",
       priority: "primary",
-      align: "center",
-      className: "w-[10rem]",
-      render: (request) => <RestockStatusBadge status={request.status} />,
+      align: "left",
+      className: "w-[14rem]",
+      render: (request) => <RestockProgressStatus request={request} />,
     },
     {
       key: "actions",
@@ -433,17 +496,18 @@ export function RestockTable({
       <div className="mb-6 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="space-y-2">
           <h1 className="text-[2rem] font-black tracking-[-0.04em] text-gray-900 dark:text-white">
-            Pre Request
+            Pengajuan Barang
           </h1>
           <p className="max-w-[42rem] text-sm font-medium text-gray-600 dark:text-gray-400">
-            Manajemen pre-request barang &amp; jasa, approval, dan verifikasi
+            Ajukan barang dan jasa, tunggu persetujuan atasan, lalu catat barang
+            yang datang.
           </p>
         </div>
         <button
           onClick={onOpenCreate}
           className="inline-flex h-12 items-center justify-center gap-2 self-start rounded-[1.75rem] bg-indigo-600 px-5 text-sm font-black tracking-[-0.03em] text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 active:scale-[0.98] md:self-auto"
         >
-          <FiPlus className="text-base" /> Buat Pre Request
+          <FiPlus className="text-base" /> Buat Pengajuan
         </button>
       </div>
 

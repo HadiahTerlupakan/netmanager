@@ -2,116 +2,166 @@
 
 import { Modal } from "@/components/ui/Modal";
 
+import { isLineRejected } from "./approvalUtils";
+import { RestockDetailLines } from "./RestockDetailLines";
+import { RestockLineApprovalInfo } from "./RestockLineApprovalInfo";
+import { RestockPurchaseLinkPanel } from "./RestockPurchaseLinkPanel";
+import { RestockPurchaseVoidControl } from "./RestockPurchaseVoidControl";
 import { RestockStatusBadge } from "./RestockStatusBadge";
+import { RestockTimeline } from "./RestockTimeline";
+import {
+  getRestockProgress,
+  getRestockProgressActions,
+  isRestockOrderFinished,
+} from "./restockProgress";
+import { canRecordRestockPurchase } from "./restockPurchase";
 import type { PurchaseRequest } from "./types";
 
 interface RestockDetailModalProps {
   request: PurchaseRequest | null;
   onClose: () => void;
+  canVerify?: boolean;
+  onOpenReceive?: (request: PurchaseRequest) => void;
+  onRecordPurchase?: (request: PurchaseRequest) => void;
+  /** Muat ulang data setelah catatan belanja dibatalkan. */
+  onPurchaseVoided?: () => Promise<void>;
 }
 
+const UNDECIDED_STATUSES = new Set(["DRAFT", "SUBMITTED", "REJECTED"]);
+/**
+ * Status pengajuan yang panel link belanjanya dimuat. Pengajuan yang sudah
+ * ditutup ikut dimuat supaya link yang masih tersisa tetap bisa dimatikan;
+ * panel menyembunyikan dirinya bila tidak ada link aktif.
+ */
+const PURCHASE_LINK_STATUSES = new Set([
+  "APPROVED",
+  "ORDERED",
+  "RECEIVED",
+  "CANCELLED",
+]);
+/** Pesanan yang sudah ditutup: catatan belanjanya tidak bisa dibatalkan. */
+const CLOSED_ORDER_STATUSES = new Set(["RECEIVED", "CANCELLED"]);
+const ACTION_BUTTON_CLASS =
+  "min-h-[44px] w-full rounded-2xl bg-indigo-700 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-800";
+/** Tombol kedua: dipakai terima barang selama "Catat Belanja" masih utama. */
+const SECONDARY_ACTION_BUTTON_CLASS =
+  "min-h-[44px] w-full rounded-2xl border border-indigo-300 bg-white px-4 py-3 text-sm font-bold text-indigo-800 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-gray-800 dark:text-indigo-200";
+
+/** Detail pengajuan: riwayat perjalanan pesanan, barang, jasa, dan tombol lanjutan. */
 export function RestockDetailModal({
   request,
   onClose,
+  canVerify = false,
+  onOpenReceive,
+  onRecordPurchase,
+  onPurchaseVoided,
 }: RestockDetailModalProps) {
   const barangItems = request?.items ?? [];
   const jasaItems = request?.jasaItems ?? [];
+  const actions = request
+    ? getRestockProgressActions(getRestockProgress(request).key)
+    : null;
+  const canRecordPurchase =
+    canVerify &&
+    !!onRecordPurchase &&
+    !!request &&
+    canRecordRestockPurchase(request);
+  const receiveLabel =
+    canVerify && onOpenReceive ? actions?.receiveLabel : null;
+  const canManagePurchaseLink =
+    canVerify && !!request && PURCHASE_LINK_STATUSES.has(request.status);
+  const canVoidPurchase =
+    canVerify &&
+    !!onPurchaseVoided &&
+    !!request &&
+    !CLOSED_ORDER_STATUSES.has(request.purchaseOrder?.status ?? "");
+  const isShowingProgress =
+    !!request && !UNDECIDED_STATUSES.has(request.status);
 
   return (
     <Modal
       isOpen={!!request}
       onClose={onClose}
-      title="Detail Pre Request"
+      title="Detail Pengajuan"
       size="2xl"
     >
-      <div className="p-6 space-y-6">
-        <div className="grid grid-cols-2 gap-4">
+      <div className="p-4 sm:p-6 space-y-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-            <div className="text-xs font-bold text-gray-400 uppercase mb-1">
+            <div className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">
               Nomor
             </div>
-            <div className="font-bold text-indigo-600">
+            <div className="font-bold text-indigo-700 dark:text-indigo-300">
               {request?.nomorRequest}
             </div>
           </div>
           <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-            <div className="text-xs font-bold text-gray-400 uppercase mb-1">
+            <div className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">
               Status
             </div>
-            <div>
-              {request && <RestockStatusBadge status={request.status} />}
-            </div>
+            <div>{request && <RestockStatusBadge request={request} />}</div>
           </div>
         </div>
 
-        {barangItems.length > 0 && (
-          <div className="space-y-3">
-            <div className="text-xs font-bold text-gray-400 uppercase px-1">
-              Daftar Barang
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden">
-              {barangItems.map((item, index) => {
-                const isNotSent =
-                  request?.status === "RECEIVED" &&
-                  (item.receivedQuantity || 0) === 0;
-                const cancelledQuantity = item.cancelledQuantity ?? 0;
+        {request && (
+          <RestockTimeline
+            request={request}
+            recordPurchaseAction={
+              canRecordPurchase ? (
+                <button
+                  type="button"
+                  onClick={() => onRecordPurchase?.(request)}
+                  aria-label={`Catat Belanja, pengajuan ${request.nomorRequest}`}
+                  className="min-h-[44px] rounded-xl bg-indigo-700 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-800"
+                >
+                  Catat Belanja
+                </button>
+              ) : null
+            }
+            renderPurchaseVoidAction={
+              canVoidPurchase
+                ? (record, label) => (
+                    <RestockPurchaseVoidControl
+                      requestId={request.id}
+                      recordId={record.id}
+                      recordLabel={label}
+                      onVoided={onPurchaseVoided}
+                    />
+                  )
+                : undefined
+            }
+          />
+        )}
 
-                return (
-                  <div
-                    key={item.id}
-                    className={`flex justify-between p-4 ${index !== 0 ? "border-t border-gray-50 dark:border-gray-700" : ""} ${isNotSent ? "bg-red-50/30 dark:bg-red-900/10" : ""}`}
-                  >
-                    <div className="flex-1">
-                      <div
-                        className={`font-bold text-sm ${isNotSent ? "text-gray-400 line-through" : "text-gray-900 dark:text-white"}`}
-                      >
-                        {item.barang.nama}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {item.barang.kode}
-                      </div>
-                      {isNotSent && !cancelledQuantity && (
-                        <span className="inline-block mt-1 px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-black uppercase rounded-lg">
-                          Tidak Dikirim
-                        </span>
-                      )}
-                      {cancelledQuantity > 0 && (
-                        <div className="mt-1">
-                          <span className="inline-block px-2 py-0.5 bg-rose-100 text-rose-600 text-[10px] font-black uppercase rounded-lg dark:bg-rose-900/40 dark:text-rose-300">
-                            Dianulir {cancelledQuantity} {item.barang.satuan}
-                          </span>
-                          {item.cancelReason && (
-                            <div className="mt-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-                              Alasan: {item.cancelReason}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div
-                        className={`font-black ${isNotSent ? "text-gray-300" : "text-indigo-600"}`}
-                      >
-                        {request?.status === "RECEIVED"
-                          ? item.receivedQuantity
-                          : item.jumlah}
-                        {request?.status === "RECEIVED" &&
-                          item.receivedQuantity !== item.jumlah &&
-                          !isNotSent && (
-                            <span className="text-[10px] text-gray-400 font-bold ml-1">
-                              / {item.jumlah}
-                            </span>
-                          )}
-                      </div>
-                      <div className="text-[10px] text-gray-400 uppercase font-bold">
-                        {item.barang.satuan}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+        {request && canManagePurchaseLink && (
+          <RestockPurchaseLinkPanel key={request.id} request={request} />
+        )}
+
+        {(request?.approver || request?.catatanApproval) && (
+          <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-1">
+            <div className="text-xs font-bold text-gray-600 dark:text-gray-400">
+              Keputusan Atasan
             </div>
+            {request?.approver && (
+              <div className="text-sm font-bold text-gray-900 dark:text-white">
+                {request?.approver.name}
+              </div>
+            )}
+            {request?.catatanApproval && (
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                {request?.catatanApproval}
+              </div>
+            )}
           </div>
+        )}
+
+        {request && barangItems.length > 0 && (
+          <RestockDetailLines
+            request={request}
+            items={barangItems}
+            isShowingProgress={isShowingProgress}
+            isOrderFinished={isRestockOrderFinished(request)}
+          />
         )}
 
         {jasaItems.length > 0 && (
@@ -122,6 +172,7 @@ export function RestockDetailModal({
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-violet-100 dark:border-violet-900/40 overflow-hidden">
               {jasaItems.map((item, index) => {
                 const isSelesai = item.statusKonfirmasi === "SELESAI";
+                const isRejected = isLineRejected(item);
                 return (
                   <div
                     key={item.id}
@@ -132,7 +183,7 @@ export function RestockDetailModal({
                         <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-violet-700 dark:bg-violet-900/50 dark:text-violet-300">
                           Jasa
                         </span>
-                        {isSelesai ? (
+                        {isRejected ? null : isSelesai ? (
                           <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700">
                             Selesai
                           </span>
@@ -148,6 +199,10 @@ export function RestockDetailModal({
                       <div className="text-xs text-gray-500">
                         {item.jasa.kode}
                       </div>
+                      <RestockLineApprovalInfo
+                        line={item}
+                        satuan={item.jasa.satuan}
+                      />
                       {item.keterangan && (
                         <div className="text-xs text-gray-400 mt-1 italic">
                           {item.keterangan}
@@ -196,67 +251,24 @@ export function RestockDetailModal({
           </div>
         )}
 
-        {(() => {
-          const goodsReceipts = request?.purchaseOrder?.goodsReceipts ?? [];
-          const allFoto = goodsReceipts.flatMap((gr) => gr.fotoBukti ?? []);
-          if (allFoto.length === 0) return null;
-          return (
-            <div className="space-y-3">
-              <div className="text-xs font-bold text-emerald-400 uppercase px-1">
-                Bukti Penerimaan Barang
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-emerald-100 dark:border-emerald-900/40 p-4">
-                {goodsReceipts.map((gr) => {
-                  const fotos = gr.fotoBukti ?? [];
-                  if (fotos.length === 0) return null;
-                  return (
-                    <div key={gr.id} className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-300">
-                          {gr.grnNumber}
-                        </span>
-                        {gr.receivedAt && (
-                          <span className="text-[10px] text-gray-400 font-bold">
-                            {new Date(gr.receivedAt).toLocaleDateString(
-                              "id-ID",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              },
-                            )}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {fotos.map((url) => (
-                          <a
-                            key={url}
-                            href={url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block w-16 h-16 rounded-xl overflow-hidden border border-emerald-100 dark:border-emerald-800"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={url}
-                              alt={`Bukti ${gr.grnNumber}`}
-                              className="w-full h-full object-cover"
-                            />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
+        {request && receiveLabel && (
+          <button
+            type="button"
+            onClick={() => onOpenReceive?.(request)}
+            aria-label={`${receiveLabel} untuk ${request.nomorRequest}`}
+            className={
+              canRecordPurchase
+                ? SECONDARY_ACTION_BUTTON_CLASS
+                : ACTION_BUTTON_CLASS
+            }
+          >
+            {receiveLabel}
+          </button>
+        )}
 
         <button
           onClick={onClose}
-          className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-lg"
+          className="min-h-[44px] w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-lg"
         >
           Tutup
         </button>

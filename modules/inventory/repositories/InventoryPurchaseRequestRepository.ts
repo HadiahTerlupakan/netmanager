@@ -1,7 +1,23 @@
 import { randomUUID } from "crypto";
 import { PurchaseRequestStatus, Prisma } from "@prisma/client";
 
+import {
+  RESTOCK_EDITABLE_STATUSES,
+  RestockRequestNotEditableError,
+} from "../domain/restock-request-errors";
+import {
+  PURCHASE_ORDER_PROGRESS_INCLUDE,
+  toRestockReadModel,
+} from "./restock-request-read-model";
+
 type PrismaClientLike = Prisma.TransactionClient;
+
+const BARANG_SUMMARY_SELECT = {
+  id: true,
+  nama: true,
+  kode: true,
+  satuan: true,
+} as const;
 
 export class InventoryPurchaseRequestRepository {
   constructor(private readonly db: PrismaClientLike) {}
@@ -31,45 +47,21 @@ export class InventoryPurchaseRequestRepository {
           : {}),
       },
       include: {
-        items: { include: { barang: true } },
+        items: {
+          include: {
+            barang: true,
+            barangDiminta: { select: BARANG_SUMMARY_SELECT },
+          },
+        },
         jasaItems: { include: { jasa: true } },
         requester: { select: { name: true } },
         approver: { select: { name: true } },
         gudang: { select: { nama: true, id: true } },
-        purchaseOrder: {
-          include: {
-            items: true,
-            goodsReceipts: {
-              select: {
-                id: true,
-                grnNumber: true,
-                fotoBukti: true,
-                receivedAt: true,
-              },
-              orderBy: { receivedAt: "desc" },
-            },
-          },
-        },
+        purchaseOrder: { include: PURCHASE_ORDER_PROGRESS_INCLUDE },
       },
       orderBy: { createdAt: "desc" },
     });
-    return requests.map((request) => ({
-      ...request,
-      items: request.items.map((item) => {
-        const purchaseOrderItem = request.purchaseOrder?.items.find(
-          (candidate) => candidate.barangId === item.barangId,
-        );
-        return {
-          ...item,
-          // Satu PO bisa menggabungkan beberapa pengajuan; sisa dihitung dari
-          // jumlah di PO seperti yang dipakai server saat verifikasi.
-          orderedQuantity: purchaseOrderItem?.quantity ?? item.jumlah,
-          receivedQuantity: purchaseOrderItem?.receivedQuantity || 0,
-          cancelledQuantity: purchaseOrderItem?.cancelledQuantity || 0,
-          cancelReason: purchaseOrderItem?.cancelReason || null,
-        };
-      }),
-    }));
+    return requests.map((request) => toRestockReadModel(request));
   }
 
   /** Ambil purchase request milik tenant tertentu. */
@@ -79,7 +71,15 @@ export class InventoryPurchaseRequestRepository {
     });
   }
 
-  /** Perbarui item purchase request draft/submitted. */
+  /**
+   * Perbarui item purchase request draft/submitted.
+   *
+   * Baris PR diklaim dulu (updateMany bersyarat status) sebelum item disentuh:
+   * keputusan approver yang masuk setelah pemohon membuka form tidak boleh
+   * tertimpa, dan urutan kunci (PR lalu item) sama dengan transaksi approval
+   * sehingga keduanya tidak saling deadlock. Melempar
+   * {@link RestockRequestNotEditableError} bila pengajuan sudah diputuskan.
+   */
   async updatePurchaseRequest(input: {
     id: string;
     tenantId: string;
@@ -98,18 +98,29 @@ export class InventoryPurchaseRequestRepository {
     }>;
   }) {
     return this.db.$transaction(async (tx) => {
+      const claimed = await tx.purchaseRequest.updateMany({
+        where: {
+          id: input.id,
+          tenantId: input.tenantId,
+          status: { in: [...RESTOCK_EDITABLE_STATUSES] },
+        },
+        data: {
+          gudangId: input.gudangId,
+          keterangan: input.keterangan,
+        },
+      });
+      if (claimed.count === 0) {
+        const current = await tx.purchaseRequest.findFirst({
+          where: { id: input.id, tenantId: input.tenantId },
+          select: { status: true },
+        });
+        throw new RestockRequestNotEditableError(current?.status ?? null);
+      }
       await tx.purchaseRequestItem.deleteMany({
         where: { purchaseRequestId: input.id },
       });
       await tx.purchaseRequestJasaItem.deleteMany({
         where: { purchaseRequestId: input.id },
-      });
-      const updated = await tx.purchaseRequest.update({
-        where: { id: input.id },
-        data: {
-          gudangId: input.gudangId,
-          keterangan: input.keterangan,
-        },
       });
 
       if (input.items.length > 0) {
@@ -147,7 +158,7 @@ export class InventoryPurchaseRequestRepository {
       }
 
       return tx.purchaseRequest.findUnique({
-        where: { id: updated.id },
+        where: { id: input.id },
         include: { items: true, jasaItems: { include: { jasa: true } } },
       });
     });
@@ -158,17 +169,73 @@ export class InventoryPurchaseRequestRepository {
     await this.db.purchaseRequest.delete({ where: { id } });
   }
 
-  /** Setujui purchase request sederhana untuk route approve. */
-  async approvePurchaseRequest(input: { id: string; approverId: string }) {
-    return this.db.purchaseRequest.update({
-      where: { id: input.id },
-      data: {
-        status: "APPROVED",
-        approvedBy: input.approverId,
-        approvedAt: new Date(),
-        updatedAt: new Date(),
+  /** Ambil detail purchase request restock milik tenant beserta keputusan per baris. */
+  async findPurchaseRequestDetail(id: string, tenantId: string) {
+    const request = await this.db.purchaseRequest.findFirst({
+      where: { id, tenantId },
+      include: {
+        requester: { select: { name: true, email: true } },
+        approver: { select: { name: true } },
+        gudang: { select: { nama: true, kode: true } },
+        items: {
+          include: {
+            barang: { select: BARANG_SUMMARY_SELECT },
+            barangDiminta: { select: BARANG_SUMMARY_SELECT },
+          },
+        },
+        jasaItems: {
+          include: {
+            jasa: {
+              select: {
+                id: true,
+                kode: true,
+                nama: true,
+                satuan: true,
+                hargaEstimasi: true,
+              },
+            },
+          },
+        },
+        purchaseOrder: {
+          select: {
+            id: true,
+            poNumber: true,
+            status: true,
+            issuedAt: true,
+            paymentStatus: true,
+            ...PURCHASE_ORDER_PROGRESS_INCLUDE,
+          },
+        },
       },
     });
+    return request ? toRestockReadModel(request) : null;
+  }
+
+  /** True bila PO ini sudah punya GRN atau ada barang yang tercatat datang. */
+  async hasArrivedGoods(purchaseOrderId: string): Promise<boolean> {
+    const [goodsReceiptCount, receivedItemCount] = await Promise.all([
+      this.db.goodsReceipt.count({ where: { purchaseOrderId } }),
+      this.db.purchaseOrderItem.count({
+        where: { purchaseOrderId, receivedQuantity: { gt: 0 } },
+      }),
+    ]);
+    return goodsReceiptCount > 0 || receivedItemCount > 0;
+  }
+
+  /**
+   * True bila pesanan ini sudah punya catatan belanja (yang tidak dibatalkan)
+   * atau jumlah dibeli.
+   */
+  async hasPurchaseRecords(purchaseOrderId: string): Promise<boolean> {
+    const [purchaseRecordCount, purchasedItemCount] = await Promise.all([
+      this.db.purchaseRecord.count({
+        where: { purchaseOrderId, voidedAt: null },
+      }),
+      this.db.purchaseOrderItem.count({
+        where: { purchaseOrderId, purchasedQuantity: { gt: 0 } },
+      }),
+    ]);
+    return purchaseRecordCount > 0 || purchasedItemCount > 0;
   }
 
   /** Ambil ringkasan purchase request untuk proses receive/start shopping. */

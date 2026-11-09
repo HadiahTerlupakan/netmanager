@@ -140,9 +140,14 @@ export class InventoryApiRepository {
     return this.purchaseRequestRepository.deletePurchaseRequest(id);
   }
 
-  /** Setujui purchase request sederhana untuk route approve. */
-  async approvePurchaseRequest(input: { id: string; approverId: string }) {
-    return this.purchaseRequestRepository.approvePurchaseRequest(input);
+  /** True bila PO pengajuan sudah punya barang yang datang. */
+  async hasArrivedGoods(purchaseOrderId: string) {
+    return this.purchaseRequestRepository.hasArrivedGoods(purchaseOrderId);
+  }
+
+  /** True bila PO pengajuan sudah punya catatan belanja. */
+  async hasPurchaseRecords(purchaseOrderId: string) {
+    return this.purchaseRequestRepository.hasPurchaseRecords(purchaseOrderId);
   }
 
   /** Ambil ringkasan purchase request untuk proses receive/start shopping. */

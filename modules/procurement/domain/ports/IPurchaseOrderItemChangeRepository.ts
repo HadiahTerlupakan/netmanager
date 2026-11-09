@@ -14,6 +14,8 @@ export interface PurchaseOrderItemForChange {
   quantity: number;
   receivedQuantity: number;
   cancelledQuantity: number;
+  /** Jumlah yang sudah dicatat dibeli lewat catatan belanja restock. */
+  purchasedQuantity: number;
   unitPrice: number;
 }
 

@@ -3,11 +3,13 @@ import type { RefObject } from "react";
 import type { PhotoUploadRef } from "@/components/inventory/PhotoUpload";
 import { OFFLINE_MESSAGE } from "@/components/inventory/form-shared/inventoryRequestMessages";
 
+import { isLineRejected } from "./approvalUtils";
 import type {
   Barang,
   BarangGudang,
   PurchaseRequest,
   PurchaseRequestItem,
+  PurchaseRequestJasaItem,
   RestockCancellationMap,
   RestockFormItem,
   RestockOverReceiptMap,
@@ -107,34 +109,43 @@ export function getFilteredBarangs({
   });
 }
 
+/** Baris barang yang ikut PO dan penerimaan: semua kecuali yang ditolak. */
+export function getReceivableRestockItems(
+  request: PurchaseRequest,
+): PurchaseRequestItem[] {
+  return request.items.filter((item) => !isLineRejected(item));
+}
+
+/** Jasa yang masih menunggu konfirmasi selesai; jasa yang ditolak diabaikan. */
+export function getPendingJasaItems(
+  request: PurchaseRequest,
+): PurchaseRequestJasaItem[] {
+  return (request.jasaItems ?? []).filter(
+    (item) => item.statusKonfirmasi === "PENDING" && !isLineRejected(item),
+  );
+}
+
+/** Jumlah diterima awal per barang: sisa pesanan baris yang tidak ditolak. */
 export function buildInitialReceivedItems(
   request: PurchaseRequest,
 ): Record<string, number> {
-  return request.items.reduce<Record<string, number>>((acc, item) => {
-    const remainingQuantity = Math.max(getRestockItemRemaining(item), 0);
-    acc[item.barangId] = (acc[item.barangId] || 0) + remainingQuantity;
-    return acc;
-  }, {});
+  return getReceivableRestockItems(request).reduce<Record<string, number>>(
+    (acc, item) => {
+      const remainingQuantity = Math.max(getRestockItemRemaining(item), 0);
+      acc[item.barangId] = (acc[item.barangId] || 0) + remainingQuantity;
+      return acc;
+    },
+    {},
+  );
 }
 
-/** Sisa pesanan yang belum diterima dan belum dianulir. */
+/** Sisa pesanan yang belum datang dan belum ditandai tidak jadi datang. */
 export function getRestockItemRemaining(item: PurchaseRequestItem): number {
   return (
     (item.orderedQuantity ?? item.jumlah) -
     item.receivedQuantity -
     (item.cancelledQuantity ?? 0)
   );
-}
-
-/**
- * Jumlah diterima saat checkbox item dicentang/dilepas: centang mengisi sisa
- * pesanan (tidak pernah melebihinya), lepas centang mengosongkannya.
- */
-export function getToggledReceivedQuantity(
-  item: PurchaseRequestItem,
-  isChecked: boolean,
-): number {
-  return isChecked ? Math.max(getRestockItemRemaining(item), 0) : 0;
 }
 
 /**
@@ -191,19 +202,6 @@ export function buildOverReceiptPayload(
   );
 }
 
-/** Barang yang datang melebihi sisa pesanan tidak punya sisa untuk dianulir. */
-export function hasCancellationOnExcessItem(
-  items: PurchaseRequestItem[],
-  receivedItems: Record<string, number>,
-  cancellations: RestockCancellationMap,
-): boolean {
-  return items.some(
-    (item) =>
-      item.barangId in cancellations &&
-      getRestockItemRemaining(item) - (receivedItems[item.barangId] ?? 0) <= 0,
-  );
-}
-
 /** Barang yang datang melebihi sisa pesanan wajib diberi alasan. */
 export function hasMissingOverReceiptReason(
   items: PurchaseRequestItem[],
@@ -212,15 +210,6 @@ export function hasMissingOverReceiptReason(
 ): boolean {
   return getExcessItems(items, receivedItems).some(
     (item) => (overReceipts[item.barangId] ?? "").trim().length === 0,
-  );
-}
-
-/** Anulir yang sudah ditandai tapi alasannya belum diisi memblokir submit. */
-export function hasIncompleteCancellationReason(
-  cancellations: RestockCancellationMap,
-): boolean {
-  return Object.values(cancellations).some(
-    (reason) => reason.trim().length === 0,
   );
 }
 
@@ -247,13 +236,6 @@ export function buildSubstitutionPayload(
   );
 }
 
-export function canDeletePurchaseRequest(
-  status: PurchaseRequest["status"],
-  canDelete: boolean,
-): boolean {
-  return canDelete && status !== "RECEIVED";
-}
-
 export function canEditPurchaseRequest(
   status: PurchaseRequest["status"],
   canUpdate: boolean,
@@ -266,13 +248,6 @@ export function canApprovePurchaseRequest(
   canApprove: boolean,
 ): boolean {
   return canApprove && status === "DRAFT";
-}
-
-export function canReceivePurchaseRequest(
-  status: PurchaseRequest["status"],
-  canVerify: boolean,
-): boolean {
-  return canVerify && (status === "APPROVED" || status === "ORDERED");
 }
 
 interface RestockFormProblemsInput {
@@ -432,31 +407,21 @@ export function getStockSnapshot(
   };
 }
 
-export function formatStatusLabel(status: PurchaseRequest["status"]): {
-  label: string;
-  className: string;
-} {
-  const configs: Record<
-    PurchaseRequest["status"],
-    { label: string; className: string }
-  > = {
-    DRAFT: { label: "Draft", className: "bg-gray-100 text-gray-800" },
-    SUBMITTED: {
-      label: "Diajukan",
-      className: "bg-yellow-100 text-yellow-800",
-    },
-    APPROVED: { label: "Disetujui", className: "bg-green-100 text-green-800" },
-    REJECTED: { label: "Ditolak", className: "bg-red-100 text-red-800" },
-    ORDERED: {
-      label: "Dalam Pengiriman",
-      className: "bg-blue-100 text-blue-800",
-    },
-    RECEIVED: { label: "Selesai", className: "bg-indigo-100 text-indigo-800" },
-    CANCELLED: { label: "Dibatalkan", className: "bg-red-100 text-red-800" },
+/**
+ * Label status pengajuan di server untuk dropdown filter. Badge tiap baris
+ * memakai status turunan (lihat restockProgress.ts); filter tetap memakai
+ * status server supaya hasil list yang dipaginasi tetap benar.
+ */
+const RESTOCK_FILTER_STATUS_LABELS: Record<PurchaseRequest["status"], string> =
+  {
+    DRAFT: "Menunggu Persetujuan",
+    SUBMITTED: "Diajukan",
+    APPROVED: "Disetujui",
+    REJECTED: "Ditolak",
+    ORDERED: "Sedang berjalan",
+    RECEIVED: "Selesai",
+    CANCELLED: "Dibatalkan",
   };
-
-  return configs[status];
-}
 
 function wordStartMatch(text: string, term: string): boolean {
   if (text.includes(term)) return true;
@@ -525,7 +490,7 @@ export function getRestockFilterOptions(_requests: PurchaseRequest[]) {
     { value: "all", label: "Semua Status" },
     ...RESTOCK_STATUS_OPTIONS.map((status) => ({
       value: status,
-      label: formatStatusLabel(status).label,
+      label: RESTOCK_FILTER_STATUS_LABELS[status],
     })),
   ];
 }

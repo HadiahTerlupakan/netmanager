@@ -36,6 +36,7 @@ async function readForItemChange(
           quantity: true,
           receivedQuantity: true,
           cancelledQuantity: true,
+          purchasedQuantity: true,
           unitPrice: true,
           barang: { select: { nama: true } },
         },
@@ -157,6 +158,8 @@ export class PurchaseOrderItemChangeRepository implements IPurchaseOrderItemChan
         hargaPerUnit: addition.unitPrice,
         totalHarga: addition.quantity * addition.unitPrice,
         keterangan: "Ditambahkan lewat ubah isi PO",
+        // Tambahan lewat ubah isi PO sudah disetujui bagian pembelian.
+        statusApproval: "APPROVED",
         tenantId: input.tenantId,
       })),
     });
@@ -265,6 +268,14 @@ export class PurchaseOrderItemChangeRepository implements IPurchaseOrderItemChan
       await tx.purchaseRequest.updateMany({
         where: { purchaseOrderId: input.purchaseOrderId },
         data: { status: "RECEIVED" },
+      });
+      // Pengajuan selesai: link belanja restock-nya tidak berlaku lagi.
+      await tx.restockPurchaseLink.updateMany({
+        where: {
+          revokedAt: null,
+          purchaseRequest: { purchaseOrderId: input.purchaseOrderId },
+        },
+        data: { revokedAt: new Date() },
       });
       return "RECEIVED";
     }

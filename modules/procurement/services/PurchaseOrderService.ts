@@ -29,6 +29,16 @@ export class PurchaseOrderNotEditableError extends Error {
   }
 }
 
+/** PO tidak bisa dihapus karena belanjanya sudah dicatat. */
+export class PurchaseOrderHasPurchasesError extends PurchaseOrderNotEditableError {
+  constructor() {
+    super(
+      "Pesanan ini sudah punya catatan belanja, jadi tidak bisa dihapus. Batalkan lewat halaman restock bila barangnya tidak jadi datang.",
+    );
+    this.name = "PurchaseOrderHasPurchasesError";
+  }
+}
+
 interface CreatePurchaseOrderServiceInput extends CreatePurchaseOrderInput {
   createdBy: string;
   tenantId: string | null;
@@ -142,7 +152,8 @@ export class PurchaseOrderService {
         "Purchase Order yang sudah diterima (RECEIVED) tidak dapat dihapus",
       );
     }
-    await this.poRepo.delete(id);
+    const outcome = await this.poRepo.delete(id);
+    if (outcome === "HAS_PURCHASES") throw new PurchaseOrderHasPurchasesError();
   }
 
   async process(id: string, actorId: string): Promise<PurchaseOrderEntity> {

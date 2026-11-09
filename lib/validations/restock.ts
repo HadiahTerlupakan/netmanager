@@ -72,20 +72,96 @@ export const restockUpdateSchema = z
   .object(restockRequestShape)
   .refine(hasRequestedSomething, { message: NOTHING_REQUESTED_MESSAGE });
 
-/** Schema untuk lifecycle action (PATCH) */
-export const restockLifecycleSchema = z.object({
-  action: z
-    .string({
-      error:
-        "Tindakan ini tidak dikenal. Pilih Setujui atau Tolak, lalu coba lagi.",
-    })
+const UNKNOWN_LIFECYCLE_ACTION_MESSAGE =
+  "Tindakan ini tidak dikenal. Pilih Setujui atau Tolak, lalu coba lagi.";
+const DECISION_NOTE_MAX_LENGTH = 500;
+const LINE_NOTE_MAX_LENGTH = 255;
+const STALE_LINE_MESSAGE =
+  "Data baris pengajuan tidak lengkap. Muat ulang halaman, lalu putuskan lagi.";
+
+const lineDecisionShape = {
+  itemId: z
+    .string({ error: STALE_LINE_MESSAGE })
     .trim()
-    .min(1, {
-      error:
-        "Tindakan ini tidak dikenal. Pilih Setujui atau Tolak, lalu coba lagi.",
+    .min(1, { error: STALE_LINE_MESSAGE }),
+  keputusan: z.enum(["APPROVED", "REJECTED"], {
+    error: "Pilih Setujui atau Tolak untuk baris ini.",
+  }),
+  jumlah: jumlahMinimalSatu("Jumlah yang disetujui").optional(),
+  catatan: z
+    .string({ error: "Catatan baris harus berupa tulisan." })
+    .trim()
+    .max(LINE_NOTE_MAX_LENGTH, {
+      error: `Catatan baris paling panjang ${LINE_NOTE_MAX_LENGTH} karakter.`,
+    })
+    .optional(),
+};
+
+/** Baris yang disetujui wajib menyebut jumlah yang disetujui. */
+function hasApprovedQuantity(line: {
+  keputusan: "APPROVED" | "REJECTED";
+  jumlah?: number;
+}): boolean {
+  return line.keputusan === "REJECTED" || line.jumlah !== undefined;
+}
+
+const APPROVED_QUANTITY_REQUIRED = {
+  message: "Jumlah yang disetujui belum diisi. Isi angka 1 atau lebih.",
+  path: ["jumlah"],
+};
+
+const restockBarangDecisionSchema = z
+  .object({
+    ...lineDecisionShape,
+    barangIdPengganti: z
+      .string({ error: "Barang pengganti tidak terbaca. Pilih ulang." })
+      .trim()
+      .min(1, { error: "Barang pengganti tidak terbaca. Pilih ulang." })
+      .nullable()
+      .optional(),
+  })
+  .refine(hasApprovedQuantity, APPROVED_QUANTITY_REQUIRED);
+
+const restockJasaDecisionSchema = z
+  .object(lineDecisionShape)
+  .refine(hasApprovedQuantity, APPROVED_QUANTITY_REQUIRED);
+
+const restockRejectSchema = z.object({
+  action: z.literal("REJECT"),
+  catatan: z
+    .string({ error: "Alasan penolakan belum diisi. Tulis kenapa ditolak." })
+    .trim()
+    .min(1, { error: "Alasan penolakan belum diisi. Tulis kenapa ditolak." })
+    .max(DECISION_NOTE_MAX_LENGTH, {
+      error: `Catatan keputusan paling panjang ${DECISION_NOTE_MAX_LENGTH} karakter.`,
     }),
-  catatan: z.string().trim().optional(),
 });
+
+const restockApproveSchema = z.object({
+  action: z.literal("APPROVE"),
+  catatan: z
+    .string({ error: "Catatan persetujuan harus berupa tulisan." })
+    .trim()
+    .max(DECISION_NOTE_MAX_LENGTH, {
+      error: `Catatan keputusan paling panjang ${DECISION_NOTE_MAX_LENGTH} karakter.`,
+    })
+    .optional(),
+  items: z.array(restockBarangDecisionSchema, {
+    error:
+      "Keputusan per barang belum terkirim. Muat ulang halaman, lalu putuskan lagi.",
+  }),
+  jasaItems: z.array(restockJasaDecisionSchema).default([]),
+});
+
+/**
+ * Schema untuk lifecycle action (PATCH): tolak seluruh pengajuan dengan
+ * alasan, atau setujui dengan keputusan per baris barang dan jasa.
+ */
+export const restockLifecycleSchema = z.discriminatedUnion(
+  "action",
+  [restockRejectSchema, restockApproveSchema],
+  { error: UNKNOWN_LIFECYCLE_ACTION_MESSAGE },
+);
 
 /** Schema konfirmasi jasa selesai pada pengajuan restock. */
 export const restockJasaConfirmSchema = z.object({
@@ -207,3 +283,226 @@ export type RestockCreateInput = z.infer<typeof restockCreateSchema>;
 export type RestockUpdateInput = z.infer<typeof restockUpdateSchema>;
 export type RestockLifecycleInput = z.infer<typeof restockLifecycleSchema>;
 export type RestockJasaConfirmInput = z.infer<typeof restockJasaConfirmSchema>;
+
+/** Batas isian catatan belanja (satu kali belanja di satu toko). */
+export const RESTOCK_PURCHASE_LIMITS = {
+  storeName: 120,
+  notes: 500,
+  fotoNota: 5,
+  /** Panjang maksimal satu alamat foto nota hasil unggahan. */
+  fotoNotaUrl: 2048,
+  /** Jumlah barang maksimal dalam satu catatan belanja. */
+  items: 200,
+  unitPrice: 1_000_000_000,
+  buyerName: 100,
+  /** Panjang maksimal data URL tanda tangan dari link belanja. */
+  signatureDataUrl: 280_000,
+} as const;
+
+const STORE_NAME_EMPTY = "Nama toko belum diisi. Tulis nama tokonya.";
+const PURCHASE_LINE_BROKEN =
+  "Data barang tidak lengkap. Muat ulang halaman, lalu coba lagi.";
+
+const restockPurchaseLineSchema = z.object({
+  purchaseOrderItemId: z
+    .string({ error: PURCHASE_LINE_BROKEN })
+    .trim()
+    .min(1, { error: PURCHASE_LINE_BROKEN }),
+  quantity: jumlahMinimalSatu("Jumlah dibeli"),
+  unitPrice: z
+    .number({ error: "Harga harus diisi angka." })
+    .min(0, { error: "Harga tidak boleh minus." })
+    .max(RESTOCK_PURCHASE_LIMITS.unitPrice, {
+      error: "Harga terlalu besar. Periksa lagi angkanya.",
+    })
+    .nullable()
+    .optional(),
+});
+
+/**
+ * Teks polos tanpa karakter kontrol (`\p{Cc}`) maupun karakter format
+ * (`\p{Cf}`: pembalik arah U+202E/U+202D, karakter tak terlihat). Nama toko
+ * dan nama pembeli adalah bukti siapa yang belanja di garis waktu dan PDF,
+ * jadi tampilannya tidak boleh bisa dibalik atau disamarkan.
+ */
+const SINGLE_LINE_PLAIN_TEXT = /^[^\p{Cc}\p{Cf}]*$/u;
+/** Sama seperti di atas, tetapi catatan boleh berisi baris baru dan tab. */
+const MULTI_LINE_PLAIN_TEXT = /^(?:[^\p{Cc}\p{Cf}]|[\n\r\t])*$/u;
+
+const purchaseStoreNameSchema = z
+  .string({ error: STORE_NAME_EMPTY })
+  .trim()
+  .min(1, { error: STORE_NAME_EMPTY })
+  .max(RESTOCK_PURCHASE_LIMITS.storeName, {
+    error: `Nama toko terlalu panjang. Paling banyak ${RESTOCK_PURCHASE_LIMITS.storeName} huruf.`,
+  })
+  .regex(SINGLE_LINE_PLAIN_TEXT, {
+    error: "Nama toko berisi huruf yang tidak bisa dipakai.",
+  });
+
+const purchaseDateSchema = z.iso.date({
+  error: "Tanggal belanja belum diisi atau tidak terbaca.",
+});
+
+const purchaseNotesSchema = z
+  .string()
+  .trim()
+  .max(RESTOCK_PURCHASE_LIMITS.notes, {
+    error: `Catatan terlalu panjang. Paling banyak ${RESTOCK_PURCHASE_LIMITS.notes} huruf.`,
+  })
+  .regex(MULTI_LINE_PLAIN_TEXT, {
+    error: "Catatan berisi huruf yang tidak bisa dipakai.",
+  })
+  .nullable()
+  .optional()
+  .transform((value) => (value ? value : null));
+
+const purchaseLinesSchema = z
+  .array(restockPurchaseLineSchema, {
+    error: "Daftar barang tidak terbaca. Muat ulang halaman, lalu coba lagi.",
+  })
+  .min(1, {
+    error:
+      "Belum ada barang yang dicentang. Centang barang yang dibeli di toko ini.",
+  })
+  .max(RESTOCK_PURCHASE_LIMITS.items, {
+    error: `Barang terlalu banyak. Paling banyak ${RESTOCK_PURCHASE_LIMITS.items} barang dalam satu belanja.`,
+  });
+
+/** Nama orang yang belanja; karakter kontrol ditolak, spasi dirapikan. */
+const buyerNameSchema = z
+  .string({ error: "Isi nama Anda." })
+  .trim()
+  .min(1, { error: "Isi nama Anda." })
+  .max(RESTOCK_PURCHASE_LIMITS.buyerName, {
+    error: `Nama terlalu panjang. Paling banyak ${RESTOCK_PURCHASE_LIMITS.buyerName} huruf.`,
+  })
+  .regex(SINGLE_LINE_PLAIN_TEXT, {
+    error: "Nama berisi huruf yang tidak bisa dipakai.",
+  })
+  .transform((value) => value.replace(/\s+/g, " "));
+
+/** Token link belanja: 32 byte acak dalam base64url (43 karakter). */
+const purchaseLinkTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+
+/** Tolak barang yang tercantum dua kali dalam satu catatan belanja. */
+function refineUniquePurchaseLines(
+  value: { items: Array<{ purchaseOrderItemId: string }> },
+  ctx: z.RefinementCtx,
+): void {
+  const seen = new Set<string>();
+  value.items.forEach((item, index) => {
+    if (seen.has(item.purchaseOrderItemId)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["items", index],
+        message: "Barang ini tercantum dua kali. Hapus salah satunya.",
+      });
+    }
+    seen.add(item.purchaseOrderItemId);
+  });
+}
+
+/** Schema catatan belanja: satu toko, satu tanggal, beberapa barang. */
+export const restockPurchaseRecordSchema = z
+  .object({
+    storeName: purchaseStoreNameSchema,
+    supplierId: z.string().trim().min(1).nullable().optional(),
+    purchasedAt: purchaseDateSchema,
+    notes: purchaseNotesSchema,
+    /** Nama yang belanja; kosong berarti nama pencatat. */
+    buyerName: z.preprocess(
+      (value) =>
+        typeof value === "string" && value.trim() === "" ? null : value,
+      buyerNameSchema.nullable().optional(),
+    ),
+    fotoNota: z
+      .array(
+        z.string().min(1).max(RESTOCK_PURCHASE_LIMITS.fotoNotaUrl, {
+          error: "Foto nota tidak terbaca. Hapus fotonya, lalu unggah ulang.",
+        }),
+      )
+      .max(RESTOCK_PURCHASE_LIMITS.fotoNota, {
+        error: `Foto nota paling banyak ${RESTOCK_PURCHASE_LIMITS.fotoNota}.`,
+      })
+      .default([]),
+    items: purchaseLinesSchema,
+  })
+  .superRefine(refineUniquePurchaseLines);
+
+/** Batas alasan pembatalan catatan belanja. */
+export const PURCHASE_VOID_REASON_LIMITS = { min: 5, max: 500 } as const;
+
+/** Body POST .../purchases/[recordId]/void: alasan wajib diisi. */
+export const restockPurchaseVoidSchema = z.object({
+  reason: z
+    .string({ error: "Tulis alasan pembatalan." })
+    .trim()
+    .min(PURCHASE_VOID_REASON_LIMITS.min, {
+      error: `Alasan pembatalan minimal ${PURCHASE_VOID_REASON_LIMITS.min} huruf.`,
+    })
+    .max(PURCHASE_VOID_REASON_LIMITS.max, {
+      error: `Alasan pembatalan paling banyak ${PURCHASE_VOID_REASON_LIMITS.max} huruf.`,
+    }),
+});
+
+/** Batas ukuran body permintaan dari link belanja (termasuk tanda tangan). */
+export const MAX_PUBLIC_PURCHASE_BODY_BYTES = 320 * 1024;
+
+const PUBLIC_FORM_UNREADABLE =
+  "Isian tidak terbaca. Muat ulang halaman, lalu coba lagi.";
+
+/** Isian di luar daftar field ditolak dengan pesan awam. */
+const rejectUnknownFields = {
+  error: (issue: { code?: string }) =>
+    issue.code === "unrecognized_keys" ? PUBLIC_FORM_UNREADABLE : undefined,
+};
+
+/** Permintaan daftar belanja dari link tanpa login. */
+export const publicPurchaseListSchema = z.strictObject(
+  { token: purchaseLinkTokenSchema },
+  rejectUnknownFields,
+);
+
+/** Hanya token; dibaca lebih dulu sebelum isian lain diperiksa. */
+export const publicPurchaseTokenSchema = z.object({
+  token: purchaseLinkTokenSchema,
+});
+
+const SIGNATURE_MISSING = "Tanda tangan dulu di kotak tanda tangan.";
+
+/** Catatan belanja dari link tanpa login: nama dan tanda tangan wajib. */
+export const publicPurchaseRecordSchema = z
+  .strictObject(
+    {
+      token: purchaseLinkTokenSchema,
+      clientRequestId: z.uuid({ error: PUBLIC_FORM_UNREADABLE }),
+      buyerName: buyerNameSchema,
+      storeName: purchaseStoreNameSchema,
+      purchasedAt: purchaseDateSchema,
+      notes: purchaseNotesSchema,
+      signatureDataUrl: z
+        .string({ error: SIGNATURE_MISSING })
+        .startsWith("data:image/png;base64,", { error: SIGNATURE_MISSING })
+        .max(RESTOCK_PURCHASE_LIMITS.signatureDataUrl, {
+          error: "Tanda tangan terlalu besar. Hapus, lalu tanda tangan ulang.",
+        }),
+      items: purchaseLinesSchema,
+    },
+    rejectUnknownFields,
+  )
+  .superRefine(refineUniquePurchaseLines);
+
+/** Di payload catatan belanja, `items` berisi barang. */
+export const RESTOCK_PURCHASE_RECORD_LIST_LABELS: Readonly<
+  Record<string, string>
+> = {
+  items: "Barang",
+};
+
+export type RestockPurchaseRecordInput = z.infer<
+  typeof restockPurchaseRecordSchema
+>;
+export type PublicPurchaseRecordInput = z.infer<
+  typeof publicPurchaseRecordSchema
+>;

@@ -1,3 +1,88 @@
+# Rencana: Catat belanja per barang & per toko (2026-11-09)
+
+Status: **selesai (belum di-commit)**
+
+## Masalah
+Satu pengajuan sering dibeli terpisah di beberapa toko dan di hari berbeda, tapi tombol
+"Tandai Sudah Dibeli" berlaku untuk seluruh pengajuan sekaligus. Akibatnya status "sudah dibeli"
+tidak menggambarkan barang mana yang sudah dibeli, di toko mana, dan mana yang belum.
+
+## Asumsi
+- Tetap satu daftar belanja (PO) dan satu tagihan per pengajuan; tidak memecah PO per toko
+  (pembayaran, jurnal akuntansi, dan pajak tetap per PO, tidak tersentuh).
+- Tiap kali belanja dicatat sebagai satu "catatan belanja": toko (teks bebas, opsional pilih
+  supplier), tanggal, siapa, foto nota opsional, dan baris barang + jumlah + harga sebenarnya opsional.
+- Status per barang: belum dibeli / dibeli sebagian / sudah dibeli; status pengajuan: Belum Dibeli /
+  Dibeli Sebagian / Sudah Dibeli Semua, lalu alur barang datang seperti sebelumnya.
+- Barang yang dicatat datang tanpa catatan belanja tetap dianggap sudah dibeli (tidak memblokir
+  gudang).
+- Izin: tetap `restock:verify` (tanpa izin baru).
+
+## Langkah
+- [x] Schema + migration (tabel catatan belanja + baris) dan kolom ringkasan `purchasedQuantity`.
+- [x] Backend: service + repository + route catat belanja, validasi Zod, read-model, tes.
+- [x] UI: modal "Catat Belanja" (pilih barang, toko, jumlah), status per barang & pengajuan,
+      garis waktu per toko, tes.
+- [x] Tahap 2 — Link daftar belanja tanpa login (permintaan lanjutan 2026-11-09):
+      - Link muncul setelah pengajuan disetujui; hanya berlaku selama masih ada barang yang belum
+        dibeli/datang; mati otomatis bila semua barang datang, pengajuan selesai/dibatalkan,
+        kedaluwarsa, atau dicabut admin.
+      - Halaman publik berbentuk daftar centang: barang, jumlah, sisa; isi toko + jumlah + harga
+        opsional + nama pembeli → memakai service catat belanja yang sama.
+      - Keamanan: token acak 256-bit, hanya sha256 yang disimpan (pola Endorsement), bandingkan
+        lookup lewat indeks unik hash (bukan bandingkan konstan-waktu, lihat review), masa berlaku, bisa dicabut/dibuat ulang, rate limit per IP+token, scoped satu
+        pengajuan + tenant, tidak membuka data lain (tanpa harga rencana/data internal), no-store,
+        noindex, Referrer-Policy no-referrer, log aktivitas mencatat "via link" + nama + IP.
+      - Pembeli wajib isi nama + tanda tangan (jari di HP / mouse) tiap catat belanja: pakai ulang
+        `app/p/[token]/SignaturePad.tsx` (dipindah ke `components/`), PNG disimpan ke storage R2
+        seperti `signatureKey` Endorsement, tervalidasi ukuran/tipe.
+      - PDF verifikasi barang sampai memuat nama pembeli + tanda tangan + toko + tanggal per belanja.
+- [x] Review adversarial; typecheck, lint, tes; changelog.
+
+## Review Tahap 1 (2026-11-09)
+- Workflow desain → kritik → backend → UI → 3 reviewer → verifikator: 18 temuan terkonfirmasi,
+  semua ditangani (hapus pesanan yang sudah dibelanjakan, batal pesanan yang sudah dibeli, batas
+  layar ≠ server, ubah isi pesanan di bawah jumlah dibeli, garis waktu tidak urut, dll.).
+- Migration: `20261108220311_add_restock_purchase_records`,
+  `20261108223430_restrict_purchase_record_order_deletes`.
+
+## Review Tahap 2 (2026-11-09)
+- Migration `20261108230204_add_restock_purchase_links`; 15 temuan review terkonfirmasi, semua
+  diperbaiki. Verifikasi: typecheck 0 galat, 1364 file / 10778 tes lulus, tes DB link belanja
+  8/8 lulus, eslint + prettier bersih untuk 179 file. Belum: uji di browser/HP, `npm run build`.
+- Token dicari lewat indeks unik `tokenHash` (sha256). Aplikasi tidak pernah membandingkan token,
+  jadi `timingSafeEqual` tidak relevan: waktu lookup bergantung pada hash dari 256 bit acak, bukan
+  pada berapa karakter token yang cocok.
+- Token mentah hanya diberikan sekali saat dibuat (tidak disimpan terenkripsi); untuk menyalin lagi,
+  admin memakai "Buat link baru".
+- Hasil review adversarial yang diperbaiki: IP rate limit dari proxy tepercaya (bukan entri
+  pertama X-Forwarded-For); batas per IP sebelum body dibaca; endpoint catat fail-closed saat Redis
+  mati; tolak karakter `\p{Cf}` (pembalik arah) di nama toko/catatan/nama pembeli; link mati bila
+  pembuatnya nonaktif atau kehilangan `restock:verify`; kiriman ulang berisi beda dijawab 409;
+  kiriman dobel bersamaan yang kalah di penjaga sisa dijawab replay, bukan 409; status "semua sudah
+  dibeli" dihitung ulang pada replay; PDF menjaga rasio tanda tangan dan membungkus nama
+  toko/pembeli; halaman publik menggulir ke daftar masalah, menampilkan ulang pesan tersimpan
+  tiap simpan, dan seluruh kepala kartu barang bisa diketuk.
+- Audit keamanan independen (7 temuan, semua diperbaiki 2026-11-09):
+  1. [medium] Link aktif selalu tampil & bisa dimatikan; dicabut otomatis saat semua barang dibeli
+     (jalur aplikasi & link), saat penerimaan menutup pengajuan/pesanan, saat ubah isi pesanan
+     menutupnya, dan saat pesanan dihapus — di transaksi yang sama.
+  2. [medium] Pesanan gabungan: `MERGED_ORDER` di panel; daftar/catat publik 404; dicek ulang di
+     transaksi tulis.
+  3. [low] Tanggal lewat link ≥ (tanggal link dibuat WIB − 1 hari); `issuedAt` DRAFT→ORDERED dari
+     link = waktu server.
+  4. [low] Token: fragmen → sessionStorage + `history.replaceState`; reload & `hashchange` didukung.
+  5. [high] `api/belanja/` keluar dari matcher proxy; tolak dini `Content-Length` > 320 KB; stream
+     chunked tetap berhenti di batas; header keamanan dari route. `proxyClientMaxBodySize` global
+     tidak diubah (rekomendasi infra: batasi per path di Traefik).
+  6. [low] PNG: struktur chunk sampai IEND tanpa sisa, 8 bit RGB/RGBA, tanpa interlace, ada IDAT.
+  7. [medium] "Batalkan catatan belanja" (soft-void + alasan, kunci pesanan yang sama, turunkan
+     jumlah dibeli) dan batas 30 catatan per link. Migration
+     `20261109002332_add_void_fields_to_purchase_records`.
+- Verifikasi audit: typecheck 0 galat; `npx vitest run` 1450 file / 11396 tes lulus; tes DB link
+  belanja 17/17 lulus; eslint `--max-warnings=0` + prettier bersih untuk 58 file yang diubah.
+  Belum: uji di browser/HP, `npm run build`.
+
 # Rencana: Penerimaan restock yang mudah dipahami orang awam (2026-11-08)
 
 Status: **selesai (belum di-commit)**

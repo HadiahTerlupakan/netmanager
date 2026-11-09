@@ -43,3 +43,25 @@ describe("recordInventoryActivity", () => {
     expect(logActivitySafe.mock.calls[0][0].tenantId).toBeUndefined();
   });
 });
+
+describe("recordInventoryActivity pelaku link", () => {
+  beforeEach(() => logActivitySafe.mockReset());
+
+  it("memakai actor non-user dan meneruskan IP/UA tanpa userId", () => {
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.RECORD_PURCHASE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.PURCHASE_ORDER,
+      reference: "PO-1",
+      externalActor: { type: "purchase_link", id: "link-1" },
+      tenantId: "tenant-1",
+      ipAddress: "10.0.0.1",
+      userAgent: "HP",
+    });
+
+    const entry = logActivitySafe.mock.calls[0][0];
+    expect(entry.actor).toEqual({ type: "purchase_link", id: "link-1" });
+    expect(entry.userId).toBeUndefined();
+    expect(entry.ipAddress).toBe("10.0.0.1");
+    expect(entry.userAgent).toBe("HP");
+  });
+});

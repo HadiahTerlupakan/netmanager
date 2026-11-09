@@ -22,13 +22,18 @@ import type {
 } from "@/components/inventory/PhotoUpload";
 
 import {
-  buildCancellationPayload,
-  buildOverReceiptPayload,
+  buildRestockReceivePayload,
+  getRestockReceiveProblems,
+  getRestockReceiveSuccessMessage,
+  getRestockReceiveSummary,
+  readRestockReceiptRequestStatus,
+} from "./restockReceiveForm";
+import {
   buildInitialReceivedItems,
-  buildSubstitutionPayload,
   describeRestockClientError,
   getFilteredBarangs,
   getPaginatedRestockRequests,
+  getPendingJasaItems,
   getRestockFilterOptions,
   getRestockFormProblems,
   getVisibleRestockRequests,
@@ -47,17 +52,12 @@ import type {
   RestockSubstitutionMap,
 } from "./types";
 import type { JasaConfirmState } from "./RestockConfirmJasaModal";
+import { showRestockError, uploadPhotosWithToast } from "./restockToasts";
+import { useRestockApproval } from "./useRestockApproval";
+import { useRestockPurchaseRecord } from "./useRestockPurchaseRecord";
 
-/** Pesan error bisa beberapa baris; beri waktu cukup untuk dibaca. */
-const RESTOCK_ERROR_TOAST_MS = 10_000;
-const RESTOCK_WARNING_TOAST_MS = 12_000;
-
-function showRestockError(message: string) {
-  toast.error(message, {
-    duration: RESTOCK_ERROR_TOAST_MS,
-    style: { whiteSpace: "pre-line" },
-  });
-}
+/** Penolakan penerimaan karena pesanan sudah berubah di server. */
+const STALE_RECEIPT_STATUSES = [400, 404, 409];
 
 const INITIAL_FORM_ITEM: RestockFormItem = {
   tipe: "BARANG",
@@ -100,10 +100,12 @@ export function useRestockPage() {
   const [receivedCancellations, setReceivedCancellations] =
     useState<RestockCancellationMap>({});
   const [receivedPhotos, setReceivedPhotos] = useState<UploadedPhoto[]>([]);
-  const [isFinishingPO, setIsFinishingPO] = useState(false);
+  // true = petugas menjawab "Tidak, sisanya tidak akan datang".
+  const [isFinishingOrder, setIsFinishingOrder] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [receivedOverReceipts, setReceivedOverReceipts] =
     useState<RestockOverReceiptMap>({});
+  const [receiveCloseReason, setReceiveCloseReason] = useState("");
 
   const [confirmJasaPR, setConfirmJasaPR] = useState<PurchaseRequest | null>(
     null,
@@ -131,7 +133,15 @@ export function useRestockPage() {
 
       if (resRequests.ok) {
         const data = await resRequests.json();
-        setRequests(data.data || []);
+        const fresh: PurchaseRequest[] = data.data || [];
+        setRequests(fresh);
+        // Detail yang sedang terbuka ikut diperbarui (mis. setelah catatan
+        // belanja dibatalkan dari dalam detail).
+        setViewingPR((current) =>
+          current
+            ? (fresh.find((request) => request.id === current.id) ?? current)
+            : current,
+        );
       }
 
       if (resBarangs.ok) {
@@ -371,43 +381,6 @@ export function useRestockPage() {
     [fetchData],
   );
 
-  const approveRequest = useCallback(
-    async (id: string) => {
-      try {
-        const response = await patchWithAuth(
-          `/api/inventory/restock/requests/${id}`,
-          { action: "APPROVE" },
-        );
-        if (!response.ok) {
-          showRestockError(
-            await readRestockErrorMessage(
-              response,
-              "Pengajuan belum disetujui. Coba sekali lagi.",
-            ),
-          );
-          return;
-        }
-
-        const approved: { _poError?: string | null } | null = await response
-          .json()
-          .catch((): null => null);
-        if (approved?._poError) {
-          // Persetujuan tetap tersimpan; yang gagal hanya pembuatan PO otomatis.
-          toast(approved._poError, {
-            icon: "⚠️",
-            duration: RESTOCK_WARNING_TOAST_MS,
-          });
-        } else {
-          toast.success("Pengajuan disetujui");
-        }
-        await fetchData();
-      } catch (error: unknown) {
-        showRestockError(describeRestockClientError(error));
-      }
-    },
-    [fetchData],
-  );
-
   const openReceive = useCallback((request: PurchaseRequest) => {
     setReceivingPR(request);
     setReceivedItems(buildInitialReceivedItems(request));
@@ -415,9 +388,10 @@ export function useRestockPage() {
     setReceivedCancellations({});
     setReceivedPhotos([]);
     setReceivedOverReceipts({});
-    // Tidak tercentang: staf yang lupa melepasnya menutup pesanan yang masih
-    // akan dikirim susulan.
-    setIsFinishingPO(false);
+    setReceiveCloseReason("");
+    // Bawaan "Ya, sisanya masih ditunggu": staf yang tidak membaca pertanyaan
+    // tidak menutup pesanan yang masih akan dikirim susulan.
+    setIsFinishingOrder(false);
   }, []);
 
   const closeReceive = useCallback(() => {
@@ -425,9 +399,7 @@ export function useRestockPage() {
   }, []);
 
   const openConfirmJasa = useCallback((request: PurchaseRequest) => {
-    const pending = (request.jasaItems ?? []).filter(
-      (item) => item.statusKonfirmasi === "PENDING",
-    );
+    const pending = getPendingJasaItems(request);
     if (pending.length === 0) {
       showRestockError("Semua jasa di pengajuan ini sudah ditandai selesai.");
       return;
@@ -481,9 +453,7 @@ export function useRestockPage() {
 
   const submitConfirmJasa = useCallback(async () => {
     if (!confirmJasaPR) return;
-    const pending = (confirmJasaPR.jasaItems ?? []).filter(
-      (item) => item.statusKonfirmasi === "PENDING",
-    );
+    const pending = getPendingJasaItems(confirmJasaPR);
     const ready = pending.filter((item) => {
       const state = jasaConfirmStates[item.id];
       return state?.confirmed && (state.buktiSelesai?.length ?? 0) > 0;
@@ -541,49 +511,65 @@ export function useRestockPage() {
 
   const submitReceipt = useCallback(async () => {
     if (!receivingPR) return;
-    if (receivedPhotos.length === 0) {
-      showRestockError(
-        "Foto bukti barang datang belum diunggah. Foto barangnya dulu, lalu simpan.",
-      );
+    const formInput = {
+      request: receivingPR,
+      receivedItems,
+      substitutions: receivedSubstitutions,
+      cancellations: receivedCancellations,
+      isFinishingOrder,
+      barangs: allBarangsSource,
+    };
+    const problems = getRestockReceiveProblems({
+      ...formInput,
+      overReceipts: receivedOverReceipts,
+      closeReason: receiveCloseReason,
+      photoCount: receivedPhotos.length,
+    });
+    if (problems.length > 0) {
+      showRestockError(`Belum bisa disimpan:\n${problems.join("\n")}`);
       return;
     }
+    const summary = getRestockReceiveSummary(formInput);
 
     try {
       setSubmitting(true);
-      const loadingToastId = toast.loading("Sedang mengunggah foto...");
-      let photoUrls: string[];
-      try {
-        photoUrls = await uploadProofPhotos(photoUploadRef);
-      } finally {
-        toast.dismiss(loadingToastId);
-      }
+      const photoUrls = summary.hasArrivalToday
+        ? await uploadPhotosWithToast(photoUploadRef)
+        : [];
 
       const response = await patchWithAuth(
         `/api/inventory/restock/requests/${receivingPR.id}/receive`,
-        {
-          items: receivedItems,
-          substitutions: buildSubstitutionPayload(receivedSubstitutions),
-          cancellations: buildCancellationPayload(receivedCancellations),
-          overReceipts: buildOverReceiptPayload(
-            receivingPR.items,
-            receivedItems,
-            receivedOverReceipts,
-          ),
+        buildRestockReceivePayload({
+          ...formInput,
+          overReceipts: receivedOverReceipts,
+          closeReason: receiveCloseReason,
           fotoBukti: photoUrls,
-          closePO: isFinishingPO,
-        },
+        }),
       );
 
       if (!response.ok) {
-        throw new Error(
-          await readRestockErrorMessage(
-            response,
-            "Penerimaan barang belum tersimpan. Coba sekali lagi.",
-          ),
+        const message = await readRestockErrorMessage(
+          response,
+          "Penerimaan barang belum tersimpan. Coba sekali lagi.",
         );
+        // Penolakan karena data basi (pesanan sudah selesai/berubah): isian
+        // modal memakai sisa lama, jadi tutup dan muat ulang daftar.
+        if (STALE_RECEIPT_STATUSES.includes(response.status)) {
+          showRestockError(message);
+          setReceivingPR(null);
+          await fetchData();
+          return;
+        }
+        throw new Error(message);
       }
 
-      toast.success("Barang berhasil diterima & stok bertambah");
+      const body: unknown = await response.json().catch((): null => null);
+      toast.success(
+        getRestockReceiveSuccessMessage(
+          summary,
+          readRestockReceiptRequestStatus(body),
+        ),
+      );
       setReceivingPR(null);
       await fetchData();
     } catch (error: unknown) {
@@ -592,8 +578,10 @@ export function useRestockPage() {
       setSubmitting(false);
     }
   }, [
+    allBarangsSource,
     fetchData,
-    isFinishingPO,
+    isFinishingOrder,
+    receiveCloseReason,
     receivedCancellations,
     receivedItems,
     receivedOverReceipts,
@@ -602,7 +590,15 @@ export function useRestockPage() {
     receivingPR,
   ]);
 
+  // Dipanggil setelah semua useState di atas supaya urutan hook halaman tetap.
+  const approval = useRestockApproval({
+    fetchData,
+    allBarangs: allBarangsSource,
+  });
+  const purchaseRecord = useRestockPurchaseRecord({ fetchData });
+
   return {
+    fetchData,
     requests: paginatedRequests.data,
     barangs,
     allBarangs: allBarangsSource,
@@ -646,8 +642,10 @@ export function useRestockPage() {
     setReceivedOverReceipts,
     receivedPhotos,
     setReceivedPhotos,
-    isFinishingPO,
-    setIsFinishingPO,
+    isFinishingOrder,
+    setIsFinishingOrder,
+    receiveCloseReason,
+    setReceiveCloseReason,
     submitting,
     photoUploadRef,
     openCreate,
@@ -655,7 +653,8 @@ export function useRestockPage() {
     closeForm,
     saveRequest,
     deleteRequest,
-    approveRequest,
+    approval,
+    purchaseRecord,
     openReceive,
     closeReceive,
     submitReceipt,

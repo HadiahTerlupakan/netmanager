@@ -46,6 +46,7 @@ export {
   PurchaseOrderService,
   PurchaseOrderNotFoundError,
   PurchaseOrderNotEditableError,
+  PurchaseOrderHasPurchasesError,
 } from "./services/PurchaseOrderService";
 
 export type {

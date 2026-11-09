@@ -18,11 +18,52 @@ export * from "./services/InventoryRouteService";
 export * from "./services/InventoryPhotoUploadService";
 export * from "./services/InventoryStockEffectService";
 export * from "./services/RestockRequestService";
+export type {
+  RestockApproveCommand,
+  RestockLifecycleCommand,
+  RestockLifecycleErrorCode,
+  RestockLifecycleResult,
+  RestockRejectCommand,
+} from "./services/RestockRequestLifecycleService";
 export * from "./services/RestockJasaConfirmService";
 export * from "./services/RestockGoodsReceiptService";
 export * from "./services/RestockItemSubstitutionService";
 export * from "./services/RestockItemCancellationService";
 export { createRestockGoodsReceiptService } from "./factories/RestockGoodsReceiptFactory";
+export { createRestockPurchaseRecordService } from "./factories/RestockPurchaseRecordFactory";
+export type {
+  RecordRestockPurchaseCommand,
+  RestockPurchaseRecordErrorCode,
+  VoidRestockPurchaseCommand,
+  VoidRestockPurchaseErrorCode,
+  RestockPurchaseRecordResult,
+  RestockPurchaseRecordView,
+  PurchaseRecordOrigin,
+} from "./services/RestockPurchaseRecordService";
+export {
+  createRestockPurchaseLinkService,
+  createRestockPublicPurchaseService,
+  createRestockPurchaseSignatureReader,
+} from "./factories/RestockPurchaseLinkFactory";
+export { buildPurchaseLinkUrl } from "./services/restock-purchase-link-url";
+export {
+  PURCHASE_LINK_MESSAGES,
+  type PurchaseLinkAvailability,
+} from "./domain/restock-purchase-link";
+export type { PurchaseLinkSummary } from "./domain/ports/IRestockPurchaseLinkRepository";
+export type {
+  PurchaseLinkErrorCode,
+  PurchaseLinkStatus,
+} from "./services/RestockPurchaseLinkService";
+export type {
+  PublicPurchaseClient,
+  PublicPurchaseErrorCode,
+  PublicPurchaseListItem,
+  PublicPurchaseListView,
+  PublicPurchaseSubmitInput,
+  PublicPurchaseSubmitOutcome,
+  UsablePurchaseLink,
+} from "./services/RestockPublicPurchaseService";
 export * from "./services/JasaService";
 export * from "./services/MobileInventoryService";
 export type { MobileInventoryError } from "./services/mobile-inventory.types";

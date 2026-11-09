@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   purchaseRequestFindFirst: vi.fn(),
   purchaseOrderFindUnique: vi.fn(),
   purchaseOrderUpdate: vi.fn(),
+  purchaseOrderUpdateMany: vi.fn(),
   transaction: vi.fn(),
 }));
 
@@ -25,6 +26,7 @@ vi.mock("@/modules/database", () => ({
     purchaseOrder: {
       findUnique: mocks.purchaseOrderFindUnique,
       update: mocks.purchaseOrderUpdate,
+      updateMany: mocks.purchaseOrderUpdateMany,
     },
     $transaction: mocks.transaction,
   },
@@ -128,27 +130,6 @@ describe("Log Aktivitas pengajuan restock", () => {
     });
   });
 
-  it("mencatat persetujuan lewat route approve", async () => {
-    const repository = {
-      approvePurchaseRequest: vi.fn().mockResolvedValue({
-        id: "pr-1",
-        nomorRequest: "PR-20261017-0001",
-        tenantId: "tenant-1",
-      }),
-    };
-    const service = new InventoryRouteService(repository as never);
-
-    await service.approvePurchaseRequest({ id: "pr-1", approverId: "user-1" });
-
-    expect(lastActivity()).toMatchObject({
-      action: "APPROVE",
-      subject: "Pengajuan Restock PR-20261017-0001",
-      userId: "user-1",
-      tenantId: "tenant-1",
-      details: { purchaseRequestId: "pr-1" },
-    });
-  });
-
   it("mencatat mulai belanja pada purchase order", async () => {
     mocks.purchaseOrderFindUnique.mockResolvedValue({
       id: "po-1",
@@ -157,7 +138,7 @@ describe("Log Aktivitas pengajuan restock", () => {
       tenantId: "tenant-1",
       items: [],
     });
-    mocks.purchaseOrderUpdate.mockResolvedValue({ id: "po-1" });
+    mocks.purchaseOrderUpdateMany.mockResolvedValue({ count: 1 });
 
     await new RestockPurchaseOrderStatusService().patchRestockRequestStatus({
       purchaseOrderId: "po-1",

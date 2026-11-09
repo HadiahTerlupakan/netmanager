@@ -10,6 +10,10 @@ export {
   RestockSettingReferenceError,
   type RestockSettingReference,
 } from "../domain/restock-setting-errors";
+export {
+  RestockRequestNotEditableError,
+  isRestockRequestNotEditableError,
+} from "../domain/restock-request-errors";
 
 /** Keadaan pengajuan/pesanan dalam kata biasa, untuk kalimat "Pengajuan ini …". */
 const RESTOCK_STATUS_WORDS: Record<string, string> = {
@@ -17,9 +21,9 @@ const RESTOCK_STATUS_WORDS: Record<string, string> = {
   SUBMITTED: "sudah diajukan dan menunggu persetujuan",
   APPROVED: "sudah disetujui",
   REJECTED: "sudah ditolak",
-  ORDERED: "sedang dibelanjakan",
+  ORDERED: "sudah dibeli dan menunggu barangnya datang",
   PARTIAL: "barangnya baru datang sebagian",
-  RECEIVED: "barangnya sudah diterima semua",
+  RECEIVED: "sudah selesai",
   CANCELLED: "sudah dibatalkan",
 };
 
@@ -64,7 +68,7 @@ export const RESTOCK_MESSAGES = {
   requestNotFound:
     "Pengajuan restock tidak ditemukan. Mungkin sudah dihapus. Muat ulang halaman, lalu coba lagi.",
   purchaseOrderNotFound:
-    "Pesanan pembelian (PO) untuk pengajuan ini tidak ditemukan. Mungkin sudah dihapus. Muat ulang halaman. Kalau masih muncul, lapor ke admin.",
+    "Daftar belanja untuk pengajuan ini tidak ditemukan. Mungkin sudah dihapus. Muat ulang halaman. Kalau masih muncul, lapor ke admin.",
   nothingRequested:
     "Belum ada barang atau jasa yang diminta. Tambahkan paling sedikit satu barang atau jasa.",
   gudangMissing: "Gudang tujuan belum dipilih. Pilih gudangnya dulu.",
@@ -72,12 +76,14 @@ export const RESTOCK_MESSAGES = {
     "Pengajuan ini untuk gudang di site lain, jadi tidak bisa Anda buka atau proses. Minta admin kalau pengajuan ini memang harus Anda urus.",
   gudangBedaSite:
     "Gudang tujuan ini milik site lain. Pilih gudang di site Anda.",
-  unknownLifecycleAction:
-    "Tindakan ini tidak dikenal. Pilih Setujui atau Tolak, lalu coba lagi.",
   noPurchaseOrderYet:
-    "Pengajuan ini belum punya pesanan pembelian (PO). Setujui pengajuannya dulu, nanti PO dibuat otomatis.",
+    "Pengajuan ini belum punya daftar belanja. Setujui pengajuannya dulu, nanti daftar belanjanya dibuat otomatis.",
   cannotDeleteReceived:
-    "Pengajuan ini tidak bisa dihapus karena barangnya sudah diterima dan sudah masuk stok.",
+    "Pengajuan ini tidak bisa dihapus karena barangnya sudah datang dan sudah masuk gudang.",
+  cannotDeleteAfterArrival:
+    "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang datang.",
+  cannotDeleteAfterPurchase:
+    "Barang pengajuan ini sudah ada yang dibeli, jadi pengajuannya tidak bisa dihapus.",
   duplicateRequestNumber:
     "Ada orang lain yang menyimpan pengajuan di waktu yang sama. Pengajuan Anda belum tersimpan. Tekan simpan sekali lagi.",
   missingReference:

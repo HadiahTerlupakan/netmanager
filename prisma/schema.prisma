@@ -1629,6 +1629,7 @@ model User {
   poProcessed                                PurchaseOrder[]             @relation("POProcessor")
   poReceived                                 PurchaseOrder[]             @relation("POReceiver")
   goodsReceiptsReceived                      GoodsReceipt[]              @relation("GRNReceiver")
+  purchaseRecordsRecorded                    PurchaseRecord[]            @relation("PurchaseRecordRecorder")
   goodsReturnsReturned                       GoodsReturn[]               @relation("RTVReturner")
   purchaseRequests                           PurchaseRequest[]           @relation("Requester")
   approverPurchaseRequests                   PurchaseRequest[]           @relation("ApproverPR")
@@ -1735,6 +1736,7 @@ model Barang {
   purchaseRequestItems        PurchaseRequestItem[]
   purchaseRequestItemsDiminta PurchaseRequestItem[] @relation("PurchaseRequestItemBarangDiminta")
   goodsReceiptItems           GoodsReceiptItem[]
+  purchaseRecordItems         PurchaseRecordItem[]  @relation("PurchaseRecordItemBarang")
   goodsReturnItems            GoodsReturnItem[]
   restockAlerts               RestockAlerts[]
   restockSettings             RestockSettings[]
@@ -3413,8 +3415,8 @@ model PurchaseRequestJasaItem {
 }
 
 model Supplier {
-  id                  String          @id @default(uuid())
-  code                String          @unique
+  id                  String           @id @default(uuid())
+  code                String           @unique
   name                String
   address             String?
   contact             String?
@@ -3422,7 +3424,7 @@ model Supplier {
   phone               String?
   npwp                String?
   defaultPphCategory  String?
-  status              SupplierStatus  @default(ACTIVE)
+  status              SupplierStatus   @default(ACTIVE)
   blacklistReason     String?
   siupNumber          String?
   siupDocumentUrl     String?
@@ -3432,14 +3434,15 @@ model Supplier {
   bankAccountHolder   String?
   contractDocumentUrl String?
   contractExpiresAt   DateTime?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
   tenantId            String?
   items               Barang[]
   jasaItems           Jasa[]
   pos                 PurchaseOrder[]
   goodsReturns        GoodsReturn[]
-  tenant              Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  purchaseRecords     PurchaseRecord[]
+  tenant              Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
   @@index([tenantId])
   @@index([status])
@@ -3473,6 +3476,7 @@ model PurchaseOrder {
   items             PurchaseOrderItem[]
   jasaItems         PurchaseOrderJasaItem[]
   goodsReceipts     GoodsReceipt[]
+  purchaseRecords   PurchaseRecord[]
   creator           User                    @relation("POCreator", fields: [createdBy], references: [id])
   paidFromAccount   FinancialAccount?       @relation("POPaidFrom", fields: [paidFromAccountId], references: [id])
   processedBy       User?                   @relation("POProcessor", fields: [processedById], references: [id])
@@ -3488,24 +3492,79 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderItem {
-  id                String             @id @default(uuid())
-  purchaseOrderId   String
-  barangId          String
-  quantity          Int
-  receivedQuantity  Int                @default(0)
-  cancelledQuantity Int                @default(0)
-  cancelReason      String?
-  cancelledAt       DateTime?
-  unitPrice         Float
-  totalPrice        Float
-  tenantId          String?
-  barang            Barang             @relation(fields: [barangId], references: [id])
-  purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  tenant            Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  goodsReceiptItems GoodsReceiptItem[]
+  id                  String               @id @default(uuid())
+  purchaseOrderId     String
+  barangId            String
+  quantity            Int
+  receivedQuantity    Int                  @default(0)
+  cancelledQuantity   Int                  @default(0)
+  cancelReason        String?
+  cancelledAt         DateTime?
+  /// Jumlah dibeli. Saat belanja dicatat, nilainya dinaikkan dari
+  /// max(purchasedQuantity, receivedQuantity) (barang datang tanpa catatan
+  /// dianggap sudah dibeli) dan dijaga <= quantity - cancelledQuantity.
+  /// Boleh melebihi quantity - cancelledQuantity bila sisa yang sudah dibeli
+  /// kemudian dicoret karena toko tidak mengirimnya.
+  purchasedQuantity   Int                  @default(0)
+  unitPrice           Float
+  totalPrice          Float
+  tenantId            String?
+  barang              Barang               @relation(fields: [barangId], references: [id])
+  purchaseOrder       PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  tenant              Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  goodsReceiptItems   GoodsReceiptItem[]
+  purchaseRecordItems PurchaseRecordItem[]
 
   @@index([tenantId])
   @@map("purchase_order_items")
+}
+
+/// Satu kali belanja di satu toko untuk satu PO restock. Tagihan, pembayaran,
+/// jurnal tetap di PO.
+model PurchaseRecord {
+  id              String               @id @default(uuid())
+  purchaseOrderId String
+  storeName       String
+  supplierId      String?
+  purchasedAt     DateTime
+  recordedById    String
+  notes           String?
+  fotoNota        String[]             @default([])
+  tenantId        String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  items           PurchaseRecordItem[]
+  purchaseOrder   PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  supplier        Supplier?            @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recordedBy      User                 @relation("PurchaseRecordRecorder", fields: [recordedById], references: [id])
+  tenant          Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderId])
+  @@index([supplierId])
+  @@index([tenantId])
+  @@map("purchase_records")
+}
+
+/// Satu barang di satu catatan belanja. barangId = snapshot saat dibeli
+/// (item PO bisa diganti barangnya kemudian).
+model PurchaseRecordItem {
+  id                  String            @id @default(uuid())
+  purchaseRecordId    String
+  purchaseOrderItemId String
+  barangId            String
+  quantity            Int
+  /// Harga satuan di toko; informasi saja, tidak mengubah harga/total PO.
+  unitPrice           Float?
+  tenantId            String?
+  purchaseRecord      PurchaseRecord    @relation(fields: [purchaseRecordId], references: [id], onDelete: Cascade)
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+  barang              Barang            @relation("PurchaseRecordItemBarang", fields: [barangId], references: [id])
+  tenant              Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseRecordId])
+  @@index([purchaseOrderItemId])
+  @@index([tenantId])
+  @@map("purchase_record_items")
 }
 
 /// Item jasa pada Purchase Order. Harga diisi admin di PO (bukan di PR).
@@ -4400,6 +4459,8 @@ model Tenant {
   purchaseOrder                            PurchaseOrder[]
   goodsReceipts                            GoodsReceipt[]
   goodsReceiptItems                        GoodsReceiptItem[]
+  purchaseRecords                          PurchaseRecord[]
+  purchaseRecordItems                      PurchaseRecordItem[]
   goodsReturns                             GoodsReturn[]
   goodsReturnItems                         GoodsReturnItem[]
   approvalThresholds                       ApprovalThreshold[]

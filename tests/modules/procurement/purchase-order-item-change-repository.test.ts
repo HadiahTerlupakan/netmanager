@@ -71,6 +71,7 @@ function createDb(options: {
     purchaseOrderJasaItem: { findMany: vi.fn(async () => []) },
     purchaseRequestItem: { createMany: vi.fn() },
     purchaseRequest: { updateMany: vi.fn() },
+    restockPurchaseLink: { updateMany: vi.fn() },
     expense: {
       findMany: vi.fn(async () =>
         (options.payments ?? []).map((amount) => ({ amount })),
@@ -145,6 +146,7 @@ describe("PurchaseOrderItemChangeRepository.applyItemChange", () => {
           jumlah: 2000,
           hargaPerUnit: 7_000,
           totalHarga: 14_000_000,
+          statusApproval: "APPROVED",
           tenantId: "tenant-1",
         }),
       ],
@@ -274,6 +276,13 @@ describe("PurchaseOrderItemChangeRepository.applyItemChange", () => {
     expect(tx.purchaseRequest.updateMany).toHaveBeenCalledWith({
       where: { purchaseOrderId: "po-1" },
       data: { status: "RECEIVED" },
+    });
+    expect(tx.restockPurchaseLink.updateMany).toHaveBeenCalledWith({
+      where: {
+        revokedAt: null,
+        purchaseRequest: { purchaseOrderId: "po-1" },
+      },
+      data: { revokedAt: expect.any(Date) },
     });
   });
 

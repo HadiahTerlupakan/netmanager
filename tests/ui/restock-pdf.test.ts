@@ -8,6 +8,8 @@ const pdfMocks = vi.hoisted(() => ({
   autoTable: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+  addPage: vi.fn(),
+  addImage: vi.fn(),
 }));
 
 vi.mock("jspdf", () => ({
@@ -16,6 +18,7 @@ vi.mock("jspdf", () => ({
       internal: {
         pageSize: {
           getWidth: () => 210,
+          getHeight: () => 297,
         },
       },
       setFont: vi.fn(),
@@ -26,7 +29,8 @@ vi.mock("jspdf", () => ({
       line: vi.fn(),
       text: pdfMocks.text,
       splitTextToSize: vi.fn((value: string) => value),
-      addPage: vi.fn(),
+      addPage: pdfMocks.addPage,
+      addImage: pdfMocks.addImage,
       save: pdfMocks.save,
     };
   }),
@@ -95,23 +99,25 @@ describe("generatePurchaseRequestPdf", () => {
     );
   });
 
-  it("saves purchase request PDF with a safe filename", () => {
-    generatePurchaseRequestPdf(baseRequest);
+  it("saves purchase request PDF with a safe filename", async () => {
+    await generatePurchaseRequestPdf(baseRequest);
 
     expect(pdfMocks.save).toHaveBeenCalledWith("PR-PR-001-Depok.pdf");
     expect(pdfMocks.toastSuccess).toHaveBeenCalledWith(
-      "PDF Purchase Request berhasil diunduh",
+      "PDF pengajuan sudah diunduh.",
     );
   });
 
-  it("keeps downloading when auto table does not expose finalY", () => {
+  it("keeps downloading when auto table does not expose finalY", async () => {
     pdfMocks.autoTable.mockImplementation(() => undefined);
 
-    expect(() => generatePurchaseRequestPdf(baseRequest)).not.toThrow();
+    await expect(
+      generatePurchaseRequestPdf(baseRequest),
+    ).resolves.toBeUndefined();
     expect(pdfMocks.save).toHaveBeenCalledWith("PR-PR-001-Depok.pdf");
   });
 
-  it("uses placeholder item data instead of crashing on incomplete item relation", () => {
+  it("uses placeholder item data instead of crashing on incomplete item relation", async () => {
     const request = {
       ...baseRequest,
       items: [
@@ -122,31 +128,57 @@ describe("generatePurchaseRequestPdf", () => {
       ],
     } as unknown as PurchaseRequest;
 
-    expect(() => generatePurchaseRequestPdf(request)).not.toThrow();
+    await expect(generatePurchaseRequestPdf(request)).resolves.toBeUndefined();
     expect(pdfMocks.autoTable).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        body: [["-", "Barang tidak tersedia", "2 -", "1 -", "Untuk ODP baru"]],
+        body: [
+          [
+            "-",
+            "Barang tidak tersedia",
+            "2 -",
+            "2 -",
+            "1 -\n(1 tanpa catatan belanja)",
+            "1 -",
+            "-",
+            "Untuk ODP baru",
+          ],
+        ],
       }),
     );
   });
 
-  it("includes purchase request metadata, notes, and approval context", () => {
-    generatePurchaseRequestPdf(baseRequest);
+  it("includes purchase request metadata, notes, and approval context", async () => {
+    await generatePurchaseRequestPdf(baseRequest);
 
     expect(pdfMocks.text).toHaveBeenCalledWith(
-      "PURCHASE REQUEST",
+      "PENGAJUAN BARANG",
       expect.any(Number),
       expect.any(Number),
       expect.objectContaining({ align: "center" }),
     );
     expect(pdfMocks.text).toHaveBeenCalledWith(
-      "Nomor PR:",
+      "Nomor Pengajuan:",
       expect.any(Number),
       expect.any(Number),
     );
     expect(pdfMocks.text).toHaveBeenCalledWith(
-      "Nomor PO:",
+      "Status:",
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(pdfMocks.text).toHaveBeenCalledWith(
+      "Datang Sebagian",
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(pdfMocks.text).not.toHaveBeenCalledWith(
+      "Status PO:",
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(pdfMocks.text).toHaveBeenCalledWith(
+      "Kode Pesanan:",
       expect.any(Number),
       expect.any(Number),
     );
@@ -177,16 +209,263 @@ describe("generatePurchaseRequestPdf", () => {
     );
   });
 
-  it("includes requested quantity, received quantity, unit, and item notes", () => {
-    generatePurchaseRequestPdf(baseRequest);
+  it("includes requested quantity, received quantity, unit, and item notes", async () => {
+    await generatePurchaseRequestPdf(baseRequest);
 
     expect(getGeneratedTableOptions()).toEqual(
       expect.objectContaining({
-        head: [["KODE", "NAMA BARANG", "DIMINTA", "DITERIMA", "KETERANGAN"]],
+        head: [
+          [
+            "KODE",
+            "NAMA BARANG",
+            "DIMINTA",
+            "DISETUJUI",
+            "SUDAH DIBELI",
+            "SUDAH DATANG",
+            "TIDAK DATANG",
+            "KETERANGAN",
+          ],
+        ],
         body: [
-          ["BRG-001", "Kabel Fiber", "2 roll", "1 roll", "Untuk ODP baru"],
+          [
+            "BRG-001",
+            "Kabel Fiber",
+            "2 roll",
+            "2 roll",
+            "1 roll\n(1 tanpa catatan belanja)",
+            "1 roll",
+            "-",
+            "Untuk ODP baru",
+          ],
         ],
       }),
     );
+  });
+
+  it("shows requested vs approved quantity, substitution and approver notes", async () => {
+    await generatePurchaseRequestPdf({
+      ...baseRequest,
+      items: [
+        {
+          ...baseRequest.items[0],
+          jumlah: 5,
+          jumlahDiminta: 8,
+          barangIdDiminta: "barang-lama",
+          barangDiminta: {
+            id: "barang-lama",
+            nama: "Kabel Lama",
+            kode: "BRG-000",
+            satuan: "roll",
+          },
+          statusApproval: "APPROVED",
+          catatanApproval: "Stok gudang masih ada",
+        },
+      ],
+    });
+
+    expect(getGeneratedTableOptions().body).toEqual([
+      [
+        "BRG-001",
+        "Kabel Fiber (pengganti Kabel Lama)",
+        "8 roll",
+        "5 roll",
+        "1 roll\n(1 tanpa catatan belanja)",
+        "1 roll",
+        "-",
+        "Untuk ODP baru\nCatatan atasan: Stok gudang masih ada",
+      ],
+    ]);
+  });
+
+  it("prints what did not come together with the reason", async () => {
+    await generatePurchaseRequestPdf({
+      ...baseRequest,
+      status: "RECEIVED",
+      items: [
+        {
+          ...baseRequest.items[0],
+          receivedQuantity: 1,
+          cancelledQuantity: 1,
+          cancelReason: "Barang habis di toko",
+        },
+      ],
+    });
+
+    expect(getGeneratedTableOptions().body[0][6]).toBe(
+      "1 roll\n(Barang habis di toko)",
+    );
+    expect(pdfMocks.text).toHaveBeenCalledWith(
+      "Selesai, Kurang",
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it("marks rejected lines instead of listing them as outstanding", async () => {
+    await generatePurchaseRequestPdf({
+      ...baseRequest,
+      items: [
+        {
+          ...baseRequest.items[0],
+          receivedQuantity: 0,
+          statusApproval: "REJECTED",
+          catatanApproval: "Tidak dibutuhkan",
+        },
+      ],
+      jasaItems: [
+        {
+          id: "jasa-item-1",
+          jasaId: "jasa-1",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          statusApproval: "REJECTED",
+          catatanApproval: "Dikerjakan tim internal",
+          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+        },
+      ],
+    });
+
+    const [barangCall, jasaCall] = pdfMocks.autoTable.mock.calls.map(
+      (call) => call[1] as { body: string[][]; head: string[][] },
+    );
+    expect(barangCall.body[0].slice(3, 6)).toEqual(["Ditolak", "-", "-"]);
+    expect(jasaCall.head[0]).toContain("DISETUJUI");
+    expect(jasaCall.body[0]).toEqual([
+      "JS-1",
+      "Splicing",
+      "1 job",
+      "Ditolak",
+      "Ditolak",
+      "Catatan atasan: Dikerjakan tim internal",
+    ]);
+  });
+  it("prints the requested quantity in the unit of the barang originally asked for", async () => {
+    await generatePurchaseRequestPdf({
+      ...baseRequest,
+      items: [
+        {
+          ...baseRequest.items[0],
+          jumlah: 50,
+          jumlahDiminta: 5,
+          receivedQuantity: 0,
+          barang: { kode: "BRG-9", nama: "Kabel Meteran", satuan: "meter" },
+          barangIdDiminta: "barang-lama",
+          barangDiminta: {
+            id: "barang-lama",
+            nama: "Kabel Roll",
+            kode: "BRG-000",
+            satuan: "roll",
+          },
+          statusApproval: "APPROVED",
+        },
+      ],
+    });
+
+    expect(getGeneratedTableOptions().body[0].slice(2, 4)).toEqual([
+      "5 roll",
+      "50 meter",
+    ]);
+  });
+
+  it("shows no approved quantity while the request is still waiting for a decision", async () => {
+    await generatePurchaseRequestPdf({
+      ...baseRequest,
+      status: "DRAFT",
+      items: [{ ...baseRequest.items[0], statusApproval: "PENDING" }],
+      jasaItems: [
+        {
+          id: "jasa-item-1",
+          jasaId: "jasa-1",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          statusApproval: "PENDING",
+          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+        },
+      ],
+    });
+
+    const [barangCall, jasaCall] = pdfMocks.autoTable.mock.calls.map(
+      (call) => call[1] as { body: string[][] },
+    );
+    expect(barangCall.body[0][3]).toBe("Menunggu");
+    expect(jasaCall.body[0][3]).toBe("Menunggu");
+  });
+
+  it("marks every line rejected on a request rejected before line decisions existed", async () => {
+    await generatePurchaseRequestPdf({
+      ...baseRequest,
+      status: "REJECTED",
+      items: [
+        {
+          ...baseRequest.items[0],
+          receivedQuantity: 0,
+          statusApproval: "PENDING",
+        },
+      ],
+      jasaItems: [
+        {
+          id: "jasa-item-1",
+          jasaId: "jasa-1",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          statusApproval: "PENDING",
+          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+        },
+      ],
+    });
+
+    const [barangCall, jasaCall] = pdfMocks.autoTable.mock.calls.map(
+      (call) => call[1] as { body: string[][] },
+    );
+    expect(barangCall.body[0].slice(3, 6)).toEqual(["Ditolak", "-", "-"]);
+    expect(jasaCall.body[0].slice(3, 5)).toEqual(["Ditolak", "Ditolak"]);
+  });
+  it("adds the purchase section with buyer names before the signature block", async () => {
+    await generatePurchaseRequestPdf({
+      ...baseRequest,
+      status: "ORDERED",
+      purchaseRecords: [
+        {
+          id: "rec-1",
+          storeName: "Toko Sinar Jaya",
+          supplierId: null,
+          purchasedAt: "2026-04-21T05:00:00.000Z",
+          createdAt: "2026-04-21T06:00:00.000Z",
+          recordedBy: { name: "Admin" },
+          buyerName: "Siti",
+          source: "ADMIN",
+          hasSignature: false,
+          notes: null,
+          fotoNota: [],
+          items: [
+            {
+              id: "line-1",
+              purchaseOrderItemId: "poi-1",
+              barangId: "barang-1",
+              nama: "Kabel Fiber",
+              satuan: "roll",
+              quantity: 1,
+              unitPrice: null,
+            },
+          ],
+        },
+      ],
+    });
+
+    const texts = pdfMocks.text.mock.calls.map(([value]) => String(value));
+    const purchaseIndex = texts.indexOf("PEMBELIAN");
+    expect(purchaseIndex).toBeGreaterThan(-1);
+    expect(texts).toContain("Dibeli oleh: Siti");
+    expect(texts).toContain("(dicatat dari aplikasi)");
+    expect(texts.indexOf("Dibuat oleh (Pemohon),")).toBeGreaterThan(
+      purchaseIndex,
+    );
+    expect(pdfMocks.save).toHaveBeenCalled();
   });
 });

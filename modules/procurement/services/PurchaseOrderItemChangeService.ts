@@ -22,6 +22,17 @@ const STATUSES_OPEN_FOR_CHANGE: PurchaseOrderStatusValue[] = [
 ];
 const MIN_LINE_QUANTITY = 1;
 
+/**
+ * Batas bawah jumlah satu item: tidak boleh di bawah barang yang sudah
+ * diterima atau sudah dibeli (catatan belanja restock) ditambah yang dicoret.
+ */
+function getMinimumLineQuantity(item: PurchaseOrderItemForChange): number {
+  const settled =
+    Math.max(item.receivedQuantity, item.purchasedQuantity) +
+    item.cancelledQuantity;
+  return Math.max(MIN_LINE_QUANTITY, settled);
+}
+
 export class PurchaseOrderItemChangeInvalidError extends Error {
   constructor(message: string) {
     super(message);
@@ -173,11 +184,15 @@ export class PurchaseOrderItemChangeService {
     item: PurchaseOrderItemForChange,
     quantity: number,
   ): void {
-    const settled = item.receivedQuantity + item.cancelledQuantity;
-    const minimum = Math.max(MIN_LINE_QUANTITY, settled);
-    if (Number.isInteger(quantity) && quantity >= minimum) return;
+    const minimum = getMinimumLineQuantity(item);
+    // Jumlah yang tidak diturunkan selalu boleh, walau data lama sudah
+    // melewati batas (mis. barang dibeli lalu dicoret karena tidak dikirim).
+    const isReducing = quantity < item.quantity;
+    if (Number.isInteger(quantity) && (quantity >= minimum || !isReducing)) {
+      return;
+    }
 
-    if (settled < MIN_LINE_QUANTITY) {
+    if (minimum <= MIN_LINE_QUANTITY) {
       throw new PurchaseOrderItemChangeInvalidError(
         `Jumlah ${item.barangName} minimal ${MIN_LINE_QUANTITY}. Anulir lewat verifikasi barang bila tidak jadi dipesan`,
       );
@@ -186,8 +201,12 @@ export class PurchaseOrderItemChangeService {
       item.cancelledQuantity > 0
         ? ` dan dianulir ${item.cancelledQuantity}`
         : "";
+    const reason =
+      item.purchasedQuantity > item.receivedQuantity
+        ? `sudah dibeli ${item.purchasedQuantity}`
+        : `sudah diterima ${item.receivedQuantity}`;
     throw new PurchaseOrderItemChangeInvalidError(
-      `Jumlah ${item.barangName} minimal ${minimum} karena sudah diterima ${item.receivedQuantity}${cancelled}`,
+      `Jumlah ${item.barangName} minimal ${minimum} karena ${reason}${cancelled}`,
     );
   }
 

@@ -41,6 +41,45 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-09] — Catat belanja restock per barang dan per toko
+
+- **Tipe**: [ADDED] [CHANGED] [FIXED] [MIGRATION]
+- **Scope**: `modules/inventory`, `modules/procurement`, `app/admin/inventory/restock`,
+  `app/api/inventory/restock/requests/[id]/purchases`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Barang satu pengajuan sering dibeli di beberapa toko dan hari berbeda, sedangkan
+  "Tandai Sudah Dibeli" berlaku untuk seluruh pengajuan sekaligus.
+  - Tombol itu diganti modal "Catat Belanja": satu toko sekali simpan (nama toko, tanggal, barang
+    + jumlah, harga sebenarnya opsional, foto nota opsional), pilihan cepat "Semua barang dibeli
+    di toko ini". `POST /api/inventory/restock/requests/[id]/purchases` (izin `restock:verify`).
+    `RestockMarkPurchasedDialog`/`useRestockMarkPurchased` (belum pernah rilis) dihapus;
+    `PATCH /process` START_SHOPPING tetap ada untuk kompatibilitas.
+  - Status: Belum Dibeli → Dibeli Sebagian → Sudah Dibeli Semua, Tunggu Barangnya → alur datang.
+    Detail per barang "Dibeli X dari Y (Toko A 3, Toko B 2)", kolom "Sudah dibeli" di detail &
+    PDF, garis waktu belanja + kiriman urut tanggal.
+  - Tetap satu pesanan dan satu tagihan per pengajuan; pembayaran, jurnal, dan pajak tidak berubah.
+    Belanja pertama pada pesanan DRAFT mengubahnya jadi ORDERED dan mengisi `issuedAt`.
+  - Jumlah dibeli dijaga ≤ dipesan − tidak jadi datang − max(dibeli, datang) lewat kunci baris
+    pesanan + `UPDATE` bersyarat dari `GREATEST(purchasedQuantity, receivedQuantity)`; tabrakan 409.
+    Barang yang datang tanpa catatan belanja tetap dihitung sudah dibeli.
+  - Pesanan yang sudah dibelanjakan tidak bisa dihapus (409 di route restock & pembelian, FK
+    RESTRICT) dan "Selesaikan tanpa kiriman" menutupnya (RECEIVED), tidak membatalkannya.
+    Ubah isi pesanan tidak bisa menurunkan jumlah di bawah yang sudah dibeli + dicoret.
+  - Keputusan: sisa yang sudah dibeli tetap boleh dicoret ("toko tidak mengirim sisanya");
+    pesanan lama yang ditandai dibeli sebelum kiriman pertama tetap "sudah dibeli semua".
+  - Log aktivitas baru `RECORD_PURCHASE`.
+- **Files**: `modules/inventory/services/RestockPurchaseRecordService.ts`,
+  `modules/inventory/repositories/RestockPurchaseRecordRepository.ts`,
+  `modules/inventory/domain/restock-purchase-record.ts`,
+  `modules/procurement/repositories/PurchaseOrderRepository.ts`,
+  `modules/procurement/services/PurchaseOrderItemChangeService.ts`, `lib/validations/restock.ts`,
+  `app/admin/inventory/restock/RestockPurchaseRecordModal.tsx`,
+  `app/admin/inventory/restock/restockPurchase.ts`, `app/admin/inventory/restock/restockProgress.ts`,
+  `app/admin/inventory/restock/RestockTimeline.tsx`, `app/admin/inventory/restock/pdf.ts`
+- **Migration**: `20261108220311_add_restock_purchase_records`,
+  `20261108223430_restrict_purchase_record_order_deletes`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-08] — Penerimaan restock mudah dipahami: sudah dibeli, datang sebagian
 
 - **Tipe**: [CHANGED]

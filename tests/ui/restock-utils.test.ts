@@ -2,15 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildInitialReceivedItems,
+  getPendingJasaItems,
+  getReceivableRestockItems,
   buildOverReceiptPayload,
-  hasCancellationOnExcessItem,
   getRestockItemRemaining,
   hasMissingOverReceiptReason,
-  getToggledReceivedQuantity,
   canApprovePurchaseRequest,
-  canDeletePurchaseRequest,
   canEditPurchaseRequest,
-  canReceivePurchaseRequest,
   canRemoveRestockFormItem,
   canSubmitRestockForm,
   getFilteredBarangs,
@@ -223,35 +221,6 @@ describe("restock utils", () => {
     });
   });
 
-  it("fills a re-checked item with its remaining quantity only", () => {
-    const item = {
-      id: "item-1",
-      barangId: "barang-1",
-      jumlah: 10,
-      receivedQuantity: 4,
-      cancelledQuantity: 2,
-      barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
-    };
-    const fullyReceivedItem = {
-      ...item,
-      receivedQuantity: 10,
-      cancelledQuantity: 0,
-    };
-
-    expect(getToggledReceivedQuantity(item, true)).toBe(4);
-    expect(getToggledReceivedQuantity(item, false)).toBe(0);
-    expect(getToggledReceivedQuantity(fullyReceivedItem, true)).toBe(0);
-  });
-
-  it("allows deletion for all statuses except RECEIVED", () => {
-    expect(canDeletePurchaseRequest("DRAFT", true)).toBe(true);
-    expect(canDeletePurchaseRequest("APPROVED", true)).toBe(true);
-    expect(canDeletePurchaseRequest("ORDERED", true)).toBe(true);
-    expect(canDeletePurchaseRequest("REJECTED", true)).toBe(true);
-    expect(canDeletePurchaseRequest("RECEIVED", true)).toBe(false);
-    expect(canDeletePurchaseRequest("DRAFT", false)).toBe(false);
-  });
-
   it("only allows editing for draft requests", () => {
     expect(canEditPurchaseRequest("DRAFT", true)).toBe(true);
     expect(canEditPurchaseRequest("ORDERED", true)).toBe(false);
@@ -262,13 +231,6 @@ describe("restock utils", () => {
     expect(canApprovePurchaseRequest("DRAFT", true)).toBe(true);
     expect(canApprovePurchaseRequest("SUBMITTED", true)).toBe(false);
     expect(canApprovePurchaseRequest("DRAFT", false)).toBe(false);
-  });
-
-  it("only allows receive action for approved or ordered requests with verify permission", () => {
-    expect(canReceivePurchaseRequest("APPROVED", true)).toBe(true);
-    expect(canReceivePurchaseRequest("ORDERED", true)).toBe(true);
-    expect(canReceivePurchaseRequest("RECEIVED", true)).toBe(false);
-    expect(canReceivePurchaseRequest("ORDERED", false)).toBe(false);
   });
 
   it("isVeryLowStock returns false when minStok is 0 (no setting)", () => {
@@ -402,11 +364,11 @@ describe("restock utils", () => {
   it("returns all valid restock status options even when current data is sparse", () => {
     expect(getRestockFilterOptions(requestList)).toEqual([
       { value: "all", label: "Semua Status" },
-      { value: "DRAFT", label: "Draft" },
+      { value: "DRAFT", label: "Menunggu Persetujuan" },
       { value: "SUBMITTED", label: "Diajukan" },
       { value: "APPROVED", label: "Disetujui" },
       { value: "REJECTED", label: "Ditolak" },
-      { value: "ORDERED", label: "Dalam Pengiriman" },
+      { value: "ORDERED", label: "Sedang berjalan" },
       { value: "RECEIVED", label: "Selesai" },
       { value: "CANCELLED", label: "Dibatalkan" },
     ]);
@@ -503,23 +465,6 @@ describe("restock utils", () => {
       ).toBe(20);
     });
 
-    it("flags a cancellation on an item that arrives in full or more", () => {
-      expect(
-        hasCancellationOnExcessItem(
-          items,
-          { "barang-1": 10 },
-          { "barang-1": "Tidak jadi" },
-        ),
-      ).toBe(true);
-      expect(
-        hasCancellationOnExcessItem(
-          items,
-          { "barang-1": 6 },
-          { "barang-1": "Tidak jadi" },
-        ),
-      ).toBe(false);
-    });
-
     it("drops reasons left behind once the quantity is lowered again", () => {
       expect(
         buildOverReceiptPayload(
@@ -528,6 +473,86 @@ describe("restock utils", () => {
           { "barang-1": "Bonus", "barang-2": "  Salah hitung supplier " },
         ),
       ).toEqual({ "barang-2": "Salah hitung supplier" });
+    });
+  });
+
+  describe("rejected lines", () => {
+    const decidedRequest: PurchaseRequest = {
+      id: "pr-1",
+      nomorRequest: "PR-001",
+      status: "ORDERED",
+      createdAt: "2026-11-01T00:00:00.000Z",
+      requester: { name: "Rohadim" },
+      gudangId: "gudang-a",
+      gudang: { id: "gudang-a", nama: "Gudang A" },
+      items: [
+        {
+          id: "item-1",
+          barangId: "barang-1",
+          jumlah: 10,
+          receivedQuantity: 0,
+          statusApproval: "APPROVED",
+          barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
+        },
+        {
+          id: "item-2",
+          barangId: "barang-2",
+          jumlah: 5,
+          receivedQuantity: 0,
+          statusApproval: "REJECTED",
+          barang: { nama: "Konektor", kode: "BRG-002", satuan: "pcs" },
+        },
+        {
+          id: "item-3",
+          barangId: "barang-3",
+          jumlah: 3,
+          receivedQuantity: 0,
+          statusApproval: "PENDING",
+          barang: { nama: "Patch Cord", kode: "BRG-003", satuan: "pcs" },
+        },
+      ],
+      jasaItems: [
+        {
+          id: "jasa-item-1",
+          jasaId: "jasa-1",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          statusApproval: "REJECTED",
+          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+        },
+        {
+          id: "jasa-item-2",
+          jasaId: "jasa-2",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          jasa: {
+            id: "jasa-2",
+            kode: "JS-2",
+            nama: "Tarik Kabel",
+            satuan: "job",
+          },
+        },
+      ],
+    };
+
+    it("leaves rejected barang out of receiving but keeps pending legacy lines", () => {
+      expect(
+        getReceivableRestockItems(decidedRequest).map((item) => item.id),
+      ).toEqual(["item-1", "item-3"]);
+      expect(buildInitialReceivedItems(decidedRequest)).toEqual({
+        "barang-1": 10,
+        "barang-3": 3,
+      });
+    });
+
+    it("does not ask to confirm rejected jasa", () => {
+      expect(
+        getPendingJasaItems(decidedRequest).map((item) => item.id),
+      ).toEqual(["jasa-item-2"]);
     });
   });
 });

@@ -1,0 +1,480 @@
+import {
+  getEarliestLinkPurchaseDate,
+  PURCHASE_LINK_MESSAGES,
+} from "../domain/restock-purchase-link";
+import {
+  isRequestFullyPurchased,
+  planPurchaseRecord,
+  resolvePurchaseDate,
+  RESTOCK_PURCHASE_MESSAGES,
+} from "../domain/restock-purchase-record";
+import type {
+  CreatePurchaseRecordInput,
+  CreatePurchaseRecordLine,
+  IRestockPurchaseRecordRepository,
+  RestockPurchaseContext,
+  RestockPurchaseRecordView,
+  VoidPurchaseRecordOutcome,
+} from "../domain/ports/IRestockPurchaseRecordRepository";
+import {
+  INVENTORY_ACTIVITY_ACTIONS,
+  INVENTORY_ACTIVITY_SUBJECTS,
+  recordInventoryActivity,
+} from "./inventory-activity-log";
+import { RESTOCK_MESSAGES } from "./restock-messages";
+
+export type { RestockPurchaseRecordView } from "../domain/ports/IRestockPurchaseRecordRepository";
+
+/**
+ * Siapa yang mencatat: petugas di aplikasi, atau pembeli lewat link tanpa
+ * login. Catatan lewat link tetap punya penanggung jawab internal (pembuat
+ * link) di `recordedById`; identitas pembeli ada di `buyerName` & tanda tangan.
+ */
+export type PurchaseRecordOrigin =
+  | {
+      kind: "ADMIN";
+      actorId: string;
+      /** Isian nama pembeli; kosong berarti nama pencatat. */
+      buyerName: string | null;
+      actorName: string | null;
+    }
+  | {
+      kind: "PUBLIC_LINK";
+      linkId: string;
+      linkCreatorId: string;
+      /** Tanggal belanja lewat link tidak boleh jauh sebelum link dibuat. */
+      linkCreatedAt: Date;
+      buyerName: string;
+      signatureKey: string;
+      clientRequestId: string;
+      ipAddress: string | null;
+      userAgent: string | null;
+    };
+
+/** Isian satu catatan belanja. */
+export interface RecordRestockPurchaseCommand {
+  purchaseRequestId: string;
+  tenantId: string;
+  origin: PurchaseRecordOrigin;
+  storeName: string;
+  supplierId: string | null;
+  /** Tanggal belanja "YYYY-MM-DD". */
+  purchasedAt: string;
+  notes: string | null;
+  fotoNota: string[];
+  items: Array<{
+    purchaseOrderItemId: string;
+    quantity: number;
+    unitPrice: number | null;
+  }>;
+}
+
+export type RestockPurchaseRecordErrorCode =
+  | "INVALID"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  /** Link dicabut/kedaluwarsa saat dicatat (hanya untuk catatan lewat link). */
+  | "LINK_INACTIVE"
+  /** Link sudah mencapai batas jumlah catatan (hanya untuk catatan lewat link). */
+  | "LIMIT_REACHED";
+
+export type RestockPurchaseRecordResult =
+  | {
+      success: true;
+      data: {
+        record: RestockPurchaseRecordView;
+        purchaseOrderStatus: string;
+        isFullyPurchased: boolean;
+        message: string;
+        /** True bila ini kiriman ulang; catatan lama dikembalikan. */
+        isReplay: boolean;
+      };
+    }
+  | { success: false; code: RestockPurchaseRecordErrorCode; error: string };
+
+/** Isian pembatalan satu catatan belanja oleh admin. */
+export interface VoidRestockPurchaseCommand {
+  purchaseRequestId: string;
+  recordId: string;
+  tenantId: string;
+  actorId: string;
+  reason: string;
+}
+
+export type VoidRestockPurchaseErrorCode = "NOT_FOUND" | "CONFLICT";
+
+export type VoidRestockPurchaseResult =
+  | {
+      success: true;
+      data: { record: RestockPurchaseRecordView; message: string };
+    }
+  | { success: false; code: VoidRestockPurchaseErrorCode; error: string };
+
+function fail(
+  code: RestockPurchaseRecordErrorCode,
+  error: string,
+): RestockPurchaseRecordResult {
+  return { success: false, code, error };
+}
+
+/** Belanja lewat link tidak boleh bertanggal sebelum daftarnya dikirim. */
+function isBeforeLinkCreated(command: RecordRestockPurchaseCommand): boolean {
+  const { origin } = command;
+  return (
+    origin.kind === "PUBLIC_LINK" &&
+    command.purchasedAt < getEarliestLinkPurchaseDate(origin.linkCreatedAt)
+  );
+}
+
+/**
+ * Mencatat belanja restock per toko. Satu pengajuan tetap satu pesanan dan
+ * satu tagihan; catatan ini hanya merekam barang mana dibeli di toko mana.
+ */
+export class RestockPurchaseRecordService {
+  constructor(
+    private readonly repository: IRestockPurchaseRecordRepository,
+    private readonly isTrustedPhotoUrl: (raw: string) => Promise<boolean>,
+    private readonly now: () => Date = () => new Date(),
+  ) {}
+
+  /** Catat satu kali belanja di satu toko untuk pengajuan restock. */
+  async recordPurchase(
+    command: RecordRestockPurchaseCommand,
+  ): Promise<RestockPurchaseRecordResult> {
+    const purchasedAt = resolvePurchaseDate(command.purchasedAt, this.now());
+    if (!purchasedAt) {
+      return fail("INVALID", RESTOCK_PURCHASE_MESSAGES.futureDate);
+    }
+    if (isBeforeLinkCreated(command)) {
+      return fail("INVALID", PURCHASE_LINK_MESSAGES.dateBeforeLink);
+    }
+    if (!(await this.areAllPhotosTrusted(command.fotoNota))) {
+      return fail("INVALID", RESTOCK_PURCHASE_MESSAGES.untrustedPhoto);
+    }
+
+    const context = await this.repository.findPurchaseContext(
+      command.purchaseRequestId,
+      command.tenantId,
+    );
+    if (!context) return fail("NOT_FOUND", RESTOCK_MESSAGES.requestNotFound);
+    if (!context.request.purchaseOrderId) {
+      return fail("INVALID", RESTOCK_MESSAGES.noPurchaseOrderYet);
+    }
+    const purchaseOrder = context.purchaseOrder;
+    if (!purchaseOrder) {
+      return fail("NOT_FOUND", RESTOCK_MESSAGES.purchaseOrderNotFound);
+    }
+
+    if (
+      command.supplierId &&
+      !(await this.repository.isActiveSupplier(
+        command.supplierId,
+        command.tenantId,
+      ))
+    ) {
+      return fail("INVALID", RESTOCK_PURCHASE_MESSAGES.supplierNotFound);
+    }
+
+    const plan = planPurchaseRecord(
+      { request: context.request, purchaseOrder },
+      command.items,
+    );
+    if (plan.ok === false) return fail(plan.code, plan.error);
+
+    const outcome = await this.repository.createPurchaseRecord(
+      buildCreateInput(command, {
+        context,
+        purchaseOrderId: purchaseOrder.id,
+        purchasedAt,
+        lines: plan.lines,
+        now: this.now(),
+      }),
+    );
+    if (outcome.kind === "CLOSED") {
+      return fail("CONFLICT", RESTOCK_PURCHASE_MESSAGES.closed);
+    }
+    if (outcome.kind === "CONFLICT") {
+      return fail("CONFLICT", RESTOCK_PURCHASE_MESSAGES.conflict);
+    }
+    if (outcome.kind === "LINK_INACTIVE") {
+      return fail("LINK_INACTIVE", RESTOCK_PURCHASE_MESSAGES.closed);
+    }
+    if (outcome.kind === "LINK_LIMIT") {
+      return fail("LIMIT_REACHED", PURCHASE_LINK_MESSAGES.recordLimitReached);
+    }
+    if (outcome.kind === "DUPLICATE") {
+      return this.describeReplay(command, outcome.record, purchaseOrder.status);
+    }
+
+    this.logPurchase(command, purchaseOrder.poNumber, plan.lines, outcome);
+
+    const isFullyPurchased = isRequestFullyPurchased(
+      outcome.items,
+      context.request.receivableBarangIds,
+    );
+    return {
+      success: true,
+      data: {
+        record: outcome.record,
+        purchaseOrderStatus: outcome.purchaseOrderStatus,
+        isFullyPurchased,
+        message: isFullyPurchased
+          ? RESTOCK_PURCHASE_MESSAGES.savedAll
+          : RESTOCK_PURCHASE_MESSAGES.savedPartial(command.storeName),
+        isReplay: false,
+      },
+    };
+  }
+
+  /**
+   * Batalkan catatan belanja yang salah atau tidak sah (mis. diisi pemegang
+   * link yang tidak berhak). Catatan tetap disimpan untuk jejak audit; jumlah
+   * dibelinya dikembalikan jadi belum dibeli.
+   */
+  async voidPurchase(
+    command: VoidRestockPurchaseCommand,
+  ): Promise<VoidRestockPurchaseResult> {
+    const outcome = await this.repository.voidPurchaseRecord({
+      ...command,
+      now: this.now(),
+    });
+    switch (outcome.kind) {
+      case "NOT_FOUND":
+        return {
+          success: false,
+          code: "NOT_FOUND",
+          error: RESTOCK_PURCHASE_MESSAGES.recordNotFound,
+        };
+      case "ALREADY_VOIDED":
+        return {
+          success: false,
+          code: "CONFLICT",
+          error: RESTOCK_PURCHASE_MESSAGES.alreadyVoided,
+        };
+      case "SHARED_WITH_OTHER_REQUEST":
+        return {
+          success: false,
+          code: "CONFLICT",
+          error: RESTOCK_PURCHASE_MESSAGES.voidSharedRecord,
+        };
+      case "CLOSED":
+        return {
+          success: false,
+          code: "CONFLICT",
+          error: RESTOCK_PURCHASE_MESSAGES.voidClosed,
+        };
+      case "VOIDED":
+        this.logVoid(command, outcome);
+        return {
+          success: true,
+          data: {
+            record: outcome.record,
+            message: RESTOCK_PURCHASE_MESSAGES.voided,
+          },
+        };
+    }
+  }
+
+  /**
+   * Log pembatalan memuat salinan lengkap catatannya (termasuk kunci tanda
+   * tangan, IP, dan perangkat pembeli): catatan batal ikut terhapus bila
+   * pesanannya dihapus, dan log ini yang tersisa sebagai jejak audit.
+   */
+  private logVoid(
+    command: VoidRestockPurchaseCommand,
+    outcome: Extract<VoidPurchaseRecordOutcome, { kind: "VOIDED" }>,
+  ): void {
+    const { record, audit, poNumber } = outcome;
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.VOID_PURCHASE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.PURCHASE_ORDER,
+      reference: poNumber,
+      actorId: command.actorId,
+      tenantId: command.tenantId,
+      details: {
+        purchaseRequestId: command.purchaseRequestId,
+        purchaseRecordId: record.id,
+        toko: record.storeName,
+        namaPembeli: record.buyerName,
+        lewatLink: record.source === "PUBLIC_LINK",
+        alasan: command.reason,
+        tanggalBelanja: record.purchasedAt.toISOString(),
+        dicatatPada: record.createdAt.toISOString(),
+        supplierId: record.supplierId,
+        catatan: record.notes,
+        fotoNota: record.fotoNota,
+        purchaseLinkId: audit.purchaseLinkId,
+        clientRequestId: audit.clientRequestId,
+        kunciTandaTangan: audit.buyerSignatureKey,
+        ipPembeli: audit.ipAddress,
+        perangkatPembeli: audit.userAgent,
+        barang: record.items.map((line) => ({
+          barangId: line.barangId,
+          purchaseOrderItemId: line.purchaseOrderItemId,
+          nama: line.nama,
+          jumlah: line.quantity,
+          hargaSatuan: line.unitPrice,
+        })),
+      },
+    });
+  }
+
+  /**
+   * Kiriman ulang yang kalah balapan dengan kiriman pertama: status daftar
+   * dihitung ulang dari data terbaru, karena kiriman pertama bisa saja sudah
+   * melengkapi seluruh daftar.
+   */
+  private async describeReplay(
+    command: RecordRestockPurchaseCommand,
+    record: RestockPurchaseRecordView,
+    previousOrderStatus: string,
+  ): Promise<RestockPurchaseRecordResult> {
+    const fresh = await this.repository.findPurchaseContext(
+      command.purchaseRequestId,
+      command.tenantId,
+    );
+    const isFullyPurchased = fresh?.purchaseOrder
+      ? isRequestFullyPurchased(
+          fresh.purchaseOrder.items,
+          fresh.request.receivableBarangIds,
+        )
+      : false;
+    return {
+      success: true,
+      data: {
+        record,
+        purchaseOrderStatus:
+          fresh?.purchaseOrder?.status ?? previousOrderStatus,
+        isFullyPurchased,
+        message: isFullyPurchased
+          ? RESTOCK_PURCHASE_MESSAGES.savedAll
+          : RESTOCK_PURCHASE_MESSAGES.savedPartial(record.storeName),
+        isReplay: true,
+      },
+    };
+  }
+
+  private logPurchase(
+    command: RecordRestockPurchaseCommand,
+    poNumber: string,
+    lines: CreatePurchaseRecordLine[],
+    outcome: {
+      record: RestockPurchaseRecordView;
+      previousStatus: string;
+      purchaseOrderStatus: string;
+      revokedLinkCount: number;
+    },
+  ): void {
+    const { origin } = command;
+    const baseDetails = {
+      purchaseRequestId: command.purchaseRequestId,
+      purchaseRecordId: outcome.record.id,
+      toko: command.storeName,
+      tanggalBelanja: command.purchasedAt,
+      barang: lines.map((line) => ({
+        barangId: line.barangId,
+        jumlah: line.quantity,
+        hargaSatuan: line.unitPrice,
+      })),
+      statusLama: outcome.previousStatus,
+      statusBaru: outcome.purchaseOrderStatus,
+      ...(outcome.revokedLinkCount > 0
+        ? { linkBelanjaDimatikan: outcome.revokedLinkCount }
+        : {}),
+    };
+    const common = {
+      action: INVENTORY_ACTIVITY_ACTIONS.RECORD_PURCHASE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.PURCHASE_ORDER,
+      reference: poNumber,
+      tenantId: command.tenantId,
+    };
+
+    if (origin.kind === "ADMIN") {
+      recordInventoryActivity({
+        ...common,
+        actorId: origin.actorId,
+        details: baseDetails,
+      });
+      return;
+    }
+    // Tanpa token, hash, maupun kunci tanda tangan.
+    recordInventoryActivity({
+      ...common,
+      externalActor: { type: "purchase_link", id: origin.linkId },
+      ipAddress: origin.ipAddress,
+      userAgent: origin.userAgent,
+      details: {
+        ...baseDetails,
+        lewatLink: true,
+        namaPembeli: origin.buyerName,
+        linkId: origin.linkId,
+        keterangan: `Dicatat lewat link belanja oleh ${origin.buyerName}`,
+      },
+    });
+  }
+
+  private async areAllPhotosTrusted(urls: string[]): Promise<boolean> {
+    const checks = await Promise.all(
+      urls.map((url) => this.isTrustedPhotoUrl(url)),
+    );
+    return checks.every(Boolean);
+  }
+}
+
+interface CreateInputParts {
+  context: RestockPurchaseContext;
+  purchaseOrderId: string;
+  purchasedAt: Date;
+  lines: CreatePurchaseRecordLine[];
+  now: Date;
+}
+
+/** Susun isian tulis sesuai asal catatan (aplikasi atau link). */
+function buildCreateInput(
+  command: RecordRestockPurchaseCommand,
+  parts: CreateInputParts,
+): CreatePurchaseRecordInput {
+  const shared = {
+    purchaseOrderId: parts.purchaseOrderId,
+    purchaseRequestId: command.purchaseRequestId,
+    receivableBarangIds: parts.context.request.receivableBarangIds,
+    tenantId: command.tenantId,
+    storeName: command.storeName,
+    purchasedAt: parts.purchasedAt,
+    notes: command.notes,
+    lines: parts.lines,
+  };
+  const { origin } = command;
+  if (origin.kind === "ADMIN") {
+    return {
+      ...shared,
+      issuedAt: parts.purchasedAt,
+      recordedById: origin.actorId,
+      supplierId: command.supplierId,
+      fotoNota: command.fotoNota,
+      buyerName: origin.buyerName ?? origin.actorName,
+      buyerSignatureKey: null,
+      source: "ADMIN",
+      purchaseLinkId: null,
+      clientRequestId: null,
+      ipAddress: null,
+      userAgent: null,
+    };
+  }
+  return {
+    ...shared,
+    // Tanggal dari link diisi pihak luar; tanggal beli pesanan memakai waktu
+    // server supaya tidak bisa dimundurkan.
+    issuedAt: parts.now,
+    recordedById: origin.linkCreatorId,
+    supplierId: null,
+    fotoNota: [],
+    buyerName: origin.buyerName,
+    buyerSignatureKey: origin.signatureKey,
+    source: "PUBLIC_LINK",
+    purchaseLinkId: origin.linkId,
+    clientRequestId: origin.clientRequestId,
+    ipAddress: origin.ipAddress,
+    userAgent: origin.userAgent,
+  };
+}

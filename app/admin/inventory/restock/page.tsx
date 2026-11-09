@@ -1,10 +1,10 @@
-import { ensurePermission } from '@/lib/rbac'
-import RestockList from './RestockList'
+import { ensurePermission } from "@/lib/rbac";
+import RestockList from "./RestockList";
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 export default async function RestockPage() {
-    await ensurePermission('restock:read')
+  await ensurePermission("restock:read");
 
-    return <RestockList />
+  return <RestockList />;
 }

@@ -41,6 +41,7 @@ function purchaseOrder(
         quantity: 4000,
         receivedQuantity: 0,
         cancelledQuantity: 0,
+        purchasedQuantity: 0,
         unitPrice: 10_000,
       },
     ],
@@ -165,6 +166,7 @@ describe("PurchaseOrderItemChangeService", () => {
         quantity: 2000,
         receivedQuantity: 0,
         cancelledQuantity: 0,
+        purchasedQuantity: 0,
         unitPrice: 7_000,
       });
 
@@ -242,6 +244,38 @@ describe("PurchaseOrderItemChangeService", () => {
       "Jumlah Kabel 4 Core minimal 2100 karena sudah diterima 1500 dan dianulir 600",
     );
     expect(repository.applyItemChange).not.toHaveBeenCalled();
+  });
+
+  it("will not go below what has already been bought at the stores", async () => {
+    const po = purchaseOrder();
+    po.items[0] = { ...po.items[0], purchasedQuantity: 3000 };
+    const { service, repository } = createService(po);
+
+    await expect(
+      service.changeItems({ ...splitCable, additions: [] }),
+    ).rejects.toThrow(
+      "Jumlah Kabel 4 Core minimal 3000 karena sudah dibeli 3000",
+    );
+    expect(repository.applyItemChange).not.toHaveBeenCalled();
+  });
+
+  it("still allows raising a line whose bought goods were later cancelled", async () => {
+    const po = purchaseOrder();
+    po.items[0] = {
+      ...po.items[0],
+      quantity: 4000,
+      purchasedQuantity: 4000,
+      receivedQuantity: 3000,
+      cancelledQuantity: 1000,
+    };
+    const { service, repository } = createService(po);
+
+    await service.changeItems({
+      ...splitCable,
+      changes: [{ id: "poi-4core", quantity: 4500 }],
+      additions: [],
+    });
+    expect(repository.applyItemChange).toHaveBeenCalled();
   });
 
   it("will not reduce a line to zero", async () => {

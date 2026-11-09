@@ -20,8 +20,11 @@ vi.mock("@/app/admin/inventory/restock/pdf", () => ({
 }));
 
 vi.mock("@/app/admin/inventory/restock/RestockStatusBadge", () => ({
-  RestockStatusBadge: ({ status }: { status: PurchaseRequest["status"] }) => (
-    <span>{status}</span>
+  RestockStatusBadge: ({ request }: { request: PurchaseRequest }) => (
+    <span>{request.status}</span>
+  ),
+  RestockProgressStatus: ({ request }: { request: PurchaseRequest }) => (
+    <span>status {request.status}</span>
   ),
 }));
 
@@ -91,8 +94,10 @@ function renderTable(
       onOpenCreate={vi.fn()}
       onOpenEdit={vi.fn()}
       onOpenDetail={vi.fn()}
-      onApprove={vi.fn()}
-      onOpenReceive={vi.fn()}
+      onOpenApproval={props?.onOpenApproval ?? vi.fn()}
+      onOpenReceive={props?.onOpenReceive ?? vi.fn()}
+      onRecordPurchase={props?.onRecordPurchase ?? vi.fn()}
+      onOpenConfirmJasa={props?.onOpenConfirmJasa ?? vi.fn()}
       onDelete={vi.fn()}
     />,
   );
@@ -104,6 +109,29 @@ function renderTable(
   }
 
   return lastCall[0] as ResponsiveTableProps;
+}
+
+type ActionElementProps = {
+  label?: string;
+  onClick?: () => void;
+  children?: React.ReactNode;
+};
+
+/** Cari tombol aksi menurut aria-label di pohon elemen tanpa merender DOM. */
+function findActionByLabel(
+  node: React.ReactNode,
+  label: string,
+): ActionElementProps | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findActionByLabel(child, label);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!React.isValidElement<ActionElementProps>(node)) return null;
+  if (node.props.label === label) return node.props;
+  return findActionByLabel(node.props.children, label);
 }
 
 function renderActions(
@@ -141,7 +169,7 @@ describe("RestockTable action visibility", () => {
     const markup = renderActions(baseRequest);
 
     expect(markup).toContain('title="Edit"');
-    expect(markup).toContain("Approve");
+    expect(markup).toContain("Tinjau &amp; Putuskan");
     expect(markup).toContain('title="Hapus"');
     expect(markup).not.toContain("Verifikasi Sampai");
   });
@@ -154,32 +182,112 @@ describe("RestockTable action visibility", () => {
     });
 
     expect(markup).not.toContain('title="Edit"');
-    expect(markup).not.toContain("Approve");
+    expect(markup).not.toContain("Tinjau &amp; Putuskan");
     expect(markup).not.toContain('title="Hapus"');
   });
 
-  it("shows receive action only for ordered or approved requests with verify permission", () => {
-    const orderedMarkup = renderActions(
-      { ...baseRequest, status: "ORDERED" },
-      { canApprove: false, canUpdate: false, canVerify: true },
-    );
-    const approvedMarkup = renderActions(
-      { ...baseRequest, status: "APPROVED" },
-      { canApprove: false, canUpdate: false, canVerify: true },
-    );
-    const receivedMarkup = renderActions(
-      { ...baseRequest, status: "RECEIVED" },
-      { canApprove: false, canUpdate: false, canVerify: true },
-    );
-    const noPermissionMarkup = renderActions(
-      { ...baseRequest, status: "ORDERED" },
-      { canApprove: false, canUpdate: false, canVerify: false },
+  const verifyOnly = { canApprove: false, canUpdate: false, canVerify: true };
+  const orderedRequest = (
+    poStatus: string,
+    items: PurchaseRequest["items"] = [],
+  ): PurchaseRequest => ({
+    ...baseRequest,
+    status: "ORDERED",
+    purchaseOrder: { id: "po-1", poNumber: "PO-1", status: poStatus },
+    items,
+  });
+  const fiberLine = (receivedQuantity: number, purchasedQuantity = 0) => ({
+    id: "item-1",
+    barangId: "barang-1",
+    jumlah: 10,
+    receivedQuantity,
+    purchaseOrderItemId: "poi-1",
+    purchasedQuantity,
+    barang: { nama: "Kabel Fiber", kode: "BRG-1", satuan: "roll" },
+  });
+
+  it("offers recording a purchase plus recording goods while not yet bought", () => {
+    const markup = renderActions(
+      orderedRequest("DRAFT", [fiberLine(0)]),
+      verifyOnly,
     );
 
-    expect(orderedMarkup).toContain("Verifikasi Sampai");
-    expect(approvedMarkup).toContain("Verifikasi Sampai");
-    expect(receivedMarkup).not.toContain("Verifikasi Sampai");
-    expect(noPermissionMarkup).not.toContain("Verifikasi Sampai");
+    expect(markup).toContain("Catat Belanja");
+    expect(markup).toContain('aria-label="Catat Belanja, pengajuan PR-001"');
+    expect(markup).toContain("Catat Barang Datang");
+    expect(markup).toContain('title="Hapus"');
+  });
+
+  it("keeps offering a purchase while only part was bought", () => {
+    const markup = renderActions(
+      orderedRequest("ORDERED", [fiberLine(0, 4)]),
+      verifyOnly,
+    );
+
+    expect(markup).toContain("Catat Belanja");
+    expect(markup).toContain("Catat Barang Datang");
+  });
+
+  it("offers recording goods once bought and the next delivery once partial", () => {
+    const bought = renderActions(
+      orderedRequest("ORDERED", [fiberLine(0, 10)]),
+      verifyOnly,
+    );
+    const partial = renderActions(
+      orderedRequest("PARTIAL", [fiberLine(6)]),
+      verifyOnly,
+    );
+
+    expect(bought).toContain("Catat Barang Datang");
+    expect(bought).toContain('aria-label="Catat Barang Datang untuk PR-001"');
+    expect(bought).not.toContain("Catat Belanja");
+    expect(partial).toContain("Catat Kiriman Berikutnya");
+    expect(partial).toContain(
+      'aria-label="Catat Kiriman Berikutnya untuk PR-001"',
+    );
+  });
+
+  it("hides receive actions when finished or without verify permission", () => {
+    const finished = renderActions(
+      { ...orderedRequest("RECEIVED", [fiberLine(10)]), status: "RECEIVED" },
+      verifyOnly,
+    );
+    const noPermission = renderActions(
+      orderedRequest("ORDERED", [fiberLine(0)]),
+      {
+        ...verifyOnly,
+        canVerify: false,
+      },
+    );
+
+    expect(finished).not.toContain("Catat");
+    expect(noPermission).not.toContain("Catat");
+    expect(noPermission).not.toContain("Catat Belanja");
+  });
+
+  it("hides delete once the goods were bought or anything arrived", () => {
+    expect(
+      renderActions(orderedRequest("ORDERED", [fiberLine(0)])),
+    ).not.toContain('title="Hapus"');
+    expect(
+      renderActions(orderedRequest("DRAFT", [fiberLine(2)])),
+    ).not.toContain('title="Hapus"');
+  });
+
+  it("calls the record-purchase handler with the whole request", () => {
+    const onRecordPurchase = vi.fn();
+    const request = orderedRequest("DRAFT", [fiberLine(0)]);
+    const props = renderTable({ requests: [request], onRecordPurchase });
+    const actionColumn = props.columns.find(
+      (column) => column.key === "actions",
+    );
+
+    findActionByLabel(
+      actionColumn?.render(request),
+      "Catat Belanja, pengajuan PR-001",
+    )?.onClick?.();
+
+    expect(onRecordPurchase).toHaveBeenCalledWith(request);
   });
 
   it("uses tighter column sizing and right-aligned action layout for denser table rhythm", () => {
@@ -201,8 +309,8 @@ describe("RestockTable action visibility", () => {
     expect(nomorColumn?.minWidth).toBe("18rem");
     expect(gudangColumn?.minWidth).toBe("14rem");
     expect(keteranganColumn?.minWidth).toBe("16rem");
-    expect(statusColumn?.align).toBe("center");
-    expect(statusColumn?.className).toContain("w-[10rem]");
+    expect(statusColumn?.align).toBe("left");
+    expect(statusColumn?.className).toContain("w-[14rem]");
     expect(actionColumn?.align).toBe("right");
     expect(actionColumn?.className).toContain("w-[16rem]");
   });
@@ -233,7 +341,7 @@ describe("RestockTable action visibility", () => {
         onOpenCreate={vi.fn()}
         onOpenEdit={vi.fn()}
         onOpenDetail={vi.fn()}
-        onApprove={vi.fn()}
+        onOpenApproval={vi.fn()}
         onOpenReceive={vi.fn()}
         onDelete={vi.fn()}
       />,
@@ -302,7 +410,7 @@ describe("RestockTable action visibility", () => {
         onOpenCreate={vi.fn()}
         onOpenEdit={vi.fn()}
         onOpenDetail={vi.fn()}
-        onApprove={vi.fn()}
+        onOpenApproval={vi.fn()}
         onOpenReceive={vi.fn()}
         onDelete={vi.fn()}
       />,
@@ -331,7 +439,7 @@ describe("RestockTable action visibility", () => {
     const markup = renderActions(baseRequest);
 
     expect(markup).toContain('aria-label="Lihat detail PR-001"');
-    expect(markup).toContain('aria-label="Download PR PR-001"');
+    expect(markup).toContain('aria-label="Unduh PDF pengajuan PR-001"');
     expect(markup).toContain('aria-label="Edit PR-001"');
     expect(markup).toContain('aria-label="Hapus PR-001"');
   });
@@ -347,7 +455,7 @@ describe("RestockTable action visibility", () => {
 
     expect(markup).toContain("PR-001");
     expect(markup).toContain("Gudang A");
-    expect(markup).toContain("Approve");
+    expect(markup).toContain("Tinjau &amp; Putuskan");
   });
 
   it("renders the keterangan column value in desktop table rows", () => {
@@ -391,5 +499,62 @@ describe("RestockTable action visibility", () => {
 
     expect(markup).toContain("Catatan:");
     expect(markup).toContain("Restock untuk instalasi pelanggan cluster Depok");
+  });
+
+  it("opens the decision modal with the whole request from the approval button", () => {
+    const onOpenApproval = vi.fn();
+    const props = renderTable({ onOpenApproval });
+    const actionColumn = props.columns.find(
+      (column) => column.key === "actions",
+    );
+    const button = findActionByLabel(
+      actionColumn?.render(baseRequest),
+      "Tinjau dan putuskan PR-001",
+    );
+
+    button?.onClick?.();
+
+    expect(onOpenApproval).toHaveBeenCalledWith(baseRequest);
+  });
+
+  it("renders the Konfirmasi Jasa action for approved requests with pending services", () => {
+    const withPendingJasa: PurchaseRequest = {
+      ...baseRequest,
+      status: "APPROVED",
+      jasaItems: [
+        {
+          id: "jasa-item-1",
+          jasaId: "jasa-1",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+        },
+      ],
+    };
+
+    expect(renderActions(withPendingJasa)).toContain("Konfirmasi Jasa");
+  });
+
+  it("hides Konfirmasi Jasa when the only pending service was rejected", () => {
+    const withRejectedJasa: PurchaseRequest = {
+      ...baseRequest,
+      status: "APPROVED",
+      jasaItems: [
+        {
+          id: "jasa-item-1",
+          jasaId: "jasa-1",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          statusApproval: "REJECTED",
+          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+        },
+      ],
+    };
+
+    expect(renderActions(withRejectedJasa)).not.toContain("Konfirmasi Jasa");
   });
 });
