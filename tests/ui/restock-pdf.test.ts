@@ -303,7 +303,7 @@ describe("generatePurchaseRequestPdf", () => {
     );
   });
 
-  it("marks rejected lines instead of listing them as outstanding", async () => {
+  it("still prints rejected lines, marked, when every line was rejected", async () => {
     await generatePurchaseRequestPdf({
       ...baseRequest,
       items: [
@@ -343,6 +343,76 @@ describe("generatePurchaseRequestPdf", () => {
       "Catatan atasan: Dikerjakan tim internal",
     ]);
   });
+  it("leaves rejected lines out when other lines were approved", async () => {
+    await generatePurchaseRequestPdf({
+      ...baseRequest,
+      items: [
+        baseRequest.items[0],
+        {
+          ...baseRequest.items[0],
+          id: "item-rejected",
+          barangId: "barang-2",
+          receivedQuantity: 0,
+          statusApproval: "REJECTED",
+          catatanApproval: "Tidak dibutuhkan",
+          barang: { kode: "BRG-002", nama: "Patch Cord", satuan: "pcs" },
+        },
+      ],
+      jasaItems: [
+        {
+          id: "jasa-item-rejected",
+          jasaId: "jasa-1",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          statusApproval: "REJECTED",
+          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+        },
+      ],
+    });
+
+    expect(pdfMocks.autoTable).toHaveBeenCalledTimes(1);
+    const { body } = getGeneratedTableOptions();
+    expect(body.map((row) => row[0])).toEqual(["BRG-001"]);
+    expect(body.flat()).not.toContain("Ditolak");
+    expect(pdfMocks.text).not.toHaveBeenCalledWith(
+      "ITEM JASA",
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it("keeps approved jasa lines when every barang line was rejected", async () => {
+    await generatePurchaseRequestPdf({
+      ...baseRequest,
+      items: [
+        {
+          ...baseRequest.items[0],
+          receivedQuantity: 0,
+          statusApproval: "REJECTED",
+        },
+      ],
+      jasaItems: [
+        {
+          id: "jasa-item-1",
+          jasaId: "jasa-1",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          statusApproval: "APPROVED",
+          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+        },
+      ],
+    });
+
+    expect(pdfMocks.autoTable).toHaveBeenCalledTimes(1);
+    expect(getGeneratedTableOptions().body.map((row) => row[0])).toEqual([
+      "JS-1",
+    ]);
+  });
+
   it("prints the requested quantity in the unit of the barang originally asked for", async () => {
     await generatePurchaseRequestPdf({
       ...baseRequest,

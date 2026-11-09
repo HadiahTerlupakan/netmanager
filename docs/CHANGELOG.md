@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-09] — PDF pengajuan tidak lagi mencantumkan baris ditolak
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Barang dan jasa yang ditolak atasan masih tercetak di PDF
+  pengajuan dengan label "Ditolak", sehingga pembeli dan penerima barang
+  bingung mana yang harus diurus. Kini baris ditolak dibuang dari tabel; tabel
+  jasa/barang yang semua barisnya ditolak tidak dicetak. Bila seluruh pengajuan
+  ditolak, semua baris tetap dicetak bertanda "Ditolak" agar dokumen tidak
+  kosong dan catatan penolakannya terbaca.
+- **Files**: `app/admin/inventory/restock/pdf.ts`, `tests/ui/restock-pdf.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-09] — Kolom status tabel restock tidak lagi terjepit
 
 - **Tipe**: [FIXED]

@@ -101,6 +101,30 @@ function getLineApprovalState(
   return "APPROVED";
 }
 
+interface PrintableLines {
+  barangItems: PurchaseRequest["items"];
+  jasaItems: NonNullable<PurchaseRequest["jasaItems"]>;
+}
+
+/**
+ * Baris yang dicetak di dokumen. Baris yang ditolak dibuang supaya pembeli dan
+ * penerima barang tidak mengira barang itu masih harus diurus. Bila semua
+ * baris ditolak (atau pengajuan ditolak utuh), semuanya tetap dicetak dengan
+ * tanda "Ditolak" agar dokumen tidak kosong dan alasan penolakannya terbaca.
+ */
+function selectPrintableLines(request: PurchaseRequest): PrintableLines {
+  const barangItems = request.items ?? [];
+  const jasaItems = request.jasaItems ?? [];
+  const isKept = (line: ApprovalLine) =>
+    getLineApprovalState(request.status, line) !== "REJECTED";
+  const keptBarang = barangItems.filter(isKept);
+  const keptJasa = jasaItems.filter(isKept);
+  if (keptBarang.length === 0 && keptJasa.length === 0) {
+    return { barangItems, jasaItems };
+  }
+  return { barangItems: keptBarang, jasaItems: keptJasa };
+}
+
 function formatApprovedQuantity(
   state: LineApprovalState,
   jumlah: number,
@@ -301,8 +325,7 @@ export async function generatePurchaseRequestPdf(request: PurchaseRequest) {
     writeNoteBlock(doc, "Catatan Atasan:", request.catatanApproval, 91);
   }
 
-  const barangItems = request.items ?? [];
-  const jasaItems = request.jasaItems ?? [];
+  const { barangItems, jasaItems } = selectPrintableLines(request);
 
   let nextTableY = DEFAULT_TABLE_FINAL_Y;
 
