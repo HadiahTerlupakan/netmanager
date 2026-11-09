@@ -28,6 +28,10 @@ const CONTENT_SECURITY_POLICY = [
 // Halaman portal pelanggan yang terbuka tanpa sesi: returnUrl gateway untuk
 // pembayaran dari aplikasi, dibuka browser yang tidak membawa cookie portal.
 const PUBLIC_CUSTOMER_PORTAL_PATHS = new Set(["/pembayaran/kembali"]);
+// Halaman link tanpa login yang membawa rahasia di fragmen URL: jangan
+// disimpan cache, jangan diindeks, dan jangan kirim Referer ke mana pun.
+// Hanya header; aturan auth dan rewrite tidak berubah.
+const NO_STORE_PUBLIC_PAGE_PATHS = new Set(["/belanja"]);
 
 export async function proxy(request: NextRequest) {
   const hostname = request.headers.get("host") || "";
@@ -252,6 +256,11 @@ async function handleRequest(request: NextRequest) {
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+  if (NO_STORE_PUBLIC_PAGE_PATHS.has(pathname)) {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    response.headers.set("Cache-Control", "no-store");
+  }
 
   return response;
 }
@@ -281,6 +290,10 @@ export const config = {
   // Match ALL routes so we can handle API CORS and Page Rewrites in one place
   // Exclude backup import endpoint from proxy to avoid body cloning limit for large uploads (>10MB)
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/settings/backup/import).*)",
+    // api/belanja/ (link belanja tanpa login) dikecualikan: bila lewat proxy,
+    // Next menampung body sampai `proxyClientMaxBodySize` sebelum handler
+    // jalan, jadi batas body kecil di route tidak efektif. Header keamanannya
+    // dipasang sendiri oleh route (lihat app/api/belanja/_lib).
+    "/((?!_next/static|_next/image|favicon.ico|api/settings/backup/import|api/belanja/).*)",
   ],
 };

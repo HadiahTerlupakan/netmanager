@@ -78,6 +78,7 @@ export type MockPrismaClient = {
   radippool: MockModel;
   radusergroup: MockModel;
   restockAlerts: MockModel;
+  restockPurchaseLink: MockModel;
   restockSettings: MockModel;
   role: MockModel;
   salary: MockModel;

@@ -41,6 +41,128 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-09] — Perbaiki pembatalan belanja, urutan kunci, dan fokus keyboard
+
+- **Tipe**: [FIXED] [SECURITY]
+- **Scope**: `modules/inventory`, `modules/procurement`, `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: (1) Pembatalan catatan belanja di pesanan gabungan ditolak
+  (`SHARED_WITH_OTHER_REQUEST`, 409) bila catatan juga memuat barang pengajuan lain, jadi admin
+  satu gudang tidak bisa menurunkan jumlah dibeli barang pengajuan gudang lain. Pemeriksaan
+  dijalankan sesudah pesanan dikunci. (2) `applyReceiptSettlement` dan
+  `finishPurchaseOrderWithoutDelivery` kini mengunci baris pesanan (`FOR UPDATE`) di awal transaksi.
+  Urutannya jadi sama dengan pencatatan lewat link (pesanan → item → link), sehingga tidak bisa
+  deadlock. (3) Pengajuan yang punya catatan belanja, walau semuanya dibatalkan, tidak lagi dibaca
+  sebagai data lama "dibeli sekaligus". Setelah satu-satunya catatan dibatalkan, status kembali
+  "Belum dibeli" dan tombol Catat Belanja muncul lagi. (4) Log `VOID_PURCHASE` menyalin isi catatan
+  lengkap: kunci tanda tangan, IP, perangkat, link, `clientRequestId`, tanggal, harga, dan foto nota.
+  Jejaknya tetap ada walau catatan batal ikut terhapus bersama pesanannya. Kunci tanda tangan tidak
+  ikut ke jawaban API. (5) Kontrol pembatalan mengembalikan fokus ke tombol pemicu setelah ditutup
+  atau berhasil. Escape hanya menutup panel, tidak menutup jendela detail. Setelah catatan dimuat
+  ulang sebagai batal, fokus pindah ke keterangan "Dibatalkan".
+- **Files**: `modules/inventory/repositories/RestockPurchaseRecordRepository.ts`,
+  `modules/inventory/repositories/RestockGoodsReceiptRepository.ts`,
+  `modules/inventory/services/RestockPurchaseRecordService.ts`,
+  `app/admin/inventory/restock/restockPurchase.ts`,
+  `app/admin/inventory/restock/RestockPurchaseVoidControl.tsx`,
+  `app/admin/inventory/restock/RestockTimeline.tsx`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-09] — Link daftar belanja tanpa login dengan tanda tangan pembeli
+
+- **Tipe**: [ADDED] [MIGRATION] [SECURITY]
+- **Scope**: `modules/inventory`, `app/belanja`, `app/api/belanja`, `app/admin/inventory/restock`, `components/signature`
+- **Author**: agent
+- **Deskripsi**: Admin (`restock:verify`) membuat satu link belanja per pengajuan yang sudah
+  disetujui, lalu menyalin link atau mengirimnya lewat WhatsApp. Link bisa dibuat ulang (link lama
+  mati) atau dimatikan. Pemegang link membuka `/belanja#<token>` tanpa login. Halamannya menampilkan
+  daftar centang barang (butuh, sudah dibeli, sisa, rincian toko) tanpa harga rencana atau data
+  internal. Pembeli mengisi toko, tanggal, jumlah, harga opsional, nama, dan tanda tangan di layar HP
+  atau dengan mouse. Penyimpanan memakai `RestockPurchaseRecordService` yang sama (asal
+  `PUBLIC_LINK`, penanggung jawab = pembuat link). PNG tanda tangan diperiksa magic bytes, IHDR, dan
+  batas 200 KB, lalu disimpan di R2 dengan key acak per tenant. Gambarnya hanya bisa diambil lewat
+  route ber-auth `restock:read`. Garis waktu dan PDF pengajuan memuat nama pembeli dan tanda
+  tangannya. Di PDF, tanda tangan dimuatkan dengan rasio asli, sedangkan nama toko dan nama pembeli
+  yang panjang dibungkus. `SignaturePad` dipindah ke `components/signature/` dan dipakai juga oleh
+  Endorsement.
+- **Keamanan**:
+  - Token 32 byte acak (base64url) hanya ada di fragmen URL dan body JSON. Token tidak masuk path,
+    query, log, maupun kunci rate limit. DB hanya menyimpan sha256-nya (kolom unik). Token mentah
+    hanya diberikan sekali saat dibuat; setelah itu admin memakai "Buat link baru". Pencarian lewat
+    indeks unik hash, bukan membandingkan token di aplikasi, sehingga `timingSafeEqual` tidak
+    diperlukan: waktu lookup bergantung pada hash yang tak bisa ditebak, bukan pada kemiripan token.
+  - Link berlaku 30 hari. Link tidak berlaku bila dicabut, kedaluwarsa, pengajuan tutup, semua barang
+    sudah datang, pembuatnya dinonaktifkan, atau pembuatnya kehilangan izin `restock:verify`. Semua
+    alasan itu dijawab dengan satu 404 generik.
+  - Rate limit per IP dicek sebelum body dibaca, memakai IP dari proxy (`X-Real-Ip` atau entri
+    terakhir `X-Forwarded-For`), bukan entri pertama yang bisa dipalsukan klien. Rate limit per link
+    (potongan hash) dicek setelahnya. Endpoint catat bersifat fail-closed saat Redis bermasalah.
+    Body dibatasi 320 KB dan divalidasi Zod `strict`. Respons memakai `no-store`,
+    `Referrer-Policy: no-referrer`, dan `X-Robots-Tag: noindex`.
+  - Nama toko, catatan, dan nama pembeli menolak karakter kontrol/format (`\p{Cc}`, `\p{Cf}`,
+    mis. pembalik arah U+202E). Dengan begitu bukti siapa yang belanja tidak bisa disamarkan di
+    garis waktu maupun PDF.
+  - Anti dobel kirim memakai `clientRequestId` unik per link. Kiriman ulang dikenali sebelum unggah,
+    termasuk saat kalah balapan di penjaga sisa. Kiriman ulang yang isinya berbeda dari catatan
+    tersimpan dijawab 409, bukan "tersimpan", supaya isian baru tidak hilang diam-diam. Halaman lalu
+    memakai penanda baru untuk simpan berikutnya.
+  - Log aktivitas: "Dicatat lewat link belanja oleh <nama>" beserta IP dan user agent.
+- **Review keamanan tahap 2** (audit independen, semua temuan diperbaiki):
+  - [high] Batas body 320 KB kini efektif: `api/belanja/` dikeluarkan dari matcher `proxy.ts`
+    (seperti `api/settings/backup/import`), karena proxy membuat Next menampung body sampai
+    `proxyClientMaxBodySize` (1 GB) sebelum handler jalan. Route menolak dini bila
+    `Content-Length` di atas batas (atau tidak sah), dan pembacaan stream chunked tetap berhenti di
+    batas. Header keamanan (termasuk `X-Frame-Options: DENY` dan CSP `default-src 'none'`) dipasang
+    oleh respons route sendiri. Rekomendasi infra: turunkan `proxyClientMaxBodySize` global atau
+    batasi body per path di Traefik; tidak diubah di sini supaya upload lain tidak rusak.
+  - [medium] Link aktif selalu tampil di panel admin (juga saat semua sudah dibeli, penyimpanan
+    mati, pesanan gabungan, atau pengajuan ditutup) dengan tombol "Matikan link"; hanya "Buat link"
+    yang bergantung pada AVAILABLE. Link dicabut otomatis (`revokedById` null) di transaksi yang
+    sama saat pencatatan belanja (aplikasi maupun link) melengkapi semua barang pengajuan, saat
+    penerimaan/penutupan pesanan membuat pengajuan final (RECEIVED/CANCELLED), saat pesanan selesai
+    lewat ubah isi pesanan, dan saat pesanan dihapus. Setelah belanja terakhir, halaman link langsung
+    menampilkan "Semua barang sudah dibeli" tanpa memuat ulang link yang sudah mati; kiriman dobel
+    yang kalah balapan tetap dikenali sebagai kiriman ulang.
+  - [medium] Pesanan gabungan (satu pesanan untuk lebih dari satu pengajuan): link tidak bisa
+    dibuat (availability `MERGED_ORDER`, teks awam), daftar/catat publik dijawab 404 generik, dan
+    pemeriksaan diulang di dalam transaksi tulis (penggabungan bisa terjadi setelah link dibuat).
+  - [medium] Admin bisa "Batalkan catatan belanja" (izin `restock:verify`, alasan wajib 5–500 huruf,
+    konfirmasi di tempat, bukan `window.confirm`) lewat
+    `POST /api/inventory/restock/requests/[id]/purchases/[recordId]/void`. Soft-void (`voidedAt`,
+    `voidedById`, `voidReason`) di bawah kunci baris pesanan yang sama dengan pencatatan; jumlah
+    dibeli diturunkan sebesar barisnya (tidak di bawah 0). Catatan yang dibatalkan diabaikan oleh
+    rincian toko, total dibeli, daftar publik, PDF, penjaga hapus/batal pesanan, dan replay
+    `clientRequestId`, tetapi tetap tampil di garis waktu admin sebagai "Dibatalkan oleh X: alasan".
+    Pesanan yang hanya punya catatan batal tetap bisa dihapus (catatan batal ikut terhapus; jejaknya
+    di log aktivitas `VOID_PURCHASE`). Tanda tangan di storage dibiarkan sebagai jejak audit.
+    Satu link paling banyak mencatat 30 kali belanja (termasuk yang dibatalkan), dihitung di
+    dalam transaksi.
+  - [low] Tanggal belanja lewat link tidak boleh lebih awal dari sehari sebelum link dibuat (WIB).
+    Belanja lewat link yang mengubah pesanan DRAFT → ORDERED memakai waktu server sebagai
+    `issuedAt`, bukan tanggal isian.
+  - [low] Token dipindah dari fragmen URL ke `sessionStorage` (tab ini saja) lalu dihapus dari
+    alamat & riwayat lewat `history.replaceState`; muat ulang membaca dari `sessionStorage`, link baru
+    di tab yang sama (`hashchange`) tetap didukung, dan fragmen salah bentuk tetap "tidak berlaku".
+  - [low] PNG tanda tangan diperiksa strukturnya: chunk utuh sampai IEND tanpa chunk/byte sesudahnya,
+    IHDR 13 byte dengan bit depth 8, color type 2/6 (RGB/RGBA, keluaran kanvas peramban), tanpa
+    interlace, ada IDAT, dimensi ≤ 4096×1024. Mode longgar (Endorsement) tidak berubah.
+  - Urutan kunci pencatatan lewat link kini pesanan dulu baru link, sama dengan pembatalan dan
+    pencabutan otomatis, supaya tidak saling deadlock.
+- **Files** (tahap 2): `modules/inventory/repositories/RestockPurchaseRecordRepository.ts`,
+  `modules/inventory/repositories/restock-purchase-link-revocation.ts`,
+  `modules/inventory/repositories/RestockGoodsReceiptRepository.ts`,
+  `modules/inventory/services/RestockPurchaseRecordService.ts`,
+  `modules/inventory/services/RestockPurchaseLinkService.ts`,
+  `modules/inventory/domain/restock-purchase-link.ts`,
+  `modules/procurement/repositories/PurchaseOrderRepository.ts`,
+  `app/api/inventory/restock/requests/[id]/purchases/[recordId]/void/route.ts`,
+  `app/api/belanja/_lib/public-link-http.ts`, `proxy.ts`, `lib/signature/png-signature.ts`,
+  `app/belanja/belanjaLinkToken.ts`, `app/admin/inventory/restock/RestockPurchaseLinkPanel.tsx`,
+  `app/admin/inventory/restock/RestockPurchaseVoidControl.tsx`
+- **Migration**: `20261108230204_add_restock_purchase_links`,
+  `20261109002332_add_void_fields_to_purchase_records`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-09] — Catat belanja restock per barang dan per toko
 
 - **Tipe**: [ADDED] [CHANGED] [FIXED] [MIGRATION]

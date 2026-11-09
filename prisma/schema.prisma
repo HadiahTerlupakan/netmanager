@@ -1630,6 +1630,9 @@ model User {
   poReceived                                 PurchaseOrder[]             @relation("POReceiver")
   goodsReceiptsReceived                      GoodsReceipt[]              @relation("GRNReceiver")
   purchaseRecordsRecorded                    PurchaseRecord[]            @relation("PurchaseRecordRecorder")
+  restockPurchaseLinksCreated                RestockPurchaseLink[]       @relation("RestockPurchaseLinkCreator")
+  restockPurchaseLinksRevoked                RestockPurchaseLink[]       @relation("RestockPurchaseLinkRevoker")
+  purchaseRecordsVoided                      PurchaseRecord[]            @relation("PurchaseRecordVoider")
   goodsReturnsReturned                       GoodsReturn[]               @relation("RTVReturner")
   purchaseRequests                           PurchaseRequest[]           @relation("Requester")
   approverPurchaseRequests                   PurchaseRequest[]           @relation("ApproverPR")
@@ -3316,6 +3319,8 @@ model PurchaseRequest {
   requester       User                      @relation("Requester", fields: [requesterId], references: [id])
   tenant          Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  purchaseLinks RestockPurchaseLink[]
+
   @@unique([tenantId, nomorRequest], name: "tenantId_nomorRequest")
   @@index([tenantId])
   @@map("purchase_requests")
@@ -3522,27 +3527,75 @@ model PurchaseOrderItem {
 /// Satu kali belanja di satu toko untuk satu PO restock. Tagihan, pembayaran,
 /// jurnal tetap di PO.
 model PurchaseRecord {
-  id              String               @id @default(uuid())
-  purchaseOrderId String
-  storeName       String
-  supplierId      String?
-  purchasedAt     DateTime
-  recordedById    String
-  notes           String?
-  fotoNota        String[]             @default([])
-  tenantId        String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  items           PurchaseRecordItem[]
-  purchaseOrder   PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
-  supplier        Supplier?            @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  recordedBy      User                 @relation("PurchaseRecordRecorder", fields: [recordedById], references: [id])
-  tenant          Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  id                String               @id @default(uuid())
+  purchaseOrderId   String
+  storeName         String
+  supplierId        String?
+  purchasedAt       DateTime
+  recordedById      String
+  notes             String?
+  fotoNota          String[]             @default([])
+  tenantId          String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  items             PurchaseRecordItem[]
+  purchaseOrder     PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  supplier          Supplier?            @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  recordedBy        User                 @relation("PurchaseRecordRecorder", fields: [recordedById], references: [id])
+  tenant            Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  /// Nama orang yang belanja. Lewat link: wajib diisi pembeli. Dari aplikasi: isian admin, atau nama pencatat.
+  buyerName         String?
+  /// Kunci objek R2 tanda tangan pembeli (PNG). Tidak pernah dibagikan sebagai URL publik.
+  buyerSignatureKey String?
+  source            PurchaseRecordSource @default(ADMIN)
+  purchaseLinkId    String?
+  /// UUID dari browser untuk mencegah kirim dobel lewat link.
+  clientRequestId   String?
+  ipAddress         String?
+  userAgent         String?
+  purchaseLink      RestockPurchaseLink? @relation(fields: [purchaseLinkId], references: [id], onDelete: SetNull)
+  /// Catatan yang dibatalkan admin: tetap disimpan untuk jejak audit, tapi tidak dihitung sebagai belanja.
+  voidedAt          DateTime?
+  voidedById        String?
+  voidReason        String?
+  voidedBy          User?                @relation("PurchaseRecordVoider", fields: [voidedById], references: [id], onDelete: SetNull)
 
+  @@unique([purchaseLinkId, clientRequestId])
   @@index([purchaseOrderId])
   @@index([supplierId])
   @@index([tenantId])
   @@map("purchase_records")
+}
+
+enum PurchaseRecordSource {
+  ADMIN
+  PUBLIC_LINK
+}
+
+/// Link daftar belanja tanpa login untuk satu pengajuan restock.
+/// Token mentah tidak pernah disimpan; hanya sha256-nya.
+model RestockPurchaseLink {
+  id                String           @id @default(uuid())
+  purchaseRequestId String
+  /// sha256 (hex) token. Dicari langsung by hash; token mentah hanya dikembalikan sekali saat dibuat.
+  tokenHash         String           @unique
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  revokedById       String?
+  lastUsedAt        DateTime?
+  createdById       String
+  tenantId          String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  purchaseRequest   PurchaseRequest  @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  createdBy         User             @relation("RestockPurchaseLinkCreator", fields: [createdById], references: [id])
+  revokedBy         User?            @relation("RestockPurchaseLinkRevoker", fields: [revokedById], references: [id], onDelete: SetNull)
+  tenant            Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  purchaseRecords   PurchaseRecord[]
+
+  @@index([purchaseRequestId, revokedAt])
+  @@index([tenantId])
+  @@map("restock_purchase_links")
 }
 
 /// Satu barang di satu catatan belanja. barangId = snapshot saat dibeli
@@ -4460,6 +4513,7 @@ model Tenant {
   goodsReceipts                            GoodsReceipt[]
   goodsReceiptItems                        GoodsReceiptItem[]
   purchaseRecords                          PurchaseRecord[]
+  restockPurchaseLinks                     RestockPurchaseLink[]
   purchaseRecordItems                      PurchaseRecordItem[]
   goodsReturns                             GoodsReturn[]
   goodsReturnItems                         GoodsReturnItem[]

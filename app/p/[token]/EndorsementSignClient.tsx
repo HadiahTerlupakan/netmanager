@@ -4,7 +4,9 @@ import { useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/Button";
 import { clientLogger } from "@/lib/client-logger";
-import SignaturePad, { type SignaturePadHandle } from "./SignaturePad";
+import SignaturePad, {
+  type SignaturePadHandle,
+} from "@/components/signature/SignaturePad";
 
 /**
  * Tampilan penanda tangan: dokumen di atas, kanvas tanda tangan di bawah.
