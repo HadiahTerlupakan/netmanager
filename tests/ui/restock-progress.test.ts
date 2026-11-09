@@ -114,7 +114,7 @@ describe("getRestockProgress", () => {
     expect(progress.stageText).toBe("Tahap 3 dari 4: Pembelian");
     expect(progress.label).toBe("Belum Dibeli");
     expect(progress.sentence).toBe(
-      "Tahap pembelian: menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli.",
+      "Menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli.",
     );
   });
 
@@ -503,7 +503,7 @@ describe("restock progress helpers", () => {
       isVerificationStarted: true,
     });
     expect(progress.sentence).toBe(
-      "Kabel Fiber dibeli 6 dari 10 roll, sudah datang 6 roll. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli sudah datang semua.",
+      "Kabel Fiber dibeli 6 dari 10 roll, sudah datang 6 roll. Sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli sudah datang semua.",
     );
   });
 
@@ -515,7 +515,7 @@ describe("restock progress helpers", () => {
       }),
     );
     expect(progress.sentence).toBe(
-      "Kabel Fiber dibeli 6 dari 10 roll, sudah datang 2 roll. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
+      "Kabel Fiber dibeli 6 dari 10 roll, sudah datang 2 roll. Sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
     );
   });
 

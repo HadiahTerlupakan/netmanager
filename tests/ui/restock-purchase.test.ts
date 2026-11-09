@@ -125,7 +125,7 @@ describe("status belanja di daftar pengajuan", () => {
     expect(partialQuantity.key).toBe("PURCHASING");
     expect(partialQuantity.label).toBe("Dibeli Sebagian");
     expect(partialQuantity.sentence).toBe(
-      "Kabel Fiber dibeli 3 dari 10 roll. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
+      "Kabel Fiber dibeli 3 dari 10 roll. Sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
     );
     expect(partialQuantity.badgeClassName).toContain("bg-sky-100");
 
@@ -138,7 +138,7 @@ describe("status belanja di daftar pengajuan", () => {
     );
     expect(partialKinds.key).toBe("PURCHASING");
     expect(partialKinds.sentence).toBe(
-      "Kabel Fiber dibeli 10 dari 10 roll. ONT dibeli 0 dari 10 pcs. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
+      "Kabel Fiber dibeli 10 dari 10 roll. ONT dibeli 0 dari 10 pcs. Sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
     );
 
     const all = getRestockProgress(
@@ -165,7 +165,7 @@ describe("status belanja di daftar pengajuan", () => {
       }),
     );
     expect(progress.sentence).toBe(
-      "Dari 3 jenis barang: 1 sudah dibeli semua, 1 baru dibeli sebagian, 1 belum dibeli. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
+      "Dari 3 jenis barang: 1 sudah dibeli semua, 1 baru dibeli sebagian, 1 belum dibeli. Sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
     );
   });
 
@@ -187,7 +187,7 @@ describe("status belanja di daftar pengajuan", () => {
     );
     expect(progress.label).toBe("Dibeli Sebagian");
     expect(progress.sentence).toBe(
-      "Dari 3 jenis barang: 0 sudah dibeli semua, 3 baru dibeli sebagian. Tahap pembelian: sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
+      "Dari 3 jenis barang: 0 sudah dibeli semua, 3 baru dibeli sebagian. Sisanya menunggu laporan belanja dari link. Barang yang sudah dibeli bisa dicatat datang.",
     );
   });
 
@@ -409,7 +409,7 @@ describe("canSendRestockPurchaseLink", () => {
   it("belum dibeli mengarahkan ke link belanja", () => {
     expect(isRestockMergedOrder(makeRequest())).toBe(false);
     expect(getRestockProgress(makeRequest()).sentence).toBe(
-      "Tahap pembelian: menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli.",
+      "Menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli.",
     );
   });
 });

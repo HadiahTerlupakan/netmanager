@@ -243,6 +243,17 @@ function getReceiveActionAriaLabel(label: string, nomorRequest: string) {
   return `${label} untuk ${nomorRequest}`;
 }
 
+const REQUEST_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+};
+
+/** Tanggal pengajuan, mis. "09 Nov 2026". */
+function formatRequestDate(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString("id-ID", REQUEST_DATE_FORMAT);
+}
+
 /**
  * Tombol perjalanan pesanan. Tahap pembelian: "Kirim Link Belanja" jadi
  * tombol utama. Barang yang sudah dilaporkan dibeli tapi belum datang bisa
@@ -415,12 +426,7 @@ export function RestockTable({
             {request.nomorRequest}
           </p>
           <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
-            Tgl. Pengajuan:{" "}
-            {new Date(request.createdAt).toLocaleDateString("id-ID", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
+            Tgl. Pengajuan: {formatRequestDate(request.createdAt)}
           </p>
         </div>
       </div>
@@ -444,33 +450,23 @@ export function RestockTable({
       key: "nomor",
       header: "No. Pengajuan",
       priority: "primary",
-      minWidth: "18rem",
+      minWidth: "10rem",
       render: (request) => (
-        <span className="text-sm font-black tracking-[-0.03em] text-gray-900 dark:text-white">
-          {request.nomorRequest}
-        </span>
-      ),
-    },
-    {
-      key: "tanggalPengajuan",
-      header: "Tanggal Pengajuan",
-      priority: "secondary",
-      minWidth: "11rem",
-      render: (request) => (
-        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-          {new Date(request.createdAt).toLocaleDateString("id-ID", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })}
-        </span>
+        <div className="flex flex-col gap-0.5">
+          <span className="whitespace-nowrap text-sm font-black tracking-[-0.03em] text-gray-900 dark:text-white">
+            {request.nomorRequest}
+          </span>
+          <span className="whitespace-nowrap text-xs font-medium text-gray-500 dark:text-gray-400">
+            {formatRequestDate(request.createdAt)}
+          </span>
+        </div>
       ),
     },
     {
       key: "gudang",
       header: "Gudang Tujuan",
       priority: "secondary",
-      minWidth: "14rem",
+      minWidth: "7.5rem",
       render: (request) => (
         <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
           {request.gudang?.nama || "-"}
@@ -481,7 +477,7 @@ export function RestockTable({
       key: "keterangan",
       header: "Catatan / Keterangan",
       priority: "secondary",
-      minWidth: "16rem",
+      minWidth: "7rem",
       render: (request) =>
         request.keterangan ? (
           <span className="text-sm font-medium text-gray-600 dark:text-gray-300 line-clamp-2">
@@ -498,15 +494,19 @@ export function RestockTable({
       header: "Status",
       priority: "primary",
       align: "left",
-      className: "w-[14rem]",
-      render: (request) => <RestockProgressStatus request={request} />,
+      // minWidth dipatuhi tabel; kelas w-[..] hanya saran sehingga kolom
+      // status dulu terjepit sampai satu kata per baris.
+      minWidth: "14rem",
+      render: (request) => (
+        <RestockProgressStatus request={request} isCompact />
+      ),
     },
     {
       key: "actions",
       header: "Aksi",
       priority: "primary",
       align: "right",
-      className: "w-[16rem]",
+      minWidth: "14rem",
       render: renderActions,
     },
   ];

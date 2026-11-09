@@ -41,6 +41,23 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-09] — Kolom status tabel restock tidak lagi terjepit
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Kolom Status di tabel pengajuan hanya diberi kelas `w-[14rem]` (sekadar saran
+  untuk tabel), sehingga kolom lain mengambil ruangnya dan isinya terpotong satu kata per baris
+  dengan baris setinggi 200–330 px. Status dan Aksi kini memakai `minWidth`; tanggal pengajuan
+  pindah ke bawah nomor (kolom Tanggal dihapus) supaya tabel muat tanpa geser ke samping di layar
+  1280 px. Sel status versi tabel: badge + "Tahap 3/4 · Pembelian" satu baris + kalimat maks.
+  2 baris (teks lengkap di tooltip dan detail). Awalan berulang "Tahap pembelian:" dibuang dari
+  kalimat status.
+- **Files**: `app/admin/inventory/restock/RestockTable.tsx`,
+  `app/admin/inventory/restock/RestockStatusBadge.tsx`,
+  `app/admin/inventory/restock/restockProgress.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-09] — Verifikasi barang sampai hanya setelah dilaporkan dibeli
 
 - **Tipe**: [CHANGED]

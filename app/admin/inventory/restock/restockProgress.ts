@@ -166,7 +166,7 @@ const FIXED_COPY: Partial<
   NOT_PURCHASED: {
     label: "Belum Dibeli",
     sentence:
-      "Tahap pembelian: menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli.",
+      "Menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli.",
   },
   PURCHASING: { label: "Dibeli Sebagian", sentence: "" },
   PURCHASED: {
@@ -323,8 +323,7 @@ function describePurchasingProgress(lines: PurchaseRequestItem[]): string {
 }
 
 /** Sisa belanja hanya dilaporkan lewat link belanja. */
-const AWAITING_LINK_SUFFIX =
-  " Tahap pembelian: sisanya menunggu laporan belanja dari link.";
+const AWAITING_LINK_SUFFIX = " Sisanya menunggu laporan belanja dari link.";
 const PURCHASED_CAN_ARRIVE_SUFFIX =
   " Barang yang sudah dibeli bisa dicatat datang.";
 const PURCHASED_ALL_ARRIVED_SUFFIX =

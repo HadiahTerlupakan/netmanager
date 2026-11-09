@@ -372,13 +372,18 @@ describe("RestockTable action visibility", () => {
       (column) => column.key === "actions",
     );
 
-    expect(nomorColumn?.minWidth).toBe("18rem");
-    expect(gudangColumn?.minWidth).toBe("14rem");
-    expect(keteranganColumn?.minWidth).toBe("16rem");
+    expect(nomorColumn?.minWidth).toBe("10rem");
+    expect(gudangColumn?.minWidth).toBe("7.5rem");
+    expect(keteranganColumn?.minWidth).toBe("7rem");
     expect(statusColumn?.align).toBe("left");
-    expect(statusColumn?.className).toContain("w-[14rem]");
+    // Lebar status & aksi harus minWidth (dipatuhi tabel), bukan kelas w-[..]
+    // yang hanya saran: dulu kolom status terjepit sampai satu kata per baris.
+    expect(statusColumn?.minWidth).toBe("14rem");
     expect(actionColumn?.align).toBe("right");
-    expect(actionColumn?.className).toContain("w-[16rem]");
+    expect(actionColumn?.minWidth).toBe("14rem");
+    expect(
+      props.columns.some((column) => column.key === "tanggalPengajuan"),
+    ).toBe(false);
   });
 
   it("renders compact action cluster and balanced filter toolbar controls", () => {

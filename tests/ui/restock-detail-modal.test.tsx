@@ -336,7 +336,7 @@ describe("RestockDetailModal order journey", () => {
     );
 
     expect(markup).toContain(
-      "Tahap pembelian: menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli. Kirim link belanja ke orang yang belanja.",
+      "Menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli. Kirim link belanja ke orang yang belanja.",
     );
     expect(markup).toContain("Link belanja");
     expect(markup).not.toContain("Catat Belanja");
@@ -443,9 +443,7 @@ describe("RestockDetailModal order journey", () => {
 
     const markup = renderDetail(notBought, { canVerify: false });
 
-    expect(markup).toContain(
-      "Tahap pembelian: menunggu laporan belanja dari link.",
-    );
+    expect(markup).toContain("Menunggu laporan belanja dari link.");
     expect(markup).not.toContain("Kirim link belanja");
     expect(markup).not.toContain("Tutup sisa yang tidak jadi dibeli");
   });

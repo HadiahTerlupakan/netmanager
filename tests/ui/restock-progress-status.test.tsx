@@ -36,9 +36,7 @@ describe("RestockProgressStatus", () => {
     expect(markup.indexOf("Tahap 3 dari 4: Pembelian")).toBeLessThan(
       markup.indexOf("Belum Dibeli"),
     );
-    expect(markup).toContain(
-      "Tahap pembelian: menunggu laporan belanja dari link.",
-    );
+    expect(markup).toContain("Menunggu laporan belanja dari link.");
   });
 
   it("tidak menulis tahap untuk pengajuan yang dibatalkan", () => {
@@ -47,6 +45,32 @@ describe("RestockProgressStatus", () => {
     );
 
     expect(markup).not.toContain("Tahap");
+    expect(markup).toContain("Dibatalkan");
+  });
+
+  it("versi tabel: badge dulu, tahap singkat satu baris, kalimat dipotong 2 baris", () => {
+    const markup = renderToStaticMarkup(
+      <RestockProgressStatus request={request} isCompact />,
+    );
+
+    expect(markup.indexOf("Belum Dibeli")).toBeLessThan(
+      markup.indexOf("Tahap 3/4"),
+    );
+    expect(markup).toContain("Tahap 3/4 · Pembelian");
+    expect(markup).toContain("whitespace-nowrap");
+    expect(markup).toContain("line-clamp-2");
+    expect(markup).not.toContain("Tahap 3 dari 4: Pembelian</p>");
+  });
+
+  it("versi tabel tidak menulis tahap untuk pengajuan yang dibatalkan", () => {
+    const markup = renderToStaticMarkup(
+      <RestockProgressStatus
+        request={{ ...request, status: "CANCELLED" }}
+        isCompact
+      />,
+    );
+
+    expect(markup).not.toContain("Tahap ");
     expect(markup).toContain("Dibatalkan");
   });
 });
