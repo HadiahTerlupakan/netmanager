@@ -122,7 +122,6 @@ function input(
     receivableBarangIds: ["barang-1"],
     tenantId: "tenant-1",
     recordedById: "user-1",
-    storeName: "Toko Sinar",
     purchasedAt,
     issuedAt: purchasedAt,
     notes: null,
@@ -210,7 +209,6 @@ describe("RestockPurchaseRecordRepository.createPurchaseRecord", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           purchaseOrderId: "po-1",
-          storeName: "Toko Sinar",
           supplierId: null,
           fotoNota: [],
           source: "PUBLIC_LINK",

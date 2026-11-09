@@ -4,7 +4,7 @@ export const BELANJA_TEXTS = {
   subtitle: (requestNumber: string, warehouseName: string) =>
     `Pengajuan ${requestNumber} · untuk ${warehouseName}`,
   instructions:
-    "Centang barang yang sudah Anda beli di satu toko, isi jumlahnya, lalu tanda tangan di bawah. Kalau belanja di beberapa toko, simpan satu per satu untuk tiap toko.",
+    "Centang barang yang sudah Anda beli, isi jumlahnya, lalu tanda tangan di bawah. Kalau belanjanya beberapa kali, simpan satu per satu setiap selesai belanja.",
   loading: "Memuat daftar belanja…",
   itemSummary: (
     needed: number,
@@ -14,19 +14,19 @@ export const BELANJA_TEXTS = {
   ) =>
     `Butuh ${needed}${unit ? ` ${unit}` : ""} · Sudah dibeli ${purchased} · Sisa ${remaining}`,
   itemDone: "Sudah dibeli semua",
+  /** "Dibeli Budi, 09 Nov 2026: 3 roll"; catatan lama memakai nama toko. */
   storeBreakdown: (
-    storeName: string,
+    who: string | null,
     date: string,
     quantity: number,
     unit: string,
-  ) => `Dibeli di ${storeName}, ${date}: ${quantity}${unit ? ` ${unit}` : ""}`,
+  ) =>
+    `Dibeli${who ? ` ${who}` : ""}, ${date}: ${quantity}${unit ? ` ${unit}` : ""}`,
   itemsLegend: "Barang yang dibeli",
   quantityLabel: "Jumlah yang dibeli",
   quantityHint: (remaining: number) => `Paling banyak ${remaining}`,
   priceLabel: "Harga satuan (boleh kosong)",
   priceHint: "Contoh: 12000",
-  storeLabel: "Nama toko",
-  storePlaceholder: "Contoh: Toko Sinar Jaya",
   dateLabel: "Tanggal belanja",
   notesLabel: "Catatan (boleh kosong)",
   buyerLabel: "Nama Anda (yang belanja)",
@@ -39,7 +39,6 @@ export const BELANJA_TEXTS = {
   problemsTitle: "Belum bisa disimpan:",
   problems: {
     noItem: "Centang dulu barang yang Anda beli.",
-    noStore: "Isi nama toko.",
     noBuyer: "Isi nama Anda.",
     noSignature: "Tanda tangan dulu di kotak tanda tangan.",
     noDate: "Isi tanggal belanja.",

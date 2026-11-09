@@ -19,7 +19,7 @@ describe("buildPurchaseLinkMessage", () => {
       }),
     ).toBe(
       "Halo, ini daftar belanja untuk pengajuan PR-001 (Gudang Utama).\n" +
-        "Buka link ini, centang barang yang sudah dibeli, isi nama toko, lalu tanda tangan:\n" +
+        "Buka link ini, centang barang yang sudah dibeli, isi nama Anda, lalu tanda tangan:\n" +
         `${URL_WITH_TOKEN}\n\nJangan teruskan link ini ke orang lain.`,
     );
   });

@@ -25,7 +25,13 @@ export interface BelanjaItem {
   needed: number;
   purchased: number;
   remaining: number;
-  stores: Array<{ storeName: string; purchasedAt: string; quantity: number }>;
+  /** Riwayat belanja barang ini; nama toko hanya ada di catatan lama. */
+  stores: Array<{
+    storeName: string | null;
+    buyerName: string | null;
+    purchasedAt: string;
+    quantity: number;
+  }>;
 }
 
 /** Daftar belanja seperti dikirim server. */
@@ -47,9 +53,8 @@ export interface BelanjaFormLine {
   unitPrice: string;
 }
 
-/** Isian lengkap satu kali belanja di satu toko. */
+/** Isian lengkap satu kali belanja. */
 export interface BelanjaForm {
-  storeName: string;
   /** "YYYY-MM-DD", tanggal lokal perangkat. */
   purchasedAt: string;
   notes: string;
@@ -60,7 +65,6 @@ export interface BelanjaForm {
 /** Isi kiriman POST /api/belanja/catat, tanpa token dan clientRequestId. */
 export interface BelanjaSubmitInput {
   buyerName: string;
-  storeName: string;
   purchasedAt: string;
   notes: string | null;
   signatureDataUrl: string;
@@ -99,7 +103,6 @@ export function buildInitialBelanjaForm(
   now: Date = new Date(),
 ): BelanjaForm {
   return {
-    storeName: "",
     purchasedAt: todayIsoDate(now),
     notes: "",
     buyerName,
@@ -169,7 +172,6 @@ export function findBelanjaFormProblems(
     const problem = item ? findLineProblem(line, item) : null;
     if (problem) found.push(problem);
   }
-  if (form.storeName.trim() === "") found.push(problems.noStore);
   if (form.purchasedAt === "") {
     found.push(problems.noDate);
   } else if (form.purchasedAt > todayIsoDate(now)) {
@@ -188,7 +190,6 @@ export function buildBelanjaSubmitInput(
   const notes = form.notes.trim();
   return {
     buyerName: form.buyerName.trim().replace(/\s+/g, " "),
-    storeName: form.storeName.trim(),
     purchasedAt: form.purchasedAt,
     notes: notes === "" ? null : notes,
     signatureDataUrl,

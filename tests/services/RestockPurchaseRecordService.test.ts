@@ -97,7 +97,6 @@ function command(
     purchaseRequestId: "pr-1",
     tenantId: "tenant-1",
     origin: linkOrigin,
-    storeName: "Toko Sinar",
     purchasedAt: "2026-11-09",
     notes: null,
     items: [{ purchaseOrderItemId: "poi-1", quantity: 10, unitPrice: 12000 }],
@@ -178,7 +177,6 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
       tenantId: "tenant-1",
       // Penanggung jawab = pembuat link.
       recordedById: "admin-1",
-      storeName: "Toko Sinar",
       purchasedAt: new Date("2026-11-09T05:00:00Z"),
       // Tanggal beli pesanan memakai waktu server, bukan tanggal isian.
       issuedAt: NOW,
@@ -223,7 +221,7 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
       data: {
         isFullyPurchased: false,
         message:
-          "Tersimpan. Belanja di Toko Sinar sudah dicatat. Masih ada barang yang belum dibeli.",
+          "Tersimpan. Belanjanya sudah dicatat. Masih ada barang yang belum dibeli.",
       },
     });
   });
@@ -241,7 +239,6 @@ describe("RestockPurchaseRecordService.recordPurchase", () => {
         details: expect.objectContaining({
           purchaseRequestId: "pr-1",
           purchaseRecordId: "rec-1",
-          toko: "Toko Sinar",
           tanggalBelanja: "2026-11-09",
           barang: [{ barangId: "barang-1", jumlah: 10, hargaSatuan: 12000 }],
           statusLama: "DRAFT",

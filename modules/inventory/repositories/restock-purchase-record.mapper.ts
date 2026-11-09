@@ -165,7 +165,7 @@ export const PURCHASE_RECORD_VIEW_SELECT = {
 /** Bentuk baris hasil `PURCHASE_RECORD_VIEW_SELECT`. */
 export interface PurchaseRecordViewRow {
   id: string;
-  storeName: string;
+  storeName: string | null;
   supplierId: string | null;
   purchasedAt: Date;
   createdAt: Date;

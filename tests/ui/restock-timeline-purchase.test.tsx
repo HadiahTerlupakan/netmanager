@@ -79,6 +79,17 @@ describe("RestockTimeline purchase records", () => {
     expect(markup).toContain('loading="lazy"');
   });
 
+  it("belanja tanpa nama toko tidak menulis toko di judul", () => {
+    const markup = renderToStaticMarkup(
+      <RestockTimeline
+        request={makeRequest([makeRecord({ storeName: null })])}
+      />,
+    );
+
+    expect(markup).toContain("Belanja ke-1 · 8 Nov 2026 · dibeli Andi");
+    expect(markup).not.toContain("Toko");
+  });
+
   it("memakai nama pencatat bila nama pembeli kosong, tanpa label dan tanda tangan", () => {
     const markup = renderToStaticMarkup(
       <RestockTimeline

@@ -1,4 +1,4 @@
-/** Kontrak akses data untuk mencatat belanja (satu kali belanja di satu toko). */
+/** Kontrak akses data untuk mencatat belanja (satu kali belanja). */
 
 /** Item pesanan beserta jumlah yang dipakai untuk menghitung sisa belanja. */
 export interface RestockPurchaseContextItem {
@@ -67,7 +67,6 @@ export interface CreatePurchaseRecordInput {
   tenantId: string;
   /** Pembuat link: penanggung jawab internal catatan ini. */
   recordedById: string;
-  storeName: string;
   purchasedAt: Date;
   /** Tanggal beli pesanan bila belanja ini mengubahnya dari DRAFT. */
   issuedAt: Date;
@@ -86,7 +85,8 @@ export interface CreatePurchaseRecordInput {
 /** Catatan belanja seperti yang ditampilkan ke petugas. */
 export interface RestockPurchaseRecordView {
   id: string;
-  storeName: string;
+  /** Hanya catatan lama; link belanja tidak lagi menanyakan nama toko. */
+  storeName: string | null;
   supplierId: string | null;
   purchasedAt: Date;
   createdAt: Date;

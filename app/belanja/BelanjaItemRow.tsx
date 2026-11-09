@@ -82,7 +82,7 @@ export function BelanjaItemRow({
               className="block text-sm text-gray-600 dark:text-gray-400"
             >
               {BELANJA_TEXTS.storeBreakdown(
-                store.storeName,
+                store.storeName ? `di ${store.storeName}` : store.buyerName,
                 formatStoreDate(store.purchasedAt),
                 store.quantity,
                 unit,

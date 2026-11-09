@@ -52,7 +52,13 @@ export interface PublicPurchaseListItem {
   needed: number;
   purchased: number;
   remaining: number;
-  stores: Array<{ storeName: string; purchasedAt: string; quantity: number }>;
+  /** Riwayat belanja barang ini; nama toko hanya ada di catatan lama. */
+  stores: Array<{
+    storeName: string | null;
+    buyerName: string | null;
+    purchasedAt: string;
+    quantity: number;
+  }>;
 }
 
 /** Daftar belanja seperti dilihat pemegang link. */
@@ -68,7 +74,6 @@ export interface PublicPurchaseListView {
 export interface PublicPurchaseSubmitInput {
   clientRequestId: string;
   buyerName: string;
-  storeName: string;
   purchasedAt: string;
   notes: string | null;
   signatureDataUrl: string;
@@ -199,7 +204,7 @@ export class RestockPublicPurchaseService {
     };
   }
 
-  /** Catat satu belanja di satu toko lewat link, dengan tanda tangan pembeli. */
+  /** Catat satu belanja lewat link, dengan tanda tangan pembeli. */
   async submit(
     link: UsablePurchaseLink,
     input: PublicPurchaseSubmitInput,
@@ -279,7 +284,6 @@ export class RestockPublicPurchaseService {
           ipAddress: truncate(client.ipAddress, MAX_IP_ADDRESS_LENGTH),
           userAgent: truncate(client.userAgent, MAX_USER_AGENT_LENGTH),
         },
-        storeName: input.storeName,
         purchasedAt: input.purchasedAt,
         notes: input.notes,
         items: input.items,
@@ -343,6 +347,7 @@ function toListItem(
         .filter((line) => line.purchaseOrderItemId === item.id)
         .map((line) => ({
           storeName: record.storeName,
+          buyerName: record.buyerName,
           purchasedAt: formatJakartaDate(record.purchasedAt),
           quantity: line.quantity,
         })),

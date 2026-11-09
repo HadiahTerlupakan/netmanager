@@ -284,9 +284,8 @@ export type RestockUpdateInput = z.infer<typeof restockUpdateSchema>;
 export type RestockLifecycleInput = z.infer<typeof restockLifecycleSchema>;
 export type RestockJasaConfirmInput = z.infer<typeof restockJasaConfirmSchema>;
 
-/** Batas isian catatan belanja (satu kali belanja di satu toko). */
+/** Batas isian catatan belanja (satu kali belanja). */
 export const RESTOCK_PURCHASE_LIMITS = {
-  storeName: 120,
   notes: 500,
   /** Jumlah barang maksimal dalam satu catatan belanja. */
   items: 200,
@@ -296,7 +295,6 @@ export const RESTOCK_PURCHASE_LIMITS = {
   signatureDataUrl: 280_000,
 } as const;
 
-const STORE_NAME_EMPTY = "Nama toko belum diisi. Tulis nama tokonya.";
 const PURCHASE_LINE_BROKEN =
   "Data barang tidak lengkap. Muat ulang halaman, lalu coba lagi.";
 
@@ -318,24 +316,13 @@ const restockPurchaseLineSchema = z.object({
 
 /**
  * Teks polos tanpa karakter kontrol (`\p{Cc}`) maupun karakter format
- * (`\p{Cf}`: pembalik arah U+202E/U+202D, karakter tak terlihat). Nama toko
- * dan nama pembeli adalah bukti siapa yang belanja di garis waktu dan PDF,
- * jadi tampilannya tidak boleh bisa dibalik atau disamarkan.
+ * (`\p{Cf}`: pembalik arah U+202E/U+202D, karakter tak terlihat). Nama
+ * pembeli adalah bukti siapa yang belanja di garis waktu dan PDF, jadi
+ * tampilannya tidak boleh bisa dibalik atau disamarkan.
  */
 const SINGLE_LINE_PLAIN_TEXT = /^[^\p{Cc}\p{Cf}]*$/u;
 /** Sama seperti di atas, tetapi catatan boleh berisi baris baru dan tab. */
 const MULTI_LINE_PLAIN_TEXT = /^(?:[^\p{Cc}\p{Cf}]|[\n\r\t])*$/u;
-
-const purchaseStoreNameSchema = z
-  .string({ error: STORE_NAME_EMPTY })
-  .trim()
-  .min(1, { error: STORE_NAME_EMPTY })
-  .max(RESTOCK_PURCHASE_LIMITS.storeName, {
-    error: `Nama toko terlalu panjang. Paling banyak ${RESTOCK_PURCHASE_LIMITS.storeName} huruf.`,
-  })
-  .regex(SINGLE_LINE_PLAIN_TEXT, {
-    error: "Nama toko berisi huruf yang tidak bisa dipakai.",
-  });
 
 const purchaseDateSchema = z.iso.date({
   error: "Tanggal belanja belum diisi atau tidak terbaca.",
@@ -359,8 +346,7 @@ const purchaseLinesSchema = z
     error: "Daftar barang tidak terbaca. Muat ulang halaman, lalu coba lagi.",
   })
   .min(1, {
-    error:
-      "Belum ada barang yang dicentang. Centang barang yang dibeli di toko ini.",
+    error: "Belum ada barang yang dicentang. Centang barang yang sudah dibeli.",
   })
   .max(RESTOCK_PURCHASE_LIMITS.items, {
     error: `Barang terlalu banyak. Paling banyak ${RESTOCK_PURCHASE_LIMITS.items} barang dalam satu belanja.`,
@@ -448,7 +434,6 @@ export const publicPurchaseRecordSchema = z
       token: purchaseLinkTokenSchema,
       clientRequestId: z.uuid({ error: PUBLIC_FORM_UNREADABLE }),
       buyerName: buyerNameSchema,
-      storeName: purchaseStoreNameSchema,
       purchasedAt: purchaseDateSchema,
       notes: purchaseNotesSchema,
       signatureDataUrl: z

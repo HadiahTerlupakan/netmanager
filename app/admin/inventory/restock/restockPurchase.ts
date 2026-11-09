@@ -115,6 +115,16 @@ export function getPurchaseBuyerName(
   return record.buyerName || record.recordedBy?.name || null;
 }
 
+/**
+ * Nama yang mewakili satu belanja di rincian per barang: nama toko pada
+ * catatan lama, selain itu nama pembelinya.
+ */
+export function getPurchaseSourceName(
+  record: Pick<PurchaseRecordSummary, "storeName" | "buyerName" | "recordedBy">,
+): string {
+  return record.storeName || getPurchaseBuyerName(record) || "Tanpa nama";
+}
+
 /** Sudah ada belanja tercatat: catatan belanja atau jumlah dibeli di pesanan. */
 export function hasRestockPurchaseActivity(request: PurchaseRequest): boolean {
   if (getRestockPurchaseRecords(request).length > 0) return true;
@@ -310,8 +320,9 @@ export function canSendRestockPurchaseLink(request: PurchaseRequest): boolean {
 }
 
 /**
- * Rincian toko untuk satu barang: "Toko A 3, Toko B 2". Jumlah yang dibeli
- * tanpa catatan (hanya pada data lama) ditulis terpisah.
+ * Rincian siapa yang membeli satu barang: "Budi 3, Andi 2" (catatan lama
+ * memakai nama toko). Jumlah yang dibeli tanpa catatan (hanya pada data
+ * lama) ditulis terpisah.
  */
 export function describeLinePurchaseBreakdown(
   item: PurchaseRequestItem,
@@ -322,23 +333,24 @@ export function describeLinePurchaseBreakdown(
     isRestockLegacyPurchased(request),
   );
   if (purchasedTotal === 0) return null;
-  const perStore = new Map<string, number>();
+  const perSource = new Map<string, number>();
   if (item.purchaseOrderItemId) {
     for (const record of getRestockPurchaseRecords(request)) {
       for (const line of record.items) {
         if (line.purchaseOrderItemId !== item.purchaseOrderItemId) continue;
-        perStore.set(
-          record.storeName,
-          (perStore.get(record.storeName) ?? 0) + line.quantity,
+        const sourceName = getPurchaseSourceName(record);
+        perSource.set(
+          sourceName,
+          (perSource.get(sourceName) ?? 0) + line.quantity,
         );
       }
     }
   }
-  const parts = [...perStore].map(
-    ([storeName, quantity]) =>
-      `${storeName} ${QUANTITY_FORMAT.format(quantity)}`,
+  const parts = [...perSource].map(
+    ([sourceName, quantity]) =>
+      `${sourceName} ${QUANTITY_FORMAT.format(quantity)}`,
   );
-  const recordedTotal = [...perStore.values()].reduce(
+  const recordedTotal = [...perSource.values()].reduce(
     (total, quantity) => total + quantity,
     0,
   );

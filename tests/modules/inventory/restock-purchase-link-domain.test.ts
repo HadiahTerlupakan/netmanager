@@ -90,7 +90,6 @@ describe("isPurchaseLinkUsable", () => {
 describe("isSameLinkSubmission", () => {
   const stored = {
     buyerName: "Joko",
-    storeName: "Toko Sinar",
     purchasedAt: new Date("2026-11-08T17:30:00Z"),
     notes: null as string | null,
     items: [
@@ -100,7 +99,6 @@ describe("isSameLinkSubmission", () => {
   };
   const same = {
     buyerName: "Joko",
-    storeName: "Toko Sinar",
     purchasedAt: "2026-11-09",
     notes: null as string | null,
     items: [
@@ -115,7 +113,6 @@ describe("isSameLinkSubmission", () => {
 
   it.each([
     ["nama pembeli", { buyerName: "Andi" }],
-    ["toko", { storeName: "Toko Lain" }],
     ["tanggal", { purchasedAt: "2026-11-08" }],
     ["catatan", { notes: "lunas" }],
     [

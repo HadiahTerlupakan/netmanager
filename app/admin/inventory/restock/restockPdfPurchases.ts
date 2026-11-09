@@ -7,8 +7,8 @@ import {
 import type { PurchaseRecordSummary } from "./types";
 
 /**
- * Bagian "PEMBELIAN" di PDF pengajuan: tiap belanja dengan tanggal, toko,
- * barang, nama pembeli, dan gambar tanda tangannya. Tanda tangan diambil
+ * Bagian "PEMBELIAN" di PDF pengajuan: tiap belanja dengan tanggal, toko
+ * (catatan lama saja), barang, nama pembeli, dan gambar tanda tangannya. Tanda tangan diambil
  * lewat route ber-auth (same-origin) lalu diubah ke data URL sebelum PDF
  * digambar.
  */
@@ -112,7 +112,8 @@ function describeRecordHeading(
   index: number,
 ): string {
   const date = PDF_DATE_FORMAT.format(new Date(record.purchasedAt));
-  return `${index + 1}. ${date} - ${record.storeName}`;
+  const heading = `${index + 1}. ${date}`;
+  return record.storeName ? `${heading} - ${record.storeName}` : heading;
 }
 
 /**

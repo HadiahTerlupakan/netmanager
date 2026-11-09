@@ -165,7 +165,9 @@ function PurchaseStep({
     record.storeName,
     buyerName ? `dibeli ${buyerName}` : null,
   ]);
-  const label = `belanja ke-${index + 1} di ${record.storeName}`;
+  const label = record.storeName
+    ? `belanja ke-${index + 1} di ${record.storeName}`
+    : `belanja ke-${index + 1}`;
   const voidNoticeRef = useVoidedFocusTarget(isVoided);
 
   return (

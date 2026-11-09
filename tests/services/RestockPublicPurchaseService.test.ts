@@ -71,7 +71,6 @@ const link: UsablePurchaseLink = {
 const input: PublicPurchaseSubmitInput = {
   clientRequestId: "6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f",
   buyerName: "Joko",
-  storeName: "Toko Sinar",
   purchasedAt: "2026-11-09",
   notes: null,
   signatureDataUrl: pngDataUrl(),
@@ -83,7 +82,6 @@ const client = { ipAddress: "10.0.0.1", userAgent: "x".repeat(900) };
 const storedSameAsInput = {
   id: "rec-1",
   buyerName: "Joko",
-  storeName: "Toko Sinar",
   purchasedAt: new Date("2026-11-09T05:00:00Z"),
   notes: null as string | null,
   items: [
@@ -204,7 +202,8 @@ describe("RestockPublicPurchaseService.getList", () => {
       warehouseName: "Gudang Pusat",
       records: [
         {
-          storeName: "Toko A",
+          storeName: null,
+          buyerName: "Joko",
           purchasedAt: new Date("2026-11-08T05:00:00Z"),
           items: [
             { purchaseOrderItemId: "poi-1", quantity: 3 },
@@ -245,7 +244,14 @@ describe("RestockPublicPurchaseService.getList", () => {
       needed: 8,
       purchased: 3,
       remaining: 5,
-      stores: [{ storeName: "Toko A", purchasedAt: "2026-11-08", quantity: 3 }],
+      stores: [
+        {
+          storeName: null,
+          buyerName: "Joko",
+          purchasedAt: "2026-11-08",
+          quantity: 3,
+        },
+      ],
     });
     expect(JSON.stringify(result.data)).not.toContain("PO-RAHASIA");
     expect(links.touchLastUsed).toHaveBeenCalledWith("link-1", "tenant-1", NOW);
@@ -341,7 +347,7 @@ describe("RestockPublicPurchaseService.submit", () => {
   });
 
   it.each([
-    ["toko lain", { storeName: "Toko Lain" }],
+    ["pembeli lain", { buyerName: "Andi" }],
     [
       "jumlah lain",
       {
@@ -459,7 +465,7 @@ describe("RestockPublicPurchaseService.submit", () => {
     recorder.recordPurchase.mockResolvedValue({
       success: true,
       data: {
-        record: { ...storedSameAsInput, storeName: "Toko Lama" },
+        record: { ...storedSameAsInput, buyerName: "Andi" },
         purchaseOrderStatus: "ORDERED",
         isFullyPurchased: false,
         message: "",

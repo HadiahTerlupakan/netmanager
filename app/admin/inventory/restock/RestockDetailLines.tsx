@@ -15,7 +15,7 @@ import {
 import type { PurchaseRequest, PurchaseRequestItem } from "./types";
 
 interface RestockDetailLinesProps {
-  /** Pengajuan pemilik baris; dipakai untuk rincian belanja per toko. */
+  /** Pengajuan pemilik baris; dipakai untuk rincian siapa yang membeli. */
   request: PurchaseRequest;
   items: PurchaseRequestItem[];
   /** true sesudah disetujui: tampilkan kolom dipesan/dibeli/datang/ditunggu. */
@@ -54,9 +54,9 @@ function NumberCell({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * "Dibeli 5 dari 10 roll (Toko A 3, Toko B 2)"; null bila belum dibeli.
+ * "Dibeli 5 dari 10 roll (Budi 3, Andi 2)"; null bila belum dibeli.
  * Barang yang sudah dibeli lalu dicoret karena tidak dikirim toko ditulis
- * terpisah supaya angkanya cocok dengan rincian toko.
+ * terpisah supaya angkanya cocok dengan rinciannya.
  */
 function describeLinePurchase(
   item: PurchaseRequestItem,

@@ -97,10 +97,11 @@ export interface PurchaseRecordLineSummary {
   unitPrice: number | null;
 }
 
-/** Satu kali belanja di satu toko. */
+/** Satu kali belanja. */
 export interface PurchaseRecordSummary {
   id: string;
-  storeName: string;
+  /** Hanya catatan lama; link belanja tidak lagi menanyakan nama toko. */
+  storeName: string | null;
   supplierId: string | null;
   /** ISO, pukul 12.00 WIB pada tanggal belanja. */
   purchasedAt: string;

@@ -51,7 +51,18 @@ const LIST = {
       purchased: 4,
       remaining: 6,
       stores: [
-        { storeName: "Toko Lama", purchasedAt: "2026-11-08", quantity: 4 },
+        {
+          storeName: "Toko Lama",
+          buyerName: null as string | null,
+          purchasedAt: "2026-11-08",
+          quantity: 3,
+        },
+        {
+          storeName: null,
+          buyerName: "Budi",
+          purchasedAt: "2026-11-09",
+          quantity: 1,
+        },
       ],
     },
     {
@@ -105,7 +116,10 @@ function setInputValue(
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-/** Isian lewat teks label-nya, atau lewat `aria-labelledby` (centang barang). */
+/**
+ * Isian lewat teks label-nya, atau lewat `aria-labelledby` (centang barang).
+ * Kotak catatan berupa textarea; `value` dan `disabled` dibaca sama.
+ */
 function fieldByLabel(text: string): HTMLInputElement {
   const label = Array.from(document.querySelectorAll("label")).find(
     (candidate) => candidate.textContent === text,
@@ -120,10 +134,13 @@ function fieldByLabel(text: string): HTMLInputElement {
   const input = label
     ? document.getElementById(label.htmlFor)
     : (labelledBy ?? null);
-  if (!(input instanceof HTMLInputElement)) {
+  if (
+    !(input instanceof HTMLInputElement) &&
+    !(input instanceof HTMLTextAreaElement)
+  ) {
     throw new Error(`Isian "${text}" tidak ditemukan`);
   }
-  return input;
+  return input as HTMLInputElement;
 }
 
 function button(text: string): HTMLButtonElement {
@@ -136,7 +153,9 @@ function button(text: string): HTMLButtonElement {
 
 async function fillAndSubmit() {
   act(() => fieldByLabel("Kabel Fiber").click());
-  act(() => setInputValue(fieldByLabel("Nama toko"), "Toko Sinar Jaya"));
+  act(() =>
+    setInputValue(fieldByLabel("Catatan (boleh kosong)"), "Bayar tunai"),
+  );
   act(() => setInputValue(fieldByLabel("Nama Anda (yang belanja)"), "Andi"));
   act(() => button("Tanda tangani").click());
   await act(async () => button("Simpan belanja").click());
@@ -251,7 +270,9 @@ describe("BelanjaClient", () => {
     const text = document.body.textContent ?? "";
     expect(text).toContain("Pengajuan PR-001 · untuk Gudang Utama");
     expect(text).toContain("Butuh 10 roll · Sudah dibeli 4 · Sisa 6");
-    expect(text).toMatch(/Dibeli di Toko Lama, 08 Nov 2026: 4 roll/);
+    expect(text).toMatch(/Dibeli di Toko Lama, 08 Nov 2026: 3 roll/);
+    expect(text).toMatch(/Dibeli Budi, 09 Nov 2026: 1 roll/);
+    expect(text).not.toContain("Nama toko");
     expect(text).toContain("Sudah dibeli semua");
     expect(fieldByLabel("ONT").disabled).toBe(true);
     for (const word of [/\bPO\b/, /supplier/i, /vendor/i, /token/i]) {
@@ -267,7 +288,6 @@ describe("BelanjaClient", () => {
 
     const alert = document.querySelector('[role="alert"]')?.textContent ?? "";
     expect(alert).toContain("Centang dulu barang yang Anda beli.");
-    expect(alert).toContain("Isi nama toko.");
     expect(alert).toContain("Isi nama Anda.");
     expect(alert).toContain("Tanda tangan dulu di kotak tanda tangan.");
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -317,7 +337,9 @@ describe("BelanjaClient", () => {
     await fillAndSubmit();
     expect(banner()?.textContent).toContain("Tersimpan. Terima kasih, Andi.");
 
-    act(() => setInputValue(fieldByLabel("Nama toko"), "Toko Kedua"));
+    act(() =>
+      setInputValue(fieldByLabel("Catatan (boleh kosong)"), "Catatan kedua"),
+    );
     expect(banner()).toBeNull();
 
     act(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -384,7 +406,7 @@ describe("BelanjaClient", () => {
     expect(bodyOf(2)).toMatchObject({
       token: TOKEN,
       buyerName: "Andi",
-      storeName: "Toko Sinar Jaya",
+      notes: "Bayar tunai",
       signatureDataUrl: PNG_DATA_URL,
       items: [{ purchaseOrderItemId: "poi-1", quantity: 6, unitPrice: null }],
     });
@@ -392,7 +414,8 @@ describe("BelanjaClient", () => {
       "Tersimpan. Terima kasih, Andi. Masih ada.",
     );
     // Isian dikosongkan, nama dipertahankan dan diingat.
-    expect(fieldByLabel("Nama toko").value).toBe("");
+    expect(bodyOf(2)).not.toHaveProperty("storeName");
+    expect(fieldByLabel("Catatan (boleh kosong)").value).toBe("");
     expect(fieldByLabel("Nama Anda (yang belanja)").value).toBe("Andi");
     expect(window.localStorage.getItem("belanja:namaPembeli")).toBe("Andi");
 
@@ -438,7 +461,7 @@ describe("BelanjaClient", () => {
     expect(document.body.textContent).toContain(
       "Daftar belanja baru saja berubah.",
     );
-    expect(fieldByLabel("Nama toko").value).toBe("Toko Sinar Jaya");
+    expect(fieldByLabel("Catatan (boleh kosong)").value).toBe("Bayar tunai");
   });
 
   it("menampilkan pesan batas percobaan dan pesan tanpa internet", async () => {

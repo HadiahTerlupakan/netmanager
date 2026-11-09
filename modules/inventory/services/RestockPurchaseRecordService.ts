@@ -47,7 +47,6 @@ export interface RecordRestockPurchaseCommand {
   purchaseRequestId: string;
   tenantId: string;
   origin: PurchaseRecordOrigin;
-  storeName: string;
   /** Tanggal belanja "YYYY-MM-DD". */
   purchasedAt: string;
   notes: string | null;
@@ -115,9 +114,9 @@ function isBeforeLinkCreated(command: RecordRestockPurchaseCommand): boolean {
 }
 
 /**
- * Mencatat belanja restock per toko, hanya lewat link belanja. Satu pengajuan
+ * Mencatat belanja restock, hanya lewat link belanja. Satu pengajuan
  * tetap satu pesanan dan satu tagihan; catatan ini hanya merekam barang mana
- * dibeli di toko mana.
+ * dibeli, kapan, dan oleh siapa.
  */
 export class RestockPurchaseRecordService {
   constructor(
@@ -125,7 +124,7 @@ export class RestockPurchaseRecordService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  /** Catat satu kali belanja di satu toko untuk pengajuan restock. */
+  /** Catat satu kali belanja untuk pengajuan restock. */
   async recordPurchase(
     command: RecordRestockPurchaseCommand,
   ): Promise<RestockPurchaseRecordResult> {
@@ -200,7 +199,7 @@ export class RestockPurchaseRecordService {
         isFullyPurchased,
         message: isFullyPurchased
           ? RESTOCK_PURCHASE_MESSAGES.savedAll
-          : RESTOCK_PURCHASE_MESSAGES.savedPartial(command.storeName),
+          : RESTOCK_PURCHASE_MESSAGES.savedPartial,
         isReplay: false,
       },
     };
@@ -342,7 +341,7 @@ export class RestockPurchaseRecordService {
         isFullyPurchased,
         message: isFullyPurchased
           ? RESTOCK_PURCHASE_MESSAGES.savedAll
-          : RESTOCK_PURCHASE_MESSAGES.savedPartial(record.storeName),
+          : RESTOCK_PURCHASE_MESSAGES.savedPartial,
         isReplay: true,
       },
     };
@@ -372,7 +371,6 @@ export class RestockPurchaseRecordService {
       details: {
         purchaseRequestId: command.purchaseRequestId,
         purchaseRecordId: outcome.record.id,
-        toko: command.storeName,
         tanggalBelanja: command.purchasedAt,
         barang: lines.map((line) => ({
           barangId: line.barangId,
@@ -412,7 +410,6 @@ function buildCreateInput(
     purchaseRequestId: command.purchaseRequestId,
     receivableBarangIds: parts.context.request.receivableBarangIds,
     tenantId: command.tenantId,
-    storeName: command.storeName,
     purchasedAt: parts.purchasedAt,
     notes: command.notes,
     lines: parts.lines,

@@ -437,6 +437,37 @@ describe("rincian belanja", () => {
     );
   });
 
+  it("belanja tanpa nama toko dirinci per nama pembeli", () => {
+    const request = makeRequest({
+      purchaseOrder: ordered,
+      purchaseRecords: [
+        makeRecord({
+          storeName: null,
+          buyerName: "Budi",
+          source: "PUBLIC_LINK",
+        }),
+        makeRecord({
+          id: "rec-2",
+          storeName: null,
+          buyerName: "Andi",
+          source: "PUBLIC_LINK",
+          items: [{ ...makeRecord().items[0], id: "ri-2", quantity: 2 }],
+        }),
+        makeRecord({
+          id: "rec-3",
+          storeName: null,
+          buyerName: "Budi",
+          source: "PUBLIC_LINK",
+          items: [{ ...makeRecord().items[0], id: "ri-3", quantity: 1 }],
+        }),
+      ],
+      items: [makeItem({ purchasedQuantity: 6 })],
+    });
+    expect(describeLinePurchaseBreakdown(request.items[0], request)).toBe(
+      "Budi 4, Andi 2",
+    );
+  });
+
   it("belanja sesudah barang datang tanpa catatan menghabiskan sisa", () => {
     // Dipesan 8, datang 5 tanpa catatan, lalu 3 dibeli di Toko B. Server
     // menaikkan jumlah dibeli dari GREATEST(dibeli, datang): 5 + 3 = 8.

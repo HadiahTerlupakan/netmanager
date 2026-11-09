@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-09] — Link belanja tidak lagi menanyakan nama toko
+
+- **Tipe**: [CHANGED] [MIGRATION]
+- **Scope**: `app/belanja`, `modules/inventory`, `app/admin/inventory/restock`, `prisma/`
+- **Author**: agent
+- **Deskripsi**: Isian "Nama toko" dihapus dari link belanja; pembeli cukup
+  mencentang barang, mengisi nama, dan tanda tangan. `PurchaseRecord.storeName`
+  jadi opsional: catatan lama tetap menampilkan tokonya, catatan baru tidak.
+  Rincian per barang ("Dibeli 5 dari 8 roll (…)") kini memakai nama pembeli
+  bila tokonya kosong; judul belanja di garis waktu dan PDF tidak lagi menulis
+  toko kosong. API `/api/belanja/catat` menolak field `storeName` (skema ketat),
+  jadi tab lama yang masih terbuka perlu dimuat ulang.
+- **Files**: `app/belanja/BelanjaClient.tsx`, `app/belanja/belanjaForm.ts`,
+  `lib/validations/restock.ts`, `modules/inventory/services/RestockPublicPurchaseService.ts`,
+  `modules/inventory/services/RestockPurchaseRecordService.ts`,
+  `app/admin/inventory/restock/restockPurchase.ts`, `app/admin/inventory/restock/restockPdfPurchases.ts`
+- **Migration**: `20261109150000_make_purchase_record_store_name_optional`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-09] — PDF pengajuan tidak lagi mencantumkan baris ditolak
 
 - **Tipe**: [FIXED]

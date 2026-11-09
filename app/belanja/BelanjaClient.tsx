@@ -25,7 +25,6 @@ import {
 } from "./useBelanjaLink";
 
 /** Batas panjang isian; sama dengan batas server. */
-const STORE_NAME_MAX_LENGTH = 120;
 const NOTES_MAX_LENGTH = 500;
 const BUYER_NAME_MAX_LENGTH = 100;
 
@@ -227,23 +226,6 @@ function BelanjaFormView({
       </fieldset>
 
       <div className="space-y-1">
-        <label htmlFor={`${baseId}-store`} className={LABEL_CLASS}>
-          {BELANJA_TEXTS.storeLabel}
-        </label>
-        <input
-          id={`${baseId}-store`}
-          type="text"
-          required
-          maxLength={STORE_NAME_MAX_LENGTH}
-          autoComplete="off"
-          placeholder={BELANJA_TEXTS.storePlaceholder}
-          value={form.storeName}
-          onChange={(event) => setField("storeName", event.target.value)}
-          className={FIELD_CLASS}
-        />
-      </div>
-
-      <div className="space-y-1">
         <label htmlFor={`${baseId}-date`} className={LABEL_CLASS}>
           {BELANJA_TEXTS.dateLabel}
         </label>
@@ -323,7 +305,7 @@ function BelanjaFormView({
 
 /**
  * Halaman daftar belanja tanpa login: daftar barang yang perlu dibeli dan
- * isian satu kali belanja di satu toko, lengkap dengan nama dan tanda tangan
+ * isian satu kali belanja, lengkap dengan nama dan tanda tangan
  * pembeli.
  */
 export default function BelanjaClient() {

@@ -88,7 +88,6 @@ export async function POST(request: Request) {
           {
             clientRequestId: fields.clientRequestId,
             buyerName: fields.buyerName,
-            storeName: fields.storeName,
             purchasedAt: fields.purchasedAt,
             notes: fields.notes ?? null,
             signatureDataUrl: fields.signatureDataUrl,

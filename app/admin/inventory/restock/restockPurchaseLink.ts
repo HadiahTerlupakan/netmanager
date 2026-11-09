@@ -28,7 +28,7 @@ export function buildPurchaseLinkMessage({
 }: PurchaseLinkMessageInput): string {
   return [
     `Halo, ini daftar belanja untuk pengajuan ${requestNumber} (${warehouseName}).`,
-    "Buka link ini, centang barang yang sudah dibeli, isi nama toko, lalu tanda tangan:",
+    "Buka link ini, centang barang yang sudah dibeli, isi nama Anda, lalu tanda tangan:",
     url,
     "",
     "Jangan teruskan link ini ke orang lain.",

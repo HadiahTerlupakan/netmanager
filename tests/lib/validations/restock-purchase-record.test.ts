@@ -10,7 +10,6 @@ const valid = {
   token: "A".repeat(43),
   clientRequestId: "6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f",
   buyerName: "Joko",
-  storeName: "Toko Sinar",
   purchasedAt: "2026-11-09",
   signatureDataUrl: "data:image/png;base64,iVBORw0KGgo=",
   items: [{ purchaseOrderItemId: "poi-1", quantity: 2 }],
@@ -26,26 +25,22 @@ function problemsOf(body: unknown): string {
 }
 
 describe("publicPurchaseRecordSchema: isian belanja", () => {
-  it("merapikan isian: nama toko di-trim, catatan kosong jadi null", () => {
+  it("merapikan isian: catatan kosong jadi null", () => {
     const parsed = publicPurchaseRecordSchema.parse({
       ...valid,
-      storeName: "  Toko Sinar ",
       notes: "   ",
     });
 
-    expect(parsed).toMatchObject({
-      storeName: "Toko Sinar",
-      notes: null,
-    });
+    expect(parsed).toMatchObject({ notes: null });
   });
 
-  it("menolak nama toko kosong dan terlalu panjang", () => {
-    expect(problemsOf({ ...valid, storeName: "  " })).toBe(
-      "Nama toko belum diisi. Tulis nama tokonya.",
-    );
-    expect(problemsOf({ ...valid, storeName: "x".repeat(121) })).toBe(
-      "Nama toko terlalu panjang. Paling banyak 120 huruf.",
-    );
+  it("tidak lagi menerima nama toko", () => {
+    expect(
+      publicPurchaseRecordSchema.safeParse({
+        ...valid,
+        storeName: "Toko Sinar",
+      }).success,
+    ).toBe(false);
   });
 
   it("menolak tanggal yang tidak terbaca", () => {
@@ -56,7 +51,7 @@ describe("publicPurchaseRecordSchema: isian belanja", () => {
 
   it("menolak daftar barang kosong", () => {
     expect(problemsOf({ ...valid, items: [] })).toBe(
-      "Belum ada barang yang dicentang. Centang barang yang dibeli di toko ini.",
+      "Belum ada barang yang dicentang. Centang barang yang sudah dibeli.",
     );
   });
 

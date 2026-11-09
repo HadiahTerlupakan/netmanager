@@ -192,6 +192,7 @@ export class RestockPurchaseLinkRepository implements IRestockPurchaseLinkReposi
           orderBy: [{ purchasedAt: "asc" }, { createdAt: "asc" }],
           select: {
             storeName: true,
+            buyerName: true,
             purchasedAt: true,
             items: {
               where: { tenantId },

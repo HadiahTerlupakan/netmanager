@@ -1,5 +1,5 @@
 /**
- * Aturan murni catatan belanja restock (satu kali belanja di satu toko).
+ * Aturan murni catatan belanja restock (satu kali belanja).
  * Tanpa I/O: dipakai service untuk memeriksa isian sebelum ditulis.
  */
 
@@ -21,8 +21,8 @@ export const RESTOCK_PURCHASE_MESSAGES = {
     "Pesanan ini baru saja diubah orang lain, jadi belanjanya belum disimpan. Muat ulang halaman, lalu cek lagi.",
   savedAll:
     "Tersimpan. Semua barang sudah dibeli. Sekarang tunggu barangnya datang.",
-  savedPartial: (storeName: string) =>
-    `Tersimpan. Belanja di ${storeName} sudah dicatat. Masih ada barang yang belum dibeli.`,
+  savedPartial:
+    "Tersimpan. Belanjanya sudah dicatat. Masih ada barang yang belum dibeli.",
   fullyPurchased: (nama: string) => `${nama} sudah dibeli semua.`,
   legacyPurchased:
     "Barang pesanan ini sudah dibeli sebelum ada link belanja, jadi belanjanya tidak perlu dicatat lagi.",

@@ -441,7 +441,6 @@ export class RestockPurchaseRecordRepository implements IRestockPurchaseRecordRe
     const record = await tx.purchaseRecord.create({
       data: {
         purchaseOrderId: input.purchaseOrderId,
-        storeName: input.storeName,
         supplierId: null,
         purchasedAt: input.purchasedAt,
         recordedById: input.recordedById,

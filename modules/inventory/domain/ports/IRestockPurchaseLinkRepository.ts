@@ -31,7 +31,9 @@ export interface PublicPurchaseListSource {
   warehouseName: string;
   /** Catatan belanja pesanan ini yang tidak dibatalkan, terlama dulu. */
   records: Array<{
-    storeName: string;
+    /** Hanya catatan lama; link belanja tidak lagi menanyakan nama toko. */
+    storeName: string | null;
+    buyerName: string | null;
     purchasedAt: Date;
     items: Array<{ purchaseOrderItemId: string; quantity: number }>;
   }>;

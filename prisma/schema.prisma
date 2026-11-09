@@ -3524,12 +3524,13 @@ model PurchaseOrderItem {
   @@map("purchase_order_items")
 }
 
-/// Satu kali belanja di satu toko untuk satu PO restock. Tagihan, pembayaran,
+/// Satu kali belanja untuk satu PO restock. Tagihan, pembayaran,
 /// jurnal tetap di PO.
 model PurchaseRecord {
   id                String               @id @default(uuid())
   purchaseOrderId   String
-  storeName         String
+  /// Hanya diisi catatan lama; link belanja tidak lagi menanyakan nama toko.
+  storeName         String?
   supplierId        String?
   purchasedAt       DateTime
   recordedById      String

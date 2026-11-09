@@ -201,7 +201,6 @@ export function buildPurchaseLinkExpiry(now: Date): Date {
 /** Isian kiriman lewat link yang dibandingkan saat kiriman diulang. */
 export interface LinkSubmissionContent {
   buyerName: string;
-  storeName: string;
   /** "YYYY-MM-DD". */
   purchasedAt: string;
   notes: string | null;
@@ -215,7 +214,6 @@ export interface LinkSubmissionContent {
 /** Catatan tersimpan, cukup kolom yang dibandingkan dengan kiriman ulang. */
 export interface StoredLinkSubmission {
   buyerName: string | null;
-  storeName: string;
   purchasedAt: Date;
   notes: string | null;
   items: Array<{
@@ -246,7 +244,6 @@ export function isSameLinkSubmission(
 ): boolean {
   return (
     stored.buyerName === input.buyerName &&
-    stored.storeName === input.storeName &&
     formatJakartaDate(stored.purchasedAt) === input.purchasedAt &&
     (stored.notes ?? null) === (input.notes ?? null) &&
     describeLines(stored.items) === describeLines(input.items)

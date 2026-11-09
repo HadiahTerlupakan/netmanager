@@ -66,7 +66,6 @@ const recordBody = {
   token: TOKEN,
   clientRequestId: "6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f",
   buyerName: "Joko",
-  storeName: "Toko Sinar",
   purchasedAt: "2026-11-09",
   signatureDataUrl: SIGNATURE,
   items: [{ purchaseOrderItemId: "poi-1", quantity: 2 }],
@@ -296,7 +295,6 @@ describe("POST /api/belanja/catat", () => {
     expect(input).toEqual({
       clientRequestId: recordBody.clientRequestId,
       buyerName: "Joko",
-      storeName: "Toko Sinar",
       purchasedAt: "2026-11-09",
       notes: null,
       signatureDataUrl: SIGNATURE,

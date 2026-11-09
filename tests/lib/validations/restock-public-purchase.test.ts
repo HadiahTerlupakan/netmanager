@@ -10,7 +10,6 @@ const valid = {
   token: TOKEN,
   clientRequestId: "6f1c2b8e-1d2a-4c3b-9e8f-0a1b2c3d4e5f",
   buyerName: "  Pak   Joko ",
-  storeName: "Toko Sinar",
   purchasedAt: "2026-11-09",
   notes: null as string | null,
   signatureDataUrl: "data:image/png;base64,iVBORw0KGgo=",
@@ -28,8 +27,6 @@ describe("publicPurchaseRecordSchema", () => {
   it.each([
     ["buyerName", "Budi\u202Eodnaw"],
     ["buyerName", "Bu\u200Bdi"],
-    ["storeName", "Toko\u202DSinar"],
-    ["storeName", "Toko\nSinar"],
     ["notes", "lunas\u2066x"],
   ])("menolak karakter format/pembalik arah di %s", (field, value) => {
     expect(

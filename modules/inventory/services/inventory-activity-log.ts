@@ -5,7 +5,7 @@ export const INVENTORY_ACTIVITY_ACTIONS = {
   CREATE: "CREATE",
   UPDATE: "UPDATE",
   DELETE: "DELETE",
-  /** Satu kali belanja di satu toko dicatat untuk pengajuan restock. */
+  /** Satu kali belanja dicatat untuk pengajuan restock. */
   RECORD_PURCHASE: "RECORD_PURCHASE",
   /** Catatan belanja dibatalkan admin; jumlah dibelinya dikembalikan. */
   VOID_PURCHASE: "VOID_PURCHASE",

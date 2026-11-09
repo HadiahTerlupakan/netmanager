@@ -147,7 +147,6 @@ function recordInput(
     receivableBarangIds: [BARANG],
     tenantId: TENANT,
     recordedById: USER,
-    storeName: "Toko Uji",
     purchasedAt: now,
     issuedAt: now,
     notes: null,

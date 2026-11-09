@@ -169,6 +169,20 @@ describe("loadPurchaseSignatures", () => {
 });
 
 describe("drawPurchaseSection", () => {
+  it("judul belanja tanpa nama toko hanya berisi nomor dan tanggal", () => {
+    const doc = makeDoc();
+    drawPurchaseSection(
+      doc as unknown as jsPDF,
+      120,
+      [makeRecord({ storeName: null })],
+      new Map(),
+    );
+
+    const texts = textsOf(doc);
+    expect(texts).toContain("1. 08/11/2026");
+    expect(texts.join(" ")).not.toContain(" - ");
+  });
+
   it("menulis tanggal, toko, barang, nama pembeli, dan gambar tanda tangan", () => {
     const doc = makeDoc();
     const y = drawPurchaseSection(

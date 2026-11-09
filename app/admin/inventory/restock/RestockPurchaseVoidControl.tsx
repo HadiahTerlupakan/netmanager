@@ -10,7 +10,7 @@ import {
 interface RestockPurchaseVoidControlProps {
   requestId: string;
   recordId: string;
-  /** Mis. "belanja ke-2 di Toko Sinar". */
+  /** Mis. "belanja ke-2" (catatan lama: "belanja ke-2 di Toko Sinar"). */
   recordLabel: string;
   onVoided: () => Promise<void> | void;
 }

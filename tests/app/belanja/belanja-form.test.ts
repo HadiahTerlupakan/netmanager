@@ -42,7 +42,7 @@ function makeFilledForm(overrides: Partial<BelanjaForm> = {}): BelanjaForm {
   const form = buildInitialBelanjaForm(makeList(), "Andi", NOW);
   return {
     ...form,
-    storeName: "Toko Sinar Jaya",
+    notes: "Bayar tunai",
     lines: form.lines.map((line) => ({ ...line, isChecked: true })),
     ...overrides,
   };
@@ -66,7 +66,6 @@ describe("buildInitialBelanjaForm", () => {
   it("mengisi jumlah dengan sisa, tanggal lokal hari ini, dan nama yang diingat", () => {
     const form = buildInitialBelanjaForm(makeList(), "Andi", NOW);
     expect(form).toEqual({
-      storeName: "",
       purchasedAt: "2026-11-09",
       notes: "",
       buyerName: "Andi",
@@ -93,7 +92,6 @@ describe("findBelanjaFormProblems", () => {
     const form = buildInitialBelanjaForm(makeList(), "", NOW);
     expect(findBelanjaFormProblems(form, [makeItem()], false, NOW)).toEqual([
       "Centang dulu barang yang Anda beli.",
-      "Isi nama toko.",
       "Isi nama Anda.",
       "Tanda tangan dulu di kotak tanda tangan.",
     ]);
@@ -133,7 +131,6 @@ describe("buildBelanjaSubmitInput", () => {
       "  Andi   Saputra ",
       NOW,
     );
-    form.storeName = " Toko A ";
     form.notes = "   ";
     form.lines[0] = {
       ...form.lines[0],
@@ -143,7 +140,6 @@ describe("buildBelanjaSubmitInput", () => {
 
     expect(buildBelanjaSubmitInput(form, "data:image/png;base64,AAA")).toEqual({
       buyerName: "Andi Saputra",
-      storeName: "Toko A",
       purchasedAt: "2026-11-09",
       notes: null,
       signatureDataUrl: "data:image/png;base64,AAA",
@@ -163,7 +159,7 @@ describe("mergeBelanjaFormLines", () => {
         makeItem({ purchaseOrderItemId: "poi-2", name: "ONT", remaining: 0 }),
       ]),
     );
-    expect(merged.storeName).toBe("Toko Sinar Jaya");
+    expect(merged.notes).toBe("Bayar tunai");
     expect(merged.lines).toEqual([
       {
         purchaseOrderItemId: "poi-1",
