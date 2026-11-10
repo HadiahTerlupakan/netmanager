@@ -41,6 +41,27 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-11] — Stok gudang & kondisinya di modal persetujuan pengajuan
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/admin/inventory/restock`, `app/api/inventory/restock/requests/[id]/stok`, `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Modal "Keputusan Pengajuan" kini menampilkan stok terkini tiap barang di
+  gudang tujuan sebagai bahan pertimbangan: total, rincian kondisi (Baru · Bekas · Rusak), dan
+  kesimpulan dibanding jumlah yang diajukan (habis / semua rusak / kurang N / sudah cukup),
+  plus catatan bila di bawah stok minimum (pengaturan restock, atau `minStokDefault`) dan bila
+  rincian kondisi belum cocok dengan total. Yang rusak tidak dihitung bisa dipakai. Barang
+  pengganti menampilkan stok barang penggantinya. Stok dibaca ulang dari endpoint baru
+  `GET /api/inventory/restock/requests/[id]/stok` (restock:read + lingkup site, tanpa cache)
+  setiap kali modal dibuka. Hanya informasi; tidak memblokir keputusan.
+- **Files**: `app/admin/inventory/restock/restockApprovalStock.ts`,
+  `app/admin/inventory/restock/RestockApprovalStockInfo.tsx`,
+  `app/admin/inventory/restock/useRestockApprovalStock.ts`,
+  `app/admin/inventory/restock/RestockApprovalModal.tsx`,
+  `app/api/inventory/restock/requests/[id]/stok/route.ts`,
+  `modules/inventory/services/InventoryRouteService.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-10] — API mobile status pengajuan barang untuk site
 
 - **Tipe**: [ADDED]

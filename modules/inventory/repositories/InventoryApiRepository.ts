@@ -115,6 +115,11 @@ export class InventoryApiRepository {
     return this.purchaseRequestRepository.findPurchaseRequests(input);
   }
 
+  /** Stok gudang tujuan pengajuan untuk bahan pertimbangan approver. */
+  async findApprovalStock(input: { id: string; tenantId: string }) {
+    return this.purchaseRequestRepository.findApprovalStock(input);
+  }
+
   /** Ambil purchase request milik tenant tertentu. */
   async findPurchaseRequestById(input: { id: string; tenantId: string }) {
     return this.purchaseRequestRepository.findPurchaseRequestById(input);

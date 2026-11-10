@@ -100,6 +100,48 @@ export class InventoryPurchaseRequestRepository {
     };
   }
 
+  /**
+   * Stok terkini gudang tujuan sebuah pengajuan, untuk bahan pertimbangan
+   * approver: semua barang yang tercatat di gudang itu (supaya barang
+   * pengganti ikut tercakup) beserta batas minimumnya. Null bila pengajuan
+   * tidak ada di tenant ini.
+   */
+  async findApprovalStock(input: { id: string; tenantId: string }) {
+    const request = await this.db.purchaseRequest.findUnique({
+      where: { id: input.id, tenantId: input.tenantId },
+      select: { gudangId: true, gudang: { select: { nama: true } } },
+    });
+    if (!request) return null;
+
+    const [stocks, settings] = await Promise.all([
+      this.db.barangGudang.findMany({
+        where: { gudangId: request.gudangId, tenantId: input.tenantId },
+        select: {
+          barangId: true,
+          stok: true,
+          stokBaru: true,
+          stokBekas: true,
+          stokRusak: true,
+          barang: { select: { minStokDefault: true } },
+        },
+      }),
+      this.db.restockSettings.findMany({
+        where: {
+          gudangId: request.gudangId,
+          tenantId: input.tenantId,
+          isActive: true,
+        },
+        select: { barangId: true, minStok: true },
+      }),
+    ]);
+    return {
+      gudangId: request.gudangId,
+      gudangName: request.gudang?.nama ?? null,
+      stocks,
+      settings,
+    };
+  }
+
   /** Ambil purchase request milik tenant tertentu. */
   async findPurchaseRequestById(input: { id: string; tenantId: string }) {
     return this.db.purchaseRequest.findUnique({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { FiRefreshCw, FiRotateCcw } from "react-icons/fi";
 
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -34,6 +34,8 @@ interface RestockApprovalItemRowProps {
   onChange: (patch: Partial<RestockApprovalLineDecision>) => void;
   /** Tidak diisi untuk baris jasa: jasa tidak bisa diganti. */
   substitution?: RestockApprovalSubstitution;
+  /** Stok barang ini di gudang tujuan; tidak diisi untuk baris jasa. */
+  stockInfo?: ReactNode;
   disabled: boolean;
 }
 
@@ -69,6 +71,7 @@ export function RestockApprovalItemRow({
   isNoteRequired,
   onChange,
   substitution,
+  stockInfo,
   disabled,
 }: RestockApprovalItemRowProps) {
   const isRejected = decision.keputusan === "REJECTED";
@@ -116,6 +119,8 @@ export function RestockApprovalItemRow({
           })}
         </div>
       </div>
+
+      {stockInfo}
 
       {!isRejected && (
         <div className="mt-3 flex flex-wrap items-end gap-3">

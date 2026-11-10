@@ -237,6 +237,38 @@ export class InventoryRouteService {
     });
   }
 
+  /**
+   * Stok terkini di gudang tujuan pengajuan, per barang, untuk modal
+   * persetujuan. Minimum diambil dari pengaturan restock aktif barang+gudang,
+   * jika tidak ada dari `minStokDefault` barang (0 berarti tidak diatur).
+   * Null bila pengajuan tidak ditemukan.
+   */
+  async getApprovalStock(input: { id: string; tenantId: string }) {
+    const source = await this.repository.findApprovalStock(input);
+    if (!source) return null;
+    const minStokBySetting = new Map(
+      source.settings.map((setting) => [setting.barangId, setting.minStok]),
+    );
+    return {
+      gudangId: source.gudangId,
+      gudangName: source.gudangName,
+      items: source.stocks.map((stock) => {
+        const minStok =
+          minStokBySetting.get(stock.barangId) ??
+          stock.barang?.minStokDefault ??
+          0;
+        return {
+          barangId: stock.barangId,
+          stok: stock.stok,
+          stokBaru: stock.stokBaru,
+          stokBekas: stock.stokBekas,
+          stokRusak: stock.stokRusak,
+          minStok: minStok > 0 ? minStok : null,
+        };
+      }),
+    };
+  }
+
   /** Ambil purchase request dengan validasi tenant. */
   async getPurchaseRequestById(input: { id: string; tenantId: string }) {
     return this.repository.findPurchaseRequestById(input);

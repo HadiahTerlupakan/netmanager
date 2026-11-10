@@ -1,3 +1,24 @@
+# Rencana: Stok gudang di modal persetujuan pengajuan (2026-11-11)
+
+Status: **selesai (belum di-commit)**
+
+## Asumsi
+- "Kondisi" = rincian stok Baru / Bekas / Rusak (`barang_gudang.stokBaru/Bekas/Rusak`).
+  Yang bisa dipakai = Baru + Bekas; Rusak ditampilkan terpisah dan tidak dihitung tersedia.
+- Stok diambil segar saat modal dibuka (endpoint baru per pengajuan), bukan dari daftar barang
+  yang dimuat saat halaman dibuka, supaya angkanya tidak basi saat memutuskan.
+- Minimum stok: pengaturan restock aktif (barang+gudang), jika tidak ada pakai `minStokDefault` (>0).
+- Kesimpulan per baris dibanding jumlah yang diajukan: habis / di bawah minimum / kurang dari
+  yang diajukan / sudah cukup. Hanya informasi; tidak memblokir keputusan.
+- Barang pengganti: tampilkan stok barang pengganti.
+- Tanpa migration.
+
+## Langkah
+- [x] Repository + service + `GET /api/inventory/restock/requests/[id]/stok` (restock:read + site) + tes.
+- [x] Fungsi murni klasifikasi stok + tes.
+- [x] UI baris persetujuan + pemuatan stok di modal + tes.
+- [x] Review; typecheck, lint, tes; changelog. Dicek di browser lokal: terang, gelap, lebar HP.
+
 # Rencana: Menu cepat "Pengajuan Barang" (lihat status saja) di aplikasi mobile (2026-11-10)
 
 Status: **selesai (belum di-commit)**

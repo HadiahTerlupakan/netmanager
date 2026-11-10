@@ -12,9 +12,14 @@ import {
   isDecisionNoteRequired,
 } from "./approvalUtils";
 import { RestockApprovalItemRow } from "./RestockApprovalItemRow";
+import { RestockApprovalStockInfo } from "./RestockApprovalStockInfo";
 import { RestockProblemList } from "./RestockProblemList";
 import type { Barang, PurchaseRequest } from "./types";
 import type { RestockApprovalController } from "./useRestockApproval";
+import {
+  type RestockApprovalStockState,
+  useRestockApprovalStock,
+} from "./useRestockApprovalStock";
 
 const PROBLEM_LIST_ID = "restock-approval-problems";
 const OVERALL_NOTE_ID = "restock-approval-note";
@@ -33,6 +38,7 @@ export function RestockApprovalModal({
   allBarangs,
 }: RestockApprovalModalProps) {
   const { request, isSubmitting } = approval;
+  const stock = useRestockApprovalStock(request?.id ?? null);
   const rejectButtonRef = useRestoreFocusAfterRejectConfirmation(
     approval.isRejectConfirming,
   );
@@ -47,7 +53,11 @@ export function RestockApprovalModal({
       {request && (
         <div className="space-y-6 p-6">
           <RestockApprovalHeader request={request} />
-          <RestockApprovalLines approval={approval} allBarangs={allBarangs} />
+          <RestockApprovalLines
+            approval={approval}
+            allBarangs={allBarangs}
+            stock={stock}
+          />
           <RestockApprovalOverallNote approval={approval} />
           {!isSubmitting && approval.problems.length > 0 && (
             <RestockProblemList
@@ -104,10 +114,23 @@ function RestockApprovalHeader({ request }: { request: PurchaseRequest }) {
   );
 }
 
+const STOCK_TIME_FORMAT = new Intl.DateTimeFormat("id-ID", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** "Stok Gudang A dibaca pukul 10.32" di atas daftar barang. */
+function describeStockReading(stock: RestockApprovalStockState): string | null {
+  if (stock.status !== "ready") return null;
+  const gudang = stock.gudangName ? ` ${stock.gudangName}` : "";
+  return `Stok gudang${gudang} dibaca pukul ${STOCK_TIME_FORMAT.format(new Date(stock.fetchedAt))}.`;
+}
+
 function RestockApprovalLines({
   approval,
   allBarangs,
-}: RestockApprovalModalProps) {
+  stock,
+}: RestockApprovalModalProps & { stock: RestockApprovalStockState }) {
   const { request, decisions, isSubmitting } = approval;
   if (!request) return null;
   const jasaItems = request.jasaItems ?? [];
@@ -117,9 +140,16 @@ function RestockApprovalLines({
     <div className="space-y-5">
       {request.items.length > 0 && (
         <section className="space-y-3" aria-label="Keputusan barang">
-          <h3 className="px-1 text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
-            Barang
-          </h3>
+          <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
+            <h3 className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+              Barang
+            </h3>
+            {describeStockReading(stock) && (
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                {describeStockReading(stock)}
+              </span>
+            )}
+          </div>
           {request.items.map((item) => {
             const decision = decisions.items[item.id];
             if (!decision) return null;
@@ -157,6 +187,18 @@ function RestockApprovalLines({
                   ),
                   selectedName: substitute?.nama ?? null,
                 }}
+                stockInfo={
+                  <RestockApprovalStockInfo
+                    stock={stock}
+                    barangId={substituteId ?? item.barangId}
+                    quantity={
+                      decision.keputusan === "APPROVED" && decision.jumlah > 0
+                        ? decision.jumlah
+                        : item.jumlah
+                    }
+                    satuan={substitute?.satuan ?? item.barang.satuan}
+                  />
+                }
                 disabled={isSubmitting}
               />
             );
