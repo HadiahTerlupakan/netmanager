@@ -19,6 +19,21 @@ const BARANG_SUMMARY_SELECT = {
   satuan: true,
 } as const;
 
+/** Relasi yang dibutuhkan untuk menghitung status pengajuan di daftar. */
+const PURCHASE_REQUEST_LIST_INCLUDE = {
+  items: {
+    include: {
+      barang: true,
+      barangDiminta: { select: BARANG_SUMMARY_SELECT },
+    },
+  },
+  jasaItems: { include: { jasa: true } },
+  requester: { select: { name: true } },
+  approver: { select: { name: true } },
+  gudang: { select: { nama: true, id: true } },
+  purchaseOrder: { include: PURCHASE_ORDER_PROGRESS_INCLUDE },
+} satisfies Prisma.PurchaseRequestInclude;
+
 export class InventoryPurchaseRequestRepository {
   constructor(private readonly db: PrismaClientLike) {}
 
@@ -46,22 +61,43 @@ export class InventoryPurchaseRequestRepository {
           ? { gudang: { sites: { some: { id: { in: input.siteIds } } } } }
           : {}),
       },
-      include: {
-        items: {
-          include: {
-            barang: true,
-            barangDiminta: { select: BARANG_SUMMARY_SELECT },
-          },
-        },
-        jasaItems: { include: { jasa: true } },
-        requester: { select: { name: true } },
-        approver: { select: { name: true } },
-        gudang: { select: { nama: true, id: true } },
-        purchaseOrder: { include: PURCHASE_ORDER_PROGRESS_INCLUDE },
-      },
+      include: PURCHASE_REQUEST_LIST_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
     return requests.map((request) => toRestockReadModel(request));
+  }
+
+  /**
+   * Satu halaman daftar pengajuan restock, terbaru dulu, untuk aplikasi
+   * mobile. Isinya sama dengan {@link findPurchaseRequests} supaya status yang
+   * dihitung darinya sama dengan di halaman admin. `cursor` adalah id
+   * pengajuan terakhir halaman sebelumnya; `siteIds` berlaku seperti di sana.
+   */
+  async findPurchaseRequestPage(input: {
+    tenantId: string;
+    siteIds?: string[];
+    limit: number;
+    cursor?: string | null;
+  }) {
+    const requests = await this.db.purchaseRequest.findMany({
+      where: {
+        tenantId: input.tenantId,
+        ...(input.siteIds
+          ? { gudang: { sites: { some: { id: { in: input.siteIds } } } } }
+          : {}),
+      },
+      include: PURCHASE_REQUEST_LIST_INCLUDE,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      // Satu baris lebih untuk tahu apakah masih ada halaman berikutnya.
+      take: input.limit + 1,
+      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+    });
+    const hasMore = requests.length > input.limit;
+    const page = requests.slice(0, input.limit);
+    return {
+      items: page.map((request) => toRestockReadModel(request)),
+      nextCursor: hasMore ? (page.at(-1)?.id ?? null) : null,
+    };
   }
 
   /** Ambil purchase request milik tenant tertentu. */

@@ -79,6 +79,11 @@ export type {
 } from "./services/RestockPublicPurchaseService";
 export * from "./services/JasaService";
 export * from "./services/MobileInventoryService";
+export {
+  getMobileRestockStatusService,
+  MOBILE_RESTOCK_PAGE_SIZE,
+  type MobileRestockPage,
+} from "./services/MobileRestockStatusService";
 export type { MobileInventoryError } from "./services/mobile-inventory.types";
 export * from "./services/InventoryStockService";
 export * from "./services/InventoryPhotoQueryService";

@@ -27,7 +27,10 @@ const DEFAULT_KONDISI_BARANG = "BARU" as KondisiBarang;
 
 /** Ambil scope actor mobile atau lempar error bila actor tidak ditemukan. */
 export async function requireMobileActorScope(
-  repository: MobileInventoryRepository,
+  repository: Pick<
+    MobileInventoryRepository,
+    "findMobileActorUser" | "findMobileActorMitra"
+  >,
   input: MobileActorLookupInput,
 ): Promise<MobileScopeResult> {
   const user = await repository.findMobileActorUser(input);

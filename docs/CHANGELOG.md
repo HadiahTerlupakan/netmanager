@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-10] — API mobile status pengajuan barang untuk site
+
+- **Tipe**: [ADDED]
+- **Scope**: `app/api/mobile/inventory/pengajuan`, `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Endpoint baru `GET /api/mobile/inventory/pengajuan` (hanya baca,
+  berhalaman lewat `?cursor=`) untuk layar "Pengajuan Barang" di aplikasi mobile.
+  Lingkupnya gudang di site akun (scope mobile inventory); izin sama dengan menu
+  barang gudang mobile. Akun mitra ditolak (403) karena datanya khusus internal. Tahap 1–4 dan status dihitung dengan `getRestockProgress`
+  yang sama dengan halaman admin, jadi site dan admin selalu melihat status yang
+  sama. Kalimat admin yang menyuruh menekan tombol admin diganti kalimat untuk
+  site. Data pesanan (nomor PO, harga) tidak ikut dikirim.
+- **Files**: `app/api/mobile/inventory/pengajuan/route.ts`,
+  `app/api/mobile/inventory/pengajuan/presentRestockRequest.ts`,
+  `modules/inventory/services/MobileRestockStatusService.ts`,
+  `modules/inventory/repositories/InventoryPurchaseRequestRepository.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-09] — Link belanja tidak lagi menanyakan nama toko
 
 - **Tipe**: [CHANGED] [MIGRATION]

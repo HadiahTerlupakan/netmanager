@@ -1,3 +1,30 @@
+# Rencana: Menu cepat "Pengajuan Barang" (lihat status saja) di aplikasi mobile (2026-11-10)
+
+Status: **selesai (belum di-commit)**
+
+## Asumsi
+- Hanya melihat status; tidak bisa mengajukan, menyetujui, atau mencatat apa pun dari mobile.
+- Yang boleh melihat: pemegang izin mobile gudang (`m_barang:read`, `m_barang_masuk:*`,
+  `m_barang_keluar:*`), sama seperti daftar gudang mobile. Lingkupnya gudang di site akun
+  (scope mobile inventory); akun tanpa batasan site melihat semua gudang tenant.
+- Tahap & status dihitung server dengan fungsi yang sama dengan halaman admin
+  (`getRestockProgress`), supaya site dan admin tidak pernah berbeda.
+- Tile menggantikan tile "Isolir" di menu cepat; layar isolir sendiri tidak dihapus.
+- Tanpa migration.
+
+## Langkah
+- [x] Backend: repository `findPurchaseRequests` mendukung `limit`/`cursor`.
+- [x] Backend: `GET /api/mobile/inventory/pengajuan` + presenter DTO mobile + tes.
+- [x] Mobile: hook query, layar daftar (kartu, tahap 1–4, rincian barang), tile menu cepat
+      menggantikan Isolir + tes.
+- [x] Review; typecheck, lint, tes kedua repo; changelog.
+
+## Review
+- Repository memakai `findPurchaseRequestPage` (include sama dengan daftar admin, `take+1`/cursor).
+- Presenter di app layer memanggil `getRestockProgress` admin setelah JSON round-trip.
+- Temuan reviewer: mitra teknisi lolos izin route padahal tile `internalOnly` → service kini menolak mitra (403).
+- Layar `pelanggan/isolir` tetap ada tanpa pintu masuk menu cepat.
+
 # Rencana: Tahap tegas pengajuan → approval → pembelian → verifikasi sampai (2026-11-09)
 
 Status: **selesai (belum di-commit)**
