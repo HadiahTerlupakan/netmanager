@@ -41,6 +41,24 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-13] — Redis tanpa `url.parse()` (DEP0169)
+
+- **Tipe**: [SECURITY] [FIXED]
+- **Scope**: `lib/`
+- **Author**: agent
+- **Deskripsi**: Setiap start, app mencetak `DeprecationWarning DEP0169: url.parse()`.
+  Sumbernya ioredis 5.10.1: `new Redis(urlString)` mem-parse URL dengan `url.parse()` lama
+  (tidak standar, rawan; Node tidak menerbitkan CVE untuknya). Helper baru
+  `lib/redis-url.ts` (`redisOptionsFromUrl`) mem-parse `REDIS_URL` dengan WHATWG `URL`
+  dan menyerahkan objek opsi ke ioredis, sehingga `url.parse()` tidak dipanggil lagi.
+  Dipakai di `lib/redis.ts`, `lib/event-bus/queues.ts`, `lib/event-bus/redis-connection.ts`
+  (menggantikan pembersihan `?family=undefined`/auth kosong yang sebelumnya diduplikasi).
+  Tidak upgrade ke ioredis 6 karena BullMQ 5 masih memakai ioredis 5.
+- **Files**: `lib/redis-url.ts` (baru), `lib/redis.ts`, `lib/event-bus/queues.ts`,
+  `lib/event-bus/redis-connection.ts`, `tests/lib/redis-url.test.ts` (baru),
+  `tests/lib/redis-config.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-13] — Cabut PgBouncer dari produksi
 
 - **Tipe**: [SECURITY] [REMOVED] [INFRA]

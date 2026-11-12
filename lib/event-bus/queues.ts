@@ -3,6 +3,7 @@ import { Queue, type JobsOptions, type RepeatOptions } from "bullmq";
 // Named import, bukan default: ioredis adalah modul CommonJS dan interop
 // default-import-nya pecah setelah minifikasi webpack ("is not a constructor").
 import { Redis } from "ioredis";
+import { DEFAULT_LOCAL_REDIS_URL, redisOptionsFromUrl } from "@/lib/redis-url";
 import type { EventName, QueueName } from "./types";
 import { QUEUE_NAMES, JOB_PRIORITIES } from "./types";
 
@@ -10,7 +11,6 @@ import { QUEUE_NAMES, JOB_PRIORITIES } from "./types";
 // REDIS CONNECTION (shared with existing app)
 // ============================================
 
-const DEFAULT_LOCAL_REDIS_URL = "redis://localhost:6379";
 const REDIS_URL = process.env.REDIS_URL ?? DEFAULT_LOCAL_REDIS_URL;
 
 /**
@@ -18,23 +18,10 @@ const REDIS_URL = process.env.REDIS_URL ?? DEFAULT_LOCAL_REDIS_URL;
  * BullMQ requires a separate connection for each queue/worker.
  */
 function createRedisConnection(): Redis {
-  // Parse URL and clean up malformed query params (e.g., ?family=undefined from Next.js env)
-  let url = REDIS_URL;
-  try {
-    const parsed = new URL(REDIS_URL);
-    if (parsed.searchParams.has("family")) {
-      parsed.searchParams.delete("family");
-    }
-    // If password is empty, remove it from URL to avoid auth errors
-    if (!parsed.password) {
-      parsed.password = "";
-    }
-    url = parsed.toString().replace(/\?$/, ""); // Remove trailing ? if no params
-  } catch {
-    // Use URL as-is if parsing fails
-  }
-
-  const conn = new Redis(url, {
+  // redisOptionsFromUrl memakai WHATWG URL (bukan url.parse ioredis, DEP0169),
+  // membuang ?family=undefined dari env Next.js, dan tidak mengirim auth kosong.
+  const conn = new Redis({
+    ...redisOptionsFromUrl(REDIS_URL),
     maxRetriesPerRequest: null, // Required by BullMQ
     enableOfflineQueue: false,
     retryStrategy: (times) => {

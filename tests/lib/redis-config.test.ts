@@ -61,9 +61,14 @@ describe("Redis configuration contract", () => {
 
     await import("@/lib/redis");
 
+    // Opsi objek (bukan URL string) supaya ioredis tidak memanggil url.parse().
     expect(mockFns.redisConstructor).toHaveBeenCalledWith(
-      "redis://localhost:6379",
-      expect.objectContaining({ enableOfflineQueue: false }),
+      expect.objectContaining({
+        host: "localhost",
+        port: 6379,
+        enableOfflineQueue: false,
+      }),
+      {},
     );
   });
 
@@ -74,9 +79,14 @@ describe("Redis configuration contract", () => {
 
     await addEventJob("test.event" as never, { ok: true });
 
+    // Opsi objek (bukan URL string) supaya ioredis tidak memanggil url.parse().
     expect(mockFns.redisConstructor).toHaveBeenCalledWith(
-      "redis://localhost:6379",
-      expect.objectContaining({ enableOfflineQueue: false }),
+      expect.objectContaining({
+        host: "localhost",
+        port: 6379,
+        enableOfflineQueue: false,
+      }),
+      {},
     );
   });
 

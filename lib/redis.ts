@@ -2,8 +2,7 @@ import { logger } from "@/lib/logger";
 // Named import, bukan default: ioredis adalah modul CommonJS dan interop
 // default-import-nya pecah setelah minifikasi webpack ("is not a constructor").
 import { Redis } from "ioredis";
-
-const DEFAULT_LOCAL_REDIS_URL = "redis://localhost:6379";
+import { DEFAULT_LOCAL_REDIS_URL, redisOptionsFromUrl } from "@/lib/redis-url";
 
 const globalForRedis = globalThis as unknown as { redis?: Redis };
 
@@ -11,7 +10,10 @@ const redisUrl = process.env.REDIS_URL ?? DEFAULT_LOCAL_REDIS_URL;
 
 export const redis =
   globalForRedis.redis ??
-  new Redis(redisUrl, {
+  // Objek opsi, bukan URL string: ioredis 5 mem-parse string dengan url.parse()
+  // yang deprecated (DEP0169). Lihat lib/redis-url.ts.
+  new Redis({
+    ...redisOptionsFromUrl(redisUrl),
     // Per-command retry tetap fail-fast supaya endpoint sensitif (rate limiter,
     // cron lock) tidak ngegantung saat Redis sempat unhealthy.
     maxRetriesPerRequest: 2,

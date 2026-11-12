@@ -2,8 +2,8 @@ import { logger } from "@/lib/logger";
 // Named import, bukan default: ioredis adalah modul CommonJS dan interop
 // default-import-nya pecah setelah minifikasi webpack ("is not a constructor").
 import { Redis } from "ioredis";
+import { DEFAULT_LOCAL_REDIS_URL, redisOptionsFromUrl } from "@/lib/redis-url";
 
-const DEFAULT_LOCAL_REDIS_URL = "redis://localhost:6379";
 const REDIS_URL = process.env.REDIS_URL ?? DEFAULT_LOCAL_REDIS_URL;
 
 /**
@@ -11,23 +11,10 @@ const REDIS_URL = process.env.REDIS_URL ?? DEFAULT_LOCAL_REDIS_URL;
  * Handles connection retry, error handling, and event logging.
  */
 export function createWorkerRedis(): Redis {
-  // Parse URL and clean up malformed query params (e.g., ?family=undefined from Next.js env)
-  let url = REDIS_URL;
-  try {
-    const parsed = new URL(REDIS_URL);
-    if (parsed.searchParams.has("family")) {
-      parsed.searchParams.delete("family");
-    }
-    // If password is empty string, remove auth part to avoid NOAUTH errors
-    if (!parsed.password) {
-      parsed.username = "";
-    }
-    url = parsed.toString().replace(/\?$/, ""); // Remove trailing ? if no params
-  } catch {
-    // Use URL as-is if parsing fails
-  }
-
-  const conn = new Redis(url, {
+  // redisOptionsFromUrl memakai WHATWG URL (bukan url.parse ioredis, DEP0169),
+  // membuang ?family=undefined dari env Next.js, dan tidak mengirim auth kosong.
+  const conn = new Redis({
+    ...redisOptionsFromUrl(REDIS_URL),
     maxRetriesPerRequest: null,
     enableOfflineQueue: true,
     retryStrategy: (times) => {
