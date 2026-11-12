@@ -41,6 +41,25 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-13] — Cabut PgBouncer dari produksi
+
+- **Tipe**: [SECURITY] [REMOVED] [INFRA]
+- **Scope**: `infra/`
+- **Author**: agent
+- **Deskripsi**: Keempat PgBouncer (`pgbouncer-db/radius/billing/mitra`) dicabut. Di cluster
+  produksi tidak ada yang memakainya: secret hidup `DATABASE_URL*` dan FreeRADIUS (`DB_HOST`)
+  sudah terhubung langsung ke `db-*:5432`. Image `bitnamilegacy/pgbouncer:1.24.1` tidak lagi
+  dirawat dan PgBouncer < 1.26.0 rentan CVE-2026-19888 (crash tanpa autentikasi lewat SCRAM)
+  dan CVE-2026-6669. Deployment & Service di cluster sudah dihapus manual (backup YAML di
+  server `/root/pgb-cutover/`); manifesnya dihapus dari repo agar `netmanager-deploy` tidak
+  membuatnya lagi. Template `secrets.yaml` diselaraskan dengan secret hidup, dan
+  `docker-compose.production.yml` ikut terhubung langsung ke database. Tes CI
+  `pgbouncer-image-safety` diubah menjadi penjaga agar PgBouncer lama tidak kembali.
+  Menggantikan keputusan "SKIP P1-3" sebelumnya.
+- **Files**: `k8s/production/pgbouncer-deployment.yaml` (dihapus), `k8s/production/secrets.yaml`,
+  `docker-compose.production.yml`, `tests/ci/pgbouncer-image-safety.test.ts`
+- **Breaking**: ❌ Tidak (produksi k8s memang sudah langsung ke database)
+
 ### [2026-11-11] — Stok gudang & kondisinya di modal persetujuan pengajuan
 
 - **Tipe**: [ADDED]

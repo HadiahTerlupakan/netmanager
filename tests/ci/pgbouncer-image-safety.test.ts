@@ -1,32 +1,33 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const EXPECTED_PGBOUNCER_IMAGE = "bitnamilegacy/pgbouncer:1.24.1-debian-12-r10";
+// PgBouncer sudah dicabut dari produksi (2026-11-13): app, worker, dan
+// FreeRADIUS terhubung langsung ke PostgreSQL. Image bitnamilegacy/pgbouncer
+// tidak lagi dirawat dan PgBouncer < 1.26.0 rentan CVE-2026-19888 /
+// CVE-2026-6669. Tes ini menjaga agar pooler versi lama tidak kembali lewat
+// manifes k8s yang di-apply otomatis oleh netmanager-deploy.
+const root = process.cwd();
 
-function readProductionPgbouncerManifest(): string {
-  return readFileSync(
-    resolve(process.cwd(), "k8s/production/pgbouncer-deployment.yaml"),
-    "utf8",
-  );
-}
+describe("PgBouncer removed from production", () => {
+  it("does not ship a PgBouncer manifest in k8s/production", () => {
+    expect(
+      existsSync(resolve(root, "k8s/production/pgbouncer-deployment.yaml")),
+    ).toBe(false);
+  });
 
-function readProductionComposeFile(): string {
-  return readFileSync(
-    resolve(process.cwd(), "docker-compose.production.yml"),
-    "utf8",
-  );
-}
+  it("does not reference the unmaintained Bitnami PgBouncer image", () => {
+    const composeFile = readFileSync(
+      resolve(root, "docker-compose.production.yml"),
+      "utf8",
+    );
+    const secretsTemplate = readFileSync(
+      resolve(root, "k8s/production/secrets.yaml"),
+      "utf8",
+    );
 
-describe("PgBouncer production image safety", () => {
-  it("pins all production PgBouncer definitions to a pullable image tag", () => {
-    const manifest = readProductionPgbouncerManifest();
-    const composeFile = readProductionComposeFile();
-
-    expect(manifest).toContain(`image: ${EXPECTED_PGBOUNCER_IMAGE}`);
-    expect(composeFile).toContain(`image: ${EXPECTED_PGBOUNCER_IMAGE}`);
-    expect(manifest).not.toContain("bitnami/pgbouncer:1");
-    expect(composeFile).not.toContain("bitnami/pgbouncer:1");
+    expect(composeFile).not.toMatch(/bitnami(legacy)?\/pgbouncer/);
+    expect(secretsTemplate).not.toContain("pgbouncer-");
   });
 });
