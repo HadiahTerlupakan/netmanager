@@ -30,8 +30,9 @@ describe("Husky prepare safety", () => {
   it("pins patched overrides for current production dependency advisories", () => {
     const packageJson = readPackageJson();
 
-    expect(packageJson.dependencies?.hono).toBe("^4.12.14");
-    expect(packageJson.overrides?.hono).toBe("^4.12.14");
+    expect(packageJson.dependencies?.hono).toBe("^4.13.19");
+    expect(packageJson.overrides?.hono).toBe("^4.13.19");
+    expect(packageJson.overrides?.effect).toBe("^3.22.5");
     expect(packageJson.dependencies?.nodemailer).toBe("^10.2.1");
     expect(packageJson.overrides?.nodemailer).toBe("^10.2.1");
     expect(packageJson.dependencies?.["adm-zip"]).toBe("^0.6.1");

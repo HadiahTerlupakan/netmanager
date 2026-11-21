@@ -41,6 +41,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-22] — Tambal advisori keamanan Next.js, Hono, dan effect
+
+- **Tipe**: [SECURITY]
+- **Scope**: `package.json`
+- **Author**: agent
+- **Deskripsi**: `next` & `eslint-config-next` 16.4.3 → 16.4.6 (advisori ≤16.4.4: kebocoran cache `use cache`
+  lintas root param, bypass penolakan SVG di optimasi gambar, cookie HttpOnly terekspos di route Edge). `hono`
+  → ^4.13.19 dan `@hono/node-server` → ^2.1.11 (bypass middleware `mount()`, backslash di path), `effect` →
+  ^3.22.5 (ReDoS, dipakai Prisma), plus `fast-xml-parser` lewat `npm audit fix`. `npm audit` kini 0 kerentanan.
+  Tes penjaga versi override (`tests/ci/husky-prepare-safety.test.ts`) ikut diperbarui.
+- **Files**: `package.json`, `package-lock.json`, `tests/ci/husky-prepare-safety.test.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-13] — Redis tanpa `url.parse()` (DEP0169)
 
 - **Tipe**: [SECURITY] [FIXED]
