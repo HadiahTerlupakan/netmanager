@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { GoodsReceiptEntity } from "../domain/entities/GoodsReceipt";
-import { GoodsReceiptExceedsPurchasedError } from "../domain/goods-receipt-errors";
+import { GoodsReceiptExceedsRemainingError } from "../domain/goods-receipt-errors";
 import type {
   GoodsReceiptCreateInput,
   GoodsReceiptListFilter,
@@ -105,9 +105,10 @@ export class GoodsReceiptRepository implements IGoodsReceiptRepository {
    * Atomic: insert GRN, update PO item receivedQuantity, upsert stok gudang,
    * insert barang_masuk audit, dan re-evaluate PO status.
    *
-   * Pesanan dikunci lebih dulu (`FOR UPDATE`) dengan urutan yang sama seperti
-   * pencatatan & pembatalan belanja restock (pesanan, lalu item), supaya
-   * keduanya tidak saling deadlock dan batas "sudah dibeli" tidak terlewati.
+   * Pesanan dikunci lebih dulu (`FOR UPDATE`), lalu itemnya, dengan urutan
+   * yang sama seperti ubah isi PO, hapus PO, dan penutupan pengajuan restock.
+   * Dengan begitu tidak ada deadlock dan pemeriksaan sisa per item berjalan
+   * bergiliran.
    */
   async createAndPost(
     input: GoodsReceiptCreateInput,
@@ -142,11 +143,7 @@ export class GoodsReceiptRepository implements IGoodsReceiptRepository {
       });
 
       for (const item of input.items) {
-        await this.incrementReceivedQuantity(
-          tx,
-          item,
-          input.isLimitedToPurchased ?? false,
-        );
+        await this.incrementReceivedQuantity(tx, input.purchaseOrderId, item);
 
         await tx.barangGudang.upsert({
           where: {
@@ -197,29 +194,23 @@ export class GoodsReceiptRepository implements IGoodsReceiptRepository {
   }
 
   /**
-   * Naikkan jumlah datang satu item. Bila dibatasi, UPDATE bersyarat menolak
-   * kenaikan yang membuat jumlah datang melebihi jumlah dibeli; galatnya
-   * membatalkan seluruh transaksi.
+   * Naikkan jumlah masuk satu item pesanan ini. UPDATE bersyarat menolak
+   * kenaikan yang melebihi sisa (dipesan dikurangi yang tidak jadi datang);
+   * galatnya membatalkan seluruh transaksi.
    */
   private async incrementReceivedQuantity(
     tx: Tx,
+    purchaseOrderId: string,
     item: { purchaseOrderItemId: string; quantity: number },
-    isLimitedToPurchased: boolean,
   ): Promise<void> {
-    if (!isLimitedToPurchased) {
-      await tx.purchaseOrderItem.update({
-        where: { id: item.purchaseOrderItemId },
-        data: { receivedQuantity: { increment: item.quantity } },
-      });
-      return;
-    }
     const updated = await tx.$executeRaw`
       UPDATE purchase_order_items
       SET "receivedQuantity" = "receivedQuantity" + ${item.quantity}
       WHERE id = ${item.purchaseOrderItemId}
-        AND "receivedQuantity" + ${item.quantity} <= "purchasedQuantity"`;
+        AND "purchaseOrderId" = ${purchaseOrderId}
+        AND "receivedQuantity" + ${item.quantity} <= "quantity" - "cancelledQuantity"`;
     if (updated === 0) {
-      throw new GoodsReceiptExceedsPurchasedError(item.purchaseOrderItemId);
+      throw new GoodsReceiptExceedsRemainingError(item.purchaseOrderItemId);
     }
   }
 

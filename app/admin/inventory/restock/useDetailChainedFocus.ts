@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-function getFocusedElement(): HTMLElement | null {
-  const active = document.activeElement;
-  if (!(active instanceof HTMLElement) || active === document.body) return null;
-  return active;
-}
+import { getFocusedElement } from "./restockFocus";
 
 /**
  * Fokus untuk modal yang dibuka dari dalam detail pengajuan. Detail tertutup

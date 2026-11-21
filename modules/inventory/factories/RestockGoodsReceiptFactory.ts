@@ -1,17 +1,29 @@
-import { ProcurementService } from "@/modules/procurement";
+import {
+  getGoodsReceiptService,
+  ProcurementService,
+} from "@/modules/procurement";
 
 import { RestockGoodsReceiptRepository } from "../repositories/RestockGoodsReceiptRepository";
-import { RestockGoodsReceiptService } from "../services/RestockGoodsReceiptService";
-import { RestockItemCancellationService } from "../services/RestockItemCancellationService";
+import { RestockRequestRedisLock } from "../repositories/RestockRequestRedisLock";
+import {
+  RestockGoodsReceiptService,
+  type RestockGoodsReceiptCreator,
+} from "../services/RestockGoodsReceiptService";
 import { RestockItemSubstitutionService } from "../services/RestockItemSubstitutionService";
 
-/** Rakit service verifikasi kedatangan restock beserta dependency konkretnya. */
+/** Catatan barang masuk dibuat lewat service GRN procurement. */
+const procurementGoodsReceiptCreator: RestockGoodsReceiptCreator = {
+  create: (input) => getGoodsReceiptService().create(input),
+};
+
+/** Rakit service Masukkan Barang restock beserta dependency konkretnya. */
 export function createRestockGoodsReceiptService(): RestockGoodsReceiptService {
   const repository = new RestockGoodsReceiptRepository();
-  return new RestockGoodsReceiptService(
+  return new RestockGoodsReceiptService({
     repository,
-    new RestockItemSubstitutionService(repository),
-    new RestockItemCancellationService(repository),
-    new ProcurementService(),
-  );
+    substitutionService: new RestockItemSubstitutionService(repository),
+    purchaseOrderGenerator: new ProcurementService(),
+    goodsReceiptCreator: procurementGoodsReceiptCreator,
+    lock: new RestockRequestRedisLock(),
+  });
 }

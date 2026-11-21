@@ -1,34 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
 
-const mockUseState = vi.fn();
-const mockUseCallback = vi.fn((fn: unknown) => fn);
-const mockUseEffect = vi.fn();
-const mockUseMemo = vi.fn((factory: unknown) => (factory as () => unknown)());
-const mockUseRef = vi.fn((value: unknown) => ({ current: value }));
+import React, { act, useEffect } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetWithAuth = vi.fn();
 const mockPostWithAuth = vi.fn();
 const mockToastError = vi.fn();
 const mockToastSuccess = vi.fn();
-const mockToastLoading = vi.fn();
-const mockToastDismiss = vi.fn();
-
-vi.mock("react", async () => {
-  const actual = await vi.importActual<typeof import("react")>("react");
-
-  return {
-    ...actual,
-    useState: ((initial: unknown) =>
-      mockUseState(initial)) as typeof actual.useState,
-    useCallback: ((fn: unknown) =>
-      mockUseCallback(fn)) as typeof actual.useCallback,
-    useEffect: ((effect: unknown) =>
-      mockUseEffect(effect)) as typeof actual.useEffect,
-    useMemo: ((factory: unknown) =>
-      mockUseMemo(factory)) as typeof actual.useMemo,
-    useRef: ((value: unknown) => mockUseRef(value)) as typeof actual.useRef,
-  };
-});
 
 vi.mock("@/lib/api-client", () => ({
   getWithAuth: (...args: unknown[]) => mockGetWithAuth(...args),
@@ -39,88 +18,97 @@ vi.mock("@/lib/api-client", () => ({
 }));
 
 vi.mock("react-hot-toast", () => ({
-  toast: {
+  toast: Object.assign(vi.fn(), {
     error: (...args: unknown[]) => mockToastError(...args),
     success: (...args: unknown[]) => mockToastSuccess(...args),
-    loading: (...args: unknown[]) => mockToastLoading(...args),
-    dismiss: (...args: unknown[]) => mockToastDismiss(...args),
-  },
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  }),
 }));
 
 import { useRestockPage } from "@/app/admin/inventory/restock/useRestockPage";
 
+type RestockPageState = ReturnType<typeof useRestockPage>;
+
+let container: HTMLDivElement;
+let root: Root;
+/**
+ * Hasil hook terakhir. Ditugaskan di dalam efek, bukan saat render, supaya
+ * render tetap murni; `act` menjamin efeknya sudah jalan sebelum tes membaca.
+ */
+const holder: { state?: RestockPageState } = {};
+
+function current(): RestockPageState {
+  if (!holder.state) throw new Error("Hook belum dirender");
+  return holder.state;
+}
+
+function Harness(): null {
+  const state = useRestockPage();
+  useEffect(() => {
+    holder.state = state;
+  });
+  return null;
+}
+
+/**
+ * Hook dirender sungguhan (bukan menebak urutan `useState`), jadi tes ini
+ * tetap berlaku walau susunan state di dalam hook berubah.
+ */
+async function renderPage() {
+  await act(async () => {
+    root.render(React.createElement(Harness));
+  });
+}
+
+function fillCompleteForm() {
+  act(() => {
+    current().setFormGudang("gudang-a");
+    current().setFormNotes("Restock ODP");
+    current().setFormItems([
+      { tipe: "BARANG", barangId: "barang-1", quantity: 1 },
+    ]);
+  });
+}
+
 describe("useRestockPage", () => {
-  beforeEach(() => {
-    mockUseCallback.mockClear();
-    mockUseEffect.mockClear();
-    mockUseMemo.mockClear();
-    mockUseRef.mockClear();
-    mockToastError.mockClear();
-    mockToastSuccess.mockClear();
-    mockToastLoading.mockClear();
-    mockToastDismiss.mockClear();
+  beforeEach(async () => {
     mockGetWithAuth.mockReset();
     mockPostWithAuth.mockReset();
+    mockToastError.mockClear();
+    mockToastSuccess.mockClear();
+    mockGetWithAuth.mockResolvedValue({ ok: false, json: async () => ({}) });
 
-    mockGetWithAuth.mockResolvedValue({
-      ok: false,
-      json: async () => ({}),
-    });
-    mockPostWithAuth.mockResolvedValue({
-      ok: true,
-      json: async () => ({ data: {} }),
-    });
-
-    useStateOverrides(new Map());
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await renderPage();
   });
 
-  /**
-   * Isi `useState` menurut urutan pemanggilannya di hook. Urutan ini harus
-   * mengikuti `useRestockPage`; versi lama memakai nomor yang sudah basi
-   * sehingga test "sedang menyimpan" sebenarnya menguji form kosong.
-   */
-  function useStateOverrides(overrides: Map<number, unknown>) {
-    let stateCallIndex = 0;
-    mockUseState.mockImplementation((initialValue: unknown) => {
-      stateCallIndex += 1;
-      const value = overrides.has(stateCallIndex)
-        ? overrides.get(stateCallIndex)
-        : initialValue;
-      return [value, vi.fn()];
-    });
-  }
-
-  const STATE_FORM_GUDANG = 15;
-  const STATE_FORM_NOTES = 16;
-  const STATE_FORM_ITEMS = 17;
-  const STATE_SUBMITTING = 25;
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
 
   it("does not submit request again while a submission is already in progress", async () => {
-    useStateOverrides(
-      new Map<number, unknown>([
-        [STATE_FORM_GUDANG, "gudang-a"],
-        [STATE_FORM_NOTES, "Restock ODP"],
-        [
-          STATE_FORM_ITEMS,
-          [{ tipe: "BARANG", barangId: "barang-1", quantity: 1 }],
-        ],
-        [STATE_SUBMITTING, true],
-      ]),
-    );
-    const hook = useRestockPage();
+    mockPostWithAuth.mockReturnValue(new Promise(() => {}));
+    fillCompleteForm();
 
-    await hook.saveRequest();
+    act(() => {
+      void current().saveRequest();
+    });
+    expect(current().submitting).toBe(true);
 
-    expect(mockPostWithAuth).not.toHaveBeenCalled();
+    await act(async () => current().saveRequest());
+
+    expect(mockPostWithAuth).toHaveBeenCalledTimes(1);
     // Klik kedua saat penyimpanan berjalan diabaikan; dulu ia memunculkan
     // "Harap lengkapi data" padahal datanya sudah lengkap.
     expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it("lists every missing part of an incomplete form", async () => {
-    const hook = useRestockPage();
-
-    await hook.saveRequest();
+    await act(async () => current().saveRequest());
 
     expect(mockPostWithAuth).not.toHaveBeenCalled();
     expect(mockToastError).toHaveBeenCalledWith(
@@ -132,5 +120,26 @@ describe("useRestockPage", () => {
       ].join("\n"),
       expect.objectContaining({ duration: 10_000 }),
     );
+  });
+
+  it("offers every display status in the filter and filters by it", () => {
+    expect(current().statusOptions.map((option) => option.value)).toEqual([
+      "all",
+      "AWAITING_APPROVAL",
+      "APPROVED",
+      "RECEIVED",
+      "REJECTED",
+      "CANCELLED",
+    ]);
+
+    act(() => current().setStatusFilter("APPROVED"));
+
+    expect(current().statusFilter).toBe("APPROVED");
+  });
+
+  it("exposes the approval, entry, and cancel controllers with nothing open", () => {
+    expect(current().approval.request).toBeNull();
+    expect(current().entry.request).toBeNull();
+    expect(current().cancel.request).toBeNull();
   });
 });

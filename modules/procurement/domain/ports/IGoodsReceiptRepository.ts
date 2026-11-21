@@ -20,11 +20,6 @@ export interface GoodsReceiptCreateInput {
   fotoBukti?: string[];
   tenantId: string | null;
   items: GoodsReceiptItemCreateInput[];
-  /**
-   * true: jumlah datang per item tidak boleh melebihi jumlah yang sudah
-   * dilaporkan dibeli (pesanan restock yang belanjanya lewat link).
-   */
-  isLimitedToPurchased?: boolean;
 }
 
 export interface GoodsReceiptListFilter {
@@ -81,11 +76,14 @@ export interface IGoodsReceiptRepository {
 
   /**
    * Buat GRN dan post stok dalam transaksi atomic:
-   * 1. Insert goods_receipts + goods_receipt_items
-   * 2. Update purchase_order_items.receivedQuantity
-   * 3. Upsert barang_gudang.stok / stokBaru
-   * 4. Insert barang_masuk record (audit trail stock-in)
-   * 5. Update purchase_orders.status (PARTIAL/RECEIVED) berdasarkan total receive
+   * 1. Kunci baris purchase_orders (`FOR UPDATE`)
+   * 2. Insert goods_receipts + goods_receipt_items
+   * 3. Naikkan purchase_order_items.receivedQuantity secara bersyarat: kenaikan
+   *    yang melebihi sisa (quantity − cancelledQuantity) ditolak dengan
+   *    `GoodsReceiptExceedsRemainingError` dan seluruh transaksi di-rollback
+   * 4. Upsert barang_gudang.stok / stokBaru
+   * 5. Insert barang_masuk record (audit trail stock-in)
+   * 6. Update purchase_orders.status (PARTIAL/RECEIVED) berdasarkan total receive
    */
   createAndPost(input: GoodsReceiptCreateInput): Promise<GoodsReceiptEntity>;
 }

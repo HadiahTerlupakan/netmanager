@@ -11,6 +11,7 @@ import {
   goodsReceiptListQuerySchema,
   toGoodsReceiptDTO,
   toGoodsReceiptListItemDTO,
+  GoodsReceiptExceedsRemainingError,
   GoodsReceiptInvalidError,
   GoodsReceiptNotFoundError,
   GoodsReceiptRestockOrderError,
@@ -112,6 +113,10 @@ export const POST = createHandler({ auth: true }, async (req, ctx) => {
       return ApiErrors.notFound(error.message);
     }
     if (error instanceof GoodsReceiptRestockOrderError) {
+      return ApiErrors.conflict(error.message);
+    }
+    // Pesanan berubah di tengah jalan (penerimaan lain atau ubah isi PO).
+    if (error instanceof GoodsReceiptExceedsRemainingError) {
       return ApiErrors.conflict(error.message);
     }
     if (error instanceof GoodsReceiptInvalidError) {

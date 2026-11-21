@@ -24,13 +24,13 @@ const MIN_LINE_QUANTITY = 1;
 
 /**
  * Batas bawah jumlah satu item: tidak boleh di bawah barang yang sudah
- * diterima atau sudah dibeli (catatan belanja restock) ditambah yang dicoret.
+ * diterima ditambah yang sudah dicoret.
  */
 function getMinimumLineQuantity(item: PurchaseOrderItemForChange): number {
-  const settled =
-    Math.max(item.receivedQuantity, item.purchasedQuantity) +
-    item.cancelledQuantity;
-  return Math.max(MIN_LINE_QUANTITY, settled);
+  return Math.max(
+    MIN_LINE_QUANTITY,
+    item.receivedQuantity + item.cancelledQuantity,
+  );
 }
 
 export class PurchaseOrderItemChangeInvalidError extends Error {
@@ -185,28 +185,19 @@ export class PurchaseOrderItemChangeService {
     quantity: number,
   ): void {
     const minimum = getMinimumLineQuantity(item);
-    // Jumlah yang tidak diturunkan selalu boleh, walau data lama sudah
-    // melewati batas (mis. barang dibeli lalu dicoret karena tidak dikirim).
-    const isReducing = quantity < item.quantity;
-    if (Number.isInteger(quantity) && (quantity >= minimum || !isReducing)) {
-      return;
-    }
+    if (Number.isInteger(quantity) && quantity >= minimum) return;
 
     if (minimum <= MIN_LINE_QUANTITY) {
       throw new PurchaseOrderItemChangeInvalidError(
-        `Jumlah ${item.barangName} minimal ${MIN_LINE_QUANTITY}. Anulir lewat verifikasi barang bila tidak jadi dipesan`,
+        `Jumlah ${item.barangName} minimal ${MIN_LINE_QUANTITY}`,
       );
     }
     const cancelled =
       item.cancelledQuantity > 0
         ? ` dan dianulir ${item.cancelledQuantity}`
         : "";
-    const reason =
-      item.purchasedQuantity > item.receivedQuantity
-        ? `sudah dibeli ${item.purchasedQuantity}`
-        : `sudah diterima ${item.receivedQuantity}`;
     throw new PurchaseOrderItemChangeInvalidError(
-      `Jumlah ${item.barangName} minimal ${minimum} karena ${reason}${cancelled}`,
+      `Jumlah ${item.barangName} minimal ${minimum} karena sudah diterima ${item.receivedQuantity}${cancelled}`,
     );
   }
 

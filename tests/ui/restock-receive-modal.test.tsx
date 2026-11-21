@@ -5,16 +5,27 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   Barang,
   PurchaseRequest,
+  PurchaseRequestItem,
 } from "@/app/admin/inventory/restock/types";
+import type { RestockEntryState } from "@/app/admin/inventory/restock/useRestockEntry";
+import { makeRestockEntryState } from "@/tests/fixtures/restock-entry-state";
 
 vi.mock("@/components/ui/Modal", () => ({
   Modal: ({
     isOpen,
+    title,
     children,
   }: {
     isOpen: boolean;
+    title?: string;
     children: React.ReactNode;
-  }) => (isOpen ? <div>{children}</div> : null),
+  }) =>
+    isOpen ? (
+      <div>
+        <h2>{title}</h2>
+        {children}
+      </div>
+    ) : null,
 }));
 
 vi.mock("@/components/inventory/PhotoUpload", () => ({
@@ -22,443 +33,392 @@ vi.mock("@/components/inventory/PhotoUpload", () => ({
 }));
 
 import { RestockReceiveModal } from "@/app/admin/inventory/restock/RestockReceiveModal";
+import {
+  NOTHING_ENTERED_MESSAGE,
+  OVER_RECEIPT_REASON_MISSING_MESSAGE,
+  PHOTO_MISSING_MESSAGE,
+} from "@/app/admin/inventory/restock/restockReceiveForm";
 
 const barangs: Barang[] = [
   { id: "barang-1", kode: "BRG-001", nama: "Kabel Fiber", satuan: "roll" },
-  { id: "barang-2", kode: "BRG-002", nama: "Kabel Dropcore", satuan: "roll" },
+  { id: "barang-2", kode: "BRG-002", nama: "Patch Cord", satuan: "pcs" },
 ];
 
-const request: PurchaseRequest = {
-  id: "pr-1",
-  nomorRequest: "PR-001",
-  status: "ORDERED",
-  createdAt: "2026-04-19T00:00:00.000Z",
-  requester: { name: "Rohadim" },
-  gudangId: "gudang-a",
-  gudang: { id: "gudang-a", nama: "Gudang A" },
-  purchaseOrder: { id: "po-1", poNumber: "PO-2026-001", status: "ORDERED" },
-  items: [
-    {
-      id: "item-1",
-      barangId: "barang-1",
-      jumlah: 10,
-      receivedQuantity: 0,
-      barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
-    },
-  ],
-};
+function makeItem(
+  overrides: Partial<PurchaseRequestItem> = {},
+): PurchaseRequestItem {
+  return {
+    id: "item-1",
+    barangId: "barang-1",
+    jumlah: 10,
+    receivedQuantity: 0,
+    barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
+    ...overrides,
+  };
+}
 
-const photo = [{ preview: "x" } as never];
+function makeRequest(
+  overrides: Partial<PurchaseRequest> = {},
+): PurchaseRequest {
+  return {
+    id: "pr-1",
+    nomorRequest: "PR-001",
+    status: "ORDERED",
+    createdAt: "2026-04-19T00:00:00.000Z",
+    requester: { name: "Rohadim" },
+    gudangId: "gudang-a",
+    gudang: { id: "gudang-a", nama: "Gudang A" },
+    purchaseOrder: { id: "po-1", poNumber: "PO-2026-001", status: "DRAFT" },
+    items: [makeItem()],
+    ...overrides,
+  };
+}
 
-function renderReceiveModal(
-  props?: Partial<React.ComponentProps<typeof RestockReceiveModal>>,
-) {
+const photo = { preview: "x" } as never;
+
+interface RenderOptions {
+  entry?: Partial<RestockEntryState>;
+  canOverReceive?: boolean;
+}
+
+function renderReceiveModal({
+  entry,
+  canOverReceive = false,
+}: RenderOptions = {}): string {
   return renderToStaticMarkup(
     <RestockReceiveModal
-      request={props?.request ?? request}
-      receivedItems={props?.receivedItems ?? { "barang-1": 8 }}
-      onReceivedItemsChange={props?.onReceivedItemsChange ?? vi.fn()}
-      barangs={props?.barangs ?? barangs}
-      substitutions={props?.substitutions ?? {}}
-      onSubstitutionsChange={props?.onSubstitutionsChange ?? vi.fn()}
-      cancellations={props?.cancellations ?? {}}
-      onCancellationsChange={props?.onCancellationsChange ?? vi.fn()}
-      overReceipts={props?.overReceipts ?? {}}
-      onOverReceiptsChange={props?.onOverReceiptsChange ?? vi.fn()}
-      receivedPhotos={props?.receivedPhotos ?? []}
-      onReceivedPhotosChange={props?.onReceivedPhotosChange ?? vi.fn()}
-      isFinishingOrder={props?.isFinishingOrder ?? false}
-      onIsFinishingOrderChange={props?.onIsFinishingOrderChange ?? vi.fn()}
-      closeReason={props?.closeReason ?? ""}
-      onCloseReasonChange={props?.onCloseReasonChange ?? vi.fn()}
-      submitting={props?.submitting ?? false}
-      photoUploadRef={props?.photoUploadRef ?? { current: null }}
-      onClose={props?.onClose ?? vi.fn()}
-      onSubmit={props?.onSubmit ?? vi.fn()}
+      entry={makeRestockEntryState({
+        request: makeRequest(),
+        receivedItems: { "barang-1": 10 },
+        photos: [photo],
+        ...entry,
+      })}
+      barangs={barangs}
+      canOverReceive={canOverReceive}
     />,
   );
 }
 
 describe("RestockReceiveModal", () => {
-  it("introduces the request, order code, status and destination", () => {
+  it("tidak merender apa pun sebelum ada pengajuan yang dibuka", () => {
+    expect(
+      renderToStaticMarkup(
+        <RestockReceiveModal
+          entry={makeRestockEntryState()}
+          barangs={barangs}
+          canOverReceive={false}
+        />,
+      ),
+    ).toBe("");
+  });
+
+  it("memperkenalkan pengajuan, kode pesanan, status, dan gudang tujuan", () => {
     const markup = renderReceiveModal();
 
+    expect(markup).toContain("Masukkan Barang");
     expect(markup).toContain("Pengajuan PR-001");
     expect(markup).toContain("Kode pesanan: PO-2026-001");
-    expect(markup).toContain("Menunggu Barang");
+    expect(markup).toContain("Disetujui");
     expect(markup).toContain("Masuk ke gudang: Gudang A");
-    expect(markup).not.toContain("Belum ada catatan belanja");
+    expect(markup).not.toContain("belanja");
   });
 
-  it("explains that only goods reported bought can be recorded", () => {
-    const markup = renderReceiveModal({
-      request: {
-        ...request,
-        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "ORDERED" },
-        items: [
-          {
-            ...request.items[0],
-            purchaseOrderItemId: "poi-1",
-            purchasedQuantity: 4,
-            receivedQuantity: 1,
-          },
-        ],
-      },
-      receivedItems: { "barang-1": 3 },
-    });
-
-    expect(markup).toContain(
-      "Hanya barang yang sudah dilaporkan dibeli yang bisa dicatat datang.",
-    );
-    expect(markup).toContain(
-      "Sudah dibeli 4 roll · Sudah datang 1 roll · Bisa dicatat sekarang 3 roll",
-    );
-    expect(markup).toContain(
-      "Sudah terisi semua yang sudah dibeli. Ubah kalau yang datang lebih sedikit.",
-    );
-    expect(markup).not.toContain("dihitung sudah dibeli");
-    // Mode terbatas: tombol isi otomatis tidak menjanjikan "lengkap", dan
-    // sisa yang belum dibeli tidak disuruh dicatat sebagai kiriman berikutnya.
-    expect(markup).toContain("Isi semua yang sudah dibeli");
-    expect(markup).not.toContain("Semua datang lengkap");
-    expect(markup).toContain(
-      "Barang yang belum dibeli dicatat setelah dibeli lewat link dan datang.",
-    );
-  });
-
-  it("disables a line that was not reported bought yet", () => {
-    const markup = renderReceiveModal({
-      request: {
-        ...request,
-        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
-        items: [
-          {
-            ...request.items[0],
-            purchaseOrderItemId: "poi-1",
-            purchasedQuantity: 0,
-          },
-        ],
-      },
-      receivedItems: { "barang-1": 0 },
-    });
-
-    expect(markup).toContain(
-      "Belum dibeli. Bisa dicatat setelah dilaporkan dibeli lewat link.",
-    );
-    expect(markup).toMatch(
-      /aria-label="Jumlah Kabel Fiber yang datang hari ini"[^>]*disabled=""/,
-    );
-    // Barang yang belum dibeli tidak mungkin datang sebagai barang lain.
-    expect(markup).not.toContain("Yang datang barang lain?");
-  });
-
-  it("rejects more than was bought and hides the larger-delivery box", () => {
-    const markup = renderReceiveModal({
-      request: {
-        ...request,
-        items: [
-          {
-            ...request.items[0],
-            purchaseOrderItemId: "poi-1",
-            purchasedQuantity: 4,
-          },
-        ],
-      },
-      receivedItems: { "barang-1": 12 },
-      receivedPhotos: photo,
-    });
-
-    expect(markup).toContain(
-      "Kabel Fiber: baru 4 roll yang sudah dibeli dan belum datang. Isi paling banyak 4.",
-    );
-    expect(markup).not.toContain("lebih banyak dari pesanan");
-  });
-
-  it("stays quiet once part of the goods was recorded as bought", () => {
-    const markup = renderReceiveModal({
-      request: {
-        ...request,
-        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "ORDERED" },
-        items: request.items.map((item) => ({
-          ...item,
-          purchaseOrderItemId: `poi-${item.id}`,
-          purchasedQuantity: 1,
-        })),
-      },
-    });
-
-    expect(markup).not.toContain("Belum ada catatan belanja");
-  });
-
-  it("labels the quantity input visibly and with the item name", () => {
+  it("memberi label jumlah yang terlihat dan yang menyebut nama barang", () => {
     const markup = renderReceiveModal();
 
-    expect(markup).toContain("1. Barang apa yang datang hari ini?");
-    expect(markup).toContain(">Datang hari ini</label>");
-    expect(markup).toContain(
-      'aria-label="Jumlah Kabel Fiber yang datang hari ini"',
-    );
-    expect(markup).toContain("Semua datang lengkap");
+    expect(markup).toContain("Jumlah masuk");
+    expect(markup).toContain('aria-label="Jumlah Kabel Fiber yang masuk"');
+    expect(markup).toContain("Disetujui 10 roll");
+    expect(markup).toContain("Simpan ke Gudang");
   });
 
-  it("shows the order progress of each line", () => {
-    const fresh = renderReceiveModal();
-    // Data lama: ditandai dibeli sekaligus sebelum barang datang.
-    const partial = renderReceiveModal({
-      request: {
-        ...request,
-        purchaseOrder: {
-          id: "po-1",
-          poNumber: "PO-2026-001",
-          status: "PARTIAL",
-          issuedAt: "2026-04-01T00:00:00.000Z",
-        },
-        items: [{ ...request.items[0], receivedQuantity: 6 }],
+  it("menjelaskan isian awal dan batasnya bagi petugas tanpa izin kelebihan", () => {
+    const markup = renderReceiveModal();
+
+    expect(markup).toContain(
+      "Jumlah sudah terisi sesuai sisa yang belum masuk. Ubah kalau yang masuk lebih sedikit.",
+    );
+    expect(markup).toContain(
+      "Terisi sesuai jumlah yang disetujui. Ubah kalau yang masuk lebih sedikit. Lebih dari ini hanya bisa dicatat petugas yang boleh mengubah pesanan.",
+    );
+    expect(markup).toContain('max="10"');
+  });
+
+  it("tidak menyebut jumlah disetujui atau sisa sebagai pengajuan", () => {
+    const markup = renderReceiveModal({
+      canOverReceive: true,
+      entry: {
+        request: makeRequest({
+          items: [
+            makeItem({ jumlah: 8, jumlahDiminta: 10, orderedQuantity: 8 }),
+          ],
+        }),
+        receivedItems: { "barang-1": 10 },
       },
-      receivedItems: { "barang-1": 4 },
     });
 
-    expect(fresh).toContain("Dipesan 10 roll · Belum ada yang datang");
-    expect(partial).toContain(
-      "Dipesan 10 roll · Sudah datang 6 roll · Masih ditunggu 4 roll",
+    expect(markup).toContain("Disetujui 8 roll");
+    expect(markup).toContain(
+      "Masuk 2 roll lebih banyak dari jumlah yang disetujui. Kalau diterima, kelebihannya ikut dibayar ke toko. Tulis alasannya.",
     );
-    expect(partial).toContain("Semua datang lengkap");
-    expect(partial).toContain(
-      "Sudah terisi semua sisa. Ubah kalau yang datang lebih sedikit.",
+    expect(markup).toContain(
+      "Kembalikan ke toko, lalu isi sesuai jumlah yang disetujui.",
+    );
+    expect(markup).not.toContain("dari pengajuan");
+    expect(markup).not.toContain("sesuai pengajuan");
+  });
+
+  it("pesanan yang dinaikkan: terisi seluruh sisa pesanan dan menyebut jumlah pesanannya", () => {
+    const raised = makeRequest({
+      items: [makeItem({ orderedQuantity: 15 })],
+    });
+    const full = renderReceiveModal({
+      entry: { request: raised, receivedItems: { "barang-1": 15 } },
+    });
+
+    expect(full).toContain("Disetujui 10 roll · Dipesan 15 roll");
+    expect(full).toContain("Terisi sesuai sisa pesanan.");
+    expect(full).toContain('max="15"');
+
+    const short = renderReceiveModal({
+      entry: { request: raised, receivedItems: { "barang-1": 10 } },
+    });
+    expect(short).toContain("5 roll tidak dimasukkan.");
+    expect(short).toContain("Kabel Fiber — 5 roll");
+  });
+
+  it("pesanan gabungan: hanya bagian pengajuan ini, dengan penjelasan satu baris", () => {
+    const markup = renderReceiveModal({
+      entry: {
+        request: makeRequest({
+          purchaseOrder: {
+            id: "po-1",
+            poNumber: "PO-2026-001",
+            status: "ORDERED",
+            linkedRequestCount: 2,
+          },
+          items: [makeItem({ jumlah: 5, orderedQuantity: 10 })],
+        }),
+        receivedItems: { "barang-1": 5 },
+      },
+    });
+
+    expect(markup).toContain("Disetujui 5 roll");
+    expect(markup).not.toContain("Dipesan");
+    expect(markup).toContain("Terisi sesuai jumlah yang disetujui.");
+    expect(markup).toContain("Tidak ada.");
+    expect(markup).toContain(
+      "Pesanan ini dipakai bersama pengajuan lain; sisa milik pengajuan lain yang belum selesai tidak ikut ditutup.",
     );
   });
 
-  it("explains why saving is blocked when the photo is missing", () => {
-    const markup = renderReceiveModal({ receivedPhotos: [] });
+  it("tidak menampilkan penjelasan pesanan gabungan untuk pesanan milik satu pengajuan", () => {
+    expect(renderReceiveModal()).not.toContain(
+      "Pesanan ini dipakai bersama pengajuan lain",
+    );
+  });
+
+  it("tidak membatasi jumlah bagi petugas yang boleh mengubah pesanan", () => {
+    const markup = renderReceiveModal({ canOverReceive: true });
+
+    expect(markup).not.toContain("max=");
+    expect(markup).not.toContain("hanya bisa dicatat petugas");
+    expect(markup).toContain("lebih sedikit atau lebih banyak");
+  });
+
+  it("menyebut kelebihan terhadap sisa pesanan pada pengajuan lama yang sudah menerima sebagian", () => {
+    const markup = renderReceiveModal({
+      canOverReceive: true,
+      entry: {
+        request: makeRequest({ items: [makeItem({ receivedQuantity: 4 })] }),
+        receivedItems: { "barang-1": 8 },
+      },
+    });
+
+    expect(markup).toContain(
+      "Masuk 2 roll lebih banyak dari sisa pesanan. Kalau diterima, kelebihannya ikut dibayar ke toko. Tulis alasannya.",
+    );
+  });
+
+  it("menunjukkan kemajuan baris pengajuan lama yang sudah menerima sebagian", () => {
+    const markup = renderReceiveModal({
+      entry: {
+        request: makeRequest({
+          items: [
+            makeItem({
+              receivedQuantity: 4,
+              cancelledQuantity: 2,
+              cancelReason: "Barang habis di toko",
+            }),
+          ],
+        }),
+        receivedItems: { "barang-1": 4 },
+      },
+    });
+
+    expect(markup).toContain(
+      "Disetujui 10 roll · Sudah masuk 4 roll · Sisa 4 roll",
+    );
+    expect(markup).toContain(
+      "Sebelumnya tidak masuk: 2 roll (Barang habis di toko)",
+    );
+    expect(markup).toContain(
+      "Sudah masuk 4 roll sebelumnya, jadi barangnya tidak bisa diganti lagi.",
+    );
+  });
+
+  it("menjelaskan kenapa belum bisa disimpan saat foto belum ada", () => {
+    const markup = renderReceiveModal({ entry: { photos: [] } });
 
     expect(markup).toContain("Belum bisa disimpan:");
-    expect(markup).toContain("Foto barang yang datang dulu.");
+    expect(markup).toContain(PHOTO_MISSING_MESSAGE);
     expect(markup).toContain('aria-disabled="true"');
   });
 
-  it("tells staff to come back later when nothing arrived", () => {
-    const markup = renderReceiveModal({ receivedItems: { "barang-1": 0 } });
-
-    expect(markup).toContain(
-      "Belum ada jumlah barang yang diisi. Kalau barangnya belum datang, tekan Tutup dan catat nanti saat barang tiba.",
-    );
-    expect(markup).toContain(
-      "pilih &quot;Tidak, sisanya tidak akan datang&quot; di bagian 3.",
-    );
-  });
-
-  it("shows the green box and complete label when everything arrives", () => {
+  it("meminta jumlah dan mengarah ke Batalkan bila semua diisi 0", () => {
     const markup = renderReceiveModal({
-      receivedItems: { "barang-1": 10 },
-      receivedPhotos: photo,
+      entry: { receivedItems: { "barang-1": 0 }, photos: [] },
     });
 
-    expect(markup).toContain(
-      "Semua barang sudah lengkap. Setelah disimpan, pesanan ini selesai.",
-    );
-    expect(markup).not.toContain("3. Apakah masih ada barang");
-    expect(markup).toContain("Simpan, pesanan lengkap");
+    expect(markup).toContain(NOTHING_ENTERED_MESSAGE);
+    expect(markup).toContain('aria-disabled="true"');
+    expect(markup).toContain("Simpan ke Gudang");
+    expect(markup).not.toContain("Selesaikan tanpa barang tambahan");
   });
 
-  it("asks whether the remainder still comes, defaulting to yes", () => {
-    const markup = renderReceiveModal({ receivedPhotos: photo });
-
-    expect(markup).toContain("3. Apakah masih ada barang yang akan menyusul?");
-    expect(markup).toMatch(/<legend[^>]*>3\. Apakah/);
-    expect(markup).toMatch(
-      /type="radio"[^>]*checked=""[^>]*\/?>\s*<span><span[^>]*>Ya, sisanya masih ditunggu/,
-    );
-    expect(markup).toContain("Tidak, sisanya tidak akan datang");
-    expect(markup).toContain("Simpan, sisa masih ditunggu");
-    expect(markup).toContain("Sisa 2 roll ini tidak akan datang?");
-  });
-
-  it("lists what will not come and needs a reason when the answer is no", () => {
+  it("menawarkan Selesaikan tanpa barang tambahan untuk data lama, tanpa foto", () => {
     const markup = renderReceiveModal({
-      receivedPhotos: photo,
-      isFinishingOrder: true,
-    });
-
-    expect(markup).toContain("Barang yang tidak jadi datang:");
-    expect(markup).toContain("• Kabel Fiber — 2 roll");
-    expect(markup).toContain(
-      "Barang ini tidak masuk gudang. Kalau sudah terlanjur dibayar, beri tahu admin.",
-    );
-    expect(markup).toContain("Pilih alasan kenapa sisanya tidak datang.");
-    expect(markup).toContain("Simpan &amp; selesaikan pesanan");
-    expect(markup).not.toContain("Sisa 2 roll ini tidak akan datang?");
-  });
-
-  it("cancels an order with nothing ever received, without a photo", () => {
-    const markup = renderReceiveModal({
-      receivedItems: { "barang-1": 0 },
-      isFinishingOrder: true,
-      closeReason: "Toko tidak mengirim",
-    });
-
-    // Bagian foto tetap terpasang (fotonya tidak hilang) tapi disembunyikan.
-    expect(markup).toMatch(/<section class="space-y-3" hidden="">/);
-    expect(markup).toContain("2. Apakah masih ada barang yang akan menyusul?");
-    expect(markup).not.toContain("3. Apakah masih ada barang");
-    expect(markup).not.toContain("Belum bisa disimpan:");
-    expect(markup).toContain("Batalkan pesanan");
-    expect(markup).toContain(
-      "Belum ada barang yang datang. Pesanan ini dibatalkan dan tidak ada barang yang masuk gudang.",
-    );
-    expect(markup).toContain(
-      "Belum ada barang yang datang. Kalau disimpan, pesanan ini dibatalkan.",
-    );
-    expect(markup).not.toContain("Belum ada catatan belanja");
-  });
-
-  it("finishes (not cancels) a shared order without delivery", () => {
-    const markup = renderReceiveModal({
-      request: {
-        ...request,
-        purchaseOrder: {
-          ...request.purchaseOrder,
-          _count: { purchaseRequests: 2 },
-        },
+      entry: {
+        request: makeRequest({ items: [makeItem({ receivedQuantity: 4 })] }),
+        receivedItems: { "barang-1": 0 },
+        photos: [],
       },
-      receivedItems: { "barang-1": 0 },
-      isFinishingOrder: true,
-      closeReason: "Toko tidak mengirim",
     });
 
-    expect(markup).toContain("Selesaikan pesanan");
-    expect(markup).not.toContain("Batalkan pesanan");
-    expect(markup).toContain(
-      "Pesanan selesai dengan barang kurang. Sisanya tidak bisa dicatat datang lagi.",
+    expect(markup).toContain("Selesaikan tanpa barang tambahan");
+    expect(markup).not.toContain("Belum bisa disimpan:");
+    expect(markup).toMatch(
+      /<section[^>]*hidden=""[^>]*>\s*<h3[^>]*>2\. Foto bukti barang/,
     );
   });
 
-  it("uses the replacement's unit in the over-delivery warning", () => {
+  it("menampilkan ringkasan dan pengingat bahwa pengajuan selesai", () => {
+    const complete = renderReceiveModal();
+    expect(complete).toContain("Masuk gudang");
+    expect(complete).toContain("Kabel Fiber — 10 roll");
+    expect(complete).toContain("Tidak dimasukkan");
+    expect(complete).toContain("Tidak ada.");
+    expect(complete).toContain("Pengajuan akan selesai setelah disimpan.");
+
+    const short = renderReceiveModal({
+      entry: { receivedItems: { "barang-1": 6 } },
+    });
+    expect(short).toContain("Kabel Fiber — 4 roll");
+    expect(short).toContain("4 roll tidak dimasukkan.");
+  });
+
+  it("mengingatkan jasa yang masih ditandai lewat Konfirmasi Jasa", () => {
     const markup = renderReceiveModal({
-      barangs: [
-        ...barangs,
-        {
-          id: "barang-3",
-          kode: "BRG-003",
-          nama: "Kabel Meteran",
-          satuan: "meter",
-        },
-      ],
-      substitutions: { "barang-1": "barang-3" },
-      receivedItems: { "barang-1": 12 },
-      receivedPhotos: photo,
+      entry: {
+        request: makeRequest({
+          jasaItems: [
+            {
+              id: "jasa-item-1",
+              jasaId: "jasa-1",
+              jumlah: 1,
+              hargaPerUnit: 0,
+              totalHarga: 0,
+              statusKonfirmasi: "PENDING",
+              jasa: {
+                id: "jasa-1",
+                kode: "JS",
+                nama: "Instalasi",
+                satuan: "job",
+              },
+            },
+          ],
+        }),
+      },
     });
 
-    expect(markup).toContain("Datang 2 meter lebih banyak dari pesanan.");
-    expect(markup).not.toContain("Datang 2 roll lebih banyak");
+    expect(markup).toContain(
+      "Pengajuan akan selesai setelah disimpan. Jasa tetap ditandai lewat Konfirmasi Jasa.",
+    );
   });
 
-  it("shows the live summary blocks", () => {
-    const markup = renderReceiveModal({ receivedPhotos: photo });
-
-    expect(markup).toContain('aria-live="polite"');
-    expect(markup).toContain("Masuk gudang hari ini");
-    expect(markup).toContain("• Kabel Fiber — 8 roll");
-    expect(markup).toContain("Masih ditunggu");
+  it("menawarkan ganti barang bila yang masuk berbeda", () => {
+    expect(renderReceiveModal()).toContain(
+      "Yang masuk barang lain? Pilih barangnya",
+    );
   });
 
-  it("offers replacing an item whose goods arrived different", () => {
-    const markup = renderReceiveModal();
-
-    expect(markup).toContain("Yang datang barang lain? Pilih barangnya");
-  });
-
-  it("shows the replacement item and a substitution summary", () => {
+  it("menampilkan barang pengganti beserta satuannya dan ringkasan penggantian", () => {
     const markup = renderReceiveModal({
-      substitutions: { "barang-1": "barang-2" },
+      entry: {
+        receivedItems: { "barang-1": 4 },
+        substitutions: { "barang-1": "barang-2" },
+      },
     });
 
-    expect(markup).toContain("Kabel Dropcore");
+    expect(markup).toContain("Patch Cord");
     expect(markup).toContain("Barang diganti");
     expect(markup).toContain("Kembalikan ke Kabel Fiber");
+    expect(markup).toContain("Patch Cord — 4 pcs");
     expect(markup).toContain(
-      "1 barang diganti dengan barang lain yang datang.",
+      "1 barang diganti dengan barang lain yang masuk. Catatan pesanan ikut disesuaikan.",
     );
   });
 
-  it("requires a reason once an item is marked as not coming", () => {
+  it("meminta alasan bila yang masuk lebih banyak dari sisa", () => {
     const markup = renderReceiveModal({
-      cancellations: { "barang-1": "" },
-      receivedPhotos: photo,
-    });
-
-    expect(markup).toContain("2 roll Kabel Fiber tidak akan datang");
-    expect(markup).toContain("Kenapa tidak datang?");
-    expect(markup).toContain("Alasannya wajib diisi.");
-    expect(markup).toContain("Pilih alasan kenapa Kabel Fiber tidak datang.");
-    expect(markup).toContain("Ternyata masih datang");
-    expect(markup).not.toContain("Tulis alasannya…");
-  });
-
-  it("shows the free text field only for a custom reason", () => {
-    const markup = renderReceiveModal({
-      cancellations: { "barang-1": "Supir sakit" },
-      receivedPhotos: photo,
-    });
-
-    expect(markup).toContain('placeholder="Tulis alasannya…"');
-    expect(markup).toContain("Lainnya (tulis sendiri)");
-  });
-
-  it("shows quantities that will not come from earlier receipts", () => {
-    const markup = renderReceiveModal({
-      request: {
-        ...request,
-        items: [
-          {
-            ...request.items[0],
-            cancelledQuantity: 3,
-            cancelReason: "Barang habis di toko",
-          },
-        ],
-      },
+      canOverReceive: true,
+      entry: { receivedItems: { "barang-1": 12 } },
     });
 
     expect(markup).toContain(
-      "Tidak jadi datang: 3 roll (Barang habis di toko)",
+      "Masuk 2 roll lebih banyak dari jumlah yang disetujui. Kalau diterima, kelebihannya ikut dibayar ke toko. Tulis alasannya.",
     );
-  });
-
-  it("blocks substitution for items already partially received", () => {
-    const markup = renderReceiveModal({
-      request: {
-        ...request,
-        items: [{ ...request.items[0], receivedQuantity: 2 }],
-      },
-    });
-
-    expect(markup).toContain(
-      "Sudah datang 2 roll sebelumnya, jadi barangnya tidak bisa diganti lagi.",
-    );
-    expect(markup).not.toContain("Yang datang barang lain?");
-  });
-
-  it("asks for a reason when more arrives than ordered", () => {
-    const markup = renderReceiveModal({
-      receivedItems: { "barang-1": 20 },
-      receivedPhotos: photo,
-    });
-
     expect(markup).toContain('aria-label="Alasan kelebihan Kabel Fiber"');
-    expect(markup).toContain(
-      "Datang 10 roll lebih banyak dari pesanan. Kalau diterima, kelebihannya ikut dibayar ke toko. Tulis alasannya.",
-    );
-    expect(markup).toContain("Tidak mau membayar kelebihannya?");
-    expect(markup).toContain("Tulis alasan barang yang datang lebih banyak.");
+    expect(markup).toContain(OVER_RECEIPT_REASON_MISSING_MESSAGE);
   });
 
-  it("allows saving a larger delivery once its reason is filled", () => {
+  it("membolehkan simpan kelebihan setelah alasannya diisi", () => {
     const markup = renderReceiveModal({
-      receivedItems: { "barang-1": 20 },
-      overReceipts: { "barang-1": "Bonus dari toko" },
-      receivedPhotos: photo,
+      canOverReceive: true,
+      entry: {
+        receivedItems: { "barang-1": 12 },
+        overReceipts: { "barang-1": "Bonus dari toko" },
+      },
     });
 
     expect(markup).not.toContain("Belum bisa disimpan:");
-    expect(markup).toContain("Simpan, pesanan lengkap");
+    expect(markup).toContain('aria-disabled="false"');
+  });
+
+  it("tidak menampilkan baris yang ditolak atasan atau yang sudah habis sisanya", () => {
+    const markup = renderReceiveModal({
+      entry: {
+        request: makeRequest({
+          items: [
+            makeItem(),
+            makeItem({
+              id: "item-2",
+              barangId: "barang-3",
+              statusApproval: "REJECTED",
+              barang: { nama: "Konektor", kode: "BRG-003", satuan: "pcs" },
+            }),
+            makeItem({
+              id: "item-3",
+              barangId: "barang-4",
+              receivedQuantity: 10,
+              barang: { nama: "ONT", kode: "BRG-004", satuan: "pcs" },
+            }),
+          ],
+        }),
+      },
+    });
+
+    expect(markup).not.toContain("Jumlah Konektor yang masuk");
+    expect(markup).not.toContain("Jumlah ONT yang masuk");
   });
 });

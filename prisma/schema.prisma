@@ -3305,6 +3305,9 @@ model PurchaseRequest {
   gudangId        String
   keterangan      String?
   catatanApproval String?
+  /// Alasan admin membatalkan pengajuan yang sudah disetujui sebelum barangnya
+  /// dimasukkan.
+  cancelReason    String?
   purchaseOrderId String?
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
@@ -3342,7 +3345,8 @@ model PurchaseRequestItem {
   /// Jumlah yang diajukan pemohon, diisi hanya bila penyetuju mengubah jumlah.
   /// `jumlah` selalu berisi jumlah yang berlaku (yang dipesan di PO).
   jumlahDiminta     Int?
-  /// Barang yang diajukan pemohon, diisi hanya bila penyetuju mengganti barang.
+  /// Barang yang diajukan pemohon, diisi bila barangnya diganti oleh penyetuju
+  /// atau oleh admin saat memasukkan barang pengganti.
   /// `barangId` selalu berisi barang yang berlaku (yang dipesan di PO).
   barangIdDiminta   String?
   tenantId          String?
@@ -3505,11 +3509,8 @@ model PurchaseOrderItem {
   cancelledQuantity   Int                  @default(0)
   cancelReason        String?
   cancelledAt         DateTime?
-  /// Jumlah dibeli. Saat belanja dicatat, nilainya dinaikkan dari
-  /// max(purchasedQuantity, receivedQuantity) (barang datang tanpa catatan
-  /// dianggap sudah dibeli) dan dijaga <= quantity - cancelledQuantity.
-  /// Boleh melebihi quantity - cancelledQuantity bila sisa yang sudah dibeli
-  /// kemudian dicoret karena toko tidak mengirimnya.
+  /// Data historis tahap pembelian restock (dihapus 2026-11-21): jumlah yang
+  /// dilaporkan dibeli lewat link belanja. Tidak lagi ditulis maupun dibaca.
   purchasedQuantity   Int                  @default(0)
   unitPrice           Float
   totalPrice          Float
@@ -3524,8 +3525,10 @@ model PurchaseOrderItem {
   @@map("purchase_order_items")
 }
 
-/// Satu kali belanja untuk satu PO restock. Tagihan, pembayaran,
-/// jurnal tetap di PO.
+/// Data historis tahap pembelian restock (dihapus 2026-11-21): satu kali
+/// belanja yang dilaporkan untuk satu PO restock. Tidak lagi ditulis. FK
+/// RESTRICT ke PO tetap berlaku, jadi PO yang punya catatan ini tidak bisa
+/// dihapus (pengajuannya dibatalkan saja).
 model PurchaseRecord {
   id                String               @id @default(uuid())
   purchaseOrderId   String
@@ -3573,8 +3576,9 @@ enum PurchaseRecordSource {
   PUBLIC_LINK
 }
 
-/// Link daftar belanja tanpa login untuk satu pengajuan restock.
-/// Token mentah tidak pernah disimpan; hanya sha256-nya.
+/// Data historis (dihapus 2026-11-21): link daftar belanja tanpa login untuk
+/// satu pengajuan restock. Halaman /belanja sudah tidak ada, jadi baris lama
+/// tidak berfungsi. Token mentah tidak pernah disimpan; hanya sha256-nya.
 model RestockPurchaseLink {
   id                String           @id @default(uuid())
   purchaseRequestId String
@@ -3599,8 +3603,8 @@ model RestockPurchaseLink {
   @@map("restock_purchase_links")
 }
 
-/// Satu barang di satu catatan belanja. barangId = snapshot saat dibeli
-/// (item PO bisa diganti barangnya kemudian).
+/// Data historis: satu barang di satu catatan belanja (tahap pembelian
+/// dihapus 2026-11-21). barangId = snapshot saat dibeli.
 model PurchaseRecordItem {
   id                  String            @id @default(uuid())
   purchaseRecordId    String

@@ -3,20 +3,20 @@ import { describe, expect, it } from "vitest";
 import {
   buildInitialReceivedItems,
   getPendingJasaItems,
-  getReceivableRestockItems,
+  getRestockEnterableItems,
   buildOverReceiptPayload,
+  getRestockEntryBasis,
   getRestockItemRemaining,
   hasMissingOverReceiptReason,
   canApprovePurchaseRequest,
-  canEditPurchaseRequest,
   canRemoveRestockFormItem,
-  canSubmitRestockForm,
   getFilteredBarangs,
   getPaginatedRestockRequests,
-  getRestockFilterOptions,
+  getRestockFormProblems,
   getVisibleRestockRequests,
   isVeryLowStock,
   PHOTO_UPLOAD_NOT_READY_MESSAGE,
+  RESTOCK_STATUS_FILTER_OPTIONS,
   uploadProofPhotos,
 } from "@/app/admin/inventory/restock/utils";
 import type { PhotoUploadRef } from "@/components/inventory/PhotoUpload";
@@ -163,12 +163,7 @@ describe("restock utils", () => {
       requester: { name: "Rohadim" },
       gudangId: "gudang-a",
       gudang: { id: "gudang-a", nama: "Gudang A" },
-      // Data lama: ditandai dibeli sekaligus, jadi seluruh sisa boleh dicatat.
-      purchaseOrder: {
-        id: "po-1",
-        status: "ORDERED",
-        issuedAt: "2026-04-01T00:00:00.000Z",
-      },
+      purchaseOrder: { id: "po-1", status: "ORDERED" },
       items: [
         {
           id: "item-1",
@@ -192,8 +187,16 @@ describe("restock utils", () => {
     });
   });
 
-  it("prefills only what was bought and has not arrived on a link order", () => {
-    const request: PurchaseRequest = {
+  describe("getRestockEntryBasis", () => {
+    const line: PurchaseRequest["items"][number] = {
+      id: "item-1",
+      barangId: "barang-1",
+      jumlah: 10,
+      orderedQuantity: 25,
+      receivedQuantity: 5,
+      barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
+    };
+    const orderedRequest = (linkedRequestCount?: number): PurchaseRequest => ({
       id: "pr-1",
       nomorRequest: "PR-001",
       status: "ORDERED",
@@ -201,30 +204,43 @@ describe("restock utils", () => {
       requester: { name: "Rohadim" },
       gudangId: "gudang-a",
       gudang: { id: "gudang-a", nama: "Gudang A" },
-      purchaseOrder: { id: "po-1", status: "ORDERED" },
-      items: [
-        {
-          id: "item-1",
-          barangId: "barang-1",
-          jumlah: 10,
-          receivedQuantity: 2,
-          purchasedQuantity: 5,
-          barang: { nama: "Kabel Fiber", kode: "BRG-001", satuan: "roll" },
-        },
-        {
-          id: "item-2",
-          barangId: "barang-2",
-          jumlah: 5,
-          receivedQuantity: 0,
-          purchasedQuantity: 0,
-          barang: { nama: "Pigtail", kode: "BRG-002", satuan: "pcs" },
-        },
-      ],
-    };
+      purchaseOrder: { id: "po-1", status: "ORDERED", linkedRequestCount },
+      items: [line],
+    });
 
-    expect(buildInitialReceivedItems(request)).toEqual({
-      "barang-1": 3,
-      "barang-2": 0,
+    it("uses the whole order remainder for an order owned by one request", () => {
+      expect(getRestockItemRemaining(line)).toBe(20);
+      expect(getRestockEntryBasis(line, orderedRequest(1))).toBe(20);
+      expect(getRestockEntryBasis(line, orderedRequest())).toBe(20);
+      expect(buildInitialReceivedItems(orderedRequest(1))).toEqual({
+        "barang-1": 20,
+      });
+    });
+
+    it("caps a merged order at the quantity approved for this request", () => {
+      expect(getRestockEntryBasis(line, orderedRequest(2))).toBe(10);
+      expect(buildInitialReceivedItems(orderedRequest(2))).toEqual({
+        "barang-1": 10,
+      });
+    });
+
+    it("follows a merged order remainder that is already below the approved quantity", () => {
+      const nearlyDone = { ...line, receivedQuantity: 22 };
+
+      expect(
+        getRestockEntryBasis(nearlyDone, {
+          purchaseOrder: { linkedRequestCount: 2 },
+        }),
+      ).toBe(3);
+    });
+
+    it("treats a request without an order as owning its order", () => {
+      expect(
+        getRestockEntryBasis(
+          { ...line, orderedQuantity: undefined, receivedQuantity: 0 },
+          { purchaseOrder: null },
+        ),
+      ).toBe(10);
     });
   });
 
@@ -237,12 +253,7 @@ describe("restock utils", () => {
       requester: { name: "Rohadim" },
       gudangId: "gudang-a",
       gudang: { id: "gudang-a", nama: "Gudang A" },
-      // Data lama: ditandai dibeli sekaligus, jadi seluruh sisa boleh dicatat.
-      purchaseOrder: {
-        id: "po-1",
-        status: "ORDERED",
-        issuedAt: "2026-04-01T00:00:00.000Z",
-      },
+      purchaseOrder: { id: "po-1", status: "ORDERED" },
       items: [
         {
           id: "item-1",
@@ -263,16 +274,12 @@ describe("restock utils", () => {
       ],
     };
 
-    expect(buildInitialReceivedItems(request)).toEqual({
-      "barang-1": 4,
-      "barang-2": 0,
-    });
-  });
-
-  it("only allows editing for draft requests", () => {
-    expect(canEditPurchaseRequest("DRAFT", true)).toBe(true);
-    expect(canEditPurchaseRequest("ORDERED", true)).toBe(false);
-    expect(canEditPurchaseRequest("DRAFT", false)).toBe(false);
+    // Baris tanpa sisa tidak diisi lagi; server meminta tepat baris yang
+    // masih punya sisa.
+    expect(buildInitialReceivedItems(request)).toEqual({ "barang-1": 4 });
+    expect(
+      getRestockEnterableItems(request).map((item) => item.barangId),
+    ).toEqual(["barang-1"]);
   });
 
   it("only allows approval for draft requests with approval permission", () => {
@@ -292,105 +299,56 @@ describe("restock utils", () => {
     expect(isVeryLowStock(6, 10)).toBe(false);
   });
 
-  it("prevents submit when restock form has no items", () => {
-    expect(
-      canSubmitRestockForm({
-        formGudang: "gudang-a",
-        formNotes: "Restock untuk instalasi pelanggan",
-        formItems: [],
-        isSubmitting: false,
-      }),
-    ).toBe(false);
+  const formProblems = (
+    formItems: RestockFormItem[],
+    formNotes = "Restock untuk instalasi pelanggan",
+  ): string[] =>
+    getRestockFormProblems({ formGudang: "gudang-a", formNotes, formItems });
+
+  it("asks for at least one item", () => {
+    expect(formProblems([])).toEqual([
+      "Belum ada barang atau jasa. Tekan Tambah Barang atau Tambah Jasa.",
+    ]);
   });
 
-  it("prevents submit when catatan / keterangan is empty or whitespace", () => {
-    expect(
-      canSubmitRestockForm({
-        formGudang: "gudang-a",
-        formNotes: "",
-        formItems: validFormItems,
-        isSubmitting: false,
-      }),
-    ).toBe(false);
-
-    expect(
-      canSubmitRestockForm({
-        formGudang: "gudang-a",
-        formNotes: "   ",
-        formItems: validFormItems,
-        isSubmitting: false,
-      }),
-    ).toBe(false);
+  it("asks for the note when it is empty or only spaces", () => {
+    const missingNote =
+      "Catatan belum diisi. Tulis untuk apa barang ini dibeli.";
+    expect(formProblems(validFormItems, "")).toEqual([missingNote]);
+    expect(formProblems(validFormItems, "   ")).toEqual([missingNote]);
   });
 
-  it("prevents submit when an item is incomplete or quantity is invalid", () => {
+  it("names the row with an unselected item or an invalid quantity", () => {
     expect(
-      canSubmitRestockForm({
-        formGudang: "gudang-a",
-        formNotes: "Restock untuk instalasi pelanggan",
-        formItems: [{ tipe: "BARANG", barangId: "", quantity: 1 }],
-        isSubmitting: false,
-      }),
-    ).toBe(false);
-
+      formProblems([{ tipe: "BARANG", barangId: "", quantity: 1 }]),
+    ).toEqual(["Baris ke-1: barangnya belum dipilih."]);
     expect(
-      canSubmitRestockForm({
-        formGudang: "gudang-a",
-        formNotes: "Restock untuk instalasi pelanggan",
-        formItems: [{ tipe: "BARANG", barangId: "barang-1", quantity: 0 }],
-        isSubmitting: false,
-      }),
-    ).toBe(false);
+      formProblems([{ tipe: "BARANG", barangId: "barang-1", quantity: 0 }]),
+    ).toEqual(["Baris ke-1: jumlahnya harus 1 atau lebih."]);
   });
 
-  it("allows submit only when gudang and all items are valid", () => {
+  it("has no problem once the gudang, note, and every item are filled", () => {
+    expect(formProblems(validFormItems)).toEqual([]);
     expect(
-      canSubmitRestockForm({
-        formGudang: "gudang-a",
-        formNotes: "Restock untuk instalasi pelanggan",
-        formItems: validFormItems,
-        isSubmitting: false,
-      }),
-    ).toBe(true);
+      formProblems([{ tipe: "JASA", jasaId: "jasa-1", quantity: 1 }]),
+    ).toEqual([]);
   });
 
-  it("prevents submit when the same barang is selected more than once", () => {
+  it("rejects the same barang twice but allows the same jasa twice", () => {
     expect(
-      canSubmitRestockForm({
-        formGudang: "gudang-a",
-        formNotes: "Restock untuk instalasi pelanggan",
-        formItems: [
-          { tipe: "BARANG", barangId: "barang-1", quantity: 1 },
-          { tipe: "BARANG", barangId: "barang-1", quantity: 2 },
-        ],
-        isSubmitting: false,
-      }),
-    ).toBe(false);
-  });
-
-  it("allows submit for jasa items with valid jasaId and quantity", () => {
+      formProblems([
+        { tipe: "BARANG", barangId: "barang-1", quantity: 1 },
+        { tipe: "BARANG", barangId: "barang-1", quantity: 2 },
+      ]),
+    ).toEqual([
+      "Barang yang sama dipilih lebih dari sekali (baris 1, 2). Hapus salah satu barisnya, lalu jumlahkan di satu baris saja.",
+    ]);
     expect(
-      canSubmitRestockForm({
-        formGudang: "gudang-a",
-        formNotes: "Restock jasa instalasi",
-        formItems: [{ tipe: "JASA", jasaId: "jasa-1", quantity: 1 }],
-        isSubmitting: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("allows submit when the same jasa is selected more than once", () => {
-    expect(
-      canSubmitRestockForm({
-        formGudang: "gudang-a",
-        formNotes: "Restock jasa ganda",
-        formItems: [
-          { tipe: "JASA", jasaId: "jasa-1", quantity: 1 },
-          { tipe: "JASA", jasaId: "jasa-1", quantity: 2 },
-        ],
-        isSubmitting: false,
-      }),
-    ).toBe(true);
+      formProblems([
+        { tipe: "JASA", jasaId: "jasa-1", quantity: 1 },
+        { tipe: "JASA", jasaId: "jasa-1", quantity: 2 },
+      ]),
+    ).toEqual([]);
   });
 
   it("only allows removing form items when more than one item exists", () => {
@@ -409,15 +367,26 @@ describe("restock utils", () => {
     expect(visibleRequests.map((request) => request.id)).toEqual(["pr-2"]);
   });
 
-  it("returns all valid restock status options even when current data is sparse", () => {
-    expect(getRestockFilterOptions(requestList)).toEqual([
+  it("filters by the status shown on the badge, not the database status", () => {
+    const filterBy = (statusFilter: "AWAITING_APPROVAL" | "APPROVED") =>
+      getVisibleRestockRequests({
+        requests: requestList,
+        search: "",
+        statusFilter,
+        gudangFilter: "all",
+      }).map((request) => request.id);
+
+    expect(filterBy("AWAITING_APPROVAL")).toEqual(["pr-1"]);
+    expect(filterBy("APPROVED")).toEqual(["pr-2", "pr-3"]);
+  });
+
+  it("lists every status in the filter, in the order a request moves", () => {
+    expect(RESTOCK_STATUS_FILTER_OPTIONS).toEqual([
       { value: "all", label: "Semua Status" },
-      { value: "DRAFT", label: "Menunggu Persetujuan" },
-      { value: "SUBMITTED", label: "Diajukan" },
+      { value: "AWAITING_APPROVAL", label: "Menunggu Persetujuan" },
       { value: "APPROVED", label: "Disetujui" },
+      { value: "RECEIVED", label: "Sudah Dimasukkan" },
       { value: "REJECTED", label: "Ditolak" },
-      { value: "ORDERED", label: "Sedang berjalan" },
-      { value: "RECEIVED", label: "Selesai" },
       { value: "CANCELLED", label: "Dibatalkan" },
     ]);
   });
@@ -533,12 +502,7 @@ describe("restock utils", () => {
       requester: { name: "Rohadim" },
       gudangId: "gudang-a",
       gudang: { id: "gudang-a", nama: "Gudang A" },
-      // Data lama: ditandai dibeli sekaligus, jadi seluruh sisa boleh dicatat.
-      purchaseOrder: {
-        id: "po-1",
-        status: "ORDERED",
-        issuedAt: "2026-04-01T00:00:00.000Z",
-      },
+      purchaseOrder: { id: "po-1", status: "ORDERED" },
       items: [
         {
           id: "item-1",
@@ -595,7 +559,7 @@ describe("restock utils", () => {
 
     it("leaves rejected barang out of receiving but keeps pending legacy lines", () => {
       expect(
-        getReceivableRestockItems(decidedRequest).map((item) => item.id),
+        getRestockEnterableItems(decidedRequest).map((item) => item.id),
       ).toEqual(["item-1", "item-3"]);
       expect(buildInitialReceivedItems(decidedRequest)).toEqual({
         "barang-1": 10,

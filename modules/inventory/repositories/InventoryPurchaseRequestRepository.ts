@@ -1,12 +1,14 @@
 import { randomUUID } from "crypto";
 import { PurchaseRequestStatus, Prisma } from "@prisma/client";
 
+import type { IRestockRequestDeletionRepository } from "../domain/ports/IRestockRequestDeletionRepository";
 import {
   RESTOCK_EDITABLE_STATUSES,
   RestockRequestNotEditableError,
 } from "../domain/restock-request-errors";
+import { RESTOCK_JASA_DONE_STATUS } from "../domain/restock-request-status";
 import {
-  PURCHASE_ORDER_PROGRESS_INCLUDE,
+  PURCHASE_ORDER_PROGRESS_SELECT,
   toRestockReadModel,
 } from "./restock-request-read-model";
 
@@ -31,10 +33,10 @@ const PURCHASE_REQUEST_LIST_INCLUDE = {
   requester: { select: { name: true } },
   approver: { select: { name: true } },
   gudang: { select: { nama: true, id: true } },
-  purchaseOrder: { include: PURCHASE_ORDER_PROGRESS_INCLUDE },
+  purchaseOrder: { select: PURCHASE_ORDER_PROGRESS_SELECT },
 } satisfies Prisma.PurchaseRequestInclude;
 
-export class InventoryPurchaseRequestRepository {
+export class InventoryPurchaseRequestRepository implements IRestockRequestDeletionRepository {
   constructor(private readonly db: PrismaClientLike) {}
 
   /**
@@ -150,13 +152,14 @@ export class InventoryPurchaseRequestRepository {
   }
 
   /**
-   * Perbarui item purchase request draft/submitted.
+   * Perbarui item purchase request yang belum diputuskan dan belum punya pesanan.
    *
-   * Baris PR diklaim dulu (updateMany bersyarat status) sebelum item disentuh:
-   * keputusan approver yang masuk setelah pemohon membuka form tidak boleh
-   * tertimpa, dan urutan kunci (PR lalu item) sama dengan transaksi approval
-   * sehingga keduanya tidak saling deadlock. Melempar
-   * {@link RestockRequestNotEditableError} bila pengajuan sudah diputuskan.
+   * Baris PR diklaim dulu (updateMany bersyarat status dan tanpa pesanan)
+   * sebelum item disentuh: keputusan approver yang masuk setelah pemohon membuka
+   * form tidak boleh tertimpa, dan urutan kunci (PR lalu item) sama dengan
+   * transaksi approval sehingga keduanya tidak saling deadlock. Melempar
+   * {@link RestockRequestNotEditableError} bila pengajuan sudah diputuskan atau
+   * sudah punya pesanan.
    */
   async updatePurchaseRequest(input: {
     id: string;
@@ -181,6 +184,7 @@ export class InventoryPurchaseRequestRepository {
           id: input.id,
           tenantId: input.tenantId,
           status: { in: [...RESTOCK_EDITABLE_STATUSES] },
+          purchaseOrderId: null,
         },
         data: {
           gudangId: input.gudangId,
@@ -242,9 +246,31 @@ export class InventoryPurchaseRequestRepository {
     });
   }
 
-  /** Hapus purchase request. */
-  async deletePurchaseRequest(id: string) {
-    await this.db.purchaseRequest.delete({ where: { id } });
+  /**
+   * Hapus pengajuan beserta barisnya (cascade) dengan satu DELETE bersyarat.
+   * Syarat `purchaseOrderId: null` ada di baris pengajuan sendiri, jadi
+   * pesanan yang dibuat bersamaan (persetujuan, Generate PO, Masukkan Barang)
+   * membuat penghapusan ini tidak mengenai apa pun. True bila terhapus.
+   */
+  async deletePurchaseRequestIfDeletable(
+    id: string,
+    tenantId: string,
+  ): Promise<boolean> {
+    const result = await this.db.purchaseRequest.deleteMany({
+      where: {
+        id,
+        tenantId,
+        purchaseOrderId: null,
+        status: { not: "RECEIVED" },
+        jasaItems: {
+          none: {
+            statusKonfirmasi: RESTOCK_JASA_DONE_STATUS,
+            statusApproval: { not: "REJECTED" },
+          },
+        },
+      },
+    });
+    return result.count === 1;
   }
 
   /** Ambil detail purchase request restock milik tenant beserta keputusan per baris. */
@@ -274,45 +300,9 @@ export class InventoryPurchaseRequestRepository {
             },
           },
         },
-        purchaseOrder: {
-          select: {
-            id: true,
-            poNumber: true,
-            status: true,
-            issuedAt: true,
-            paymentStatus: true,
-            ...PURCHASE_ORDER_PROGRESS_INCLUDE,
-          },
-        },
+        purchaseOrder: { select: PURCHASE_ORDER_PROGRESS_SELECT },
       },
     });
     return request ? toRestockReadModel(request) : null;
-  }
-
-  /** True bila PO ini sudah punya GRN atau ada barang yang tercatat datang. */
-  async hasArrivedGoods(purchaseOrderId: string): Promise<boolean> {
-    const [goodsReceiptCount, receivedItemCount] = await Promise.all([
-      this.db.goodsReceipt.count({ where: { purchaseOrderId } }),
-      this.db.purchaseOrderItem.count({
-        where: { purchaseOrderId, receivedQuantity: { gt: 0 } },
-      }),
-    ]);
-    return goodsReceiptCount > 0 || receivedItemCount > 0;
-  }
-
-  /**
-   * True bila pesanan ini sudah punya catatan belanja (yang tidak dibatalkan)
-   * atau jumlah dibeli.
-   */
-  async hasPurchaseRecords(purchaseOrderId: string): Promise<boolean> {
-    const [purchaseRecordCount, purchasedItemCount] = await Promise.all([
-      this.db.purchaseRecord.count({
-        where: { purchaseOrderId, voidedAt: null },
-      }),
-      this.db.purchaseOrderItem.count({
-        where: { purchaseOrderId, purchasedQuantity: { gt: 0 } },
-      }),
-    ]);
-    return purchaseRecordCount > 0 || purchasedItemCount > 0;
   }
 }

@@ -4,28 +4,40 @@ import { createHandler, ApiErrors } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import {
+  describeRestockValidationError,
+  restockReceiveSchema,
+} from "@/lib/validations/restock";
+import {
   createRestockGoodsReceiptService,
-  RESTOCK_MESSAGES,
-  RestockReceiptFailedError,
-  RestockReceiptForbiddenError,
-  RestockReceiptInvalidError,
-  RestockReceiptNotFoundError,
-  type RestockReceiptResult,
   restockForbiddenMessage,
   restockServerErrorMessage,
+  type RestockReceiptErrorCode,
+  type RestockReceiptFailure,
+  type RestockReceiptResult,
 } from "@/modules/inventory";
 import { ensureRestockRequestSiteAccess } from "../../../_lib/restock-site-access";
 
 const goodsReceiptService = createRestockGoodsReceiptService();
 
+const RECEIPT_ERROR_RESPONSES: Record<
+  RestockReceiptErrorCode,
+  (message: string) => NextResponse
+> = {
+  INVALID: ApiErrors.badRequest,
+  FORBIDDEN: ApiErrors.forbidden,
+  NOT_FOUND: ApiErrors.notFound,
+  CONFLICT: ApiErrors.conflict,
+  FAILED: ApiErrors.internalError,
+};
+
 /**
- * Catat barang yang datang dari pengajuan restock via GRN service.
- * Mendukung substitusi barang, kelebihan kiriman, sisa yang tidak jadi
- * datang, menyelesaikan pesanan tanpa kiriman (semua jumlah 0), dan menutup
- * sisa yang tidak jadi dibeli (`closeUnpurchased`).
+ * Masukkan Barang pada pengajuan restock yang sudah disetujui: jumlah masuk
+ * per barang, barang pengganti, kelebihan beserta alasannya, dan foto bukti.
+ * Sekali simpan langsung menyelesaikan pengajuan.
  */
 export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
   const user = ctx.session!.user;
+  const purchaseRequestId = ctx.params.id;
 
   if (!(await hasPermission("restock:verify"))) {
     return ApiErrors.forbidden(restockForbiddenMessage("restock:verify"));
@@ -33,97 +45,77 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 
   const siteDenied = await ensureRestockRequestSiteAccess({
     user,
-    purchaseRequestId: ctx.params.id,
+    purchaseRequestId,
     tenantId: user.tenantId as string,
   });
   if (siteDenied) return siteDenied;
 
-  const body = await req.json().catch((): null => null);
-  if (!body) return ApiErrors.badRequest(RESTOCK_MESSAGES.unreadableBody);
+  const body: unknown = await req.json().catch((): null => null);
+  const parsed = restockReceiveSchema.safeParse(body);
+  if (!parsed.success) {
+    return ApiErrors.badRequest(describeRestockValidationError(parsed.error));
+  }
 
   try {
-    const result = await goodsReceiptService.receive({
-      purchaseRequestId: ctx.params.id,
-      receivedItems: (body.items ?? {}) as Record<string, number>,
-      substitutions: (body.substitutions ?? {}) as Record<string, string>,
-      cancellations: (body.cancellations ?? {}) as Record<string, string>,
-      overReceipts: (body.overReceipts ?? {}) as Record<string, string>,
+    const outcome = await goodsReceiptService.receive({
+      purchaseRequestId,
+      receivedItems: parsed.data.items,
+      substitutions: parsed.data.substitutions,
+      overReceipts: parsed.data.overReceipts,
+      fotoBukti: parsed.data.fotoBukti,
       canIncreasePurchaseOrder: await hasPermission("purchase_orders:update"),
-      fotoBukti: (body.fotoBukti ?? []) as string[],
-      closePO: Boolean(body.closePO),
-      closeUnpurchased: body.closeUnpurchased === true,
-      closeReason:
-        typeof body.closeReason === "string" ? body.closeReason : undefined,
-      actorId: user.id as string,
+      actorId: user.id,
       tenantId: user.tenantId as string,
     });
+    if (outcome.success === false) {
+      return rejectReceipt(purchaseRequestId, outcome);
+    }
 
     return NextResponse.json({
-      data: result.goodsReceipt,
-      purchaseOrderStatus: result.purchaseOrderStatus,
-      purchaseRequestStatus: result.purchaseRequestStatus,
-      message: describeReceiptOutcome(result),
+      data: outcome.data.goodsReceipt,
+      purchaseRequestStatus: outcome.data.purchaseRequestStatus,
+      message: describeReceiptOutcome(outcome.data),
     });
-  } catch (error) {
-    const mappedResponse = mapReceiptError(error);
-    if (!mappedResponse) {
-      logger.error(
-        "Error receiving restock request",
-        error instanceof Error ? error : new Error(String(error)),
-        { purchaseRequestId: ctx.params.id },
-      );
-    }
-    const response =
-      mappedResponse ??
-      ApiErrors.internalError(
-        restockServerErrorMessage("Menerima barang", false),
-      );
-    // Pesan penolakan hanya tampil di layar operator; tanpa log ini penyebab
-    // 400/404/500 tidak bisa ditelusuri dari server. `cause` menyimpan pesan
-    // teknis asli di balik pesan yang sudah diterjemahkan untuk petugas.
-    logger.warn("[RESTOCK_RECEIVE] Penerimaan ditolak", {
-      purchaseRequestId: ctx.params.id,
-      status: response.status,
-      reason: describeErrorForLog(error),
-      cause: describeErrorForLog((error as { cause?: unknown })?.cause),
-    });
-    return response;
+  } catch (error: unknown) {
+    logger.error(
+      "Error receiving restock request",
+      error instanceof Error ? error : new Error(String(error)),
+      { purchaseRequestId },
+    );
+    // Barang pengganti bisa sudah tertulis sebelum gangguan ini, jadi jangan
+    // menjanjikan bahwa tidak ada yang berubah.
+    return ApiErrors.internalError(
+      restockServerErrorMessage("Memasukkan barang", false),
+    );
   }
 });
 
-/** Ringkasan hasil penyimpanan untuk petugas gudang. */
+/** Ringkasan hasil penyimpanan untuk admin gudang. */
 function describeReceiptOutcome(result: RestockReceiptResult): string {
-  if (result.purchaseRequestStatus === "CANCELLED") {
-    return "Pesanan dibatalkan. Tidak ada barang yang masuk gudang.";
-  }
-  const isFinished = result.purchaseRequestStatus === "RECEIVED";
-  if (result.goodsReceipt) {
-    return isFinished
-      ? "Tersimpan. Barang sudah masuk gudang. Pesanan selesai."
-      : "Tersimpan. Barang sudah masuk gudang. Sisanya masih ditunggu.";
-  }
-  return isFinished
-    ? "Tersimpan. Pesanan selesai. Sisa barangnya tidak jadi datang."
-    : "Tersimpan. Barang yang tidak jadi datang sudah dicatat. Sisanya masih ditunggu.";
+  return result.goodsReceipt
+    ? "Tersimpan. Barang sudah masuk gudang. Pengajuan selesai."
+    : "Tersimpan. Pengajuan selesai.";
+}
+
+/**
+ * Pesan penolakan hanya tampil di layar admin; log ini menyimpan penyebabnya,
+ * termasuk pesan teknis asli di `cause`, supaya bisa ditelusuri dari server.
+ */
+function rejectReceipt(
+  purchaseRequestId: string,
+  failure: RestockReceiptFailure,
+): NextResponse {
+  const response = RECEIPT_ERROR_RESPONSES[failure.code](failure.error);
+  logger.warn("[RESTOCK_RECEIVE] Penerimaan ditolak", {
+    purchaseRequestId,
+    status: response.status,
+    reason: failure.error,
+    cause: describeErrorForLog(failure.cause),
+  });
+  return response;
 }
 
 function describeErrorForLog(error: unknown): string | undefined {
   if (error === undefined) return undefined;
   return error instanceof Error ? error.message : String(error);
-}
-
-function mapReceiptError(error: unknown) {
-  if (error instanceof RestockReceiptNotFoundError) {
-    return ApiErrors.notFound(error.message);
-  }
-  if (error instanceof RestockReceiptInvalidError) {
-    return ApiErrors.badRequest(error.message);
-  }
-  if (error instanceof RestockReceiptForbiddenError) {
-    return ApiErrors.forbidden(error.message);
-  }
-  if (error instanceof RestockReceiptFailedError) {
-    return ApiErrors.internalError(error.message);
-  }
-  return null;
 }

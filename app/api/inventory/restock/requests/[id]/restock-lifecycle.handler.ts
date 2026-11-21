@@ -1,4 +1,4 @@
-import { getServerSession } from "next-auth";
+import { getServerSession, type Session } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 import { authOptions } from "@/lib/auth";
@@ -16,6 +16,10 @@ import {
   type RestockLifecycleErrorCode,
 } from "@/modules/inventory";
 import { ensureRestockRequestSiteAccess } from "../../_lib/restock-site-access";
+import {
+  handleRestockCancelRequest,
+  isRestockCancelBody,
+} from "./restock-cancel.handler";
 
 const LIFECYCLE_ERROR_STATUS: Record<RestockLifecycleErrorCode, number> = {
   INVALID: 400,
@@ -23,7 +27,11 @@ const LIFECYCLE_ERROR_STATUS: Record<RestockLifecycleErrorCode, number> = {
   CONFLICT: 409,
 };
 
-/** Setujui (per baris) atau tolak pengajuan restock — PATCH /restock/requests/[id]. */
+/**
+ * PATCH /restock/requests/[id]: setujui (per baris) atau tolak pengajuan
+ * dengan izin `restock:approve`, atau batalkan pengajuan yang sudah disetujui
+ * (`action: "CANCEL"`) dengan izin `restock:verify`.
+ */
 export async function handleRestockLifecycleRequest(
   req: NextRequest,
   id: string,
@@ -35,6 +43,20 @@ export async function handleRestockLifecycleRequest(
       { status: 401 },
     );
   }
+
+  const body: unknown = await req.json().catch((): null => null);
+  if (isRestockCancelBody(body)) {
+    return handleRestockCancelRequest({ user: session.user, id, body });
+  }
+  return handleRestockDecision(session.user, id, body);
+}
+
+/** Setujui (per baris) atau tolak pengajuan restock. */
+async function handleRestockDecision(
+  user: Session["user"],
+  id: string,
+  body: unknown,
+) {
   if (!(await hasPermission("restock:approve"))) {
     return NextResponse.json(
       { error: restockForbiddenMessage("restock:approve") },
@@ -42,15 +64,14 @@ export async function handleRestockLifecycleRequest(
     );
   }
 
-  const tenantId = session.user.tenantId as string;
+  const tenantId = user.tenantId as string;
   const siteDenied = await ensureRestockRequestSiteAccess({
-    user: session.user,
+    user,
     purchaseRequestId: id,
     tenantId,
   });
   if (siteDenied) return siteDenied;
 
-  const body = await req.json().catch((): null => null);
   if (!body) {
     return NextResponse.json(
       { error: RESTOCK_MESSAGES.unreadableBody },
@@ -70,7 +91,7 @@ export async function handleRestockLifecycleRequest(
       ...parsed.data,
       id,
       tenantId,
-      actorId: session.user.id as string,
+      actorId: user.id as string,
     });
     if (result.success === false) {
       return NextResponse.json(

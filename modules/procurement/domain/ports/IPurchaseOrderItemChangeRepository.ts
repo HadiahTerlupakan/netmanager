@@ -14,8 +14,6 @@ export interface PurchaseOrderItemForChange {
   quantity: number;
   receivedQuantity: number;
   cancelledQuantity: number;
-  /** Jumlah yang sudah dicatat dibeli lewat catatan belanja restock. */
-  purchasedQuantity: number;
   unitPrice: number;
 }
 
@@ -44,7 +42,7 @@ export interface ApplyPurchaseOrderItemChangeInput {
   actorId: string;
   quantityChanges: Array<{ purchaseOrderItemId: string; quantity: number }>;
   additions: PurchaseOrderItemAddition[];
-  /** Pengajuan yang menerima baris tambahan agar tampil di verifikasi restock. */
+  /** Pengajuan penerima baris tambahan, supaya tampil saat Masukkan Barang. */
   purchaseRequestId: string | null;
 }
 

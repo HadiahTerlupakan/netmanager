@@ -103,25 +103,4 @@ describe("Log Aktivitas pengajuan restock", () => {
       details: { purchaseRequestId: "pr-1", jumlahBarang: 1, jumlahJasa: 0 },
     });
   });
-
-  it("mencatat penghapusan pengajuan", async () => {
-    const repository = { deletePurchaseRequest: vi.fn() };
-    const service = new InventoryRouteService(repository as never);
-
-    await service.deletePurchaseRequest({
-      id: "pr-1",
-      nomorRequest: "PR-20261017-0001",
-      purchaseOrderId: "po-1",
-      actorId: "user-1",
-      tenantId: "tenant-1",
-    });
-
-    expect(repository.deletePurchaseRequest).toHaveBeenCalledWith("pr-1");
-    expect(lastActivity()).toMatchObject({
-      action: "DELETE",
-      subject: "Pengajuan Restock PR-20261017-0001",
-      tenantId: "tenant-1",
-      details: { purchaseRequestId: "pr-1", purchaseOrderId: "po-1" },
-    });
-  });
 });

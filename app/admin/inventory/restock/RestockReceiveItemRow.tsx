@@ -4,81 +4,149 @@ import { useId, useMemo, useState } from "react";
 import { FiRefreshCw, FiRotateCcw } from "react-icons/fi";
 
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { getRestockLineProgress } from "@/modules/inventory/client";
 
-import { RestockCancelReasonField } from "./RestockCancelReasonField";
-import { getRestockLineProgress } from "./restockProgress";
-import { getRemainingAfterToday } from "./restockReceiveForm";
+import {
+  clampEnteredQuantity,
+  getNotEnteredQuantity,
+} from "./restockReceiveForm";
 import type { Barang, PurchaseRequestItem } from "./types";
-import { canSubstituteRestockItem, getRestockItemExcess } from "./utils";
+import {
+  canSubstituteRestockItem,
+  getRestockItemExcess,
+  getRestockItemRemaining,
+} from "./utils";
 
 interface RestockReceiveItemRowProps {
   item: PurchaseRequestItem;
-  receivedQuantity: number;
-  onReceivedQuantityChange: (quantity: number) => void;
+  /** Patokan baris ini (`getRestockEntryBasis`): isian awal dan dasar "tidak dimasukkan". */
+  entryBasis: number;
+  /** Pesanannya juga dipakai pengajuan lain; jumlah pesanannya tidak ditampilkan. */
+  isMergedOrder: boolean;
+  enteredQuantity: number;
+  onEnteredQuantityChange: (quantity: number) => void;
   barangs: Barang[];
   excludedBarangIds: string[];
   substituteBarangId: string | null;
   onSubstituteChange: (barangId: string | null) => void;
-  /** null = masih ditunggu, "" = ditandai tidak datang tapi alasan belum diisi. */
-  cancelReason: string | null;
-  onCancelReasonChange: (reason: string | null) => void;
-  /** Tanda "tidak akan datang" per barang hanya ada saat jawaban bagian 3 "Ya". */
-  canMarkNotComing: boolean;
   overReceiptReason: string;
   onOverReceiptReasonChange: (reason: string) => void;
-  /** Jumlah yang boleh dicatat datang sekarang untuk barang ini. */
-  receiveLimit: number;
-  /**
-   * true: hanya barang yang sudah dilaporkan dibeli yang bisa dicatat (bukan
-   * data lama/pesanan gabungan); kelebihan kiriman tidak tersedia.
-   */
-  isLimitedToPurchased: boolean;
+  /** Izin `purchase_orders:update`: boleh mengisi lebih dari sisa pesanan. */
+  canOverReceive: boolean;
 }
 
-const NOT_PURCHASED_YET_TEXT =
-  "Belum dibeli. Bisa dicatat setelah dilaporkan dibeli lewat link.";
+/** "10 roll"; tanpa satuan bila data barangnya tidak lengkap. */
+function formatQuantity(quantity: number, satuan: string): string {
+  return [String(quantity), satuan].filter(Boolean).join(" ");
+}
+
+interface LineProgressInput {
+  item: PurchaseRequestItem;
+  entryBasis: number;
+  isMergedOrder: boolean;
+}
 
 /**
- * "Sudah dibeli 6 roll · Sudah datang 2 roll · Bisa dicatat sekarang 4 roll"
- * pada pesanan yang belanjanya lewat link; "Dipesan 10 roll · Sudah datang 6
- * roll · Masih ditunggu 4 roll" pada data lama dan pesanan gabungan.
+ * Angka di bawah nama barang, cukup untuk memahami isian awalnya:
+ * "Disetujui 10 roll"; pesanan milik satu pengajuan yang jumlahnya diubah:
+ * "Disetujui 10 roll · Dipesan 15 roll"; pengajuan lama yang sudah menerima
+ * sebagian: "Disetujui 10 roll · Sudah masuk 4 roll · Sisa 6 roll". Jumlah
+ * pesanan gabungan tidak ditampilkan karena ikut memuat pengajuan lain.
  */
-export function describeReceiveLineProgress(
-  item: PurchaseRequestItem,
-  purchaseLimit?: { receiveLimit: number },
-): string {
-  const { ordered, received, remaining } = getRestockLineProgress(item);
-  const withUnit = (quantity: number) =>
-    [String(quantity), item.barang.satuan].filter(Boolean).join(" ");
-  if (purchaseLimit) {
-    return `Sudah dibeli ${withUnit(item.purchasedQuantity ?? 0)} · Sudah datang ${withUnit(received)} · Bisa dicatat sekarang ${withUnit(purchaseLimit.receiveLimit)}`;
+function describeReceiveLineProgress({
+  item,
+  entryBasis,
+  isMergedOrder,
+}: LineProgressInput): string {
+  const satuan = item.barang.satuan;
+  const { ordered, received } = getRestockLineProgress(item);
+  const isOrderChanged = !isMergedOrder && ordered !== item.jumlah;
+  const parts = [`Disetujui ${formatQuantity(item.jumlah, satuan)}`];
+  if (isOrderChanged) parts.push(`Dipesan ${formatQuantity(ordered, satuan)}`);
+  if (received > 0) {
+    parts.push(`Sudah masuk ${formatQuantity(received, satuan)}`);
   }
-  const orderedText = `Dipesan ${withUnit(ordered)}`;
-  if (received === 0) return `${orderedText} · Belum ada yang datang`;
-  return `${orderedText} · Sudah datang ${withUnit(received)} · Masih ditunggu ${withUnit(remaining)}`;
+  const shownTarget = isOrderChanged ? ordered : item.jumlah;
+  if (received > 0 || entryBasis !== shownTarget) {
+    parts.push(`Sisa ${formatQuantity(entryBasis, satuan)}`);
+  }
+  return parts.join(" · ");
 }
 
 /**
- * Satu barang di modal "Catat Barang yang Datang": jumlah yang datang hari
- * ini, ganti barang bila yang datang berbeda, kelebihan, dan tanda tidak datang.
+ * Patokan jumlah dalam kalimat: "jumlah yang disetujui" selama angkanya sama
+ * dengan yang disetujui dan belum ada yang masuk, selain itu "sisa pesanan".
+ */
+function describeQuantityReference(
+  item: PurchaseRequestItem,
+  quantity: number,
+): string {
+  const isApprovedQuantity =
+    quantity === item.jumlah && getRestockLineProgress(item).received === 0;
+  return isApprovedQuantity ? "jumlah yang disetujui" : "sisa pesanan";
+}
+
+interface QuantityHintInput {
+  item: PurchaseRequestItem;
+  entryBasis: number;
+  enteredQuantity: number;
+  satuan: string;
+  canOverReceive: boolean;
+}
+
+const OVER_RECEIPT_LOCKED_HINT =
+  "Lebih dari ini hanya bisa dicatat petugas yang boleh mengubah pesanan.";
+
+/**
+ * Petunjuk di bawah kolom jumlah: berapa yang tidak dimasukkan bila diisi
+ * kurang, atau bahwa isian sudah sesuai patokannya. Tanpa izin kelebihan,
+ * petugas yang sudah di batas sisa pesanan diberi tahu kenapa angkanya tidak
+ * bisa dinaikkan. Kelebihan dijelaskan kotaknya sendiri, jadi tanpa petunjuk.
+ */
+function describeQuantityHint({
+  item,
+  entryBasis,
+  enteredQuantity,
+  satuan,
+  canOverReceive,
+}: QuantityHintInput): string | null {
+  const notEntered = getNotEnteredQuantity(entryBasis, enteredQuantity);
+  if (notEntered > 0) {
+    return `${formatQuantity(notEntered, satuan)} tidak dimasukkan.`;
+  }
+  if (getRestockItemExcess(item, enteredQuantity) > 0) return null;
+  const hints: string[] = [];
+  if (enteredQuantity === entryBasis) {
+    hints.push(
+      `Terisi sesuai ${describeQuantityReference(item, entryBasis)}. Ubah kalau yang masuk lebih sedikit.`,
+    );
+  }
+  if (!canOverReceive && enteredQuantity >= getRestockItemRemaining(item)) {
+    hints.push(OVER_RECEIPT_LOCKED_HINT);
+  }
+  return hints.length > 0 ? hints.join(" ") : null;
+}
+
+/**
+ * Satu barang di modal "Masukkan Barang": jumlah yang masuk gudang, ganti
+ * barang bila yang masuk berbeda, dan alasan bila masuk lebih banyak.
  */
 export function RestockReceiveItemRow({
   item,
-  receivedQuantity,
-  onReceivedQuantityChange,
+  entryBasis,
+  isMergedOrder,
+  enteredQuantity,
+  onEnteredQuantityChange,
   barangs,
   excludedBarangIds,
   substituteBarangId,
   onSubstituteChange,
-  cancelReason,
-  onCancelReasonChange,
-  canMarkNotComing,
   overReceiptReason,
   onOverReceiptReasonChange,
-  receiveLimit,
-  isLimitedToPurchased,
+  canOverReceive,
 }: RestockReceiveItemRowProps) {
   const inputId = useId();
+  const hintId = useId();
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const canSubstitute = canSubstituteRestockItem(item);
   const substituteBarang = substituteBarangId
@@ -101,25 +169,24 @@ export function RestockReceiveItemRow({
   const satuan = item.barang.satuan;
   const displayedName = substituteBarang?.nama ?? item.barang.nama;
   const displayedSatuan = substituteBarang?.satuan ?? satuan;
-  const { remaining, received, cancelled } = getRestockLineProgress(item);
-  const outstandingQuantity = getRemainingAfterToday(item, receivedQuantity);
-  const excessQuantity = isLimitedToPurchased
-    ? 0
-    : getRestockItemExcess(item, receivedQuantity);
-  const prefillQuantity = isLimitedToPurchased ? receiveLimit : remaining;
-  const isPrefilledWithRemaining =
-    prefillQuantity > 0 && receivedQuantity === prefillQuantity;
-  const isNotPurchasedYet = isLimitedToPurchased && receiveLimit === 0;
-  const isInputDisabled = isNotPurchasedYet && receivedQuantity === 0;
-  const isNotArrivingToday = receivedQuantity <= 0;
-  // Barang yang belum dibeli tidak mungkin datang sebagai barang lain.
-  const isSubstituteOffered =
-    canSubstitute && (!isNotPurchasedYet || !!substituteBarangId);
-  const notPurchasedId = useId();
+  const { received, cancelled } = getRestockLineProgress(item);
+  const excessQuantity = getRestockItemExcess(item, enteredQuantity);
+  const excessReference = describeQuantityReference(
+    item,
+    getRestockItemRemaining(item),
+  );
+  const quantityHint = describeQuantityHint({
+    item,
+    entryBasis,
+    enteredQuantity,
+    satuan: displayedSatuan,
+    canOverReceive,
+  });
+  const isNotEntering = enteredQuantity <= 0;
 
   return (
     <div
-      className={`rounded-2xl border p-4 ${isNotArrivingToday ? "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/40" : "border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"}`}
+      className={`rounded-2xl border p-4 ${isNotEntering ? "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/40" : "border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"}`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
@@ -134,44 +201,36 @@ export function RestockReceiveItemRow({
             )}
           </div>
           <p className="text-sm text-gray-700 dark:text-gray-300">
-            {describeReceiveLineProgress(
-              item,
-              isLimitedToPurchased ? { receiveLimit } : undefined,
-            )}
+            {describeReceiveLineProgress({ item, entryBasis, isMergedOrder })}
           </p>
-          {isNotPurchasedYet && (
-            <p
-              id={notPurchasedId}
-              className="text-sm font-semibold text-amber-900 dark:text-amber-200"
-            >
-              {NOT_PURCHASED_YET_TEXT}
-            </p>
-          )}
         </div>
         <div className="shrink-0">
           <label
             htmlFor={inputId}
             className="block text-sm font-bold text-gray-800 dark:text-gray-100"
           >
-            Datang hari ini
+            Jumlah masuk
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
               id={inputId}
               type="number"
               min="0"
+              max={canOverReceive ? undefined : getRestockItemRemaining(item)}
               inputMode="numeric"
-              aria-label={`Jumlah ${displayedName} yang datang hari ini`}
-              aria-describedby={isNotPurchasedYet ? notPurchasedId : undefined}
-              disabled={isInputDisabled}
-              max={isLimitedToPurchased ? receiveLimit : undefined}
-              value={receivedQuantity}
+              aria-label={`Jumlah ${displayedName} yang masuk`}
+              aria-describedby={quantityHint ? hintId : undefined}
+              value={enteredQuantity}
               onChange={(event) =>
-                onReceivedQuantityChange(
-                  Math.max(parseInt(event.target.value) || 0, 0),
+                onEnteredQuantityChange(
+                  clampEnteredQuantity(
+                    item,
+                    parseInt(event.target.value) || 0,
+                    canOverReceive,
+                  ),
                 )
               }
-              className="min-h-[44px] w-24 rounded-xl border border-gray-300 bg-white px-3 text-right text-base font-bold text-gray-900 focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600 dark:border-gray-600 dark:bg-gray-900 dark:text-white dark:disabled:bg-gray-800 dark:disabled:text-gray-400"
+              className="min-h-[44px] w-24 rounded-xl border border-gray-300 bg-white px-3 text-right text-base font-bold text-gray-900 focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
             />
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               {displayedSatuan}
@@ -180,16 +239,17 @@ export function RestockReceiveItemRow({
         </div>
       </div>
 
-      {isPrefilledWithRemaining && (
-        <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-          {isLimitedToPurchased
-            ? "Sudah terisi semua yang sudah dibeli. Ubah kalau yang datang lebih sedikit."
-            : "Sudah terisi semua sisa. Ubah kalau yang datang lebih sedikit."}
+      {quantityHint && (
+        <p
+          id={hintId}
+          className="mt-2 text-xs text-gray-600 dark:text-gray-400"
+        >
+          {quantityHint}
         </p>
       )}
 
       <div className="mt-3 space-y-2">
-        {isSubstituteOffered ? (
+        {canSubstitute ? (
           <>
             <button
               type="button"
@@ -210,7 +270,7 @@ export function RestockReceiveItemRow({
               )}
               {substituteBarangId
                 ? `Kembalikan ke ${item.barang.nama}`
-                : "Yang datang barang lain? Pilih barangnya"}
+                : "Yang masuk barang lain? Pilih barangnya"}
             </button>
             {isPickerVisible && (
               <SearchableSelect
@@ -222,17 +282,15 @@ export function RestockReceiveItemRow({
             )}
           </>
         ) : (
-          !canSubstitute && (
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Sudah datang {received} {satuan} sebelumnya, jadi barangnya tidak
-              bisa diganti lagi.
-            </p>
-          )
+          <p className="text-xs text-gray-600 dark:text-gray-400">
+            Sudah masuk {formatQuantity(received, satuan)} sebelumnya, jadi
+            barangnya tidak bisa diganti lagi.
+          </p>
         )}
 
         {cancelled > 0 && (
           <p className="text-xs font-semibold text-orange-800 dark:text-orange-300">
-            Tidak jadi datang: {cancelled} {satuan}
+            Sebelumnya tidak masuk: {formatQuantity(cancelled, satuan)}
             {item.cancelReason ? ` (${item.cancelReason})` : ""}
           </p>
         )}
@@ -240,9 +298,9 @@ export function RestockReceiveItemRow({
         {excessQuantity > 0 && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
             <p className="text-sm font-bold text-amber-900 dark:text-amber-200">
-              Datang {excessQuantity} {displayedSatuan} lebih banyak dari
-              pesanan. Kalau diterima, kelebihannya ikut dibayar ke toko. Tulis
-              alasannya.
+              Masuk {formatQuantity(excessQuantity, displayedSatuan)} lebih
+              banyak dari {excessReference}. Kalau diterima, kelebihannya ikut
+              dibayar ke toko. Tulis alasannya.
             </p>
             <input
               type="text"
@@ -257,21 +315,10 @@ export function RestockReceiveItemRow({
             />
             <p className="mt-2 text-xs text-amber-900 dark:text-amber-200">
               Tidak mau membayar kelebihannya? Kembalikan ke toko, lalu isi
-              jumlah sesuai pesanan.
+              sesuai {excessReference}.
             </p>
           </div>
         )}
-
-        {canMarkNotComing &&
-          (outstandingQuantity > 0 || cancelReason !== null) && (
-            <RestockCancelReasonField
-              itemName={displayedName}
-              satuan={displayedSatuan}
-              remainingQuantity={outstandingQuantity}
-              reason={cancelReason}
-              onReasonChange={onCancelReasonChange}
-            />
-          )}
       </div>
     </div>
   );

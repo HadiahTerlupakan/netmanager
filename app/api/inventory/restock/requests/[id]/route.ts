@@ -1,27 +1,28 @@
 import { authOptions } from "@/lib/auth";
+import { ApiErrors } from "@/lib/api-response";
+import { logger } from "@/lib/logger";
 import { hasPermission } from "@/lib/rbac";
 import {
-  getInventoryRouteService,
+  deleteRestockRequest,
   getRestockRequestDetail,
   RESTOCK_MESSAGES,
   restockForbiddenMessage,
+  restockServerErrorMessage,
+  type RestockDeleteErrorCode,
 } from "@/modules/inventory";
-import {
-  getPurchaseOrderService,
-  PurchaseOrderNotFoundError,
-  PurchaseOrderNotEditableError,
-  PurchaseOrderHasPurchasesError,
-} from "@/modules/procurement";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { handleRestockLifecycleRequest } from "./restock-lifecycle.handler";
 import { handleRestockPutRequest } from "./restock-put.handler";
 import { ensureRestockRequestSiteAccess } from "../../_lib/restock-site-access";
 
-const inventoryRouteService = getInventoryRouteService();
-
-const PURCHASE_ORDER_LOCKED_MESSAGE =
-  "Pengajuan ini tidak bisa dihapus karena barang pesanannya sudah diterima dan sudah masuk gudang.";
+const DELETE_ERROR_RESPONSES: Record<
+  RestockDeleteErrorCode,
+  (message: string) => NextResponse
+> = {
+  NOT_FOUND: ApiErrors.notFound,
+  CONFLICT: ApiErrors.conflict,
+};
 
 /** Ambil detail purchase request restock. */
 export async function GET(
@@ -54,7 +55,10 @@ export async function GET(
   return getRestockRequestDetail(id, tenantId);
 }
 
-/** Setujui (per baris) atau tolak purchase request restock. */
+/**
+ * Putuskan pengajuan restock: setujui (per baris) atau tolak, atau batalkan
+ * pengajuan yang sudah disetujui dengan alasan (`action: "CANCEL"`).
+ */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -63,7 +67,7 @@ export async function PATCH(
   return handleRestockLifecycleRequest(req, id);
 }
 
-/** Perbarui purchase request draft/submitted. */
+/** Perbarui pengajuan restock yang belum diputuskan dan belum punya pesanan. */
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -72,24 +76,17 @@ export async function PUT(
   return handleRestockPutRequest(req, id);
 }
 
-/** Hapus purchase request restock. */
+/** Hapus pengajuan restock yang belum ada barang atau jasanya masuk. */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
-    return NextResponse.json(
-      { error: RESTOCK_MESSAGES.sessionExpired },
-      { status: 401 },
-    );
+    return ApiErrors.unauthorized(RESTOCK_MESSAGES.sessionExpired);
   }
-
   if (!(await hasPermission("restock:delete"))) {
-    return NextResponse.json(
-      { error: restockForbiddenMessage("restock:delete") },
-      { status: 403 },
-    );
+    return ApiErrors.forbidden(restockForbiddenMessage("restock:delete"));
   }
 
   const { id } = await params;
@@ -97,78 +94,29 @@ export async function DELETE(
   const siteDenied = await ensureRestockRequestSiteAccess({
     user: session.user,
     purchaseRequestId: id,
-    tenantId: session.user.tenantId as string,
+    tenantId,
   });
   if (siteDenied) return siteDenied;
-  const existing = await inventoryRouteService.getPurchaseRequestById({
-    id,
-    tenantId,
-  });
 
-  if (!existing) {
-    return NextResponse.json(
-      { error: RESTOCK_MESSAGES.requestNotFound },
-      { status: 404 },
-    );
-  }
-
-  if (existing.status === "RECEIVED") {
-    return NextResponse.json(
-      { error: RESTOCK_MESSAGES.cannotDeleteReceived },
-      { status: 409 },
-    );
-  }
-
-  if (
-    await inventoryRouteService.hasPurchaseRequestArrivedGoods(
-      existing.purchaseOrderId,
-    )
-  ) {
-    return NextResponse.json(
-      { error: RESTOCK_MESSAGES.cannotDeleteAfterArrival },
-      { status: 409 },
-    );
-  }
-
-  if (
-    await inventoryRouteService.hasPurchaseRequestPurchases(
-      existing.purchaseOrderId,
-    )
-  ) {
-    return NextResponse.json(
-      { error: RESTOCK_MESSAGES.cannotDeleteAfterPurchase },
-      { status: 409 },
-    );
-  }
-
-  if (existing.purchaseOrderId) {
-    try {
-      await getPurchaseOrderService().delete(existing.purchaseOrderId);
-    } catch (err) {
-      if (err instanceof PurchaseOrderHasPurchasesError) {
-        return NextResponse.json(
-          { error: RESTOCK_MESSAGES.cannotDeleteAfterPurchase },
-          { status: 409 },
-        );
-      }
-      if (err instanceof PurchaseOrderNotEditableError) {
-        return NextResponse.json(
-          { error: PURCHASE_ORDER_LOCKED_MESSAGE },
-          { status: 409 },
-        );
-      }
-      if (!(err instanceof PurchaseOrderNotFoundError)) {
-        throw err;
-      }
+  try {
+    const result = await deleteRestockRequest({
+      id,
+      tenantId,
+      actorId: session.user.id as string,
+    });
+    if (result.success === false) {
+      return DELETE_ERROR_RESPONSES[result.code](result.error);
     }
+    return NextResponse.json({ message: "Pengajuan berhasil dihapus" });
+  } catch (error: unknown) {
+    logger.error(
+      "Error deleting purchase request",
+      error instanceof Error ? error : new Error(String(error)),
+      { purchaseRequestId: id },
+    );
+    // Pesanan dihapus lebih dulu, baru pengajuannya, jadi tidak satu transaksi.
+    return ApiErrors.internalError(
+      restockServerErrorMessage("Menghapus pengajuan", false),
+    );
   }
-
-  await inventoryRouteService.deletePurchaseRequest({
-    id,
-    nomorRequest: existing.nomorRequest,
-    purchaseOrderId: existing.purchaseOrderId,
-    actorId: session.user.id as string,
-    tenantId,
-  });
-  return NextResponse.json({ message: "Pengajuan berhasil dihapus" });
 }

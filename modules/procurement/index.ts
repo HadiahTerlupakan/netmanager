@@ -7,6 +7,8 @@ export type {
   PurchaseRequestSummaryDTO,
   PurchaseRequestListResponseDTO,
 } from "./dto/PurchaseRequestDTO";
+// ProcurementService beserta PurchaseRequestAlreadyOrderedError dan
+// PurchaseRequestNotOrderableError.
 export * from "./services/ProcurementService";
 
 // Purchase Order — fully owned by procurement now (sebelumnya di finance).
@@ -158,7 +160,7 @@ export {
   GoodsReceiptService,
   GoodsReceiptNotFoundError,
   GoodsReceiptInvalidError,
-  GoodsReceiptExceedsPurchasedError,
+  GoodsReceiptExceedsRemainingError,
   GoodsReceiptRestockOrderError,
   RESTOCK_ORDER_RECEIPT_MESSAGE,
 } from "./services/GoodsReceiptService";

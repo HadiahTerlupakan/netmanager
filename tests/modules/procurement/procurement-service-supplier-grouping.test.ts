@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { PurchaseRequestEntity } from "@/modules/procurement/domain/entities/PurchaseRequest";
-import { ProcurementService } from "@/modules/procurement/services/ProcurementService";
+import { EMPTY_REQUEST_MESSAGE } from "@/modules/procurement/domain/purchase-request-errors";
+import {
+  ProcurementService,
+  PurchaseRequestAlreadyOrderedError,
+  PurchaseRequestNotOrderableError,
+} from "@/modules/procurement/services/ProcurementService";
 import { SupplierNotActiveError } from "@/modules/procurement/services/SupplierService";
 
 function barangLine(id: string, supplierId: string | null) {
@@ -109,5 +114,49 @@ describe("ProcurementService supplier grouping", () => {
     expect(procurementRepository.createPOWithItems).toHaveBeenCalledWith(
       expect.objectContaining({ supplierId: "supplier-a" }),
     );
+  });
+});
+
+describe("ProcurementService.generatePOFromPRs — galat bertipe", () => {
+  it("menolak pilihan tanpa pengajuan disetujui yang belum punya PO", async () => {
+    const { service, procurementRepository } = createService(
+      purchaseRequest([barangLine("a", "supplier-1")]),
+      {},
+    );
+    procurementRepository.findApprovedPRs.mockResolvedValue([]);
+
+    await expect(
+      service.generatePOFromPRs(["pr-1"], "user-1"),
+    ).rejects.toBeInstanceOf(PurchaseRequestNotOrderableError);
+    expect(procurementRepository.createPOWithItems).not.toHaveBeenCalled();
+  });
+
+  it("menolak pengajuan yang tidak punya barang maupun jasa untuk dipesan", async () => {
+    const { service, procurementRepository } = createService(
+      purchaseRequest([]),
+      {},
+    );
+
+    const attempt = service.generatePOFromPRs(["pr-1"], "user-1");
+
+    await expect(attempt).rejects.toBeInstanceOf(
+      PurchaseRequestNotOrderableError,
+    );
+    await expect(attempt).rejects.toThrow(EMPTY_REQUEST_MESSAGE);
+    expect(procurementRepository.createPOWithItems).not.toHaveBeenCalled();
+  });
+
+  it("meneruskan klaim yang bentrok dengan pesanan lain", async () => {
+    const { service, procurementRepository } = createService(
+      purchaseRequest([barangLine("a", "supplier-1")]),
+      {},
+    );
+    procurementRepository.createPOWithItems.mockRejectedValue(
+      new PurchaseRequestAlreadyOrderedError(),
+    );
+
+    await expect(
+      service.generatePOFromPRs(["pr-1"], "user-1"),
+    ).rejects.toBeInstanceOf(PurchaseRequestAlreadyOrderedError);
   });
 });

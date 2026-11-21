@@ -1,5 +1,5 @@
 /**
- * Unit tests untuk substitusi barang saat verifikasi kedatangan restock.
+ * Unit tests untuk substitusi barang saat Masukkan Barang restock.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -115,7 +115,7 @@ describe("RestockItemSubstitutionService", () => {
     });
     await expect(attempt).rejects.toThrow(RestockSubstitutionInvalidError);
     await expect(attempt).rejects.toThrow(
-      /sudah datang sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi\. Catat sisanya/,
+      /sudah masuk sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi\. Masukkan sisanya/,
     );
   });
 
@@ -139,6 +139,26 @@ describe("RestockItemSubstitutionService", () => {
         substitutions: { "barang-1": "barang-2" },
       }),
     ).rejects.toThrow("sudah ada di pesanan ini");
+  });
+
+  it("memeriksa substitusi tanpa menulis apa pun", async () => {
+    const { service, applyItemSubstitutions } = createService();
+
+    await expect(
+      service.validate({
+        purchaseOrderItems,
+        substitutions: { "barang-1": "barang-9" },
+        tenantId: "tenant-1",
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      service.validate({
+        purchaseOrderItems,
+        substitutions: { "barang-1": "barang-2" },
+        tenantId: "tenant-1",
+      }),
+    ).rejects.toThrow(RestockSubstitutionInvalidError);
+    expect(applyItemSubstitutions).not.toHaveBeenCalled();
   });
 
   it("menolak barang pengganti yang tidak ada di master barang tenant", async () => {

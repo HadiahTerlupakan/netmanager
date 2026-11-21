@@ -10,6 +10,7 @@ import type {
 } from "@/components/inventory/PhotoUpload";
 import { RestockReceiveModal } from "@/app/admin/inventory/restock/RestockReceiveModal";
 import type { PurchaseRequest } from "@/app/admin/inventory/restock/types";
+import { makeRestockEntryState } from "@/tests/fixtures/restock-entry-state";
 
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
@@ -23,7 +24,7 @@ const UPLOADED_URL = "https://cdn.radpro.id/uploads/inventory/masuk/bukti.webp";
 const REQUEST: PurchaseRequest = {
   id: "pr-1",
   nomorRequest: "PR-20260916-0001",
-  status: "ORDERED",
+  status: "APPROVED",
   createdAt: "2026-09-16T00:00:00.000Z",
   requester: { name: "Admin Gudang" },
   gudangId: "gudang-1",
@@ -56,30 +57,19 @@ function ReceiveModalHarness({
 }: {
   photoUploadRef: React.RefObject<PhotoUploadRef | null>;
 }) {
-  const [receivedPhotos, setReceivedPhotos] = useState<UploadedPhoto[]>([]);
+  const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
 
   return (
     <RestockReceiveModal
-      request={REQUEST}
-      receivedItems={{ "barang-1": 10 }}
-      onReceivedItemsChange={() => {}}
+      entry={makeRestockEntryState({
+        request: REQUEST,
+        receivedItems: { "barang-1": 10 },
+        photos,
+        setPhotos,
+        photoUploadRef,
+      })}
       barangs={[]}
-      substitutions={{}}
-      onSubstitutionsChange={() => {}}
-      cancellations={{}}
-      onCancellationsChange={() => {}}
-      overReceipts={{}}
-      onOverReceiptsChange={() => {}}
-      receivedPhotos={receivedPhotos}
-      onReceivedPhotosChange={setReceivedPhotos}
-      isFinishingOrder={false}
-      onIsFinishingOrderChange={() => {}}
-      closeReason=""
-      onCloseReasonChange={() => {}}
-      submitting={false}
-      photoUploadRef={photoUploadRef}
-      onClose={() => {}}
-      onSubmit={() => {}}
+      canOverReceive={false}
     />
   );
 }
@@ -92,7 +82,7 @@ function selectPhoto(file: File) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-describe("Verifikasi Barang Sampai — kontrak ref PhotoUpload", () => {
+describe("Masukkan Barang — kontrak ref PhotoUpload", () => {
   let container: HTMLDivElement;
   let root: Root;
   const fetchMock = vi.fn();
@@ -157,6 +147,6 @@ describe("Verifikasi Barang Sampai — kontrak ref PhotoUpload", () => {
 
     expect(document.body.textContent).not.toContain("Foto (1/3)");
     expect(photoUploadRef.current!.getPhotos()).toHaveLength(0);
-    expect(document.body.textContent).toContain("Foto barang yang datang dulu");
+    expect(document.body.textContent).toContain("Foto barang yang masuk dulu");
   });
 });

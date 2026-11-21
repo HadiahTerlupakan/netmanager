@@ -16,6 +16,7 @@ import type {
   PurchaseRequestListFilter,
   PurchaseRequestListResult,
 } from "../domain/ports/IProcurementRepository";
+import { PurchaseRequestAlreadyOrderedError } from "../domain/purchase-request-errors";
 import {
   toPurchaseOrderDomain,
   toPurchaseRequestDomain,
@@ -88,22 +89,19 @@ export class ProcurementRepository implements IProcurementRepository {
     return record ? toPurchaseOrderDomain(record) : null;
   }
 
-  /** Membuat purchase order dan menandai purchase request sebagai ordered. */
+  /**
+   * Mengklaim purchase request (menjadi ORDERED) lalu membuat purchase order
+   * yang menautkannya, dalam satu transaksi.
+   */
   async createPOWithItems(
     input: CreatePurchaseOrderInput,
   ): Promise<PurchaseOrderEntity> {
     const createdOrder = await prisma.$transaction(async (transaction) => {
-      const purchaseOrder = await transaction.purchaseOrder.create({
+      await claimApprovedPurchaseRequests(transaction, input.prIds);
+      return transaction.purchaseOrder.create({
         data: buildPurchaseOrderCreateData(input),
         include: { items: true, jasaItems: true },
       });
-
-      await transaction.purchaseRequest.updateMany({
-        where: { id: { in: input.prIds } },
-        data: { status: ORDERED_STATUS },
-      });
-
-      return purchaseOrder;
     });
 
     return toPurchaseOrderDomain(createdOrder);
@@ -149,6 +147,30 @@ export class ProcurementRepository implements IProcurementRepository {
       page: filter.page,
       limit: filter.limit,
     };
+  }
+}
+
+/**
+ * UPDATE bersyarat: purchase request hanya berpindah ke ORDERED bila masih
+ * APPROVED tanpa PO. Transaksi lain yang mengklaim pengajuan yang sama
+ * (misalnya PO otomatis saat persetujuan bersamaan dengan Generate PO di
+ * halaman procurement) menunggu kunci barisnya, lalu tidak lagi cocok dengan
+ * syarat ini, sehingga hanya satu PO yang tersimpan.
+ */
+async function claimApprovedPurchaseRequests(
+  transaction: Prisma.TransactionClient,
+  prIds: string[],
+): Promise<void> {
+  const claimed = await transaction.purchaseRequest.updateMany({
+    where: {
+      id: { in: prIds },
+      status: APPROVED_STATUS,
+      purchaseOrderId: null,
+    },
+    data: { status: ORDERED_STATUS },
+  });
+  if (claimed.count !== new Set(prIds).size) {
+    throw new PurchaseRequestAlreadyOrderedError();
   }
 }
 

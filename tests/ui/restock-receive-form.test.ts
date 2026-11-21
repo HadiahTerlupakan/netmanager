@@ -1,22 +1,26 @@
 import { describe, expect, it } from "vitest";
 
+import { restockReceiveSchema } from "@/lib/validations/restock";
 import {
   buildRestockReceivePayload,
-  fillAllRemaining,
-  getNotComingReasonSelectValue,
+  clampEnteredQuantity,
+  describeRestockReceiveLines,
+  getNotEnteredQuantity,
   getRestockReceiveProblems,
   getRestockReceiveSubmitLabel,
   getRestockReceiveSuccessMessage,
   getRestockReceiveSummary,
   getRestockShortfallConfirmMessage,
-  isRestockFinishCancellingOrder,
   needsRestockShortfallConfirm,
-  NOTHING_ARRIVED_MESSAGE,
-  readRestockReceiptRequestStatus,
-  RESTOCK_OTHER_REASON_OPTION,
+  NOTHING_ENTERED_MESSAGE,
+  OVER_RECEIPT_REASON_MISSING_MESSAGE,
+  PHOTO_MISSING_MESSAGE,
   type RestockReceiveFormInput,
+  type RestockReceivePayloadInput,
+  type RestockReceiveProblemInput,
 } from "@/app/admin/inventory/restock/restockReceiveForm";
 import type {
+  Barang,
   PurchaseRequest,
   PurchaseRequestItem,
 } from "@/app/admin/inventory/restock/types";
@@ -50,575 +54,402 @@ const konektorItem = makeItem({
   barang: { nama: "Konektor", kode: "BRG-3", satuan: "pcs" },
 });
 
-const request: PurchaseRequest = {
-  id: "pr-1",
-  nomorRequest: "PR-001",
-  status: "ORDERED",
-  createdAt: "2026-11-01T00:00:00.000Z",
-  requester: { name: "Budi" },
-  gudangId: "gudang-a",
-  gudang: { id: "gudang-a", nama: "Gudang Utama" },
-  purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "ORDERED" },
-  items: [makeItem(), ontItem],
+function makeRequest(
+  overrides: Partial<PurchaseRequest> = {},
+): PurchaseRequest {
+  return {
+    id: "pr-1",
+    nomorRequest: "PR-001",
+    status: "ORDERED",
+    createdAt: "2026-11-01T00:00:00.000Z",
+    requester: { name: "Budi" },
+    gudangId: "gudang-a",
+    gudang: { id: "gudang-a", nama: "Gudang Utama" },
+    purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
+    items: [makeItem(), ontItem],
+    ...overrides,
+  };
+}
+
+const patchCord: Barang = {
+  id: "patch-cord",
+  kode: "BRG-9",
+  nama: "Patch Cord",
+  satuan: "pcs",
 };
 
 function formInput(
   overrides: Partial<RestockReceiveFormInput> = {},
 ): RestockReceiveFormInput {
   return {
-    request,
+    request: makeRequest(),
     receivedItems: { fiber: 10, ont: 5 },
     substitutions: {},
-    cancellations: {},
-    isFinishingOrder: false,
-    barangs: [],
+    barangs: [patchCord],
     ...overrides,
   };
 }
 
 function problemsFor(
-  overrides: Partial<RestockReceiveFormInput> = {},
-  extra: { closeReason?: string; photoCount?: number } = {},
-) {
+  overrides: Partial<RestockReceiveProblemInput> = {},
+): string[] {
   return getRestockReceiveProblems({
-    ...formInput(overrides),
+    ...formInput(),
     overReceipts: {},
-    closeReason: extra.closeReason ?? "",
-    photoCount: extra.photoCount ?? 1,
+    photoCount: 1,
+    ...overrides,
+  });
+}
+
+function payloadFor(
+  overrides: Partial<RestockReceivePayloadInput> = {},
+): ReturnType<typeof buildRestockReceivePayload> {
+  return buildRestockReceivePayload({
+    ...formInput(),
+    overReceipts: {},
+    fotoBukti: ["https://cdn.radpro.id/bukti.webp"],
+    ...overrides,
   });
 }
 
 describe("getRestockReceiveSummary", () => {
-  it("is complete when every remainder arrives today", () => {
+  it("memasukkan semua sisa bila isian sesuai yang disetujui", () => {
     const summary = getRestockReceiveSummary(formInput());
-    expect(summary.mode).toBe("COMPLETE");
-    expect(summary.hasRemainderAfterToday).toBe(false);
-    expect(getRestockReceiveSubmitLabel(summary.mode)).toBe(
-      "Simpan, pesanan lengkap",
-    );
+
+    expect(summary).toEqual({
+      entering: [
+        {
+          barangId: "fiber",
+          nama: "Kabel Fiber",
+          satuan: "roll",
+          quantity: 10,
+        },
+        { barangId: "ont", nama: "ONT", satuan: "pcs", quantity: 5 },
+      ],
+      notEntered: [],
+      hasEntry: true,
+      hasEnteredBefore: false,
+    });
+    expect(getRestockReceiveSubmitLabel(summary)).toBe("Simpan ke Gudang");
   });
 
-  it("keeps waiting for the remainder by default", () => {
+  it("mencatat sisa yang diisi kurang sebagai tidak dimasukkan", () => {
     const summary = getRestockReceiveSummary(
       formInput({ receivedItems: { fiber: 6, ont: 5 } }),
     );
-    expect(summary.mode).toBe("WAITING");
-    expect(summary.stillAwaited).toEqual([
+
+    expect(summary.notEntered).toEqual([
       { barangId: "fiber", nama: "Kabel Fiber", satuan: "roll", quantity: 4 },
     ]);
-    expect(summary.allowsLineCancellation).toBe(true);
-    expect(getRestockReceiveSubmitLabel(summary.mode)).toBe(
-      "Simpan, sisa masih ditunggu",
-    );
   });
 
-  it("finishes with shortfall when the answer is no", () => {
+  it("memakai nama barang pengganti untuk barang yang masuk", () => {
     const summary = getRestockReceiveSummary(
       formInput({
-        receivedItems: { fiber: 6, ont: 5 },
-        isFinishingOrder: true,
+        receivedItems: { fiber: 4, ont: 5 },
+        substitutions: { fiber: "patch-cord" },
       }),
     );
-    expect(summary.mode).toBe("FINISH");
-    expect(summary.notComing).toHaveLength(1);
-    expect(summary.allowsLineCancellation).toBe(false);
-    expect(getRestockReceiveSubmitLabel(summary.mode)).toBe(
-      "Simpan & selesaikan pesanan",
-    );
-  });
 
-  it("finishes without delivery when nothing arrived and the answer is no", () => {
-    const summary = getRestockReceiveSummary(
-      formInput({
-        receivedItems: { fiber: 0, ont: 0 },
-        isFinishingOrder: true,
-      }),
-    );
-    expect(summary.mode).toBe("FINISH_WITHOUT_DELIVERY");
-    expect(summary.hasArrivalToday).toBe(false);
-    expect(getRestockReceiveSubmitLabel(summary.mode)).toBe(
-      "Selesaikan pesanan",
-    );
-  });
-
-  it("finishes when every remainder was marked as not coming per item", () => {
-    const summary = getRestockReceiveSummary(
-      formInput({
-        receivedItems: { fiber: 6, ont: 5 },
-        cancellations: { fiber: "Barang habis di toko" },
-      }),
-    );
-    expect(summary.mode).toBe("FINISH");
-    expect(summary.notComing[0]?.quantity).toBe(4);
-  });
-
-  it("ignores per-item marks when nothing arrives today", () => {
-    const summary = getRestockReceiveSummary(
-      formInput({
-        receivedItems: { fiber: 0, ont: 0 },
-        cancellations: { fiber: "Barang habis di toko" },
-      }),
-    );
-    expect(summary.allowsLineCancellation).toBe(false);
-    expect(summary.notComing).toEqual([]);
-    expect(summary.mode).toBe("WAITING");
-  });
-
-  it("uses the replacement item name for goods arriving today", () => {
-    const summary = getRestockReceiveSummary(
-      formInput({
-        substitutions: { fiber: "dropcore" },
-        barangs: [
-          { id: "dropcore", kode: "B9", nama: "Dropcore", satuan: "meter" },
-        ],
-      }),
-    );
-    expect(summary.arrivingToday[0]).toMatchObject({
-      nama: "Dropcore",
-      satuan: "meter",
+    expect(summary.entering[0]).toEqual({
+      barangId: "fiber",
+      nama: "Patch Cord",
+      satuan: "pcs",
+      quantity: 4,
     });
+    // Yang tidak dimasukkan tetap barang yang diajukan.
+    expect(summary.notEntered[0]?.nama).toBe("Kabel Fiber");
+  });
+
+  it("melewati baris yang ditolak atasan dan baris yang sudah habis sisanya", () => {
+    const summary = getRestockReceiveSummary(
+      formInput({
+        request: makeRequest({
+          items: [
+            makeItem({ receivedQuantity: 10 }),
+            { ...ontItem, statusApproval: "REJECTED" },
+            konektorItem,
+          ],
+        }),
+        receivedItems: { fiber: 3, ont: 5, konektor: 20 },
+      }),
+    );
+
+    expect(summary.entering.map((line) => line.barangId)).toEqual(["konektor"]);
+  });
+
+  it("menghitung bagian patokan yang tidak dimasukkan, tidak pernah minus", () => {
+    expect(getNotEnteredQuantity(10, 4)).toBe(6);
+    expect(getNotEnteredQuantity(10, 12)).toBe(0);
+  });
+});
+
+describe("patokan Masukkan Barang = yang ditutup server", () => {
+  /** Pesanan milik satu pengajuan yang jumlahnya dinaikkan lewat Ubah isi PO. */
+  function raisedOrderInput(fiberEntered: number): RestockReceiveFormInput {
+    return formInput({
+      request: makeRequest({
+        items: [makeItem({ orderedQuantity: 15 })],
+      }),
+      receivedItems: { fiber: fiberEntered },
+    });
+  }
+
+  /** Pesanan gabungan: satu item Kabel 10 roll untuk dua pengajuan 5 + 5. */
+  function mergedOrderInput(fiberEntered: number): RestockReceiveFormInput {
+    return formInput({
+      request: makeRequest({
+        purchaseOrder: {
+          id: "po-1",
+          poNumber: "PO-1",
+          status: "ORDERED",
+          linkedRequestCount: 2,
+        },
+        items: [makeItem({ jumlah: 5, orderedQuantity: 10 })],
+      }),
+      receivedItems: { fiber: fiberEntered },
+    });
+  }
+
+  it("pesanan milik satu pengajuan: seluruh sisa pesanan yang tidak diisi ikut tidak dimasukkan", () => {
+    const summary = getRestockReceiveSummary(raisedOrderInput(10));
+
+    expect(summary.notEntered).toEqual([
+      { barangId: "fiber", nama: "Kabel Fiber", satuan: "roll", quantity: 5 },
+    ]);
+    expect(needsRestockShortfallConfirm(summary)).toBe(true);
+    expect(getRestockShortfallConfirmMessage(summary)).toBe(
+      "Kabel Fiber 5 roll tidak dimasukkan dan pengajuan selesai. Lanjutkan?",
+    );
+    expect(getRestockReceiveSuccessMessage(summary)).toBe(
+      "Tersimpan. Barang sudah masuk gudang. Tidak dimasukkan: Kabel Fiber 5 roll.",
+    );
+  });
+
+  it("pesanan milik satu pengajuan: tanpa konfirmasi bila seluruh sisa pesanan dimasukkan", () => {
+    const summary = getRestockReceiveSummary(raisedOrderInput(15));
+
+    expect(summary.notEntered).toEqual([]);
+    expect(needsRestockShortfallConfirm(summary)).toBe(false);
+  });
+
+  it("pesanan milik satu pengajuan yang diturunkan: patokannya sisa pesanan, bukan jumlah disetujui", () => {
+    const summary = getRestockReceiveSummary(
+      formInput({
+        request: makeRequest({ items: [makeItem({ orderedQuantity: 6 })] }),
+        receivedItems: { fiber: 6 },
+      }),
+    );
+
+    expect(summary.notEntered).toEqual([]);
+    expect(needsRestockShortfallConfirm(summary)).toBe(false);
+  });
+
+  it("pesanan gabungan: hanya bagian pengajuan ini yang dihitung", () => {
+    const complete = getRestockReceiveSummary(mergedOrderInput(5));
+    expect(complete.notEntered).toEqual([]);
+    expect(needsRestockShortfallConfirm(complete)).toBe(false);
+
+    const short = getRestockReceiveSummary(mergedOrderInput(3));
+    expect(short.notEntered).toEqual([
+      { barangId: "fiber", nama: "Kabel Fiber", satuan: "roll", quantity: 2 },
+    ]);
+    expect(getRestockShortfallConfirmMessage(short)).toBe(
+      "Kabel Fiber 2 roll tidak dimasukkan dan pengajuan selesai. Lanjutkan?",
+    );
   });
 });
 
 describe("getRestockReceiveProblems", () => {
-  it("blocks saving when nothing arrives and the order keeps waiting", () => {
+  it("meminta jumlah, dan mengarah ke Batalkan, bila belum pernah ada yang masuk", () => {
     expect(
-      problemsFor({ receivedItems: { fiber: 0, ont: 0 } }, { photoCount: 0 }),
-    ).toEqual([NOTHING_ARRIVED_MESSAGE]);
-    // Pesannya menunjuk tombol yang ada dan jalan keluar bila barang tidak datang.
-    expect(NOTHING_ARRIVED_MESSAGE).toContain("tekan Tutup");
-    expect(NOTHING_ARRIVED_MESSAGE).toContain(
-      '"Tidak, sisanya tidak akan datang" di bagian 3',
+      problemsFor({ receivedItems: { fiber: 0, ont: 0 }, photoCount: 0 }),
+    ).toEqual([NOTHING_ENTERED_MESSAGE]);
+    expect(NOTHING_ENTERED_MESSAGE).toContain("Batalkan Pengajuan");
+  });
+
+  it("tidak menawarkan Selesaikan tanpa barang tambahan pada pengajuan yang belum pernah menerima", () => {
+    const summary = getRestockReceiveSummary(
+      formInput({ receivedItems: { fiber: 0, ont: 0 } }),
     );
+
+    expect(summary.hasEntry).toBe(false);
+    expect(summary.hasEnteredBefore).toBe(false);
+    expect(getRestockReceiveSubmitLabel(summary)).toBe("Simpan ke Gudang");
   });
 
-  it("does not need a photo when finishing without delivery", () => {
+  it("mengizinkan data lama yang sudah pernah menerima diselesaikan tanpa barang tambahan", () => {
+    const legacyInput = formInput({
+      request: makeRequest({
+        items: [makeItem({ receivedQuantity: 4 }), ontItem],
+      }),
+      receivedItems: { fiber: 0, ont: 0 },
+    });
+
     expect(
-      problemsFor(
-        { receivedItems: { fiber: 0, ont: 0 }, isFinishingOrder: true },
-        { photoCount: 0, closeReason: "Toko tidak mengirim" },
-      ),
+      getRestockReceiveProblems({
+        ...legacyInput,
+        overReceipts: {},
+        photoCount: 0,
+      }),
     ).toEqual([]);
-  });
-
-  it("asks for a photo when goods arrive", () => {
-    expect(problemsFor({}, { photoCount: 0 })).toEqual([
-      "Foto barang yang datang dulu.",
-    ]);
-  });
-
-  it("requires a reason when the remainder will not come", () => {
     expect(
-      problemsFor({
-        receivedItems: { fiber: 6, ont: 5 },
-        isFinishingOrder: true,
-      }),
-    ).toEqual(["Pilih alasan kenapa sisanya tidak datang."]);
+      getRestockReceiveSubmitLabel(getRestockReceiveSummary(legacyInput)),
+    ).toBe("Selesaikan tanpa barang tambahan");
   });
 
-  it("requires a reason on a per-item mark", () => {
+  it("meminta foto bila ada barang yang masuk", () => {
+    expect(problemsFor({ photoCount: 0 })).toEqual([PHOTO_MISSING_MESSAGE]);
+    expect(problemsFor({ photoCount: 1 })).toEqual([]);
+  });
+
+  it("meminta alasan untuk barang yang masuk lebih banyak dari sisanya", () => {
+    const over = { receivedItems: { fiber: 12, ont: 5 } };
+
+    expect(problemsFor(over)).toEqual([OVER_RECEIPT_REASON_MISSING_MESSAGE]);
+    expect(OVER_RECEIPT_REASON_MISSING_MESSAGE).toBe(
+      "Tulis alasan barang yang masuk lebih banyak dari sisa pesanan.",
+    );
     expect(
-      problemsFor({
-        receivedItems: { fiber: 6, ont: 5 },
-        cancellations: { fiber: "" },
-      }),
-    ).toEqual(["Pilih alasan kenapa Kabel Fiber tidak datang."]);
-  });
-
-  it("asks to remove a mark on an item that arrived in full", () => {
-    expect(
-      problemsFor({ cancellations: { fiber: "Toko tidak mengirim" } }),
-    ).toEqual([
-      'Barang yang sudah datang semua tidak perlu ditandai. Tekan "Ternyata masih datang" pada Kabel Fiber.',
-    ]);
-  });
-
-  it("requires a reason for an over-delivery", () => {
-    expect(problemsFor({ receivedItems: { fiber: 12, ont: 5 } })).toEqual([
-      "Tulis alasan barang yang datang lebih banyak.",
-    ]);
+      problemsFor({ ...over, overReceipts: { fiber: "Bonus dari toko" } }),
+    ).toEqual([]);
   });
 });
 
 describe("buildRestockReceivePayload", () => {
-  const payloadFor = (
-    overrides: Partial<RestockReceiveFormInput>,
-    closeReason = "",
-  ) =>
-    buildRestockReceivePayload({
-      ...formInput(overrides),
-      overReceipts: {},
-      closeReason,
-      fotoBukti: ["foto-1"],
-    });
-
-  it("sends no cancellations and keeps the order open while waiting", () => {
-    expect(payloadFor({ receivedItems: { fiber: 6, ont: 5 } })).toEqual({
-      items: { fiber: 6, ont: 5 },
-      substitutions: {},
-      cancellations: {},
-      overReceipts: {},
-      fotoBukti: ["foto-1"],
-      closePO: false,
-    });
-  });
-
-  it("cancels every remaining line with the chosen reason and closes the order", () => {
-    const payload = payloadFor(
-      {
-        request: { ...request, items: [makeItem(), ontItem, konektorItem] },
-        receivedItems: { fiber: 6, ont: 5, konektor: 0 },
-        cancellations: { fiber: "alasan lama" },
-        isFinishingOrder: true,
-      },
-      " Harga terlalu mahal ",
-    );
-    expect(payload.cancellations).toEqual({
-      fiber: "Harga terlalu mahal",
-      konektor: "Harga terlalu mahal",
-    });
-    expect(payload.closePO).toBe(true);
-  });
-
-  it("finishes without delivery with no photo", () => {
-    const payload = payloadFor(
-      { receivedItems: { fiber: 0, ont: 0 }, isFinishingOrder: true },
-      "Toko tidak mengirim",
-    );
-    expect(payload.fotoBukti).toEqual([]);
-    expect(payload.closePO).toBe(true);
-    expect(payload.cancellations).toEqual({
-      fiber: "Toko tidak mengirim",
-      ont: "Toko tidak mengirim",
-    });
-  });
-
-  it("sends only confirmed per-item marks for lines with a remainder", () => {
+  it("mengirim jumlah untuk tepat baris yang masih punya sisa", () => {
     const payload = payloadFor({
-      receivedItems: { fiber: 6, ont: 5 },
-      cancellations: {
-        fiber: "Barang habis di toko",
-        ont: "Toko tidak mengirim",
-      },
+      request: makeRequest({
+        items: [
+          makeItem({ receivedQuantity: 10 }),
+          { ...ontItem, statusApproval: "REJECTED" },
+          konektorItem,
+        ],
+      }),
+      receivedItems: { fiber: 2, ont: 5, konektor: 0 },
     });
-    expect(payload.cancellations).toEqual({ fiber: "Barang habis di toko" });
-    expect(payload.closePO).toBe(false);
+
+    expect(payload.items).toEqual({ konektor: 0 });
   });
 
-  it("does not close the order when everything arrived even if the answer was no", () => {
-    const payload = payloadFor(
-      { isFinishingOrder: true },
-      "Toko tidak mengirim",
-    );
-    expect(payload.closePO).toBe(false);
-    expect(payload.cancellations).toEqual({});
+  it("mengirim isian yang lolos skema server, tanpa field alur lama", () => {
+    const payload = payloadFor({
+      receivedItems: { fiber: 12, ont: 3 },
+      substitutions: { ont: "patch-cord" },
+      overReceipts: { fiber: " Bonus dari toko " },
+    });
+
+    expect(payload).toEqual({
+      items: { fiber: 12, ont: 3 },
+      substitutions: { ont: "patch-cord" },
+      overReceipts: { fiber: "Bonus dari toko" },
+      fotoBukti: ["https://cdn.radpro.id/bukti.webp"],
+    });
+    expect(restockReceiveSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it("tidak mengirim barang pengganti untuk barang yang tidak masuk", () => {
+    expect(
+      payloadFor({
+        receivedItems: { fiber: 0, ont: 5 },
+        substitutions: { fiber: "patch-cord" },
+      }).substitutions,
+    ).toEqual({});
+  });
+
+  it("tidak mengirim foto saat menyelesaikan tanpa barang tambahan", () => {
+    expect(
+      payloadFor({
+        request: makeRequest({
+          items: [makeItem({ receivedQuantity: 4 }), ontItem],
+        }),
+        receivedItems: { fiber: 0, ont: 0 },
+      }),
+    ).toEqual({
+      items: { fiber: 0, ont: 0 },
+      substitutions: {},
+      overReceipts: {},
+      fotoBukti: [],
+    });
   });
 });
 
-describe("receive messages", () => {
-  it("builds the success toast for each outcome", () => {
-    expect(
-      getRestockReceiveSuccessMessage(
-        getRestockReceiveSummary(formInput()),
-        null,
-      ),
-    ).toBe("Tersimpan. Semua barang sudah datang. Pesanan selesai.");
-    expect(
-      getRestockReceiveSuccessMessage(
-        getRestockReceiveSummary(
-          formInput({ receivedItems: { fiber: 6, ont: 5 } }),
-        ),
-        null,
-      ),
-    ).toBe(
-      "Tersimpan. Barang sudah masuk gudang. Masih ditunggu: Kabel Fiber 4 roll.",
-    );
-    expect(
-      getRestockReceiveSuccessMessage(
-        getRestockReceiveSummary(
-          formInput({
-            request: { ...request, items: [makeItem(), ontItem, konektorItem] },
-            receivedItems: { fiber: 1, ont: 1, konektor: 1 },
-          }),
-        ),
-        null,
-      ),
-    ).toBe(
-      "Tersimpan. Barang sudah masuk gudang. Masih ditunggu 3 barang lagi.",
-    );
-    expect(
-      getRestockReceiveSuccessMessage(
-        getRestockReceiveSummary(
-          formInput({
-            receivedItems: { fiber: 6, ont: 5 },
-            isFinishingOrder: true,
-          }),
-        ),
-        null,
-      ),
-    ).toBe(
-      "Tersimpan. Pesanan selesai. Tidak jadi datang: Kabel Fiber 4 roll.",
-    );
-    expect(
-      getRestockReceiveSuccessMessage(
-        getRestockReceiveSummary(
-          formInput({
-            receivedItems: { fiber: 0, ont: 0 },
-            isFinishingOrder: true,
-          }),
-        ),
-        "CANCELLED",
-      ),
-    ).toBe("Pesanan dibatalkan. Tidak ada barang yang masuk gudang.");
+describe("clampEnteredQuantity", () => {
+  const item = makeItem({ receivedQuantity: 4 });
+
+  it("membatasi jumlah pada sisa pesanan tanpa izin mengubah pesanan", () => {
+    expect(clampEnteredQuantity(item, 9, false)).toBe(6);
+    expect(clampEnteredQuantity(item, 5, false)).toBe(5);
   });
 
-  it("follows the server when a shared order keeps the request open", () => {
-    const complete = getRestockReceiveSummary(formInput());
-    expect(getRestockReceiveSuccessMessage(complete, "RECEIVED")).toBe(
-      "Tersimpan. Semua barang sudah datang. Pesanan selesai.",
-    );
-    expect(getRestockReceiveSuccessMessage(complete, "ORDERED")).toBe(
-      "Tersimpan. Barang sudah masuk gudang. Sisanya masih ditunggu.",
-    );
+  it("membiarkan kelebihan bagi yang boleh mengubah pesanan", () => {
+    expect(clampEnteredQuantity(item, 9, true)).toBe(9);
   });
 
-  it("names units, not a bare count, for what will not come", () => {
-    expect(
-      getRestockReceiveSuccessMessage(
-        getRestockReceiveSummary(
-          formInput({
-            request: { ...request, items: [makeItem(), ontItem, konektorItem] },
-            receivedItems: { fiber: 1, ont: 1, konektor: 1 },
-            isFinishingOrder: true,
-          }),
-        ),
-        "RECEIVED",
-      ),
-    ).toBe("Tersimpan. Pesanan selesai. 3 jenis barang tidak jadi datang.");
+  it("tidak pernah memberi angka minus", () => {
+    expect(clampEnteredQuantity(item, -3, true)).toBe(0);
+    expect(clampEnteredQuantity(item, -3, false)).toBe(0);
   });
+});
 
-  it("says the order will be cancelled when nothing ever arrived", () => {
-    const cancelling = getRestockReceiveSummary(
+describe("pesan Masukkan Barang", () => {
+  it("menyusun toast sukses menurut hasilnya", () => {
+    const allEntered = getRestockReceiveSummary(formInput());
+    expect(getRestockReceiveSuccessMessage(allEntered)).toBe(
+      "Tersimpan. Semua barang sudah masuk gudang.",
+    );
+
+    const short = getRestockReceiveSummary(
+      formInput({ receivedItems: { fiber: 6, ont: 5 } }),
+    );
+    expect(getRestockReceiveSuccessMessage(short)).toBe(
+      "Tersimpan. Barang sudah masuk gudang. Tidak dimasukkan: Kabel Fiber 4 roll.",
+    );
+
+    const nothing = getRestockReceiveSummary(
       formInput({
+        request: makeRequest({
+          items: [makeItem({ receivedQuantity: 4 }), ontItem],
+        }),
         receivedItems: { fiber: 0, ont: 0 },
-        isFinishingOrder: true,
       }),
     );
-    const order = request.purchaseOrder!;
-    const solo = {
-      ...request,
-      purchaseOrder: {
-        ...order,
-        paymentStatus: "UNPAID",
-        _count: { purchaseRequests: 1, jasaItems: 0 },
-      },
-    };
-    expect(isRestockFinishCancellingOrder(solo, cancelling)).toBe(true);
-    expect(getRestockReceiveSubmitLabel(cancelling.mode, true)).toBe(
-      "Batalkan pesanan",
-    );
-    expect(getRestockShortfallConfirmMessage(cancelling, true)).toBe(
-      "Batalkan pesanan ini? Belum ada barang yang datang. Kabel Fiber 10 roll, ONT 5 pcs tidak akan ditunggu lagi.",
-    );
-
-    const shared = {
-      ...solo,
-      purchaseOrder: { ...solo.purchaseOrder, _count: { purchaseRequests: 2 } },
-    };
-    const paid = {
-      ...solo,
-      purchaseOrder: { ...solo.purchaseOrder, paymentStatus: "PAID" },
-    };
-    const withJasa = {
-      ...solo,
-      purchaseOrder: { ...solo.purchaseOrder, _count: { jasaItems: 1 } },
-    };
-    const arrivedBefore = {
-      ...solo,
-      items: [makeItem({ receivedQuantity: 2 }), ontItem],
-    };
-    // Barang yang sudah dibelanjakan meninggalkan jejak uang: ditutup, bukan dibatalkan.
-    const purchasedBefore = {
-      ...solo,
-      items: [makeItem({ purchasedQuantity: 3 }), ontItem],
-    };
-    const withPurchaseRecord: PurchaseRequest = {
-      ...solo,
-      purchaseRecords: [
-        {
-          id: "rec-1",
-          storeName: "Toko A",
-          supplierId: null,
-          purchasedAt: "2026-11-08T05:00:00.000Z",
-          createdAt: "2026-11-08T05:00:00.000Z",
-          recordedBy: null,
-          buyerName: null,
-          source: "ADMIN",
-          hasSignature: false,
-          notes: null,
-          fotoNota: [],
-          items: [],
-        },
-      ],
-    };
-    for (const target of [
-      shared,
-      paid,
-      withJasa,
-      arrivedBefore,
-      purchasedBefore,
-      withPurchaseRecord,
-    ]) {
-      expect(isRestockFinishCancellingOrder(target, cancelling)).toBe(false);
-    }
-    const finishingWithDelivery = getRestockReceiveSummary(
-      formInput({
-        receivedItems: { fiber: 6, ont: 0 },
-        isFinishingOrder: true,
-      }),
-    );
-    expect(isRestockFinishCancellingOrder(solo, finishingWithDelivery)).toBe(
-      false,
+    expect(getRestockReceiveSuccessMessage(nothing)).toBe(
+      "Tersimpan. Pengajuan selesai tanpa barang tambahan.",
     );
   });
 
-  it("confirms only when finishing with a shortfall", () => {
-    const finishing = getRestockReceiveSummary(
+  it("menghitung jenis barang bila lebih dari dua yang tidak dimasukkan", () => {
+    const summary = getRestockReceiveSummary(
       formInput({
-        receivedItems: { fiber: 6, ont: 3 },
-        isFinishingOrder: true,
+        request: makeRequest({ items: [makeItem(), ontItem, konektorItem] }),
+        receivedItems: { fiber: 1, ont: 1, konektor: 1 },
       }),
     );
-    expect(needsRestockShortfallConfirm(finishing, true)).toBe(true);
-    expect(getRestockShortfallConfirmMessage(finishing)).toBe(
-      "Selesaikan dengan barang kurang? Kabel Fiber 4 roll, ONT 2 pcs tidak akan ditunggu lagi.",
+    expect(getRestockReceiveSuccessMessage(summary)).toBe(
+      "Tersimpan. Barang sudah masuk gudang. 3 jenis barang tidak dimasukkan.",
     );
-    const waiting = getRestockReceiveSummary(
+  });
+
+  it("meminta konfirmasi hanya bila ada barang yang masuk kurang dari sisanya", () => {
+    const complete = getRestockReceiveSummary(formInput());
+    expect(needsRestockShortfallConfirm(complete)).toBe(false);
+
+    const short = getRestockReceiveSummary(
       formInput({ receivedItems: { fiber: 6, ont: 3 } }),
     );
-    expect(needsRestockShortfallConfirm(waiting, false)).toBe(false);
+    expect(needsRestockShortfallConfirm(short)).toBe(true);
+    expect(getRestockShortfallConfirmMessage(short)).toBe(
+      "Kabel Fiber 4 roll, ONT 2 pcs tidak dimasukkan dan pengajuan selesai. Lanjutkan?",
+    );
   });
 
-  it("reads the request status from the server response", () => {
+  it("menulis daftar barang dengan satuannya", () => {
     expect(
-      readRestockReceiptRequestStatus({
-        data: null,
-        purchaseOrderStatus: "CANCELLED",
-        purchaseRequestStatus: "CANCELLED",
-      }),
-    ).toBe("CANCELLED");
-    expect(
-      readRestockReceiptRequestStatus({
-        data: { id: "grn-1" },
-        purchaseRequestStatus: "ORDERED",
-      }),
-    ).toBe("ORDERED");
-    expect(readRestockReceiptRequestStatus(null)).toBeNull();
-    expect(readRestockReceiptRequestStatus({ data: null })).toBeNull();
-  });
-});
-
-describe("receive form helpers", () => {
-  it("fills every line with what was bought and has not arrived yet", () => {
-    expect(
-      fillAllRemaining(
-        {
-          ...request,
-          items: [
-            makeItem({ receivedQuantity: 6, purchasedQuantity: 8 }),
-            { ...ontItem, purchasedQuantity: 5 },
-            { ...konektorItem, purchasedQuantity: 0 },
-          ],
-        },
-        { fiber: 0, ont: 1 },
-      ),
-    ).toEqual({ fiber: 2, ont: 5, konektor: 0 });
-  });
-
-  it("fills the whole remainder on a legacy order bought at once", () => {
-    expect(
-      fillAllRemaining(
-        {
-          ...request,
-          purchaseOrder: {
-            id: "po-1",
-            status: "ORDERED",
-            issuedAt: "2026-10-01T00:00:00.000Z",
-          },
-          items: [makeItem({ receivedQuantity: 6 }), ontItem],
-        },
-        { fiber: 0, ont: 1 },
-      ),
-    ).toEqual({ fiber: 4, ont: 5 });
-  });
-
-  it("keeps Lainnya selected while its text is still empty", () => {
-    expect(getNotComingReasonSelectValue("", false)).toBe("");
-    expect(getNotComingReasonSelectValue("", true)).toBe(
-      RESTOCK_OTHER_REASON_OPTION.value,
-    );
-    expect(getNotComingReasonSelectValue("Barang habis di toko", true)).toBe(
-      "Barang habis di toko",
-    );
-    expect(getNotComingReasonSelectValue("Supir sakit", false)).toBe(
-      RESTOCK_OTHER_REASON_OPTION.value,
-    );
-  });
-});
-
-describe("tahap pembelian di modal catat barang datang", () => {
-  const boughtRequest: PurchaseRequest = {
-    ...request,
-    items: [
-      makeItem({ purchasedQuantity: 4 }),
-      { ...ontItem, purchasedQuantity: 0 },
-    ],
-  };
-
-  it("menolak jumlah datang yang melebihi yang sudah dibeli", () => {
-    const problems = getRestockReceiveProblems({
-      ...formInput({
-        request: boughtRequest,
-        receivedItems: { fiber: 6, ont: 1 },
-      }),
-      overReceipts: {},
-      closeReason: "",
-      photoCount: 1,
-    });
-    expect(problems).toContain(
-      "Kabel Fiber: baru 4 roll yang sudah dibeli dan belum datang. Isi paling banyak 4.",
-    );
-    expect(problems).toContain(
-      "ONT: baru 0 pcs yang sudah dibeli dan belum datang. Isi paling banyak 0.",
-    );
-    expect(problems).not.toContain(
-      "Tulis alasan barang yang datang lebih banyak.",
-    );
-  });
-
-  it("menerima jumlah sampai batas yang sudah dibeli", () => {
-    const problems = getRestockReceiveProblems({
-      ...formInput({
-        request: boughtRequest,
-        receivedItems: { fiber: 4, ont: 0 },
-      }),
-      overReceipts: {},
-      closeReason: "",
-      photoCount: 1,
-    });
-    expect(problems).toEqual([]);
-  });
-
-  it("tidak mengirim kelebihan kiriman pada pesanan yang belanjanya lewat link", () => {
-    const payload = buildRestockReceivePayload({
-      ...formInput({
-        request: boughtRequest,
-        receivedItems: { fiber: 12, ont: 0 },
-      }),
-      overReceipts: { fiber: "bonus dari toko" },
-      closeReason: "",
-      fotoBukti: ["/a.webp"],
-    });
-    expect(payload.overReceipts).toEqual({});
+      describeRestockReceiveLines([
+        { barangId: "fiber", nama: "Kabel Fiber", satuan: "roll", quantity: 4 },
+        { barangId: "ont", nama: "ONT", satuan: "pcs", quantity: 2 },
+      ]),
+    ).toBe("Kabel Fiber 4 roll, ONT 2 pcs");
   });
 });

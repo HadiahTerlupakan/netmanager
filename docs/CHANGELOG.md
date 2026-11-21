@@ -54,6 +54,96 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 - **Files**: `package.json`, `package-lock.json`, `tests/ci/husky-prepare-safety.test.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-11-21] — Restock jadi pencatat: setelah disetujui, admin memasukkan barang
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/inventory/restock`, `modules/inventory`, `app/api/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Alur pengajuan restock disederhanakan atas permintaan pemilik ("gak perlu tau sudah dibeli
+  atau belum, cukup jadi pencatat"; persetujuan tetap). Alurnya kini: Menunggu Persetujuan → atasan memutuskan
+  per baris (tidak berubah, termasuk info stok) → Disetujui → admin **Masukkan Barang** (jumlah per barang +
+  foto bukti wajib, satu kali simpan langsung menutup pengajuan; sisa dicoret "Tidak dimasukkan ke gudang";
+  ganti barang dan kelebihan jumlah tetap; konfirmasi hanya bila ada yang kurang) → Sudah Dimasukkan. Admin
+  bisa **Batalkan Pengajuan** yang sudah disetujui tapi belum ada barang masuk, dengan alasan (5–255 huruf,
+  `restock:verify`) lewat `PATCH /requests/[id]` `{ action: "CANCEL", alasan }`; APPROVE/REJECT tidak berubah.
+  Status di tabel, detail, dan PDF: Menunggu Persetujuan / Disetujui / Sudah Dimasukkan / Ditolak / Dibatalkan,
+  tanpa daftar tahap. Body `PATCH /requests/[id]/receive` kini divalidasi Zod strict (closePO/cancellations
+  ditolak "muat ulang halaman"); ada kunci per pengajuan (Redis) untuk Masukkan Barang, Batalkan, dan Hapus.
+  Pesanan gabungan: menutup satu pengajuan tidak mencoret jatah pengajuan lain; pesanan baru ditutup oleh
+  pengajuan terakhir. Data lama yang sudah pernah menerima sebagian bisa ditutup "tanpa barang tambahan". Bila penutupan gagal
+  setelah GRN tersimpan, server menjawab 409 dengan petunjuk pemulihan (tanpa mengulang barang yang sama).
+  `barangIdDiminta` kini juga diisi saat admin mengganti barang. Orkestrasi hapus pindah dari route ke
+  `RestockRequestDeletionService`.
+- **Files**: `modules/inventory/domain/restock-request-status.ts`, `modules/inventory/services/RestockGoodsReceiptService.ts`,
+  `modules/inventory/services/RestockRequestClosure.ts`, `modules/inventory/services/RestockRequestCancellationService.ts`,
+  `modules/inventory/services/RestockRequestDeletionService.ts`, `app/api/inventory/restock/requests/[id]/restock-cancel.handler.ts`,
+  `app/admin/inventory/restock/restockStatus.ts`, `app/admin/inventory/restock/RestockCancelModal.tsx`,
+  `app/admin/inventory/restock/useRestockEntry.ts`, `lib/validations/restock.ts`
+- **Breaking**: ✅ Ya — bentuk body receive berubah (tanpa closePO/cancellations), aksi CANCEL baru
+
+### [2026-11-21] — Hapus tahap pembelian restock dan halaman /belanja
+
+- **Tipe**: [REMOVED]
+- **Scope**: `app/belanja`, `app/api/belanja`, `app/api/inventory/restock`, `modules/inventory`, `app/admin/inventory/restock`, `proxy.ts`
+- **Author**: agent
+- **Deskripsi**: Dihapus: link belanja tanpa login beserta halaman publik `/belanja` dan `app/api/belanja/*`,
+  route `requests/[id]/purchase-link` dan `requests/[id]/purchases/**` (pembatalan catatan & tanda tangan),
+  catatan belanja + tanda tangan pembeli, "Tutup sisa yang tidak jadi dibeli", batas terima = sudah dibeli
+  (beserta pengecualian data lama), kiriman susulan & status "Datang Sebagian", daftar tahap, bagian pembelian
+  di PDF, `lib/utils/purchase-input.ts`, pengecualian `/belanja` di `proxy.ts` & `app/robots.ts`. Tabel
+  `purchase_records`, `purchase_record_items`, `restock_purchase_links` dan kolom `purchasedQuantity` dibiarkan
+  di DB sebagai data historis (tidak ditulis lagi); objek tanda tangan di R2 tidak dibersihkan. Link belanja yang
+  sudah dibagikan menjadi 404.
+- **Breaking**: ✅ Ya
+
+### [2026-11-21] — Kolom alasan batal pengajuan restock
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/schema.prisma`
+- **Author**: agent
+- **Deskripsi**: Kolom nullable `purchase_requests.cancelReason` untuk alasan admin membatalkan pengajuan yang
+  sudah disetujui. Aditif, tanpa data lama yang berubah. Komentar skema kolom/tabel tahap pembelian ditandai historis.
+- **Migration**: `20261121085023_add_cancel_reason_to_purchase_requests`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-21] — Procurement: penjaga sisa GRN dan Proses Order PO restock
+
+- **Tipe**: [CHANGED]
+- **Scope**: `modules/procurement`, `app/admin/procurement`, `app/api/admin/procurement`
+- **Author**: agent
+- **Deskripsi**: Batas GRN "sudah dibeli" diganti penjaga sisa yang selalu aktif di dalam transaksi
+  (`receivedQuantity + qty <= quantity - cancelledQuantity`, `GoodsReceiptExceedsRemainingError` → 409).
+  "Proses Order" untuk PO restock dibuka lagi. GRN dari halaman Pembelian untuk PO restock tetap diblok (arahkan
+  ke Masukkan Barang). Hapus PO ditolak bila ada catatan belanja historis apa pun (FK RESTRICT) atau sudah ada
+  GRN (409, bukan 500); tidak lagi menghapus catatan belanja yang dibatalkan atau mencabut link. Batas bawah
+  ubah isi PO = diterima + dicoret. Klaim PR atomik saat membuat PO dari pengajuan (cegah PO ganda).
+- **Breaking**: ❌ Tidak
+
+### [2026-11-21] — Stok tidak lagi bertambah/berkurang dua kali saat GRN dan retur
+
+- **Tipe**: [FIXED]
+- **Scope**: `lib/event-bus`, `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Sejak 2026-05-26 setiap GRN menaikkan stok dua kali: di transaksi
+  `GoodsReceiptRepository.createAndPost` dan lagi oleh handler `GOODS_RECEIPT_CREATED` di worker event
+  (produksi menjalankan worker). Retur barang (RTV) punya pola yang sama untuk pengurangan stok. Handler
+  inventory yang berlebih dicabut; transaksi dokumen menjadi satu-satunya penulis stok. Ada tes penjaga agar
+  handler stok tidak terdaftar lagi. Stok produksi untuk barang yang pernah di-GRN/retur sejak tanggal itu perlu
+  dicek (stock opname).
+- **Breaking**: ❌ Tidak
+
+### [2026-11-21] — Kontrak API mobile status pengajuan barang
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/api/mobile/inventory/pengajuan`
+- **Author**: agent
+- **Deskripsi**: `status.kode` kini AWAITING_APPROVAL | APPROVED | RECEIVED | REJECTED | CANCELLED; label untuk
+  site "Sudah Diajukan" (menunggu persetujuan & sudah disetujui, kalimat berbeda) / "Sudah Dimasukkan" /
+  "Ditolak" / "Dibatalkan". Field baru `dimasukkan`. Field lama `tahap` (selalu kosong), `dibeli`, `datang`,
+  `tidakDatang` tetap dikirim (@deprecated) untuk build aplikasi lama; dihapus setelah rilis Play Store berikutnya
+  diwajibkan. Aplikasi (repo mobile-netmanager) menyesuaikan lewat OTA: tanpa garis tahap dan tanpa "Dibeli".
+- **Breaking**: ❌ Tidak (kompatibel dengan build lama)
+
 ### [2026-11-13] — Redis tanpa `url.parse()` (DEP0169)
 
 - **Tipe**: [SECURITY] [FIXED]

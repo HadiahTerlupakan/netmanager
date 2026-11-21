@@ -1,3 +1,67 @@
+# Rencana: Restock jadi pencatat — diajukan → admin masukkan barang (2026-11-21)
+
+Status: **selesai (belum di-commit)**
+
+## Permintaan user
+"Gak perlu ke sesi pembelian; habis diajukan ya sudah cukup sampai situ; nanti admin memasukkan
+barang-barangnya dengan bukti barangnya. Di mobile cukup status sudah diajukan dan sudah dimasukkan admin."
+
+## Keputusan rancangan (spec v2; persetujuan TETAP ADA sesuai koreksi user ke-2)
+- Koreksi user: "untuk approval masih tetap dibutuhkan jangan dihilangkan". Alur final:
+  **Menunggu Persetujuan** → atasan memutuskan per baris (seperti sekarang, termasuk info stok) → **Disetujui** →
+  admin **Masukkan Barang** (jumlah per barang + foto bukti wajib) → **Sudah Dimasukkan**.
+  Jalan keluar: **Ditolak** (atasan, seperti sekarang) · **Dibatalkan** (admin membatalkan pengajuan yang sudah disetujui
+  tapi belum ada barang masuk; alasan 5–255 huruf disimpan di kolom baru `cancelReason`).
+- Tahap **Pembelian** dihapus seluruhnya (link belanja + halaman publik `/belanja`, catatan belanja, tanda tangan,
+  "Tutup sisa yang tidak jadi dibeli", batas terima = sudah dibeli) beserta daftar tahap ("Tahap X dari Y").
+- **Sekali masukkan langsung selesai**: sisa dicoret "Tidak dimasukkan ke gudang"; tidak ada kiriman susulan /
+  "masih ditunggu" / alasan tidak datang. Konfirmasi muncul hanya bila ada yang kurang. Ganti barang & kelebihan jumlah
+  tetap (kelebihan butuh `purchase_orders:update`). Data lama yang sudah pernah menerima boleh ditutup tanpa barang tambahan.
+- Persetujuan tidak berubah: pengajuan baru tetap DRAFT, PO tetap dibuat saat disetujui, izin `restock:approve` tetap.
+  Bila PO gagal dibuat saat persetujuan, Masukkan Barang memakai jalur cadangan yang sudah ada (`generatePOFromPRs`).
+- Penjaga sisa di dalam transaksi GRN + lock per pengajuan (Redis) mencegah stok ganda.
+- **Migration aditif** `20261121085023_add_cancel_reason_to_purchase_requests`. Tabel/kolom pembelian tetap di DB sebagai
+  data historis, tidak ditulis lagi. `barangIdDiminta` diisi saat admin mengganti barang (hanya bila masih kosong).
+- Izin: Masukkan Barang, Konfirmasi Jasa, Batalkan = `restock:verify`; Tinjau & Putuskan = `restock:approve` (tetap).
+- Procurement: "Proses Order" untuk PO restock dibuka lagi; GRN dari halaman Pembelian untuk PO restock tetap diblok;
+  hapus PO yang punya catatan belanja lama ditolak (FK) → batalkan saja; ubah isi PO batas bawah = diterima + dicoret.
+- Mobile: badge "Sudah Diajukan" (menunggu persetujuan & sudah disetujui, kalimat berbeda) / "Sudah Dimasukkan" /
+  "Ditolak" / "Dibatalkan"; tanpa garis tahap & "Dibeli"; respons API tetap aman untuk build lama.
+
+## Langkah
+- [x] Pemetaan awal (dihentikan; asumsi Persetujuan tetap ada ternyata salah).
+- [x] Pemetaan ulang paralel (7 area + pemeriksa kelengkapan) dengan alur baru.
+- [x] Rancangan final + spec untuk agen.
+- [x] Migration `cancelReason` (dibuat + diterapkan lokal + prisma generate).
+- [x] Implementasi putaran 1 dihentikan setelah koreksi user (persetujuan tetap); bagian persetujuan yang sempat diubah
+      dikembalikan (izin `restock:approve`, template role, event-bus, daftar removed-surfaces).
+- [x] Implementasi v2 paralel: fondasi status → procurement / UI admin / mobile / inventory → integrasi.
+- [x] Review adversarial (9 lensa, 2 skeptis per temuan: 14 terkonfirmasi) + perbaikan semuanya.
+- [x] Verifikasi: typecheck (heap 10 GB), lint, `npm test`, tes arsitektur, `npm run test:db`.
+- [x] Uji end-to-end lokal di browser (ajukan → setujui → masukkan barang → cek GRN/stok/status di DB; batalkan).
+- [x] Changelog + review section.
+
+## Review
+- Verifikasi akhir (integrator + orkestrator): typecheck penuh exit 0 (juga tanpa cache), eslint `--max-warnings=0` +
+  prettier pada 143 berkas, `npm test` 1452 berkas / 11457 tes lulus, `npm run test:db` 23 berkas / 191 tes lulus,
+  jest mobile 4 suite / 43 tes, `tsc` mobile bersih. `prisma migrate diff` terhadap DB lokal: tidak ada selisih.
+- Uji browser lokal (admin@example.com): 2 pengajuan → "Menunggu Persetujuan" + "Tinjau & Putuskan"; disetujui →
+  "Disetujui" + "Masukkan Barang"/Batalkan; Masukkan Barang ONT 4 dari 5 + Konektor 20 + foto → konfirmasi kekurangan →
+  "Sudah Dimasukkan — ONT masuk 4 dari 5"; DB: PR & PO RECEIVED, sisa ONT 1 dicoret "Tidak dimasukkan ke gudang", GRN
+  1 foto, **stok naik tepat +4 / +20** (worker event aktif). Batalkan PR-0002 → CANCELLED + `cancelReason`, PO CANCELLED,
+  stok tetap. Data uji ini tertinggal di DB dev lokal.
+- Temuan review yang diperbaiki: PO gabungan tidak lagi mencoret jatah/ menutup pengajuan lain; stok GRN & retur tidak
+  lagi dihitung dua kali (bug sejak 2026-05-26); penutupan gagal setelah GRN → 409 + jalan pemulihan; hapus pengajuan di
+  bawah kunci + DELETE bersyarat; teks, kontras, fokus modal batal, penghitung alasan.
+- Sisa (keputusan user): koreksi stok produksi akibat stok ganda; data/objek historis tahap pembelian; Next.js punya
+  advisori keamanan (dev server menyarankan `next upgrade`).
+
+## Tindak lanjut (setelah rilis)
+- Hapus field kompatibilitas mobile (`tahap`, `disetujui`, `dibeli`, `datang`, `tidakDatang`, `catatanAtasan`) setelah
+  rilis Play Store berikutnya yang memuat JS baru diwajibkan (versi lama ditolak 426).
+- Keputusan user: hapus tabel `purchase_records`, `purchase_record_items`, `restock_purchase_links` dan kolom
+  `purchasedQuantity` (destruktif; butuh persetujuan + cek FK RESTRICT) dan objek tanda tangan di R2.
+
 # Rencana: Stok gudang di modal persetujuan pengajuan (2026-11-11)
 
 Status: **selesai (belum di-commit)**

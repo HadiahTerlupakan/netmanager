@@ -19,7 +19,6 @@ export default function robots(): MetadataRoute.Robots {
           "/dashboard",
           "/w/",
           "/p/",
-          "/belanja",
           "/register/",
           "/registrasi/",
           "/mitra-id/",

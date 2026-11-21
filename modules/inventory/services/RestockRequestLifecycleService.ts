@@ -20,11 +20,11 @@ import {
   restockAlreadyDecidedMessage,
 } from "./restock-messages";
 
-/** Penjelasan untuk penyetuju bila daftar belanja tidak bisa dibuat otomatis setelah disetujui. */
+/** Penjelasan untuk penyetuju bila pesanan tidak bisa dibuat otomatis setelah disetujui. */
 const PO_SUPPLIER_INACTIVE_MESSAGE =
-  "Pengajuan sudah disetujui, tapi daftar belanjanya belum bisa dibuat karena toko untuk barang ini sedang tidak aktif. Hubungi admin.";
+  "Pengajuan sudah disetujui, tapi pesanannya belum bisa dibuat karena toko untuk barang ini sedang tidak aktif. Hubungi admin.";
 const PO_NOT_GENERATED_MESSAGE =
-  "Pengajuan sudah disetujui, tapi daftar belanjanya belum bisa dibuat. Hubungi admin.";
+  "Pengajuan sudah disetujui, tapi pesanannya belum bisa dibuat. Hubungi admin.";
 
 const LIFECYCLE_DECISION_WORDS = {
   APPROVE: "disetujui",

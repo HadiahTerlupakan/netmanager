@@ -9,6 +9,7 @@ import type {
   PurchaseOrderItemChangeResult,
   PurchaseOrderStatusValue,
 } from "../domain/ports/IPurchaseOrderItemChangeRepository";
+import { APPROVED_OPEN_PURCHASE_REQUEST_STATUSES } from "../domain/purchase-request-statuses";
 import {
   PAYMENT_TOLERANCE,
   PURCHASE_ORDER_PAYMENT_CATEGORY,
@@ -36,7 +37,6 @@ async function readForItemChange(
           quantity: true,
           receivedQuantity: true,
           cancelledQuantity: true,
-          purchasedQuantity: true,
           unitPrice: true,
           barang: { select: { nama: true } },
         },
@@ -85,9 +85,9 @@ export class PurchaseOrderItemChangeRepository implements IPurchaseOrderItemChan
     assertStillValid: (po: PurchaseOrderForItemChange) => Promise<void>,
   ): Promise<PurchaseOrderItemChangeResult> {
     return this.db.$transaction(async (tx: Tx) => {
-      // Penerimaan barang (GRN, verifikasi restock) dan perubahan lain bisa
-      // berjalan bersamaan. Kunci PO dan barisnya, lalu periksa ulang aturan
-      // terhadap data terbaru sebelum menulis.
+      // Penerimaan barang (GRN, Masukkan Barang restock) dan perubahan lain
+      // bisa berjalan bersamaan. Kunci PO dan barisnya, lalu periksa ulang
+      // aturan terhadap data terbaru sebelum menulis.
       await tx.$queryRaw`SELECT id FROM purchase_orders WHERE id = ${input.purchaseOrderId} FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM purchase_order_items WHERE "purchaseOrderId" = ${input.purchaseOrderId} FOR UPDATE`;
       const locked = await readForItemChange(tx, input.purchaseOrderId);
@@ -232,7 +232,7 @@ export class PurchaseOrderItemChangeRepository implements IPurchaseOrderItemChan
 
   /**
    * Mengurangi jumlah bisa membuat semua sisa pesanan habis; saat itu PO dan
-   * pengajuannya ditutup seperti penerimaan terakhir.
+   * pengajuannya yang masih terbuka ditutup seperti penerimaan terakhir.
    */
   private async recalculateStatus(
     tx: Tx,
@@ -266,16 +266,11 @@ export class PurchaseOrderItemChangeRepository implements IPurchaseOrderItemChan
         data: { status: "RECEIVED", receivedById: input.actorId },
       });
       await tx.purchaseRequest.updateMany({
-        where: { purchaseOrderId: input.purchaseOrderId },
-        data: { status: "RECEIVED" },
-      });
-      // Pengajuan selesai: link belanja restock-nya tidak berlaku lagi.
-      await tx.restockPurchaseLink.updateMany({
         where: {
-          revokedAt: null,
-          purchaseRequest: { purchaseOrderId: input.purchaseOrderId },
+          purchaseOrderId: input.purchaseOrderId,
+          status: { in: [...APPROVED_OPEN_PURCHASE_REQUEST_STATUSES] },
         },
-        data: { revokedAt: new Date() },
+        data: { status: "RECEIVED" },
       });
       return "RECEIVED";
     }

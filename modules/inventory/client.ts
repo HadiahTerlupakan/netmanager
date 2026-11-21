@@ -35,17 +35,33 @@ export {
 export { describeInventoryMutationProblems } from "./services/inventory-route-validation.helpers";
 export { labelKondisiBarang } from "./domain/inventory-user-error";
 
-// Aturan tahap verifikasi barang sampai (dipakai layar restock).
+// Status pengajuan restock dan tindakan yang boleh (layar admin, PDF, dan
+// presenter mobile memakai aturan yang sama dengan server).
 export {
-  canReceiveWithoutPurchaseReport,
-  getOutstandingQuantity,
-  getPurchasedAwaitingArrival,
-  getReceiveLimit,
-  getUnpurchasedRemainder,
-  isLegacyPurchasedOrder,
-  isMergedRestockOrder,
-  RESTOCK_RECEIPT_ELIGIBILITY_MESSAGES,
-  type RestockPurchaseEvidence,
-  type RestockReceiptItemQuantities,
-  type RestockReceiptItemWithPurchase,
-} from "./domain/restock-receipt-eligibility";
+  APPROVED_OPEN_RESTOCK_STATUSES,
+  AWAITING_APPROVAL_RESTOCK_STATUSES,
+  canCancelRestockRequest,
+  canDeleteRestockRequest,
+  canEditRestockRequest,
+  canEnterRestockGoods,
+  getRequestedQuantity,
+  getRestockLineProgress,
+  getRestockStatusKey,
+  hasRestockEnteredAnything,
+  hasRestockJasaDone,
+  isRestockClosed,
+  isRestockLineRejected,
+  isRestockMergedOrder,
+  isRestockServiceOnly,
+  NOT_ENTERED_CANCEL_REASON,
+  RESTOCK_EDITABLE_STATUSES,
+  RESTOCK_JASA_DONE_STATUS,
+  RESTOCK_STATUS_LABELS,
+  wasRestockLineSubstituted,
+  type RestockLineProgress,
+  type RestockStatusInput,
+  type RestockStatusJasa,
+  type RestockStatusKey,
+  type RestockStatusLine,
+  type RestockStatusOrder,
+} from "./domain/restock-request-status";

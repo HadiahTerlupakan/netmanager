@@ -1,195 +1,233 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 
 vi.mock("@/lib/logger", () => ({
   logActivitySafe: vi.fn(),
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+import type {
+  CloseRestockRequestInput,
+  RestockOrderSettlement,
+  RestockRequestOnlySettlement,
+} from "@/modules/inventory/domain/ports/IRestockGoodsReceiptRepository";
 import { RestockGoodsReceiptRepository } from "@/modules/inventory/repositories/RestockGoodsReceiptRepository";
 
-describe("RestockGoodsReceiptRepository — status pesanan", () => {
-  function createDb() {
-    const db = {
-      purchaseOrder: {
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-        update: vi.fn(),
-        findUnique: vi.fn().mockResolvedValue({ id: "po-1" }),
-      },
-      purchaseOrderItem: {
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      },
-      purchaseRequest: {
-        updateMany: vi.fn(),
-        update: vi.fn(),
-        count: vi.fn().mockResolvedValue(2),
-      },
-      restockPurchaseLink: {
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-      },
-      $queryRaw: vi.fn().mockResolvedValue([{ id: "po-1" }]),
-      $transaction: vi.fn(),
-    };
-    db.$transaction.mockImplementation(async (callback) => callback(db));
-    return db;
-  }
+interface DbMock {
+  purchaseOrder: { updateMany: Mock; findUnique: Mock };
+  purchaseOrderItem: { updateMany: Mock; update: Mock };
+  purchaseRequest: { updateMany: Mock; count: Mock };
+  purchaseRequestItem: { updateMany: Mock };
+  $queryRaw: Mock;
+  $transaction: Mock;
+}
 
-  it.each([
-    "applyReceiptSettlement",
-    "finishPurchaseOrderWithoutDelivery",
-  ] as const)(
-    "%s mengunci baris pesanan sebelum menyentuh item, status, atau link",
-    async (method) => {
-      const db = createDb();
-      const callOrder: string[] = [];
-      db.$queryRaw.mockImplementation(async () => {
-        callOrder.push("lockOrder");
-        return [{ id: "po-1" }];
-      });
-      db.purchaseOrderItem.updateMany.mockImplementation(async () => {
-        callOrder.push("items");
-        return { count: 1 };
-      });
-      db.purchaseOrder.updateMany.mockImplementation(async () => {
-        callOrder.push("order");
-        return { count: 1 };
-      });
-      db.restockPurchaseLink.updateMany.mockImplementation(async () => {
-        callOrder.push("links");
-        return { count: 1 };
-      });
-      const repository = new RestockGoodsReceiptRepository(db as never);
-      const input = {
-        purchaseOrderId: "po-1",
-        purchaseRequestId: "pr-1",
-        settlement: "SETTLE_ORDER" as const,
-        actorId: "user-1",
-        cancelledAt: new Date("2026-11-09T00:00:00Z"),
-        cancellations: [
-          {
-            purchaseOrderItemId: "poi-1",
-            cancelledQuantity: 1,
-            reason: "Tidak dikirim",
-            expected: {
-              quantity: 2,
-              receivedQuantity: 1,
-              cancelledQuantity: 0,
-            },
-          },
-        ],
-      };
-
-      await repository[method](input);
-
-      expect(callOrder[0]).toBe("lockOrder");
-      expect(callOrder).toContain("links");
-      const lockSql = (db.$queryRaw.mock.calls[0] as unknown[])[0] as string[];
-      expect(lockSql.join("?")).toMatch(/FROM purchase_orders .*FOR UPDATE/s);
+function createDb(): DbMock {
+  const db: DbMock = {
+    purchaseOrder: {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUnique: vi.fn().mockResolvedValue({ id: "po-1" }),
     },
+    purchaseOrderItem: {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      update: vi.fn().mockResolvedValue({}),
+    },
+    purchaseRequest: {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      count: vi.fn().mockResolvedValue(0),
+    },
+    purchaseRequestItem: {
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    $queryRaw: vi.fn().mockResolvedValue([{ id: "po-1" }]),
+    $transaction: vi.fn(),
+  };
+  db.$transaction.mockImplementation(
+    async (callback: (tx: DbMock) => unknown) => callback(db),
   );
+  return db;
+}
 
-  it("menandai semua pengajuan di pesanan itu selesai, kecuali yang sudah final", async () => {
+const NOT_ENTERED_CANCELLATION = {
+  purchaseOrderItemId: "poi-1",
+  cancelledQuantity: 4,
+  reason: "Tidak dimasukkan ke gudang",
+  expected: { quantity: 10, receivedQuantity: 6, cancelledQuantity: 0 },
+};
+
+/** Penutupan pengajuan pr-1 di pesanan po-1 dengan dua rencana. */
+function closeInput(
+  overrides: {
+    ifOtherRequestsOpen?: RestockRequestOnlySettlement;
+    settlement?: RestockOrderSettlement;
+    cancellations?: CloseRestockRequestInput["ifLastOpenRequest"]["cancellations"];
+    cancelReason?: string;
+    cancelledAt?: Date;
+  } = {},
+): CloseRestockRequestInput {
+  return {
+    purchaseOrderId: "po-1",
+    purchaseRequestId: "pr-1",
+    ifOtherRequestsOpen: overrides.ifOtherRequestsOpen ?? "SETTLE_REQUEST",
+    ifLastOpenRequest: {
+      settlement: overrides.settlement ?? "SETTLE_ORDER",
+      cancellations: overrides.cancellations ?? [NOT_ENTERED_CANCELLATION],
+    },
+    actorId: "user-1",
+    cancelledAt: overrides.cancelledAt ?? new Date("2026-11-21T00:00:00Z"),
+    cancelReason: overrides.cancelReason,
+  };
+}
+
+const OPEN_REQUEST = {
+  status: { notIn: ["RECEIVED", "CANCELLED", "REJECTED"] },
+};
+/** Syarat penulisan status pengajuan pr-1: masih terbuka dan masih memakai po-1. */
+const THIS_OPEN_REQUEST = {
+  id: "pr-1",
+  purchaseOrderId: "po-1",
+  ...OPEN_REQUEST,
+};
+
+describe("RestockGoodsReceiptRepository — menutup pengajuan", () => {
+  it("mengunci baris pesanan, lalu membaca pengajuan lain yang terbuka, baru menyentuh item atau status", async () => {
     const db = createDb();
+    const callOrder: string[] = [];
+    db.$queryRaw.mockImplementation(async () => {
+      callOrder.push("lockOrder");
+      return [{ id: "po-1" }];
+    });
+    db.purchaseRequest.count.mockImplementation(async () => {
+      callOrder.push("otherOpenRequests");
+      return 0;
+    });
+    db.purchaseOrderItem.updateMany.mockImplementation(async () => {
+      callOrder.push("items");
+      return { count: 1 };
+    });
+    db.purchaseOrder.updateMany.mockImplementation(async () => {
+      callOrder.push("order");
+      return { count: 1 };
+    });
 
-    await new RestockGoodsReceiptRepository(db as never).applyReceiptSettlement(
-      {
-        purchaseOrderId: "po-1",
-        purchaseRequestId: "pr-1",
-        settlement: "SETTLE_ORDER",
-        actorId: "user-1",
-      },
+    await new RestockGoodsReceiptRepository(db as never).closeRequest(
+      closeInput(),
     );
 
-    expect(db.purchaseRequest.updateMany).toHaveBeenCalledWith({
+    expect(callOrder).toEqual([
+      "lockOrder",
+      "otherOpenRequests",
+      "items",
+      "order",
+    ]);
+    const lockSql = (db.$queryRaw.mock.calls[0] as unknown[])[0] as string[];
+    expect(lockSql.join("?")).toMatch(/FROM purchase_orders .*FOR UPDATE/s);
+    expect(db.purchaseRequest.count).toHaveBeenCalledWith({
       where: {
         purchaseOrderId: "po-1",
-        status: { notIn: ["RECEIVED", "CANCELLED", "REJECTED"] },
+        id: { not: "pr-1" },
+        ...OPEN_REQUEST,
       },
-      data: { status: "RECEIVED" },
-    });
-    // Link belanja pengajuan yang kini final dicabut di transaksi yang sama.
-    expect(db.restockPurchaseLink.updateMany).toHaveBeenCalledWith({
-      where: {
-        revokedAt: null,
-        purchaseRequest: {
-          OR: [{ id: "pr-1" }, { purchaseOrderId: "po-1" }],
-          status: { in: ["RECEIVED", "CANCELLED", "REJECTED"] },
-        },
-      },
-      data: { revokedAt: expect.any(Date), revokedById: null },
     });
   });
 
-  it("KEEP_OPEN tidak mencabut link belanja", async () => {
+  it("pengajuan terakhir yang terbuka mencoret sisa hanya bila angka item masih sama dengan snapshot", async () => {
     const db = createDb();
+    const cancelledAt = new Date("2026-11-21T00:00:00Z");
 
-    await new RestockGoodsReceiptRepository(db as never).applyReceiptSettlement(
-      {
-        purchaseOrderId: "po-1",
-        purchaseRequestId: "pr-1",
-        settlement: "KEEP_OPEN",
-        actorId: "user-1",
-      },
-    );
-
-    expect(db.restockPurchaseLink.updateMany).not.toHaveBeenCalled();
-  });
-
-  it("hanya menyelesaikan pengajuan ini pada SETTLE_REQUEST", async () => {
-    const db = createDb();
-
-    await new RestockGoodsReceiptRepository(db as never).applyReceiptSettlement(
-      {
-        purchaseOrderId: "po-1",
-        purchaseRequestId: "pr-1",
-        settlement: "SETTLE_REQUEST",
-        actorId: "user-1",
-      },
-    );
-
-    expect(db.purchaseOrder.updateMany).not.toHaveBeenCalled();
-    expect(db.purchaseRequest.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: "pr-1",
-        status: { notIn: ["RECEIVED", "CANCELLED", "REJECTED"] },
-      },
-      data: { status: "RECEIVED" },
-    });
-  });
-
-  it("membatalkan pesanan hanya bila belum ada kiriman, belanja, jasa, maupun pembayaran", async () => {
-    const db = createDb();
-
-    const isWritten = await new RestockGoodsReceiptRepository(
+    const result = await new RestockGoodsReceiptRepository(
       db as never,
-    ).finishPurchaseOrderWithoutDelivery({
-      purchaseOrderId: "po-1",
-      purchaseRequestId: "pr-1",
-      settlement: "CANCEL_ORDER",
-      actorId: "user-1",
-      cancelledAt: new Date(),
-      cancellations: [
-        {
-          purchaseOrderItemId: "poi-1",
-          cancelledQuantity: 10,
-          reason: "Toko tidak mengirim",
-          expected: { quantity: 10, receivedQuantity: 0, cancelledQuantity: 0 },
-        },
-      ],
-    });
+    ).closeRequest(closeInput({ cancelledAt }));
 
-    expect(isWritten).toBe(true);
-    expect(db.$transaction).toHaveBeenCalledTimes(1);
-    expect(db.purchaseOrderItem.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          id: "poi-1",
-          purchaseOrderId: "po-1",
-          quantity: 10,
-          receivedQuantity: 0,
-          cancelledQuantity: 0,
-        },
+    expect(result).toEqual({ isWritten: true, isLastOpenRequest: true });
+    expect(db.purchaseOrderItem.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "poi-1",
+        purchaseOrderId: "po-1",
+        quantity: 10,
+        receivedQuantity: 6,
+        cancelledQuantity: 0,
+      },
+      data: {
+        cancelledQuantity: { increment: 4 },
+        cancelReason: "Tidak dimasukkan ke gudang",
+        cancelledAt,
+      },
+    });
+  });
+
+  it("selama pesanan masih dipakai pengajuan lain yang terbuka: tidak mencoret apa pun dan hanya menyelesaikan pengajuan ini", async () => {
+    const db = createDb();
+    db.purchaseRequest.count.mockResolvedValue(1);
+
+    const result = await new RestockGoodsReceiptRepository(
+      db as never,
+    ).closeRequest(closeInput());
+
+    expect(result).toEqual({ isWritten: true, isLastOpenRequest: false });
+    expect(db.purchaseOrderItem.updateMany).not.toHaveBeenCalled();
+    expect(db.purchaseOrder.updateMany).not.toHaveBeenCalled();
+    expect(db.purchaseRequest.updateMany).toHaveBeenCalledTimes(1);
+    expect(db.purchaseRequest.updateMany).toHaveBeenCalledWith({
+      where: THIS_OPEN_REQUEST,
+      data: { status: "RECEIVED" },
+    });
+  });
+
+  it("selama pesanan masih dipakai pengajuan lain yang terbuka: Batalkan hanya membatalkan pengajuan ini beserta alasannya", async () => {
+    const db = createDb();
+    db.purchaseRequest.count.mockResolvedValue(2);
+
+    const result = await new RestockGoodsReceiptRepository(
+      db as never,
+    ).closeRequest(
+      closeInput({
+        ifOtherRequestsOpen: "CANCEL_REQUEST",
+        settlement: "CANCEL_REQUEST_AND_SETTLE_ORDER",
+        cancelReason: "Salah gudang",
       }),
     );
+
+    expect(result).toEqual({ isWritten: true, isLastOpenRequest: false });
+    expect(db.purchaseOrderItem.updateMany).not.toHaveBeenCalled();
+    expect(db.purchaseOrder.updateMany).not.toHaveBeenCalled();
+    expect(db.purchaseRequest.updateMany).toHaveBeenCalledWith({
+      where: THIS_OPEN_REQUEST,
+      data: { status: "CANCELLED", cancelReason: "Salah gudang" },
+    });
+  });
+
+  it("pengajuan terakhir menutup pesanan dan hanya pengajuan ini; pengajuan lain tidak pernah disentuh", async () => {
+    const db = createDb();
+
+    await new RestockGoodsReceiptRepository(db as never).closeRequest(
+      closeInput({ cancellations: [] }),
+    );
+
+    expect(db.purchaseOrder.updateMany).toHaveBeenCalledWith({
+      where: { id: "po-1", status: { notIn: ["RECEIVED", "CANCELLED"] } },
+      data: { status: "RECEIVED", receivedById: "user-1" },
+    });
+    expect(db.purchaseRequest.updateMany).toHaveBeenCalledTimes(1);
+    expect(db.purchaseRequest.updateMany).toHaveBeenCalledWith({
+      where: THIS_OPEN_REQUEST,
+      data: { status: "RECEIVED" },
+    });
+  });
+
+  it("membatalkan pesanan hanya bila belum ada barang masuk, jasa, pembayaran, maupun catatan belanja lama", async () => {
+    const db = createDb();
+
+    const result = await new RestockGoodsReceiptRepository(
+      db as never,
+    ).closeRequest(
+      closeInput({
+        ifOtherRequestsOpen: "CANCEL_REQUEST",
+        settlement: "CANCEL_ORDER",
+        cancelReason: "Tidak jadi dibutuhkan",
+      }),
+    );
+
+    expect(result).toEqual({ isWritten: true, isLastOpenRequest: true });
     expect(db.purchaseOrder.updateMany).toHaveBeenCalledWith({
       where: {
         id: "po-1",
@@ -198,66 +236,172 @@ describe("RestockGoodsReceiptRepository — status pesanan", () => {
         goodsReceipts: { none: {} },
         jasaItems: { none: {} },
         purchaseRecords: { none: { voidedAt: null } },
-        items: {
-          none: {
-            OR: [
-              { receivedQuantity: { gt: 0 } },
-              { purchasedQuantity: { gt: 0 } },
-            ],
-          },
-        },
+        items: { none: { receivedQuantity: { gt: 0 } } },
       },
       data: { status: "CANCELLED" },
     });
     expect(db.purchaseRequest.updateMany).toHaveBeenCalledWith({
-      where: {
-        id: "pr-1",
-        status: { notIn: ["RECEIVED", "CANCELLED", "REJECTED"] },
-      },
-      data: { status: "CANCELLED" },
+      where: THIS_OPEN_REQUEST,
+      data: { status: "CANCELLED", cancelReason: "Tidak jadi dibutuhkan" },
     });
   });
 
-  it("mengembalikan false bila item sudah berubah sejak dibaca", async () => {
+  it("membatalkan pengajuan dulu, lalu menutup pesanan yang tidak boleh ikut dibatalkan", async () => {
+    const db = createDb();
+    const callOrder: string[] = [];
+    db.purchaseRequest.updateMany.mockImplementation(
+      async ({ data }: { data: { status: string } }) => {
+        callOrder.push(`request:${data.status}`);
+        return { count: 1 };
+      },
+    );
+    db.purchaseOrder.updateMany.mockImplementation(async () => {
+      callOrder.push("order:RECEIVED");
+      return { count: 1 };
+    });
+
+    await new RestockGoodsReceiptRepository(db as never).closeRequest(
+      closeInput({
+        ifOtherRequestsOpen: "CANCEL_REQUEST",
+        settlement: "CANCEL_REQUEST_AND_SETTLE_ORDER",
+        cancelReason: "Salah gudang",
+      }),
+    );
+
+    expect(callOrder).toEqual(["request:CANCELLED", "order:RECEIVED"]);
+  });
+
+  it("mengembalikan isWritten false tanpa menulis status bila item sudah berubah sejak dibaca", async () => {
     const db = createDb();
     db.purchaseOrderItem.updateMany.mockResolvedValue({ count: 0 });
 
-    const isWritten = await new RestockGoodsReceiptRepository(
+    const result = await new RestockGoodsReceiptRepository(
       db as never,
-    ).finishPurchaseOrderWithoutDelivery({
-      purchaseOrderId: "po-1",
-      purchaseRequestId: "pr-1",
-      settlement: "CANCEL_ORDER",
-      actorId: "user-1",
-      cancelledAt: new Date(),
-      cancellations: [
-        {
-          purchaseOrderItemId: "poi-1",
-          cancelledQuantity: 10,
-          reason: "Toko tidak mengirim",
-          expected: { quantity: 10, receivedQuantity: 0, cancelledQuantity: 0 },
-        },
-      ],
-    });
+    ).closeRequest(closeInput({ settlement: "CANCEL_ORDER" }));
 
-    expect(isWritten).toBe(false);
+    expect(result).toEqual({ isWritten: false });
     expect(db.purchaseOrder.updateMany).not.toHaveBeenCalled();
+    expect(db.purchaseRequest.updateMany).not.toHaveBeenCalled();
   });
 
-  it("mengembalikan false bila pesanan sudah tidak bisa dibatalkan", async () => {
+  it("mengembalikan isWritten false bila pesanan sudah tidak bisa dibatalkan", async () => {
     const db = createDb();
     db.purchaseOrder.updateMany.mockResolvedValue({ count: 0 });
 
-    const isWritten = await new RestockGoodsReceiptRepository(
+    const result = await new RestockGoodsReceiptRepository(
       db as never,
-    ).applyReceiptSettlement({
-      purchaseOrderId: "po-1",
+    ).closeRequest(
+      closeInput({ settlement: "CANCEL_ORDER", cancellations: [] }),
+    );
+
+    expect(result).toEqual({ isWritten: false });
+    expect(db.purchaseRequest.updateMany).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, RestockRequestOnlySettlement, number]>([
+    [
+      "sudah ditutup atau lepas dari pesanan saat diselesaikan",
+      "SETTLE_REQUEST",
+      1,
+    ],
+    [
+      "sudah ditutup atau lepas dari pesanan saat dibatalkan",
+      "CANCEL_REQUEST",
+      1,
+    ],
+    [
+      "sudah ditutup sebelum pengajuan terakhir menutup pesanannya",
+      "SETTLE_REQUEST",
+      0,
+    ],
+  ])(
+    "membatalkan seluruh penutupan bila pengajuan ini %s",
+    async (_label, ifOtherRequestsOpen, otherOpenRequests) => {
+      const db = createDb();
+      db.purchaseRequest.count.mockResolvedValue(otherOpenRequests);
+      db.purchaseRequest.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await new RestockGoodsReceiptRepository(
+        db as never,
+      ).closeRequest(closeInput({ ifOtherRequestsOpen, cancellations: [] }));
+
+      expect(result).toEqual({ isWritten: false });
+    },
+  );
+});
+
+describe("RestockGoodsReceiptRepository — batal tanpa pesanan", () => {
+  it("membatalkan pengajuan yang disetujui dan belum punya pesanan, beserta alasannya", async () => {
+    const db = createDb();
+
+    const isCancelled = await new RestockGoodsReceiptRepository(
+      db as never,
+    ).cancelRequestWithoutOrder({
       purchaseRequestId: "pr-1",
-      settlement: "CANCEL_ORDER",
-      actorId: "user-1",
+      tenantId: "tenant-1",
+      cancelReason: "Tidak jadi dibutuhkan",
     });
 
-    expect(isWritten).toBe(false);
-    expect(db.purchaseRequest.updateMany).not.toHaveBeenCalled();
+    expect(isCancelled).toBe(true);
+    expect(db.purchaseRequest.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "pr-1",
+        tenantId: "tenant-1",
+        status: { in: ["APPROVED", "ORDERED"] },
+        purchaseOrderId: null,
+      },
+      data: { status: "CANCELLED", cancelReason: "Tidak jadi dibutuhkan" },
+    });
+  });
+
+  it("mengembalikan false bila statusnya berubah atau pesanannya baru dibuat", async () => {
+    const db = createDb();
+    db.purchaseRequest.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      new RestockGoodsReceiptRepository(db as never).cancelRequestWithoutOrder({
+        purchaseRequestId: "pr-1",
+        tenantId: "tenant-1",
+        cancelReason: "Tidak jadi dibutuhkan",
+      }),
+    ).resolves.toBe(false);
+  });
+});
+
+describe("RestockGoodsReceiptRepository — ganti barang", () => {
+  it("mengisi barang yang semula diajukan hanya bila belum diisi persetujuan atasan", async () => {
+    const db = createDb();
+
+    await new RestockGoodsReceiptRepository(db as never).applyItemSubstitutions(
+      {
+        purchaseOrderId: "po-1",
+        tenantId: "tenant-1",
+        substitutions: [
+          {
+            purchaseOrderItemId: "poi-1",
+            fromBarangId: "b-1",
+            toBarangId: "b-9",
+          },
+        ],
+      },
+    );
+
+    const orderedLines = {
+      barangId: "b-1",
+      statusApproval: { not: "REJECTED" },
+      purchaseRequest: { purchaseOrderId: "po-1", tenantId: "tenant-1" },
+    };
+    expect(db.purchaseOrderItem.update).toHaveBeenCalledWith({
+      where: { id: "poi-1" },
+      data: { barangId: "b-9" },
+    });
+    expect(db.purchaseRequestItem.updateMany).toHaveBeenNthCalledWith(1, {
+      where: { ...orderedLines, barangIdDiminta: null },
+      data: { barangId: "b-9", barangIdDiminta: "b-1" },
+    });
+    expect(db.purchaseRequestItem.updateMany).toHaveBeenNthCalledWith(2, {
+      where: { ...orderedLines, barangIdDiminta: { not: null } },
+      data: { barangId: "b-9" },
+    });
   });
 });

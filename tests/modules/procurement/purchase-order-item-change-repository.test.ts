@@ -71,7 +71,6 @@ function createDb(options: {
     purchaseOrderJasaItem: { findMany: vi.fn(async () => []) },
     purchaseRequestItem: { createMany: vi.fn() },
     purchaseRequest: { updateMany: vi.fn() },
-    restockPurchaseLink: { updateMany: vi.fn() },
     expense: {
       findMany: vi.fn(async () =>
         (options.payments ?? []).map((amount) => ({ amount })),
@@ -273,16 +272,13 @@ describe("PurchaseOrderItemChangeRepository.applyItemChange", () => {
       where: { id: "po-1" },
       data: { status: "RECEIVED", receivedById: "user-1" },
     });
+    // Pengajuan yang sudah ditolak, dibatalkan, atau selesai tetap statusnya.
     expect(tx.purchaseRequest.updateMany).toHaveBeenCalledWith({
-      where: { purchaseOrderId: "po-1" },
-      data: { status: "RECEIVED" },
-    });
-    expect(tx.restockPurchaseLink.updateMany).toHaveBeenCalledWith({
       where: {
-        revokedAt: null,
-        purchaseRequest: { purchaseOrderId: "po-1" },
+        purchaseOrderId: "po-1",
+        status: { in: ["APPROVED", "ORDERED"] },
       },
-      data: { revokedAt: expect.any(Date) },
+      data: { status: "RECEIVED" },
     });
   });
 

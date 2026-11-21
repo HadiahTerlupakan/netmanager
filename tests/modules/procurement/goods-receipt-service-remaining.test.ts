@@ -8,6 +8,7 @@ import {
   GoodsReceiptInvalidError,
   GoodsReceiptRestockOrderError,
   GoodsReceiptService,
+  RESTOCK_ORDER_RECEIPT_MESSAGE,
 } from "@/modules/procurement/services/GoodsReceiptService";
 
 function createService(
@@ -108,8 +109,9 @@ describe("GoodsReceiptService — pesanan dari pengajuan restock", () => {
     const attempt = service.createFromProcurementPage(createInput(1));
 
     await expect(attempt).rejects.toBeInstanceOf(GoodsReceiptRestockOrderError);
-    await expect(attempt).rejects.toThrow(
-      "Pesanan ini dari pengajuan restock. Catat barang datang dari halaman Restock.",
+    await expect(attempt).rejects.toThrow(RESTOCK_ORDER_RECEIPT_MESSAGE);
+    expect(RESTOCK_ORDER_RECEIPT_MESSAGE).toBe(
+      "Pesanan ini dari pengajuan restock. Masukkan barangnya lewat tombol Masukkan Barang di halaman Restock.",
     );
     expect(grnRepo.generateGrnNumber).not.toHaveBeenCalled();
     expect(grnRepo.createAndPost).not.toHaveBeenCalled();
@@ -120,18 +122,24 @@ describe("GoodsReceiptService — pesanan dari pengajuan restock", () => {
 
     await service.createFromProcurementPage(createInput(1));
 
-    expect(grnRepo.createAndPost).toHaveBeenCalledWith(
-      expect.objectContaining({ isLimitedToPurchased: false }),
-    );
+    expect(grnRepo.createAndPost).toHaveBeenCalledTimes(1);
   });
 
   it("alur restock sendiri tetap bisa memakai create() untuk pesanan restock", async () => {
     const { service, grnRepo } = createService({ items: [kabel] }, 1);
 
-    await service.create({ ...createInput(1), isLimitedToPurchased: true });
+    await service.create(createInput(1));
 
     expect(grnRepo.createAndPost).toHaveBeenCalledWith(
-      expect.objectContaining({ isLimitedToPurchased: true }),
+      expect.objectContaining({
+        purchaseOrderId: "po-1",
+        items: [
+          expect.objectContaining({
+            purchaseOrderItemId: "poi-1",
+            quantity: 1,
+          }),
+        ],
+      }),
     );
   });
 });

@@ -28,7 +28,7 @@ interface PurchaseOrderDetail {
   vendorNpwp: string | null;
   fakturPajakNo: string | null;
   fakturPajakDate: string | null;
-  /** Pesanan milik pengajuan restock; dicatat datang dari halaman Restock. */
+  /** Pesanan milik pengajuan restock; barangnya dimasukkan dari halaman Restock. */
   isRestockOrder?: boolean;
 }
 

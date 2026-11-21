@@ -5,14 +5,18 @@ import type {
   RestockPurchaseOrderItem,
 } from "../domain/ports/IRestockGoodsReceiptRepository";
 
-/** Map barang yang dipesan (barangId asli) → barang pengganti yang benar-benar datang. */
+/** Map barang yang dipesan (barangId asli) → barang pengganti yang benar-benar masuk. */
 export type RestockSubstitutionMap = Record<string, string>;
 
-export interface ApplyRestockSubstitutionInput {
-  purchaseOrderId: string;
+/** Isian yang cukup untuk memeriksa substitusi tanpa menulis apa pun. */
+export interface ValidateRestockSubstitutionInput {
   purchaseOrderItems: RestockPurchaseOrderItem[];
   substitutions: RestockSubstitutionMap;
   tenantId: string;
+}
+
+export interface ApplyRestockSubstitutionInput extends ValidateRestockSubstitutionInput {
+  purchaseOrderId: string;
   actorId: string;
   referenceNumber: string;
 }
@@ -31,17 +35,26 @@ export class RestockSubstitutionInvalidError extends Error {
 }
 
 /**
- * Substitusi barang saat verifikasi kedatangan: barang yang sampai bisa berbeda
- * dari yang dipesan (supplier mengirim merek/tipe lain).
+ * Substitusi barang saat Masukkan Barang: barang yang masuk bisa berbeda dari
+ * yang dipesan (supplier mengirim merek/tipe lain).
  *
  * Aturan:
  * - Barang asli harus ada di Purchase Order terkait
- * - Item yang sudah pernah diterima sebagian tidak boleh diganti (jejak stok terlanjur tercatat)
+ * - Item yang sudah pernah masuk sebagian tidak boleh diganti (jejak stok terlanjur tercatat)
  * - Barang pengganti harus milik tenant yang sama dan belum dipakai item lain di PO ini
  * - Harga per unit tetap mengikuti PO; koreksi harga dilakukan lewat edit Purchase Order
  */
 export class RestockItemSubstitutionService {
   constructor(private readonly repository: IRestockGoodsReceiptRepository) {}
+
+  /**
+   * Periksa substitusi tanpa menulis apa pun, misalnya sebelum pesanannya
+   * dibuat. Isian yang tidak sah dilempar sebagai
+   * {@link RestockSubstitutionInvalidError}.
+   */
+  async validate(input: ValidateRestockSubstitutionInput): Promise<void> {
+    await this.resolve(input);
+  }
 
   /**
    * Terapkan substitusi barang pada PO dan PR terkait.
@@ -50,14 +63,8 @@ export class RestockItemSubstitutionService {
   async apply(
     input: ApplyRestockSubstitutionInput,
   ): Promise<RestockSubstitutionMap> {
-    const requested = this.parseRequestedSubstitutions(input.substitutions);
-    if (requested.length === 0) return {};
-
-    const resolved = this.resolveAgainstPurchaseOrder(
-      requested,
-      input.purchaseOrderItems,
-    );
-    await this.assertReplacementBarangsExist(resolved, input.tenantId);
+    const resolved = await this.resolve(input);
+    if (resolved.length === 0) return {};
 
     await this.repository.applyItemSubstitutions({
       purchaseOrderId: input.purchaseOrderId,
@@ -70,6 +77,20 @@ export class RestockItemSubstitutionService {
     return Object.fromEntries(
       resolved.map((item) => [item.fromBarangId, item.toBarangId]),
     );
+  }
+
+  private async resolve(
+    input: ValidateRestockSubstitutionInput,
+  ): Promise<ResolvedSubstitution[]> {
+    const requested = this.parseRequestedSubstitutions(input.substitutions);
+    if (requested.length === 0) return [];
+
+    const resolved = this.resolveAgainstPurchaseOrder(
+      requested,
+      input.purchaseOrderItems,
+    );
+    await this.assertReplacementBarangsExist(resolved, input.tenantId);
+    return resolved;
   }
 
   private parseRequestedSubstitutions(
@@ -105,7 +126,7 @@ export class RestockItemSubstitutionService {
       }
       if (purchaseOrderItem.receivedQuantity > 0) {
         throw new RestockSubstitutionInvalidError(
-          `${this.describeItem(purchaseOrderItem)} sudah datang sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi. Catat sisanya dengan barang yang sama.`,
+          `${this.describeItem(purchaseOrderItem)} sudah masuk sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi. Masukkan sisanya dengan barang yang sama.`,
         );
       }
       if (usedBarangIds.has(substitution.toBarangId)) {

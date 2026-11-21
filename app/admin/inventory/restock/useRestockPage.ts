@@ -16,28 +16,18 @@ import {
   putWithAuth,
   deleteWithAuth,
 } from "@/lib/api-client";
-import type {
-  PhotoUploadRef,
-  UploadedPhoto,
-} from "@/components/inventory/PhotoUpload";
+import type { PhotoUploadRef } from "@/components/inventory/PhotoUpload";
 
 import {
-  buildRestockReceivePayload,
-  getRestockReceiveProblems,
-  getRestockReceiveSuccessMessage,
-  getRestockReceiveSummary,
-  readRestockReceiptRequestStatus,
-} from "./restockReceiveForm";
-import {
-  buildInitialReceivedItems,
   describeRestockClientError,
   getFilteredBarangs,
   getPaginatedRestockRequests,
   getPendingJasaItems,
-  getRestockFilterOptions,
   getRestockFormProblems,
   getVisibleRestockRequests,
   readRestockErrorMessage,
+  RESTOCK_STATUS_FILTER_OPTIONS,
+  type RestockStatusFilter,
   uploadProofPhotos,
 } from "./utils";
 import type {
@@ -45,19 +35,14 @@ import type {
   Gudang,
   Jasa,
   PurchaseRequest,
-  RestockCancellationMap,
-  RestockOverReceiptMap,
   RestockFormItem,
   RestockSetting,
-  RestockSubstitutionMap,
 } from "./types";
 import type { JasaConfirmState } from "./RestockConfirmJasaModal";
-import { showRestockError, uploadPhotosWithToast } from "./restockToasts";
+import { showRestockError } from "./restockToasts";
 import { useRestockApproval } from "./useRestockApproval";
-import { useRestockCloseUnpurchased } from "./useRestockCloseUnpurchased";
-
-/** Penolakan penerimaan karena pesanan sudah berubah di server. */
-const STALE_RECEIPT_STATUSES = [400, 404, 409];
+import { useRestockCancel } from "./useRestockCancel";
+import { useRestockEntry } from "./useRestockEntry";
 
 const INITIAL_FORM_ITEM: RestockFormItem = {
   tipe: "BARANG",
@@ -66,6 +51,11 @@ const INITIAL_FORM_ITEM: RestockFormItem = {
   keterangan: "",
 };
 
+/**
+ * State halaman Pengajuan Barang: daftar dan filternya, form pengajuan,
+ * konfirmasi jasa, serta pengendali modal persetujuan, Masukkan Barang, dan
+ * Batalkan Pengajuan.
+ */
 export function useRestockPage() {
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
   const [allBarangsSource, setAllBarangsSource] = useState<Barang[]>([]);
@@ -76,9 +66,7 @@ export function useRestockPage() {
   const [gudangs, setGudangs] = useState<Gudang[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    PurchaseRequest["status"] | "all"
-  >("all");
+  const [statusFilter, setStatusFilter] = useState<RestockStatusFilter>("all");
   const [gudangFilter, setGudangFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | "all">(10);
@@ -91,21 +79,7 @@ export function useRestockPage() {
     INITIAL_FORM_ITEM,
   ]);
   const [viewingPR, setViewingPR] = useState<PurchaseRequest | null>(null);
-  const [receivingPR, setReceivingPR] = useState<PurchaseRequest | null>(null);
-  const [receivedItems, setReceivedItems] = useState<Record<string, number>>(
-    {},
-  );
-  const [receivedSubstitutions, setReceivedSubstitutions] =
-    useState<RestockSubstitutionMap>({});
-  const [receivedCancellations, setReceivedCancellations] =
-    useState<RestockCancellationMap>({});
-  const [receivedPhotos, setReceivedPhotos] = useState<UploadedPhoto[]>([]);
-  // true = petugas menjawab "Tidak, sisanya tidak akan datang".
-  const [isFinishingOrder, setIsFinishingOrder] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [receivedOverReceipts, setReceivedOverReceipts] =
-    useState<RestockOverReceiptMap>({});
-  const [receiveCloseReason, setReceiveCloseReason] = useState("");
 
   const [confirmJasaPR, setConfirmJasaPR] = useState<PurchaseRequest | null>(
     null,
@@ -116,8 +90,6 @@ export function useRestockPage() {
   const [jasaPhotoUploadRefs, setJasaPhotoUploadRefs] = useState<
     Record<string, React.RefObject<PhotoUploadRef | null>>
   >({});
-
-  const photoUploadRef = useRef<PhotoUploadRef>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -135,8 +107,7 @@ export function useRestockPage() {
         const data = await resRequests.json();
         const fresh: PurchaseRequest[] = data.data || [];
         setRequests(fresh);
-        // Detail yang sedang terbuka ikut diperbarui (mis. setelah catatan
-        // belanja dibatalkan dari dalam detail).
+        // Detail yang sedang terbuka ikut diperbarui dengan data terbaru.
         setViewingPR((current) =>
           current
             ? (fresh.find((request) => request.id === current.id) ?? current)
@@ -215,11 +186,6 @@ export function useRestockPage() {
         itemsPerPage,
       }),
     [currentPage, itemsPerPage, visibleRequests],
-  );
-
-  const statusOptions = useMemo(
-    () => getRestockFilterOptions(requests),
-    [requests],
   );
 
   const gudangOptions = useMemo(
@@ -381,23 +347,6 @@ export function useRestockPage() {
     [fetchData],
   );
 
-  const openReceive = useCallback((request: PurchaseRequest) => {
-    setReceivingPR(request);
-    setReceivedItems(buildInitialReceivedItems(request));
-    setReceivedSubstitutions({});
-    setReceivedCancellations({});
-    setReceivedPhotos([]);
-    setReceivedOverReceipts({});
-    setReceiveCloseReason("");
-    // Bawaan "Ya, sisanya masih ditunggu": staf yang tidak membaca pertanyaan
-    // tidak menutup pesanan yang masih akan dikirim susulan.
-    setIsFinishingOrder(false);
-  }, []);
-
-  const closeReceive = useCallback(() => {
-    setReceivingPR(null);
-  }, []);
-
   const openConfirmJasa = useCallback((request: PurchaseRequest) => {
     const pending = getPendingJasaItems(request);
     if (pending.length === 0) {
@@ -509,96 +458,15 @@ export function useRestockPage() {
     jasaPhotoUploadRefs,
   ]);
 
-  const submitReceipt = useCallback(async () => {
-    if (!receivingPR) return;
-    const formInput = {
-      request: receivingPR,
-      receivedItems,
-      substitutions: receivedSubstitutions,
-      cancellations: receivedCancellations,
-      isFinishingOrder,
-      barangs: allBarangsSource,
-    };
-    const problems = getRestockReceiveProblems({
-      ...formInput,
-      overReceipts: receivedOverReceipts,
-      closeReason: receiveCloseReason,
-      photoCount: receivedPhotos.length,
-    });
-    if (problems.length > 0) {
-      showRestockError(`Belum bisa disimpan:\n${problems.join("\n")}`);
-      return;
-    }
-    const summary = getRestockReceiveSummary(formInput);
-
-    try {
-      setSubmitting(true);
-      const photoUrls = summary.hasArrivalToday
-        ? await uploadPhotosWithToast(photoUploadRef)
-        : [];
-
-      const response = await patchWithAuth(
-        `/api/inventory/restock/requests/${receivingPR.id}/receive`,
-        buildRestockReceivePayload({
-          ...formInput,
-          overReceipts: receivedOverReceipts,
-          closeReason: receiveCloseReason,
-          fotoBukti: photoUrls,
-        }),
-      );
-
-      if (!response.ok) {
-        const message = await readRestockErrorMessage(
-          response,
-          "Penerimaan barang belum tersimpan. Coba sekali lagi.",
-        );
-        // Penolakan karena data basi (pesanan sudah selesai/berubah): isian
-        // modal memakai sisa lama, jadi tutup dan muat ulang daftar.
-        if (STALE_RECEIPT_STATUSES.includes(response.status)) {
-          showRestockError(message);
-          setReceivingPR(null);
-          await fetchData();
-          return;
-        }
-        throw new Error(message);
-      }
-
-      const body: unknown = await response.json().catch((): null => null);
-      toast.success(
-        getRestockReceiveSuccessMessage(
-          summary,
-          readRestockReceiptRequestStatus(body),
-        ),
-      );
-      setReceivingPR(null);
-      await fetchData();
-    } catch (error: unknown) {
-      showRestockError(describeRestockClientError(error));
-    } finally {
-      setSubmitting(false);
-    }
-  }, [
-    allBarangsSource,
-    fetchData,
-    isFinishingOrder,
-    receiveCloseReason,
-    receivedCancellations,
-    receivedItems,
-    receivedOverReceipts,
-    receivedPhotos.length,
-    receivedSubstitutions,
-    receivingPR,
-  ]);
-
   // Dipanggil setelah semua useState di atas supaya urutan hook halaman tetap.
   const approval = useRestockApproval({
     fetchData,
     allBarangs: allBarangsSource,
   });
-  const closeUnpurchased = useRestockCloseUnpurchased({ fetchData });
+  const entry = useRestockEntry({ fetchData, barangs: allBarangsSource });
+  const cancel = useRestockCancel({ fetchData });
 
   return {
-    fetchData,
     requests: paginatedRequests.data,
     barangs,
     allBarangs: allBarangsSource,
@@ -610,7 +478,7 @@ export function useRestockPage() {
     setSearch,
     statusFilter,
     setStatusFilter,
-    statusOptions,
+    statusOptions: RESTOCK_STATUS_FILTER_OPTIONS,
     gudangFilter,
     setGudangFilter,
     gudangOptions,
@@ -631,33 +499,15 @@ export function useRestockPage() {
     setFormItems,
     viewingPR,
     setViewingPR,
-    receivingPR,
-    receivedItems,
-    setReceivedItems,
-    receivedSubstitutions,
-    setReceivedSubstitutions,
-    receivedCancellations,
-    setReceivedCancellations,
-    receivedOverReceipts,
-    setReceivedOverReceipts,
-    receivedPhotos,
-    setReceivedPhotos,
-    isFinishingOrder,
-    setIsFinishingOrder,
-    receiveCloseReason,
-    setReceiveCloseReason,
     submitting,
-    photoUploadRef,
     openCreate,
     openEdit,
     closeForm,
     saveRequest,
     deleteRequest,
     approval,
-    closeUnpurchased,
-    openReceive,
-    closeReceive,
-    submitReceipt,
+    entry,
+    cancel,
     confirmJasaPR,
     openConfirmJasa,
     closeConfirmJasa,

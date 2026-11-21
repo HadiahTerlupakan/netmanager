@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
-
 import { usePermission } from "@/hooks/use-permission";
 
 import { RestockApprovalModal } from "./RestockApprovalModal";
-import { RestockCloseUnpurchasedModal } from "./RestockCloseUnpurchasedModal";
+import { RestockCancelModal } from "./RestockCancelModal";
 import { RestockDetailModal } from "./RestockDetailModal";
 import { RestockFormModal } from "./RestockFormModal";
 import { RestockReceiveModal } from "./RestockReceiveModal";
@@ -15,12 +13,15 @@ import { useDetailChainedFocus } from "./useDetailChainedFocus";
 import { useRestockPage } from "./useRestockPage";
 import type { PurchaseRequest } from "./types";
 
+/** Halaman Pengajuan Barang: tabel pengajuan beserta semua modalnya. */
 export default function RestockCRUDPage() {
   const { hasPermission } = usePermission();
   const canApprove = hasPermission("restock:approve");
   const canUpdate = hasPermission("restock:update");
   const canVerify = hasPermission("restock:verify");
   const canDelete = hasPermission("restock:delete");
+  // Barang yang masuk lebih banyak dari sisa menambah isi pesanan.
+  const canOverReceive = hasPermission("purchase_orders:update");
 
   const {
     requests,
@@ -55,34 +56,15 @@ export default function RestockCRUDPage() {
     setFormItems,
     viewingPR,
     setViewingPR,
-    fetchData,
-    receivingPR,
-    receivedItems,
-    setReceivedItems,
-    receivedSubstitutions,
-    setReceivedSubstitutions,
-    receivedCancellations,
-    setReceivedCancellations,
-    receivedOverReceipts,
-    setReceivedOverReceipts,
-    receivedPhotos,
-    setReceivedPhotos,
-    isFinishingOrder,
-    setIsFinishingOrder,
-    receiveCloseReason,
-    setReceiveCloseReason,
     submitting,
-    photoUploadRef,
     openCreate,
     openEdit,
     closeForm,
     saveRequest,
     deleteRequest,
     approval,
-    closeUnpurchased,
-    openReceive,
-    closeReceive,
-    submitReceipt,
+    entry,
+    cancel,
     confirmJasaPR,
     openConfirmJasa,
     closeConfirmJasa,
@@ -92,15 +74,22 @@ export default function RestockCRUDPage() {
     submitConfirmJasa,
   } = useRestockPage();
   const { rememberDetailTrigger, markOpenedFromDetail } = useDetailChainedFocus(
-    !!receivingPR || !!closeUnpurchased.request,
+    !!entry.request || !!cancel.request,
   );
-  const [isFocusingPurchaseLink, setIsFocusingPurchaseLink] = useState(false);
 
-  const openDetail = (request: PurchaseRequest, focusPurchaseLink: boolean) => {
+  const openDetail = (request: PurchaseRequest) => {
     rememberDetailTrigger();
-    setIsFocusingPurchaseLink(focusPurchaseLink);
     setViewingPR(request);
   };
+
+  /** Detail ditutup dulu; fokus nanti kembali ke tombol tabel pembuka detail. */
+  const openFromDetail =
+    (openModal: (request: PurchaseRequest) => void) =>
+    (request: PurchaseRequest) => {
+      markOpenedFromDetail();
+      setViewingPR(null);
+      openModal(request);
+    };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -126,11 +115,10 @@ export default function RestockCRUDPage() {
         canDelete={canDelete}
         onOpenCreate={openCreate}
         onOpenEdit={openEdit}
-        onOpenDetail={(request) => openDetail(request, false)}
+        onOpenDetail={openDetail}
         onOpenApproval={approval.open}
-        onOpenReceive={openReceive}
-        onOpenPurchaseLink={(request) => openDetail(request, true)}
-        onOpenCloseUnpurchased={closeUnpurchased.open}
+        onOpenReceive={entry.open}
+        onOpenCancel={cancel.open}
         onOpenConfirmJasa={openConfirmJasa}
         onDelete={deleteRequest}
       />
@@ -162,44 +150,17 @@ export default function RestockCRUDPage() {
         request={viewingPR}
         onClose={() => setViewingPR(null)}
         canVerify={canVerify}
-        onOpenReceive={(request) => {
-          markOpenedFromDetail();
-          setViewingPR(null);
-          openReceive(request);
-        }}
-        isFocusingPurchaseLink={isFocusingPurchaseLink}
-        onPurchaseVoided={fetchData}
-        onOpenCloseUnpurchased={(request) => {
-          markOpenedFromDetail();
-          setViewingPR(null);
-          closeUnpurchased.open(request);
-        }}
+        onOpenReceive={openFromDetail(entry.open)}
+        onOpenCancel={openFromDetail(cancel.open)}
       />
 
-      <RestockCloseUnpurchasedModal state={closeUnpurchased} />
+      <RestockCancelModal state={cancel} />
 
       <RestockReceiveModal
-        key={receivingPR?.id ?? "no-receipt"}
-        request={receivingPR}
-        receivedItems={receivedItems}
-        onReceivedItemsChange={setReceivedItems}
+        key={entry.request?.id ?? "no-entry"}
+        entry={entry}
         barangs={allBarangs}
-        substitutions={receivedSubstitutions}
-        onSubstitutionsChange={setReceivedSubstitutions}
-        cancellations={receivedCancellations}
-        onCancellationsChange={setReceivedCancellations}
-        overReceipts={receivedOverReceipts}
-        onOverReceiptsChange={setReceivedOverReceipts}
-        receivedPhotos={receivedPhotos}
-        onReceivedPhotosChange={setReceivedPhotos}
-        isFinishingOrder={isFinishingOrder}
-        onIsFinishingOrderChange={setIsFinishingOrder}
-        closeReason={receiveCloseReason}
-        onCloseReasonChange={setReceiveCloseReason}
-        submitting={submitting}
-        photoUploadRef={photoUploadRef}
-        onClose={closeReceive}
-        onSubmit={submitReceipt}
+        canOverReceive={canOverReceive}
       />
 
       <RestockConfirmJasaModal

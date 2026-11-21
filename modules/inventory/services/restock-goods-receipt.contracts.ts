@@ -1,121 +1,95 @@
 import type { GoodsReceiptEntity } from "@/modules/procurement";
 
-import type { RestockCancellationMap } from "./RestockItemCancellationService";
 import type { RestockSubstitutionMap } from "./RestockItemSubstitutionService";
 import type { RestockOverReceiptMap } from "./restock-over-receipt";
 
 /*
- * Kontrak publik pencatatan barang datang restock: pesan untuk petugas,
- * bentuk input/hasil, galat bertipe, dan predikat atas input.
+ * Kontrak publik Masukkan Barang restock: pesan untuk admin gudang, bentuk
+ * input dan hasil, serta kode galatnya.
  */
 
-export const RECEIPT_PHOTO_MISSING_MESSAGE =
-  "Foto bukti barang datang belum diunggah. Foto barangnya dulu, lalu simpan.";
-export const NOTHING_RECEIVED_MESSAGE =
-  "Belum ada jumlah barang yang diisi. Kalau barangnya belum datang, simpan nanti saat barang tiba.";
+export const ENTRY_LINES_MISMATCH_MESSAGE =
+  "Daftar barang yang dikirim tidak cocok dengan pengajuan ini. Muat ulang halaman, lalu coba lagi.";
+export const NOTHING_ENTERED_MESSAGE =
+  "Isi jumlah barang yang masuk. Bila tidak ada barang yang datang, batalkan pengajuan.";
+export const ENTRY_PHOTO_MISSING_MESSAGE =
+  "Foto bukti barang yang masuk belum diunggah. Foto barangnya dulu, lalu simpan.";
 export const PURCHASE_ORDER_NOT_GENERATED_MESSAGE =
-  "Daftar belanja untuk pengajuan ini belum bisa dibuat, jadi barangnya belum bisa dicatat datang. Tidak ada barang yang masuk gudang. Hubungi admin.";
-export const PURCHASE_ORDER_CANCELLED_MESSAGE =
-  "Pesanan ini sudah dibatalkan, jadi barangnya tidak bisa dicatat datang. Kalau barangnya tetap datang, buat pengajuan baru.";
-export const PURCHASE_ORDER_FINISHED_MESSAGE =
-  "Pesanan ini sudah selesai, jadi barangnya tidak bisa dicatat datang lagi. Kalau ada barang yang datang lagi, buat pengajuan baru.";
+  "Pesanan untuk pengajuan ini belum bisa dibuat, jadi barangnya belum bisa dimasukkan. Tidak ada barang yang masuk gudang. Hubungi admin.";
+export const PURCHASE_ORDER_SUPPLIER_INACTIVE_MESSAGE =
+  "Pesanan untuk pengajuan ini belum bisa dibuat karena toko untuk barang ini sedang tidak aktif. Tidak ada barang yang masuk gudang. Hubungi admin.";
 export const RECEIPT_CONCURRENT_CHANGE_MESSAGE =
-  "Pesanan ini baru saja diubah orang lain, jadi belum disimpan. Muat ulang halaman, lalu cek lagi barangnya.";
+  "Pengajuan ini baru saja diubah orang lain, jadi barangnya belum dimasukkan. Muat ulang halaman, lalu cek lagi barangnya.";
+/**
+ * GRN sudah tersimpan tetapi pengajuan belum tertutup (datanya berubah atau
+ * ada gangguan server). Mengirim ulang isian yang sama akan mencatat barang
+ * dua kali, jadi admin diarahkan menyelesaikan tanpa barang tambahan.
+ */
+export const ENTRY_NOT_FINISHED_MESSAGE =
+  'Barang sudah masuk gudang, tetapi pengajuan belum tertutup. Jangan masukkan barang yang sama lagi. Muat ulang halaman, buka Masukkan Barang, isi semua jumlah dengan 0, lalu pilih "Selesaikan tanpa barang tambahan".';
 export const RECEIPT_MISMATCH_MESSAGE =
   "Data barang yang diterima tidak cocok dengan pesanan. Muat ulang halaman, lalu coba lagi. Kalau masih muncul, lapor ke admin.";
 
 export interface ReceiveRestockRequestInput {
   purchaseRequestId: string;
-  /** Jumlah diterima per barang, dikunci oleh barangId yang tampil di pengajuan. */
+  /**
+   * Jumlah masuk per barang, dikunci barangId baris pengajuan: tepat semua
+   * baris yang tidak ditolak dan masih punya sisa, boleh 0.
+   */
   receivedItems: Record<string, number>;
-  /** Barang pengganti bila yang datang berbeda dari yang dipesan. */
-  substitutions?: RestockSubstitutionMap;
-  /** Alasan per barang yang sisanya tidak jadi datang. */
-  cancellations?: RestockCancellationMap;
-  /** Alasan per barang yang datang melebihi sisa pesanan — jumlah PO dinaikkan. */
-  overReceipts?: RestockOverReceiptMap;
-  /** Menaikkan jumlah PO setara mengedit PO, jadi butuh izin purchase_orders:update. */
+  /** Barang pengganti untuk barang yang dimasukkan: barangId asal → pengganti. */
+  substitutions: RestockSubstitutionMap;
+  /** Alasan per barang yang masuk melebihi sisa pesanan; jumlah pesanan dinaikkan. */
+  overReceipts: RestockOverReceiptMap;
+  /** Menaikkan jumlah pesanan setara mengubah pesanan, jadi butuh izin purchase_orders:update. */
   canIncreasePurchaseOrder: boolean;
   fotoBukti: string[];
-  closePO: boolean;
-  /**
-   * "Tutup sisa yang tidak jadi dibeli": coret bagian yang belum dibeli tanpa
-   * ada barang datang. Tidak boleh digabung dengan jumlah datang.
-   */
-  closeUnpurchased?: boolean;
-  /** Alasan sisa tidak jadi dibeli; wajib bila `closeUnpurchased`. */
-  closeReason?: string;
   actorId: string;
   tenantId: string;
 }
 
-/**
- * Hasil pencatatan barang datang. `goodsReceipt` null bila pesanan
- * diselesaikan tanpa kiriman (tidak ada barang yang masuk gudang).
- */
+/** Sisa satu barang yang tidak dimasukkan dan dicoret saat pengajuan selesai. */
+export interface RestockNotEnteredLine {
+  barangId: string;
+  barangName: string;
+  quantity: number;
+}
+
+/** Hasil Masukkan Barang: pengajuan selalu selesai. */
 export interface RestockReceiptResult {
+  /** Catatan barang masuk; null bila pengajuan lama diselesaikan tanpa barang tambahan. */
   goodsReceipt: GoodsReceiptEntity | null;
-  purchaseOrderStatus: string | null;
-  purchaseRequestStatus: string;
+  purchaseRequestStatus: "RECEIVED";
+  notEntered: RestockNotEnteredLine[];
 }
 
-export class RestockReceiptNotFoundError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "RestockReceiptNotFoundError";
-  }
+/** `INVALID` → 400, `FORBIDDEN` → 403, `NOT_FOUND` → 404, `CONFLICT` → 409, `FAILED` → 500. */
+export type RestockReceiptErrorCode =
+  | "INVALID"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "FAILED";
+
+/** Penolakan atau kegagalan Masukkan Barang; `cause` hanya untuk log server. */
+export interface RestockReceiptFailure {
+  success: false;
+  code: RestockReceiptErrorCode;
+  error: string;
+  cause?: unknown;
 }
 
-export class RestockReceiptInvalidError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "RestockReceiptInvalidError";
-  }
-}
+export type RestockReceiptOutcome =
+  | { success: true; data: RestockReceiptResult }
+  | RestockReceiptFailure;
 
-export class RestockReceiptForbiddenError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "RestockReceiptForbiddenError";
-  }
-}
-
-export class RestockReceiptFailedError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
-    this.name = "RestockReceiptFailedError";
-  }
-}
-
-/**
- * Semua jumlah datang 0 tetapi ada sisa yang dinyatakan tidak akan datang
- * (tutup pesanan atau alasan per barang).
- */
-export function isFinishingWithoutDelivery(
-  input: ReceiveRestockRequestInput,
-): boolean {
-  if (!isNothingReceived(input)) return false;
-  const hasCancellation = Object.values(input.cancellations ?? {}).some(
-    (reason) => typeof reason === "string" && reason.trim().length > 0,
-  );
-  return input.closePO || hasCancellation;
-}
-
-/** Penutupan sisa yang belum dibeli, tanpa barang datang. */
-export function isClosingUnpurchased(
-  input: ReceiveRestockRequestInput,
-): boolean {
-  return Boolean(input.closeUnpurchased) && isNothingReceived(input);
-}
-
-/** Semua jumlah datang yang dikirim bernilai 0 (atau tidak diisi). */
-export function isNothingReceived(input: ReceiveRestockRequestInput): boolean {
-  return Object.values(input.receivedItems).every(
-    (quantity) => Number(quantity) === 0,
-  );
-}
-
-/** Pesan saat pesanan gabungan dicatat dari pengajuan yang bukan pemilik barangnya. */
-export function describeForeignReceiptLine(barangName: string): string {
-  return `${barangName} milik pengajuan lain yang digabung dalam pesanan ini. Catat barang itu dari pengajuan pemiliknya.`;
+/** Bentuk penolakan Masukkan Barang. */
+export function receiptFailure(
+  code: RestockReceiptErrorCode,
+  error: string,
+  cause?: unknown,
+): RestockReceiptFailure {
+  return cause === undefined
+    ? { success: false, code, error }
+    : { success: false, code, error, cause };
 }

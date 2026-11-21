@@ -1,659 +1,528 @@
 import {
-  getGoodsReceiptService,
-  GoodsReceiptExceedsPurchasedError,
+  GoodsReceiptExceedsRemainingError,
   GoodsReceiptInvalidError,
-  ProcurementService,
   PurchaseOrderNotFoundError,
+  PurchaseRequestAlreadyOrderedError,
+  PurchaseRequestNotOrderableError,
+  SupplierNotActiveError,
+  type GoodsReceiptEntity,
 } from "@/modules/procurement";
-
-import { logger } from "@/lib/logger";
 
 import type {
   IRestockGoodsReceiptRepository,
   PurchaseOrderIncreaseUndo,
   RestockPurchaseOrderForReceipt,
-  RestockPurchaseOrderItem,
-  RestockPurchaseRequestForReceipt,
 } from "../domain/ports/IRestockGoodsReceiptRepository";
-import {
-  canReceiveWithoutPurchaseReport,
-  isLegacyPurchasedOrder,
-  RESTOCK_RECEIPT_ELIGIBILITY_MESSAGES,
-} from "../domain/restock-receipt-eligibility";
-import {
-  buildPurchaseEvidence,
-  describePurchaseStageProblem,
-  readReceivedQuantity,
-} from "./restock-receipt-purchase-stage";
-import { RestockItemCancellationService } from "./RestockItemCancellationService";
-import {
-  RestockItemSubstitutionService,
-  RestockSubstitutionInvalidError,
-  type RestockSubstitutionMap,
-} from "./RestockItemSubstitutionService";
-import {
-  decideRestockReceiptSettlement,
-  describeSettlementStatuses,
-  findForeignReceiptLine,
-  resolveOwnedBarangIds,
-  type RestockReceiptSettlement,
-} from "./restock-receipt-settlement";
+import type { IRestockRequestLock } from "../domain/ports/IRestockRequestLock";
+import { hasRestockEnteredAnything } from "../domain/restock-request-status";
 import {
   INVENTORY_ACTIVITY_ACTIONS,
   INVENTORY_ACTIVITY_SUBJECTS,
   recordInventoryActivity,
 } from "./inventory-activity-log";
 import {
-  describeOverReceipts,
-  resolveOverReceipts,
-  RestockOverReceiptInvalidError,
-  type ResolvedOverReceipt,
-} from "./restock-over-receipt";
+  RestockSubstitutionInvalidError,
+  type RestockItemSubstitutionService,
+  type RestockSubstitutionMap,
+} from "./RestockItemSubstitutionService";
+import type { RestockPurchaseOrderGenerator } from "./RestockRequestLifecycleService";
 import {
-  RESTOCK_MESSAGES,
-  describeRestockStatus,
-  restockServerErrorMessage,
-} from "./restock-messages";
+  RestockRequestClosure,
+  type RestockEntryClosing,
+} from "./RestockRequestClosure";
 import {
-  RECEIPT_PHOTO_MISSING_MESSAGE,
-  NOTHING_RECEIVED_MESSAGE,
+  ENTRY_NOT_FINISHED_MESSAGE,
   PURCHASE_ORDER_NOT_GENERATED_MESSAGE,
-  PURCHASE_ORDER_CANCELLED_MESSAGE,
-  PURCHASE_ORDER_FINISHED_MESSAGE,
+  PURCHASE_ORDER_SUPPLIER_INACTIVE_MESSAGE,
+  RECEIPT_CONCURRENT_CHANGE_MESSAGE,
   RECEIPT_MISMATCH_MESSAGE,
-  RestockReceiptNotFoundError,
-  RestockReceiptInvalidError,
-  RestockReceiptForbiddenError,
-  RestockReceiptFailedError,
-  describeForeignReceiptLine,
-  isClosingUnpurchased,
-  isFinishingWithoutDelivery,
-  isNothingReceived,
+  receiptFailure,
   type ReceiveRestockRequestInput,
-  type RestockReceiptResult,
+  type RestockNotEnteredLine,
+  type RestockReceiptFailure,
+  type RestockReceiptOutcome,
 } from "./restock-goods-receipt.contracts";
 import {
-  buildCancellationRequest,
-  runCancellationStep,
-  type ReceiptContext,
+  describeEntryBlocker,
+  planRestockEntry,
+  type RestockEntryPlan,
+  type RestockEntryPlanResult,
+} from "./restock-entry-plan";
+import { RESTOCK_MESSAGES } from "./restock-messages";
+import { describeOverReceipts } from "./restock-over-receipt";
+import {
+  getEntryItems,
+  loadRestockRequestSnapshot,
+  type RestockRequestSnapshot,
+  type RestockRequestSnapshotLoad,
 } from "./restock-receipt-context";
-import { RestockReceiptClosure } from "./RestockReceiptClosure";
+import { withRestockRequestLock } from "./restock-request-lock";
 
 export {
-  NOTHING_RECEIVED_MESSAGE,
+  ENTRY_LINES_MISMATCH_MESSAGE,
+  ENTRY_NOT_FINISHED_MESSAGE,
+  ENTRY_PHOTO_MISSING_MESSAGE,
+  NOTHING_ENTERED_MESSAGE,
+  PURCHASE_ORDER_NOT_GENERATED_MESSAGE,
   RECEIPT_CONCURRENT_CHANGE_MESSAGE,
-  RestockReceiptFailedError,
-  RestockReceiptForbiddenError,
-  RestockReceiptInvalidError,
-  RestockReceiptNotFoundError,
   type ReceiveRestockRequestInput,
+  type RestockNotEnteredLine,
+  type RestockReceiptErrorCode,
+  type RestockReceiptFailure,
+  type RestockReceiptOutcome,
   type RestockReceiptResult,
 } from "./restock-goods-receipt.contracts";
 
-interface ReceivableItem {
+/** Satu barang di catatan barang masuk (GRN). */
+export interface RestockGoodsReceiptLine {
   purchaseOrderItemId: string;
-  /** Barang yang tampil di pengajuan — jadi kunci input dari UI. */
-  originalBarangId: string;
-  /** Barang yang benar-benar dicatat ke GRN (bisa hasil substitusi). */
   barangId: string;
-  barangName: string;
   quantity: number;
-  remaining: number;
 }
 
-/** PO yang sudah ditutup atau dibatalkan tidak boleh dinaikkan jumlahnya. */
-const PURCHASE_ORDER_STATUSES_CLOSED_FOR_INCREASE = ["CANCELLED", "RECEIVED"];
-/**
- * Data lama tanpa tanggal beli: tanggal beli diisi sedikit sebelum kiriman
- * pertama, supaya pesanan tetap terbaca "dibeli sebelum barang datang" dan
- * kiriman berikutnya tidak tertahan.
- */
-const LEGACY_ISSUED_AT_LEAD_MS = 1000;
+/** Isian catatan barang masuk untuk pesanan pengajuan. */
+export interface RestockGoodsReceiptInput {
+  purchaseOrderId: string;
+  gudangId: string;
+  receivedById: string;
+  tenantId: string;
+  fotoBukti: string[];
+  notes: string;
+  items: RestockGoodsReceiptLine[];
+}
+
+/** Pembuat catatan barang masuk (GRN); dipenuhi procurement lewat factory. */
+export interface RestockGoodsReceiptCreator {
+  create(input: RestockGoodsReceiptInput): Promise<GoodsReceiptEntity>;
+}
+
+/** Dependency Masukkan Barang; dirakit `createRestockGoodsReceiptService`. */
+export interface RestockGoodsReceiptDependencies {
+  repository: IRestockGoodsReceiptRepository;
+  substitutionService: RestockItemSubstitutionService;
+  purchaseOrderGenerator: RestockPurchaseOrderGenerator;
+  goodsReceiptCreator: RestockGoodsReceiptCreator;
+  lock: IRestockRequestLock;
+}
+
+/** Isian yang sudah lolos pemeriksaan, atas pesanan yang pasti ada. */
+interface EntryContext {
+  input: ReceiveRestockRequestInput;
+  snapshot: RestockRequestSnapshot;
+  order: RestockPurchaseOrderForReceipt;
+  plan: RestockEntryPlan;
+  /** Pesanan baru dibuat di penyimpanan ini karena gagal dibuat saat persetujuan. */
+  isOrderCreated: boolean;
+}
+
+type StepResult<T> = { success: true; data: T } | RestockReceiptFailure;
+
+/** Penutupan sesudah barang dimasukkan, atau alasan pengajuan belum tertutup. */
+type EntryClosingAttempt =
+  | Extract<RestockEntryClosing, { isWritten: true }>
+  | { isWritten: false; failure: RestockReceiptFailure };
 
 /**
- * Orkestrasi verifikasi kedatangan barang restock: pastikan PO ada, terapkan
- * substitusi barang bila yang datang berbeda, lalu buat GRN agar stok, dokumen,
- * dan jurnal AUTO_GRN_CREATED ikut tercatat.
+ * Masukkan Barang pada pengajuan restock yang sudah disetujui. Sekali simpan
+ * langsung menyelesaikan pengajuan: barang yang masuk dicatat lewat GRN (stok,
+ * dokumen, dan jurnal ikut tercatat), sisanya dicoret, dan pengajuan menjadi
+ * Sudah Dimasukkan.
  */
 export class RestockGoodsReceiptService {
-  private readonly closure: RestockReceiptClosure;
+  private readonly closure: RestockRequestClosure;
 
-  constructor(
-    private readonly repository: IRestockGoodsReceiptRepository,
-    private readonly substitutionService: RestockItemSubstitutionService,
-    private readonly cancellationService: RestockItemCancellationService,
-    private readonly procurementService: ProcurementService,
-  ) {
-    this.closure = new RestockReceiptClosure(repository, cancellationService);
+  constructor(private readonly dependencies: RestockGoodsReceiptDependencies) {
+    this.closure = new RestockRequestClosure(dependencies.repository);
   }
 
   /**
-   * Catat barang yang datang dari pengajuan restock. Bila tidak ada barang
-   * yang datang tetapi sisanya dinyatakan tidak akan datang, pesanan
-   * diselesaikan tanpa kiriman (tanpa GRN dan tanpa foto).
+   * Masukkan barang lalu selesaikan pengajuan, di bawah kunci pengajuan.
+   * Semua isian diperiksa sebelum apa pun ditulis, termasuk sebelum pesanan
+   * dibuat untuk pengajuan yang belum punya pesanan.
    */
   async receive(
     input: ReceiveRestockRequestInput,
-  ): Promise<RestockReceiptResult> {
-    if (input.closeUnpurchased && !isNothingReceived(input)) {
-      throw new RestockReceiptInvalidError(
-        RESTOCK_RECEIPT_ELIGIBILITY_MESSAGES.closeWithDelivery,
-      );
-    }
-    const purchaseRequest = await this.repository.findPurchaseRequestForReceipt(
+  ): Promise<RestockReceiptOutcome> {
+    return withRestockRequestLock(
+      this.dependencies.lock,
+      input.purchaseRequestId,
+      () => this.receiveUnderLock(input),
+    );
+  }
+
+  private async receiveUnderLock(
+    input: ReceiveRestockRequestInput,
+  ): Promise<RestockReceiptOutcome> {
+    const loaded = await this.loadSnapshot(input);
+    if (loaded.success === false) return loaded;
+    const planned = await this.checkEntry(input, loaded.data);
+    if (planned.success === false) return planned;
+    const { order } = loaded.data;
+    if (!order) return this.enterGoodsOnNewOrder(input);
+    return this.enterGoods({
+      input,
+      snapshot: loaded.data,
+      order,
+      plan: planned.data,
+      isOrderCreated: false,
+    });
+  }
+
+  private loadSnapshot(
+    input: ReceiveRestockRequestInput,
+  ): Promise<RestockRequestSnapshotLoad> {
+    return loadRestockRequestSnapshot(
+      this.dependencies.repository,
       input.purchaseRequestId,
       input.tenantId,
     );
-    if (!purchaseRequest) {
-      throw new RestockReceiptNotFoundError(RESTOCK_MESSAGES.requestNotFound);
-    }
-    // Tanpa daftar belanja belum ada yang bisa dibeli lewat link. Ditolak di
-    // sini supaya daftar belanja tidak dibuat lalu langsung ditolak.
-    if (
-      !purchaseRequest.purchaseOrderId &&
-      !isFinishingWithoutDelivery(input) &&
-      !isClosingUnpurchased(input)
-    ) {
-      throw new RestockReceiptInvalidError(
-        RESTOCK_RECEIPT_ELIGIBILITY_MESSAGES.notPurchasedYet,
-      );
-    }
-
-    const context = await this.loadReceiptContext(input, purchaseRequest);
-    const foreignLine = findForeignReceiptLine(
-      input,
-      context.purchaseOrder.items,
-      context.ownedBarangIds,
-    );
-    if (foreignLine) {
-      throw new RestockReceiptInvalidError(
-        describeForeignReceiptLine(foreignLine),
-      );
-    }
-    if (isClosingUnpurchased(input)) {
-      return this.closure.closeUnpurchasedRemainder(context);
-    }
-    if (isFinishingWithoutDelivery(input)) {
-      return this.closure.finishWithoutDelivery(context);
-    }
-    if (isNothingReceived(input)) {
-      throw new RestockReceiptInvalidError(NOTHING_RECEIVED_MESSAGE);
-    }
-    return this.receiveDelivery(context);
   }
 
-  private async loadReceiptContext(
+  /** Pengajuan boleh dimasukkan barangnya, lalu isiannya diperiksa. */
+  private async checkEntry(
     input: ReceiveRestockRequestInput,
-    purchaseRequest: RestockPurchaseRequestForReceipt,
-  ): Promise<ReceiptContext> {
-    const purchaseOrderId = await this.ensurePurchaseOrderId(
-      purchaseRequest.purchaseOrderId,
-      input.purchaseRequestId,
-      input.actorId,
-    );
+    snapshot: RestockRequestSnapshot,
+  ): Promise<RestockEntryPlanResult> {
+    const blocker = describeEntryBlocker(snapshot.status);
+    if (blocker) return receiptFailure("CONFLICT", blocker);
+    return this.planEntry(input, snapshot);
+  }
 
-    const purchaseOrder =
-      await this.repository.findPurchaseOrderWithItems(purchaseOrderId);
-    if (!purchaseOrder) {
-      throw new RestockReceiptNotFoundError(
-        RESTOCK_MESSAGES.purchaseOrderNotFound,
-      );
-    }
-    // Ditolak juga oleh GRN, tapi di sini sebelum substitusi sempat ditulis.
-    if (purchaseOrder.status === "CANCELLED") {
-      throw new RestockReceiptInvalidError(PURCHASE_ORDER_CANCELLED_MESSAGE);
-    }
-    if (purchaseOrder.status === "RECEIVED") {
-      throw new RestockReceiptInvalidError(PURCHASE_ORDER_FINISHED_MESSAGE);
-    }
-    const linkedRequestCount =
-      await this.repository.countPurchaseRequestsForPurchaseOrder(
-        purchaseOrderId,
-      );
-    const evidence = buildPurchaseEvidence(purchaseOrder, linkedRequestCount);
-    return {
+  /**
+   * Periksa isian terhadap item pesanan milik pengajuan. Tanpa pesanan, barang
+   * pengganti juga diperiksa di sini supaya pesanan tidak dibuat untuk isian
+   * yang akan ditolak; dengan pesanan, pemeriksaan itu terjadi saat diterapkan.
+   */
+  private async planEntry(
+    input: ReceiveRestockRequestInput,
+    snapshot: RestockRequestSnapshot,
+  ): Promise<RestockEntryPlanResult> {
+    const items = getEntryItems(snapshot);
+    const planned = planRestockEntry({
+      items,
       input,
-      purchaseRequest,
-      purchaseOrder,
-      linkedRequestCount,
-      ownedBarangIds: resolveOwnedBarangIds(
-        purchaseRequest,
-        linkedRequestCount,
-      ),
-      evidence,
-      isExemptFromPurchaseReport: canReceiveWithoutPurchaseReport(evidence),
+      hasEnteredAnything: hasRestockEnteredAnything(snapshot.status),
+    });
+    if (planned.success === false || snapshot.order) return planned;
+    const checked = await runSubstitutionStep(() =>
+      this.dependencies.substitutionService.validate({
+        purchaseOrderItems: items,
+        substitutions: input.substitutions,
+        tenantId: input.tenantId,
+      }),
+    );
+    return checked.success === false ? checked : planned;
+  }
+
+  /**
+   * Pengajuan yang pesanannya gagal dibuat saat persetujuan: pesanan dibuat
+   * lewat jalur yang sama, lalu isian diperiksa ulang terhadap pesanan itu.
+   */
+  private async enterGoodsOnNewOrder(
+    input: ReceiveRestockRequestInput,
+  ): Promise<RestockReceiptOutcome> {
+    const creationFailure = await this.createPurchaseOrder(input);
+    if (creationFailure) return creationFailure;
+
+    const reloaded = await this.loadSnapshot(input);
+    if (reloaded.success === false) return reloaded;
+    const { order } = reloaded.data;
+    if (!order) {
+      return receiptFailure("FAILED", PURCHASE_ORDER_NOT_GENERATED_MESSAGE);
+    }
+    const planned = await this.checkEntry(input, reloaded.data);
+    if (planned.success === false) return planned;
+    return this.enterGoods({
+      input,
+      snapshot: reloaded.data,
+      order,
+      plan: planned.data,
+      isOrderCreated: true,
+    });
+  }
+
+  /** Buat pesanan pengajuan lewat `generatePOFromPRs`; null bila berhasil. */
+  private async createPurchaseOrder(
+    input: ReceiveRestockRequestInput,
+  ): Promise<RestockReceiptFailure | null> {
+    try {
+      const created =
+        await this.dependencies.purchaseOrderGenerator.generatePOFromPRs(
+          [input.purchaseRequestId],
+          input.actorId,
+        );
+      return created.length > 0
+        ? null
+        : receiptFailure("FAILED", PURCHASE_ORDER_NOT_GENERATED_MESSAGE);
+    } catch (error: unknown) {
+      return toPurchaseOrderCreationFailure(error);
+    }
+  }
+
+  /**
+   * Langkah tulis: ganti barang, naikkan pesanan untuk kelebihan, catat GRN,
+   * lalu tutup pengajuan. GRN dibuat sebelum sisa dicoret karena GRN
+   * mensyaratkan sisa pesanan masih ada. Setiap GRN yang tersimpan dicatat di
+   * Log Aktivitas, termasuk bila penutupannya gagal.
+   */
+  private async enterGoods(
+    context: EntryContext,
+  ): Promise<RestockReceiptOutcome> {
+    const substituted = await runSubstitutionStep(() =>
+      this.applySubstitutions(context),
+    );
+    if (substituted.success === false) return substituted;
+
+    const lines = toGoodsReceiptLines(context.plan, substituted.data);
+    const increase = await this.increaseOrderForOverReceipts(context);
+    const recorded = await this.recordGoodsReceipt(context, lines, increase);
+    if (recorded.success === false) return recorded;
+
+    const closing = await this.closeAfterEntry(context, lines, recorded.data);
+    if (recorded.data || closing.isWritten) {
+      this.logEntry(context, lines, recorded.data, closing);
+    }
+    if (closing.isWritten === false) return closing.failure;
+    return {
+      success: true,
+      data: {
+        goodsReceipt: recorded.data,
+        purchaseRequestStatus: "RECEIVED",
+        notEntered: closing.notEntered,
+      },
     };
   }
 
   /**
-   * Tahap pembelian harus dilewati dulu: per barang, jumlah datang tidak boleh
-   * melebihi yang sudah dilaporkan dibeli dan belum datang. Diperiksa sebelum
-   * substitusi karena substitusi sudah menulis ke database. Penjaga akhirnya
-   * ada di transaksi GRN (`isLimitedToPurchased`).
+   * Tutup pengajuan sesudah barang dimasukkan. Bila GRN sudah tersimpan,
+   * penutupan yang gagal (datanya berubah, atau gangguan server) tidak
+   * dilempar: barangnya sudah di gudang, jadi admin diarahkan menyelesaikan
+   * pengajuan tanpa memasukkan barang yang sama lagi. Tanpa GRN tidak ada yang
+   * tertulis, jadi gangguan server dilempar ulang dan aman dicoba lagi.
    */
-  private assertWithinPurchased(context: ReceiptContext): void {
-    if (context.isExemptFromPurchaseReport) return;
-    const problem = describePurchaseStageProblem(
-      context.purchaseOrder.items,
-      context.input.receivedItems,
-      context.input.substitutions,
-    );
-    if (problem) throw new RestockReceiptInvalidError(problem);
+  private async closeAfterEntry(
+    context: EntryContext,
+    lines: RestockGoodsReceiptLine[],
+    goodsReceipt: GoodsReceiptEntity | null,
+  ): Promise<EntryClosingAttempt> {
+    try {
+      const closing = await this.closure.finishAfterEntry({
+        snapshot: context.snapshot,
+        order: context.order,
+        enteredByItemId: new Map(
+          lines.map((line) => [line.purchaseOrderItemId, line.quantity]),
+        ),
+        extraByItemId: new Map(
+          context.plan.overReceipts.map((item) => [
+            item.purchaseOrderItemId,
+            item.extraQuantity,
+          ]),
+        ),
+        actorId: context.input.actorId,
+      });
+      if (closing.isWritten) return closing;
+      return notClosed(
+        goodsReceipt
+          ? ENTRY_NOT_FINISHED_MESSAGE
+          : RECEIPT_CONCURRENT_CHANGE_MESSAGE,
+      );
+    } catch (error: unknown) {
+      if (!goodsReceipt) throw error;
+      return notClosed(ENTRY_NOT_FINISHED_MESSAGE, error);
+    }
   }
 
-  /** Alur biasa: ada barang yang datang, jadi GRN dibuat dan stok bertambah. */
-  private async receiveDelivery(
-    context: ReceiptContext,
-  ): Promise<RestockReceiptResult> {
-    const { input, purchaseRequest, purchaseOrder } = context;
-    const purchaseOrderId = purchaseOrder.id;
-
-    if (input.fotoBukti.length === 0) {
-      throw new RestockReceiptInvalidError(RECEIPT_PHOTO_MISSING_MESSAGE);
-    }
-    this.assertWithinPurchased(context);
-
-    const appliedSubstitutions = await this.applySubstitutions({
-      input,
-      purchaseOrderId,
-      purchaseOrderItems: purchaseOrder.items,
-      referenceNumber: purchaseRequest.nomorRequest,
-    });
-
-    const receivableItems = this.buildReceivableItems(
-      purchaseOrder.items,
-      input.receivedItems,
-      appliedSubstitutions,
-    );
-    const grnItems = this.selectReceivedItems(receivableItems);
-    if (grnItems.length === 0) {
-      throw new RestockReceiptInvalidError(NOTHING_RECEIVED_MESSAGE);
-    }
-
-    const cancellationRequest = buildCancellationRequest({
-      context,
-      grnItems,
-    });
-    await runCancellationStep(() =>
-      this.cancellationService.validate(cancellationRequest),
-    );
-
-    const receivedAt = await this.anchorLegacyPurchaseDate(context);
-
-    const { overReceipts, undo } = await this.applyOverReceipts({
-      purchaseOrderId,
-      purchaseOrderStatus: purchaseOrder.status,
-      receivableItems,
-      input,
-    });
-
-    const goodsReceipt = await this.createGoodsReceipt({
-      purchaseOrderId,
-      gudangId: purchaseRequest.gudangId,
-      nomorRequest: purchaseRequest.nomorRequest,
-      items: grnItems,
-      overReceipts,
-      undo,
-      input,
-      receivedAt,
-      isLimitedToPurchased: !context.isExemptFromPurchaseReport,
-    });
-
-    if (context.isExemptFromPurchaseReport) {
-      await this.recordPurchaseOnFirstReceipt(purchaseOrder, input.actorId);
-    }
-
-    await runCancellationStep(() =>
-      this.cancellationService.apply(cancellationRequest),
-    );
-
-    const outcome = await this.syncReceivedStatus(context);
-
-    recordInventoryActivity({
-      action: INVENTORY_ACTIVITY_ACTIONS.RECEIVE,
-      subject: INVENTORY_ACTIVITY_SUBJECTS.RESTOCK_REQUEST,
-      reference: purchaseRequest.nomorRequest,
-      actorId: input.actorId,
+  private applySubstitutions(
+    context: EntryContext,
+  ): Promise<RestockSubstitutionMap> {
+    const { input, snapshot, order } = context;
+    return this.dependencies.substitutionService.apply({
+      purchaseOrderId: order.id,
+      purchaseOrderItems: order.items,
+      substitutions: input.substitutions,
       tenantId: input.tenantId,
-      details: {
-        purchaseRequestId: input.purchaseRequestId,
-        purchaseOrderId,
-        goodsReceiptId: goodsReceipt.id,
-        grnNumber: goodsReceipt.grnNumber,
-        items: grnItems.map((item) => ({
-          barangId: item.barangId,
-          quantity: item.quantity,
-        })),
-        kelebihanKiriman: overReceipts.map((item) => ({
-          barang: item.barangName,
-          tambahan: item.extraQuantity,
-          alasan: item.reason,
-        })),
-        jumlahFoto: input.fotoBukti.length,
-        tutupPesanan: input.closePO,
-      },
+      actorId: input.actorId,
+      referenceNumber: snapshot.request.nomorRequest,
     });
-    return { goodsReceipt, ...outcome };
   }
 
-  /**
-   * Data lama yang ditandai dibeli tanpa tanggal: tanggal beli diisi sedikit
-   * sebelum kiriman ini, dan kiriman memakai waktu yang sama. Tanpa ini,
-   * kiriman pertama menghapus tanda "data lama" dan kiriman berikutnya
-   * tertahan menunggu laporan belanja yang tidak pernah ada.
-   */
-  private async anchorLegacyPurchaseDate(
-    context: ReceiptContext,
-  ): Promise<Date | undefined> {
-    const { purchaseOrder, evidence, input } = context;
-    if (purchaseOrder.issuedAt || !isLegacyPurchasedOrder(evidence)) {
-      return undefined;
-    }
-    const receivedAt = new Date();
-    await this.repository.recordPurchaseOrderPurchase({
-      purchaseOrderId: purchaseOrder.id,
-      processedById: purchaseOrder.processedById ?? input.actorId,
-      issuedAt: new Date(receivedAt.getTime() - LEGACY_ISSUED_AT_LEAD_MS),
-    });
-    return receivedAt;
-  }
-
-  /**
-   * Hanya untuk pesanan yang boleh diterima tanpa laporan belanja (pesanan
-   * gabungan): barang yang datang berarti sudah dibeli, jadi penerimaan
-   * pertama mencatat pembeli dan tanggalnya. Status pesanan sendiri sudah
-   * diubah GRN menjadi PARTIAL/RECEIVED.
-   */
-  private async recordPurchaseOnFirstReceipt(
-    purchaseOrder: RestockPurchaseOrderForReceipt,
-    actorId: string,
-  ): Promise<void> {
-    if (purchaseOrder.status !== "DRAFT") return;
-    // Stok sudah masuk lewat GRN; kegagalan mencatat tanggal beli tidak boleh
-    // memutus pencoretan & status sesudahnya (petugas akan mengulang dan
-    // barang tercatat dua kali).
-    try {
-      await this.repository.recordPurchaseOrderPurchase({
-        purchaseOrderId: purchaseOrder.id,
-        processedById: purchaseOrder.processedById ?? actorId,
-        issuedAt: purchaseOrder.issuedAt ?? new Date(),
-      });
-    } catch (error) {
-      logger.warn("[RESTOCK_RECEIVE] Tanggal beli gagal dicatat", {
-        purchaseOrderId: purchaseOrder.id,
-        reason: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  /** PO dibuat otomatis bila pengajuan belum pernah menghasilkan PO. */
-  private async ensurePurchaseOrderId(
-    existingPurchaseOrderId: string | null,
-    purchaseRequestId: string,
-    actorId: string,
-  ): Promise<string> {
-    if (existingPurchaseOrderId) return existingPurchaseOrderId;
-
-    let generatedId: string | null = null;
-    let cause: unknown;
-    try {
-      const purchaseOrders = await this.procurementService.generatePOFromPRs(
-        [purchaseRequestId],
-        actorId,
-      );
-      generatedId = purchaseOrders?.[0]?.id ?? null;
-    } catch (error) {
-      cause = error;
-    }
-
-    if (!generatedId) {
-      throw new RestockReceiptFailedError(
-        PURCHASE_ORDER_NOT_GENERATED_MESSAGE,
-        { cause },
-      );
-    }
-    return generatedId;
-  }
-
-  private async applySubstitutions(params: {
-    input: ReceiveRestockRequestInput;
-    purchaseOrderId: string;
-    purchaseOrderItems: RestockPurchaseOrderItem[];
-    referenceNumber: string;
-  }): Promise<RestockSubstitutionMap> {
-    try {
-      return await this.substitutionService.apply({
-        purchaseOrderId: params.purchaseOrderId,
-        purchaseOrderItems: params.purchaseOrderItems,
-        substitutions: params.input.substitutions ?? {},
-        tenantId: params.input.tenantId,
-        actorId: params.input.actorId,
-        referenceNumber: params.referenceNumber,
-      });
-    } catch (error) {
-      if (error instanceof RestockSubstitutionInvalidError) {
-        throw new RestockReceiptInvalidError(error.message);
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Kelebihan kiriman dinaikkan ke PO sebelum GRN dibuat, karena GRN menolak
-   * jumlah yang melebihi sisa pesanan.
-   */
-  private async applyOverReceipts(params: {
-    purchaseOrderId: string;
-    purchaseOrderStatus: string | undefined;
-    receivableItems: ReceivableItem[];
-    input: ReceiveRestockRequestInput;
-  }): Promise<{
-    overReceipts: ResolvedOverReceipt[];
-    undo: PurchaseOrderIncreaseUndo | null;
-  }> {
-    let overReceipts: ResolvedOverReceipt[];
-    try {
-      overReceipts = resolveOverReceipts(
-        params.receivableItems,
-        params.input.overReceipts ?? {},
-      );
-    } catch (error) {
-      if (error instanceof RestockOverReceiptInvalidError) {
-        throw new RestockReceiptInvalidError(error.message);
-      }
-      throw error;
-    }
-    if (overReceipts.length === 0) return { overReceipts, undo: null };
-
-    if (!params.input.canIncreasePurchaseOrder) {
-      const barangNames = overReceipts
-        .map((item) => item.barangName)
-        .join(", ");
-      throw new RestockReceiptForbiddenError(
-        `${barangNames} datang lebih banyak dari pesanan. Menerima kelebihannya berarti menambah jumlah pesanan ke toko, dan akun Anda tidak punya izin untuk itu. ` +
-          "Catat sesuai sisa pesanan saja, atau minta atasan yang boleh mengubah pesanan untuk mencatat barang ini.",
-      );
-    }
-    if (
-      PURCHASE_ORDER_STATUSES_CLOSED_FOR_INCREASE.includes(
-        params.purchaseOrderStatus ?? "",
-      )
-    ) {
-      throw new RestockReceiptInvalidError(
-        `Pesanan ini ${describeRestockStatus(params.purchaseOrderStatus)}, jadi jumlahnya tidak bisa ditambah. ` +
-          "Catat barang sesuai sisa pesanan saja. Untuk kelebihannya, buat pengajuan baru.",
-      );
-    }
-
-    const undo = await this.repository.increaseItemQuantities({
-      purchaseOrderId: params.purchaseOrderId,
+  /** Kelebihan dinaikkan ke pesanan sebelum GRN, karena GRN menolak jumlah di atas sisa. */
+  private async increaseOrderForOverReceipts(
+    context: EntryContext,
+  ): Promise<PurchaseOrderIncreaseUndo | null> {
+    const { overReceipts } = context.plan;
+    if (overReceipts.length === 0) return null;
+    return this.dependencies.repository.increaseItemQuantities({
+      purchaseOrderId: context.order.id,
       increases: overReceipts.map((item) => ({
         purchaseOrderItemId: item.purchaseOrderItemId,
         extraQuantity: item.extraQuantity,
       })),
     });
-    return { overReceipts, undo };
   }
 
   /**
-   * Padankan jumlah diterima dengan item PO. Untuk item yang barangnya diganti,
-   * jumlah tetap dibaca dari barang asli yang dikirim UI.
+   * Catat barang masuk. Tanpa jumlah yang masuk (pengajuan lama diselesaikan
+   * tanpa barang tambahan) tidak ada GRN. Gangguan tak terduga dilempar ulang
+   * setelah kenaikan pesanan dikembalikan.
    */
-  private buildReceivableItems(
-    purchaseOrderItems: RestockPurchaseOrderItem[],
-    receivedItems: Record<string, number>,
-    appliedSubstitutions: RestockSubstitutionMap,
-  ): ReceivableItem[] {
-    const replacementByOriginal = new Map(Object.entries(appliedSubstitutions));
-
-    return purchaseOrderItems.map((purchaseOrderItem) => {
-      const originalBarangId = purchaseOrderItem.barangId;
-      const barangId =
-        replacementByOriginal.get(originalBarangId) ?? originalBarangId;
-      const quantity = readReceivedQuantity(
-        purchaseOrderItem,
-        receivedItems,
-        barangId,
-      );
-
-      const barangName = purchaseOrderItem.barang?.nama ?? barangId;
-      const receivedQuantity = Number(quantity) || 0;
-      if (!Number.isInteger(receivedQuantity) || receivedQuantity < 0) {
-        throw new RestockReceiptInvalidError(
-          `Jumlah ${barangName} yang datang harus angka bulat, 0 atau lebih.`,
-        );
-      }
-
-      return {
-        purchaseOrderItemId: purchaseOrderItem.id,
-        originalBarangId,
-        barangId,
-        barangName,
-        quantity: receivedQuantity,
-        remaining:
-          purchaseOrderItem.quantity -
-          (purchaseOrderItem.receivedQuantity || 0) -
-          (purchaseOrderItem.cancelledQuantity || 0),
-      };
-    });
-  }
-
-  private selectReceivedItems(receivableItems: ReceivableItem[]) {
-    return receivableItems
-      .filter((item) => item.quantity > 0)
-      .map((item) => ({
-        purchaseOrderItemId: item.purchaseOrderItemId,
-        barangId: item.barangId,
-        quantity: item.quantity,
-      }));
-  }
-
-  private async createGoodsReceipt(params: {
-    purchaseOrderId: string;
-    gudangId: string;
-    nomorRequest: string;
-    items: Array<{
-      purchaseOrderItemId: string;
-      barangId: string;
-      quantity: number;
-    }>;
-    overReceipts: ResolvedOverReceipt[];
-    undo: PurchaseOrderIncreaseUndo | null;
-    input: ReceiveRestockRequestInput;
-    receivedAt: Date | undefined;
-    isLimitedToPurchased: boolean;
-  }) {
-    const notes = [
-      `Penerimaan dari Pre Request ${params.nomorRequest}`,
-      ...(params.overReceipts.length > 0
-        ? [describeOverReceipts(params.overReceipts)]
-        : []),
-    ].join(". ");
+  private async recordGoodsReceipt(
+    context: EntryContext,
+    lines: RestockGoodsReceiptLine[],
+    increase: PurchaseOrderIncreaseUndo | null,
+  ): Promise<StepResult<GoodsReceiptEntity | null>> {
+    if (lines.length === 0) return { success: true, data: null };
     try {
-      return await getGoodsReceiptService().create({
-        purchaseOrderId: params.purchaseOrderId,
-        gudangId: params.gudangId,
-        receivedById: params.input.actorId,
-        tenantId: params.input.tenantId,
-        fotoBukti: params.input.fotoBukti,
-        notes,
-        items: params.items,
-        isLimitedToPurchased: params.isLimitedToPurchased,
-        ...(params.receivedAt ? { receivedAt: params.receivedAt } : {}),
+      const goodsReceipt = await this.dependencies.goodsReceiptCreator.create({
+        purchaseOrderId: context.order.id,
+        gudangId: context.snapshot.request.gudangId,
+        receivedById: context.input.actorId,
+        tenantId: context.input.tenantId,
+        fotoBukti: context.input.fotoBukti,
+        notes: describeGoodsReceiptNotes(context),
+        items: lines,
       });
-    } catch (error) {
-      // Kenaikan jumlah PO hanya sah bila GRN-nya ada; tanpa ini PO dan
-      // tagihan supplier tetap membengkak setelah penerimaan ditolak.
-      if (params.undo) {
-        await this.repository.undoItemQuantityIncrease(params.undo);
+      return { success: true, data: goodsReceipt };
+    } catch (error: unknown) {
+      // Kenaikan jumlah pesanan hanya sah bila GRN-nya ada; tanpa ini pesanan
+      // dan tagihan supplier tetap membengkak setelah penerimaan gagal.
+      if (increase) {
+        await this.dependencies.repository.undoItemQuantityIncrease(increase);
       }
-      // Pesan modul pembelian ditulis untuk programmer; penyebab aslinya
-      // tetap ikut sebagai `cause` untuk log.
-      if (error instanceof PurchaseOrderNotFoundError) {
-        throw new RestockReceiptNotFoundError(
-          RESTOCK_MESSAGES.purchaseOrderNotFound,
-          { cause: error },
-        );
-      }
-      if (error instanceof GoodsReceiptExceedsPurchasedError) {
-        throw new RestockReceiptInvalidError(
-          RESTOCK_RECEIPT_ELIGIBILITY_MESSAGES.purchaseChanged,
-          { cause: error },
-        );
-      }
-      if (error instanceof GoodsReceiptInvalidError) {
-        throw new RestockReceiptInvalidError(RECEIPT_MISMATCH_MESSAGE, {
-          cause: error,
-        });
-      }
-      // Substitusi barang sudah tertulis sebelum langkah ini, jadi jangan
-      // menjanjikan bahwa tidak ada yang berubah.
-      throw new RestockReceiptFailedError(
-        restockServerErrorMessage("Menerima barang", false),
-        { cause: error },
-      );
+      const failure = toGoodsReceiptFailure(error);
+      if (!failure) throw error;
+      return failure;
     }
   }
 
   /**
-   * Status sesudah kiriman dicatat, dibaca ulang dari database: pesanan
-   * selesai bila tidak ada sisa di seluruh pesanan; pengajuan selesai sendiri
-   * bila barang miliknya tuntas walau pesanan gabungan masih menunggu barang
-   * pengajuan lain. Kiriman yang masuk tidak pernah membatalkan pesanan.
+   * Catat RECEIVE: barang yang masuk (GRN) dan, bila pengajuannya sudah
+   * tertutup, sisa yang dicoret. `pengajuanSelesai: false` menandai GRN yang
+   * tersimpan tetapi pengajuannya belum tertutup.
    */
-  private async syncReceivedStatus(
-    context: ReceiptContext,
-  ): Promise<Omit<RestockReceiptResult, "goodsReceipt">> {
-    const { input, purchaseRequest, purchaseOrder, ownedBarangIds } = context;
-    const purchaseOrderStatus = await this.repository.findPurchaseOrderStatus(
-      purchaseOrder.id,
-    );
-    const hasOutstandingOnOrder = await this.repository.hasOutstandingItems(
-      purchaseOrder.id,
-    );
-    const hasOutstandingOnRequest =
-      hasOutstandingOnOrder && ownedBarangIds
-        ? await this.repository.hasOutstandingItems(purchaseOrder.id, [
-            ...ownedBarangIds,
-          ])
-        : hasOutstandingOnOrder;
-    const settlement: RestockReceiptSettlement = decideRestockReceiptSettlement(
-      {
-        purchaseOrderStatus,
-        hasOutstandingOnOrder,
-        hasOutstandingOnRequest,
-        canCancelOrder: false,
-      },
-    );
-    await this.repository.applyReceiptSettlement({
-      purchaseOrderId: purchaseOrder.id,
-      purchaseRequestId: purchaseRequest.id,
-      settlement,
+  private logEntry(
+    context: EntryContext,
+    lines: RestockGoodsReceiptLine[],
+    goodsReceipt: GoodsReceiptEntity | null,
+    closing: EntryClosingAttempt,
+  ): void {
+    const { input, snapshot, order, plan } = context;
+    const notEntered: RestockNotEnteredLine[] = closing.isWritten
+      ? closing.notEntered
+      : [];
+    recordInventoryActivity({
+      action: INVENTORY_ACTIVITY_ACTIONS.RECEIVE,
+      subject: INVENTORY_ACTIVITY_SUBJECTS.RESTOCK_REQUEST,
+      reference: snapshot.request.nomorRequest,
       actorId: input.actorId,
-    });
-    return describeSettlementStatuses(settlement, {
-      purchaseOrderStatus,
-      purchaseRequestStatus: purchaseRequest.status,
+      tenantId: input.tenantId,
+      details: {
+        purchaseRequestId: input.purchaseRequestId,
+        purchaseOrderId: order.id,
+        goodsReceiptId: goodsReceipt?.id ?? null,
+        grnNumber: goodsReceipt?.grnNumber ?? null,
+        items: lines.map((line) => ({
+          barangId: line.barangId,
+          quantity: line.quantity,
+        })),
+        kelebihanKiriman: plan.overReceipts.map((item) => ({
+          barang: item.barangName,
+          tambahan: item.extraQuantity,
+          alasan: item.reason,
+        })),
+        tidakDimasukkan: notEntered.map((line) => ({
+          barangId: line.barangId,
+          jumlah: line.quantity,
+        })),
+        jumlahFoto: input.fotoBukti.length,
+        pesananDibuatOtomatis: context.isOrderCreated,
+        pengajuanSelesai: closing.isWritten,
+      },
     });
   }
+}
+
+/** Pengajuan belum tertutup; `cause` hanya untuk log server. */
+function notClosed(message: string, cause?: unknown): EntryClosingAttempt {
+  return {
+    isWritten: false,
+    failure: receiptFailure("CONFLICT", message, cause),
+  };
+}
+
+/** Galat isian barang pengganti menjadi penolakan; galat lain dilempar ulang. */
+async function runSubstitutionStep<T>(
+  step: () => Promise<T>,
+): Promise<StepResult<T>> {
+  try {
+    return { success: true, data: await step() };
+  } catch (error: unknown) {
+    if (error instanceof RestockSubstitutionInvalidError) {
+      return receiptFailure("INVALID", error.message);
+    }
+    throw error;
+  }
+}
+
+/** Barang yang benar-benar masuk; barang yang diganti dicatat dengan barang penggantinya. */
+function toGoodsReceiptLines(
+  plan: RestockEntryPlan,
+  substitutions: RestockSubstitutionMap,
+): RestockGoodsReceiptLine[] {
+  return plan.lines
+    .filter((line) => line.quantity > 0)
+    .map(({ item, quantity }) => ({
+      purchaseOrderItemId: item.id,
+      barangId: substitutions[item.barangId] ?? item.barangId,
+      quantity,
+    }));
+}
+
+function describeGoodsReceiptNotes(context: EntryContext): string {
+  const { overReceipts } = context.plan;
+  return [
+    `Penerimaan dari Pre Request ${context.snapshot.request.nomorRequest}`,
+    ...(overReceipts.length > 0 ? [describeOverReceipts(overReceipts)] : []),
+  ].join(". ");
+}
+
+/**
+ * Pesan modul pembelian ditulis untuk programmer; penyebab aslinya ikut sebagai
+ * `cause` untuk log. Pengajuan yang baru saja dibuatkan pesanan dari halaman
+ * procurement (sudah diklaim, atau tidak lagi berstatus APPROVED) adalah
+ * perubahan bersamaan, bukan gangguan server.
+ */
+function toPurchaseOrderCreationFailure(error: unknown): RestockReceiptFailure {
+  if (error instanceof SupplierNotActiveError) {
+    return receiptFailure(
+      "CONFLICT",
+      PURCHASE_ORDER_SUPPLIER_INACTIVE_MESSAGE,
+      error,
+    );
+  }
+  if (
+    error instanceof PurchaseRequestAlreadyOrderedError ||
+    error instanceof PurchaseRequestNotOrderableError
+  ) {
+    return receiptFailure("CONFLICT", RECEIPT_CONCURRENT_CHANGE_MESSAGE, error);
+  }
+  return receiptFailure("FAILED", PURCHASE_ORDER_NOT_GENERATED_MESSAGE, error);
+}
+
+/** Galat GRN yang dikenal menjadi penolakan untuk admin; null untuk gangguan tak terduga. */
+function toGoodsReceiptFailure(error: unknown): RestockReceiptFailure | null {
+  if (error instanceof PurchaseOrderNotFoundError) {
+    return receiptFailure(
+      "NOT_FOUND",
+      RESTOCK_MESSAGES.purchaseOrderNotFound,
+      error,
+    );
+  }
+  if (error instanceof GoodsReceiptExceedsRemainingError) {
+    return receiptFailure("CONFLICT", RECEIPT_CONCURRENT_CHANGE_MESSAGE, error);
+  }
+  if (error instanceof GoodsReceiptInvalidError) {
+    return receiptFailure("INVALID", RECEIPT_MISMATCH_MESSAGE, error);
+  }
+  return null;
 }

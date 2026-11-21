@@ -28,10 +28,6 @@ import {
   handleResellerSettlementPaidAccounting,
 } from "@/modules/accounting";
 import {
-  handleGoodsReceiptCreatedInventory,
-  handleGoodsReturnSentInventory,
-} from "@/modules/inventory";
-import {
   handleInvoiceCreatedTax,
   handleExpenseApprovedTax,
   handlePurchaseOrderPaidTax,
@@ -594,6 +590,9 @@ export function registerDefaultHandlers(): void {
     EVENT_NAMES.PURCHASE_ORDER_PAID,
     handlePurchaseOrderPaidAccounting,
   );
+  // Stok GRN dan retur sudah ditulis di transaksi repository procurement,
+  // atomik dengan dokumennya dan barang_masuk/barang_keluar. Jangan tambahkan
+  // handler stok untuk dua event ini: stoknya akan terhitung dua kali.
   registerEventHandler(
     EVENT_NAMES.GOODS_RECEIPT_CREATED,
     handleGoodsReceiptCreatedAccounting,
@@ -601,17 +600,6 @@ export function registerDefaultHandlers(): void {
   registerEventHandler(
     EVENT_NAMES.GOODS_RETURN_SENT,
     handleGoodsReturnSentAccounting,
-  );
-
-  // --- PROCUREMENT → INVENTORY (auto adjust stok) ---
-
-  registerEventHandler(
-    EVENT_NAMES.GOODS_RECEIPT_CREATED,
-    handleGoodsReceiptCreatedInventory,
-  );
-  registerEventHandler(
-    EVENT_NAMES.GOODS_RETURN_SENT,
-    handleGoodsReturnSentInventory,
   );
   registerEventHandler(EVENT_NAMES.COUPON_USED, handleCouponUsedAccounting);
   registerEventHandler(

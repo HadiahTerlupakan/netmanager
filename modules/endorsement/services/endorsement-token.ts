@@ -1,6 +1,6 @@
 /**
- * Token short link untuk penanda tangan. Implementasinya dipakai bersama
- * dengan link belanja restock di `lib/security/link-token`.
+ * Token short link untuk penanda tangan; implementasi di
+ * `lib/security/link-token`.
  */
 export {
   generateLinkToken as generateSignerToken,

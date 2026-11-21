@@ -1,19 +1,24 @@
-/** Galat bertipe pencatatan barang datang (GRN) yang dipakai lintas lapisan. */
+/** Galat bertipe pencatatan barang masuk (GRN) yang dipakai lintas lapisan. */
 
-/** Pesan untuk petugas saat pesanan restock dicatat dari halaman Pembelian. */
+/** Pesan untuk petugas saat pesanan restock diterima dari halaman Pembelian. */
 export const RESTOCK_ORDER_RECEIPT_MESSAGE =
-  "Pesanan ini dari pengajuan restock. Catat barang datang dari halaman Restock.";
+  "Pesanan ini dari pengajuan restock. Masukkan barangnya lewat tombol Masukkan Barang di halaman Restock.";
 
 /**
- * Jumlah datang melebihi jumlah yang sudah dilaporkan dibeli. Dilempar di
- * dalam transaksi GRN sehingga dokumen, stok, dan barang masuk ikut batal.
+ * Jumlah masuk melebihi sisa pesanan (dipesan dikurangi yang tidak jadi
+ * datang dan yang sudah masuk), biasanya karena pesanan baru saja berubah.
+ * Dilempar di dalam transaksi GRN sehingga dokumen, stok, dan barang masuk
+ * ikut batal.
  */
-export class GoodsReceiptExceedsPurchasedError extends Error {
+export class GoodsReceiptExceedsRemainingError extends Error {
+  readonly purchaseOrderItemId: string;
+
   constructor(purchaseOrderItemId: string) {
     super(
-      `Jumlah datang item ${purchaseOrderItemId} melebihi jumlah yang sudah dibeli`,
+      "Jumlah barang yang masuk melebihi sisa pesanan karena pesanan ini baru saja berubah. Muat ulang halaman, lalu coba lagi.",
     );
-    this.name = "GoodsReceiptExceedsPurchasedError";
+    this.name = "GoodsReceiptExceedsRemainingError";
+    this.purchaseOrderItemId = purchaseOrderItemId;
   }
 }
 

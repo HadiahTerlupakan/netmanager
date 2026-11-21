@@ -1,18 +1,15 @@
 /**
- * Read-model pengajuan restock untuk UI: jumlah per baris (dipesan, dibeli,
- * datang, dicoret), daftar kiriman, dan catatan belanja milik pengajuan ini.
+ * Read-model pengajuan restock untuk UI dan presenter mobile: jumlah per
+ * baris (dipesan, sudah masuk, dicoret), daftar barang masuk milik
+ * pengajuan ini, dan jumlah pengajuan yang memakai pesanannya
+ * (`purchaseOrder.linkedRequestCount`, untuk pesanan gabungan). Field
+ * persetujuan dan `cancelReason` ikut dari baris pengajuan apa adanya.
  */
 
-import type { Prisma } from "@prisma/client";
+/** Pesanan tanpa hitungan pengajuan dibaca sebagai milik satu pengajuan. */
+const SINGLE_REQUEST_COUNT = 1;
 
-import type { RestockPurchaseRecordView } from "../domain/ports/IRestockPurchaseRecordRepository";
-import {
-  PURCHASE_RECORD_VIEW_SELECT,
-  toPurchaseRecordView,
-  type PurchaseRecordViewRow,
-} from "./restock-purchase-record.mapper";
-
-/** Kiriman barang per GRN untuk timeline "Kiriman ke-N". */
+/** Barang masuk per GRN untuk riwayat pengajuan. */
 const GOODS_RECEIPT_TIMELINE_SELECT = {
   id: true,
   grnNumber: true,
@@ -28,24 +25,25 @@ const GOODS_RECEIPT_TIMELINE_SELECT = {
   },
 } as const;
 
-/** Relasi pesanan yang dibutuhkan read-model pengajuan restock. */
-export const PURCHASE_ORDER_PROGRESS_INCLUDE = {
-  items: true,
-  processedBy: { select: { name: true } },
-  // UI memakai jumlah ini untuk tahu apakah "selesaikan tanpa kiriman"
-  // membatalkan pesanan (milik satu pengajuan, tanpa jasa).
-  _count: { select: { purchaseRequests: true, jasaItems: true } },
+/** Bagian pesanan yang dibutuhkan read-model pengajuan restock. */
+export const PURCHASE_ORDER_PROGRESS_SELECT = {
+  id: true,
+  poNumber: true,
+  status: true,
+  items: {
+    select: {
+      barangId: true,
+      quantity: true,
+      receivedQuantity: true,
+      cancelledQuantity: true,
+      cancelReason: true,
+    },
+  },
   goodsReceipts: {
     select: GOODS_RECEIPT_TIMELINE_SELECT,
     orderBy: { receivedAt: "asc" },
   },
-  purchaseRecords: {
-    select: PURCHASE_RECORD_VIEW_SELECT,
-    orderBy: [
-      { purchasedAt: "asc" },
-      { createdAt: "asc" },
-    ] as Prisma.PurchaseRecordOrderByWithRelationInput[],
-  },
+  _count: { select: { purchaseRequests: true } },
 } as const;
 
 interface GoodsReceiptTimelineRow {
@@ -72,37 +70,33 @@ export interface RestockLineProgress {
   receivedQuantity: number;
   cancelledQuantity: number;
   cancelReason: string | null;
-  /** Item pesanan untuk mencatat belanja; null bila ditolak / tidak ada. */
-  purchaseOrderItemId: string | null;
-  /** Jumlah tercatat dibeli (level item pesanan; pesanan gabungan = total). */
-  purchasedQuantity: number;
 }
 
 interface PurchaseOrderItemSource {
-  id?: string;
   barangId: string;
   quantity: number;
   receivedQuantity: number;
   cancelledQuantity: number;
   cancelReason: string | null;
-  purchasedQuantity?: number;
+}
+
+interface PurchaseOrderSource {
+  items: PurchaseOrderItemSource[];
+  goodsReceipts: GoodsReceiptTimelineRow[];
+  _count?: { purchaseRequests: number };
 }
 
 export interface RestockReadModelSource {
   items: RestockLineSource[];
-  purchaseOrder: {
-    items: PurchaseOrderItemSource[];
-    goodsReceipts: GoodsReceiptTimelineRow[];
-    purchaseRecords?: PurchaseRecordViewRow[];
-  } | null;
+  purchaseOrder: PurchaseOrderSource | null;
 }
 
 /** Jumlah per baris pengajuan, diambil dari item PO yang sama. */
 export function withLineProgress<TLine extends RestockLineSource>(
   item: TLine,
-  purchaseOrder: RestockReadModelSource["purchaseOrder"],
+  purchaseOrder: Pick<PurchaseOrderSource, "items"> | null,
 ): TLine & RestockLineProgress {
-  // Baris yang ditolak tidak ikut PO: tidak ada yang dipesan maupun datang.
+  // Baris yang ditolak atasan tidak ikut PO: tidak ada yang dipesan maupun masuk.
   if (item.statusApproval === "REJECTED") {
     return {
       ...item,
@@ -110,8 +104,6 @@ export function withLineProgress<TLine extends RestockLineSource>(
       receivedQuantity: 0,
       cancelledQuantity: 0,
       cancelReason: null,
-      purchaseOrderItemId: null,
-      purchasedQuantity: 0,
     };
   }
   const purchaseOrderItem = purchaseOrder?.items.find(
@@ -119,18 +111,16 @@ export function withLineProgress<TLine extends RestockLineSource>(
   );
   return {
     ...item,
-    // Satu PO bisa menggabungkan beberapa pengajuan; sisa dihitung dari
-    // jumlah di PO seperti yang dipakai server saat verifikasi.
+    // Pesanan gabungan memuat beberapa pengajuan; sisa dihitung dari jumlah
+    // di PO seperti yang dipakai server saat Masukkan Barang.
     orderedQuantity: purchaseOrderItem?.quantity ?? item.jumlah,
     receivedQuantity: purchaseOrderItem?.receivedQuantity || 0,
     cancelledQuantity: purchaseOrderItem?.cancelledQuantity || 0,
     cancelReason: purchaseOrderItem?.cancelReason || null,
-    purchaseOrderItemId: purchaseOrderItem?.id ?? null,
-    purchasedQuantity: purchaseOrderItem?.purchasedQuantity ?? 0,
   };
 }
 
-/** Kiriman (GRN) dalam bentuk timeline. */
+/** Barang masuk (GRN) dalam bentuk riwayat. */
 export function toGoodsReceiptTimeline(goodsReceipt: GoodsReceiptTimelineRow) {
   return {
     id: goodsReceipt.id,
@@ -150,33 +140,18 @@ export function toGoodsReceiptTimeline(goodsReceipt: GoodsReceiptTimelineRow) {
 }
 
 /**
- * Catatan belanja pesanan yang menyentuh baris pengajuan ini. Pada pesanan
- * gabungan, baris barang milik pengajuan lain disaring; catatan yang tidak
- * menyisakan baris dibuang.
+ * Pesanan di read-model: hitungan Prisma `_count` diganti
+ * `linkedRequestCount`, jumlah pengajuan yang memakai pesanan ini.
  */
-function toRequestPurchaseRecords(
-  records: PurchaseRecordViewRow[],
-  ownedPurchaseOrderItemIds: ReadonlySet<string>,
-): RestockPurchaseRecordView[] {
-  return records.flatMap((row) => {
-    const record = toPurchaseRecordView(row);
-    const items = record.items.filter((item) =>
-      ownedPurchaseOrderItemIds.has(item.purchaseOrderItemId),
-    );
-    return items.length > 0 ? [{ ...record, items }] : [];
-  });
-}
-
 type ReadModelPurchaseOrder<T extends RestockReadModelSource> = Omit<
   NonNullable<T["purchaseOrder"]>,
-  "purchaseRecords"
->;
+  "_count"
+> & { linkedRequestCount: number };
 
 /**
- * Read-model pengajuan restock: jumlah per baris, plus daftar kiriman
- * (`goodsReceipts`, terlama dulu) dan catatan belanja (`purchaseRecords`,
- * terlama dulu). `purchaseOrder.goodsReceipts` tetap terbaru dulu seperti
- * sebelumnya; catatan belanja mentah tidak ikut di objek pesanan.
+ * Read-model pengajuan restock: jumlah per baris, plus daftar barang masuk
+ * (`goodsReceipts`, terlama dulu). `purchaseOrder.goodsReceipts` tetap
+ * terbaru dulu seperti sebelumnya.
  */
 export type RestockReadModel<T extends RestockReadModelSource> = Omit<
   T,
@@ -185,7 +160,6 @@ export type RestockReadModel<T extends RestockReadModelSource> = Omit<
   items: Array<T["items"][number] & RestockLineProgress>;
   purchaseOrder: ReadModelPurchaseOrder<T> | null;
   goodsReceipts: Array<ReturnType<typeof toGoodsReceiptTimeline>>;
-  purchaseRecords: RestockPurchaseRecordView[];
 };
 
 /** Susun read-model pengajuan restock dari baris database. */
@@ -196,31 +170,26 @@ export function toRestockReadModel<T extends RestockReadModelSource>(
   const items = request.items.map((item) =>
     withLineProgress(item, purchaseOrder),
   );
-  const ownedPurchaseOrderItemIds = new Set(
-    items.flatMap((item) =>
-      item.purchaseOrderItemId ? [item.purchaseOrderItemId] : [],
-    ),
-  );
-
-  let readModelOrder: ReadModelPurchaseOrder<T> | null = null;
-  if (purchaseOrder) {
-    const { purchaseRecords: _purchaseRecords, ...orderFields } = purchaseOrder;
-    readModelOrder = {
-      ...orderFields,
-      goodsReceipts: [...purchaseOrder.goodsReceipts].reverse(),
-    } as ReadModelPurchaseOrder<T>;
-  }
 
   return {
     ...request,
     items,
-    purchaseOrder: readModelOrder,
+    purchaseOrder: purchaseOrder
+      ? toReadModelPurchaseOrder(purchaseOrder)
+      : null,
     goodsReceipts: (purchaseOrder?.goodsReceipts ?? []).map(
       toGoodsReceiptTimeline,
     ),
-    purchaseRecords: toRequestPurchaseRecords(
-      purchaseOrder?.purchaseRecords ?? [],
-      ownedPurchaseOrderItemIds,
-    ),
+  };
+}
+
+function toReadModelPurchaseOrder<TOrder extends PurchaseOrderSource>(
+  purchaseOrder: TOrder,
+): Omit<TOrder, "_count"> & { linkedRequestCount: number } {
+  const { _count, ...orderFields } = purchaseOrder;
+  return {
+    ...orderFields,
+    goodsReceipts: [...purchaseOrder.goodsReceipts].reverse(),
+    linkedRequestCount: _count?.purchaseRequests ?? SINGLE_REQUEST_COUNT,
   };
 }

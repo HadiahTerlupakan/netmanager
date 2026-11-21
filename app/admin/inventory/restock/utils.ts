@@ -2,21 +2,29 @@ import type { RefObject } from "react";
 
 import type { PhotoUploadRef } from "@/components/inventory/PhotoUpload";
 import { OFFLINE_MESSAGE } from "@/components/inventory/form-shared/inventoryRequestMessages";
+import {
+  getRestockLineProgress,
+  getRestockStatusKey,
+  isRestockLineRejected,
+  isRestockMergedOrder,
+  RESTOCK_STATUS_LABELS,
+  type RestockStatusKey,
+} from "@/modules/inventory/client";
 
-import { isLineRejected } from "./approvalUtils";
-import { getRestockLineReceiveLimit } from "./restockPurchase";
 import type {
   Barang,
   BarangGudang,
   PurchaseRequest,
   PurchaseRequestItem,
   PurchaseRequestJasaItem,
-  RestockCancellationMap,
   RestockFormItem,
   RestockOverReceiptMap,
   RestockSetting,
   RestockSubstitutionMap,
 } from "./types";
+
+/** Pilihan filter status di daftar pengajuan. */
+export type RestockStatusFilter = RestockStatusKey | "all";
 
 export const PHOTO_UPLOAD_NOT_READY_MESSAGE =
   "Komponen unggah foto belum siap. Muat ulang halaman lalu coba lagi.";
@@ -41,7 +49,7 @@ export async function uploadProofPhotos(
 interface VisibleRestockRequestsInput {
   requests: PurchaseRequest[];
   search: string;
-  statusFilter: PurchaseRequest["status"] | "all";
+  statusFilter: RestockStatusFilter;
   gudangFilter: string;
 }
 
@@ -58,13 +66,6 @@ interface GetFilteredBarangsInput {
   showAllItems: boolean;
 }
 
-interface CanSubmitRestockFormInput {
-  formGudang: string;
-  formNotes: string;
-  formItems: RestockFormItem[];
-  isSubmitting: boolean;
-}
-
 function getBarangStocks(barang: Barang): BarangGudang[] {
   return barang.stockPerGudang || barang.barangGudang || [];
 }
@@ -78,6 +79,7 @@ function getStockInfo(
   );
 }
 
+/** Stok minimum barang di gudang: dari pengaturan restock, atau bawaan barang. */
 export function getMinStockForBarang(
   barang: Barang,
   allSettings: RestockSetting[],
@@ -89,6 +91,7 @@ export function getMinStockForBarang(
   return (setting?.minStok ?? barang.minStokDefault) || 0;
 }
 
+/** Barang yang ditawarkan di form: semua, atau yang stoknya di bawah minimum gudang. */
 export function getFilteredBarangs({
   allBarangs,
   allSettings,
@@ -110,11 +113,42 @@ export function getFilteredBarangs({
   });
 }
 
-/** Baris barang yang ikut PO dan penerimaan: semua kecuali yang ditolak. */
-export function getReceivableRestockItems(
+/** Sisa pesanan satu baris yang belum masuk dan belum dicoret; tidak pernah negatif. */
+export function getRestockItemRemaining(item: PurchaseRequestItem): number {
+  return getRestockLineProgress(item).remaining;
+}
+
+/**
+ * Patokan satu baris di "Masukkan Barang": isian awalnya, dan dasar jumlah
+ * yang tidak dimasukkan (patokan dikurangi isian). Mengikuti yang ditutup
+ * server saat pengajuan selesai:
+ * - pesanan milik satu pengajuan: seluruh sisa pesanan barang itu, termasuk
+ *   bila jumlah pesanannya diubah sesudah disetujui;
+ * - pesanan gabungan: hanya bagian pengajuan ini, yaitu sisa pesanan tetapi
+ *   tidak lebih dari jumlah yang disetujui. Sisa milik pengajuan lain yang
+ *   belum selesai tidak ikut ditutup.
+ */
+export function getRestockEntryBasis(
+  item: PurchaseRequestItem,
+  request: Pick<PurchaseRequest, "purchaseOrder">,
+): number {
+  const remaining = getRestockItemRemaining(item);
+  return isRestockMergedOrder(request)
+    ? Math.min(remaining, item.jumlah)
+    : remaining;
+}
+
+/**
+ * Baris yang diisi di "Masukkan Barang": baris barang yang masih punya sisa,
+ * kecuali yang ditolak atasan. Server meminta jumlah untuk tepat baris-baris
+ * ini.
+ */
+export function getRestockEnterableItems(
   request: PurchaseRequest,
 ): PurchaseRequestItem[] {
-  return request.items.filter((item) => !isLineRejected(item));
+  return request.items.filter(
+    (item) => !isRestockLineRejected(item) && getRestockItemRemaining(item) > 0,
+  );
 }
 
 /** Jasa yang masih menunggu konfirmasi selesai; jasa yang ditolak diabaikan. */
@@ -122,63 +156,31 @@ export function getPendingJasaItems(
   request: PurchaseRequest,
 ): PurchaseRequestJasaItem[] {
   return (request.jasaItems ?? []).filter(
-    (item) => item.statusKonfirmasi === "PENDING" && !isLineRejected(item),
+    (item) =>
+      item.statusKonfirmasi === "PENDING" && !isRestockLineRejected(item),
   );
 }
 
-/**
- * Jumlah diterima awal per barang (baris yang tidak ditolak): yang sudah
- * dibeli dan belum datang, atau seluruh sisa pada data lama & pesanan gabungan.
- */
+/** Isian awal "Masukkan Barang" per barang: patokan tiap baris. */
 export function buildInitialReceivedItems(
   request: PurchaseRequest,
 ): Record<string, number> {
-  return getReceivableRestockItems(request).reduce<Record<string, number>>(
+  return getRestockEnterableItems(request).reduce<Record<string, number>>(
     (acc, item) => {
-      const receivableNow = getRestockLineReceiveLimit(item, request);
-      acc[item.barangId] = (acc[item.barangId] || 0) + receivableNow;
+      acc[item.barangId] =
+        (acc[item.barangId] || 0) + getRestockEntryBasis(item, request);
       return acc;
     },
     {},
   );
 }
 
-/** Sisa pesanan yang belum datang dan belum ditandai tidak jadi datang. */
-export function getRestockItemRemaining(item: PurchaseRequestItem): number {
-  return (
-    (item.orderedQuantity ?? item.jumlah) -
-    item.receivedQuantity -
-    (item.cancelledQuantity ?? 0)
-  );
-}
-
-/**
- * Buang alasan anulir yang masih kosong supaya payload hanya berisi anulir
- * yang benar-benar dikonfirmasi operator.
- */
-export function buildCancellationPayload(
-  cancellations: RestockCancellationMap,
-): RestockCancellationMap {
-  return Object.entries(cancellations).reduce<RestockCancellationMap>(
-    (acc, [barangId, reason]) => {
-      if (reason.trim().length > 0) {
-        acc[barangId] = reason.trim();
-      }
-      return acc;
-    },
-    {},
-  );
-}
-
-/** Jumlah diterima yang melebihi sisa pesanan; 0 bila tidak berlebih. */
+/** Jumlah masuk yang melebihi sisa pesanan; 0 bila tidak berlebih. */
 export function getRestockItemExcess(
   item: PurchaseRequestItem,
   receivedQuantity: number,
 ): number {
-  return Math.max(
-    receivedQuantity - Math.max(getRestockItemRemaining(item), 0),
-    0,
-  );
+  return Math.max(receivedQuantity - getRestockItemRemaining(item), 0);
 }
 
 function getExcessItems(
@@ -206,7 +208,7 @@ export function buildOverReceiptPayload(
   );
 }
 
-/** Barang yang datang melebihi sisa pesanan wajib diberi alasan. */
+/** Barang yang masuk melebihi sisa pesanan wajib diberi alasan. */
 export function hasMissingOverReceiptReason(
   items: PurchaseRequestItem[],
   receivedItems: Record<string, number>,
@@ -217,7 +219,7 @@ export function hasMissingOverReceiptReason(
   );
 }
 
-/** Item yang sudah pernah diterima sebagian tidak boleh diganti barangnya. */
+/** Baris yang sudah pernah menerima barang tidak boleh diganti barangnya. */
 export function canSubstituteRestockItem(item: PurchaseRequestItem): boolean {
   return item.receivedQuantity <= 0;
 }
@@ -240,13 +242,7 @@ export function buildSubstitutionPayload(
   );
 }
 
-export function canEditPurchaseRequest(
-  status: PurchaseRequest["status"],
-  canUpdate: boolean,
-): boolean {
-  return canUpdate && status === "DRAFT";
-}
-
+/** Tombol "Tinjau & Putuskan": pengajuan yang belum diputuskan atasan. */
 export function canApprovePurchaseRequest(
   status: PurchaseRequest["status"],
   canApprove: boolean,
@@ -321,18 +317,6 @@ function describeDuplicateBarangRows(
     });
 }
 
-export function canSubmitRestockForm({
-  formGudang,
-  formNotes,
-  formItems,
-  isSubmitting,
-}: CanSubmitRestockFormInput): boolean {
-  if (isSubmitting) return false;
-  return (
-    getRestockFormProblems({ formGudang, formNotes, formItems }).length === 0
-  );
-}
-
 const SERVER_UNREADABLE_MESSAGE =
   "Server sedang bermasalah dan tidak memberi jawaban yang bisa dibaca. Tunggu sebentar, lalu coba lagi. Kalau tetap gagal, lapor ke admin.";
 
@@ -367,20 +351,24 @@ export function describeRestockClientError(error: unknown): string {
   return "Terjadi masalah yang tidak dikenal. Coba sekali lagi. Kalau tetap gagal, lapor ke admin.";
 }
 
+/** Baris form boleh dihapus selama masih ada baris lain. */
 export function canRemoveRestockFormItem(totalItems: number): boolean {
   return totalItems > 1;
 }
 
+/** Teks tombol pengalih daftar barang di form. */
 export function getRestockToggleLabel(showAllItems: boolean): string {
   return showAllItems ? "Lihat Semua Barang" : "Filter Stok Minim";
 }
 
+/** Penjelasan daftar barang yang sedang tampil di form. */
 export function getRestockToggleHint(showAllItems: boolean): string {
   return showAllItems
     ? "Menampilkan semua barang untuk restock manual"
     : "Menampilkan hanya barang dengan stok minim";
 }
 
+/** Stok baru tinggal separuh stok minimum atau kurang. */
 export function isVeryLowStock(
   currentStockBaru: number,
   minStock: number,
@@ -388,6 +376,7 @@ export function isVeryLowStock(
   return minStock > 0 && currentStockBaru * 2 <= minStock;
 }
 
+/** Stok barang di gudang terpilih beserta minimumnya, untuk baris form. */
 export function getStockSnapshot(
   barang: Barang | undefined,
   allSettings: RestockSetting[],
@@ -410,22 +399,6 @@ export function getStockSnapshot(
     minStock: getMinStockForBarang(barang, allSettings, gudangId),
   };
 }
-
-/**
- * Label status pengajuan di server untuk dropdown filter. Badge tiap baris
- * memakai status turunan (lihat restockProgress.ts); filter tetap memakai
- * status server supaya hasil list yang dipaginasi tetap benar.
- */
-const RESTOCK_FILTER_STATUS_LABELS: Record<PurchaseRequest["status"], string> =
-  {
-    DRAFT: "Menunggu Persetujuan",
-    SUBMITTED: "Diajukan",
-    APPROVED: "Disetujui",
-    REJECTED: "Ditolak",
-    ORDERED: "Sedang berjalan",
-    RECEIVED: "Selesai",
-    CANCELLED: "Dibatalkan",
-  };
 
 function wordStartMatch(text: string, term: string): boolean {
   if (text.includes(term)) return true;
@@ -461,6 +434,7 @@ function requestMatchesSearch(
   return searchableTexts.some((text) => matchesSearchTerms(text, terms));
 }
 
+/** Pengajuan yang cocok dengan pencarian, status tampilan, dan gudang. */
 export function getVisibleRestockRequests({
   requests,
   search,
@@ -472,33 +446,42 @@ export function getVisibleRestockRequests({
   return requests.filter((request) => {
     const matchesSearch = requestMatchesSearch(request, terms);
     const matchesStatus =
-      statusFilter === "all" || request.status === statusFilter;
+      statusFilter === "all" || getRestockStatusKey(request) === statusFilter;
     const matchesGudang =
       gudangFilter === "all" || request.gudangId === gudangFilter;
     return matchesSearch && matchesStatus && matchesGudang;
   });
 }
 
-const RESTOCK_STATUS_OPTIONS: PurchaseRequest["status"][] = [
-  "DRAFT",
-  "SUBMITTED",
+export interface RestockStatusFilterOption {
+  value: RestockStatusFilter;
+  label: string;
+}
+
+/** Urutan status di filter, mengikuti jalannya pengajuan. */
+const FILTERABLE_STATUSES: readonly RestockStatusKey[] = [
+  "AWAITING_APPROVAL",
   "APPROVED",
-  "REJECTED",
-  "ORDERED",
   "RECEIVED",
+  "REJECTED",
   "CANCELLED",
 ];
 
-export function getRestockFilterOptions(_requests: PurchaseRequest[]) {
-  return [
+/**
+ * Pilihan filter status di daftar pengajuan. Filter membandingkan status
+ * tampilan (badge), bukan status database, supaya hasilnya cocok dengan yang
+ * terlihat di tabel.
+ */
+export const RESTOCK_STATUS_FILTER_OPTIONS: readonly RestockStatusFilterOption[] =
+  [
     { value: "all", label: "Semua Status" },
-    ...RESTOCK_STATUS_OPTIONS.map((status) => ({
+    ...FILTERABLE_STATUSES.map((status) => ({
       value: status,
-      label: RESTOCK_FILTER_STATUS_LABELS[status],
+      label: RESTOCK_STATUS_LABELS[status],
     })),
   ];
-}
 
+/** Potong daftar pengajuan menurut halaman dan jumlah per halaman. */
 export function getPaginatedRestockRequests({
   requests,
   page,

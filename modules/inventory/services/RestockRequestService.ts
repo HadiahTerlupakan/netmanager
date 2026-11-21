@@ -6,8 +6,18 @@ import {
   isPrismaUniqueConstraintError,
 } from "@/lib/prisma-errors";
 import { prisma } from "@/modules/database";
+import { createRestockRequestCancellationService } from "../factories/RestockRequestCancellationFactory";
+import { createRestockRequestDeletionService } from "../factories/RestockRequestDeletionFactory";
 import { createRestockRequestLifecycleService } from "../factories/RestockRequestLifecycleFactory";
 import { InventoryPurchaseRequestRepository } from "../repositories/InventoryPurchaseRequestRepository";
+import type {
+  RestockCancelCommand,
+  RestockCancelResult,
+} from "./RestockRequestCancellationService";
+import type {
+  RestockDeleteCommand,
+  RestockDeleteResult,
+} from "./RestockRequestDeletionService";
 import type {
   RestockLifecycleCommand,
   RestockLifecycleResult,
@@ -28,6 +38,8 @@ const REQUEST_NUMBER_PAD_LENGTH = 4;
 const ONE_DAY_OFFSET = 1;
 
 const requestLifecycleService = createRestockRequestLifecycleService();
+const requestDeletionService = createRestockRequestDeletionService();
+const requestCancellationService = createRestockRequestCancellationService();
 const purchaseRequestRepository = new InventoryPurchaseRequestRepository(
   prisma,
 );
@@ -171,6 +183,28 @@ export async function patchRestockRequestLifecycle(
   command: RestockLifecycleCommand,
 ): Promise<RestockLifecycleResult> {
   return requestLifecycleService.patchRestockRequestLifecycle(command);
+}
+
+/**
+ * Hapus pengajuan restock selama belum ada barang atau jasa yang masuk dan
+ * pesanannya belum diproses. Mengembalikan hasil bertipe; route yang
+ * memetakan kode galatnya ke status HTTP.
+ */
+export async function deleteRestockRequest(
+  command: RestockDeleteCommand,
+): Promise<RestockDeleteResult> {
+  return requestDeletionService.deleteRestockRequest(command);
+}
+
+/**
+ * Batalkan pengajuan restock yang sudah disetujui tetapi belum ada barang
+ * atau jasa yang masuk, dengan alasan admin. Mengembalikan hasil bertipe;
+ * route yang memetakan kode galatnya ke status HTTP.
+ */
+export async function cancelRestockRequest(
+  command: RestockCancelCommand,
+): Promise<RestockCancelResult> {
+  return requestCancellationService.cancelRestockRequest(command);
 }
 
 function validateRestockRequestInput(input: CreateRestockRequestInput) {

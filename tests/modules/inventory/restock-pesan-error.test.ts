@@ -27,21 +27,50 @@ import { resolveOverReceipts } from "@/modules/inventory/services/restock-over-r
  * mentah, tanpa nama izin teknis, dan selalu menyebut langkah berikutnya.
  */
 describe("pesan restock untuk petugas", () => {
-  it("menerjemahkan status ke kata biasa", () => {
+  it("menerjemahkan status ke kata biasa, sejalan dengan label status", () => {
     expect(restockCannotEditMessage("ORDERED")).toBe(
-      "Pengajuan ini sudah dibeli dan menunggu barangnya datang, jadi tidak bisa diubah lagi. Yang bisa diubah hanya pengajuan yang belum disetujui.",
+      "Pengajuan ini sudah disetujui, jadi tidak bisa diubah lagi. Yang bisa diubah hanya pengajuan yang belum disetujui.",
+    );
+    expect(restockCannotEditMessage("RECEIVED")).toBe(
+      "Pengajuan ini sudah dimasukkan, jadi tidak bisa diubah lagi. Yang bisa diubah hanya pengajuan yang belum disetujui.",
     );
     expect(restockAlreadyDecidedMessage("REJECTED", "disetujui")).toContain(
       "Pengajuan ini sudah ditolak, jadi tidak bisa disetujui lagi.",
     );
+    expect(restockAlreadyDecidedMessage("SUBMITTED", "ditolak")).toContain(
+      "Pengajuan ini masih menunggu persetujuan",
+    );
+  });
+
+  it.each(["DRAFT", "SUBMITTED"])(
+    "pengajuan %s yang gagal diubah pasti sudah punya pesanan",
+    (status) => {
+      expect(restockCannotEditMessage(status)).toBe(
+        "Pengajuan ini sudah punya pesanan, jadi tidak bisa diubah lagi. Muat ulang halaman untuk melihat keadaan terbarunya.",
+      );
+    },
+  );
+
+  it("tidak lagi menyebut tahap pembelian", () => {
+    for (const message of [
+      restockCannotEditMessage("ORDERED"),
+      RESTOCK_MESSAGES.purchaseOrderNotFound,
+      RESTOCK_MESSAGES.cannotDeleteReceived,
+      RESTOCK_MESSAGES.cannotDeleteAfterEntry,
+    ]) {
+      expect(message).not.toMatch(/dibeli|daftar belanja|datang/);
+    }
   });
 
   it("menyebut kegiatan yang dilindungi izin, bukan nama izinnya", () => {
     const message = restockForbiddenMessage("restock:verify");
     expect(message).toBe(
-      "Akun Anda tidak punya izin menerima barang dan jasa restock. Minta admin menambahkan izin itu ke peran Anda.",
+      "Akun Anda tidak punya izin memasukkan barang, mengonfirmasi jasa, atau membatalkan pengajuan restock. Minta admin menambahkan izin itu ke peran Anda.",
     );
     expect(message).not.toContain("restock:verify");
+    expect(restockForbiddenMessage("restock:approve")).toBe(
+      "Akun Anda tidak punya izin menyetujui pengajuan restock. Minta admin menambahkan izin itu ke peran Anda.",
+    );
   });
 
   it("pesan 404 tidak ditambahi akhiran oleh ApiErrors.notFound", async () => {

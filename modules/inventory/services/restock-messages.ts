@@ -6,6 +6,8 @@
 
 import { isPrismaForeignKeyError } from "@/lib/prisma-errors";
 
+import { RESTOCK_EDITABLE_STATUSES } from "../domain/restock-request-status";
+
 export {
   RestockSettingReferenceError,
   type RestockSettingReference,
@@ -15,15 +17,20 @@ export {
   isRestockRequestNotEditableError,
 } from "../domain/restock-request-errors";
 
-/** Keadaan pengajuan/pesanan dalam kata biasa, untuk kalimat "Pengajuan ini …". */
+/**
+ * Keadaan pengajuan/pesanan dalam kata biasa, untuk kalimat "Pengajuan ini …".
+ * Sejalan dengan label status di layar: Menunggu Persetujuan (DRAFT,
+ * SUBMITTED), Disetujui (APPROVED, ORDERED), Sudah Dimasukkan, Ditolak, dan
+ * Dibatalkan. PARTIAL hanya ada di pesanan lama yang barangnya masuk sebagian.
+ */
 const RESTOCK_STATUS_WORDS: Record<string, string> = {
   DRAFT: "masih menunggu persetujuan",
-  SUBMITTED: "sudah diajukan dan menunggu persetujuan",
+  SUBMITTED: "masih menunggu persetujuan",
   APPROVED: "sudah disetujui",
+  ORDERED: "sudah disetujui",
   REJECTED: "sudah ditolak",
-  ORDERED: "sudah dibeli dan menunggu barangnya datang",
-  PARTIAL: "barangnya baru datang sebagian",
-  RECEIVED: "sudah selesai",
+  PARTIAL: "barangnya baru masuk sebagian",
+  RECEIVED: "sudah dimasukkan",
   CANCELLED: "sudah dibatalkan",
 };
 
@@ -41,7 +48,8 @@ const RESTOCK_PERMISSION_ACTIVITIES = {
   "restock:update": "mengubah pengajuan atau pengaturan restock",
   "restock:delete": "menghapus pengajuan restock",
   "restock:approve": "menyetujui pengajuan restock",
-  "restock:verify": "menerima barang dan jasa restock",
+  "restock:verify":
+    "memasukkan barang, mengonfirmasi jasa, atau membatalkan pengajuan restock",
 } as const;
 
 export type RestockPermission = keyof typeof RESTOCK_PERMISSION_ACTIVITIES;
@@ -68,7 +76,7 @@ export const RESTOCK_MESSAGES = {
   requestNotFound:
     "Pengajuan restock tidak ditemukan. Mungkin sudah dihapus. Muat ulang halaman, lalu coba lagi.",
   purchaseOrderNotFound:
-    "Daftar belanja untuk pengajuan ini tidak ditemukan. Mungkin sudah dihapus. Muat ulang halaman. Kalau masih muncul, lapor ke admin.",
+    "Pesanan untuk pengajuan ini tidak ditemukan. Mungkin sudah dihapus. Muat ulang halaman. Kalau masih muncul, lapor ke admin.",
   nothingRequested:
     "Belum ada barang atau jasa yang diminta. Tambahkan paling sedikit satu barang atau jasa.",
   gudangMissing: "Gudang tujuan belum dipilih. Pilih gudangnya dulu.",
@@ -76,22 +84,29 @@ export const RESTOCK_MESSAGES = {
     "Pengajuan ini untuk gudang di site lain, jadi tidak bisa Anda buka atau proses. Minta admin kalau pengajuan ini memang harus Anda urus.",
   gudangBedaSite:
     "Gudang tujuan ini milik site lain. Pilih gudang di site Anda.",
-  noPurchaseOrderYet:
-    "Pengajuan ini belum punya daftar belanja. Setujui pengajuannya dulu, nanti daftar belanjanya dibuat otomatis.",
   cannotDeleteReceived:
-    "Pengajuan ini tidak bisa dihapus karena barangnya sudah datang dan sudah masuk gudang.",
-  cannotDeleteAfterArrival:
-    "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang datang.",
-  cannotDeleteAfterPurchase:
-    "Barang pengajuan ini sudah ada yang dibeli, jadi pengajuannya tidak bisa dihapus.",
+    "Pengajuan ini tidak bisa dihapus karena barangnya sudah dimasukkan ke gudang.",
+  cannotDeleteAfterEntry:
+    "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang masuk gudang atau jasa yang ditandai selesai.",
+  cannotDeleteProcessedOrder:
+    "Pengajuan ini tidak bisa dihapus karena pesanannya sudah diproses atau dibatalkan. Muat ulang halaman untuk melihat keadaan terbarunya.",
+  cannotDeleteWithLegacyPurchases:
+    "Pengajuan ini punya catatan belanja lama, jadi tidak bisa dihapus. Batalkan pengajuannya saja.",
   duplicateRequestNumber:
     "Ada orang lain yang menyimpan pengajuan di waktu yang sama. Pengajuan Anda belum tersimpan. Tekan simpan sekali lagi.",
   missingReference:
     "Ada barang, jasa, atau gudang yang sudah dihapus. Pengajuan belum tersimpan. Muat ulang halaman, pilih lagi, lalu simpan.",
 } as const;
 
-/** Pesan saat pengajuan tidak bisa diubah karena sudah lewat tahap persetujuan. */
+/**
+ * Pesan saat pengajuan tidak bisa diubah: sudah lewat tahap persetujuan, atau
+ * sudah punya pesanan. Status yang masih boleh diubah hanya bisa ditolak
+ * karena pesanannya, jadi pesannya menyebut pesanan itu.
+ */
 export function restockCannotEditMessage(status: string): string {
+  if ((RESTOCK_EDITABLE_STATUSES as readonly string[]).includes(status)) {
+    return "Pengajuan ini sudah punya pesanan, jadi tidak bisa diubah lagi. Muat ulang halaman untuk melihat keadaan terbarunya.";
+  }
   return `Pengajuan ini ${describeRestockStatus(status)}, jadi tidak bisa diubah lagi. Yang bisa diubah hanya pengajuan yang belum disetujui.`;
 }
 

@@ -199,6 +199,97 @@ export const restockJasaConfirmSchema = z.object({
     }),
 });
 
+const BODY_UNREADABLE_MESSAGE =
+  "Data yang dikirim tidak terbaca. Muat ulang halaman, lalu coba lagi.";
+
+/** Batas panjang alasan pembatalan pengajuan (dipakai juga modal Batalkan Pengajuan). */
+export const RESTOCK_CANCEL_REASON_LIMITS = { min: 5, max: 255 } as const;
+
+/** Alasan tidak dikirim, kosong, atau terlalu pendek: satu pesan yang menyebut caranya. */
+const CANCEL_REASON_TOO_SHORT_MESSAGE = `Tulis alasan pembatalan, paling sedikit ${RESTOCK_CANCEL_REASON_LIMITS.min} huruf.`;
+
+/**
+ * Body PATCH /api/inventory/restock/requests/[id] dengan `action: "CANCEL"`:
+ * admin membatalkan pengajuan yang sudah disetujui, dengan alasan. Route
+ * memilih skema dari `action`; Setujui/Tolak tetap memakai
+ * {@link restockLifecycleSchema}. Field di luar daftar berarti kiriman yang
+ * rusak, jadi pengguna diminta memuat ulang halaman.
+ */
+export const restockCancelSchema = z.strictObject(
+  {
+    action: z.literal("CANCEL", { error: BODY_UNREADABLE_MESSAGE }),
+    alasan: z
+      .string({ error: CANCEL_REASON_TOO_SHORT_MESSAGE })
+      .trim()
+      .min(RESTOCK_CANCEL_REASON_LIMITS.min, {
+        error: CANCEL_REASON_TOO_SHORT_MESSAGE,
+      })
+      .max(RESTOCK_CANCEL_REASON_LIMITS.max, {
+        error: `Alasan pembatalan terlalu panjang. Paling banyak ${RESTOCK_CANCEL_REASON_LIMITS.max} huruf.`,
+      }),
+  },
+  { error: BODY_UNREADABLE_MESSAGE },
+);
+
+/**
+ * Kiriman Masukkan Barang dari tab halaman Restock versi lama yang masih
+ * membawa field tindakan yang sudah dihapus.
+ */
+const OUTDATED_PAGE_MESSAGE =
+  "Tindakan ini sudah tidak tersedia. Muat ulang halaman, lalu coba lagi.";
+
+/** Pesan untuk masalah pada objek body Masukkan Barang itu sendiri, menurut kodenya. */
+const RECEIVE_BODY_MESSAGES: Readonly<Record<string, string>> = {
+  invalid_type: BODY_UNREADABLE_MESSAGE,
+  unrecognized_keys: OUTDATED_PAGE_MESSAGE,
+};
+
+const PHOTO_UNREADABLE_MESSAGE =
+  "Foto bukti tidak terbaca. Unggah ulang fotonya, lalu simpan.";
+
+/** Jumlah barang yang masuk gudang: angka bulat, boleh 0. */
+const enteredQuantitySchema = z
+  .number({ error: "Jumlah barang yang masuk harus diisi angka." })
+  .int({ error: "Jumlah barang yang masuk harus angka bulat, tanpa koma." })
+  .min(0, { error: "Jumlah barang yang masuk tidak boleh minus." });
+
+/** Peta barangId → teks (barang pengganti atau alasan kelebihan); boleh kosong. */
+const barangTextMapSchema = z
+  .record(z.string(), z.string({ error: BODY_UNREADABLE_MESSAGE }), {
+    error: BODY_UNREADABLE_MESSAGE,
+  })
+  .default({});
+
+/**
+ * Body PATCH /api/inventory/restock/requests/[id]/receive (Masukkan Barang):
+ * jumlah masuk per barangId, barang pengganti (barangId asal → pengganti),
+ * alasan kelebihan per barangId, dan foto bukti. Sekali simpan langsung
+ * menyelesaikan pengajuan, jadi field lain (termasuk field dari halaman versi
+ * lama) ditolak dengan pesan muat ulang supaya tab lama tidak menutup
+ * pengajuan diam-diam.
+ */
+export const restockReceiveSchema = z.strictObject(
+  {
+    items: z.record(z.string(), enteredQuantitySchema, {
+      error: BODY_UNREADABLE_MESSAGE,
+    }),
+    substitutions: barangTextMapSchema,
+    overReceipts: barangTextMapSchema,
+    fotoBukti: z
+      .array(
+        z
+          .string({ error: PHOTO_UNREADABLE_MESSAGE })
+          .min(1, { error: PHOTO_UNREADABLE_MESSAGE }),
+        { error: PHOTO_UNREADABLE_MESSAGE },
+      )
+      .default([]),
+  },
+  {
+    error: (issue: { code?: string }) =>
+      RECEIVE_BODY_MESSAGES[issue.code ?? ""],
+  },
+);
+
 /** Nama daftar di payload pengajuan restock → kata untuk menyebut barisnya. */
 const RESTOCK_REQUEST_LIST_LABELS: Readonly<Record<string, string>> = {
   items: "Barang",
@@ -283,178 +374,5 @@ export type RestockCreateInput = z.infer<typeof restockCreateSchema>;
 export type RestockUpdateInput = z.infer<typeof restockUpdateSchema>;
 export type RestockLifecycleInput = z.infer<typeof restockLifecycleSchema>;
 export type RestockJasaConfirmInput = z.infer<typeof restockJasaConfirmSchema>;
-
-/** Batas isian catatan belanja (satu kali belanja). */
-export const RESTOCK_PURCHASE_LIMITS = {
-  notes: 500,
-  /** Jumlah barang maksimal dalam satu catatan belanja. */
-  items: 200,
-  unitPrice: 1_000_000_000,
-  buyerName: 100,
-  /** Panjang maksimal data URL tanda tangan dari link belanja. */
-  signatureDataUrl: 280_000,
-} as const;
-
-const PURCHASE_LINE_BROKEN =
-  "Data barang tidak lengkap. Muat ulang halaman, lalu coba lagi.";
-
-const restockPurchaseLineSchema = z.object({
-  purchaseOrderItemId: z
-    .string({ error: PURCHASE_LINE_BROKEN })
-    .trim()
-    .min(1, { error: PURCHASE_LINE_BROKEN }),
-  quantity: jumlahMinimalSatu("Jumlah dibeli"),
-  unitPrice: z
-    .number({ error: "Harga harus diisi angka." })
-    .min(0, { error: "Harga tidak boleh minus." })
-    .max(RESTOCK_PURCHASE_LIMITS.unitPrice, {
-      error: "Harga terlalu besar. Periksa lagi angkanya.",
-    })
-    .nullable()
-    .optional(),
-});
-
-/**
- * Teks polos tanpa karakter kontrol (`\p{Cc}`) maupun karakter format
- * (`\p{Cf}`: pembalik arah U+202E/U+202D, karakter tak terlihat). Nama
- * pembeli adalah bukti siapa yang belanja di garis waktu dan PDF, jadi
- * tampilannya tidak boleh bisa dibalik atau disamarkan.
- */
-const SINGLE_LINE_PLAIN_TEXT = /^[^\p{Cc}\p{Cf}]*$/u;
-/** Sama seperti di atas, tetapi catatan boleh berisi baris baru dan tab. */
-const MULTI_LINE_PLAIN_TEXT = /^(?:[^\p{Cc}\p{Cf}]|[\n\r\t])*$/u;
-
-const purchaseDateSchema = z.iso.date({
-  error: "Tanggal belanja belum diisi atau tidak terbaca.",
-});
-
-const purchaseNotesSchema = z
-  .string()
-  .trim()
-  .max(RESTOCK_PURCHASE_LIMITS.notes, {
-    error: `Catatan terlalu panjang. Paling banyak ${RESTOCK_PURCHASE_LIMITS.notes} huruf.`,
-  })
-  .regex(MULTI_LINE_PLAIN_TEXT, {
-    error: "Catatan berisi huruf yang tidak bisa dipakai.",
-  })
-  .nullable()
-  .optional()
-  .transform((value) => (value ? value : null));
-
-const purchaseLinesSchema = z
-  .array(restockPurchaseLineSchema, {
-    error: "Daftar barang tidak terbaca. Muat ulang halaman, lalu coba lagi.",
-  })
-  .min(1, {
-    error: "Belum ada barang yang dicentang. Centang barang yang sudah dibeli.",
-  })
-  .max(RESTOCK_PURCHASE_LIMITS.items, {
-    error: `Barang terlalu banyak. Paling banyak ${RESTOCK_PURCHASE_LIMITS.items} barang dalam satu belanja.`,
-  });
-
-/** Nama orang yang belanja; karakter kontrol ditolak, spasi dirapikan. */
-const buyerNameSchema = z
-  .string({ error: "Isi nama Anda." })
-  .trim()
-  .min(1, { error: "Isi nama Anda." })
-  .max(RESTOCK_PURCHASE_LIMITS.buyerName, {
-    error: `Nama terlalu panjang. Paling banyak ${RESTOCK_PURCHASE_LIMITS.buyerName} huruf.`,
-  })
-  .regex(SINGLE_LINE_PLAIN_TEXT, {
-    error: "Nama berisi huruf yang tidak bisa dipakai.",
-  })
-  .transform((value) => value.replace(/\s+/g, " "));
-
-/** Token link belanja: 32 byte acak dalam base64url (43 karakter). */
-const purchaseLinkTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
-
-/** Tolak barang yang tercantum dua kali dalam satu catatan belanja. */
-function refineUniquePurchaseLines(
-  value: { items: Array<{ purchaseOrderItemId: string }> },
-  ctx: z.RefinementCtx,
-): void {
-  const seen = new Set<string>();
-  value.items.forEach((item, index) => {
-    if (seen.has(item.purchaseOrderItemId)) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["items", index],
-        message: "Barang ini tercantum dua kali. Hapus salah satunya.",
-      });
-    }
-    seen.add(item.purchaseOrderItemId);
-  });
-}
-
-/** Batas alasan pembatalan catatan belanja. */
-export const PURCHASE_VOID_REASON_LIMITS = { min: 5, max: 500 } as const;
-
-/** Body POST .../purchases/[recordId]/void: alasan wajib diisi. */
-export const restockPurchaseVoidSchema = z.object({
-  reason: z
-    .string({ error: "Tulis alasan pembatalan." })
-    .trim()
-    .min(PURCHASE_VOID_REASON_LIMITS.min, {
-      error: `Alasan pembatalan minimal ${PURCHASE_VOID_REASON_LIMITS.min} huruf.`,
-    })
-    .max(PURCHASE_VOID_REASON_LIMITS.max, {
-      error: `Alasan pembatalan paling banyak ${PURCHASE_VOID_REASON_LIMITS.max} huruf.`,
-    }),
-});
-
-/** Batas ukuran body permintaan dari link belanja (termasuk tanda tangan). */
-export const MAX_PUBLIC_PURCHASE_BODY_BYTES = 320 * 1024;
-
-const PUBLIC_FORM_UNREADABLE =
-  "Isian tidak terbaca. Muat ulang halaman, lalu coba lagi.";
-
-/** Isian di luar daftar field ditolak dengan pesan awam. */
-const rejectUnknownFields = {
-  error: (issue: { code?: string }) =>
-    issue.code === "unrecognized_keys" ? PUBLIC_FORM_UNREADABLE : undefined,
-};
-
-/** Permintaan daftar belanja dari link tanpa login. */
-export const publicPurchaseListSchema = z.strictObject(
-  { token: purchaseLinkTokenSchema },
-  rejectUnknownFields,
-);
-
-/** Hanya token; dibaca lebih dulu sebelum isian lain diperiksa. */
-export const publicPurchaseTokenSchema = z.object({
-  token: purchaseLinkTokenSchema,
-});
-
-const SIGNATURE_MISSING = "Tanda tangan dulu di kotak tanda tangan.";
-
-/** Catatan belanja dari link tanpa login: nama dan tanda tangan wajib. */
-export const publicPurchaseRecordSchema = z
-  .strictObject(
-    {
-      token: purchaseLinkTokenSchema,
-      clientRequestId: z.uuid({ error: PUBLIC_FORM_UNREADABLE }),
-      buyerName: buyerNameSchema,
-      purchasedAt: purchaseDateSchema,
-      notes: purchaseNotesSchema,
-      signatureDataUrl: z
-        .string({ error: SIGNATURE_MISSING })
-        .startsWith("data:image/png;base64,", { error: SIGNATURE_MISSING })
-        .max(RESTOCK_PURCHASE_LIMITS.signatureDataUrl, {
-          error: "Tanda tangan terlalu besar. Hapus, lalu tanda tangan ulang.",
-        }),
-      items: purchaseLinesSchema,
-    },
-    rejectUnknownFields,
-  )
-  .superRefine(refineUniquePurchaseLines);
-
-/** Di payload catatan belanja, `items` berisi barang. */
-export const RESTOCK_PURCHASE_RECORD_LIST_LABELS: Readonly<
-  Record<string, string>
-> = {
-  items: "Barang",
-};
-
-export type PublicPurchaseRecordInput = z.infer<
-  typeof publicPurchaseRecordSchema
->;
+export type RestockCancelInput = z.infer<typeof restockCancelSchema>;
+export type RestockReceiveInput = z.infer<typeof restockReceiveSchema>;

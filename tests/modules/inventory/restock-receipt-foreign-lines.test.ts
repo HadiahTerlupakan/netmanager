@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  logActivitySafe: vi.fn(),
-  createGoodsReceipt: vi.fn(),
-}));
+const mocks = vi.hoisted(() => ({ logActivitySafe: vi.fn() }));
 
 vi.mock("@/lib/logger", () => ({
   logActivitySafe: mocks.logActivitySafe,
@@ -15,164 +12,155 @@ vi.mock("@/lib/logger", () => ({
     logActivity: vi.fn(),
   },
 }));
-vi.mock("@/modules/procurement", () => {
-  class PurchaseOrderNotFoundError extends Error {}
-  class GoodsReceiptInvalidError extends Error {}
-  return {
-    getGoodsReceiptService: () => ({ create: mocks.createGoodsReceipt }),
-    GoodsReceiptInvalidError,
-    PurchaseOrderNotFoundError,
-    ProcurementService: class {},
-  };
-});
+vi.mock("@/modules/procurement", () => ({
+  GoodsReceiptExceedsRemainingError: class extends Error {},
+  GoodsReceiptInvalidError: class extends Error {},
+  PurchaseOrderNotFoundError: class extends Error {},
+  PurchaseRequestAlreadyOrderedError: class extends Error {},
+  PurchaseRequestNotOrderableError: class extends Error {},
+  SupplierNotActiveError: class extends Error {},
+}));
 
-import type { RestockPurchaseOrderItem } from "@/modules/inventory/domain/ports/IRestockGoodsReceiptRepository";
+import { ENTRY_LINES_MISMATCH_MESSAGE } from "@/modules/inventory/services/RestockGoodsReceiptService";
+
 import {
-  RestockGoodsReceiptService,
-  RestockReceiptInvalidError,
-  type ReceiveRestockRequestInput,
-} from "@/modules/inventory/services/RestockGoodsReceiptService";
-import { RestockItemCancellationService } from "@/modules/inventory/services/RestockItemCancellationService";
-import { findForeignReceiptLine } from "@/modules/inventory/services/restock-receipt-settlement";
+  createReceiptFixture,
+  kabel,
+  konektor,
+  makeOrder,
+  makeRequest,
+  receiveWith,
+  type ReceiptFixture,
+} from "./restock-receipt-fixtures";
 
 /** Pesanan gabungan: kabel milik pengajuan ini, konektor milik pengajuan lain. */
-const kabel: RestockPurchaseOrderItem = {
-  id: "poi-1",
-  barangId: "b-1",
-  quantity: 10,
-  receivedQuantity: 0,
-  cancelledQuantity: 0,
-  barang: { id: "b-1", nama: "Kabel Fiber" },
-};
-const konektorMilikLain: RestockPurchaseOrderItem = {
-  id: "poi-2",
-  barangId: "b-2",
-  quantity: 5,
-  receivedQuantity: 0,
-  cancelledQuantity: 0,
-  barang: { id: "b-2", nama: "Konektor" },
-};
-const owned = new Set(["b-1"]);
-
-describe("findForeignReceiptLine", () => {
-  it("mengabaikan pesanan yang bukan gabungan", () => {
-    expect(
-      findForeignReceiptLine(
-        { receivedItems: { "b-2": 3 } },
-        [kabel, konektorMilikLain],
-        null,
-      ),
-    ).toBeNull();
+function createMergedOrderFixture(): ReceiptFixture {
+  return createReceiptFixture({
+    request: makeRequest(),
+    order: makeOrder({ items: [kabel, konektor] }),
+    linkedRequests: 2,
   });
-
-  it("membolehkan barang milik pengajuan ini dan jumlah 0 untuk barang lain", () => {
-    expect(
-      findForeignReceiptLine(
-        { receivedItems: { "b-1": 4, "b-2": 0 }, cancellations: { "b-2": "" } },
-        [kabel, konektorMilikLain],
-        owned,
-      ),
-    ).toBeNull();
-  });
-
-  it.each([
-    ["diterima lewat barangId", { receivedItems: { "b-2": 3 } }],
-    ["diterima lewat id item pesanan", { receivedItems: { "poi-2": 1 } }],
-    ["dicoret", { receivedItems: {}, cancellations: { "b-2": "Habis" } }],
-    ["diganti", { receivedItems: {}, substitutions: { "b-2": "b-9" } }],
-  ])("menolak barang milik pengajuan lain yang %s", (_label, input) => {
-    expect(
-      findForeignReceiptLine(input, [kabel, konektorMilikLain], owned),
-    ).toBe("Konektor");
-  });
-});
-
-function createRepository() {
-  return {
-    findPurchaseRequestForReceipt: vi.fn().mockResolvedValue({
-      id: "pr-1",
-      nomorRequest: "PR-20261109-0001",
-      gudangId: "g-1",
-      purchaseOrderId: "po-1",
-      status: "ORDERED",
-      receivableBarangIds: ["b-1"],
-    }),
-    findPurchaseOrderWithItems: vi.fn().mockResolvedValue({
-      id: "po-1",
-      poNumber: "PO-20261109-0001",
-      status: "ORDERED",
-      processedById: null,
-      issuedAt: null,
-      paymentStatus: "UNPAID",
-      jasaItemCount: 0,
-      goodsReceiptCount: 0,
-      items: [kabel, konektorMilikLain],
-    }),
-    findPurchaseOrderStatus: vi.fn().mockResolvedValue("ORDERED"),
-    hasOutstandingItems: vi.fn().mockResolvedValue(true),
-    countPurchaseRequestsForPurchaseOrder: vi.fn().mockResolvedValue(2),
-    applyItemCancellations: vi.fn(),
-    applyReceiptSettlement: vi.fn().mockResolvedValue(true),
-    finishPurchaseOrderWithoutDelivery: vi.fn().mockResolvedValue(true),
-    recordPurchaseOrderPurchase: vi.fn(),
-  };
-}
-
-function receive(
-  repository: ReturnType<typeof createRepository>,
-  input: Partial<ReceiveRestockRequestInput>,
-) {
-  const substitution = { apply: vi.fn().mockResolvedValue({}) };
-  const service = new RestockGoodsReceiptService(
-    repository as never,
-    substitution as never,
-    new RestockItemCancellationService(repository as never),
-    {} as never,
-  );
-  return {
-    substitution,
-    result: service.receive({
-      purchaseRequestId: "pr-1",
-      receivedItems: {},
-      fotoBukti: ["https://example.test/foto.jpg"],
-      closePO: false,
-      canIncreasePurchaseOrder: false,
-      actorId: "user-gudang",
-      tenantId: "tenant-1",
-      ...input,
-    }),
-  };
 }
 
 describe("RestockGoodsReceiptService — pesanan gabungan", () => {
-  beforeEach(() => {
-    Object.values(mocks).forEach((fn) => fn.mockReset());
-  });
+  beforeEach(() => mocks.logActivitySafe.mockReset());
 
-  it("menolak menerima barang milik pengajuan lain sebelum apa pun ditulis", async () => {
-    const repository = createRepository();
-    const { substitution, result } = receive(repository, {
+  it("hanya meminta jumlah barang milik pengajuan ini", async () => {
+    const fixture = createMergedOrderFixture();
+
+    const outcome = await receiveWith(fixture, {
       receivedItems: { "b-1": 2, "b-2": 5 },
     });
 
-    await expect(result).rejects.toBeInstanceOf(RestockReceiptInvalidError);
-    await expect(result).rejects.toThrow(/Konektor milik pengajuan lain/);
-    expect(substitution.apply).not.toHaveBeenCalled();
-    expect(mocks.createGoodsReceipt).not.toHaveBeenCalled();
-    expect(repository.applyReceiptSettlement).not.toHaveBeenCalled();
+    expect(outcome).toEqual({
+      success: false,
+      code: "INVALID",
+      error: ENTRY_LINES_MISMATCH_MESSAGE,
+    });
+    expect(fixture.goodsReceipts.create).not.toHaveBeenCalled();
   });
 
-  it("menolak mencoret barang milik pengajuan lain saat selesai tanpa kiriman", async () => {
-    const repository = createRepository();
-    const { result } = receive(repository, {
-      fotoBukti: [],
-      closePO: true,
-      cancellations: { "b-2": "Barang habis di toko" },
+  it("tidak mengganti barang milik pengajuan lain", async () => {
+    const fixture = createMergedOrderFixture();
+
+    const outcome = await receiveWith(fixture, {
+      receivedItems: { "b-1": 2 },
+      substitutions: { "b-2": "b-9" },
     });
 
-    await expect(result).rejects.toThrow(/Konektor milik pengajuan lain/);
-    expect(
-      repository.finishPurchaseOrderWithoutDelivery,
-    ).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({ success: false, code: "INVALID" });
+    expect(fixture.substitution.apply).not.toHaveBeenCalled();
+  });
+
+  it("rencana pengajuan terakhir mencoret semua sisa pesanan; bila pengajuan lain masih terbuka hanya pengajuan ini yang selesai", async () => {
+    const fixture = createMergedOrderFixture();
+    fixture.repository.closeRequest.mockResolvedValue({
+      isWritten: true,
+      isLastOpenRequest: false,
+    });
+
+    const outcome = await receiveWith(fixture, { receivedItems: { "b-1": 6 } });
+
+    expect(fixture.repository.closeRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ifOtherRequestsOpen: "SETTLE_REQUEST",
+        ifLastOpenRequest: {
+          settlement: "SETTLE_ORDER",
+          cancellations: [
+            expect.objectContaining({
+              purchaseOrderItemId: "poi-1",
+              cancelledQuantity: 4,
+            }),
+            expect.objectContaining({
+              purchaseOrderItemId: "poi-2",
+              cancelledQuantity: 5,
+            }),
+          ],
+        },
+      }),
+    );
+    expect(outcome).toMatchObject({
+      success: true,
+      data: { purchaseRequestStatus: "RECEIVED", notEntered: [] },
+    });
+  });
+
+  it("pengajuan terakhir yang terbuka melaporkan semua sisa yang dicoret", async () => {
+    const fixture = createMergedOrderFixture();
+
+    const outcome = await receiveWith(fixture, { receivedItems: { "b-1": 6 } });
+
+    expect(outcome).toMatchObject({
+      success: true,
+      data: {
+        notEntered: [
+          { barangId: "b-1", barangName: "Kabel Fiber", quantity: 4 },
+          { barangId: "b-2", barangName: "Konektor", quantity: 5 },
+        ],
+      },
+    });
+  });
+
+  it("barang yang sama dipakai dua pengajuan: rencana terakhir mencoret sisa item bersama sesudah GRN", async () => {
+    const kabelBersama = { ...kabel, quantity: 10 };
+    const fixture = createReceiptFixture({
+      request: makeRequest({
+        lines: [{ barangId: "b-1", jumlah: 5, barang: kabel.barang }],
+      }),
+      order: makeOrder({ items: [kabelBersama] }),
+      linkedRequests: 2,
+    });
+    fixture.repository.closeRequest.mockResolvedValue({
+      isWritten: true,
+      isLastOpenRequest: false,
+    });
+
+    const outcome = await receiveWith(fixture, { receivedItems: { "b-1": 5 } });
+
+    expect(fixture.goodsReceipts.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [{ purchaseOrderItemId: "poi-1", barangId: "b-1", quantity: 5 }],
+      }),
+    );
+    expect(fixture.repository.closeRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ifOtherRequestsOpen: "SETTLE_REQUEST",
+        ifLastOpenRequest: {
+          settlement: "SETTLE_ORDER",
+          cancellations: [
+            expect.objectContaining({
+              purchaseOrderItemId: "poi-1",
+              cancelledQuantity: 5,
+              expected: {
+                quantity: 10,
+                receivedQuantity: 5,
+                cancelledQuantity: 0,
+              },
+            }),
+          ],
+        },
+      }),
+    );
+    expect(outcome).toMatchObject({ success: true, data: { notEntered: [] } });
   });
 });

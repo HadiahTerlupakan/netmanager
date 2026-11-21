@@ -1,26 +1,22 @@
 "use client";
 
+import { getRestockLineProgress } from "@/modules/inventory/client";
+
 import {
+  getRequestedQuantity,
   getRequestedSatuan,
   isLineRejected,
   wasSubstituted,
 } from "./approvalUtils";
 import { RestockLineApprovalInfo } from "./RestockLineApprovalInfo";
-import { getRestockLineProgress } from "./restockProgress";
-import {
-  describeLinePurchaseBreakdown,
-  getRestockLinePurchase,
-  isRestockLegacyPurchased,
-} from "./restockPurchase";
-import type { PurchaseRequest, PurchaseRequestItem } from "./types";
+import { getRestockLineCancelReason } from "./restockStatus";
+import type { PurchaseRequestItem } from "./types";
 
 interface RestockDetailLinesProps {
-  /** Pengajuan pemilik baris; dipakai untuk rincian siapa yang membeli. */
-  request: PurchaseRequest;
   items: PurchaseRequestItem[];
-  /** true sesudah disetujui: tampilkan kolom dipesan/dibeli/datang/ditunggu. */
+  /** true sesudah disetujui: tampilkan kolom disetujui, masuk gudang, dan sisanya. */
   isShowingProgress: boolean;
-  /** Pesanan sudah selesai: sisa yang belum datang tidak ditunggu lagi. */
+  /** Pengajuan sudah ditutup: sisa yang belum masuk dihitung tidak masuk. */
   isOrderFinished?: boolean;
 }
 
@@ -53,49 +49,36 @@ function NumberCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-/**
- * "Dibeli 5 dari 10 roll (Budi 3, Andi 2)"; null bila belum dibeli.
- * Barang yang sudah dibeli lalu dicoret karena tidak dikirim toko ditulis
- * terpisah supaya angkanya cocok dengan rinciannya.
- */
-function describeLinePurchase(
-  item: PurchaseRequestItem,
-  request: PurchaseRequest,
-): string | null {
-  const { limit, purchased, purchasedTotal, boughtButNotDelivered } =
-    getRestockLinePurchase(item, isRestockLegacyPurchased(request));
-  if (purchasedTotal === 0) return null;
+/** Judul kolom terakhir: sisa yang belum masuk, atau yang tidak masuk setelah ditutup. */
+function getLastColumnLabel(isOrderFinished: boolean): string {
+  return isOrderFinished ? "Tidak masuk" : "Sisa";
+}
+
+/** "12 roll (+2 lebih)" bila yang masuk melebihi jumlah yang disetujui. */
+function formatReceived(item: PurchaseRequestItem, received: number): string {
   const satuan = item.barang.satuan;
-  const breakdown = describeLinePurchaseBreakdown(item, request);
-  const detail = breakdown ? ` (${breakdown})` : "";
-  if (boughtButNotDelivered > 0) {
-    return `Dibeli ${purchasedTotal} ${satuan}${detail}, ${boughtButNotDelivered} ${satuan} di antaranya tidak dikirim toko`;
-  }
-  return `Dibeli ${purchased} dari ${limit} ${satuan}${detail}`;
+  const extra = received - item.jumlah;
+  return extra > 0
+    ? `${received} ${satuan} (+${extra} lebih)`
+    : `${received} ${satuan}`;
 }
 
 function ProgressLine({
   item,
-  request,
   isOrderFinished,
 }: {
   item: PurchaseRequestItem;
-  request: PurchaseRequest;
   isOrderFinished: boolean;
 }) {
   const satuan = item.barang.satuan;
   const isRejected = isLineRejected(item);
-  const { ordered, received, cancelled, remaining } = getRestockLineProgress(
+  const { received, cancelled, remaining } = getRestockLineProgress(
     item,
     isOrderFinished,
   );
-  const { purchasedTotal } = getRestockLinePurchase(
-    item,
-    isRestockLegacyPurchased(request),
-  );
-  const purchaseText = isRejected ? null : describeLinePurchase(item, request);
-  const formatQty = (value: number) =>
-    isRejected ? "-" : `${value} ${satuan}`;
+  const cancelReason = isRejected ? null : getRestockLineCancelReason(item);
+  const lastValue = isOrderFinished ? cancelled : remaining;
+  const showUnlessRejected = (text: string) => (isRejected ? "-" : text);
 
   return (
     <div className={`space-y-2 p-4 ${GRID_CLASS}`}>
@@ -109,22 +92,28 @@ function ProgressLine({
           {item.barang.kode}
         </p>
         <LineApprovalInfo item={item} />
-        {purchaseText && (
-          <p className="mt-1 text-xs text-gray-700 dark:text-gray-300">
-            {purchaseText}
-          </p>
-        )}
-        {cancelled > 0 && (
+        {cancelReason && cancelled > 0 && (
           <p className="mt-1 text-xs font-semibold text-orange-800 dark:text-orange-300">
-            Tidak jadi datang {cancelled} {satuan}.
-            {item.cancelReason ? ` Alasan: ${item.cancelReason}` : ""}
+            Alasan tidak masuk: {cancelReason}
           </p>
         )}
       </div>
-      <NumberCell label="Dipesan" value={formatQty(ordered)} />
-      <NumberCell label="Sudah dibeli" value={formatQty(purchasedTotal)} />
-      <NumberCell label="Sudah datang" value={formatQty(received)} />
-      <NumberCell label="Masih ditunggu" value={formatQty(remaining)} />
+      <NumberCell
+        label="Diajukan"
+        value={`${getRequestedQuantity(item)} ${getRequestedSatuan(item)}`}
+      />
+      <NumberCell
+        label="Disetujui"
+        value={showUnlessRejected(`${item.jumlah} ${satuan}`)}
+      />
+      <NumberCell
+        label="Masuk gudang"
+        value={showUnlessRejected(formatReceived(item, received))}
+      />
+      <NumberCell
+        label={getLastColumnLabel(isOrderFinished)}
+        value={showUnlessRejected(`${lastValue} ${satuan}`)}
+      />
     </div>
   );
 }
@@ -151,9 +140,11 @@ function RequestedLine({ item }: { item: PurchaseRequestItem }) {
   );
 }
 
-/** Daftar barang di detail; sesudah disetujui tampil sebagai progres per barang. */
+/**
+ * Daftar barang di detail; sesudah disetujui tampil dengan jumlah yang
+ * diajukan, disetujui, masuk gudang, dan sisanya per barang.
+ */
 export function RestockDetailLines({
-  request,
   items,
   isShowingProgress,
   isOrderFinished = false,
@@ -170,10 +161,12 @@ export function RestockDetailLines({
             className={`hidden bg-gray-50 px-4 py-2 text-xs font-bold text-gray-700 dark:bg-gray-900 dark:text-gray-300 ${GRID_CLASS}`}
           >
             <span>Barang</span>
-            <span className="text-right">Dipesan</span>
-            <span className="text-right">Sudah dibeli</span>
-            <span className="text-right">Sudah datang</span>
-            <span className="text-right">Masih ditunggu</span>
+            <span className="text-right">Diajukan</span>
+            <span className="text-right">Disetujui</span>
+            <span className="text-right">Masuk gudang</span>
+            <span className="text-right">
+              {getLastColumnLabel(isOrderFinished)}
+            </span>
           </div>
         )}
         {items.map((item) =>
@@ -181,7 +174,6 @@ export function RestockDetailLines({
             <ProgressLine
               key={item.id}
               item={item}
-              request={request}
               isOrderFinished={isOrderFinished}
             />
           ) : (

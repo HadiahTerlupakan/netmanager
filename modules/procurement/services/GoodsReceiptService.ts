@@ -18,7 +18,7 @@ import { PurchaseOrderNotFoundError } from "./PurchaseOrderService";
 import { GoodsReceiptRestockOrderError } from "../domain/goods-receipt-errors";
 
 export {
-  GoodsReceiptExceedsPurchasedError,
+  GoodsReceiptExceedsRemainingError,
   GoodsReceiptRestockOrderError,
   RESTOCK_ORDER_RECEIPT_MESSAGE,
 } from "../domain/goods-receipt-errors";
@@ -51,8 +51,6 @@ interface CreateGoodsReceiptServiceInput {
     quantity: number;
     notes?: string | null;
   }>;
-  /** Lihat `GoodsReceiptCreateInput.isLimitedToPurchased`. */
-  isLimitedToPurchased?: boolean;
 }
 
 /**
@@ -61,7 +59,10 @@ interface CreateGoodsReceiptServiceInput {
  * Aturan utama:
  * - PO harus exist dan punya tenantId yang sama dengan caller
  * - Setiap item GRN harus punya `purchaseOrderItemId` yang valid milik PO ini
- * - `quantity` GRN tidak boleh > sisa (quantity − receivedQuantity − cancelledQuantity)
+ * - `quantity` GRN tidak boleh > sisa (quantity − receivedQuantity − cancelledQuantity);
+ *   dicek di sini untuk pesan yang menyebut nama barang, lalu dijaga lagi di
+ *   dalam transaksi (`GoodsReceiptExceedsRemainingError`) untuk penerimaan
+ *   yang berjalan bersamaan
  * - PO yang sudah RECEIVED atau CANCELLED ditolak (cegah barang masuk untuk
  *   sisa yang sudah dinyatakan tidak jadi datang)
  */
@@ -83,8 +84,8 @@ export class GoodsReceiptService {
 
   /**
    * Penerimaan dari halaman Pembelian. Pesanan dari pengajuan restock ditolak:
-   * belanjanya dilaporkan lewat link dan barangnya dicatat dari halaman
-   * Restock, supaya tahap pembelian tidak terlewati. `create()` sendiri tetap
+   * barangnya dimasukkan dari halaman Restock (Masukkan Barang) supaya foto
+   * bukti wajib dan status pengajuan ikut selesai. `create()` sendiri tetap
    * menerima pesanan restock karena dipakai alur restock.
    */
   async createFromProcurementPage(
@@ -120,7 +121,6 @@ export class GoodsReceiptService {
       notes: input.notes ?? null,
       fotoBukti: input.fotoBukti ?? [],
       tenantId: input.tenantId,
-      isLimitedToPurchased: input.isLimitedToPurchased ?? false,
       items: input.items.map((it) => ({
         purchaseOrderItemId: it.purchaseOrderItemId,
         barangId: it.barangId,

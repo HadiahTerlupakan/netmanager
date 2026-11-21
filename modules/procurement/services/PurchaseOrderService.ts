@@ -30,27 +30,20 @@ export class PurchaseOrderNotEditableError extends Error {
 }
 
 /**
- * PO milik pengajuan restock tidak boleh diproses dari halaman pembelian:
- * sudah dibeli atau belum hanya dicatat lewat link belanja di halaman restock.
+ * PO tidak bisa dihapus karena punya catatan belanja lama dari tahap
+ * pembelian restock yang sudah dihapus (FK RESTRICT ke PO).
  */
-export class PurchaseOrderIsRestockError extends PurchaseOrderNotEditableError {
-  constructor() {
-    super(
-      "Pesanan ini dibuat dari pengajuan restock. Sudah dibeli atau belum dicatat lewat link belanja di halaman restock, jadi tidak bisa diproses dari sini.",
-    );
-    this.name = "PurchaseOrderIsRestockError";
-  }
-}
-
-/** PO tidak bisa dihapus karena belanjanya sudah dicatat. */
 export class PurchaseOrderHasPurchasesError extends PurchaseOrderNotEditableError {
   constructor() {
     super(
-      "Pesanan ini sudah punya catatan belanja, jadi tidak bisa dihapus. Batalkan lewat halaman restock bila barangnya tidak jadi datang.",
+      "Pesanan ini punya catatan belanja lama, jadi tidak bisa dihapus. Batalkan pengajuannya saja.",
     );
     this.name = "PurchaseOrderHasPurchasesError";
   }
 }
+
+const HAS_GOODS_RECEIPTS_MESSAGE =
+  "Pesanan ini sudah punya catatan barang masuk (GRN), jadi tidak bisa dihapus.";
 
 interface CreatePurchaseOrderServiceInput extends CreatePurchaseOrderInput {
   createdBy: string;
@@ -160,6 +153,10 @@ export class PurchaseOrderService {
     return this.poRepo.updateMetadata(id, { ...data, vendorNpwp });
   }
 
+  /**
+   * Hapus PO yang belum diterima. Pengajuan yang masih menunggu PO ini kembali
+   * berstatus Disetujui (APPROVED) supaya bisa dibuatkan PO lagi.
+   */
   async delete(id: string): Promise<void> {
     const existing = await this.poRepo.findById(id);
     if (!existing) throw new PurchaseOrderNotFoundError(id);
@@ -170,9 +167,12 @@ export class PurchaseOrderService {
     }
     const outcome = await this.poRepo.delete(id);
     if (outcome === "HAS_PURCHASES") throw new PurchaseOrderHasPurchasesError();
+    if (outcome === "HAS_GOODS_RECEIPTS") {
+      throw new PurchaseOrderNotEditableError(HAS_GOODS_RECEIPTS_MESSAGE);
+    }
   }
 
-  /** DRAFT → ORDERED untuk PO biasa; PO restock ditolak. */
+  /** DRAFT → ORDERED, termasuk PO yang dibuat dari pengajuan restock. */
   async process(id: string, actorId: string): Promise<PurchaseOrderEntity> {
     const existing = await this.poRepo.findById(id);
     if (!existing) throw new PurchaseOrderNotFoundError(id);
@@ -180,9 +180,6 @@ export class PurchaseOrderService {
       throw new PurchaseOrderNotEditableError(
         "Hanya PO Draft yang bisa diproses menjadi Ordered",
       );
-    }
-    if ((await this.poRepo.countLinkedRestockRequests(id)) > 0) {
-      throw new PurchaseOrderIsRestockError();
     }
     return this.poRepo.processToOrdered(id, actorId);
   }

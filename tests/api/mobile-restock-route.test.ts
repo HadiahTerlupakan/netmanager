@@ -22,18 +22,42 @@ vi.mock("@/lib/api-response", () => ({
   },
 }));
 
-vi.mock("@/modules/inventory", () => ({
+// Presenter memakai aturan status asli (entrypoint klien modul mengekspor
+// aturan yang sama dengan barrel); hanya service-nya yang ditiru.
+vi.mock("@/modules/inventory", async () => ({
+  ...(await vi.importActual<Record<string, unknown>>(
+    "@/modules/inventory/client",
+  )),
   getMobileRestockStatusService: () => ({
     getRequestPage: mocks.getRequestPage,
   }),
 }));
 
+import type { MobileRestockSource } from "@/app/api/mobile/inventory/pengajuan/presentRestockRequest";
 import { GET } from "@/app/api/mobile/inventory/pengajuan/route";
 
 const handler = GET as unknown as (
   req: NextRequest,
   ctx: unknown,
 ) => Promise<Response>;
+
+/** Satu baris halaman dari repository: tanggal masih `Date`. */
+function makePageRow(
+  overrides: Partial<MobileRestockSource> = {},
+): MobileRestockSource {
+  return {
+    id: "pr-1",
+    nomorRequest: "PR-001",
+    status: "DRAFT",
+    tanggal: new Date("2026-11-01T03:00:00.000Z"),
+    gudang: { nama: "Gudang Site A" },
+    items: [],
+    jasaItems: [],
+    purchaseOrderId: null,
+    purchaseOrder: null,
+    ...overrides,
+  };
+}
 
 function ctxWith(permissions: string[]) {
   return {
@@ -60,18 +84,25 @@ describe("GET /api/mobile/inventory/pengajuan", () => {
   it("mengembalikan pengajuan yang sudah dibentuk dan cursor berikutnya", async () => {
     mocks.getRequestPage.mockResolvedValue({
       items: [
-        {
-          id: "pr-1",
-          nomorRequest: "PR-001",
-          status: "SUBMITTED",
-          createdAt: new Date("2026-11-01T03:00:00.000Z"),
-          gudang: { id: "g-1", nama: "Gudang Site A" },
-          items: [],
-          jasaItems: [],
-          purchaseOrder: null,
-        },
+        makePageRow(),
+        makePageRow({
+          id: "pr-2",
+          nomorRequest: "PR-002",
+          status: "APPROVED",
+          purchaseOrderId: "po-2",
+          purchaseOrder: { status: "DRAFT" },
+          items: [{ id: "item-2", jumlah: 10 }],
+        }),
+        makePageRow({
+          id: "pr-3",
+          nomorRequest: "PR-003",
+          status: "ORDERED",
+          purchaseOrderId: "po-3",
+          purchaseOrder: { status: "ORDERED" },
+          items: [{ id: "item-3", jumlah: 10, receivedQuantity: 4 }],
+        }),
       ],
-      nextCursor: "pr-1",
+      nextCursor: "pr-3",
     });
 
     const response = await handler(
@@ -88,11 +119,43 @@ describe("GET /api/mobile/inventory/pengajuan", () => {
       tenantId: "tenant-1",
       cursor: "pr-0",
     });
-    expect(json.nextCursor).toBe("pr-1");
+    expect(json.nextCursor).toBe("pr-3");
+    expect(json.data).toHaveLength(3);
     expect(json.data[0]).toMatchObject({
       nomor: "PR-001",
+      tanggal: "2026-11-01T03:00:00.000Z",
       gudang: "Gudang Site A",
-      status: { label: "Menunggu Persetujuan" },
+      status: {
+        kode: "AWAITING_APPROVAL",
+        label: "Sudah Diajukan",
+        kalimat: "Menunggu persetujuan atasan.",
+      },
+    });
+    for (const row of json.data.slice(1)) {
+      expect(row.status).toEqual({
+        kode: "APPROVED",
+        label: "Sudah Diajukan",
+        kalimat:
+          "Sudah disetujui. Menunggu admin memasukkan barangnya ke gudang.",
+      });
+    }
+    for (const row of json.data) {
+      expect(row.tahap).toEqual({
+        sekarang: null,
+        berhentiDi: null,
+        total: 0,
+        judul: [],
+      });
+    }
+    expect(json.data[1].barang[0]).toMatchObject({
+      disetujui: 10,
+      dimasukkan: null,
+    });
+    expect(json.data[2].barang[0]).toMatchObject({
+      disetujui: 10,
+      dimasukkan: 4,
+      dibeli: 4,
+      datang: 4,
     });
   });
 

@@ -38,6 +38,12 @@ interface RestockJasaItemInput {
   keterangan?: string | null;
 }
 
+/**
+ * Ubah isi pengajuan restock — PUT /restock/requests/[id]. Boleh tidaknya
+ * diubah (belum diputuskan dan belum punya pesanan) diperiksa repository
+ * secara atomik saat menyimpan, jadi pengajuan yang berubah di antaranya
+ * dijawab 409, dan yang sudah dihapus dijawab 404.
+ */
 export async function handleRestockPutRequest(req: NextRequest, id: string) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
@@ -79,24 +85,6 @@ export async function handleRestockPutRequest(req: NextRequest, id: string) {
     })) ??
     (await ensureRestockGudangSiteAccess({ user: session.user, gudangId }));
   if (siteDenied) return siteDenied;
-  const existing = await inventoryRouteService.getPurchaseRequestById({
-    id,
-    tenantId,
-  });
-
-  if (!existing) {
-    return NextResponse.json(
-      { error: RESTOCK_MESSAGES.requestNotFound },
-      { status: 404 },
-    );
-  }
-
-  if (existing.status !== "DRAFT" && existing.status !== "SUBMITTED") {
-    return NextResponse.json(
-      { error: restockCannotEditMessage(existing.status) },
-      { status: 400 },
-    );
-  }
 
   try {
     const result = await inventoryRouteService.updatePurchaseRequest({

@@ -49,7 +49,7 @@ interface PurchaseOrderDetail {
   supplier: { id: string; name: string; npwp: string | null } | null;
   items: PurchaseOrderItem[];
   jasaItems?: PurchaseOrderJasaItem[];
-  /** PO dari pengajuan restock: status belinya hanya lewat link belanja. */
+  /** PO dari pengajuan restock: barangnya dimasukkan dari halaman Restock. */
   isRestockOrder?: boolean;
 }
 
@@ -271,13 +271,13 @@ export function PurchaseOrderEditClient({ poId }: Props) {
     );
   }
 
-  // Pesanan restock dicatat datang dari halaman Restock (setelah belanjanya
-  // dilaporkan lewat link); server menolak GRN dari sini dengan 409.
+  // Barang pesanan restock dimasukkan dari halaman Restock (Masukkan Barang);
+  // server menolak GRN dari sini dengan 409.
   const showGrnButton =
     data.status !== "CANCELLED" &&
     data.status !== "RECEIVED" &&
     !data.isRestockOrder;
-  const showProcessButton = data.status === "DRAFT" && !data.isRestockOrder;
+  const showProcessButton = data.status === "DRAFT";
   const showPayHint = data.status === "ORDERED" || data.status === "PARTIAL";
 
   return (
@@ -330,12 +330,11 @@ export function PurchaseOrderEditClient({ poId }: Props) {
     >
       {data.isRestockOrder && (
         <p className="mb-4 max-w-5xl rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-100">
-          Pesanan ini dari pengajuan restock. Belanjanya dilaporkan lewat link
-          belanja, dan barang datang dicatat dari{" "}
+          Pesanan ini dibuat dari pengajuan restock. Barangnya dimasukkan dari{" "}
           <Link href="/admin/inventory/restock" className="font-bold underline">
             halaman Restock
-          </Link>
-          .
+          </Link>{" "}
+          lewat tombol Masukkan Barang, bukan lewat GRN di sini.
         </p>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-5xl">

@@ -8,23 +8,29 @@ import {
   FiPlus,
   FiSearch,
   FiTrash2,
+  FiXCircle,
 } from "react-icons/fi";
 
 import { toast } from "react-hot-toast";
 
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
+import {
+  canCancelRestockRequest,
+  canDeleteRestockRequest,
+  canEditRestockRequest,
+  canEnterRestockGoods,
+} from "@/modules/inventory/client";
 
 import { generatePurchaseRequestPdf } from "./pdf";
-import { CLOSE_UNPURCHASED_TITLE } from "./restockCloseUnpurchased";
 import { RestockProgressStatus } from "./RestockStatusBadge";
-import {
-  canDeleteRestockRequest,
-  getRestockProgressActions,
-} from "./restockProgress";
+import { CANCEL_REQUEST_LABEL } from "./restockCancel";
+import { getRestockFocusKey, RESTOCK_FOCUS_ATTRIBUTE } from "./restockFocus";
+import { ENTER_GOODS_LABEL } from "./restockReceiveForm";
 import {
   canApprovePurchaseRequest,
-  canEditPurchaseRequest,
   getPendingJasaItems,
+  type RestockStatusFilter,
+  type RestockStatusFilterOption,
 } from "./utils";
 import type { PurchaseRequest } from "./types";
 
@@ -38,9 +44,9 @@ interface RestockTableProps {
   loading: boolean;
   search: string;
   onSearchChange: (value: string) => void;
-  statusFilter: PurchaseRequest["status"] | "all";
-  onStatusFilterChange: (value: PurchaseRequest["status"] | "all") => void;
-  statusOptions: RestockFilterOption[];
+  statusFilter: RestockStatusFilter;
+  onStatusFilterChange: (value: RestockStatusFilter) => void;
+  statusOptions: readonly RestockStatusFilterOption[];
   gudangFilter: string;
   onGudangFilterChange: (value: string) => void;
   gudangOptions: RestockFilterOption[];
@@ -57,11 +63,10 @@ interface RestockTableProps {
   onOpenEdit: (request: PurchaseRequest) => void;
   onOpenDetail: (request: PurchaseRequest) => void;
   onOpenApproval: (request: PurchaseRequest) => void;
+  /** Buka "Masukkan Barang". */
   onOpenReceive: (request: PurchaseRequest) => void;
-  /** Buka detail pengajuan dan langsung ke panel link belanja. */
-  onOpenPurchaseLink?: (request: PurchaseRequest) => void;
-  /** Buka "Tutup sisa yang tidak jadi dibeli" untuk pengajuan yang macet. */
-  onOpenCloseUnpurchased?: (request: PurchaseRequest) => void;
+  /** Buka "Batalkan Pengajuan". */
+  onOpenCancel: (request: PurchaseRequest) => void;
   onOpenConfirmJasa?: (request: PurchaseRequest) => void;
   onDelete: (id: string) => void;
 }
@@ -71,10 +76,7 @@ interface RestockActionHandlers {
   onOpenDetail: (request: PurchaseRequest) => void;
   onOpenApproval: (request: PurchaseRequest) => void;
   onOpenReceive: (request: PurchaseRequest) => void;
-  /** Buka detail pengajuan dan langsung ke panel link belanja. */
-  onOpenPurchaseLink?: (request: PurchaseRequest) => void;
-  /** Buka "Tutup sisa yang tidak jadi dibeli" untuk pengajuan yang macet. */
-  onOpenCloseUnpurchased?: (request: PurchaseRequest) => void;
+  onOpenCancel: (request: PurchaseRequest) => void;
   onOpenConfirmJasa?: (request: PurchaseRequest) => void;
   onDelete: (id: string) => void;
 }
@@ -86,29 +88,43 @@ interface RestockActionPermissions {
   canDelete: boolean;
 }
 
-interface RenderRestockActionsInput
-  extends RestockActionHandlers, RestockActionPermissions {
+type RestockActionInput = RestockActionHandlers & RestockActionPermissions;
+
+interface RenderRestockActionsInput extends RestockActionInput {
   request: PurchaseRequest;
 }
+
+/** Status pengajuan (DB) yang jasanya bisa dikonfirmasi selesai. */
+const JASA_CONFIRMABLE_STATUSES: ReadonlyArray<PurchaseRequest["status"]> = [
+  "APPROVED",
+  "ORDERED",
+  "RECEIVED",
+];
 
 function IconActionButton({
   label,
   title,
   className,
   onClick,
+  focusKey,
   children,
 }: {
   label: string;
   title: string;
   className: string;
   onClick: () => void;
+  /** Kunci untuk menemukan tombol ini lagi sesudah tabel dirender ulang. */
+  focusKey?: string;
   children: ReactNode;
 }) {
+  // Atribut tanpa nilai (undefined) tidak dirender React.
+  const focusAttributes = { [RESTOCK_FOCUS_ATTRIBUTE]: focusKey };
   return (
     <button
       onClick={onClick}
       title={title}
       aria-label={label}
+      {...focusAttributes}
       className={`inline-flex min-w-[2.25rem] items-center justify-center rounded-xl p-2 transition-colors ${className}`}
     >
       {children}
@@ -134,11 +150,21 @@ function PrimaryActionButton({
   );
 }
 
+/**
+ * Urutan aksi: Detail, PDF, Edit, Tinjau & Putuskan, Masukkan Barang,
+ * Konfirmasi Jasa, Batalkan Pengajuan, Hapus.
+ */
 function renderRestockActions(input: RenderRestockActionsInput) {
+  const { request } = input;
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
-      {renderBaseActions(input.request, input)}
-      {renderStatusActions(input.request, input)}
+      {renderBaseActions(request, input)}
+      {renderEditAction(request, input)}
+      {renderApproveAction(request, input)}
+      {renderEnterAction(request, input)}
+      {renderConfirmJasaAction(request, input)}
+      {renderCancelAction(request, input)}
+      {renderDeleteAction(request, input)}
     </div>
   );
 }
@@ -152,6 +178,7 @@ function renderBaseActions(
       <IconActionButton
         title="Lihat Detail"
         label={`Lihat detail ${request.nomorRequest}`}
+        focusKey={getRestockFocusKey("detail", request.id)}
         onClick={() => handlers.onOpenDetail(request)}
         className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
       >
@@ -160,7 +187,7 @@ function renderBaseActions(
       <IconActionButton
         title="Unduh PDF"
         label={`Unduh PDF pengajuan ${request.nomorRequest}`}
-        onClick={() => void downloadRequestPdf(request)}
+        onClick={() => downloadRequestPdf(request)}
         className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
       >
         <FiDownload className="text-[0.95rem]" />
@@ -169,38 +196,16 @@ function renderBaseActions(
   );
 }
 
-/** Unduh PDF pengajuan; tanda tangan pembeli dimuat dulu, jadi ada jeda. */
-async function downloadRequestPdf(request: PurchaseRequest) {
-  const loadingToastId = toast.loading("Menyiapkan PDF…");
+function downloadRequestPdf(request: PurchaseRequest) {
   try {
-    await generatePurchaseRequestPdf(request);
+    generatePurchaseRequestPdf(request);
   } catch {
     toast.error("PDF gagal dibuat. Coba lagi.");
-  } finally {
-    toast.dismiss(loadingToastId);
   }
 }
 
-function renderStatusActions(
-  request: PurchaseRequest,
-  input: RestockActionHandlers & RestockActionPermissions,
-) {
-  return (
-    <>
-      {renderEditAction(request, input)}
-      {renderApproveAction(request, input)}
-      {renderProgressActions(request, input)}
-      {renderConfirmJasaAction(request, input)}
-      {renderDeleteAction(request, input)}
-    </>
-  );
-}
-
-function renderEditAction(
-  request: PurchaseRequest,
-  input: RestockActionHandlers & RestockActionPermissions,
-) {
-  if (!canEditPurchaseRequest(request.status, input.canUpdate)) return null;
+function renderEditAction(request: PurchaseRequest, input: RestockActionInput) {
+  if (!input.canUpdate || !canEditRestockRequest(request)) return null;
 
   return (
     <IconActionButton
@@ -216,7 +221,7 @@ function renderEditAction(
 
 function renderApproveAction(
   request: PurchaseRequest,
-  input: RestockActionHandlers & RestockActionPermissions,
+  input: RestockActionInput,
 ) {
   if (!canApprovePurchaseRequest(request.status, input.canApprove)) return null;
 
@@ -231,95 +236,35 @@ function renderApproveAction(
   );
 }
 
-const RECEIVE_ACTION_CLASS =
-  "inline-flex min-h-[44px] min-w-[8.5rem] items-center justify-center rounded-xl px-3 py-2 text-xs font-bold text-white transition-all sm:min-h-0";
-const SECONDARY_ACTION_CLASS =
-  "inline-flex min-h-[44px] min-w-[8.5rem] items-center justify-center rounded-xl border border-indigo-300 bg-white px-3 py-2 text-xs font-bold text-indigo-800 transition-all hover:bg-indigo-50 dark:border-indigo-700 dark:bg-gray-800 dark:text-indigo-200 sm:min-h-0";
+const ENTER_ACTION_CLASS =
+  "inline-flex min-h-[44px] min-w-[8.5rem] items-center justify-center rounded-xl bg-indigo-700 px-3 py-2 text-xs font-bold text-white transition-all hover:bg-indigo-800 sm:min-h-0";
 
-const SEND_LINK_LABEL = "Kirim Link Belanja";
-
-/** aria-label diawali teks tombol yang terlihat (WCAG 2.5.3). */
-function getReceiveActionAriaLabel(label: string, nomorRequest: string) {
-  return `${label} untuk ${nomorRequest}`;
-}
-
-const REQUEST_DATE_FORMAT: Intl.DateTimeFormatOptions = {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-};
-
-/** Tanggal pengajuan, mis. "09 Nov 2026". */
-function formatRequestDate(isoDate: string): string {
-  return new Date(isoDate).toLocaleDateString("id-ID", REQUEST_DATE_FORMAT);
-}
-
-/**
- * Tombol perjalanan pesanan. Tahap pembelian: "Kirim Link Belanja" jadi
- * tombol utama. Barang yang sudah dilaporkan dibeli tapi belum datang bisa
- * dicatat lebih dulu lewat "Catat Barang Datang" (tombol kedua selama link
- * masih tombol utama). Tahap verifikasi: hanya tombol catat. Pengajuan
- * yang macet tanpa daftar belanja: "Tutup sisa yang tidak jadi dibeli".
- */
-function renderProgressActions(
+/** "Masukkan Barang", tombol utama untuk pengajuan yang sudah disetujui. */
+function renderEnterAction(
   request: PurchaseRequest,
-  input: RestockActionHandlers & RestockActionPermissions,
+  input: RestockActionInput,
 ) {
-  if (!input.canVerify) return null;
-  const actions = getRestockProgressActions(request);
-  if (actions.canCloseUnpurchased && input.onOpenCloseUnpurchased) {
-    return (
-      <PrimaryActionButton
-        label={`${CLOSE_UNPURCHASED_TITLE} untuk ${request.nomorRequest}`}
-        onClick={() => input.onOpenCloseUnpurchased?.(request)}
-        className={SECONDARY_ACTION_CLASS}
-      >
-        {CLOSE_UNPURCHASED_TITLE}
-      </PrimaryActionButton>
-    );
-  }
-  const canSendLink = actions.canSendLink && !!input.onOpenPurchaseLink;
-  const receiveAction = actions.receiveLabel ? (
-    <PrimaryActionButton
-      label={getReceiveActionAriaLabel(
-        actions.receiveLabel,
-        request.nomorRequest,
-      )}
-      onClick={() => input.onOpenReceive(request)}
-      className={
-        canSendLink
-          ? SECONDARY_ACTION_CLASS
-          : `${RECEIVE_ACTION_CLASS} bg-indigo-700 hover:bg-indigo-800`
-      }
-    >
-      {actions.receiveLabel}
-    </PrimaryActionButton>
-  ) : null;
-  if (!canSendLink) return receiveAction;
+  if (!input.canVerify || !canEnterRestockGoods(request)) return null;
 
   return (
-    <>
-      <PrimaryActionButton
-        label={`${SEND_LINK_LABEL}, pengajuan ${request.nomorRequest}`}
-        onClick={() => input.onOpenPurchaseLink?.(request)}
-        className={`${RECEIVE_ACTION_CLASS} bg-indigo-700 hover:bg-indigo-800`}
-      >
-        {SEND_LINK_LABEL}
-      </PrimaryActionButton>
-      {receiveAction}
-    </>
+    <PrimaryActionButton
+      // aria-label diawali teks tombol yang terlihat (WCAG 2.5.3).
+      label={`${ENTER_GOODS_LABEL} untuk ${request.nomorRequest}`}
+      onClick={() => input.onOpenReceive(request)}
+      className={ENTER_ACTION_CLASS}
+    >
+      {ENTER_GOODS_LABEL}
+    </PrimaryActionButton>
   );
 }
 
 function renderConfirmJasaAction(
   request: PurchaseRequest,
-  input: RestockActionHandlers & RestockActionPermissions,
+  input: RestockActionInput,
 ) {
   if (!input.canVerify || !input.onOpenConfirmJasa) return null;
   if (getPendingJasaItems(request).length === 0) return null;
-  if (!["APPROVED", "ORDERED", "RECEIVED"].includes(request.status)) {
-    return null;
-  }
+  if (!JASA_CONFIRMABLE_STATUSES.includes(request.status)) return null;
 
   return (
     <PrimaryActionButton
@@ -332,11 +277,34 @@ function renderConfirmJasaAction(
   );
 }
 
+/**
+ * "Batalkan Pengajuan": selama `canCancelRestockRequest` mengizinkan, aturan
+ * yang sama dengan server (pesanan gabungan ikut dihitung).
+ */
+function renderCancelAction(
+  request: PurchaseRequest,
+  input: RestockActionInput,
+) {
+  if (!input.canVerify || !canCancelRestockRequest(request)) return null;
+
+  return (
+    <IconActionButton
+      title={CANCEL_REQUEST_LABEL}
+      label={`${CANCEL_REQUEST_LABEL} ${request.nomorRequest}`}
+      focusKey={getRestockFocusKey("cancel", request.id)}
+      onClick={() => input.onOpenCancel(request)}
+      className="text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+    >
+      <FiXCircle className="text-[0.95rem]" />
+    </IconActionButton>
+  );
+}
+
 function renderDeleteAction(
   request: PurchaseRequest,
-  input: RestockActionHandlers & RestockActionPermissions,
+  input: RestockActionInput,
 ) {
-  if (!canDeleteRestockRequest(request, input.canDelete)) return null;
+  if (!input.canDelete || !canDeleteRestockRequest(request)) return null;
 
   return (
     <IconActionButton
@@ -348,6 +316,17 @@ function renderDeleteAction(
       <FiTrash2 className="text-[0.95rem]" />
     </IconActionButton>
   );
+}
+
+const REQUEST_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+};
+
+/** Tanggal pengajuan, mis. "09 Nov 2026". */
+function formatRequestDate(isoDate: string): string {
+  return new Date(isoDate).toLocaleDateString("id-ID", REQUEST_DATE_FORMAT);
 }
 
 function renderEmptyMessage(hasActiveFilter: boolean): ReactNode {
@@ -367,6 +346,7 @@ function renderEmptyMessage(hasActiveFilter: boolean): ReactNode {
   return "Belum ada data pengajuan.";
 }
 
+/** Tabel pengajuan barang beserta pencarian, filter, dan aksi per baris. */
 export function RestockTable({
   requests,
   loading,
@@ -392,8 +372,7 @@ export function RestockTable({
   onOpenDetail,
   onOpenApproval,
   onOpenReceive,
-  onOpenPurchaseLink,
-  onOpenCloseUnpurchased,
+  onOpenCancel,
   onOpenConfirmJasa,
   onDelete,
 }: RestockTableProps) {
@@ -412,8 +391,7 @@ export function RestockTable({
       onOpenDetail,
       onOpenApproval,
       onOpenReceive,
-      onOpenPurchaseLink,
-      onOpenCloseUnpurchased,
+      onOpenCancel,
       onOpenConfirmJasa,
       onDelete,
     });
@@ -519,8 +497,8 @@ export function RestockTable({
             Pengajuan Barang
           </h1>
           <p className="max-w-[42rem] text-sm font-medium text-gray-600 dark:text-gray-400">
-            Ajukan barang dan jasa, tunggu persetujuan atasan, lalu catat barang
-            yang datang.
+            Ajukan barang dan jasa. Setelah disetujui, admin memasukkan
+            barangnya ke gudang dengan foto bukti.
           </p>
         </div>
         <button
@@ -547,9 +525,7 @@ export function RestockTable({
           <select
             value={statusFilter}
             onChange={(event) =>
-              onStatusFilterChange(
-                event.target.value as PurchaseRequest["status"] | "all",
-              )
+              onStatusFilterChange(event.target.value as RestockStatusFilter)
             }
             className="h-12 w-full rounded-[1.5rem] border border-gray-200 bg-white px-4 text-sm font-medium normal-case tracking-normal text-gray-800 shadow-sm transition-all focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:focus:border-indigo-500 dark:focus:ring-indigo-950/40"
           >

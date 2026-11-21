@@ -17,6 +17,7 @@ import type {
   PurchaseOrderPaymentInput,
   PurchaseOrderPaymentResult,
 } from "../domain/ports/IPurchaseOrderRepository";
+import { APPROVED_OPEN_PURCHASE_REQUEST_STATUSES } from "../domain/purchase-request-statuses";
 
 const PO_NUMBER_SEPARATOR = "/";
 const PO_NUMBER_PADDING = 4;
@@ -249,23 +250,20 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
 
   async delete(id: string): Promise<PurchaseOrderDeleteOutcome> {
     return this.client.$transaction(async (tx) => {
-      // Kunci baris PO: pencatatan belanja restock mengunci baris yang sama,
-      // jadi belanja tidak bisa tersimpan di sela pemeriksaan dan penghapusan.
+      // Kunci baris PO: GRN, ubah isi PO, dan penutupan pengajuan restock
+      // mengunci baris yang sama, jadi barang masuk tidak bisa tersimpan di
+      // sela pemeriksaan dan penghapusan.
       const locked = await tx.$queryRaw<Array<{ poNumber: string }>>`
         SELECT "poNumber" FROM purchase_orders WHERE id = ${id} FOR UPDATE`;
       const po = locked[0];
       if (!po) return "NOT_FOUND";
 
-      if (await hasPurchaseRecords(tx, id)) return "HAS_PURCHASES";
+      if (await hasHistoricalPurchaseRecords(tx, id)) return "HAS_PURCHASES";
 
       const goodsReceiptCount = await tx.goodsReceipt.count({
         where: { purchaseOrderId: id },
       });
-      if (goodsReceiptCount > 0) {
-        throw new Error(
-          "Purchase Order sudah punya Goods Receipt dan tidak dapat dihapus",
-        );
-      }
+      if (goodsReceiptCount > 0) return "HAS_GOODS_RECEIPTS";
 
       const paymentExpenses = await tx.expense.findMany({
         where: { invoiceNumber: po.poNumber },
@@ -285,25 +283,18 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
         });
       }
 
-      // Yang tersisa hanya catatan belanja yang sudah dibatalkan; dihapus
-      // dulu karena menahan item pesanan. Jejaknya tidak hilang: log
-      // aktivitas VOID_PURCHASE menyalin isi catatan lengkap, termasuk kunci
-      // tanda tangan, IP, dan perangkat pembeli.
-      await tx.purchaseRecord.deleteMany({
-        where: { purchaseOrderId: id, voidedAt: { not: null } },
-      });
       await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: id } });
       await tx.purchaseOrderJasaItem.deleteMany({
         where: { purchaseOrderId: id },
       });
-      // Link belanja pengajuan ikut dicabut: pesanannya hilang, dan link
-      // tidak boleh hidup lagi saat pesanan baru dibuat.
-      await tx.restockPurchaseLink.updateMany({
-        where: { revokedAt: null, purchaseRequest: { purchaseOrderId: id } },
-        data: { revokedAt: new Date() },
-      });
+      // Pengajuan yang masih menunggu PO ini kembali APPROVED (siap dibuatkan
+      // PO lagi). Pengajuan yang sudah ditutup (dibatalkan, selesai) tetap
+      // statusnya; FK ON DELETE SET NULL melepasnya dari PO.
       await tx.purchaseRequest.updateMany({
-        where: { purchaseOrderId: id },
+        where: {
+          purchaseOrderId: id,
+          status: { in: [...APPROVED_OPEN_PURCHASE_REQUEST_STATUSES] },
+        },
         data: { status: "APPROVED", purchaseOrderId: null },
       });
       await tx.purchaseOrder.delete({ where: { id } });
@@ -421,20 +412,20 @@ export class PurchaseOrderRepository implements IPurchaseOrderRepository {
 }
 
 /**
- * True bila PO sudah punya catatan belanja yang tidak dibatalkan atau jumlah
- * dibeli. Catatan yang dibatalkan tidak menghalangi penghapusan.
+ * Bacaan historis yang wajib: catatan belanja dari tahap pembelian restock
+ * yang sudah dihapus tidak lagi ditulis, tapi FK RESTRICT
+ * (purchase_records.purchaseOrderId dan purchase_record_items.purchaseOrderItemId)
+ * tetap menahan PO. Catatan yang sudah dibatalkan pun ikut menahan, dan tidak
+ * dihapus supaya jejaknya tetap ada.
  */
-async function hasPurchaseRecords(
+async function hasHistoricalPurchaseRecords(
   tx: Prisma.TransactionClient,
   purchaseOrderId: string,
 ): Promise<boolean> {
-  const [recordCount, purchasedItemCount] = await Promise.all([
-    tx.purchaseRecord.count({ where: { purchaseOrderId, voidedAt: null } }),
-    tx.purchaseOrderItem.count({
-      where: { purchaseOrderId, purchasedQuantity: { gt: 0 } },
-    }),
-  ]);
-  return recordCount > 0 || purchasedItemCount > 0;
+  const recordCount = await tx.purchaseRecord.count({
+    where: { purchaseOrderId },
+  });
+  return recordCount > 0;
 }
 
 function createPONumberPrefix(date: Date): string {

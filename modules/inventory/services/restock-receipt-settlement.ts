@@ -1,232 +1,118 @@
 import type {
   GuardedItemCancellation,
+  RestockOrderSettlement,
+  RestockPurchaseOrderForReceipt,
   RestockPurchaseOrderItem,
   RestockPurchaseRequestForReceipt,
 } from "../domain/ports/IRestockGoodsReceiptRepository";
 
-/**
- * Akibat satu penyimpanan "Catat Barang yang Datang" terhadap status:
- * - KEEP_OPEN: masih ada sisa milik pengajuan ini yang ditunggu.
- * - SETTLE_REQUEST: barang pengajuan ini tuntas, tapi pesanan gabungan masih
- *   menunggu barang pengajuan lain; hanya pengajuan ini yang selesai.
- * - SETTLE_ORDER: tidak ada sisa di seluruh pesanan; pesanan dan semua
- *   pengajuannya selesai.
- * - CANCEL_ORDER: pesanan tuntas tanpa satu pun barang datang dan aman
- *   dibatalkan beserta pengajuannya.
+/*
+ * Aturan murni penutupan pengajuan restock yang sudah disetujui: sisa mana
+ * yang dicoret dan bagaimana status pesanan serta pengajuannya berubah bila
+ * pengajuan ini yang terakhir terbuka di pesanannya. Selama pesanan gabungan
+ * masih dipakai pengajuan lain yang terbuka, tidak ada yang dicoret.
  */
-export type RestockReceiptSettlement =
-  | "KEEP_OPEN"
-  | "SETTLE_REQUEST"
-  | "SETTLE_ORDER"
-  | "CANCEL_ORDER";
 
-/** Status pesanan yang masih boleh dibatalkan tanpa kiriman. */
-const CANCELLABLE_ORDER_STATUSES = ["DRAFT", "ORDERED"];
+/** Status pesanan yang masih boleh dibatalkan. */
+const CANCELLABLE_ORDER_STATUSES: readonly string[] = ["DRAFT", "ORDERED"];
 const UNPAID = "UNPAID";
+/** Pesanan dianggap gabungan bila dipakai lebih dari satu pengajuan. */
+const SINGLE_REQUEST_COUNT = 1;
 
-/** Sisa satu item pesanan yang belum datang maupun dicoret. */
+/** Sisa satu item pesanan yang belum masuk maupun dicoret. */
 export function getPurchaseOrderItemOutstanding(
   item: Pick<
     RestockPurchaseOrderItem,
     "quantity" | "receivedQuantity" | "cancelledQuantity"
   >,
 ): number {
-  return (
-    item.quantity - (item.receivedQuantity || 0) - (item.cancelledQuantity || 0)
-  );
-}
-
-/** Apakah masih ada sisa pada item yang barangnya termasuk `barangIds`. */
-export function hasOutstandingForBarang(
-  items: RestockPurchaseOrderItem[],
-  barangIds: ReadonlySet<string> | null,
-): boolean {
-  return items.some(
-    (item) =>
-      (barangIds === null || barangIds.has(item.barangId)) &&
-      getPurchaseOrderItemOutstanding(item) > 0,
-  );
-}
-
-export interface RestockOrderCancellationFacts {
-  purchaseOrderStatus: string | null;
-  items: RestockPurchaseOrderItem[];
-  linkedRequestCount: number;
-  jasaItemCount: number;
-  goodsReceiptCount: number;
-  paymentStatus: string | null;
+  return item.quantity - item.receivedQuantity - item.cancelledQuantity;
 }
 
 /**
- * Pesanan hanya dibatalkan bila benar-benar tidak ada yang terjadi padanya:
- * belum ada barang datang, belum ada barang yang dibeli di toko, tidak ada jasa (biaya jasa tetap ditagih toko),
- * belum dibayar (pembayaran perlu diurus admin), dan hanya dipakai pengajuan
- * ini. Selain itu pesanan diselesaikan (RECEIVED) supaya jejaknya utuh.
- */
-export function canCancelUnfulfilledOrder(
-  facts: RestockOrderCancellationFacts,
-): boolean {
-  if (!CANCELLABLE_ORDER_STATUSES.includes(facts.purchaseOrderStatus ?? "")) {
-    return false;
-  }
-  if (
-    facts.items.some(
-      (item) =>
-        (item.receivedQuantity || 0) > 0 || (item.purchasedQuantity ?? 0) > 0,
-    )
-  ) {
-    return false;
-  }
-  if (facts.goodsReceiptCount > 0 || facts.jasaItemCount > 0) return false;
-  if ((facts.paymentStatus ?? UNPAID) !== UNPAID) return false;
-  return facts.linkedRequestCount === 1;
-}
-
-export interface RestockSettlementFacts {
-  purchaseOrderStatus: string | null;
-  hasOutstandingOnOrder: boolean;
-  hasOutstandingOnRequest: boolean;
-  /** Hanya penyelesaian tanpa kiriman yang boleh membatalkan pesanan. */
-  canCancelOrder: boolean;
-}
-
-/** Tentukan akibat penyimpanan dari keadaan pesanan sesudah perubahan. */
-export function decideRestockReceiptSettlement(
-  facts: RestockSettlementFacts,
-): RestockReceiptSettlement {
-  if (
-    facts.purchaseOrderStatus === "RECEIVED" ||
-    !facts.hasOutstandingOnOrder
-  ) {
-    return facts.canCancelOrder ? "CANCEL_ORDER" : "SETTLE_ORDER";
-  }
-  return facts.hasOutstandingOnRequest ? "KEEP_OPEN" : "SETTLE_REQUEST";
-}
-
-/** Status pesanan & pengajuan yang dikembalikan ke UI untuk satu keputusan. */
-export function describeSettlementStatuses(
-  settlement: RestockReceiptSettlement,
-  current: {
-    purchaseOrderStatus: string | null;
-    purchaseRequestStatus: string;
-  },
-): { purchaseOrderStatus: string | null; purchaseRequestStatus: string } {
-  switch (settlement) {
-    case "CANCEL_ORDER":
-      return {
-        purchaseOrderStatus: "CANCELLED",
-        purchaseRequestStatus: "CANCELLED",
-      };
-    case "SETTLE_ORDER":
-      return {
-        purchaseOrderStatus: "RECEIVED",
-        purchaseRequestStatus: "RECEIVED",
-      };
-    case "SETTLE_REQUEST":
-      return { ...current, purchaseRequestStatus: "RECEIVED" };
-    case "KEEP_OPEN":
-      return current;
-  }
-}
-
-/**
- * Pesanan milik satu pengajuan: semua barangnya milik pengajuan itu (null).
- * Pesanan gabungan: hanya barang di baris pengajuan yang tidak ditolak.
+ * Barang yang diisi pengajuan ini di Masukkan Barang. Pesanan milik satu
+ * pengajuan: semua barangnya (null). Pesanan gabungan: hanya barang di baris
+ * pengajuan yang tidak ditolak.
  */
 export function resolveOwnedBarangIds(
-  purchaseRequest: RestockPurchaseRequestForReceipt,
+  request: Pick<RestockPurchaseRequestForReceipt, "lines">,
   linkedRequestCount: number,
 ): ReadonlySet<string> | null {
-  if (linkedRequestCount <= 1 || !purchaseRequest.receivableBarangIds) {
-    return null;
+  if (linkedRequestCount <= SINGLE_REQUEST_COUNT) return null;
+  return new Set(request.lines.map((line) => line.barangId));
+}
+
+/**
+ * Pesanan ikut dibatalkan hanya bila benar-benar belum terjadi apa pun
+ * padanya: belum ada barang masuk, tanpa jasa (biaya jasa tetap ditagih
+ * toko), belum dibayar (pembayaran perlu diurus admin), hanya dipakai
+ * pengajuan ini, dan tanpa catatan belanja lama. Selain itu pesanan ditutup
+ * selesai supaya jejaknya utuh.
+ */
+export function canCancelUnfulfilledOrder(
+  order: RestockPurchaseOrderForReceipt,
+  linkedRequestCount: number,
+): boolean {
+  if (!CANCELLABLE_ORDER_STATUSES.includes(order.status)) return false;
+  if (order.items.some((item) => item.receivedQuantity > 0)) return false;
+  if (order.goodsReceiptIds.length > 0 || order.jasaItemCount > 0) {
+    return false;
   }
-  return new Set(purchaseRequest.receivableBarangIds);
+  // Bacaan data historis tahap pembelian, sama dengan penjaga pembatalan
+  // pesanan di repository.
+  if (order.hasLegacyPurchases) return false;
+  if ((order.paymentStatus ?? UNPAID) !== UNPAID) return false;
+  return linkedRequestCount === SINGLE_REQUEST_COUNT;
 }
 
-/** Keadaan item sesudah pencoretan, tanpa membaca ulang database. */
-export function applyCancellationsToItems(
-  items: RestockPurchaseOrderItem[],
-  cancellations: Array<{
-    purchaseOrderItemId: string;
-    cancelledQuantity: number;
-  }>,
-): RestockPurchaseOrderItem[] {
-  return items.map((item) => {
-    const cancelledNow = cancellations
-      .filter((cancellation) => cancellation.purchaseOrderItemId === item.id)
-      .reduce((sum, cancellation) => sum + cancellation.cancelledQuantity, 0);
-    return {
-      ...item,
-      cancelledQuantity: (item.cancelledQuantity || 0) + cancelledNow,
+/**
+ * Akibat Batalkan oleh pengajuan terakhir yang terbuka: pesanan yang belum
+ * tersentuh ikut dibatalkan; selain itu pesanannya ditutup selesai supaya
+ * jejaknya utuh.
+ */
+export function decideLastRequestCancelSettlement(
+  canCancelOrder: boolean,
+): RestockOrderSettlement {
+  return canCancelOrder ? "CANCEL_ORDER" : "CANCEL_REQUEST_AND_SETTLE_ORDER";
+}
+
+/** Pencoretan sisa satu item beserta item asalnya (untuk nama barang). */
+export interface PlannedRemainderCancellation {
+  item: RestockPurchaseOrderItem;
+  cancellation: GuardedItemCancellation;
+}
+
+/**
+ * Coret seluruh sisa item yang diberikan. Snapshot yang menjadi syarat
+ * penulisan sudah memperhitungkan langkah sebelumnya pada penyimpanan yang
+ * sama: jumlah pesanan ditambah kelebihan yang dinaikkan, dan jumlah masuk
+ * ditambah yang baru dimasukkan lewat GRN.
+ */
+export function planRemainderCancellations(input: {
+  items: RestockPurchaseOrderItem[];
+  reason: string;
+  enteredByItemId?: ReadonlyMap<string, number>;
+  extraByItemId?: ReadonlyMap<string, number>;
+}): PlannedRemainderCancellation[] {
+  return input.items.flatMap((item) => {
+    const expected = {
+      quantity: item.quantity + (input.extraByItemId?.get(item.id) ?? 0),
+      receivedQuantity:
+        item.receivedQuantity + (input.enteredByItemId?.get(item.id) ?? 0),
+      cancelledQuantity: item.cancelledQuantity,
     };
-  });
-}
-
-/** Pencoretan beserta snapshot item yang menjadi syarat penulisannya. */
-export function toGuardedCancellations(
-  items: RestockPurchaseOrderItem[],
-  cancellations: Array<{
-    purchaseOrderItemId: string;
-    cancelledQuantity: number;
-    reason: string;
-  }>,
-): GuardedItemCancellation[] {
-  return cancellations.flatMap((cancellation) => {
-    const item = items.find(
-      (candidate) => candidate.id === cancellation.purchaseOrderItemId,
-    );
-    if (!item || getPurchaseOrderItemOutstanding(item) <= 0) return [];
+    const remainder = getPurchaseOrderItemOutstanding(expected);
+    if (remainder <= 0) return [];
     return [
       {
-        purchaseOrderItemId: cancellation.purchaseOrderItemId,
-        cancelledQuantity: cancellation.cancelledQuantity,
-        reason: cancellation.reason,
-        expected: {
-          quantity: item.quantity,
-          receivedQuantity: item.receivedQuantity || 0,
-          cancelledQuantity: item.cancelledQuantity || 0,
+        item,
+        cancellation: {
+          purchaseOrderItemId: item.id,
+          cancelledQuantity: remainder,
+          reason: input.reason,
+          expected,
         },
       },
     ];
   });
-}
-
-/** Isian penyimpanan yang menyentuh baris pesanan. */
-export interface RestockReceiptLineInput {
-  receivedItems: Record<string, number>;
-  substitutions?: Record<string, string>;
-  cancellations?: Record<string, string>;
-}
-
-/**
- * Pada pesanan gabungan, cari barang milik pengajuan lain yang ikut diterima,
- * dicoret, atau diganti lewat pengajuan ini. Mengembalikan nama barangnya,
- * atau null bila semua isian milik pengajuan ini (atau pesanan tidak gabungan).
- */
-export function findForeignReceiptLine(
-  input: RestockReceiptLineInput,
-  items: RestockPurchaseOrderItem[],
-  ownedBarangIds: ReadonlySet<string> | null,
-): string | null {
-  if (ownedBarangIds === null) return null;
-  const foreignItem = (key: string) =>
-    items.find(
-      (item) =>
-        (item.barangId === key || item.id === key) &&
-        !ownedBarangIds.has(item.barangId),
-    );
-  const touchedKeys = [
-    ...Object.entries(input.receivedItems)
-      .filter(([, quantity]) => Number(quantity) > 0)
-      .map(([key]) => key),
-    ...Object.keys(input.substitutions ?? {}),
-    ...Object.entries(input.cancellations ?? {})
-      .filter(([, reason]) => (reason ?? "").trim().length > 0)
-      .map(([key]) => key),
-  ];
-  for (const key of touchedKeys) {
-    const item = foreignItem(key);
-    if (item) return item.barang?.nama ?? item.barangId;
-  }
-  return null;
 }

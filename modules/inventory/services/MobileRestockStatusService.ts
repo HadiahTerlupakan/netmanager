@@ -34,8 +34,8 @@ export type MobileRestockPage = Awaited<
  * Daftar pengajuan barang (restock) untuk dilihat dari aplikasi mobile.
  * Hanya membaca: lingkupnya gudang di site akun, sama seperti daftar gudang
  * mobile. Akun tanpa batasan site melihat semua gudang tenant. Mitra ditolak:
- * data pengadaan (pemohon, catatan atasan) khusus karyawan internal, sama
- * seperti tile menu cepatnya yang `internalOnly`.
+ * data pengadaan (pemohon, catatan atasan, alasan pembatalan) khusus karyawan
+ * internal, sama seperti tile menu cepatnya yang `internalOnly`.
  */
 export class MobileRestockStatusService {
   constructor(

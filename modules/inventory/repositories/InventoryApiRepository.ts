@@ -125,7 +125,7 @@ export class InventoryApiRepository {
     return this.purchaseRequestRepository.findPurchaseRequestById(input);
   }
 
-  /** Perbarui item purchase request draft/submitted. */
+  /** Perbarui pengajuan yang belum diputuskan dan belum punya pesanan. */
   async updatePurchaseRequest(input: {
     id: string;
     tenantId: string;
@@ -136,23 +136,14 @@ export class InventoryApiRepository {
       quantity: number;
       keterangan?: string | null;
     }>;
+    jasaItems?: Array<{
+      jasaId: string;
+      jumlah: number;
+      hargaPerUnit?: number;
+      keterangan?: string | null;
+    }>;
   }) {
     return this.purchaseRequestRepository.updatePurchaseRequest(input);
-  }
-
-  /** Hapus purchase request. */
-  async deletePurchaseRequest(id: string) {
-    return this.purchaseRequestRepository.deletePurchaseRequest(id);
-  }
-
-  /** True bila PO pengajuan sudah punya barang yang datang. */
-  async hasArrivedGoods(purchaseOrderId: string) {
-    return this.purchaseRequestRepository.hasArrivedGoods(purchaseOrderId);
-  }
-
-  /** True bila PO pengajuan sudah punya catatan belanja. */
-  async hasPurchaseRecords(purchaseOrderId: string) {
-    return this.purchaseRequestRepository.hasPurchaseRecords(purchaseOrderId);
   }
 
   /** Ambil summary opname berbasis stok dan opname terakhir. */

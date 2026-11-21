@@ -1,4 +1,20 @@
-/** Kontrak akses data untuk alur verifikasi kedatangan barang restock. */
+/**
+ * Kontrak akses data untuk Masukkan Barang dan Batalkan pada pengajuan
+ * restock yang sudah disetujui.
+ */
+
+/** Baris barang pengajuan yang tidak ditolak atasan. */
+export interface RestockRequestLineForReceipt {
+  barangId: string;
+  /** Jumlah yang berlaku: yang diajukan, atau yang disetujui atasan. */
+  jumlah: number;
+  barang?: { id: string; nama: string } | null;
+}
+
+/** Baris jasa pengajuan yang tidak ditolak atasan. */
+export interface RestockRequestJasaForReceipt {
+  statusKonfirmasi: string;
+}
 
 export interface RestockPurchaseRequestForReceipt {
   id: string;
@@ -6,8 +22,9 @@ export interface RestockPurchaseRequestForReceipt {
   gudangId: string;
   status: string;
   nomorRequest: string;
-  /** Barang di baris pengajuan yang tidak ditolak atasan. */
-  receivableBarangIds?: string[];
+  /** Baris yang ditolak atasan tidak ikut dipesan, jadi tidak dimuat. */
+  lines: RestockRequestLineForReceipt[];
+  jasaItems: RestockRequestJasaForReceipt[];
 }
 
 export interface RestockPurchaseOrderItem {
@@ -16,33 +33,23 @@ export interface RestockPurchaseOrderItem {
   quantity: number;
   receivedQuantity: number;
   cancelledQuantity: number;
-  /** Jumlah tercatat dibeli lewat catatan belanja. */
-  purchasedQuantity?: number;
   barang?: { id: string; nama: string } | null;
 }
 
 export interface RestockPurchaseOrderForReceipt {
   id: string;
-  poNumber?: string | null;
-  status?: string;
-  /** Tanggal barang ditandai sudah dibeli; null bila belum pernah dicatat. */
-  issuedAt?: Date | null;
-  processedById?: string | null;
-  tenantId?: string | null;
-  paymentStatus?: string | null;
+  status: string;
+  paymentStatus: string | null;
   /** Jumlah baris jasa di pesanan; pesanan berjasa tidak dibatalkan. */
-  jasaItemCount?: number;
-  goodsReceiptCount?: number;
-  /** Semua catatan belanja pesanan ini, termasuk yang dibatalkan. */
-  purchaseRecordCount?: number;
+  jasaItemCount: number;
+  goodsReceiptIds: string[];
+  /**
+   * Data historis tahap pembelian (dihapus 2026-11-21): pesanan punya catatan
+   * belanja yang tidak dibatalkan. Pesanan seperti itu tidak dibatalkan, sama
+   * dengan penjaga pembatalan pesanan di repository.
+   */
+  hasLegacyPurchases: boolean;
   items: RestockPurchaseOrderItem[];
-}
-
-/** Catatan siapa dan kapan barang pesanan dibeli ke toko. */
-export interface PurchaseOrderPurchaseRecord {
-  purchaseOrderId: string;
-  processedById: string;
-  issuedAt: Date;
 }
 
 export interface BarangSubstitutionCandidate {
@@ -60,16 +67,6 @@ export interface ApplyItemSubstitutionInput {
   }>;
 }
 
-export interface ApplyItemCancellationInput {
-  purchaseOrderId: string;
-  cancelledAt: Date;
-  cancellations: Array<{
-    purchaseOrderItemId: string;
-    cancelledQuantity: number;
-    reason: string;
-  }>;
-}
-
 /** Snapshot item saat dibaca; pencoretan ditolak bila item sudah berubah. */
 export interface GuardedItemCancellation {
   purchaseOrderItemId: string;
@@ -79,37 +76,65 @@ export interface GuardedItemCancellation {
     quantity: number;
     receivedQuantity: number;
     cancelledQuantity: number;
-    /**
-     * Diisi saat menutup sisa yang tidak jadi dibeli: laporan belanja yang
-     * masuk bersamaan membuat penutupan gagal, bukan ikut mencoret barang
-     * yang baru dibeli.
-     */
-    purchasedQuantity?: number;
   };
 }
 
-/** Akibat penyimpanan terhadap status pesanan & pengajuan. */
-export type RestockSettlementKind =
-  | "KEEP_OPEN"
-  | "SETTLE_REQUEST"
-  | "SETTLE_ORDER"
-  | "CANCEL_ORDER";
+/**
+ * Penutupan selama pesanan gabungan masih dipakai pengajuan lain yang
+ * terbuka: tidak ada sisa yang dicoret dan pesanan dibiarkan terbuka.
+ * - SETTLE_REQUEST: hanya pengajuan ini yang selesai.
+ * - CANCEL_REQUEST: hanya pengajuan ini yang dibatalkan.
+ */
+export type RestockRequestOnlySettlement = "SETTLE_REQUEST" | "CANCEL_REQUEST";
 
-export interface ApplyReceiptSettlementInput {
-  purchaseOrderId: string;
-  purchaseRequestId: string;
-  settlement: RestockSettlementKind;
-  actorId: string;
+/**
+ * Penutupan oleh pengajuan terakhir yang terbuka di pesanannya:
+ * - SETTLE_ORDER: pengajuan dan pesanannya selesai.
+ * - CANCEL_ORDER: pesanan belum tersentuh apa pun; pesanan dan pengajuannya
+ *   dibatalkan.
+ * - CANCEL_REQUEST_AND_SETTLE_ORDER: pengajuan dibatalkan; pesanan yang tidak
+ *   boleh ikut dibatalkan ditutup selesai.
+ */
+export type RestockOrderSettlement =
+  | "SETTLE_ORDER"
+  | "CANCEL_ORDER"
+  | "CANCEL_REQUEST_AND_SETTLE_ORDER";
+
+/** Rencana penutupan bila pengajuan ini yang terakhir terbuka di pesanannya. */
+export interface RestockOrderClosingPlan {
+  settlement: RestockOrderSettlement;
+  /**
+   * Sisa semua item pesanan, dicoret bersyarat snapshot: tidak ada pengajuan
+   * lain yang masih menunggunya.
+   */
+  cancellations: GuardedItemCancellation[];
 }
 
-export interface FinishWithoutDeliveryInput extends ApplyReceiptSettlementInput {
+export interface CloseRestockRequestInput {
+  purchaseOrderId: string;
+  purchaseRequestId: string;
+  /** Dipakai bila pesanan masih dipakai pengajuan lain yang terbuka. */
+  ifOtherRequestsOpen: RestockRequestOnlySettlement;
+  /** Dipakai bila pengajuan ini yang terakhir terbuka di pesanannya. */
+  ifLastOpenRequest: RestockOrderClosingPlan;
+  actorId: string;
   cancelledAt: Date;
-  cancellations: GuardedItemCancellation[];
-  /**
-   * true: link belanja pengajuan ini dicabut di transaksi yang sama walau
-   * pesanannya masih terbuka (sisa yang belum dibeli sudah ditutup).
-   */
-  revokeRequestLinks?: boolean;
+  /** Alasan admin; ditulis ke pengajuan bila penutupannya membatalkan pengajuan. */
+  cancelReason?: string;
+}
+
+/**
+ * Hasil penutupan. `isLastOpenRequest` menyebut rencana yang diterapkan:
+ * true berarti sisa pesanan dicoret dan pesanannya ikut ditutup.
+ */
+export type CloseRestockRequestResult =
+  | { isWritten: false }
+  | { isWritten: true; isLastOpenRequest: boolean };
+
+export interface CancelRequestWithoutOrderInput {
+  purchaseRequestId: string;
+  tenantId: string;
+  cancelReason: string;
 }
 
 export interface IncreaseItemQuantitiesInput {
@@ -129,7 +154,8 @@ export interface PurchaseOrderIncreaseUndo {
   markedUnderpaid: boolean;
 }
 
-export interface IRestockGoodsReceiptRepository {
+/** Membaca pengajuan beserta pesanannya, lalu menutup pengajuan secara bersyarat. */
+export interface IRestockRequestClosureRepository {
   findPurchaseRequestForReceipt(
     id: string,
     tenantId: string,
@@ -139,8 +165,34 @@ export interface IRestockGoodsReceiptRepository {
     purchaseOrderId: string,
   ): Promise<RestockPurchaseOrderForReceipt | null>;
 
-  findPurchaseOrderStatus(purchaseOrderId: string): Promise<string | null>;
+  /** Jumlah pengajuan yang memakai pesanan ini. */
+  countPurchaseRequestsForPurchaseOrder(
+    purchaseOrderId: string,
+  ): Promise<number>;
 
+  /**
+   * Tutup pengajuan dalam satu transaksi yang diawali kunci baris pesanan.
+   * Sesudah kunci didapat, pengajuan lain yang masih terbuka di pesanan itu
+   * dibaca ulang: bila ada, `ifOtherRequestsOpen` diterapkan; bila tidak,
+   * sisa item dicoret (hanya bila item belum berubah sejak dibaca) lalu
+   * `ifLastOpenRequest` diterapkan. `isWritten: false` bila ada yang berubah
+   * di tengah jalan; tidak ada yang tertulis.
+   */
+  closeRequest(
+    input: CloseRestockRequestInput,
+  ): Promise<CloseRestockRequestResult>;
+
+  /**
+   * Batalkan pengajuan yang sudah disetujui tetapi belum punya pesanan. False
+   * bila statusnya berubah atau pesanannya baru saja dibuat.
+   */
+  cancelRequestWithoutOrder(
+    input: CancelRequestWithoutOrderInput,
+  ): Promise<boolean>;
+}
+
+/** Akses data Masukkan Barang: penutupan, ganti barang, dan kenaikan pesanan. */
+export interface IRestockGoodsReceiptRepository extends IRestockRequestClosureRepository {
   findBarangCandidates(
     barangIds: string[],
     tenantId: string,
@@ -148,46 +200,9 @@ export interface IRestockGoodsReceiptRepository {
 
   applyItemSubstitutions(input: ApplyItemSubstitutionInput): Promise<void>;
 
-  applyItemCancellations(input: ApplyItemCancellationInput): Promise<void>;
-
   increaseItemQuantities(
     input: IncreaseItemQuantitiesInput,
   ): Promise<PurchaseOrderIncreaseUndo>;
 
   undoItemQuantityIncrease(undo: PurchaseOrderIncreaseUndo): Promise<void>;
-
-  /**
-   * Apakah masih ada item yang belum datang maupun dicoret. `barangIds`
-   * membatasi pemeriksaan ke barang milik satu pengajuan.
-   */
-  hasOutstandingItems(
-    purchaseOrderId: string,
-    barangIds?: string[],
-  ): Promise<boolean>;
-
-  /** Jumlah pengajuan yang memakai pesanan ini. */
-  countPurchaseRequestsForPurchaseOrder(
-    purchaseOrderId: string,
-  ): Promise<number>;
-
-  /**
-   * Terapkan akibat penyimpanan ke status pesanan & pengajuan. False bila
-   * pembatalan ditolak karena pesanan sudah berubah (misalnya baru menerima
-   * barang).
-   */
-  applyReceiptSettlement(input: ApplyReceiptSettlementInput): Promise<boolean>;
-
-  /**
-   * Selesaikan pesanan tanpa kiriman dalam satu transaksi: coret sisa barang
-   * (hanya bila item belum berubah sejak dibaca) lalu terapkan statusnya.
-   * False bila ada yang berubah di tengah jalan; tidak ada yang tertulis.
-   */
-  finishPurchaseOrderWithoutDelivery(
-    input: FinishWithoutDeliveryInput,
-  ): Promise<boolean>;
-
-  /** Catat pembeli dan tanggal beli tanpa mengubah status pesanan. */
-  recordPurchaseOrderPurchase(
-    record: PurchaseOrderPurchaseRecord,
-  ): Promise<void>;
 }

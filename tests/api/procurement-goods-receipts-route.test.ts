@@ -48,7 +48,11 @@ vi.mock("@/modules/procurement", async () => {
 });
 
 import { POST } from "@/app/api/admin/procurement/goods-receipts/route";
-import { GoodsReceiptRestockOrderError } from "@/modules/procurement";
+import {
+  GoodsReceiptExceedsRemainingError,
+  GoodsReceiptRestockOrderError,
+  RESTOCK_ORDER_RECEIPT_MESSAGE,
+} from "@/modules/procurement";
 
 const validBody = {
   purchaseOrderId: "11111111-1111-4111-8111-111111111111",
@@ -93,10 +97,28 @@ describe("POST /api/admin/procurement/goods-receipts", () => {
     const body = await response.json();
 
     expect(response.status).toBe(409);
-    expect(JSON.stringify(body)).toContain(
-      "Pesanan ini dari pengajuan restock. Catat barang datang dari halaman Restock.",
+    expect(JSON.stringify(body)).toContain(RESTOCK_ORDER_RECEIPT_MESSAGE);
+    expect(RESTOCK_ORDER_RECEIPT_MESSAGE).toContain(
+      "Masukkan Barang di halaman Restock",
     );
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("penerimaan yang melebihi sisa karena pesanan baru berubah → 409, bukan 500", async () => {
+    mocks.createFromProcurementPage.mockRejectedValue(
+      new GoodsReceiptExceedsRemainingError(
+        validBody.items[0].purchaseOrderItemId,
+      ),
+    );
+
+    const response = await post(validBody);
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(JSON.stringify(body)).toContain("Muat ulang halaman");
+    expect(JSON.stringify(body)).not.toContain(
+      validBody.items[0].purchaseOrderItemId,
+    );
   });
 
   it("mencatat pesanan biasa lewat jalur halaman Pembelian", async () => {

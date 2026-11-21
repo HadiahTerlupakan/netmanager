@@ -1,50 +1,37 @@
+import type { RestockReceiveInput } from "@/lib/validations/restock";
+import { hasRestockEnteredAnything } from "@/modules/inventory/client";
+
 import type {
   Barang,
   PurchaseRequest,
   PurchaseRequestItem,
-  RestockCancellationMap,
   RestockOverReceiptMap,
   RestockSubstitutionMap,
 } from "./types";
-import { hasRestockReceivedAnything } from "./restockProgress";
 import {
-  canRestockReceiveWithoutPurchaseReport,
-  getRestockLineReceiveLimit,
-  hasRestockPurchaseActivity,
-  isRestockMergedOrder,
-} from "./restockPurchase";
-import {
-  buildCancellationPayload,
   buildOverReceiptPayload,
   buildSubstitutionPayload,
-  getReceivableRestockItems,
+  getRestockEnterableItems,
+  getRestockEntryBasis,
   getRestockItemRemaining,
   hasMissingOverReceiptReason,
 } from "./utils";
 
-/** Alasan siap pilih untuk barang yang tidak jadi datang. */
-export const RESTOCK_NOT_COMING_REASONS = [
-  "Barang habis di toko",
-  "Harga terlalu mahal",
-  "Toko tidak mengirim",
-  "Tidak jadi dibutuhkan",
-] as const;
-
-export const NOTHING_ARRIVED_MESSAGE =
-  'Belum ada jumlah barang yang diisi. Kalau barangnya belum datang, tekan Tutup dan catat nanti saat barang tiba. Kalau barangnya tidak akan datang, pilih "Tidak, sisanya tidak akan datang" di bagian 3.';
-
 /**
- * Cara pesanan disimpan:
- * - COMPLETE: semua sisa datang hari ini.
- * - WAITING: masih ada sisa yang ditunggu.
- * - FINISH: selesai dengan barang kurang, ada barang datang hari ini.
- * - FINISH_WITHOUT_DELIVERY: selesai tanpa kiriman hari ini.
+ * Aturan modal "Masukkan Barang": satu kali simpan selalu menyelesaikan
+ * pengajuan yang sudah disetujui. Barang yang diisi masuk gudang; sisa
+ * patokan tiap baris ({@link getRestockEntryBasis}) yang tidak diisi tidak
+ * dimasukkan.
  */
-export type RestockReceiveMode =
-  | "COMPLETE"
-  | "WAITING"
-  | "FINISH"
-  | "FINISH_WITHOUT_DELIVERY";
+
+/** Teks tombol dan judul modal untuk memasukkan barang pengajuan ke gudang. */
+export const ENTER_GOODS_LABEL = "Masukkan Barang";
+
+export const NOTHING_ENTERED_MESSAGE =
+  "Isi jumlah barang yang masuk, paling sedikit satu. Kalau tidak ada barang yang masuk, tutup jendela ini lalu tekan Batalkan Pengajuan.";
+export const PHOTO_MISSING_MESSAGE = "Foto barang yang masuk dulu.";
+export const OVER_RECEIPT_REASON_MISSING_MESSAGE =
+  "Tulis alasan barang yang masuk lebih banyak dari sisa pesanan.";
 
 export interface RestockReceiveLine {
   barangId: string;
@@ -54,65 +41,76 @@ export interface RestockReceiveLine {
 }
 
 export interface RestockReceiveSummary {
-  mode: RestockReceiveMode;
-  arrivingToday: RestockReceiveLine[];
-  stillAwaited: RestockReceiveLine[];
-  notComing: RestockReceiveLine[];
-  hasArrivalToday: boolean;
-  /** Masih ada sisa sesudah jumlah hari ini; pertanyaan bagian 3 muncul. */
-  hasRemainderAfterToday: boolean;
-  /** Tanda "tidak datang" per barang boleh dipakai (ada kiriman, jawaban "Ya"). */
-  allowsLineCancellation: boolean;
+  /** Barang yang masuk gudang saat disimpan. */
+  entering: RestockReceiveLine[];
+  /** Sisa patokan yang tidak dimasukkan; pengajuan tetap selesai. */
+  notEntered: RestockReceiveLine[];
+  /** Ada jumlah yang diisi; foto bukti wajib. */
+  hasEntry: boolean;
+  /**
+   * Pengajuan sudah pernah menerima sesuatu, jadi semua jumlah 0 boleh:
+   * pengajuan diselesaikan tanpa barang tambahan (aturan server yang sama).
+   */
+  hasEnteredBefore: boolean;
 }
 
 export interface RestockReceiveFormInput {
   request: PurchaseRequest;
   receivedItems: Record<string, number>;
   substitutions: RestockSubstitutionMap;
-  cancellations: RestockCancellationMap;
-  /** true = jawaban "Tidak, sisanya tidak akan datang". */
-  isFinishingOrder: boolean;
   barangs: Barang[];
 }
 
 export interface RestockReceiveProblemInput extends RestockReceiveFormInput {
   overReceipts: RestockOverReceiptMap;
-  closeReason: string;
   photoCount: number;
 }
 
 export interface RestockReceivePayloadInput extends RestockReceiveFormInput {
   overReceipts: RestockOverReceiptMap;
-  closeReason: string;
   fotoBukti: string[];
 }
 
-/** Body PATCH /api/inventory/restock/requests/[id]/receive. */
-export interface RestockReceivePayload {
-  items: Record<string, number>;
-  substitutions: RestockSubstitutionMap;
-  cancellations: RestockCancellationMap;
-  overReceipts: RestockOverReceiptMap;
-  fotoBukti: string[];
-  closePO: boolean;
-}
+/** Sampai jumlah ini pesan menyebut nama barang yang tidak dimasukkan. */
+const MAX_NOT_ENTERED_LINES_NAMED = 2;
 
-function getTodayQuantity(
+function getEnteredQuantity(
   item: PurchaseRequestItem,
   receivedItems: Record<string, number>,
 ): number {
   return Math.max(receivedItems[item.barangId] ?? 0, 0);
 }
 
-/** Sisa satu barang sesudah jumlah yang datang hari ini. */
-export function getRemainingAfterToday(
+/**
+ * Jumlah masuk yang boleh diisi untuk satu baris. Tanpa izin mengubah
+ * pesanan (`purchase_orders:update`) jumlahnya dibatasi sisa pesanan, karena
+ * kelebihan barang menambah isi pesanan dan server menolaknya.
+ */
+export function clampEnteredQuantity(
   item: PurchaseRequestItem,
-  todayQuantity: number,
+  quantity: number,
+  canOverReceive: boolean,
 ): number {
-  return Math.max(
-    Math.max(getRestockItemRemaining(item), 0) - todayQuantity,
-    0,
-  );
+  const nonNegative = Math.max(quantity, 0);
+  if (canOverReceive) return nonNegative;
+  return Math.min(nonNegative, getRestockItemRemaining(item));
+}
+
+/** Bagian patokan baris yang tidak ikut dimasukkan dengan jumlah ini. */
+export function getNotEnteredQuantity(
+  entryBasis: number,
+  enteredQuantity: number,
+): number {
+  return Math.max(entryBasis - enteredQuantity, 0);
+}
+
+function findReplacement(
+  item: PurchaseRequestItem,
+  input: RestockReceiveFormInput,
+): Barang | undefined {
+  const replacementId = input.substitutions[item.barangId];
+  if (!replacementId) return undefined;
+  return input.barangs.find((barang) => barang.id === replacementId);
 }
 
 function toLine(
@@ -128,238 +126,109 @@ function toLine(
   };
 }
 
-function resolveMode(
-  hasRemainder: boolean,
-  hasArrival: boolean,
-  isFinishingOrder: boolean,
-  awaitedCount: number,
-): RestockReceiveMode {
-  if (!hasRemainder) return "COMPLETE";
-  if (isFinishingOrder)
-    return hasArrival ? "FINISH" : "FINISH_WITHOUT_DELIVERY";
-  return awaitedCount === 0 ? "FINISH" : "WAITING";
-}
-
 /**
- * Ringkasan isian modal penerimaan: apa yang masuk gudang hari ini, apa yang
- * masih ditunggu, dan apa yang tidak jadi datang, beserta cara menyimpannya.
+ * Ringkasan isian: barang yang masuk gudang (dengan nama barang pengganti
+ * bila diganti) dan sisa yang tidak dimasukkan.
  */
-export function getRestockReceiveSummary({
-  request,
-  receivedItems,
-  substitutions,
-  cancellations,
-  isFinishingOrder,
-  barangs,
-}: RestockReceiveFormInput): RestockReceiveSummary {
-  const items = getReceivableRestockItems(request);
-  const hasArrivalToday = items.some(
-    (item) => getTodayQuantity(item, receivedItems) > 0,
-  );
-  const allowsLineCancellation = hasArrivalToday && !isFinishingOrder;
-  const arrivingToday: RestockReceiveLine[] = [];
-  const stillAwaited: RestockReceiveLine[] = [];
-  const notComing: RestockReceiveLine[] = [];
+export function getRestockReceiveSummary(
+  input: RestockReceiveFormInput,
+): RestockReceiveSummary {
+  const entering: RestockReceiveLine[] = [];
+  const notEntered: RestockReceiveLine[] = [];
 
-  for (const item of items) {
-    const today = getTodayQuantity(item, receivedItems);
-    if (today > 0) {
-      const replacementId = substitutions[item.barangId];
-      const replacement = replacementId
-        ? barangs.find((barang) => barang.id === replacementId)
-        : undefined;
-      arrivingToday.push(toLine(item, today, replacement));
+  for (const item of getRestockEnterableItems(input.request)) {
+    const entered = getEnteredQuantity(item, input.receivedItems);
+    if (entered > 0) {
+      entering.push(toLine(item, entered, findReplacement(item, input)));
     }
-    const remainder = getRemainingAfterToday(item, today);
-    if (remainder === 0) continue;
-    const isLineCancelled =
-      allowsLineCancellation && item.barangId in cancellations;
-    const target =
-      isFinishingOrder || isLineCancelled ? notComing : stillAwaited;
-    target.push(toLine(item, remainder));
+    const notEnteredQuantity = getNotEnteredQuantity(
+      getRestockEntryBasis(item, input.request),
+      entered,
+    );
+    if (notEnteredQuantity > 0) {
+      notEntered.push(toLine(item, notEnteredQuantity));
+    }
   }
 
-  const hasRemainderAfterToday = stillAwaited.length + notComing.length > 0;
   return {
-    mode: resolveMode(
-      hasRemainderAfterToday,
-      hasArrivalToday,
-      isFinishingOrder,
-      stillAwaited.length,
-    ),
-    arrivingToday,
-    stillAwaited,
-    notComing,
-    hasArrivalToday,
-    hasRemainderAfterToday,
-    allowsLineCancellation,
+    entering,
+    notEntered,
+    hasEntry: entering.length > 0,
+    hasEnteredBefore: hasRestockEnteredAnything(input.request),
   };
 }
 
 /**
- * Hal yang membuat penerimaan belum bisa disimpan, dalam kalimat untuk
- * petugas. Daftar kosong berarti tombol simpan aktif.
+ * Hal yang membuat isian belum bisa disimpan, dalam kalimat untuk petugas.
+ * Daftar kosong berarti tombol simpan aktif. Semua jumlah 0 hanya boleh pada
+ * pengajuan lama yang sudah pernah menerima barang (selesai tanpa barang
+ * tambahan, tanpa foto) — sama dengan aturan server.
  */
 export function getRestockReceiveProblems(
   input: RestockReceiveProblemInput,
 ): string[] {
   const summary = getRestockReceiveSummary(input);
-  const items = getReceivableRestockItems(input.request);
   const problems: string[] = [];
 
-  if (!summary.hasArrivalToday && summary.mode !== "FINISH_WITHOUT_DELIVERY") {
-    problems.push(NOTHING_ARRIVED_MESSAGE);
+  if (!summary.hasEntry && !summary.hasEnteredBefore) {
+    problems.push(NOTHING_ENTERED_MESSAGE);
   }
-  if (summary.hasArrivalToday && input.photoCount === 0) {
-    problems.push("Foto barang yang datang dulu.");
+  if (summary.hasEntry && input.photoCount === 0) {
+    problems.push(PHOTO_MISSING_MESSAGE);
   }
-  if (
-    input.isFinishingOrder &&
-    summary.hasRemainderAfterToday &&
-    input.closeReason.trim().length === 0
-  ) {
-    problems.push("Pilih alasan kenapa sisanya tidak datang.");
-  }
-  if (summary.allowsLineCancellation) {
-    problems.push(...describeLineCancellationProblems(input, items));
-  }
-  if (!canRestockReceiveWithoutPurchaseReport(input.request)) {
-    problems.push(...describeOverPurchasedProblems(input, items));
-  } else if (
-    hasMissingOverReceiptReason(items, input.receivedItems, input.overReceipts)
-  ) {
-    problems.push("Tulis alasan barang yang datang lebih banyak.");
-  }
+  const hasMissingReason = hasMissingOverReceiptReason(
+    getRestockEnterableItems(input.request),
+    input.receivedItems,
+    input.overReceipts,
+  );
+  if (hasMissingReason) problems.push(OVER_RECEIPT_REASON_MISSING_MESSAGE);
   return problems;
-}
-
-/** Pesan saat jumlah datang melebihi yang sudah dibeli dan belum datang. */
-export function describeOverPurchasedProblem(
-  nama: string,
-  limit: number,
-  satuan: string,
-): string {
-  return `${nama}: baru ${limit} ${satuan} yang sudah dibeli dan belum datang. Isi paling banyak ${limit}.`;
 }
 
 /**
- * Tahap pembelian: barang hanya boleh dicatat datang sebanyak yang sudah
- * dilaporkan dibeli dan belum datang. Server menolak hal yang sama.
+ * Body PATCH Masukkan Barang. Kunci `items` tepat baris yang masih punya
+ * sisa; barang pengganti hanya dikirim untuk barang yang benar-benar masuk.
  */
-function describeOverPurchasedProblems(
-  input: RestockReceiveFormInput,
-  items: PurchaseRequestItem[],
-): string[] {
-  return items.flatMap((item) => {
-    const limit = getRestockLineReceiveLimit(item, input.request);
-    if (getTodayQuantity(item, input.receivedItems) <= limit) return [];
-    return [
-      describeOverPurchasedProblem(
-        getDisplayedName(item, input),
-        limit,
-        item.barang.satuan,
-      ),
-    ];
-  });
-}
-
-function getDisplayedName(
-  item: PurchaseRequestItem,
-  input: RestockReceiveFormInput,
-): string {
-  const replacementId = input.substitutions[item.barangId];
-  const replacement = replacementId
-    ? input.barangs.find((barang) => barang.id === replacementId)
-    : undefined;
-  return replacement?.nama ?? item.barang.nama;
-}
-
-/** Masalah tanda "tidak akan datang" per barang, menyebut nama barangnya. */
-function describeLineCancellationProblems(
-  input: RestockReceiveFormInput,
-  items: PurchaseRequestItem[],
-): string[] {
-  const problems: string[] = [];
-  for (const item of items) {
-    const reason = input.cancellations[item.barangId];
-    if (reason === undefined) continue;
-    const nama = getDisplayedName(item, input);
-    const today = getTodayQuantity(item, input.receivedItems);
-    if (getRemainingAfterToday(item, today) === 0) {
-      problems.push(
-        `Barang yang sudah datang semua tidak perlu ditandai. Tekan "Ternyata masih datang" pada ${nama}.`,
-      );
-      continue;
-    }
-    if (reason.trim().length === 0) {
-      problems.push(`Pilih alasan kenapa ${nama} tidak datang.`);
-    }
-  }
-  return problems;
-}
-
-function buildCancellationsForMode(
-  input: RestockReceivePayloadInput,
-  summary: RestockReceiveSummary,
-): RestockCancellationMap {
-  const remainderIds = new Set(
-    [...summary.notComing, ...summary.stillAwaited].map(
-      (line) => line.barangId,
-    ),
-  );
-  if (input.isFinishingOrder) {
-    const reason = input.closeReason.trim();
-    return [...remainderIds].reduce<RestockCancellationMap>((acc, id) => {
-      acc[id] = reason;
-      return acc;
-    }, {});
-  }
-  if (!summary.allowsLineCancellation) return {};
-  const confirmed = buildCancellationPayload(input.cancellations);
-  return Object.fromEntries(
-    Object.entries(confirmed).filter(([barangId]) =>
-      remainderIds.has(barangId),
-    ),
-  );
-}
-
-/** Susun body penerimaan sesuai jawaban petugas. */
 export function buildRestockReceivePayload(
   input: RestockReceivePayloadInput,
-): RestockReceivePayload {
-  const summary = getRestockReceiveSummary(input);
+): RestockReceiveInput {
+  const enterableItems = getRestockEnterableItems(input.request);
+  const items = Object.fromEntries(
+    enterableItems.map((item) => [
+      item.barangId,
+      getEnteredQuantity(item, input.receivedItems),
+    ]),
+  );
+  const substitutions = Object.fromEntries(
+    Object.entries(buildSubstitutionPayload(input.substitutions)).filter(
+      ([barangId]) => (items[barangId] ?? 0) > 0,
+    ),
+  );
+  const hasEntry = Object.values(items).some((quantity) => quantity > 0);
   return {
-    items: input.receivedItems,
-    substitutions: buildSubstitutionPayload(input.substitutions),
-    cancellations: buildCancellationsForMode(input, summary),
-    overReceipts: canRestockReceiveWithoutPurchaseReport(input.request)
-      ? buildOverReceiptPayload(
-          getReceivableRestockItems(input.request),
-          input.receivedItems,
-          input.overReceipts,
-        )
-      : {},
-    fotoBukti: summary.hasArrivalToday ? input.fotoBukti : [],
-    closePO: input.isFinishingOrder && summary.hasRemainderAfterToday,
+    items,
+    substitutions,
+    overReceipts: buildOverReceiptPayload(
+      enterableItems,
+      input.receivedItems,
+      input.overReceipts,
+    ),
+    fotoBukti: hasEntry ? input.fotoBukti : [],
   };
 }
 
-/** Label tombol simpan menurut cara pesanan disimpan. */
+/**
+ * Label tombol simpan. "Selesaikan tanpa barang tambahan" hanya untuk
+ * pengajuan lama yang sudah pernah menerima barang dan kini diisi 0 semua;
+ * pengajuan yang belum pernah menerima apa pun tetap "Simpan ke Gudang"
+ * (tombolnya mati sampai ada jumlah yang diisi).
+ */
 export function getRestockReceiveSubmitLabel(
-  mode: RestockReceiveMode,
-  isCancellingOrder = false,
+  summary: RestockReceiveSummary,
 ): string {
-  if (isCancellingOrder) return "Batalkan pesanan";
-  switch (mode) {
-    case "COMPLETE":
-      return "Simpan, pesanan lengkap";
-    case "WAITING":
-      return "Simpan, sisa masih ditunggu";
-    case "FINISH":
-      return "Simpan & selesaikan pesanan";
-    case "FINISH_WITHOUT_DELIVERY":
-      return "Selesaikan pesanan";
-  }
+  return !summary.hasEntry && summary.hasEnteredBefore
+    ? "Selesaikan tanpa barang tambahan"
+    : "Simpan ke Gudang";
 }
 
 /** "Kabel Fiber 4 roll, ONT 2 pcs". */
@@ -371,172 +240,35 @@ export function describeRestockReceiveLines(
     .join(", ");
 }
 
-/** Sampai jumlah ini toast menyebut nama barang yang masih ditunggu. */
-const MAX_AWAITED_LINES_NAMED = 2;
-
-export const RESTOCK_ORDER_CANCELLED_MESSAGE =
-  "Pesanan dibatalkan. Tidak ada barang yang masuk gudang.";
-
-function describeAwaited(summary: RestockReceiveSummary): string {
-  return summary.stillAwaited.length > MAX_AWAITED_LINES_NAMED
-    ? `Masih ditunggu ${summary.stillAwaited.length} barang lagi.`
-    : `Masih ditunggu: ${describeRestockReceiveLines(summary.stillAwaited)}.`;
-}
-
-function describeNotComing(summary: RestockReceiveSummary): string {
-  return summary.notComing.length > MAX_AWAITED_LINES_NAMED
-    ? `${summary.notComing.length} jenis barang tidak jadi datang.`
-    : `Tidak jadi datang: ${describeRestockReceiveLines(summary.notComing)}.`;
-}
-
-/**
- * Toast sukses penerimaan. Status pengajuan dari server menang atas
- * ringkasan isian: pesanan gabungan bisa tetap berjalan walau baris pengajuan
- * ini sudah lengkap. null = respons tidak terbaca, pakai ringkasan saja.
- */
-export function getRestockReceiveSuccessMessage(
-  summary: RestockReceiveSummary,
-  purchaseRequestStatus: string | null,
-): string {
-  if (purchaseRequestStatus === "CANCELLED") {
-    return RESTOCK_ORDER_CANCELLED_MESSAGE;
-  }
-  const isStillOpen =
-    purchaseRequestStatus !== null && purchaseRequestStatus !== "RECEIVED";
-  if (summary.mode === "WAITING" || isStillOpen) {
-    const prefix = summary.hasArrivalToday
-      ? "Tersimpan. Barang sudah masuk gudang."
-      : "Tersimpan. Barang yang tidak jadi datang sudah dicatat.";
-    const awaited =
-      summary.stillAwaited.length > 0
-        ? describeAwaited(summary)
-        : "Sisanya masih ditunggu.";
-    return `${prefix} ${awaited}`;
-  }
-  if (summary.mode === "COMPLETE") {
-    return "Tersimpan. Semua barang sudah datang. Pesanan selesai.";
-  }
-  return `Tersimpan. Pesanan selesai. ${describeNotComing(summary)}`;
-}
-
-/**
- * Menyelesaikan tanpa kiriman pada pesanan yang belum pernah menerima barang
- * membatalkan pesanan (server: milik pengajuan ini saja, tanpa jasa, belum
- * dibayar, belum ada belanja). Teks layar mengikuti hasil itu, bukan
- * "selesai, kurang". Pesanan yang sudah dibelanjakan ditutup, tidak dibatalkan,
- * supaya catatan uangnya tetap ada.
- */
-export function isRestockFinishCancellingOrder(
-  request: PurchaseRequest,
-  summary: RestockReceiveSummary,
-): boolean {
-  if (summary.mode !== "FINISH_WITHOUT_DELIVERY") return false;
-  if (hasRestockReceivedAnything(request)) return false;
-  if (hasRestockPurchaseActivity(request)) return false;
-  const order = request.purchaseOrder;
-  if (!order) return true;
-  if ((order.goodsReceipts?.length ?? 0) > 0) return false;
-  if ((order.paymentStatus ?? "UNPAID") !== "UNPAID") return false;
-  if ((order._count?.jasaItems ?? 0) > 0) return false;
-  return !isRestockMergedOrder(request);
-}
-
-/** Kalimat dialog konfirmasi sebelum menyelesaikan pesanan dengan kekurangan. */
-export function getRestockShortfallConfirmMessage(
-  summary: RestockReceiveSummary,
-  isCancellingOrder = false,
-): string {
-  const lines = describeRestockReceiveLines(summary.notComing);
-  if (isCancellingOrder) {
-    return `Batalkan pesanan ini? Belum ada barang yang datang. ${lines} tidak akan ditunggu lagi.`;
-  }
-  return `Selesaikan dengan barang kurang? ${lines} tidak akan ditunggu lagi.`;
-}
-
-/** Konfirmasi hanya diminta saat menyelesaikan pesanan dengan barang kurang. */
+/** Konfirmasi hanya diminta bila ada barang yang masuk kurang dari sisanya. */
 export function needsRestockShortfallConfirm(
   summary: RestockReceiveSummary,
-  isFinishingOrder: boolean,
 ): boolean {
-  return isFinishingOrder && summary.notComing.length > 0;
+  return summary.notEntered.length > 0;
 }
 
-/**
- * Status pengajuan sesudah disimpan, dari `purchaseRequestStatus` tingkat
- * atas respons PATCH /receive; null bila respons tidak terbaca.
- */
-export function readRestockReceiptRequestStatus(body: unknown): string | null {
-  if (!body || typeof body !== "object") return null;
-  const { purchaseRequestStatus } = body as { purchaseRequestStatus?: unknown };
-  return typeof purchaseRequestStatus === "string"
-    ? purchaseRequestStatus
-    : null;
-}
-
-const FILL_ALL_LABEL = "Semua datang lengkap";
-const FILL_ALL_PURCHASED_LABEL = "Isi semua yang sudah dibeli";
-
-/**
- * Label tombol isi otomatis. Pada mode terbatas tombol hanya mengisi yang
- * sudah dibeli, jadi tidak menjanjikan "lengkap".
- */
-export function getFillAllLabel(isLimitedToPurchased: boolean): string {
-  return isLimitedToPurchased ? FILL_ALL_PURCHASED_LABEL : FILL_ALL_LABEL;
-}
-
-/**
- * Penjelasan pilihan "Ya, sisanya masih ditunggu". Barang yang belum dibeli
- * tidak bisa dicatat datang sebelum dilaporkan lewat link, jadi kalimatnya
- * memisahkan keduanya.
- */
-export function getAwaitedFollowUpDescription(
-  hasUnpurchasedRemainder: boolean,
+/** Kalimat dialog konfirmasi kekurangan sebelum pengajuan diselesaikan. */
+export function getRestockShortfallConfirmMessage(
+  summary: RestockReceiveSummary,
 ): string {
-  const nextDelivery =
-    'Saat sisanya datang, buka pengajuan ini lagi dan tekan "Catat Kiriman Berikutnya".';
-  return hasUnpurchasedRemainder
-    ? `${nextDelivery} Barang yang belum dibeli dicatat setelah dibeli lewat link dan datang.`
-    : nextDelivery;
+  return `${describeRestockReceiveLines(summary.notEntered)} tidak dimasukkan dan pengajuan selesai. Lanjutkan?`;
 }
 
-/**
- * Isi setiap baris dengan semua yang boleh dicatat sekarang (tombol "Semua
- * datang lengkap" / "Isi semua yang sudah dibeli"): yang sudah dibeli dan belum datang, atau seluruh sisa
- * pada data lama dan pesanan gabungan.
- */
-export function fillAllRemaining(
-  request: PurchaseRequest,
-  receivedItems: Record<string, number>,
-): Record<string, number> {
-  return getReceivableRestockItems(request).reduce<Record<string, number>>(
-    (acc, item) => {
-      acc[item.barangId] = getRestockLineReceiveLimit(item, request);
-      return acc;
-    },
-    { ...receivedItems },
-  );
+function describeNotEntered(summary: RestockReceiveSummary): string {
+  return summary.notEntered.length > MAX_NOT_ENTERED_LINES_NAMED
+    ? `${summary.notEntered.length} jenis barang tidak dimasukkan.`
+    : `Tidak dimasukkan: ${describeRestockReceiveLines(summary.notEntered)}.`;
 }
 
-const OTHER_REASON_VALUE = "__lainnya__";
-export const RESTOCK_OTHER_REASON_OPTION = {
-  value: OTHER_REASON_VALUE,
-  label: "Lainnya (tulis sendiri)",
-} as const;
-
-/** Apakah alasan sama dengan salah satu pilihan siap pakai. */
-export function isPresetNotComingReason(reason: string): boolean {
-  return RESTOCK_NOT_COMING_REASONS.some((preset) => preset === reason);
-}
-
-/**
- * Nilai <select> alasan. "Lainnya" tetap terpilih walau teksnya masih kosong;
- * dulu pilihan itu melompat kembali ke "Pilih alasan…".
- */
-export function getNotComingReasonSelectValue(
-  reason: string,
-  isOtherSelected: boolean,
+/** Toast sukses sesudah barang dimasukkan dan pengajuan selesai. */
+export function getRestockReceiveSuccessMessage(
+  summary: RestockReceiveSummary,
 ): string {
-  if (isPresetNotComingReason(reason)) return reason;
-  if (isOtherSelected || reason.length > 0) return OTHER_REASON_VALUE;
-  return "";
+  if (!summary.hasEntry) {
+    return "Tersimpan. Pengajuan selesai tanpa barang tambahan.";
+  }
+  if (summary.notEntered.length === 0) {
+    return "Tersimpan. Semua barang sudah masuk gudang.";
+  }
+  return `Tersimpan. Barang sudah masuk gudang. ${describeNotEntered(summary)}`;
 }

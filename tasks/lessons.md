@@ -689,3 +689,26 @@
   suite penuh.
 - **How to apply:** setiap brief agen wajib menyertakan `npx vitest run tests/architecture`
   dan `npx eslint <file yang diubah>`; orkestrator menjalankan suite penuh sebelum commit.
+
+## Menyederhanakan alur: tulis alur target lengkap sebagai asumsi di pesan pertama
+
+- **Konteks:** User minta halaman restock "disimpelkan, gak perlu tau sudah dibeli atau belum, cukup jadi
+  pencatat". Saya menyimpulkan hanya tahap Pembelian yang dibuang dan langsung memetakan dengan asumsi
+  Persetujuan tetap ada — tanpa menyebut asumsi itu. User mengoreksi: setelah diajukan sudah cukup, admin
+  tinggal memasukkan barang dengan bukti; di mobile cukup "sudah diajukan" dan "sudah dimasukkan admin".
+  Pemetaan paralel yang sudah berjalan harus dihentikan dan diulang.
+- **Why:** Kata seperti "cukup jadi pencatat" / "disimpelkan" bisa berarti membuang satu tahap atau
+  hampir seluruh alur. Tahap yang *tidak* disebut user (di sini Persetujuan) justru yang paling mudah
+  salah ditebak, dan salah tebak di awal membuang satu putaran kerja besar.
+- **How to apply:** Sebelum pekerjaan besar untuk permintaan penyederhanaan, tulis di pesan pertama alur
+  target lengkapnya sebagai `[Asumsi: ...]` — tahap apa saja yang tersisa, status apa yang dilihat tiap
+  peran (admin, mobile), dan apa yang terjadi pada data lama — lalu baru jalankan. Jangan hanya menyebut
+  bagian yang dihapus.
+- **Koreksi kedua di task yang sama:** setelah alur target saya tulis ("tanpa persetujuan, tanpa pembelian"), user
+  mengoreksi lagi: "untuk approval masih tetap dibutuhkan jangan dihilangkan". Persetujuan tidak pernah disebut untuk
+  dihapus — saya menyimpulkannya dari "habis diajukan ya sudah cukup sampai situ". Agen paralel sudah setengah jalan
+  menghapusnya dan harus dihentikan serta direkonsiliasi.
+- **Aturan tambahan:** jangan menghapus fitur yang tidak disebut user untuk dihapus. Kalimat tentang apa yang dilihat
+  satu peran ("cukup sampai situ" bagi pemohon, "di mobile cukup status X") bukan perintah membuang tahap peran lain.
+  Bila penyederhanaan bisa berarti membuang fitur yang tidak disebut, pilih tafsiran yang mempertahankannya dan tulis
+  itu sebagai asumsi.

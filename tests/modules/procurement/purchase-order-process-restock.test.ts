@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { IPurchaseOrderRepository } from "@/modules/procurement/domain/ports/IPurchaseOrderRepository";
 import {
-  PurchaseOrderIsRestockError,
   PurchaseOrderNotEditableError,
   PurchaseOrderService,
 } from "@/modules/procurement/services/PurchaseOrderService";
@@ -32,16 +31,12 @@ function setup({
 }
 
 describe("PurchaseOrderService.process — pesanan restock", () => {
-  it("menolak pesanan milik pengajuan restock tanpa mengisi tanggal beli", async () => {
+  it("pesanan milik pengajuan restock bisa diproses dari Draft ke Ordered", async () => {
     const { repository, service } = setup({ restockRequestCount: 1 });
 
-    const attempt = service.process("po-1", "admin-1");
+    await service.process("po-1", "admin-1");
 
-    await expect(attempt).rejects.toBeInstanceOf(PurchaseOrderIsRestockError);
-    // Route memetakan galat ini ke 409 lewat kelas induknya.
-    await expect(attempt).rejects.toBeInstanceOf(PurchaseOrderNotEditableError);
-    await expect(attempt).rejects.toThrow("link belanja");
-    expect(repository.processToOrdered).not.toHaveBeenCalled();
+    expect(repository.processToOrdered).toHaveBeenCalledWith("po-1", "admin-1");
   });
 
   it("pesanan biasa tetap bisa diproses", async () => {
@@ -49,11 +44,22 @@ describe("PurchaseOrderService.process — pesanan restock", () => {
 
     await service.process("po-1", "admin-1");
 
-    expect(repository.countLinkedRestockRequests).toHaveBeenCalledWith("po-1");
     expect(repository.processToOrdered).toHaveBeenCalledWith("po-1", "admin-1");
   });
 
-  it("detail memberi tanda pesanan restock supaya tombol proses disembunyikan", async () => {
+  it("hanya pesanan Draft yang bisa diproses", async () => {
+    const { repository, service } = setup({
+      status: "ORDERED",
+      restockRequestCount: 1,
+    });
+
+    await expect(service.process("po-1", "admin-1")).rejects.toBeInstanceOf(
+      PurchaseOrderNotEditableError,
+    );
+    expect(repository.processToOrdered).not.toHaveBeenCalled();
+  });
+
+  it("detail memberi tanda pesanan restock supaya tombol GRN disembunyikan", async () => {
     const restock = setup({ restockRequestCount: 2 });
     const regular = setup();
 

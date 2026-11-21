@@ -59,7 +59,13 @@ export interface IProcurementRepository {
     tenantId?: string | null,
   ): Promise<PurchaseOrderEntity | null>;
 
-  /** Membuat purchase order beserta item dan menghubungkan purchase request terkait. */
+  /**
+   * Membuat PO DRAFT beserta itemnya dan menghubungkan purchase request terkait
+   * dalam satu transaksi. Pengajuan diklaim lebih dulu (APPROVED tanpa PO
+   * menjadi ORDERED); bila ada yang sudah diklaim pesanan lain atau statusnya
+   * berubah, `PurchaseRequestAlreadyOrderedError` dilempar dan tidak ada yang
+   * tersimpan.
+   */
   createPOWithItems(
     input: CreatePurchaseOrderInput,
   ): Promise<PurchaseOrderEntity>;

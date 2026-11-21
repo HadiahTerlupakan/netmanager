@@ -96,8 +96,7 @@ function renderTable(
       onOpenDetail={vi.fn()}
       onOpenApproval={props?.onOpenApproval ?? vi.fn()}
       onOpenReceive={props?.onOpenReceive ?? vi.fn()}
-      onOpenPurchaseLink={props?.onOpenPurchaseLink ?? vi.fn()}
-      onOpenCloseUnpurchased={props?.onOpenCloseUnpurchased ?? vi.fn()}
+      onOpenCancel={props?.onOpenCancel ?? vi.fn()}
       onOpenConfirmJasa={props?.onOpenConfirmJasa ?? vi.fn()}
       onDelete={vi.fn()}
     />,
@@ -143,7 +142,7 @@ function renderActions(
     canVerify: boolean;
     canDelete: boolean;
   }>,
-) {
+): string {
   const props = renderTable({
     requests: [request],
     canApprove: permissions?.canApprove,
@@ -172,7 +171,8 @@ describe("RestockTable action visibility", () => {
     expect(markup).toContain('title="Edit"');
     expect(markup).toContain("Tinjau &amp; Putuskan");
     expect(markup).toContain('title="Hapus"');
-    expect(markup).not.toContain("Verifikasi Sampai");
+    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).not.toContain("Batalkan Pengajuan");
   });
 
   it("hides draft management actions when related permissions are missing", () => {
@@ -187,173 +187,190 @@ describe("RestockTable action visibility", () => {
     expect(markup).not.toContain('title="Hapus"');
   });
 
-  const verifyOnly = { canApprove: false, canUpdate: false, canVerify: true };
-  const orderedRequest = (
-    poStatus: string,
-    items: PurchaseRequest["items"] = [],
-  ): PurchaseRequest => ({
-    ...baseRequest,
-    status: "ORDERED",
-    purchaseOrder: { id: "po-1", poNumber: "PO-1", status: poStatus },
-    items,
+  it("keeps editing open for a submitted request but not the approval button", () => {
+    const markup = renderActions({ ...baseRequest, status: "SUBMITTED" });
+
+    expect(markup).toContain('title="Edit"');
+    expect(markup).not.toContain("Tinjau &amp; Putuskan");
   });
-  const fiberLine = (receivedQuantity: number, purchasedQuantity = 0) => ({
+
+  const verifyOnly = { canApprove: false, canUpdate: false, canVerify: true };
+  const fiberLine = (
+    receivedQuantity: number,
+  ): PurchaseRequest["items"][number] => ({
     id: "item-1",
     barangId: "barang-1",
     jumlah: 10,
     receivedQuantity,
-    purchaseOrderItemId: "poi-1",
-    purchasedQuantity,
     barang: { nama: "Kabel Fiber", kode: "BRG-1", satuan: "roll" },
   });
-
-  it("offers only the shopping link while nothing was reported bought", () => {
-    const markup = renderActions(
-      orderedRequest("DRAFT", [fiberLine(0)]),
-      verifyOnly,
-    );
-
-    expect(markup).toContain("Kirim Link Belanja");
-    expect(markup).toContain(
-      'aria-label="Kirim Link Belanja, pengajuan PR-001"',
-    );
-    expect(markup).not.toContain("Catat Belanja");
-    // Tahap pembelian belum dilaporkan: barang belum bisa dicatat datang.
-    expect(markup).not.toContain("Catat Barang Datang");
-    expect(markup).toContain('title="Hapus"');
+  const approvedRequest = (
+    poStatus: string | null,
+    items: PurchaseRequest["items"] = [fiberLine(0)],
+  ): PurchaseRequest => ({
+    ...baseRequest,
+    status: poStatus ? "ORDERED" : "APPROVED",
+    purchaseOrder: poStatus
+      ? { id: "po-1", poNumber: "PO-1", status: poStatus }
+      : null,
+    items,
   });
 
-  it("keeps offering the shopping link while only part was bought", () => {
-    const markup = renderActions(
-      orderedRequest("ORDERED", [fiberLine(0, 4)]),
-      verifyOnly,
-    );
+  it("offers Masukkan Barang as the main action and Batalkan for an approved request", () => {
+    const markup = renderActions(approvedRequest("DRAFT"), verifyOnly);
 
-    expect(markup).toContain("Kirim Link Belanja");
-    expect(markup).toContain("Catat Barang Datang");
-    // Link tetap tombol utama selama tahap pembelian belum selesai.
-    expect(markup.indexOf("Kirim Link Belanja")).toBeLessThan(
-      markup.indexOf("Catat Barang Datang"),
-    );
+    expect(markup).toContain("Masukkan Barang");
+    expect(markup).toContain('aria-label="Masukkan Barang untuk PR-001"');
+    expect(markup).toContain("bg-indigo-700");
+    expect(markup).toContain('title="Batalkan Pengajuan"');
+    expect(markup).toContain('aria-label="Batalkan Pengajuan PR-001"');
+    expect(markup).not.toContain("Tinjau &amp; Putuskan");
+    expect(markup).not.toContain('title="Edit"');
+    expect(markup).not.toContain("Link Belanja");
   });
 
-  it("offers nothing to record once everything bought has arrived", () => {
-    const markup = renderActions(
-      orderedRequest("PARTIAL", [fiberLine(4, 4)]),
-      verifyOnly,
-    );
+  it("orders the actions: detail, PDF, Masukkan Barang, Batalkan, Hapus", () => {
+    const markup = renderActions(approvedRequest("DRAFT"));
+    const positions = [
+      'aria-label="Lihat detail PR-001"',
+      'aria-label="Unduh PDF pengajuan PR-001"',
+      'aria-label="Masukkan Barang untuk PR-001"',
+      'aria-label="Batalkan Pengajuan PR-001"',
+      'aria-label="Hapus PR-001"',
+    ].map((label) => markup.indexOf(label));
 
-    expect(markup).toContain("Kirim Link Belanja");
-    expect(markup).not.toContain("Catat");
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
-  it("merged orders get no shopping link; recording goods stays primary", () => {
-    const merged: PurchaseRequest = {
-      ...orderedRequest("DRAFT", [fiberLine(0)]),
+  it("offers both actions when the order could not be created at approval", () => {
+    const markup = renderActions(approvedRequest(null), verifyOnly);
+
+    expect(markup).toContain("Masukkan Barang");
+    expect(markup).toContain('title="Batalkan Pengajuan"');
+  });
+
+  it("keeps Masukkan Barang but not Batalkan once a legacy request received goods", () => {
+    const markup = renderActions(approvedRequest("PARTIAL", [fiberLine(4)]));
+
+    expect(markup).toContain("Masukkan Barang");
+    expect(markup).not.toContain('title="Batalkan Pengajuan"');
+    expect(markup).not.toContain('title="Hapus"');
+  });
+
+  it("still offers Batalkan on a merged order after another request entered goods", () => {
+    const withReceipt = (linkedRequestCount: number): PurchaseRequest => ({
+      ...approvedRequest("PARTIAL"),
       purchaseOrder: {
         id: "po-1",
         poNumber: "PO-1",
-        status: "DRAFT",
-        _count: { purchaseRequests: 2 },
+        status: "PARTIAL",
+        linkedRequestCount,
       },
-    };
-    const markup = renderActions(merged, verifyOnly);
+      goodsReceipts: [{ id: "grn-1", grnNumber: "GRN-1", fotoBukti: [] }],
+    });
 
-    expect(markup).not.toContain("Kirim Link Belanja");
-    expect(markup).toContain("Catat Barang Datang");
-    expect(markup).toContain("bg-indigo-700");
-  });
-
-  it("offers recording goods once bought and the next delivery once partial", () => {
-    const bought = renderActions(
-      orderedRequest("ORDERED", [fiberLine(0, 10)]),
-      verifyOnly,
+    expect(renderActions(withReceipt(2), verifyOnly)).toContain(
+      'title="Batalkan Pengajuan"',
     );
-    const partial = renderActions(
-      orderedRequest("PARTIAL", [fiberLine(6, 10)]),
-      verifyOnly,
-    );
-
-    expect(bought).toContain("Catat Barang Datang");
-    expect(bought).toContain('aria-label="Catat Barang Datang untuk PR-001"');
-    expect(bought).not.toContain("Kirim Link Belanja");
-    expect(partial).toContain("Catat Kiriman Berikutnya");
-    expect(partial).toContain(
-      'aria-label="Catat Kiriman Berikutnya untuk PR-001"',
+    expect(renderActions(withReceipt(1), verifyOnly)).not.toContain(
+      'title="Batalkan Pengajuan"',
     );
   });
 
-  it("hides receive actions when finished or without verify permission", () => {
-    const finished = renderActions(
-      { ...orderedRequest("RECEIVED", [fiberLine(10)]), status: "RECEIVED" },
-      verifyOnly,
-    );
-    const noPermission = renderActions(
-      orderedRequest("ORDERED", [fiberLine(0)]),
-      {
-        ...verifyOnly,
-        canVerify: false,
-      },
-    );
+  it("marks the detail and cancel buttons so focus can find them after a reload", () => {
+    const markup = renderActions(approvedRequest("DRAFT"), verifyOnly);
 
-    expect(finished).not.toContain("Catat");
-    expect(noPermission).not.toContain("Catat");
-    expect(noPermission).not.toContain("Kirim Link Belanja");
+    expect(markup).toContain('data-restock-focus="detail:pr-1"');
+    expect(markup).toContain('data-restock-focus="cancel:pr-1"');
+    expect(markup.match(/data-restock-focus=/g)).toHaveLength(2);
   });
 
-  it("hides delete once the goods were bought or anything arrived", () => {
+  it("hides Masukkan Barang and Batalkan when closed or without verify permission", () => {
+    const received = renderActions(
+      { ...approvedRequest("RECEIVED", [fiberLine(10)]), status: "RECEIVED" },
+      verifyOnly,
+    );
+    const rejected = renderActions({ ...baseRequest, status: "REJECTED" });
+    const cancelled = renderActions({
+      ...approvedRequest("CANCELLED"),
+      status: "CANCELLED",
+    });
+    const noPermission = renderActions(approvedRequest("DRAFT"), {
+      ...verifyOnly,
+      canVerify: false,
+    });
+
+    for (const markup of [received, rejected, cancelled, noPermission]) {
+      expect(markup).not.toContain("Masukkan Barang");
+      expect(markup).not.toContain("Batalkan Pengajuan");
+    }
+  });
+
+  it("offers Batalkan but not Masukkan Barang on an approved request with services only", () => {
+    const markup = renderActions({
+      ...approvedRequest("DRAFT", []),
+      jasaItems: [
+        {
+          id: "jasa-item-1",
+          jasaId: "jasa-1",
+          jumlah: 1,
+          hargaPerUnit: 100,
+          totalHarga: 100,
+          statusKonfirmasi: "PENDING",
+          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+        },
+      ],
+    });
+
+    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).toContain('title="Batalkan Pengajuan"');
+    expect(markup).toContain("Konfirmasi Jasa");
+  });
+
+  it("hides delete once the order is processed or anything arrived", () => {
+    expect(renderActions(approvedRequest("DRAFT"))).toContain('title="Hapus"');
+    expect(renderActions(approvedRequest("ORDERED"))).not.toContain(
+      'title="Hapus"',
+    );
     expect(
-      renderActions(orderedRequest("ORDERED", [fiberLine(0)])),
-    ).not.toContain('title="Hapus"');
-    expect(
-      renderActions(orderedRequest("DRAFT", [fiberLine(2)])),
+      renderActions(approvedRequest("DRAFT", [fiberLine(2)])),
     ).not.toContain('title="Hapus"');
   });
 
-  it("opens the shopping-link panel with the whole request", () => {
-    const onOpenPurchaseLink = vi.fn();
-    const request = orderedRequest("DRAFT", [fiberLine(0)]);
-    const props = renderTable({ requests: [request], onOpenPurchaseLink });
+  it("opens Masukkan Barang and Batalkan with the whole request", () => {
+    const onOpenReceive = vi.fn();
+    const onOpenCancel = vi.fn();
+    const request = approvedRequest("DRAFT");
+    const props = renderTable({
+      requests: [request],
+      onOpenReceive,
+      onOpenCancel,
+    });
+    const actionColumn = props.columns.find(
+      (column) => column.key === "actions",
+    );
+    const actions = actionColumn?.render(request);
+
+    findActionByLabel(actions, "Masukkan Barang untuk PR-001")?.onClick?.();
+    findActionByLabel(actions, "Batalkan Pengajuan PR-001")?.onClick?.();
+
+    expect(onOpenReceive).toHaveBeenCalledWith(request);
+    expect(onOpenCancel).toHaveBeenCalledWith(request);
+  });
+
+  it("downloads the PDF right away", () => {
+    const props = renderTable();
     const actionColumn = props.columns.find(
       (column) => column.key === "actions",
     );
 
     findActionByLabel(
-      actionColumn?.render(request),
-      "Kirim Link Belanja, pengajuan PR-001",
+      actionColumn?.render(baseRequest),
+      "Unduh PDF pengajuan PR-001",
     )?.onClick?.();
 
-    expect(onOpenPurchaseLink).toHaveBeenCalledWith(request);
-  });
-
-  it("offers closing a request stuck without a shopping list", () => {
-    const onOpenCloseUnpurchased = vi.fn();
-    const request: PurchaseRequest = {
-      ...baseRequest,
-      status: "APPROVED",
-      purchaseOrder: null,
-      items: [
-        {
-          id: "item-1",
-          barangId: "barang-1",
-          jumlah: 5,
-          receivedQuantity: 0,
-          barang: { nama: "Kabel Fiber", kode: "BRG-1", satuan: "roll" },
-        },
-      ],
-    };
-    const props = renderTable({ requests: [request], onOpenCloseUnpurchased });
-    const actionColumn = props.columns.find(
-      (column) => column.key === "actions",
-    );
-    const label = "Tutup sisa yang tidak jadi dibeli untuk PR-001";
-
-    findActionByLabel(actionColumn?.render(request), label)?.onClick?.();
-
-    expect(onOpenCloseUnpurchased).toHaveBeenCalledWith(request);
-    expect(renderActions(request, { canVerify: false })).not.toContain(
-      "Tutup sisa",
-    );
+    expect(mockGeneratePurchaseRequestPdf).toHaveBeenCalledWith(baseRequest);
   });
 
   it("uses tighter column sizing and right-aligned action layout for denser table rhythm", () => {
@@ -414,6 +431,7 @@ describe("RestockTable action visibility", () => {
         onOpenDetail={vi.fn()}
         onOpenApproval={vi.fn()}
         onOpenReceive={vi.fn()}
+        onOpenCancel={vi.fn()}
         onDelete={vi.fn()}
       />,
     );
@@ -457,11 +475,11 @@ describe("RestockTable action visibility", () => {
         loading={false}
         search=""
         onSearchChange={vi.fn()}
-        statusFilter="DRAFT"
+        statusFilter="AWAITING_APPROVAL"
         onStatusFilterChange={vi.fn()}
         statusOptions={[
           { value: "all", label: "Semua Status" },
-          { value: "DRAFT", label: "Draft" },
+          { value: "AWAITING_APPROVAL", label: "Menunggu Persetujuan" },
         ]}
         gudangFilter="gudang-a"
         onGudangFilterChange={vi.fn()}
@@ -483,6 +501,7 @@ describe("RestockTable action visibility", () => {
         onOpenDetail={vi.fn()}
         onOpenApproval={vi.fn()}
         onOpenReceive={vi.fn()}
+        onOpenCancel={vi.fn()}
         onDelete={vi.fn()}
       />,
     );
@@ -490,7 +509,11 @@ describe("RestockTable action visibility", () => {
     expect(markup).toContain("Filter status");
     expect(markup).toContain("Filter gudang");
     expect(markup).toContain("Semua Status");
+    expect(markup).toContain("Menunggu Persetujuan");
     expect(markup).toContain("Semua Gudang");
+    expect(markup).toContain(
+      "Ajukan barang dan jasa. Setelah disetujui, admin memasukkan barangnya",
+    );
   });
 
   it("passes filtered empty copy to distinguish no results from no data", () => {

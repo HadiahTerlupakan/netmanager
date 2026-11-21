@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import type {
-  PurchaseRecordSummary,
   PurchaseRequest,
+  PurchaseRequestJasaItem,
 } from "@/app/admin/inventory/restock/types";
 
 vi.mock("@/components/ui/Modal", () => ({
@@ -110,18 +110,13 @@ describe("RestockDetailModal approval details", () => {
   });
 });
 
-describe("RestockDetailModal order journey", () => {
-  const ordered: PurchaseRequest = {
+describe("RestockDetailModal riwayat dan barang", () => {
+  const legacyPartial: PurchaseRequest = {
     ...request,
     status: "ORDERED",
     approvedAt: "2026-11-02T03:00:00.000Z",
-    purchaseOrder: {
-      id: "po-1",
-      poNumber: "PO-2026-009",
-      status: "PARTIAL",
-      issuedAt: "2026-11-03T03:00:00.000Z",
-      processedBy: { name: "Sari" },
-    },
+    keterangan: "Untuk tarikan cluster Depok",
+    purchaseOrder: { id: "po-1", poNumber: "PO-2026-009", status: "PARTIAL" },
     goodsReceipts: [
       {
         id: "grn-2",
@@ -166,542 +161,397 @@ describe("RestockDetailModal order journey", () => {
     ],
   };
 
+  const approvedFresh: PurchaseRequest = {
+    ...request,
+    status: "ORDERED",
+    approvedAt: "2026-11-02T03:00:00.000Z",
+    purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
+    goodsReceipts: [],
+    items: [
+      { ...request.items[0], orderedQuantity: 8, receivedQuantity: 0 },
+      request.items[1],
+    ],
+  };
+
   function renderDetail(
     target: PurchaseRequest,
     props: Partial<React.ComponentProps<typeof RestockDetailModal>> = {},
-  ) {
+  ): string {
     return renderToStaticMarkup(
       <RestockDetailModal request={target} onClose={vi.fn()} {...props} />,
     );
   }
 
-  it("shows each step with who and when, oldest delivery first", () => {
-    const markup = renderDetail(ordered);
+  it("menunjukkan status, gudang tujuan, catatan, dan keputusan atasan", () => {
+    const markup = renderDetail(legacyPartial);
 
-    expect(markup).toContain("Diajukan");
-    expect(markup).toContain("Disetujui 2 Nov 2026 · Manajer Gudang");
-    // Ditandai dibeli (3 Nov) sebelum kiriman pertama (5 Nov): data lama,
-    // statusnya tetap "sudah dibeli semua", tidak mundur saat barang datang.
+    expect(markup).toContain("Disetujui");
     expect(markup).toContain(
-      "Sudah dibeli semua 3 Nov 2026 (dicatat sekaligus)",
+      "Sebagian barang sudah masuk gudang. Menunggu admin menyelesaikan pengajuan ini.",
     );
-    expect(markup).not.toContain("Masih ada barang yang belum dibeli");
-    expect(markup.indexOf("dicatat sekaligus")).toBeLessThan(
-      markup.indexOf("Kiriman ke-1"),
-    );
-    expect(markup.indexOf("Kiriman ke-1")).toBeLessThan(
-      markup.indexOf("Kiriman ke-2"),
+    expect(markup).toContain("Gudang tujuan");
+    expect(markup).toContain("Gudang A");
+    expect(markup).toContain("Untuk tarikan cluster Depok");
+    expect(markup).toContain("Keputusan Atasan");
+    expect(markup).not.toContain("Tahap");
+  });
+
+  it("menulis riwayat dari diajukan sampai barang masuk, terlama dulu", () => {
+    const markup = renderDetail(legacyPartial);
+
+    expect(markup).toContain("Riwayat");
+    expect(markup).toContain("Diajukan · 1 Nov 2026 · Rohadim");
+    expect(markup).toContain("Disetujui 2 Nov 2026 · Manajer Gudang");
+    expect(markup.indexOf("Barang masuk ke-1")).toBeLessThan(
+      markup.indexOf("Barang masuk ke-2"),
     );
     expect(markup).toContain("dicatat Budi");
     expect(markup).toContain("Kabel Dropcore 4 roll (1 foto)");
+    expect(markup).toContain('aria-label="Buka foto 1 barang masuk ke-1"');
     expect(markup).toContain("No. catatan: GRN-1");
-    expect(markup).toContain("Belum selesai");
-    expect(markup).toContain(
-      "Sekarang: Kabel Dropcore datang 6 dari 8 roll. Tidak jadi datang 1 roll. Masih ditunggu 1 roll.",
-    );
+    expect(markup).toContain("Menunggu admin memasukkan barang");
     expect(markup).toContain("Kode pesanan: PO-2026-009");
-    expect(markup).toContain("Keputusan Atasan");
+    expect(markup).not.toContain("belanja");
   });
 
-  it("lists ordered, arrived and awaited quantities with the shortfall reason", () => {
-    const markup = renderDetail(ordered);
-
-    expect(markup).toContain("Masih ditunggu");
-    expect(markup).toContain(
-      "Tidak jadi datang 1 roll. Alasan: Barang habis di toko",
-    );
-    expect(markup).not.toContain("Dianulir");
-  });
-
-  const legacyBought: PurchaseRequest = {
-    ...ordered,
-    purchaseOrder: { ...ordered.purchaseOrder, status: "ORDERED" },
-    goodsReceipts: [],
-    items: [{ ...ordered.items[0], receivedQuantity: 0, cancelledQuantity: 0 }],
-  };
-
-  it("marks legacy orders bought at once, with or without a date", () => {
-    expect(renderDetail(legacyBought)).toContain(
-      "Sudah dibeli semua 3 Nov 2026 (dicatat sekaligus) · Sari",
-    );
-    const undated = renderDetail({
-      ...legacyBought,
-      purchaseOrder: {
-        ...legacyBought.purchaseOrder,
-        issuedAt: null,
-        processedBy: null,
-      },
+  it("menyebut catatan barang masuk tanpa nomor urut bila hanya satu", () => {
+    const markup = renderDetail({
+      ...legacyPartial,
+      status: "RECEIVED",
+      goodsReceipts: [legacyPartial.goodsReceipts![1]],
     });
-    expect(undated).toContain("Sudah dibeli semua (tanggal tidak tercatat)");
-    expect(undated).not.toContain("Catat Belanja");
+
+    expect(markup).toContain("Barang masuk · ");
+    expect(markup).not.toContain("Barang masuk ke-1");
+    expect(markup).not.toContain("Menunggu admin memasukkan barang");
   });
 
-  it("lists each purchase with store, who and contents, plus per-store totals", () => {
-    const markup = renderDetail(
-      {
-        ...legacyBought,
-        items: [
-          {
-            ...legacyBought.items[0],
-            purchaseOrderItemId: "poi-1",
-            purchasedQuantity: 5,
-          },
-        ],
-        purchaseRecords: [
-          {
-            id: "rec-2",
-            storeName: "Toko B",
-            supplierId: null,
-            purchasedAt: "2026-11-04T05:00:00.000Z",
-            createdAt: "2026-11-04T06:00:00.000Z",
-            recordedBy: { name: "Sari" },
-            buyerName: null,
-            source: "ADMIN",
-            hasSignature: false,
-            notes: "Bayar tunai",
-            fotoNota: ["https://example.test/nota.jpg"],
-            items: [
-              {
-                id: "ri-2",
-                purchaseOrderItemId: "poi-1",
-                barangId: "barang-3",
-                nama: "Kabel Dropcore",
-                satuan: "roll",
-                quantity: 2,
-                unitPrice: null,
-              },
-            ],
-          },
-          {
-            id: "rec-1",
-            storeName: "Toko A",
-            supplierId: null,
-            purchasedAt: "2026-11-03T05:00:00.000Z",
-            createdAt: "2026-11-03T06:00:00.000Z",
-            recordedBy: { name: "Budi" },
-            buyerName: null,
-            source: "ADMIN",
-            hasSignature: false,
-            notes: null,
-            fotoNota: [],
-            items: [
-              {
-                id: "ri-1",
-                purchaseOrderItemId: "poi-1",
-                barangId: "barang-3",
-                nama: "Kabel Dropcore",
-                satuan: "roll",
-                quantity: 3,
-                unitPrice: 12000,
-              },
-            ],
-          },
-        ],
-      },
-      { canVerify: true, onOpenReceive: vi.fn() },
-    );
+  it("menampilkan jumlah diajukan, disetujui, masuk gudang, dan sisa per barang", () => {
+    const markup = renderDetail(legacyPartial);
 
-    expect(markup.indexOf("Belanja ke-1 · 3 Nov 2026 · Toko A")).toBeLessThan(
-      markup.indexOf("Belanja ke-2 · 4 Nov 2026 · Toko B · dibeli Sari"),
-    );
-    expect(markup).toContain("Kabel Dropcore 3 roll @ Rp12.000");
-    expect(markup).toContain("Kabel Dropcore 2 roll (1 foto)");
-    expect(markup).toContain("Catatan: Bayar tunai");
-    expect(markup).toContain("Dibeli 5 dari 8 roll (Toko A 3, Toko B 2)");
-    expect(markup).toContain("Masih ada barang yang belum dibeli");
-    expect(markup).not.toContain("Catat Belanja");
-    expect(markup).toContain("Dibeli Sebagian");
-  });
-
-  it("points to the shopping link instead of recording a purchase", () => {
-    const markup = renderDetail(
-      {
-        ...ordered,
-        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
-        goodsReceipts: [],
-        items: [
-          {
-            ...ordered.items[0],
-            receivedQuantity: 0,
-            cancelledQuantity: 0,
-            purchaseOrderItemId: "poi-1",
-          },
-        ],
-      },
-      {
-        canVerify: true,
-        onOpenReceive: vi.fn(),
-        onOpenCloseUnpurchased: vi.fn(),
-      },
-    );
-
-    expect(markup).toContain(
-      "Menunggu laporan belanja dari link. Barang baru bisa dicatat datang setelah dilaporkan dibeli. Kirim link belanja ke orang yang belanja.",
-    );
-    expect(markup).toContain("Link belanja");
-    expect(markup).not.toContain("Catat Belanja");
-    // Belum ada yang dilaporkan dibeli: belum bisa dicatat datang.
-    expect(markup).not.toContain("Catat Barang Datang");
-    // Pembelian tidak macet: sisa yang tidak jadi dibeli bisa ditutup.
-    expect(markup).toContain(
-      'aria-label="Tutup sisa yang tidak jadi dibeli untuk PR-001"',
-    );
-  });
-
-  it("shows the four stages with the purchase stage as the current one", () => {
-    const markup = renderDetail(
-      {
-        ...ordered,
-        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
-        goodsReceipts: [],
-        items: [
-          {
-            ...ordered.items[0],
-            receivedQuantity: 0,
-            cancelledQuantity: 0,
-            purchaseOrderItemId: "poi-1",
-          },
-        ],
-      },
-      { canVerify: true },
-    );
-
-    expect(markup).toContain('aria-label="Tahap pengajuan"');
-    const current = markup.match(/<li aria-current="step"[^>]*>.*?<\/li>/)?.[0];
-    expect(current).toContain("Pembelian");
-    expect(markup).toContain('Pengajuan<span class="sr-only">, selesai</span>');
-    expect(markup).toContain(
-      'Verifikasi barang sampai<span class="sr-only">, belum</span>',
-    );
-    // Garis waktu dikelompokkan per tahap.
-    for (const heading of [
-      "1 Pengajuan",
-      "2 Persetujuan",
-      "3 Pembelian",
-      "4 Verifikasi barang sampai",
-    ]) {
-      expect(markup).toContain(heading);
+    for (const header of ["Diajukan", "Disetujui", "Masuk gudang", "Sisa"]) {
+      expect(markup).toContain(`<span class="text-right">${header}</span>`);
     }
-    // Kalimat keadaan sekarang hanya tampil sekali.
-    expect(markup.split("Sekarang:").length).toBe(2);
+    expect(markup).toContain(">10 roll<");
+    expect(markup).toContain(">8 roll<");
+    expect(markup).toContain(">6 roll<");
+    expect(markup).toContain(">1 roll<");
+    expect(markup).toContain("Alasan tidak masuk: Barang habis di toko");
   });
 
-  it("hides closing the unbought remainder on merged and legacy orders", () => {
-    const base: PurchaseRequest = {
-      ...ordered,
-      goodsReceipts: [],
+  it("menghitung sisa sebagai tidak masuk setelah pengajuan selesai", () => {
+    const markup = renderDetail({ ...legacyPartial, status: "RECEIVED" });
+
+    expect(markup).toContain('<span class="text-right">Tidak masuk</span>');
+    expect(markup).toContain(">2 roll<");
+    expect(markup).toContain("Sudah Dimasukkan");
+    expect(markup).toContain("Kabel Dropcore masuk 6 dari 8 roll.");
+  });
+
+  it("menandai barang yang masuk lebih banyak dari yang disetujui", () => {
+    const markup = renderDetail({
+      ...approvedFresh,
+      status: "RECEIVED",
       items: [
         {
-          ...ordered.items[0],
-          receivedQuantity: 0,
-          cancelledQuantity: 0,
-          purchaseOrderItemId: "poi-1",
+          ...approvedFresh.items[0],
+          orderedQuantity: 10,
+          receivedQuantity: 10,
         },
       ],
-    };
-    const merged = renderDetail(
-      {
-        ...base,
-        purchaseOrder: {
-          id: "po-1",
-          status: "DRAFT",
-          _count: { purchaseRequests: 2 },
-        },
-      },
-      { canVerify: true, onOpenCloseUnpurchased: vi.fn() },
-    );
-    const legacy = renderDetail(
-      {
-        ...base,
-        purchaseOrder: {
-          id: "po-1",
-          status: "ORDERED",
-          issuedAt: "2026-11-03T03:00:00.000Z",
-        },
-      },
-      { canVerify: true, onOpenCloseUnpurchased: vi.fn() },
-    );
-
-    expect(merged).not.toContain("Tutup sisa yang tidak jadi dibeli");
-    expect(legacy).not.toContain("Tutup sisa yang tidak jadi dibeli");
-  });
-
-  it("does not tell read-only viewers to send a shopping link", () => {
-    const notBought: PurchaseRequest = {
-      ...ordered,
-      purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
-      goodsReceipts: [],
-      items: [
-        {
-          ...ordered.items[0],
-          receivedQuantity: 0,
-          cancelledQuantity: 0,
-          purchaseOrderItemId: "poi-1",
-        },
-      ],
-    };
-
-    const markup = renderDetail(notBought, { canVerify: false });
-
-    expect(markup).toContain("Menunggu laporan belanja dari link.");
-    expect(markup).not.toContain("Kirim link belanja");
-    expect(markup).not.toContain("Tutup sisa yang tidak jadi dibeli");
-  });
-
-  it("groups purchases under stage 3 and deliveries under stage 4", () => {
-    const purchaseLine = {
-      id: "ri-1",
-      purchaseOrderItemId: "poi-1",
-      barangId: "barang-3",
-      nama: "Kabel Dropcore",
-      satuan: "roll",
-      quantity: 2,
-      unitPrice: null as number | null,
-    };
-    const markup = renderDetail(
-      {
-        ...ordered,
-        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "PARTIAL" },
-        goodsReceipts: [
-          {
-            id: "grn-1",
-            grnNumber: "GRN-1",
-            fotoBukti: [],
-            // Pagi hari yang sama dengan belanja di Toko B: belanja tetap
-            // tampil lebih dulu karena barang dibeli sebelum datang.
-            receivedAt: "2026-11-04T01:00:00.000Z",
-            receivedBy: { name: "Budi" },
-            items: [],
-          },
-        ],
-        purchaseRecords: [
-          {
-            id: "rec-2",
-            storeName: "Toko B",
-            supplierId: null,
-            purchasedAt: "2026-11-06T05:00:00.000Z",
-            createdAt: "2026-11-06T06:00:00.000Z",
-            recordedBy: { name: "Sari" },
-            buyerName: null,
-            source: "ADMIN",
-            hasSignature: false,
-            notes: null,
-            fotoNota: [],
-            items: [{ ...purchaseLine, id: "ri-2" }],
-          },
-          {
-            id: "rec-1",
-            storeName: "Toko A",
-            supplierId: null,
-            purchasedAt: "2026-11-04T05:00:00.000Z",
-            createdAt: "2026-11-04T06:00:00.000Z",
-            recordedBy: { name: "Sari" },
-            buyerName: null,
-            source: "ADMIN",
-            hasSignature: false,
-            notes: null,
-            fotoNota: [],
-            items: [purchaseLine],
-          },
-        ],
-        items: [
-          {
-            ...ordered.items[0],
-            orderedQuantity: 8,
-            receivedQuantity: 2,
-            cancelledQuantity: 0,
-            purchasedQuantity: 4,
-            purchaseOrderItemId: "poi-1",
-          },
-        ],
-      },
-      { canVerify: true, onOpenReceive: vi.fn() },
-    );
-
-    const purchaseStage = markup.indexOf("3 Pembelian");
-    const storeA = markup.indexOf("Belanja ke-1 · 4 Nov 2026 · Toko A");
-    const storeB = markup.indexOf("Belanja ke-2 · 6 Nov 2026 · Toko B");
-    const openStep = markup.indexOf("Masih ada barang yang belum dibeli");
-    const receiptStage = markup.indexOf("4 Verifikasi barang sampai");
-    const delivery = markup.indexOf("Kiriman ke-1");
-    expect(purchaseStage).toBeGreaterThan(-1);
-    expect(purchaseStage).toBeLessThan(storeA);
-    expect(storeA).toBeLessThan(storeB);
-    expect(storeB).toBeLessThan(openStep);
-    expect(openStep).toBeLessThan(receiptStage);
-    expect(receiptStage).toBeLessThan(delivery);
-    expect(delivery).toBeLessThan(markup.indexOf("Belum selesai"));
-  });
-
-  it("keeps the shopping link as the main action while receiving is second", () => {
-    const markup = renderDetail(
-      {
-        ...ordered,
-        purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "ORDERED" },
-        goodsReceipts: [],
-        items: [
-          {
-            ...ordered.items[0],
-            receivedQuantity: 0,
-            cancelledQuantity: 0,
-            purchasedQuantity: 3,
-            purchaseOrderItemId: "poi-1",
-          },
-        ],
-      },
-      { canVerify: true, onOpenReceive: vi.fn() },
-    );
-
-    const receiveButton = markup.match(
-      /<button[^>]*aria-label="Catat Barang Datang untuk PR-001"[^>]*>/,
-    )?.[0];
-    expect(receiveButton).toBeDefined();
-    expect(receiveButton).toContain("border-indigo-300");
-    expect(receiveButton).not.toContain("bg-indigo-700");
-  });
-
-  it("offers the next delivery for a partial order", () => {
-    const markup = renderDetail(ordered, {
-      canVerify: true,
-      onOpenReceive: vi.fn(),
     });
 
-    expect(markup).toContain("Catat Kiriman Berikutnya");
-    expect(markup).not.toContain("Catat Belanja");
+    expect(markup).toContain("10 roll (+2 lebih)");
   });
 
-  it("ends the journey as finished short", () => {
-    const markup = renderDetail({ ...ordered, status: "RECEIVED" });
-
-    expect(markup).toContain("Selesai, kurang");
-    expect(markup).toContain("Selesai, Kurang");
-  });
-  it("shows the purchase link panel only to verifiers on an approved request", () => {
-    const ordered: PurchaseRequest = { ...request, status: "ORDERED" };
-    const forVerifier = renderToStaticMarkup(
-      <RestockDetailModal request={ordered} onClose={vi.fn()} canVerify />,
-    );
-    const forViewer = renderToStaticMarkup(
-      <RestockDetailModal request={ordered} onClose={vi.fn()} />,
-    );
-    const forFinished = renderToStaticMarkup(
-      <RestockDetailModal request={request} onClose={vi.fn()} canVerify />,
-    );
-
-    expect(forVerifier).toContain("Link belanja");
-    expect(forViewer).not.toContain("Link belanja");
-    expect(forFinished).not.toContain("Link belanja");
-  });
-
-  it("shows the void action on purchase records only to verifiers while the order is open", () => {
-    const record: PurchaseRecordSummary = {
-      id: "rec-1",
-      storeName: "Toko A",
-      supplierId: null,
-      purchasedAt: "2026-11-08T05:00:00.000Z",
-      createdAt: "2026-11-08T06:00:00.000Z",
-      recordedBy: { name: "Sari" },
-      buyerName: "Andi",
-      source: "PUBLIC_LINK",
-      hasSignature: false,
-      notes: null,
-      fotoNota: [],
-      items: [],
-    };
-    const ordered: PurchaseRequest = {
-      ...request,
-      status: "ORDERED",
-      purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "ORDERED" },
-      purchaseRecords: [record],
-    };
-    const closed: PurchaseRequest = {
-      ...ordered,
-      purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "RECEIVED" },
-    };
-    const onPurchaseVoided = vi.fn().mockResolvedValue(undefined);
-
-    const forVerifier = renderToStaticMarkup(
-      <RestockDetailModal
-        request={ordered}
-        onClose={vi.fn()}
-        canVerify
-        onPurchaseVoided={onPurchaseVoided}
-      />,
-    );
-    const forViewer = renderToStaticMarkup(
-      <RestockDetailModal
-        request={ordered}
-        onClose={vi.fn()}
-        onPurchaseVoided={onPurchaseVoided}
-      />,
-    );
-    const forClosedOrder = renderToStaticMarkup(
-      <RestockDetailModal
-        request={closed}
-        onClose={vi.fn()}
-        canVerify
-        onPurchaseVoided={onPurchaseVoided}
-      />,
-    );
-
-    expect(forVerifier).toContain("Batalkan catatan belanja");
-    expect(forViewer).not.toContain("Batalkan catatan belanja");
-    expect(forClosedOrder).not.toContain("Batalkan catatan belanja");
-  });
-
-  it("replaces the void action once the purchased goods have arrived", () => {
-    const record: PurchaseRecordSummary = {
-      id: "rec-1",
-      storeName: "Toko A",
-      supplierId: null,
-      purchasedAt: "2026-11-08T05:00:00.000Z",
-      createdAt: "2026-11-08T06:00:00.000Z",
-      recordedBy: { name: "Sari" },
-      buyerName: "Andi",
-      source: "PUBLIC_LINK",
-      hasSignature: false,
-      notes: null,
-      fotoNota: [],
+  it("menutup riwayat tanpa barang masuk atau dengan pembatalan beserta alasannya", () => {
+    const finished = renderDetail({
+      ...approvedFresh,
+      status: "RECEIVED",
       items: [
         {
-          id: "ri-1",
-          purchaseOrderItemId: "poi-1",
-          barangId: request.items[0].barangId,
-          nama: "Kabel",
-          satuan: "roll",
-          quantity: 3,
-          unitPrice: null,
+          ...approvedFresh.items[0],
+          receivedQuantity: 0,
+          cancelledQuantity: 8,
         },
       ],
-    };
-    const arrived: PurchaseRequest = {
-      ...request,
-      status: "ORDERED",
-      purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "PARTIAL" },
-      purchaseRecords: [record],
-      items: [
-        {
-          ...request.items[0],
-          purchaseOrderItemId: "poi-1",
-          purchasedQuantity: 3,
-          receivedQuantity: 2,
-          cancelledQuantity: 0,
-        },
-      ],
-    };
+    });
+    expect(finished).toContain("Selesai tanpa barang masuk");
 
+    const cancelled = renderDetail({
+      ...approvedFresh,
+      status: "CANCELLED",
+      cancelReason: "Proyek ditunda",
+    });
+    expect(cancelled).toContain("Dibatalkan");
+    expect(cancelled).toContain("Alasan: Proyek ditunda");
+    expect(cancelled).toContain(
+      "Pengajuan ini dibatalkan. Alasan: Proyek ditunda",
+    );
+    expect(cancelled).not.toContain("Menunggu admin memasukkan barang");
+  });
+
+  it("menampilkan pengajuan yang belum diputuskan tanpa kolom barang masuk", () => {
+    const markup = renderDetail(
+      {
+        ...request,
+        status: "DRAFT",
+        approver: null,
+        catatanApproval: null,
+        items: [
+          {
+            ...request.items[0],
+            statusApproval: "PENDING",
+            jumlahDiminta: null,
+            barangIdDiminta: null,
+            barangDiminta: null,
+            catatanApproval: null,
+          },
+        ],
+      },
+      { canVerify: true, onOpenReceive: vi.fn(), onOpenCancel: vi.fn() },
+    );
+
+    expect(markup).toContain("Menunggu Persetujuan");
+    expect(markup).toContain("Belum diputuskan atasan.");
+    expect(markup).toContain("Menunggu keputusan atasan");
+    expect(markup).not.toContain("Masuk gudang");
+    expect(markup).not.toContain("Keputusan Atasan");
+    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).not.toContain("Batalkan Pengajuan");
+  });
+
+  it("menulis penolakan atasan di riwayat dan statusnya", () => {
+    const markup = renderDetail({
+      ...request,
+      status: "REJECTED",
+      catatanApproval: "Stok gudang masih cukup",
+    });
+
+    expect(markup).toContain("Ditolak · Manajer Gudang");
+    expect(markup).toContain(
+      "Pengajuan ini ditolak. Alasan: Stok gudang masih cukup",
+    );
+    expect(markup).not.toContain("Masuk gudang");
+  });
+});
+
+describe("RestockDetailModal tombol lanjutan", () => {
+  const approved: PurchaseRequest = {
+    ...request,
+    status: "ORDERED",
+    purchaseOrder: { id: "po-1", poNumber: "PO-1", status: "DRAFT" },
+    items: [{ ...request.items[0], receivedQuantity: 0 }],
+  };
+  const handlers = { onOpenReceive: vi.fn(), onOpenCancel: vi.fn() };
+
+  it("memberi petugas verifikasi Masukkan Barang dan Batalkan Pengajuan", () => {
     const markup = renderToStaticMarkup(
       <RestockDetailModal
-        request={arrived}
+        request={approved}
         onClose={vi.fn()}
         canVerify
-        onPurchaseVoided={vi.fn().mockResolvedValue(undefined)}
+        {...handlers}
       />,
     );
 
-    expect(markup).not.toContain("Batalkan catatan belanja");
-    expect(markup).toContain(
-      "Tidak bisa dibatalkan: barangnya sudah dicatat datang.",
+    expect(markup).toContain('aria-label="Masukkan Barang untuk PR-001"');
+    expect(markup).toContain("bg-indigo-700");
+    expect(markup).toContain('aria-label="Batalkan Pengajuan PR-001"');
+    expect(markup.indexOf("Masukkan Barang untuk")).toBeLessThan(
+      markup.indexOf("Batalkan Pengajuan PR-001"),
+    );
+  });
+
+  it("tidak menampilkan tombol lanjutan untuk yang hanya melihat", () => {
+    const markup = renderToStaticMarkup(
+      <RestockDetailModal request={approved} onClose={vi.fn()} {...handlers} />,
+    );
+
+    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).not.toContain("Batalkan Pengajuan");
+  });
+
+  it("tidak menawarkan Batalkan setelah ada barang yang masuk", () => {
+    const markup = renderToStaticMarkup(
+      <RestockDetailModal
+        request={{
+          ...approved,
+          items: [{ ...approved.items[0], receivedQuantity: 4 }],
+        }}
+        onClose={vi.fn()}
+        canVerify
+        {...handlers}
+      />,
+    );
+
+    expect(markup).toContain("Masukkan Barang");
+    expect(markup).not.toContain("Batalkan Pengajuan");
+  });
+
+  it("menawarkan Batalkan pada pesanan gabungan walau pengajuan lain sudah memasukkan barang", () => {
+    const merged: PurchaseRequest = {
+      ...approved,
+      purchaseOrder: {
+        id: "po-1",
+        poNumber: "PO-1",
+        status: "PARTIAL",
+        linkedRequestCount: 2,
+      },
+      goodsReceipts: [{ id: "grn-1", grnNumber: "GRN-1", fotoBukti: [] }],
+    };
+    const markup = renderToStaticMarkup(
+      <RestockDetailModal
+        request={merged}
+        onClose={vi.fn()}
+        canVerify
+        {...handlers}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Batalkan Pengajuan PR-001"');
+  });
+
+  it("tidak menawarkan Batalkan pada pesanan gabungan bila jasa pengajuan ini sudah selesai", () => {
+    const markup = renderToStaticMarkup(
+      <RestockDetailModal
+        request={{
+          ...approved,
+          purchaseOrder: {
+            id: "po-1",
+            poNumber: "PO-1",
+            status: "ORDERED",
+            linkedRequestCount: 2,
+          },
+          jasaItems: [
+            {
+              id: "jasa-item-1",
+              jasaId: "jasa-1",
+              jumlah: 1,
+              hargaPerUnit: 100,
+              totalHarga: 100,
+              statusKonfirmasi: "SELESAI",
+              jasa: {
+                id: "jasa-1",
+                kode: "JS-1",
+                nama: "Splicing",
+                satuan: "job",
+              },
+            },
+          ],
+        }}
+        onClose={vi.fn()}
+        canVerify
+        {...handlers}
+      />,
+    );
+
+    expect(markup).not.toContain("Batalkan Pengajuan");
+  });
+
+  it("tidak menampilkan tombol lanjutan untuk pengajuan yang sudah selesai", () => {
+    const markup = renderToStaticMarkup(
+      <RestockDetailModal
+        request={{
+          ...approved,
+          status: "RECEIVED",
+          items: [{ ...approved.items[0], receivedQuantity: 8 }],
+        }}
+        onClose={vi.fn()}
+        canVerify
+        {...handlers}
+      />,
+    );
+
+    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).not.toContain("Batalkan Pengajuan");
+  });
+});
+
+describe("RestockDetailModal jasa", () => {
+  const jasa = (
+    overrides: Partial<PurchaseRequestJasaItem>,
+  ): PurchaseRequestJasaItem => ({
+    id: "jasa-item-1",
+    jasaId: "jasa-1",
+    jumlah: 1,
+    hargaPerUnit: 100,
+    totalHarga: 100,
+    statusKonfirmasi: "PENDING",
+    jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
+    ...overrides,
+  });
+
+  it("menandai jasa yang ditolak atasan lewat info persetujuannya", () => {
+    const markup = renderToStaticMarkup(
+      <RestockDetailModal
+        request={{
+          ...request,
+          items: [],
+          jasaItems: [
+            jasa({
+              statusApproval: "REJECTED",
+              catatanApproval: "Tidak perlu",
+            }),
+            jasa({
+              id: "jasa-item-2",
+              jasa: {
+                id: "jasa-2",
+                kode: "JS-2",
+                nama: "Tarik Kabel",
+                satuan: "job",
+              },
+            }),
+          ],
+        }}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Daftar Jasa");
+    expect(markup).toContain("Ditolak");
+    expect(markup).toContain("Catatan atasan: Tidak perlu");
+    expect(markup.split("Menunggu Konfirmasi").length).toBe(2);
+  });
+
+  it("memakai warna teks kecil yang terbaca di mode terang dan gelap", () => {
+    const markup = renderToStaticMarkup(
+      <RestockDetailModal
+        request={{
+          ...request,
+          items: [],
+          jasaItems: [
+            jasa({
+              statusKonfirmasi: "SELESAI",
+              tanggalSelesai: "2026-11-02T00:00:00.000Z",
+              keterangan: "Splicing 12 core",
+            }),
+            jasa({ id: "jasa-item-2" }),
+          ],
+        }}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(markup).not.toContain("text-violet-400");
+    expect(markup).not.toContain("text-emerald-600");
+    expect(markup).toMatch(
+      /class="[^"]*text-violet-700 dark:text-violet-300[^"]*">Daftar Jasa</,
+    );
+    expect(markup).toMatch(
+      /class="[^"]*text-gray-600 dark:text-gray-400[^"]*">Splicing 12 core</,
+    );
+    expect(markup).toMatch(
+      /class="[^"]*text-emerald-700 dark:text-emerald-300[^"]*">Selesai:/,
+    );
+    expect(markup).toMatch(
+      /class="[^"]*dark:bg-emerald-900\/50 dark:text-emerald-100[^"]*">Selesai</,
+    );
+    expect(markup).toMatch(
+      /class="[^"]*dark:bg-yellow-900\/50 dark:text-yellow-100[^"]*">Menunggu Konfirmasi</,
+    );
+    expect(markup).toMatch(
+      /class="[^"]*text-violet-600 dark:text-violet-300[^"]*">1\b/,
     );
   });
 });

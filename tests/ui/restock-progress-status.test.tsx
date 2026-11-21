@@ -2,75 +2,85 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { RestockProgressStatus } from "@/app/admin/inventory/restock/RestockStatusBadge";
+import {
+  RestockProgressStatus,
+  RestockStatusBadge,
+} from "@/app/admin/inventory/restock/RestockStatusBadge";
 import type { PurchaseRequest } from "@/app/admin/inventory/restock/types";
 
-const request: PurchaseRequest = {
-  id: "pr-1",
-  nomorRequest: "PR-001",
-  status: "ORDERED",
-  createdAt: "2026-11-01T00:00:00.000Z",
-  requester: { name: "Budi" },
-  gudangId: "gudang-a",
-  gudang: { id: "gudang-a", nama: "Gudang Utama" },
-  purchaseOrder: { id: "po-1", status: "DRAFT" },
-  items: [
-    {
-      id: "item-1",
-      barangId: "barang-1",
-      jumlah: 10,
-      receivedQuantity: 0,
-      purchaseOrderItemId: "poi-1",
-      barang: { nama: "Kabel Fiber", kode: "BRG-1", satuan: "roll" },
-    },
-  ],
-};
+function makeRequest(
+  overrides: Partial<PurchaseRequest> = {},
+): PurchaseRequest {
+  return {
+    id: "pr-1",
+    nomorRequest: "PR-001",
+    status: "APPROVED",
+    createdAt: "2026-11-01T00:00:00.000Z",
+    requester: { name: "Budi" },
+    gudangId: "gudang-a",
+    gudang: { id: "gudang-a", nama: "Gudang Utama" },
+    purchaseOrder: { id: "po-1", status: "DRAFT" },
+    items: [
+      {
+        id: "item-1",
+        barangId: "barang-1",
+        jumlah: 10,
+        receivedQuantity: 0,
+        barang: { nama: "Kabel Fiber", kode: "BRG-1", satuan: "roll" },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+describe("RestockStatusBadge", () => {
+  it("menampilkan label status dalam satu baris", () => {
+    const markup = renderToStaticMarkup(
+      <RestockStatusBadge request={makeRequest({ status: "DRAFT" })} />,
+    );
+    expect(markup).toContain("Menunggu Persetujuan");
+    expect(markup).toContain("whitespace-nowrap");
+  });
+});
 
 describe("RestockProgressStatus", () => {
-  it("menulis tahap di atas badge status", () => {
+  it("menulis badge lalu kalimat keadaan, tanpa tahap", () => {
     const markup = renderToStaticMarkup(
-      <RestockProgressStatus request={request} />,
+      <RestockProgressStatus request={makeRequest()} />,
     );
 
-    expect(markup).toContain("Tahap 3 dari 4: Pembelian");
-    expect(markup.indexOf("Tahap 3 dari 4: Pembelian")).toBeLessThan(
-      markup.indexOf("Belum Dibeli"),
+    expect(markup.indexOf("Disetujui")).toBeLessThan(
+      markup.indexOf("Menunggu admin memasukkan barang."),
     );
-    expect(markup).toContain("Menunggu laporan belanja dari link.");
-  });
-
-  it("tidak menulis tahap untuk pengajuan yang dibatalkan", () => {
-    const markup = renderToStaticMarkup(
-      <RestockProgressStatus request={{ ...request, status: "CANCELLED" }} />,
-    );
-
     expect(markup).not.toContain("Tahap");
-    expect(markup).toContain("Dibatalkan");
   });
 
-  it("versi tabel: badge dulu, tahap singkat satu baris, kalimat dipotong 2 baris", () => {
-    const markup = renderToStaticMarkup(
-      <RestockProgressStatus request={request} isCompact />,
-    );
-
-    expect(markup.indexOf("Belum Dibeli")).toBeLessThan(
-      markup.indexOf("Tahap 3/4"),
-    );
-    expect(markup).toContain("Tahap 3/4 · Pembelian");
-    expect(markup).toContain("whitespace-nowrap");
-    expect(markup).toContain("line-clamp-2");
-    expect(markup).not.toContain("Tahap 3 dari 4: Pembelian</p>");
-  });
-
-  it("versi tabel tidak menulis tahap untuk pengajuan yang dibatalkan", () => {
+  it("menulis alasan pembatalan pada pengajuan yang dibatalkan", () => {
     const markup = renderToStaticMarkup(
       <RestockProgressStatus
-        request={{ ...request, status: "CANCELLED" }}
-        isCompact
+        request={makeRequest({
+          status: "CANCELLED",
+          cancelReason: "Tidak jadi dipakai",
+        })}
       />,
     );
 
-    expect(markup).not.toContain("Tahap ");
     expect(markup).toContain("Dibatalkan");
+    expect(markup).toContain(
+      "Pengajuan ini dibatalkan. Alasan: Tidak jadi dipakai",
+    );
+  });
+
+  it("versi tabel: badge dulu, kalimat dipotong 2 baris dengan teks lengkap di title", () => {
+    const markup = renderToStaticMarkup(
+      <RestockProgressStatus request={makeRequest()} isCompact />,
+    );
+
+    expect(markup.indexOf("Disetujui")).toBeLessThan(
+      markup.indexOf("Menunggu admin memasukkan barang."),
+    );
+    expect(markup).toContain("whitespace-nowrap");
+    expect(markup).toContain("line-clamp-2");
+    expect(markup).toContain('title="Menunggu admin memasukkan barang."');
   });
 });

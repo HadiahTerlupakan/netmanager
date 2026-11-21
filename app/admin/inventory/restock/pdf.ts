@@ -3,28 +3,18 @@ import autoTable from "jspdf-autotable";
 import { toast } from "react-hot-toast";
 
 import {
+  getRestockLineProgress,
+  isRestockClosed,
+} from "@/modules/inventory/client";
+
+import {
   type ApprovalLine,
   getRequestedQuantity,
   getRequestedSatuan,
   isLineRejected,
   wasSubstituted,
 } from "./approvalUtils";
-import {
-  getRestockLineProgress,
-  describeRestockStatusLine,
-  getRestockProgress,
-  isRestockOrderFinished,
-} from "./restockProgress";
-import {
-  drawPurchaseSection,
-  loadPurchaseSignatures,
-} from "./restockPdfPurchases";
-import {
-  describeLinePurchaseBreakdown,
-  getRestockLinePurchase,
-  getRestockPurchaseRecords,
-  isRestockLegacyPurchased,
-} from "./restockPurchase";
+import { getRestockLineCancelReason, getRestockStatus } from "./restockStatus";
 import type { PurchaseRequest } from "./types";
 
 interface AutoTableDoc extends jsPDF {
@@ -44,15 +34,12 @@ interface PurchaseRequestTableItem {
   nama: string;
   requestedQuantity: string;
   approvedQuantity: string;
-  purchasedQuantity: string;
   receivedQuantity: string;
-  notComingQuantity: string;
+  notEnteredQuantity: string;
   keterangan: string;
 }
 
 const DEFAULT_TABLE_FINAL_Y = 100;
-/** Jarak tabel terakhir ke judul bagian "PEMBELIAN". */
-const PURCHASE_SECTION_GAP = 12;
 
 function sanitizePdfFilename(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
@@ -107,8 +94,8 @@ interface PrintableLines {
 }
 
 /**
- * Baris yang dicetak di dokumen. Baris yang ditolak dibuang supaya pembeli dan
- * penerima barang tidak mengira barang itu masih harus diurus. Bila semua
+ * Baris yang dicetak di dokumen. Baris yang ditolak dibuang supaya penerima
+ * barang tidak mengira barang itu masih harus diurus. Bila semua
  * baris ditolak (atau pengajuan ditolak utuh), semuanya tetap dicetak dengan
  * tanda "Ditolak" agar dokumen tidak kosong dan alasan penolakannya terbaca.
  */
@@ -167,35 +154,21 @@ function getBarangDisplayName(item: PurchaseRequest["items"][number]): string {
   return `${nama} (pengganti ${item.barangDiminta?.nama ?? "barang lain"})`;
 }
 
-/** Sel TIDAK DATANG: jumlah yang tidak jadi datang beserta alasannya. */
-function formatNotComing(
+/**
+ * Sel TIDAK MASUK: jumlah yang tidak masuk gudang beserta alasannya. Pada
+ * pengajuan yang sudah ditutup, sisa yang belum masuk ikut dihitung.
+ */
+function formatNotEntered(
   item: PurchaseRequest["items"][number],
   state: LineApprovalState,
   satuan: string,
-  isOrderFinished: boolean,
+  isClosed: boolean,
 ): string {
-  const { cancelled } = getRestockLineProgress(item, isOrderFinished);
+  const { cancelled } = getRestockLineProgress(item, isClosed);
   if (state === "REJECTED" || cancelled === 0) return "-";
   const quantity = `${cancelled} ${satuan}`;
-  return item.cancelReason ? `${quantity}\n(${item.cancelReason})` : quantity;
-}
-
-/** Sel SUDAH DIBELI: jumlah dibeli beserta rincian tokonya. */
-function formatPurchased(
-  item: PurchaseRequest["items"][number],
-  request: PurchaseRequest,
-  state: LineApprovalState,
-  satuan: string,
-): string {
-  if (state !== "APPROVED") return "-";
-  const { purchasedTotal } = getRestockLinePurchase(
-    item,
-    isRestockLegacyPurchased(request),
-  );
-  if (purchasedTotal === 0) return `0 ${satuan}`;
-  const breakdown = describeLinePurchaseBreakdown(item, request);
-  const quantity = `${purchasedTotal} ${satuan}`;
-  return breakdown ? `${quantity}\n(${breakdown})` : quantity;
+  const reason = getRestockLineCancelReason(item);
+  return reason ? `${quantity}\n(${reason})` : quantity;
 }
 
 function getPurchaseRequestTableItem(
@@ -210,14 +183,13 @@ function getPurchaseRequestTableItem(
     nama: getBarangDisplayName(item),
     requestedQuantity: `${getRequestedQuantity(item)} ${getRequestedSatuan(item)}`,
     approvedQuantity: formatApprovedQuantity(state, item.jumlah, satuan),
-    purchasedQuantity: formatPurchased(item, request, state, satuan),
     receivedQuantity:
       state === "REJECTED" ? "-" : `${item.receivedQuantity || 0} ${satuan}`,
-    notComingQuantity: formatNotComing(
+    notEnteredQuantity: formatNotEntered(
       item,
       state,
       satuan,
-      isRestockOrderFinished(request),
+      isRestockClosed(request),
     ),
     keterangan: formatLineNotes(item.keterangan, item.catatanApproval),
   };
@@ -250,11 +222,8 @@ function writeNoteBlock(doc: jsPDF, label: string, value: string, y: number) {
 /**
  * Generate & download PDF dokumen Purchase Request (bukan Purchase Order).
  * PO yang terkait (jika ada) ditampilkan sebagai referensi meta saja.
- * Async karena tanda tangan pembeli di bagian "PEMBELIAN" diambil dulu.
  */
-export async function generatePurchaseRequestPdf(request: PurchaseRequest) {
-  const purchaseRecords = getRestockPurchaseRecords(request);
-  const signatures = await loadPurchaseSignatures(request.id, purchaseRecords);
+export function generatePurchaseRequestPdf(request: PurchaseRequest) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -290,12 +259,10 @@ export async function generatePurchaseRequestPdf(request: PurchaseRequest) {
     59,
   );
   writeMetadataRow(doc, "Prioritas:", request.prioritas || "-", leftCol, 66);
-  // Baris status memuat tahap ("Tahap 3 dari 4 (Pembelian): …"), jadi
-  // ditulis di kolom kiri yang lebar, bukan di kolom kanan.
   writeMetadataRow(
     doc,
     "Status:",
-    describeRestockStatusLine(getRestockProgress(request)),
+    getRestockStatus(request).label,
     leftCol,
     73,
   );
@@ -338,9 +305,8 @@ export async function generatePurchaseRequestPdf(request: PurchaseRequest) {
           "NAMA BARANG",
           "DIMINTA",
           "DISETUJUI",
-          "SUDAH DIBELI",
-          "SUDAH DATANG",
-          "TIDAK DATANG",
+          "MASUK GUDANG",
+          "TIDAK MASUK",
           "KETERANGAN",
         ],
       ],
@@ -351,9 +317,8 @@ export async function generatePurchaseRequestPdf(request: PurchaseRequest) {
           tableItem.nama,
           tableItem.requestedQuantity,
           tableItem.approvedQuantity,
-          tableItem.purchasedQuantity,
           tableItem.receivedQuantity,
-          tableItem.notComingQuantity,
+          tableItem.notEnteredQuantity,
           tableItem.keterangan,
         ];
       }),
@@ -371,7 +336,6 @@ export async function generatePurchaseRequestPdf(request: PurchaseRequest) {
         3: { halign: "center" },
         4: { halign: "center" },
         5: { halign: "center" },
-        6: { halign: "center" },
       },
     });
     nextTableY = (doc as AutoTableDoc).lastAutoTable?.finalY ?? nextTableY;
@@ -415,15 +379,6 @@ export async function generatePurchaseRequestPdf(request: PurchaseRequest) {
       },
     });
     nextTableY = (doc as AutoTableDoc).lastAutoTable?.finalY ?? nextTableY;
-  }
-
-  if (purchaseRecords.length > 0) {
-    nextTableY = drawPurchaseSection(
-      doc,
-      nextTableY + PURCHASE_SECTION_GAP,
-      purchaseRecords,
-      signatures,
-    );
   }
 
   const finalY = nextTableY + 30;

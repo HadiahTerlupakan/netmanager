@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 
 /**
- * Token link tanpa login (tanda tangan pengesahan, daftar belanja restock).
+ * Token link tanpa login (tanda tangan pengesahan).
  *
  * Token adalah satu-satunya bukti kepemilikan link: pemegangnya tidak punya
  * akun. Karena itu entropinya 256-bit dan yang disimpan di database hanya

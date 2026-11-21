@@ -9,7 +9,6 @@ const pdfMocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   addPage: vi.fn(),
-  addImage: vi.fn(),
 }));
 
 vi.mock("jspdf", () => ({
@@ -30,7 +29,6 @@ vi.mock("jspdf", () => ({
       text: pdfMocks.text,
       splitTextToSize: vi.fn((value: string) => value),
       addPage: pdfMocks.addPage,
-      addImage: pdfMocks.addImage,
       save: pdfMocks.save,
     };
   }),
@@ -99,8 +97,8 @@ describe("generatePurchaseRequestPdf", () => {
     );
   });
 
-  it("saves purchase request PDF with a safe filename", async () => {
-    await generatePurchaseRequestPdf(baseRequest);
+  it("saves purchase request PDF with a safe filename", () => {
+    generatePurchaseRequestPdf(baseRequest);
 
     expect(pdfMocks.save).toHaveBeenCalledWith("PR-PR-001-Depok.pdf");
     expect(pdfMocks.toastSuccess).toHaveBeenCalledWith(
@@ -108,16 +106,14 @@ describe("generatePurchaseRequestPdf", () => {
     );
   });
 
-  it("keeps downloading when auto table does not expose finalY", async () => {
+  it("keeps downloading when auto table does not expose finalY", () => {
     pdfMocks.autoTable.mockImplementation(() => undefined);
 
-    await expect(
-      generatePurchaseRequestPdf(baseRequest),
-    ).resolves.toBeUndefined();
+    expect(() => generatePurchaseRequestPdf(baseRequest)).not.toThrow();
     expect(pdfMocks.save).toHaveBeenCalledWith("PR-PR-001-Depok.pdf");
   });
 
-  it("uses placeholder item data instead of crashing on incomplete item relation", async () => {
+  it("uses placeholder item data instead of crashing on incomplete item relation", () => {
     const request = {
       ...baseRequest,
       items: [
@@ -128,7 +124,7 @@ describe("generatePurchaseRequestPdf", () => {
       ],
     } as unknown as PurchaseRequest;
 
-    await expect(generatePurchaseRequestPdf(request)).resolves.toBeUndefined();
+    expect(() => generatePurchaseRequestPdf(request)).not.toThrow();
     expect(pdfMocks.autoTable).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -138,7 +134,6 @@ describe("generatePurchaseRequestPdf", () => {
             "Barang tidak tersedia",
             "2 -",
             "2 -",
-            "2 -\n(2 tanpa catatan belanja)",
             "1 -",
             "-",
             "Untuk ODP baru",
@@ -148,8 +143,8 @@ describe("generatePurchaseRequestPdf", () => {
     );
   });
 
-  it("includes purchase request metadata, notes, and approval context", async () => {
-    await generatePurchaseRequestPdf(baseRequest);
+  it("includes purchase request metadata, notes, and approval context", () => {
+    generatePurchaseRequestPdf(baseRequest);
 
     expect(pdfMocks.text).toHaveBeenCalledWith(
       "PENGAJUAN BARANG",
@@ -167,10 +162,13 @@ describe("generatePurchaseRequestPdf", () => {
       expect.any(Number),
       expect.any(Number),
     );
-    // Barang datang tanpa laporan belanja (data lama): sisanya masih di
-    // tahap pembelian.
     expect(pdfMocks.text).toHaveBeenCalledWith(
-      "Tahap 4 dari 4 (Verifikasi barang sampai): Datang Sebagian",
+      "Disetujui",
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(pdfMocks.text).toHaveBeenCalledWith(
+      "Tanggal Disetujui:",
       expect.any(Number),
       expect.any(Number),
     );
@@ -209,10 +207,16 @@ describe("generatePurchaseRequestPdf", () => {
       expect.any(Number),
       expect.any(Number),
     );
+    expect(pdfMocks.text).toHaveBeenCalledWith(
+      "Disetujui oleh,",
+      expect.any(Number),
+      expect.any(Number),
+      expect.anything(),
+    );
   });
 
-  it("includes requested quantity, received quantity, unit, and item notes", async () => {
-    await generatePurchaseRequestPdf(baseRequest);
+  it("includes requested quantity, received quantity, unit, and item notes", () => {
+    generatePurchaseRequestPdf(baseRequest);
 
     expect(getGeneratedTableOptions()).toEqual(
       expect.objectContaining({
@@ -222,9 +226,8 @@ describe("generatePurchaseRequestPdf", () => {
             "NAMA BARANG",
             "DIMINTA",
             "DISETUJUI",
-            "SUDAH DIBELI",
-            "SUDAH DATANG",
-            "TIDAK DATANG",
+            "MASUK GUDANG",
+            "TIDAK MASUK",
             "KETERANGAN",
           ],
         ],
@@ -234,7 +237,6 @@ describe("generatePurchaseRequestPdf", () => {
             "Kabel Fiber",
             "2 roll",
             "2 roll",
-            "2 roll\n(2 tanpa catatan belanja)",
             "1 roll",
             "-",
             "Untuk ODP baru",
@@ -244,8 +246,8 @@ describe("generatePurchaseRequestPdf", () => {
     );
   });
 
-  it("shows requested vs approved quantity, substitution and approver notes", async () => {
-    await generatePurchaseRequestPdf({
+  it("shows requested vs approved quantity, substitution and approver notes", () => {
+    generatePurchaseRequestPdf({
       ...baseRequest,
       items: [
         {
@@ -271,7 +273,6 @@ describe("generatePurchaseRequestPdf", () => {
         "Kabel Fiber (pengganti Kabel Lama)",
         "8 roll",
         "5 roll",
-        "5 roll\n(5 tanpa catatan belanja)",
         "1 roll",
         "-",
         "Untuk ODP baru\nCatatan atasan: Stok gudang masih ada",
@@ -279,8 +280,8 @@ describe("generatePurchaseRequestPdf", () => {
     ]);
   });
 
-  it("prints what did not come together with the reason", async () => {
-    await generatePurchaseRequestPdf({
+  it("prints what did not enter the warehouse together with the reason", () => {
+    generatePurchaseRequestPdf({
       ...baseRequest,
       status: "RECEIVED",
       items: [
@@ -293,18 +294,36 @@ describe("generatePurchaseRequestPdf", () => {
       ],
     });
 
-    expect(getGeneratedTableOptions().body[0][6]).toBe(
+    expect(getGeneratedTableOptions().body[0][5]).toBe(
       "1 roll\n(Barang habis di toko)",
     );
     expect(pdfMocks.text).toHaveBeenCalledWith(
-      "Tahap 4 dari 4 (Verifikasi barang sampai): Selesai, Kurang",
+      "Sudah Dimasukkan",
       expect.any(Number),
       expect.any(Number),
     );
   });
 
-  it("still prints rejected lines, marked, when every line was rejected", async () => {
-    await generatePurchaseRequestPdf({
+  it("counts the rest of a finished request as not entered, without the standard reason", () => {
+    generatePurchaseRequestPdf({
+      ...baseRequest,
+      status: "RECEIVED",
+      items: [
+        {
+          ...baseRequest.items[0],
+          jumlah: 5,
+          receivedQuantity: 2,
+          cancelledQuantity: 1,
+          cancelReason: "Tidak dimasukkan ke gudang",
+        },
+      ],
+    });
+
+    expect(getGeneratedTableOptions().body[0][5]).toBe("3 roll");
+  });
+
+  it("still prints rejected lines, marked, when every line was rejected", () => {
+    generatePurchaseRequestPdf({
       ...baseRequest,
       items: [
         {
@@ -343,8 +362,8 @@ describe("generatePurchaseRequestPdf", () => {
       "Catatan atasan: Dikerjakan tim internal",
     ]);
   });
-  it("leaves rejected lines out when other lines were approved", async () => {
-    await generatePurchaseRequestPdf({
+  it("leaves rejected lines out when other lines were approved", () => {
+    generatePurchaseRequestPdf({
       ...baseRequest,
       items: [
         baseRequest.items[0],
@@ -383,8 +402,8 @@ describe("generatePurchaseRequestPdf", () => {
     );
   });
 
-  it("keeps approved jasa lines when every barang line was rejected", async () => {
-    await generatePurchaseRequestPdf({
+  it("keeps approved jasa lines when every barang line was rejected", () => {
+    generatePurchaseRequestPdf({
       ...baseRequest,
       items: [
         {
@@ -413,8 +432,8 @@ describe("generatePurchaseRequestPdf", () => {
     ]);
   });
 
-  it("prints the requested quantity in the unit of the barang originally asked for", async () => {
-    await generatePurchaseRequestPdf({
+  it("prints the requested quantity in the unit of the barang originally asked for", () => {
+    generatePurchaseRequestPdf({
       ...baseRequest,
       items: [
         {
@@ -441,8 +460,8 @@ describe("generatePurchaseRequestPdf", () => {
     ]);
   });
 
-  it("shows no approved quantity while the request is still waiting for a decision", async () => {
-    await generatePurchaseRequestPdf({
+  it("shows no approved quantity while the request is still waiting for a decision", () => {
+    generatePurchaseRequestPdf({
       ...baseRequest,
       status: "DRAFT",
       items: [{ ...baseRequest.items[0], statusApproval: "PENDING" }],
@@ -467,8 +486,8 @@ describe("generatePurchaseRequestPdf", () => {
     expect(jasaCall.body[0][3]).toBe("Menunggu");
   });
 
-  it("marks every line rejected on a request rejected before line decisions existed", async () => {
-    await generatePurchaseRequestPdf({
+  it("marks every line rejected on a request rejected before line decisions existed", () => {
+    generatePurchaseRequestPdf({
       ...baseRequest,
       status: "REJECTED",
       items: [
@@ -498,46 +517,15 @@ describe("generatePurchaseRequestPdf", () => {
     expect(barangCall.body[0].slice(3, 6)).toEqual(["Ditolak", "-", "-"]);
     expect(jasaCall.body[0].slice(3, 5)).toEqual(["Ditolak", "Ditolak"]);
   });
-  it("adds the purchase section with buyer names before the signature block", async () => {
-    await generatePurchaseRequestPdf({
-      ...baseRequest,
-      status: "ORDERED",
-      purchaseRecords: [
-        {
-          id: "rec-1",
-          storeName: "Toko Sinar Jaya",
-          supplierId: null,
-          purchasedAt: "2026-04-21T05:00:00.000Z",
-          createdAt: "2026-04-21T06:00:00.000Z",
-          recordedBy: { name: "Admin" },
-          buyerName: "Siti",
-          source: "ADMIN",
-          hasSignature: false,
-          notes: null,
-          fotoNota: [],
-          items: [
-            {
-              id: "line-1",
-              purchaseOrderItemId: "poi-1",
-              barangId: "barang-1",
-              nama: "Kabel Fiber",
-              satuan: "roll",
-              quantity: 1,
-              unitPrice: null,
-            },
-          ],
-        },
-      ],
-    });
+  it("puts the signature block right after the tables, without a purchase section", () => {
+    generatePurchaseRequestPdf({ ...baseRequest, status: "ORDERED" });
 
     const texts = pdfMocks.text.mock.calls.map(([value]) => String(value));
-    const purchaseIndex = texts.indexOf("PEMBELIAN");
-    expect(purchaseIndex).toBeGreaterThan(-1);
-    expect(texts).toContain("Dibeli oleh: Siti");
-    expect(texts).toContain("(dicatat dari aplikasi)");
-    expect(texts.indexOf("Dibuat oleh (Pemohon),")).toBeGreaterThan(
-      purchaseIndex,
-    );
+    expect(texts).not.toContain("PEMBELIAN");
+    expect(texts.some((value) => value.startsWith("Dibeli oleh"))).toBe(false);
+    expect(texts).toContain("Dibuat oleh (Pemohon),");
+    expect(texts).toContain("Disetujui oleh,");
+    expect(texts).toContain("Admin");
     expect(pdfMocks.save).toHaveBeenCalled();
   });
 });

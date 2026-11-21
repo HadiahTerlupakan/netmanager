@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/Button";
 
 /**
- * Kanvas tanda tangan, dipakai pengesahan dokumen dan link belanja.
+ * Kanvas tanda tangan untuk pengesahan dokumen.
  *
  * Menangani pointer event, bukan mouse dan touch terpisah, supaya goresan jari
  * di ponsel dan mouse di desktop lewat jalur kode yang sama.

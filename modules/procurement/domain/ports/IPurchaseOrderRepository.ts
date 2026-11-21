@@ -71,8 +71,8 @@ export interface PurchaseOrderWithRelations extends PurchaseOrderWithSupplier {
 /** Detail PO untuk halaman pembelian, plus penanda PO milik pengajuan restock. */
 export interface PurchaseOrderDetail extends PurchaseOrderWithRelations {
   /**
-   * PO dibuat dari pengajuan restock. Status belinya hanya dicatat lewat link
-   * belanja (dan barang datang), jadi tidak boleh diproses dari sini.
+   * PO dari pengajuan restock. Barangnya dimasukkan dari halaman Restock;
+   * GRN dari halaman Pembelian ditolak.
    */
   isRestockOrder: boolean;
 }
@@ -142,7 +142,8 @@ export interface PurchaseOrderTaxRecord {
 export type PurchaseOrderDeleteOutcome =
   | "DELETED"
   | "NOT_FOUND"
-  | "HAS_PURCHASES";
+  | "HAS_PURCHASES"
+  | "HAS_GOODS_RECEIPTS";
 
 export interface IPurchaseOrderRepository {
   findById(id: string): Promise<PurchaseOrderEntity | null>;
@@ -172,8 +173,10 @@ export interface IPurchaseOrderRepository {
   countLinkedRestockRequests(id: string): Promise<number>;
 
   /**
-   * Hapus PO beserta itemnya. "HAS_PURCHASES" bila PO sudah punya catatan
-   * belanja (diperiksa di dalam transaksi yang sama dengan penghapusan).
+   * Hapus PO beserta itemnya; pengajuan yang masih menunggunya kembali
+   * APPROVED. Diperiksa di dalam transaksi yang sama dengan penghapusan:
+   * "HAS_PURCHASES" bila PO punya catatan belanja lama apa pun, termasuk yang
+   * sudah dibatalkan (FK RESTRICT); "HAS_GOODS_RECEIPTS" bila PO punya GRN.
    */
   delete(id: string): Promise<PurchaseOrderDeleteOutcome>;
 

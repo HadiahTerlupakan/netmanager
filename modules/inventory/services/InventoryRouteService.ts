@@ -269,12 +269,10 @@ export class InventoryRouteService {
     };
   }
 
-  /** Ambil purchase request dengan validasi tenant. */
-  async getPurchaseRequestById(input: { id: string; tenantId: string }) {
-    return this.repository.findPurchaseRequestById(input);
-  }
-
-  /** Perbarui purchase request draft atau submitted dan catat pelakunya. */
+  /**
+   * Perbarui pengajuan yang belum diputuskan dan belum punya pesanan, lalu
+   * catat pelakunya.
+   */
   async updatePurchaseRequest(input: {
     id: string;
     tenantId: string;
@@ -310,51 +308,6 @@ export class InventoryRouteService {
       },
     });
     return updated;
-  }
-
-  /** Hapus purchase request dan catat pelakunya. */
-  async deletePurchaseRequest(input: {
-    id: string;
-    nomorRequest: string;
-    purchaseOrderId?: string | null;
-    actorId: string;
-    tenantId: string;
-  }) {
-    const result = await this.repository.deletePurchaseRequest(input.id);
-    recordInventoryActivity({
-      action: INVENTORY_ACTIVITY_ACTIONS.DELETE,
-      subject: INVENTORY_ACTIVITY_SUBJECTS.RESTOCK_REQUEST,
-      reference: input.nomorRequest,
-      actorId: input.actorId,
-      tenantId: input.tenantId,
-      details: {
-        purchaseRequestId: input.id,
-        purchaseOrderId: input.purchaseOrderId ?? null,
-      },
-    });
-    return result;
-  }
-
-  /**
-   * Pengajuan yang pesanannya sudah menerima barang tidak boleh dihapus,
-   * karena barangnya sudah masuk gudang.
-   */
-  async hasPurchaseRequestArrivedGoods(
-    purchaseOrderId: string | null | undefined,
-  ): Promise<boolean> {
-    if (!purchaseOrderId) return false;
-    return this.repository.hasArrivedGoods(purchaseOrderId);
-  }
-
-  /**
-   * Pengajuan yang barangnya sudah ada yang dibeli tidak boleh dihapus:
-   * catatan belanja (uang yang sudah keluar) akan ikut terhapus.
-   */
-  async hasPurchaseRequestPurchases(
-    purchaseOrderId: string | null | undefined,
-  ): Promise<boolean> {
-    if (!purchaseOrderId) return false;
-    return this.repository.hasPurchaseRecords(purchaseOrderId);
   }
 
   /** Ambil summary opname inventory, dibatasi site pengguna. */

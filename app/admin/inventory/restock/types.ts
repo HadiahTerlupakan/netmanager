@@ -20,15 +20,14 @@ export interface PurchaseRequestItem extends RestockLineApprovalFields {
   id: string;
   barangId: string;
   jumlah: number;
-  /** Jumlah di item PO; bisa lebih besar dari `jumlah` bila PO menggabungkan pengajuan. */
+  /**
+   * Jumlah di item PO; berbeda dari `jumlah` bila pesanannya diubah atau
+   * menggabungkan beberapa pengajuan.
+   */
   orderedQuantity?: number;
   receivedQuantity: number;
   cancelledQuantity?: number;
   cancelReason?: string | null;
-  /** Item PO untuk catatan belanja; null bila ditolak / belum ada PO. Pada pesanan gabungan dipakai bersama. */
-  purchaseOrderItemId?: string | null;
-  /** Jumlah tercatat dibeli (level item PO; pesanan gabungan = total semua pengajuan). */
-  purchasedQuantity?: number;
   keterangan?: string | null;
   barang: { nama: string; kode: string; satuan: string };
   /** Barang yang semula diajukan; hanya terisi bila approver menggantinya. */
@@ -57,16 +56,13 @@ export interface PurchaseRequestJasaItem extends RestockLineApprovalFields {
   };
 }
 
-/** Map barangId asli (di pengajuan) → barangId pengganti yang benar-benar datang. */
+/** Map barangId asli (di pengajuan) → barangId pengganti yang benar-benar masuk. */
 export type RestockSubstitutionMap = Record<string, string>;
 
-/** Map barangId → alasan sisa barang tidak jadi datang. */
-export type RestockCancellationMap = Record<string, string>;
-
-/** barangId → alasan barang datang melebihi sisa pesanan. */
+/** barangId → alasan barang masuk melebihi sisa pesanan. */
 export type RestockOverReceiptMap = Record<string, string>;
 
-/** Satu barang di satu kiriman (GRN). */
+/** Satu barang di satu catatan barang masuk (GRN). */
 export interface GoodsReceiptLineSummary {
   barangId: string;
   /** null bila data barangnya sudah tidak ada. */
@@ -75,7 +71,7 @@ export interface GoodsReceiptLineSummary {
   quantity: number;
 }
 
-/** Satu kiriman barang yang sudah dicatat di gudang. */
+/** Satu catatan barang masuk ke gudang. */
 export interface GoodsReceiptSummary {
   id: string;
   grnNumber: string;
@@ -85,94 +81,16 @@ export interface GoodsReceiptSummary {
   items?: GoodsReceiptLineSummary[];
 }
 
-/** Satu barang di satu catatan belanja. */
-export interface PurchaseRecordLineSummary {
-  id: string;
-  purchaseOrderItemId: string;
-  /** Snapshot barang saat dibeli. */
-  barangId: string;
-  nama: string | null;
-  satuan: string | null;
-  quantity: number;
-  unitPrice: number | null;
-}
-
-/** Satu kali belanja. */
-export interface PurchaseRecordSummary {
-  id: string;
-  /** Hanya catatan lama; link belanja tidak lagi menanyakan nama toko. */
-  storeName: string | null;
-  supplierId: string | null;
-  /** ISO, pukul 12.00 WIB pada tanggal belanja. */
-  purchasedAt: string;
-  /** ISO. */
-  createdAt: string;
-  /** Untuk catatan lewat link: admin pembuat link, bukan yang belanja. */
-  recordedBy: { name: string | null } | null;
-  /** Nama yang belanja; tampilkan ini lebih dulu daripada `recordedBy`. */
-  buyerName: string | null;
-  source: "ADMIN" | "PUBLIC_LINK";
-  /** Gambar di /api/inventory/restock/requests/[id]/purchases/[recordId]/signature. */
-  hasSignature: boolean;
-  notes: string | null;
-  fotoNota: string[];
-  /** ISO; diisi bila catatan dibatalkan admin (tidak dihitung sebagai belanja). */
-  voidedAt?: string | null;
-  voidedBy?: { name: string | null } | null;
-  voidReason?: string | null;
-  /** Hanya baris milik pengajuan ini. */
-  items: PurchaseRecordLineSummary[];
-}
-
-/** Alasan link belanja boleh/tidak boleh dibuat. */
-export type PurchaseLinkAvailability =
-  | "AVAILABLE"
-  | "NOT_APPROVED"
-  | "ALL_PURCHASED"
-  | "CLOSED"
-  | "MERGED_ORDER"
-  | "STORAGE_OFF";
-
-/** Info link belanja aktif (tanpa URL; URL hanya diberikan sekali). */
-export interface PurchaseLinkInfo {
-  id: string;
-  /** ISO. */
-  createdAt: string;
-  /** ISO. */
-  expiresAt: string;
-  /** ISO. */
-  lastUsedAt: string | null;
-  createdByName: string | null;
-}
-
-/** GET /api/inventory/restock/requests/[id]/purchase-link. */
-export interface PurchaseLinkStatus {
-  /** Null bila belum ada link aktif ATAU availability bukan "AVAILABLE". */
-  link: PurchaseLinkInfo | null;
-  availability: PurchaseLinkAvailability;
-}
-
-/** POST /api/inventory/restock/requests/[id]/purchase-link (201). */
-export interface PurchaseLinkCreated {
-  link: PurchaseLinkInfo;
-  /**
-   * Satu-satunya kesempatan melihat link. Bisa relatif ("/belanja#…") bila
-   * URL situs belum diatur; lengkapi dengan getPublicSiteUrl().
-   */
-  url: string;
-}
-
+/** Pesanan yang dibuat otomatis saat pengajuan disetujui. */
 export interface PurchaseOrderSummary {
   id?: string | null;
   poNumber?: string | null;
   status?: string | null;
-  /** Kapan barang ditandai sudah dibeli; null untuk data lama. */
-  issuedAt?: string | null;
-  processedBy?: { name: string } | null;
-  /** UNPAID | PARTIAL | PAID; pesanan yang sudah dibayar tidak dibatalkan. */
-  paymentStatus?: string | null;
-  _count?: { purchaseRequests?: number; jasaItems?: number };
-  goodsReceipts?: GoodsReceiptSummary[];
+  /**
+   * Jumlah pengajuan yang memakai pesanan ini; lebih dari satu berarti
+   * pesanan gabungan. Kosong dibaca sebagai pesanan milik satu pengajuan.
+   */
+  linkedRequestCount?: number;
 }
 
 export interface PurchaseRequest {
@@ -195,12 +113,13 @@ export interface PurchaseRequest {
   gudang: { nama: string; id: string; kode?: string };
   keterangan?: string | null;
   catatanApproval?: string | null;
+  /** Alasan admin membatalkan pengajuan yang sudah disetujui. */
+  cancelReason?: string | null;
   prioritas?: string | null;
+  purchaseOrderId?: string | null;
   purchaseOrder?: PurchaseOrderSummary | null;
-  /** Kiriman barang untuk PO pengajuan ini, urut dari yang paling lama. */
+  /** Catatan barang masuk pengajuan ini, urut dari yang paling lama. */
   goodsReceipts?: GoodsReceiptSummary[];
-  /** Catatan belanja yang menyentuh baris pengajuan ini, terlama dulu. */
-  purchaseRecords?: PurchaseRecordSummary[];
   items: PurchaseRequestItem[];
   jasaItems?: PurchaseRequestJasaItem[];
 }

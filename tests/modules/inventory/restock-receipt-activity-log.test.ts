@@ -1,95 +1,102 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({
-  logActivitySafe: vi.fn(),
-  createGoodsReceipt: vi.fn(),
-}));
+const mocks = vi.hoisted(() => ({ logActivitySafe: vi.fn() }));
 
 vi.mock("@/lib/logger", () => ({
   logActivitySafe: mocks.logActivitySafe,
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
-vi.mock("@/modules/procurement", () => {
-  class PurchaseOrderNotFoundError extends Error {}
-  class GoodsReceiptInvalidError extends Error {}
-  return {
-    getGoodsReceiptService: () => ({ create: mocks.createGoodsReceipt }),
-    GoodsReceiptInvalidError,
-    PurchaseOrderNotFoundError,
-    ProcurementService: class {},
-  };
-});
+vi.mock("@/modules/procurement", () => ({
+  GoodsReceiptExceedsRemainingError: class extends Error {},
+  GoodsReceiptInvalidError: class extends Error {},
+  PurchaseOrderNotFoundError: class extends Error {},
+  PurchaseRequestAlreadyOrderedError: class extends Error {},
+  PurchaseRequestNotOrderableError: class extends Error {},
+  SupplierNotActiveError: class extends Error {},
+}));
 
-import { RestockGoodsReceiptService } from "@/modules/inventory/services/RestockGoodsReceiptService";
+import {
+  createReceiptFixture,
+  kabel,
+  makeOrder,
+  receiveWith,
+} from "./restock-receipt-fixtures";
 
-function createService() {
-  const repository = {
-    findPurchaseRequestForReceipt: vi.fn().mockResolvedValue({
-      id: "pr-1",
-      nomorRequest: "PR-20261012-0001",
-      gudangId: "g-1",
-      purchaseOrderId: "po-1",
-    }),
-    findPurchaseOrderWithItems: vi.fn().mockResolvedValue({
-      id: "po-1",
-      items: [
-        {
-          id: "poi-1",
-          barangId: "b-1",
-          quantity: 10,
-          receivedQuantity: 0,
-          cancelledQuantity: 0,
-          purchasedQuantity: 6,
-        },
-      ],
-    }),
-    findPurchaseOrderStatus: vi.fn().mockResolvedValue("ORDERED"),
-    hasOutstandingItems: vi.fn().mockResolvedValue(true),
-    countPurchaseRequestsForPurchaseOrder: vi.fn().mockResolvedValue(1),
-    applyReceiptSettlement: vi.fn().mockResolvedValue(true),
-  };
-  return new RestockGoodsReceiptService(
-    repository as never,
-    { apply: vi.fn().mockResolvedValue({}) } as never,
-    { apply: vi.fn(), validate: vi.fn() } as never,
-    {} as never,
-  );
-}
+describe("Log Aktivitas Masukkan Barang", () => {
+  beforeEach(() => mocks.logActivitySafe.mockReset());
 
-describe("Log Aktivitas verifikasi barang sampai", () => {
-  beforeEach(() => Object.values(mocks).forEach((fn) => fn.mockReset()));
-
-  it("mencatat penerimaan bernomor PR beserta nomor GRN", async () => {
-    mocks.createGoodsReceipt.mockResolvedValue({
+  it("mencatat barang masuk bernomor pengajuan beserta GRN dan sisa yang tidak dimasukkan", async () => {
+    const fixture = createReceiptFixture();
+    fixture.goodsReceipts.create.mockResolvedValue({
       id: "grn-1",
-      grnNumber: "GRN-20261017-0001",
+      grnNumber: "GRN-20261121-0001",
     });
 
-    await createService().receive({
-      purchaseRequestId: "pr-1",
+    await receiveWith(fixture, {
       receivedItems: { "b-1": 6 },
       fotoBukti: ["/uploads/bukti.webp"],
-      closePO: false,
-      canIncreasePurchaseOrder: false,
       actorId: "user-1",
-      tenantId: "tenant-1",
     });
 
     expect(mocks.logActivitySafe).toHaveBeenCalledWith({
       action: "RECEIVE",
-      subject: "Pengajuan Restock PR-20261012-0001",
+      subject: "Pengajuan Restock PR-20261121-0001",
       userId: "user-1",
       tenantId: "tenant-1",
       details: {
         purchaseRequestId: "pr-1",
         purchaseOrderId: "po-1",
         goodsReceiptId: "grn-1",
-        grnNumber: "GRN-20261017-0001",
+        grnNumber: "GRN-20261121-0001",
         items: [{ barangId: "b-1", quantity: 6 }],
         kelebihanKiriman: [],
+        tidakDimasukkan: [{ barangId: "b-1", jumlah: 4 }],
         jumlahFoto: 1,
-        tutupPesanan: false,
+        pesananDibuatOtomatis: false,
+        pengajuanSelesai: true,
       },
     });
+  });
+
+  it("pada pesanan gabungan yang masih dipakai pengajuan lain, tidak ada sisa yang dicatat dicoret", async () => {
+    const fixture = createReceiptFixture({ linkedRequests: 2 });
+    fixture.repository.closeRequest.mockResolvedValue({
+      isWritten: true,
+      isLastOpenRequest: false,
+    });
+
+    await receiveWith(fixture, { receivedItems: { "b-1": 6 } });
+
+    expect(mocks.logActivitySafe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          goodsReceiptId: "grn-1",
+          tidakDimasukkan: [],
+          pengajuanSelesai: true,
+        }),
+      }),
+    );
+  });
+
+  it("pengajuan lama yang diselesaikan tanpa barang tambahan dicatat tanpa GRN", async () => {
+    const fixture = createReceiptFixture({
+      order: makeOrder({ items: [{ ...kabel, receivedQuantity: 6 }] }),
+    });
+
+    await receiveWith(fixture, { receivedItems: { "b-1": 0 }, fotoBukti: [] });
+
+    expect(mocks.logActivitySafe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "RECEIVE",
+        details: expect.objectContaining({
+          goodsReceiptId: null,
+          grnNumber: null,
+          items: [],
+          tidakDimasukkan: [{ barangId: "b-1", jumlah: 4 }],
+          jumlahFoto: 0,
+          pengajuanSelesai: true,
+        }),
+      }),
+    );
   });
 });

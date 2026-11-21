@@ -9,14 +9,22 @@ import type {
   PurchaseRequestListResult,
 } from "../domain/ports/IProcurementRepository";
 import type { ISupplierRepository } from "../domain/ports/ISupplierRepository";
+import {
+  EMPTY_REQUEST_MESSAGE,
+  PurchaseRequestNotOrderableError,
+} from "../domain/purchase-request-errors";
 import { toPurchaseOrderDTO } from "../mappers/ProcurementMapper";
 import { ProcurementRepository } from "../repositories/ProcurementRepository";
 import { SupplierRepository } from "../repositories/SupplierRepository";
 import { SupplierNotActiveError } from "./SupplierService";
 
+export {
+  PurchaseRequestAlreadyOrderedError,
+  PurchaseRequestNotOrderableError,
+} from "../domain/purchase-request-errors";
+
 const EMPTY_RESULT_TOTAL = 0;
 const NO_SUPPLIER_KEY = "NO_SUPPLIER";
-const NO_ELIGIBLE_PR_ERROR = "No eligible APPROVED Purchase Requests found";
 
 interface AggregatedPurchaseOrderItem {
   barangId: string;
@@ -42,7 +50,11 @@ export class ProcurementService {
     this.supplierRepository = supplierRepository;
   }
 
-  /** Membuat purchase order dari kumpulan purchase request yang sudah approved. */
+  /**
+   * Membuat purchase order dari kumpulan purchase request yang sudah approved.
+   * Tanpa PR yang memenuhi syarat: `PurchaseRequestNotOrderableError`; PR yang
+   * baru saja diklaim pesanan lain: `PurchaseRequestAlreadyOrderedError`.
+   */
   async generatePOFromPRs(
     prIds: string[],
     userId: string,
@@ -109,7 +121,7 @@ export class ProcurementService {
       calculateJasaTotalAmount(aggregatedJasaItems);
 
     if (aggregatedItems.length === 0 && aggregatedJasaItems.length === 0) {
-      throw new Error("Purchase Request tidak memiliki item barang atau jasa");
+      throw new PurchaseRequestNotOrderableError(EMPTY_REQUEST_MESSAGE);
     }
 
     return await this.procurementRepository.createPOWithItems({
@@ -163,7 +175,7 @@ function validatePurchaseRequests(
     return;
   }
 
-  throw new Error(NO_ELIGIBLE_PR_ERROR);
+  throw new PurchaseRequestNotOrderableError();
 }
 
 function groupPRsBySupplier(
