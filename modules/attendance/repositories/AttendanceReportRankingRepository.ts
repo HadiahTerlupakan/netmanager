@@ -2,6 +2,10 @@ import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { prisma } from "@/lib/prisma";
 import { Prisma, type AttendanceStatus } from "@prisma/client";
 import {
+  ABSENT_ATTENDANCE_STATUSES,
+  PRESENT_ATTENDANCE_STATUSES,
+} from "../domain/attendance-report-statuses";
+import {
   appendActiveAttendanceRawFilter,
   buildActiveAttendanceWhere,
   resolveEffectiveTenantId,
@@ -83,7 +87,7 @@ export class AttendanceReportRankingRepository {
       startDate,
       endDate,
       limit,
-      ["ON_TIME", "LATE"],
+      [...PRESENT_ATTENDANCE_STATUSES],
       userIds,
     );
   }
@@ -102,7 +106,7 @@ export class AttendanceReportRankingRepository {
       startDate,
       endDate,
       limit,
-      ["ALPHA", "ABSENT"],
+      [...ABSENT_ATTENDANCE_STATUSES],
       userIds,
     );
   }
@@ -117,7 +121,7 @@ export class AttendanceReportRankingRepository {
     let query = Prisma.sql`
       SELECT
         a."userId",
-        COUNT(CASE WHEN a.status IN ('ON_TIME', 'LATE') THEN 1 END)::int as present,
+        COUNT(CASE WHEN a.status::text IN (${Prisma.join([...PRESENT_ATTENDANCE_STATUSES])}) THEN 1 END)::int as present,
         COUNT(CASE WHEN a.status = 'LATE' THEN 1 END)::int as late,
         COUNT(*)::int as total
       FROM "Attendance" a

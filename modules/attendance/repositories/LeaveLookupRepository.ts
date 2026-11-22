@@ -6,18 +6,23 @@ import {
 } from "../mappers/AttendanceDomainMapper";
 
 export class LeaveLookupRepository {
-  /** Get approved leave stats grouped by user. */
-  async getUserLeaveStats(
+  /**
+   * Periode izin/sakit/cuti disetujui yang beririsan dengan rentang laporan.
+   * Tukar libur bukan izin (hari libur yang dipindah), jadi tidak ikut.
+   * Jumlah harinya dihitung di service — dulu laporan menghitung jumlah
+   * pengajuan, sehingga cuti 5 hari terbaca 1.
+   */
+  async findApprovedLeavePeriods(
     startDate: Date,
     endDate: Date,
     siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {
-    return prisma.leaveRequest.groupBy({
-      by: ["userId"],
+    return prisma.leaveRequest.findMany({
       where: {
         status: "APPROVED",
+        type: { not: "TUKAR_LIBUR" },
         startDate: { lte: endDate },
         endDate: { gte: startDate },
         tenantId,
@@ -30,7 +35,7 @@ export class LeaveLookupRepository {
             }
           : {}),
       },
-      _count: { _all: true },
+      select: { userId: true, startDate: true, endDate: true },
     });
   }
 

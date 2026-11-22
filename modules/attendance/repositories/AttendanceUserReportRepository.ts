@@ -2,13 +2,17 @@ import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import {
+  ABSENT_ATTENDANCE_STATUSES,
+  PRESENT_ATTENDANCE_STATUSES,
+} from "../domain/attendance-report-statuses";
+import {
   appendActiveAttendanceRawFilter,
   buildActiveAttendanceWhere,
   resolveEffectiveTenantId,
 } from "./attendance-repository-helpers";
 
 export class AttendanceUserReportRepository {
-  /** Ambil jumlah attendance hadir per user. */
+  /** Ambil jumlah hari hadir per user (termasuk lupa absen pulang). */
   async getUserAttendanceStats(
     startDate: Date,
     endDate: Date,
@@ -23,7 +27,7 @@ export class AttendanceUserReportRepository {
       by: ["userId"],
       where: buildActiveAttendanceWhere({
         checkIn: { gte: startDate, lte: endDate },
-        status: { in: ["ON_TIME", "LATE"] },
+        status: { in: [...PRESENT_ATTENDANCE_STATUSES] },
         ...(userIds !== undefined && { userId: { in: userIds } }),
         ...(tenantId ? { tenantId } : {}),
       }),
@@ -45,7 +49,7 @@ export class AttendanceUserReportRepository {
       by: ["userId"],
       where: buildActiveAttendanceWhere({
         checkIn: { gte: startDate, lte: endDate },
-        status: { in: ["ALPHA", "ABSENT"] },
+        status: { in: [...ABSENT_ATTENDANCE_STATUSES] },
         userId: { in: userIds },
       }),
       _count: { _all: true },
@@ -65,7 +69,7 @@ export class AttendanceUserReportRepository {
     return prisma.attendance.findMany({
       where: buildActiveAttendanceWhere({
         checkIn: { gte: startDate, lte: endDate },
-        status: { in: ["ON_TIME", "LATE"] },
+        status: { in: [...PRESENT_ATTENDANCE_STATUSES] },
         ...(userIds !== undefined && { userId: { in: userIds } }),
       }),
       select: { userId: true, notes: true, status: true },
@@ -91,7 +95,7 @@ export class AttendanceUserReportRepository {
       WHERE a."checkIn" >= ${startDate}
       AND a."checkIn" <= ${endDate}
       AND a."checkOut" IS NOT NULL
-      AND a.status IN ('ON_TIME', 'LATE')
+      AND a.status::text IN (${Prisma.join([...PRESENT_ATTENDANCE_STATUSES])})
     `;
     if (effectiveTenantId)
       query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`;

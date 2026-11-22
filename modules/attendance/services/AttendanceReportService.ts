@@ -1,4 +1,6 @@
+import { DEFAULT_TIMEZONE } from "@/lib/constants/timezone-constants";
 import type { ReportSiteFilter } from "../domain/report-site-filter";
+import { countLeaveDaysByUser } from "../domain/report-date-keys";
 import { AttendanceRepository } from "../repositories/AttendanceRepository";
 import { LeaveRepository } from "../repositories/LeaveRepository";
 import { OvertimePayrollQueryService } from "@/modules/overtime";
@@ -9,13 +11,22 @@ import {
   applyDurationStats,
   applyOfficialOvertime,
   buildTopScorers,
-  calculateRate,
+  buildAttendanceSummary,
   collectSummaryUserIds,
   createCombinedTopEmployees,
   createEmployeeSummary,
   createStatsMap,
   type UserScoreState,
 } from "./attendance-report-service-helpers";
+
+type ReportInput = {
+  startDate: Date;
+  endDate: Date;
+  siteId?: ReportSiteFilter;
+  departmentId?: string;
+  /** Zona waktu tenant untuk menghitung hari izin; default Asia/Jakarta. */
+  timezone?: string;
+};
 
 export class AttendanceReportService {
   constructor(
@@ -25,30 +36,31 @@ export class AttendanceReportService {
     private readonly userRepository = new UserLookupService(),
   ) {}
 
-  /** Ambil data laporan attendance agregat tanpa mengubah format public API. */
-  async getReportData(input: {
-    startDate: Date;
-    endDate: Date;
-    siteId?: ReportSiteFilter;
-    departmentId?: string;
-  }) {
+  /**
+   * Ambil data laporan kehadiran. Ringkasan dijumlahkan dari angka per pegawai
+   * yang sama dengan tabel rekap, jadi kartu dan tabel selalu cocok.
+   */
+  async getReportData(input: ReportInput) {
     const reportData = await this.loadReportData(input);
     const userMap = await this.buildUserScoreMap(input, reportData);
     const combinedTopEmployees = await this.buildCombinedTopEmployees(userMap);
-    const employeeSummary = await this.buildEmployeeSummary(reportData);
-    const lateCount = reportData.stats.statusCounts["LATE"] || 0;
-    const alphaCount = reportData.evaluationStats.statusCounts["ABSENT"] || 0;
+    const userLeaveDays = countLeaveDaysByUser(reportData.leavePeriods, {
+      startDate: input.startDate,
+      endDate: input.endDate,
+      timezone: input.timezone ?? DEFAULT_TIMEZONE,
+    });
+    const employeeSummary = await this.buildEmployeeSummary(
+      reportData,
+      userLeaveDays,
+    );
 
     return {
-      summary: {
-        totalAttendance: reportData.stats.total,
-        attendanceRate: 0,
+      summary: buildAttendanceSummary({
+        userAttStats: reportData.userAttStats,
+        userLateStats: reportData.userLateStats,
+        userAbsenceStats: reportData.userAbsenceStats,
         avgDurationMinutes: reportData.stats.avgDurationMinutes,
-        lateCount,
-        lateRate: calculateRate(lateCount, reportData.stats.total),
-        alphaCount,
-        alphaRate: calculateRate(alphaCount, reportData.evaluationStats.total),
-      },
+      }),
       trends: reportData.dailyStats,
       bySite: reportData.groupedBySite,
       byDepartment: reportData.groupedByDept,
@@ -59,16 +71,10 @@ export class AttendanceReportService {
     };
   }
 
-  private async loadReportData(input: {
-    startDate: Date;
-    endDate: Date;
-    siteId?: ReportSiteFilter;
-    departmentId?: string;
-  }) {
+  private async loadReportData(input: ReportInput) {
     const { startDate, endDate, siteId, departmentId } = input;
     const [
       stats,
-      evaluationStats,
       dailyStats,
       groupedBySite,
       groupedByDept,
@@ -79,15 +85,9 @@ export class AttendanceReportService {
       userTotalDuration,
       userAbsenceStats,
       userLateStats,
-      userLeaveStats,
+      leavePeriods,
     ] = await Promise.all([
       this.attendanceRepository.getStatsByDateRange(
-        startDate,
-        endDate,
-        siteId,
-        departmentId,
-      ),
-      this.attendanceRepository.getEvaluationStatsByDateRange(
         startDate,
         endDate,
         siteId,
@@ -157,7 +157,7 @@ export class AttendanceReportService {
         siteId,
         departmentId,
       ),
-      this.leaveRepository.getUserLeaveStats(
+      this.leaveRepository.findApprovedLeavePeriods(
         startDate,
         endDate,
         siteId,
@@ -167,7 +167,6 @@ export class AttendanceReportService {
 
     return {
       stats,
-      evaluationStats,
       dailyStats,
       groupedBySite,
       groupedByDept,
@@ -178,17 +177,12 @@ export class AttendanceReportService {
       userTotalDuration,
       userAbsenceStats,
       userLateStats,
-      userLeaveStats,
+      leavePeriods,
     };
   }
 
   private async buildUserScoreMap(
-    input: {
-      startDate: Date;
-      endDate: Date;
-      siteId?: ReportSiteFilter;
-      departmentId?: string;
-    },
+    input: ReportInput,
     reportData: Awaited<ReturnType<AttendanceReportService["loadReportData"]>>,
   ) {
     const userMap = new Map<string, UserScoreState>();
@@ -218,14 +212,10 @@ export class AttendanceReportService {
 
   private async buildEmployeeSummary(
     reportData: Awaited<ReturnType<AttendanceReportService["loadReportData"]>>,
+    userLeaveMap: Map<string, number>,
   ) {
     const userLateMap = createStatsMap(
       reportData.userLateStats,
-      (item) => item.userId,
-      (item) => item._count._all,
-    );
-    const userLeaveMap = createStatsMap(
-      reportData.userLeaveStats,
       (item) => item.userId,
       (item) => item._count._all,
     );
@@ -247,7 +237,7 @@ export class AttendanceReportService {
     const summaryUserIds = collectSummaryUserIds(
       reportData.userAttStats,
       reportData.userAbsenceStats,
-      reportData.userLeaveStats,
+      [...userLeaveMap.keys()],
     );
     const allUsers =
       await this.userRepository.findManyWithFullDetails(summaryUserIds);

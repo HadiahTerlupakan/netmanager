@@ -22,21 +22,6 @@ export class AttendanceReportDelegates {
     );
   }
 
-  /** Ambil statistik evaluasi attendance rentang tanggal. */
-  getEvaluationStatsByDateRange(
-    startDate: Date,
-    endDate: Date,
-    siteId?: ReportSiteFilter,
-    departmentId?: string,
-  ) {
-    return this.reportRepository.getEvaluationStatsByDateRange(
-      startDate,
-      endDate,
-      siteId,
-      departmentId,
-    );
-  }
-
   /** Ambil statistik harian attendance. */
   getDailyStats(
     startDate: Date,

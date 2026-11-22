@@ -71,15 +71,15 @@ export class LeaveRepository implements ILeaveRepository {
     return this.request.count(filters);
   }
 
-  /** Get approved leave stats grouped by user. */
-  getUserLeaveStats(
+  /** Periode izin disetujui (tanpa tukar libur) yang beririsan dengan rentang. */
+  findApprovedLeavePeriods(
     startDate: Date,
     endDate: Date,
     siteId?: ReportSiteFilter,
     departmentId?: string,
     tenantId?: string,
   ) {
-    return this.lookup.getUserLeaveStats(
+    return this.lookup.findApprovedLeavePeriods(
       startDate,
       endDate,
       siteId,

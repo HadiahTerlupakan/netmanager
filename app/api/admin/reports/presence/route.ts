@@ -1,5 +1,6 @@
 import {
   AttendanceService,
+  buildEmptyPresenceReport,
   resolvePresenceReportScopeForUser,
 } from "@/modules/attendance";
 import { OvertimeService } from "@/modules/overtime";
@@ -11,6 +12,7 @@ import {
   ApiErrors,
 } from "@/lib/api";
 import { hasPermission } from "@/lib/rbac";
+import { getTimezone } from "@/lib/utils/get-timezone";
 import { toStartOfDay, toEndOfDay } from "@/lib/utils/server-datetime";
 
 // Disable Next.js caching for this route
@@ -34,7 +36,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     siteId: searchParams.get("siteId"),
     departmentId: searchParams.get("departmentId"),
   });
-  if (scope.isEmpty) return apiSuccess({ attendance: [], overtime: [] });
+  if (scope.isEmpty) return apiSuccess(buildEmptyPresenceReport());
 
   if (!startDateStr || !endDateStr) {
     return apiError(
@@ -44,10 +46,10 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
     );
   }
 
-  const startDate = new Date(startDateStr);
-  startDate.setTime(toStartOfDay(startDate).getTime());
-  const endDate = new Date(endDateStr);
-  endDate.setTime(toEndOfDay(endDate).getTime());
+  // Rentang hari penuh menurut zona waktu tenant, bukan cache global.
+  const timezone = await getTimezone(ctx.session!.user.tenantId ?? undefined);
+  const startDate = toStartOfDay(startDateStr, timezone);
+  const endDate = toEndOfDay(endDateStr, timezone);
 
   const attendanceService = new AttendanceService();
   const overtimeService = new OvertimeService();
@@ -58,6 +60,7 @@ export const GET = createHandler({ auth: true }, async (req, ctx) => {
       endDate,
       scope.siteId,
       scope.departmentId,
+      timezone,
     ),
     overtimeService.getReportData(
       startDate,

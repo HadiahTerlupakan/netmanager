@@ -17,7 +17,7 @@ import type { AttendanceEvaluationResult } from "@/modules/attendance/types/Atte
 // Mock LeaveRepository - correct path
 vi.mock("@/modules/attendance/repositories/LeaveRepository", () => ({
   LeaveRepository: class MockLeaveRepository {
-    getUserLeaveStats = vi.fn().mockResolvedValue([]);
+    findApprovedLeavePeriods = vi.fn().mockResolvedValue([]);
     findActiveLeaveForUserOnDate = vi.fn(() =>
       prismaMock.leaveRequest.findFirst(),
     );
@@ -57,11 +57,6 @@ vi.mock("@/modules/attendance/repositories/AttendanceRepository", () => ({
     );
     findManyForAnalytics = vi.fn().mockResolvedValue([]);
     getStatsByDateRange = vi.fn().mockResolvedValue({
-      total: 100,
-      avgDurationMinutes: 480,
-      statusCounts: { ON_TIME: 80, LATE: 15, ABSENT: 5 },
-    });
-    getEvaluationStatsByDateRange = vi.fn().mockResolvedValue({
       total: 100,
       avgDurationMinutes: 480,
       statusCounts: { ON_TIME: 80, LATE: 15, ABSENT: 5 },

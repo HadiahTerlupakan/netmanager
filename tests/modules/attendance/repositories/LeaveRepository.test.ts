@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { LeaveRepository } from "@/modules/attendance/repositories/LeaveRepository";
 
 const mockLeaveLookupRepository = {
-  getUserLeaveStats: vi.fn(),
+  findApprovedLeavePeriods: vi.fn(),
   findActiveLeaveForUserOnDate: vi.fn(),
 };
 
@@ -22,7 +22,8 @@ const mockLeaveRequestRepository = {
 
 vi.mock("@/modules/attendance/repositories/LeaveLookupRepository", () => ({
   LeaveLookupRepository: class {
-    getUserLeaveStats = mockLeaveLookupRepository.getUserLeaveStats;
+    findApprovedLeavePeriods =
+      mockLeaveLookupRepository.findApprovedLeavePeriods;
     findActiveLeaveForUserOnDate =
       mockLeaveLookupRepository.findActiveLeaveForUserOnDate;
   },

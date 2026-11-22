@@ -2,11 +2,12 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { getTenantIdFromContext } from "@/lib/tenant-context";
+import { getTimezone } from "@/lib/utils/get-timezone";
 
 import type { OvertimeSiteFilter } from "../domain/ports/IOvertimeRepository";
 import {
-  buildPaidOvertimeWhere,
-  buildReportWhere,
+  buildReportedOvertimeWhere,
+  REPORTED_OVERTIME_STATUS,
 } from "./OvertimeRepository.helpers";
 
 const DEFAULT_TOP_EMPLOYEES_LIMIT = 5;
@@ -39,7 +40,7 @@ export class OvertimeReportRepository {
     const stats = await prisma.overtime.aggregate({
       _count: { _all: true },
       _sum: { duration: true },
-      where: buildReportWhere(input),
+      where: buildReportedOvertimeWhere(input),
     });
 
     return {
@@ -56,7 +57,8 @@ export class OvertimeReportRepository {
     departmentId?: string;
   }) {
     const tenantContext = await getTenantIdFromContext();
-    const query = buildDailyStatsQuery({ ...input, tenantContext });
+    const timezone = await getTimezone(tenantContext.tenantId ?? undefined);
+    const query = buildDailyStatsQuery({ ...input, tenantContext, timezone });
     const stats = await prisma.$queryRaw<DailyStatsRow[]>(query);
 
     return stats
@@ -93,7 +95,7 @@ export class OvertimeReportRepository {
   }) {
     const groups = await prisma.overtime.groupBy({
       by: ["userId"],
-      where: buildPaidOvertimeWhere(input),
+      where: buildReportedOvertimeWhere(input),
       _sum: { duration: true },
     });
     const topGroups = groups
@@ -116,7 +118,7 @@ export class OvertimeReportRepository {
   }) {
     const groups = await prisma.overtime.groupBy({
       by: ["userId"],
-      where: buildPaidOvertimeWhere(input),
+      where: buildReportedOvertimeWhere(input),
       _sum: { duration: true },
     });
 
@@ -133,30 +135,54 @@ function buildDailyStatsQuery(input: {
   siteId?: OvertimeSiteFilter;
   departmentId?: string;
   tenantContext: TenantContext;
+  timezone: string;
 }) {
-  const baseQuery = createDailyStatsBaseQuery(input);
+  const dateKey = buildLocalDateKeySql(input.timezone);
+  const baseQuery = createDailyStatsBaseQuery(input, dateKey);
   const scopedQuery = appendDailyStatsFilters(baseQuery, input);
 
-  return Prisma.sql`${scopedQuery} GROUP BY TO_CHAR(o."createdAt", 'YYYY-MM-DD')`;
+  // GROUP BY 1: ekspresi tanggal memakai parameter zona waktu; mengulangnya
+  // di GROUP BY menjadi parameter lain yang ditolak PostgreSQL (42803).
+  return Prisma.sql`${scopedQuery} GROUP BY 1`;
 }
 
-function createDailyStatsBaseQuery(input: {
-  startDate: Date;
-  endDate: Date;
-  siteId?: OvertimeSiteFilter;
-  departmentId?: string;
-}) {
+/**
+ * Tanggal lokal tenant dari `startTime`. Kolom disimpan sebagai UTC tanpa zona;
+ * `TO_CHAR` langsung memberi tanggal UTC, sehingga lembur sebelum jam 07.00 WIB
+ * jatuh ke hari sebelumnya.
+ */
+function buildLocalDateKeySql(timezone: string) {
+  return Prisma.sql`TO_CHAR((o."startTime" AT TIME ZONE 'UTC') AT TIME ZONE ${timezone}, 'YYYY-MM-DD')`;
+}
+
+/** Kondisi lembur yang dihitung laporan, sama dengan `buildReportedOvertimeWhere`. */
+function buildReportedOvertimeSql(startDate: Date, endDate: Date) {
+  return Prisma.sql`
+    o.status = ${REPORTED_OVERTIME_STATUS}::"OvertimeStatus"
+    AND o."startTime" >= ${startDate}
+    AND o."startTime" <= ${endDate}
+  `;
+}
+
+function createDailyStatsBaseQuery(
+  input: {
+    startDate: Date;
+    endDate: Date;
+    siteId?: OvertimeSiteFilter;
+    departmentId?: string;
+  },
+  dateKey: Prisma.Sql,
+) {
   const joinUserTable = input.siteId || input.departmentId;
 
   return Prisma.sql`
     SELECT
-      TO_CHAR(o."createdAt", 'YYYY-MM-DD') as date,
+      ${dateKey} as date,
       COUNT(*)::int as requests,
-      SUM(o.duration)::int as duration
+      COALESCE(SUM(o.duration), 0)::int as duration
     FROM "Overtime" o
     ${joinUserTable ? Prisma.sql`JOIN "User" u ON o."userId" = u.id` : Prisma.empty}
-    WHERE o."createdAt" >= ${input.startDate}
-    AND o."createdAt" <= ${input.endDate}
+    WHERE ${buildReportedOvertimeSql(input.startDate, input.endDate)}
   `;
 }
 
@@ -190,8 +216,7 @@ function buildGroupedStatsQuery(input: {
   const grouping = getGroupedStatsConfig(input.groupBy);
   return Prisma.sql`
     ${createGroupedStatsSelect(grouping)}
-    WHERE o."createdAt" >= ${input.startDate}
-    AND o."createdAt" <= ${input.endDate}
+    WHERE ${buildReportedOvertimeSql(input.startDate, input.endDate)}
     ${buildTenantFilter(input.tenantContext)}
     ${input.siteId ? buildUserSiteCondition(input.siteId) : Prisma.empty}
     ${input.departmentId ? Prisma.sql`AND u."departmentId" = ${input.departmentId}` : Prisma.empty}
@@ -206,7 +231,7 @@ function createGroupedStatsSelect(
     SELECT
       ${grouping.nameColumn} as name,
       COUNT(*)::int as requests,
-      SUM(o.duration)::int as duration
+      COALESCE(SUM(o.duration), 0)::int as duration
     FROM "Overtime" o
     JOIN "User" u ON o."userId" = u.id
     ${grouping.joinTable}

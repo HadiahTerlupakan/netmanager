@@ -59,33 +59,6 @@ describe("AttendanceRepository absence parity", () => {
     );
   });
 
-  it("queries canonical evaluation stats by finalStatus instead of raw attendance status", async () => {
-    prismaMock.attendanceEvaluation.groupBy.mockResolvedValueOnce([
-      { finalStatus: "ABSENT", _count: { _all: 3 } },
-    ]);
-    prismaMock.attendanceEvaluation.count.mockResolvedValueOnce(3);
-    prismaMock.attendanceEvaluation.aggregate.mockResolvedValueOnce({
-      _avg: { workMinutes: 480 },
-    });
-
-    await repository.getEvaluationStatsByDateRange(
-      new Date("2026-03-01"),
-      new Date("2026-03-31"),
-    );
-
-    expect(prismaMock.attendanceEvaluation.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        by: ["finalStatus"],
-        where: expect.objectContaining({
-          workDate: {
-            gte: new Date("2026-03-01"),
-            lte: new Date("2026-03-31"),
-          },
-        }),
-      }),
-    );
-  });
-
   it("rejects atomic missed check-in correction when source was already corrected", async () => {
     const transactionClient = {
       attendance: {

@@ -1,6 +1,7 @@
 import type { ReportSiteFilter } from "../domain/report-site-filter";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { PRESENT_ATTENDANCE_STATUSES } from "../domain/attendance-report-statuses";
 import {
   appendActiveAttendanceRawFilter,
   buildActiveAttendanceWhere,
@@ -43,42 +44,6 @@ export class AttendanceReportSummaryRepository {
     };
   }
 
-  /** Ambil ringkasan status evaluasi attendance berdasarkan rentang tanggal. */
-  async getEvaluationStatsByDateRange(
-    startDate: Date,
-    endDate: Date,
-    siteId?: ReportSiteFilter,
-    departmentId?: string,
-  ) {
-    const userIds = await this.findScopedUserIds(siteId, departmentId);
-    if (hasNoUserIds(userIds)) return createEmptyStatsResult();
-
-    const where = {
-      workDate: { gte: startDate, lte: endDate },
-      ...(userIds !== undefined ? { userId: { in: userIds } } : {}),
-    };
-    const [statusCounts, total, avgWorkMinutes] = await Promise.all([
-      prisma.attendanceEvaluation.groupBy({
-        by: ["finalStatus"],
-        where,
-        _count: { _all: true },
-      }),
-      prisma.attendanceEvaluation.count({ where }),
-      prisma.attendanceEvaluation.aggregate({
-        where,
-        _avg: { workMinutes: true },
-      }),
-    ]);
-
-    return {
-      total,
-      avgDurationMinutes: avgWorkMinutes._avg.workMinutes
-        ? Math.round(avgWorkMinutes._avg.workMinutes)
-        : 0,
-      statusCounts: toStatusCountMap(statusCounts, (row) => row.finalStatus),
-    };
-  }
-
   private async findScopedUserIds(
     siteId?: ReportSiteFilter,
     departmentId?: string,
@@ -106,6 +71,7 @@ export class AttendanceReportSummaryRepository {
       WHERE a."checkIn" >= ${startDate}
       AND a."checkIn" <= ${endDate}
       AND a."checkOut" IS NOT NULL
+      AND a.status::text IN (${Prisma.join([...PRESENT_ATTENDANCE_STATUSES])})
     `;
     if (effectiveTenantId)
       query = Prisma.sql`${query} AND a."tenantId" = ${effectiveTenantId}`;

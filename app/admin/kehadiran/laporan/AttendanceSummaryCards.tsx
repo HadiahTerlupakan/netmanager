@@ -23,7 +23,7 @@ export function AttendanceSummaryCards({
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow border-l-4 border-blue-500">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-gray-500 text-sm">Total Kehadiran</p>
+            <p className="text-gray-500 text-sm">Total Hadir</p>
             <p className="text-2xl font-bold text-gray-800 dark:text-white">
               {attendance.totalAttendance}
             </p>
@@ -31,7 +31,7 @@ export function AttendanceSummaryCards({
           <MdPeople className="text-3xl text-blue-200 dark:text-blue-900/40" />
         </div>
         <div className="mt-2 text-xs text-blue-600 dark:text-blue-400 font-medium">
-          Rate: {attendance.attendanceRate}%
+          {attendance.attendanceRate.toFixed(1)}% dari hari wajib masuk
         </div>
       </div>
 
@@ -76,7 +76,7 @@ export function AttendanceSummaryCards({
           <MdPersonOff className="text-3xl text-red-200 dark:text-red-900/40" />
         </div>
         <div className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium">
-          {attendance.alphaRate.toFixed(1)}% dari total
+          {attendance.alphaRate.toFixed(1)}% dari hari wajib masuk
         </div>
       </div>
 
@@ -86,7 +86,7 @@ export function AttendanceSummaryCards({
             <p className="text-gray-500 text-sm">Total Lembur</p>
             <p className="text-2xl font-bold text-gray-800 dark:text-white">
               {overtime.totalRequests}{" "}
-              <span className="text-sm font-normal text-gray-400">Request</span>
+              <span className="text-sm font-normal text-gray-400">Sesi</span>
             </p>
           </div>
           <MdTrendingUp className="text-3xl text-purple-200 dark:text-purple-900/40" />
@@ -108,7 +108,7 @@ export function AttendanceSummaryCards({
           <MdTrendingUp className="text-3xl text-green-200 dark:text-green-900/40" />
         </div>
         <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
-          per karyawan aktif
+          per sesi lembur selesai
         </div>
       </div>
     </div>

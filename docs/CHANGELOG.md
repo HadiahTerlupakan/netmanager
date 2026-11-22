@@ -41,6 +41,36 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-23] — Laporan kehadiran & lembur: perbaikan semua hitungan
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/kehadiran/laporan`, `app/api/admin/reports/presence`, `modules/attendance`, `modules/overtime`
+- **Author**: agent
+- **Deskripsi**: Audit `/admin/kehadiran/laporan` menemukan hitungan yang salah:
+  (1) Lembur — kartu, grafik, dan tabel per site/departemen menghitung semua pengajuan (termasuk menunggu &
+  ditolak) berdasarkan `createdAt`; kini hanya sesi COMPLETED berdasarkan `startTime`, sama dengan penggajian.
+  Rata-rata lembur jadi per sesi selesai (dulu dibagi pengajuan tanpa durasi). Rekap per pegawai ikut aturan yang sama.
+  (2) Kartu "Rate" selalu 0% (hardcode) → hadir ÷ (hadir + alpha).
+  (3) "Total Kehadiran" menghitung semua baris absen (alpha, libur, sakit) dan persen terlambat dibagi angka itu →
+  kini jumlah hari hadir; terlambat ÷ hadir.
+  (4) Kartu Alpha dibaca dari `AttendanceEvaluation`, yang tidak diisi alpha otomatis → kini jumlah alpha per
+  pegawai, sama dengan tabel rekap.
+  (5) NO_CHECKOUT (lupa absen pulang) tidak dihitung hadir → kini hadir, sama dengan penggajian (juga untuk
+  dashboard yang memakai query yang sama).
+  (6) Izin per pegawai dihitung per pengajuan → kini hari kalender di dalam rentang (tanggal WIB tenant; hari
+  bertumpuk sekali; tukar libur tidak termasuk).
+  (7) Grafik harian kehadiran & lembur dikelompokkan per tanggal UTC → kini tanggal lokal tenant (absen sebelum
+  07.00 WIB dulu jatuh ke hari sebelumnya).
+  (8) Pengguna tanpa lingkup menerima `{attendance: [], overtime: []}` dan halaman gagal → kini laporan kosong
+  berbentuk sama. Rentang tanggal memakai zona waktu tenant. Rantai `getEvaluationStatsByDateRange` yang tidak
+  dipakai lagi dihapus; `getUserLeaveStats` diganti `findApprovedLeavePeriods`.
+- **Files**: `modules/attendance/services/AttendanceReportService.ts`, `modules/attendance/services/attendance-report-service-helpers.ts`,
+  `modules/attendance/domain/attendance-report-statuses.ts`, `modules/attendance/domain/report-date-keys.ts`,
+  `modules/attendance/repositories/AttendanceDailyStatsRepository.ts`, `modules/overtime/repositories/OvertimeReportRepository.ts`,
+  `modules/overtime/repositories/OvertimeRepository.helpers.ts`, `app/api/admin/reports/presence/route.ts`,
+  `app/admin/kehadiran/laporan/AttendanceSummaryCards.tsx`
+- **Breaking**: ❌ Tidak (bentuk respons sama; nilai angka berubah karena diperbaiki)
+
 ### [2026-11-23] — Izin & cuti menampilkan nama penyetuju sebenarnya
 
 - **Tipe**: [FIXED]

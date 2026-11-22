@@ -22,6 +22,13 @@ vi.mock("@/lib/api", () => ({
 vi.mock("@/lib/rbac", () => ({ hasPermission: mocks.hasPermission }));
 vi.mock("@/modules/attendance", () => ({
   resolvePresenceReportScopeForUser: mocks.resolveScope,
+  buildEmptyPresenceReport: () => ({
+    attendance: {
+      summary: { totalAttendance: 0 },
+      employeeSummary: [] as never[],
+    },
+    overtime: { summary: { totalRequests: 0 } },
+  }),
   AttendanceService: class {
     getReportData = mocks.attendanceReport;
   },
@@ -86,7 +93,11 @@ describe("GET /api/admin/reports/presence — lingkup multi-site", () => {
 
     const response = await handle(request(RANGE), CTX);
 
-    expect(response.body).toEqual({ attendance: [], overtime: [] });
+    // Bentuk laporan kosong, bukan array: halaman membaca `attendance.summary`.
+    expect(response.body).toMatchObject({
+      attendance: { summary: { totalAttendance: 0 } },
+      overtime: { summary: { totalRequests: 0 } },
+    });
     expect(mocks.attendanceReport).not.toHaveBeenCalled();
     expect(mocks.overtimeReport).not.toHaveBeenCalled();
   });

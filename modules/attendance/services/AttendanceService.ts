@@ -102,12 +102,14 @@ export class AttendanceService {
     endDate: Date,
     siteId?: ReportSiteFilter,
     departmentId?: string,
+    timezone?: string,
   ) {
     return this.reportService.getReportData({
       startDate,
       endDate,
       siteId,
       departmentId,
+      timezone,
     });
   }
   async getAttendanceHistory(

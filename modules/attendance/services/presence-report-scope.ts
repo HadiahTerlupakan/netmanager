@@ -73,3 +73,34 @@ export async function resolvePresenceReportScopeForUser(
   });
   return resolvePresenceReportScope(scope, request);
 }
+
+/**
+ * Laporan kosong dengan bentuk yang sama seperti laporan berisi. Dulu route
+ * mengembalikan `{ attendance: [], overtime: [] }` untuk pengguna tanpa
+ * lingkup, dan halaman laporan gagal membaca `attendance.summary`.
+ */
+export function buildEmptyPresenceReport() {
+  return {
+    attendance: {
+      summary: {
+        totalAttendance: 0,
+        attendanceRate: 0,
+        avgDurationMinutes: 0,
+        lateCount: 0,
+        lateRate: 0,
+        alphaCount: 0,
+        alphaRate: 0,
+      },
+      trends: [] as never[],
+      bySite: [] as never[],
+      byDepartment: [] as never[],
+      employeeSummary: [] as never[],
+    },
+    overtime: {
+      summary: { totalRequests: 0, totalDuration: 0, avgDuration: 0 },
+      trends: [] as never[],
+      bySite: [] as never[],
+      byDepartment: [] as never[],
+    },
+  };
+}

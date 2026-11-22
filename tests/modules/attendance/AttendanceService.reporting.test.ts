@@ -25,10 +25,6 @@ function mockReportDependencies() {
     AttendanceRepository.prototype,
     "getStatsByDateRange",
   ).mockResolvedValue(summaryStats);
-  vi.spyOn(
-    AttendanceRepository.prototype,
-    "getEvaluationStatsByDateRange",
-  ).mockResolvedValue(summaryStats);
   vi.spyOn(AttendanceRepository.prototype, "getDailyStats").mockResolvedValue(
     [],
   );
@@ -41,7 +37,10 @@ function mockReportDependencies() {
   vi.spyOn(
     AttendanceRepository.prototype,
     "getUserAttendanceStats",
-  ).mockResolvedValue([]);
+  ).mockResolvedValue([
+    { userId: "u1", _count: { _all: 60 } },
+    { userId: "u2", _count: { _all: 40 } },
+  ] as never);
   vi.spyOn(AttendanceRepository.prototype, "getTopAbsentees").mockResolvedValue(
     [],
   );
@@ -61,9 +60,10 @@ function mockReportDependencies() {
     OvertimePayrollQueryService.prototype,
     "getUserOvertimeStats",
   ).mockResolvedValue([]);
-  vi.spyOn(LeaveRepository.prototype, "getUserLeaveStats").mockResolvedValue(
-    [],
-  );
+  vi.spyOn(
+    LeaveRepository.prototype,
+    "findApprovedLeavePeriods",
+  ).mockResolvedValue([]);
   vi.spyOn(
     (service as never as AttendanceServiceInternals).userRepo,
     "findManyWithBasicInfo",

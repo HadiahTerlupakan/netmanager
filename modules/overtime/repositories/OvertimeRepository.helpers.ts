@@ -18,10 +18,12 @@ export const ACTIVE_OVERTIME_STATUSES: OvertimeStatus[] = [
   OvertimeStatus.COMPLETED,
 ];
 
-export const PAID_OVERTIME_STATUSES: OvertimeStatus[] = [
-  OvertimeStatus.APPROVED,
-  OvertimeStatus.COMPLETED,
-];
+/**
+ * Lembur yang dihitung laporan: hanya sesi yang selesai (punya durasi), sama
+ * dengan penggajian (`OvertimePayrollBridge`). PENDING/REJECTED adalah
+ * pengajuan, APPROVED/IN_PROGRESS belum punya durasi.
+ */
+export const REPORTED_OVERTIME_STATUS = OvertimeStatus.COMPLETED;
 
 export const OVERTIME_INCLUDE = {
   user: {
@@ -83,7 +85,13 @@ export function buildStatusCountWhere(
   return where;
 }
 
-export function buildReportWhere(input: {
+/**
+ * Filter lembur untuk laporan: sesi COMPLETED yang dimulai dalam rentang
+ * (dasar tanggal = `startTime`, sama dengan penggajian), dibatasi lingkup
+ * site/departemen pegawai. Dulu laporan memakai `createdAt` dan ikut menghitung
+ * pengajuan yang masih menunggu atau ditolak.
+ */
+export function buildReportedOvertimeWhere(input: {
   startDate: Date;
   endDate: Date;
   siteId?: OvertimeSiteFilter;
@@ -91,26 +99,9 @@ export function buildReportWhere(input: {
   tenantId?: string;
 }): Prisma.OvertimeWhereInput {
   const where: Prisma.OvertimeWhereInput = {
-    createdAt: { gte: input.startDate, lte: input.endDate },
-    tenantId: input.tenantId,
-  };
-
-  if (input.siteId || input.departmentId) {
-    where.user = buildUserScopeFilter(input.siteId, input.departmentId);
-  }
-
-  return where;
-}
-
-export function buildPaidOvertimeWhere(input: {
-  startDate: Date;
-  endDate: Date;
-  siteId?: OvertimeSiteFilter;
-  departmentId?: string;
-}): Prisma.OvertimeWhereInput {
-  const where: Prisma.OvertimeWhereInput = {
-    createdAt: { gte: input.startDate, lte: input.endDate },
-    status: { in: PAID_OVERTIME_STATUSES },
+    status: REPORTED_OVERTIME_STATUS,
+    startTime: { gte: input.startDate, lte: input.endDate },
+    ...(input.tenantId ? { tenantId: input.tenantId } : {}),
   };
 
   if (input.siteId || input.departmentId) {

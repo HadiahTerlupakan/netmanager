@@ -72,21 +72,6 @@ export abstract class AttendanceRepositoryReportFacade {
     );
   }
 
-  /** Ambil statistik evaluasi attendance rentang tanggal. */
-  async getEvaluationStatsByDateRange(
-    startDate: Date,
-    endDate: Date,
-    siteId?: ReportSiteFilter,
-    departmentId?: string,
-  ) {
-    return this.reportDelegates.getEvaluationStatsByDateRange(
-      startDate,
-      endDate,
-      siteId,
-      departmentId,
-    );
-  }
-
   /** Ambil statistik harian attendance. */
   async getDailyStats(
     startDate: Date,

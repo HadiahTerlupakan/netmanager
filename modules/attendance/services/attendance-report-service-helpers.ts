@@ -106,15 +106,47 @@ export function createStatsMap<T>(
 export function collectSummaryUserIds(
   userAttStats: AttendanceCountItem[],
   userAbsenceStats: AttendanceCountItem[],
-  userLeaveStats: AttendanceCountItem[],
+  leaveUserIds: string[],
 ): string[] {
   return Array.from(
     new Set<string>([
       ...userAttStats.map((item) => item.userId),
       ...userAbsenceStats.map((item) => item.userId),
-      ...userLeaveStats.map((item) => item.userId),
+      ...leaveUserIds,
     ]),
   );
+}
+
+function sumCounts(items: AttendanceCountItem[]): number {
+  return items.reduce((total, item) => total + item._count._all, DEFAULT_ZERO);
+}
+
+/**
+ * Ringkasan kartu laporan dari angka per pegawai (sama dengan tabel rekap).
+ * Hari wajib masuk = hadir + alpha; izin yang disetujui tidak termasuk.
+ * - Tingkat kehadiran = hadir ÷ hari wajib masuk.
+ * - Persen terlambat = terlambat ÷ hadir.
+ * - Persen alpha = alpha ÷ hari wajib masuk.
+ */
+export function buildAttendanceSummary(input: {
+  userAttStats: AttendanceCountItem[];
+  userLateStats: AttendanceCountItem[];
+  userAbsenceStats: AttendanceCountItem[];
+  avgDurationMinutes: number;
+}) {
+  const presentCount = sumCounts(input.userAttStats);
+  const lateCount = sumCounts(input.userLateStats);
+  const alphaCount = sumCounts(input.userAbsenceStats);
+  const requiredDays = presentCount + alphaCount;
+  return {
+    totalAttendance: presentCount,
+    attendanceRate: calculateRate(presentCount, requiredDays),
+    avgDurationMinutes: input.avgDurationMinutes,
+    lateCount,
+    lateRate: calculateRate(lateCount, presentCount),
+    alphaCount,
+    alphaRate: calculateRate(alphaCount, requiredDays),
+  };
 }
 
 /** Buat item top employee gabungan dengan detail user. */
