@@ -25,7 +25,7 @@ import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { LeaveCalendarView } from "./LeaveCalendarView";
-import { transformLeaveToCalendarEvent } from "./utils";
+import { getApproverLabel, transformLeaveToCalendarEvent } from "./utils";
 import type { LeaveCalendarEvent } from "./types";
 import type { LeaveType, LeaveStatus } from "@prisma/client";
 
@@ -40,7 +40,8 @@ interface LeaveRequest {
   attachmentUrl?: string;
   attachments?: string[];
   rejectionReason?: string;
-  approvedBy?: string; // 'SYSTEM_AUTO' for auto-approval, or admin user ID
+  approvedBy?: string; // 'SYSTEM_AUTO' untuk persetujuan otomatis, atau id user penyetuju
+  approverName?: string | null;
   replacementDate?: string;
   createdAt: string;
   user: {
@@ -406,7 +407,22 @@ export function IzinClient() {
       key: "status",
       header: "Status",
       priority: "primary",
-      render: (req) => getStatusBadge(req.status),
+      render: (req) => {
+        const approverLabel =
+          req.status === "APPROVED"
+            ? getApproverLabel(req.approvedBy, req.approverName)
+            : null;
+        return (
+          <div className="flex flex-col items-start gap-1">
+            {getStatusBadge(req.status)}
+            {approverLabel && (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                oleh {approverLabel}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -565,8 +581,13 @@ export function IzinClient() {
                           }`}
                         >
                           {selectedRequest.approvedBy === "SYSTEM_AUTO"
-                            ? "🤖 Auto System"
-                            : "👤 Admin"}
+                            ? "🤖 "
+                            : "👤 "}
+                          Disetujui oleh{" "}
+                          {getApproverLabel(
+                            selectedRequest.approvedBy,
+                            selectedRequest.approverName,
+                          )}
                         </span>
                       )}
                   </div>

@@ -100,7 +100,7 @@ export class LeaveService {
               };
             };
           };
-        }>
+        }> & { approverName: string | null }
       >;
       total: number;
       page: number;

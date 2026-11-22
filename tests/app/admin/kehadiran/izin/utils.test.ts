@@ -5,6 +5,7 @@ import {
   getLeaveTypeLabel,
   getLeaveStatusColor,
   formatDateRange,
+  getApproverLabel,
 } from "@/app/admin/kehadiran/izin/utils";
 import type { LeaveCalendarEvent } from "@/app/admin/kehadiran/izin/types";
 
@@ -246,5 +247,28 @@ describe("Leave Calendar Utils", () => {
 
       expect(result).toBe("15 Mei 2026 - 17 Mei 2026");
     });
+  });
+});
+
+describe("getApproverLabel", () => {
+  it("menampilkan nama penyetuju, bukan 'Admin'", () => {
+    expect(getApproverLabel("spv-1", "Budi Supervisor")).toBe(
+      "Budi Supervisor",
+    );
+  });
+
+  it("menandai persetujuan otomatis tukar libur", () => {
+    expect(getApproverLabel("SYSTEM_AUTO", null)).toBe("Otomatis (sistem)");
+  });
+
+  it("memberi tahu bila user penyetuju sudah tidak ada", () => {
+    expect(getApproverLabel("deleted-user", null)).toBe(
+      "Pengguna tidak ditemukan",
+    );
+  });
+
+  it("null bila belum ada penyetuju", () => {
+    expect(getApproverLabel(null, null)).toBeNull();
+    expect(getApproverLabel(undefined, undefined)).toBeNull();
   });
 });

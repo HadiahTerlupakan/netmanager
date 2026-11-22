@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { SYSTEM_AUTO_APPROVER } from "../domain/leave-approver";
 import { LeaveRequestRepository } from "../repositories/LeaveRequestRepository";
 import { getLeaveService } from "./LeaveService";
 
@@ -70,7 +71,7 @@ async function approvePendingRequests(
     try {
       await leaveService.approveLeave(
         request.id,
-        "SYSTEM_AUTO",
+        SYSTEM_AUTO_APPROVER,
         request.tenantId,
       );
       approvedIds.push(request.id);

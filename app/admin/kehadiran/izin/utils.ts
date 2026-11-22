@@ -133,3 +133,19 @@ export function formatDateRange(start: Date, end: Date): string {
 
   return `${startStr} - ${endStr}`;
 }
+
+const SYSTEM_AUTO_APPROVER = "SYSTEM_AUTO";
+const UNKNOWN_APPROVER_LABEL = "Pengguna tidak ditemukan";
+
+/**
+ * Label siapa yang menyetujui izin: nama penyetuju, "Otomatis (sistem)" untuk
+ * tukar libur yang disetujui cron, atau null bila belum ada penyetuju.
+ */
+export function getApproverLabel(
+  approvedBy?: string | null,
+  approverName?: string | null,
+): string | null {
+  if (!approvedBy) return null;
+  if (approvedBy === SYSTEM_AUTO_APPROVER) return "Otomatis (sistem)";
+  return approverName || UNKNOWN_APPROVER_LABEL;
+}

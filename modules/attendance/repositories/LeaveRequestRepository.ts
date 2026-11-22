@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { LeaveStatus, Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
+import { SYSTEM_AUTO_APPROVER } from "../domain/leave-approver";
 
 export class LeaveRequestRepository {
   /** Create leave request with generated id. */
@@ -50,7 +51,7 @@ export class LeaveRequestRepository {
     take?: number;
     tenantId?: string;
   }) {
-    return prisma.leaveRequest.findMany({
+    const leaves = await prisma.leaveRequest.findMany({
       where: this.buildFilterWhere(filters),
       include: {
         user: {
@@ -66,6 +67,40 @@ export class LeaveRequestRepository {
       ...(filters?.skip !== undefined ? { skip: filters.skip } : {}),
       ...(filters?.take !== undefined ? { take: filters.take } : {}),
     });
+    return this.attachApproverNames(leaves, filters?.tenantId);
+  }
+
+  /**
+   * Tambahkan `approverName`: nama user yang tersimpan di `approvedBy`.
+   * `approvedBy` bukan relasi (bisa berisi SYSTEM_AUTO), jadi namanya dibaca
+   * terpisah dalam satu query.
+   */
+  private async attachApproverNames<T extends { approvedBy: string | null }>(
+    leaves: T[],
+    tenantId?: string,
+  ): Promise<Array<T & { approverName: string | null }>> {
+    const approverIds = [
+      ...new Set(
+        leaves
+          .map((leave) => leave.approvedBy)
+          .filter(
+            (id): id is string => id !== null && id !== SYSTEM_AUTO_APPROVER,
+          ),
+      ),
+    ];
+    const approvers = approverIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: approverIds }, ...(tenantId ? { tenantId } : {}) },
+          select: { id: true, name: true },
+        })
+      : [];
+    const nameById = new Map(approvers.map((user) => [user.id, user.name]));
+    return leaves.map((leave) => ({
+      ...leave,
+      approverName: leave.approvedBy
+        ? (nameById.get(leave.approvedBy) ?? null)
+        : null,
+    }));
   }
 
   /** Count leave requests with admin filters. */

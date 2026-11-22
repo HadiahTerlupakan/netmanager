@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-23] — Izin & cuti menampilkan nama penyetuju sebenarnya
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/admin/kehadiran/izin`, `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: Detail izin di `/admin/kehadiran/izin` selalu menulis "👤 Admin" untuk setiap persetujuan
+  manusia, padahal `approvedBy` sudah menyimpan id user yang menyetujui. Akibatnya semua izin terlihat disetujui
+  admin. `LeaveRequestRepository.findAll` kini menambahkan `approverName` (satu query user, dibatasi tenant;
+  `SYSTEM_AUTO` dilewati). Tabel menampilkan "oleh <nama>" di bawah status Disetujui; detail menampilkan
+  "Disetujui oleh <nama>" atau "Otomatis (sistem)" untuk tukar libur yang disetujui cron. Konstanta
+  `SYSTEM_AUTO_APPROVER` dipindah ke `modules/attendance/domain/leave-approver.ts`.
+- **Files**: `modules/attendance/repositories/LeaveRequestRepository.ts`, `app/admin/kehadiran/izin/IzinClient.tsx`,
+  `app/admin/kehadiran/izin/utils.ts`
+- **Breaking**: ❌ Tidak (field `approverName` ditambahkan ke respons `GET /api/admin/leaves`)
+
 ### [2026-11-22] — PDF pengajuan barang: tabel disederhanakan
 
 - **Tipe**: [CHANGED]
