@@ -1,15 +1,15 @@
 /**
  * Status pengajuan restock. Pengajuan baru menunggu persetujuan atasan, lalu
  * disetujui atau ditolak. Pengajuan yang disetujui selesai saat admin
- * memasukkan barangnya ke gudang (Sudah Dimasukkan), atau dibatalkan admin
- * selama belum ada yang masuk (Dibatalkan).
+ * melaporkan barangnya sudah sampai (Sudah Sampai), atau dibatalkan admin
+ * selama belum ada yang sampai (Dibatalkan).
  *
  * Murni, tanpa I/O: layar admin, presenter mobile, service, dan route memakai
  * aturan yang sama. Tipe inputnya struktural dan minimal supaya bekerja atas
  * JSON DTO maupun hasil Prisma.
  *
  * Keputusan per baris (`statusApproval`, `jumlahDiminta`, `barangIdDiminta`)
- * ditulis atasan saat menyetujui. Baris yang ditolak tidak ikut dimasukkan,
+ * ditulis atasan saat menyetujui. Baris yang ditolak tidak ikut dilaporkan,
  * tidak ikut dipesan, dan tidak dihitung untuk status maupun jasa.
  */
 
@@ -40,13 +40,24 @@ export type RestockStatusKey =
 export const RESTOCK_STATUS_LABELS: Record<RestockStatusKey, string> = {
   AWAITING_APPROVAL: "Menunggu Persetujuan",
   APPROVED: "Disetujui",
-  RECEIVED: "Sudah Dimasukkan",
+  RECEIVED: "Sudah Sampai",
   REJECTED: "Ditolak",
   CANCELLED: "Dibatalkan",
 };
 
-/** Alasan baku untuk sisa barang yang tidak dimasukkan saat pengajuan diselesaikan. */
-export const NOT_ENTERED_CANCEL_REASON = "Tidak dimasukkan ke gudang";
+/** Alasan baku untuk sisa barang yang tidak sampai saat pengajuan diselesaikan. */
+export const NOT_ENTERED_CANCEL_REASON = "Tidak sampai";
+
+/** Alasan baku versi 2026-11-21, masih tersimpan pada pengajuan yang ditutup saat itu. */
+const LEGACY_NOT_ENTERED_CANCEL_REASON = "Tidak dimasukkan ke gudang";
+
+/** Alasan coret ini alasan baku sisa yang tidak sampai (versi kini maupun lama). */
+export function isNotEnteredCancelReason(reason: string): boolean {
+  return (
+    reason === NOT_ENTERED_CANCEL_REASON ||
+    reason === LEGACY_NOT_ENTERED_CANCEL_REASON
+  );
+}
 
 /**
  * Nilai `statusKonfirmasi` jasa yang sudah dikonfirmasi selesai; sama dengan
@@ -259,7 +270,7 @@ export function isRestockServiceOnly(input: RestockStatusInput): boolean {
 }
 
 /**
- * "Masukkan Barang" boleh dipakai: pengajuan sudah disetujui, belum ditutup,
+ * "Lapor Barang Sampai" boleh dipakai: pengajuan sudah disetujui, belum ditutup,
  * dan punya barang yang tidak ditolak.
  */
 export function canEnterRestockGoods(input: RestockStatusInput): boolean {
@@ -293,7 +304,7 @@ export function canEditRestockRequest(input: RestockStatusInput): boolean {
 }
 
 /**
- * Pengajuan boleh dihapus: belum Sudah Dimasukkan, pesanannya (bila ada) masih
+ * Pengajuan boleh dihapus: belum Sudah Sampai, pesanannya (bila ada) masih
  * DRAFT, dan belum ada yang masuk. `purchaseOrderId` tanpa objek
  * `purchaseOrder` berarti status pesanannya tidak diketahui, jadi tidak boleh.
  */

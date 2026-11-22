@@ -18,20 +18,20 @@ import {
 } from "./utils";
 
 /**
- * Aturan modal "Masukkan Barang": satu kali simpan selalu menyelesaikan
+ * Aturan modal "Lapor Barang Sampai": satu kali simpan selalu menyelesaikan
  * pengajuan yang sudah disetujui. Barang yang diisi masuk gudang; sisa
  * patokan tiap baris ({@link getRestockEntryBasis}) yang tidak diisi tidak
  * dimasukkan.
  */
 
 /** Teks tombol dan judul modal untuk memasukkan barang pengajuan ke gudang. */
-export const ENTER_GOODS_LABEL = "Masukkan Barang";
+export const ENTER_GOODS_LABEL = "Lapor Barang Sampai";
 
 export const NOTHING_ENTERED_MESSAGE =
-  "Isi jumlah barang yang masuk, paling sedikit satu. Kalau tidak ada barang yang masuk, tutup jendela ini lalu tekan Batalkan Pengajuan.";
-export const PHOTO_MISSING_MESSAGE = "Foto barang yang masuk dulu.";
+  "Isi jumlah barang yang sampai, paling sedikit satu. Kalau tidak ada barang yang sampai, tutup jendela ini lalu tekan Batalkan Pengajuan.";
+export const PHOTO_MISSING_MESSAGE = "Foto barang yang sampai dulu.";
 export const OVER_RECEIPT_REASON_MISSING_MESSAGE =
-  "Tulis alasan barang yang masuk lebih banyak dari sisa pesanan.";
+  "Tulis alasan barang yang sampai lebih banyak dari sisa pesanan.";
 
 export interface RestockReceiveLine {
   barangId: string;
@@ -186,7 +186,7 @@ export function getRestockReceiveProblems(
 }
 
 /**
- * Body PATCH Masukkan Barang. Kunci `items` tepat baris yang masih punya
+ * Body PATCH Lapor Barang Sampai. Kunci `items` tepat baris yang masih punya
  * sisa; barang pengganti hanya dikirim untuk barang yang benar-benar masuk.
  */
 export function buildRestockReceivePayload(
@@ -220,7 +220,7 @@ export function buildRestockReceivePayload(
 /**
  * Label tombol simpan. "Selesaikan tanpa barang tambahan" hanya untuk
  * pengajuan lama yang sudah pernah menerima barang dan kini diisi 0 semua;
- * pengajuan yang belum pernah menerima apa pun tetap "Simpan ke Gudang"
+ * pengajuan yang belum pernah menerima apa pun tetap "Simpan Laporan"
  * (tombolnya mati sampai ada jumlah yang diisi).
  */
 export function getRestockReceiveSubmitLabel(
@@ -228,7 +228,7 @@ export function getRestockReceiveSubmitLabel(
 ): string {
   return !summary.hasEntry && summary.hasEnteredBefore
     ? "Selesaikan tanpa barang tambahan"
-    : "Simpan ke Gudang";
+    : "Simpan Laporan";
 }
 
 /** "Kabel Fiber 4 roll, ONT 2 pcs". */
@@ -251,13 +251,13 @@ export function needsRestockShortfallConfirm(
 export function getRestockShortfallConfirmMessage(
   summary: RestockReceiveSummary,
 ): string {
-  return `${describeRestockReceiveLines(summary.notEntered)} tidak dimasukkan dan pengajuan selesai. Lanjutkan?`;
+  return `${describeRestockReceiveLines(summary.notEntered)} tidak sampai dan pengajuan selesai. Lanjutkan?`;
 }
 
 function describeNotEntered(summary: RestockReceiveSummary): string {
   return summary.notEntered.length > MAX_NOT_ENTERED_LINES_NAMED
-    ? `${summary.notEntered.length} jenis barang tidak dimasukkan.`
-    : `Tidak dimasukkan: ${describeRestockReceiveLines(summary.notEntered)}.`;
+    ? `${summary.notEntered.length} jenis barang tidak sampai.`
+    : `Tidak sampai: ${describeRestockReceiveLines(summary.notEntered)}.`;
 }
 
 /** Toast sukses sesudah barang dimasukkan dan pengajuan selesai. */
@@ -268,7 +268,7 @@ export function getRestockReceiveSuccessMessage(
     return "Tersimpan. Pengajuan selesai tanpa barang tambahan.";
   }
   if (summary.notEntered.length === 0) {
-    return "Tersimpan. Semua barang sudah masuk gudang.";
+    return "Laporan tersimpan. Semua barang sudah sampai dan masuk stok gudang.";
   }
-  return `Tersimpan. Barang sudah masuk gudang. ${describeNotEntered(summary)}`;
+  return `Laporan tersimpan. Barang yang sampai sudah masuk stok gudang. ${describeNotEntered(summary)}`;
 }

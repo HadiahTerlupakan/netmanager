@@ -108,7 +108,7 @@ describe("planRemainderCancellations", () => {
 
     const planned = planRemainderCancellations({
       items: [kabel, konektor],
-      reason: "Tidak dimasukkan ke gudang",
+      reason: "Tidak sampai",
       enteredByItemId: new Map([
         ["poi-1", 6],
         ["poi-2", 7],
@@ -120,7 +120,7 @@ describe("planRemainderCancellations", () => {
       {
         purchaseOrderItemId: "poi-1",
         cancelledQuantity: 4,
-        reason: "Tidak dimasukkan ke gudang",
+        reason: "Tidak sampai",
         expected: { quantity: 10, receivedQuantity: 6, cancelledQuantity: 0 },
       },
     ]);

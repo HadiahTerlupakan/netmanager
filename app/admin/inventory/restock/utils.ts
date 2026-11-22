@@ -119,7 +119,7 @@ export function getRestockItemRemaining(item: PurchaseRequestItem): number {
 }
 
 /**
- * Patokan satu baris di "Masukkan Barang": isian awalnya, dan dasar jumlah
+ * Patokan satu baris di "Lapor Barang Sampai": isian awalnya, dan dasar jumlah
  * yang tidak dimasukkan (patokan dikurangi isian). Mengikuti yang ditutup
  * server saat pengajuan selesai:
  * - pesanan milik satu pengajuan: seluruh sisa pesanan barang itu, termasuk
@@ -139,7 +139,7 @@ export function getRestockEntryBasis(
 }
 
 /**
- * Baris yang diisi di "Masukkan Barang": baris barang yang masih punya sisa,
+ * Baris yang diisi di "Lapor Barang Sampai": baris barang yang masih punya sisa,
  * kecuali yang ditolak atasan. Server meminta jumlah untuk tepat baris-baris
  * ini.
  */
@@ -161,7 +161,7 @@ export function getPendingJasaItems(
   );
 }
 
-/** Isian awal "Masukkan Barang" per barang: patokan tiap baris. */
+/** Isian awal "Lapor Barang Sampai" per barang: patokan tiap baris. */
 export function buildInitialReceivedItems(
   request: PurchaseRequest,
 ): Record<string, number> {

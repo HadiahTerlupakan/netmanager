@@ -249,7 +249,7 @@ export class InventoryPurchaseRequestRepository implements IRestockRequestDeleti
   /**
    * Hapus pengajuan beserta barisnya (cascade) dengan satu DELETE bersyarat.
    * Syarat `purchaseOrderId: null` ada di baris pengajuan sendiri, jadi
-   * pesanan yang dibuat bersamaan (persetujuan, Generate PO, Masukkan Barang)
+   * pesanan yang dibuat bersamaan (persetujuan, Generate PO, Lapor Barang Sampai)
    * membuat penghapusan ini tidak mengenai apa pun. True bila terhapus.
    */
   async deletePurchaseRequestIfDeletable(

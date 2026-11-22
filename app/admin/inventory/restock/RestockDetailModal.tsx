@@ -23,7 +23,7 @@ interface RestockDetailModalProps {
   onClose: () => void;
   /** Izin restock:verify: memasukkan barang dan membatalkan pengajuan. */
   canVerify?: boolean;
-  /** Buka "Masukkan Barang" untuk pengajuan ini. */
+  /** Buka "Lapor Barang Sampai" untuk pengajuan ini. */
   onOpenReceive?: (request: PurchaseRequest) => void;
   /** Buka "Batalkan Pengajuan" untuk pengajuan ini. */
   onOpenCancel?: (request: PurchaseRequest) => void;

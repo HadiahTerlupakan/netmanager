@@ -99,7 +99,7 @@ describe("POST /api/admin/procurement/goods-receipts", () => {
     expect(response.status).toBe(409);
     expect(JSON.stringify(body)).toContain(RESTOCK_ORDER_RECEIPT_MESSAGE);
     expect(RESTOCK_ORDER_RECEIPT_MESSAGE).toContain(
-      "Masukkan Barang di halaman Restock",
+      "Lapor Barang Sampai di halaman Restock",
     );
     expect(mocks.create).not.toHaveBeenCalled();
   });

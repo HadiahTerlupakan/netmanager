@@ -16,7 +16,7 @@ import {
 import type { RestockItemSubstitutionService } from "@/modules/inventory/services/RestockItemSubstitutionService";
 
 /*
- * Bahan tes service Masukkan Barang: pengajuan disetujui dengan pesanan
+ * Bahan tes service Lapor Barang Sampai: pengajuan disetujui dengan pesanan
  * ORDERED berisi satu barang, semua dependency berupa mock. Modul yang
  * mengimpor berkas ini wajib me-mock `@/lib/logger` dan `@/modules/procurement`.
  */
@@ -105,7 +105,7 @@ export interface ReceiptFixtureOptions {
   linkedRequests?: number;
 }
 
-/** Service Masukkan Barang dengan repository, kunci, pembuat pesanan, dan GRN palsu. */
+/** Service Lapor Barang Sampai dengan repository, kunci, pembuat pesanan, dan GRN palsu. */
 export function createReceiptFixture(
   options: ReceiptFixtureOptions = {},
 ): ReceiptFixture {
@@ -172,7 +172,7 @@ export function createReceiptFixture(
   };
 }
 
-/** Masukkan Barang atas pengajuan pr-1 dengan satu foto bukti bawaan. */
+/** Lapor Barang Sampai atas pengajuan pr-1 dengan satu foto bukti bawaan. */
 export function receiveWith(
   fixture: ReceiptFixture,
   input: Partial<ReceiveRestockRequestInput>,

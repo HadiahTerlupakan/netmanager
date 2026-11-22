@@ -1,5 +1,5 @@
 /**
- * Kontrak akses data untuk Masukkan Barang dan Batalkan pada pengajuan
+ * Kontrak akses data untuk Lapor Barang Sampai dan Batalkan pada pengajuan
  * restock yang sudah disetujui.
  */
 
@@ -191,7 +191,7 @@ export interface IRestockRequestClosureRepository {
   ): Promise<boolean>;
 }
 
-/** Akses data Masukkan Barang: penutupan, ganti barang, dan kenaikan pesanan. */
+/** Akses data Lapor Barang Sampai: penutupan, ganti barang, dan kenaikan pesanan. */
 export interface IRestockGoodsReceiptRepository extends IRestockRequestClosureRepository {
   findBarangCandidates(
     barangIds: string[],

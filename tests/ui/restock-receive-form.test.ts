@@ -130,7 +130,7 @@ describe("getRestockReceiveSummary", () => {
       hasEntry: true,
       hasEnteredBefore: false,
     });
-    expect(getRestockReceiveSubmitLabel(summary)).toBe("Simpan ke Gudang");
+    expect(getRestockReceiveSubmitLabel(summary)).toBe("Simpan Laporan");
   });
 
   it("mencatat sisa yang diisi kurang sebagai tidak dimasukkan", () => {
@@ -184,7 +184,7 @@ describe("getRestockReceiveSummary", () => {
   });
 });
 
-describe("patokan Masukkan Barang = yang ditutup server", () => {
+describe("patokan Lapor Barang Sampai = yang ditutup server", () => {
   /** Pesanan milik satu pengajuan yang jumlahnya dinaikkan lewat Ubah isi PO. */
   function raisedOrderInput(fiberEntered: number): RestockReceiveFormInput {
     return formInput({
@@ -219,10 +219,10 @@ describe("patokan Masukkan Barang = yang ditutup server", () => {
     ]);
     expect(needsRestockShortfallConfirm(summary)).toBe(true);
     expect(getRestockShortfallConfirmMessage(summary)).toBe(
-      "Kabel Fiber 5 roll tidak dimasukkan dan pengajuan selesai. Lanjutkan?",
+      "Kabel Fiber 5 roll tidak sampai dan pengajuan selesai. Lanjutkan?",
     );
     expect(getRestockReceiveSuccessMessage(summary)).toBe(
-      "Tersimpan. Barang sudah masuk gudang. Tidak dimasukkan: Kabel Fiber 5 roll.",
+      "Laporan tersimpan. Barang yang sampai sudah masuk stok gudang. Tidak sampai: Kabel Fiber 5 roll.",
     );
   });
 
@@ -255,7 +255,7 @@ describe("patokan Masukkan Barang = yang ditutup server", () => {
       { barangId: "fiber", nama: "Kabel Fiber", satuan: "roll", quantity: 2 },
     ]);
     expect(getRestockShortfallConfirmMessage(short)).toBe(
-      "Kabel Fiber 2 roll tidak dimasukkan dan pengajuan selesai. Lanjutkan?",
+      "Kabel Fiber 2 roll tidak sampai dan pengajuan selesai. Lanjutkan?",
     );
   });
 });
@@ -275,7 +275,7 @@ describe("getRestockReceiveProblems", () => {
 
     expect(summary.hasEntry).toBe(false);
     expect(summary.hasEnteredBefore).toBe(false);
-    expect(getRestockReceiveSubmitLabel(summary)).toBe("Simpan ke Gudang");
+    expect(getRestockReceiveSubmitLabel(summary)).toBe("Simpan Laporan");
   });
 
   it("mengizinkan data lama yang sudah pernah menerima diselesaikan tanpa barang tambahan", () => {
@@ -308,7 +308,7 @@ describe("getRestockReceiveProblems", () => {
 
     expect(problemsFor(over)).toEqual([OVER_RECEIPT_REASON_MISSING_MESSAGE]);
     expect(OVER_RECEIPT_REASON_MISSING_MESSAGE).toBe(
-      "Tulis alasan barang yang masuk lebih banyak dari sisa pesanan.",
+      "Tulis alasan barang yang sampai lebih banyak dari sisa pesanan.",
     );
     expect(
       problemsFor({ ...over, overReceipts: { fiber: "Bonus dari toko" } }),
@@ -392,18 +392,18 @@ describe("clampEnteredQuantity", () => {
   });
 });
 
-describe("pesan Masukkan Barang", () => {
+describe("pesan Lapor Barang Sampai", () => {
   it("menyusun toast sukses menurut hasilnya", () => {
     const allEntered = getRestockReceiveSummary(formInput());
     expect(getRestockReceiveSuccessMessage(allEntered)).toBe(
-      "Tersimpan. Semua barang sudah masuk gudang.",
+      "Laporan tersimpan. Semua barang sudah sampai dan masuk stok gudang.",
     );
 
     const short = getRestockReceiveSummary(
       formInput({ receivedItems: { fiber: 6, ont: 5 } }),
     );
     expect(getRestockReceiveSuccessMessage(short)).toBe(
-      "Tersimpan. Barang sudah masuk gudang. Tidak dimasukkan: Kabel Fiber 4 roll.",
+      "Laporan tersimpan. Barang yang sampai sudah masuk stok gudang. Tidak sampai: Kabel Fiber 4 roll.",
     );
 
     const nothing = getRestockReceiveSummary(
@@ -427,7 +427,7 @@ describe("pesan Masukkan Barang", () => {
       }),
     );
     expect(getRestockReceiveSuccessMessage(summary)).toBe(
-      "Tersimpan. Barang sudah masuk gudang. 3 jenis barang tidak dimasukkan.",
+      "Laporan tersimpan. Barang yang sampai sudah masuk stok gudang. 3 jenis barang tidak sampai.",
     );
   });
 
@@ -440,7 +440,7 @@ describe("pesan Masukkan Barang", () => {
     );
     expect(needsRestockShortfallConfirm(short)).toBe(true);
     expect(getRestockShortfallConfirmMessage(short)).toBe(
-      "Kabel Fiber 4 roll, ONT 2 pcs tidak dimasukkan dan pengajuan selesai. Lanjutkan?",
+      "Kabel Fiber 4 roll, ONT 2 pcs tidak sampai dan pengajuan selesai. Lanjutkan?",
     );
   });
 

@@ -64,7 +64,7 @@ function describeReceiveLineProgress({
   const parts = [`Disetujui ${formatQuantity(item.jumlah, satuan)}`];
   if (isOrderChanged) parts.push(`Dipesan ${formatQuantity(ordered, satuan)}`);
   if (received > 0) {
-    parts.push(`Sudah masuk ${formatQuantity(received, satuan)}`);
+    parts.push(`Sudah sampai ${formatQuantity(received, satuan)}`);
   }
   const shownTarget = isOrderChanged ? ordered : item.jumlah;
   if (received > 0 || entryBasis !== shownTarget) {
@@ -112,13 +112,13 @@ function describeQuantityHint({
 }: QuantityHintInput): string | null {
   const notEntered = getNotEnteredQuantity(entryBasis, enteredQuantity);
   if (notEntered > 0) {
-    return `${formatQuantity(notEntered, satuan)} tidak dimasukkan.`;
+    return `${formatQuantity(notEntered, satuan)} tidak sampai.`;
   }
   if (getRestockItemExcess(item, enteredQuantity) > 0) return null;
   const hints: string[] = [];
   if (enteredQuantity === entryBasis) {
     hints.push(
-      `Terisi sesuai ${describeQuantityReference(item, entryBasis)}. Ubah kalau yang masuk lebih sedikit.`,
+      `Terisi sesuai ${describeQuantityReference(item, entryBasis)}. Ubah kalau yang sampai lebih sedikit.`,
     );
   }
   if (!canOverReceive && enteredQuantity >= getRestockItemRemaining(item)) {
@@ -128,7 +128,7 @@ function describeQuantityHint({
 }
 
 /**
- * Satu barang di modal "Masukkan Barang": jumlah yang masuk gudang, ganti
+ * Satu barang di modal "Lapor Barang Sampai": jumlah yang masuk gudang, ganti
  * barang bila yang masuk berbeda, dan alasan bila masuk lebih banyak.
  */
 export function RestockReceiveItemRow({
@@ -218,7 +218,7 @@ export function RestockReceiveItemRow({
               min="0"
               max={canOverReceive ? undefined : getRestockItemRemaining(item)}
               inputMode="numeric"
-              aria-label={`Jumlah ${displayedName} yang masuk`}
+              aria-label={`Jumlah ${displayedName} yang sampai`}
               aria-describedby={quantityHint ? hintId : undefined}
               value={enteredQuantity}
               onChange={(event) =>
@@ -270,7 +270,7 @@ export function RestockReceiveItemRow({
               )}
               {substituteBarangId
                 ? `Kembalikan ke ${item.barang.nama}`
-                : "Yang masuk barang lain? Pilih barangnya"}
+                : "Yang sampai barang lain? Pilih barangnya"}
             </button>
             {isPickerVisible && (
               <SearchableSelect
@@ -283,7 +283,7 @@ export function RestockReceiveItemRow({
           </>
         ) : (
           <p className="text-xs text-gray-600 dark:text-gray-400">
-            Sudah masuk {formatQuantity(received, satuan)} sebelumnya, jadi
+            Sudah sampai {formatQuantity(received, satuan)} sebelumnya, jadi
             barangnya tidak bisa diganti lagi.
           </p>
         )}

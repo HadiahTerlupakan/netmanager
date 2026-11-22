@@ -96,7 +96,7 @@ export interface RestockGoodsReceiptCreator {
   create(input: RestockGoodsReceiptInput): Promise<GoodsReceiptEntity>;
 }
 
-/** Dependency Masukkan Barang; dirakit `createRestockGoodsReceiptService`. */
+/** Dependency Lapor Barang Sampai; dirakit `createRestockGoodsReceiptService`. */
 export interface RestockGoodsReceiptDependencies {
   repository: IRestockGoodsReceiptRepository;
   substitutionService: RestockItemSubstitutionService;
@@ -123,10 +123,10 @@ type EntryClosingAttempt =
   | { isWritten: false; failure: RestockReceiptFailure };
 
 /**
- * Masukkan Barang pada pengajuan restock yang sudah disetujui. Sekali simpan
+ * Lapor Barang Sampai pada pengajuan restock yang sudah disetujui. Sekali simpan
  * langsung menyelesaikan pengajuan: barang yang masuk dicatat lewat GRN (stok,
  * dokumen, dan jurnal ikut tercatat), sisanya dicoret, dan pengajuan menjadi
- * Sudah Dimasukkan.
+ * Sudah Sampai.
  */
 export class RestockGoodsReceiptService {
   private readonly closure: RestockRequestClosure;

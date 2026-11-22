@@ -35,7 +35,7 @@ export function describeGoodsReceiptContents(
   receipt: GoodsReceiptSummary,
 ): string {
   const lines = receipt.items ?? [];
-  if (lines.length === 0) return "Isi barang masuk tidak tercatat";
+  if (lines.length === 0) return "Isi laporan barang sampai tidak tercatat";
   return lines
     .map((line) =>
       [line.nama ?? "Barang", String(line.quantity), line.satuan ?? ""]

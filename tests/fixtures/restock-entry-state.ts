@@ -3,7 +3,7 @@ import { vi } from "vitest";
 import type { RestockEntryState } from "@/app/admin/inventory/restock/useRestockEntry";
 
 /**
- * State modal "Masukkan Barang" untuk tes komponen, tanpa menjalankan hook
+ * State modal "Lapor Barang Sampai" untuk tes komponen, tanpa menjalankan hook
  * `useRestockEntry`. Bawaannya: belum ada pengajuan yang dibuka, tanpa foto,
  * dan setiap aksi berupa mock.
  */

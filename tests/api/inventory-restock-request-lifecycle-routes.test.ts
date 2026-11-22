@@ -387,7 +387,7 @@ describe("inventory restock request lifecycle routes", () => {
     });
   });
 
-  describe("entering goods (Masukkan Barang)", () => {
+  describe("entering goods (Lapor Barang Sampai)", () => {
     interface OrderItemRow {
       id: string;
       barangId: string;
@@ -458,7 +458,7 @@ describe("inventory restock request lifecycle routes", () => {
       };
     }
 
-    /** Pengajuan dan pesanannya seperti dibaca repository Masukkan Barang. */
+    /** Pengajuan dan pesanannya seperti dibaca repository Lapor Barang Sampai. */
     function mockApprovedRequest(
       items: OrderItemRow[],
       overrides: ApprovedRequestOverrides = {},
@@ -500,7 +500,8 @@ describe("inventory restock request lifecycle routes", () => {
       expect(await response.json()).toEqual({
         data: { id: "grn-1", grnNumber: "GRN-001" },
         purchaseRequestStatus: "RECEIVED",
-        message: "Tersimpan. Barang sudah masuk gudang. Pengajuan selesai.",
+        message:
+          "Laporan tersimpan. Barang yang sampai sudah masuk stok gudang. Pengajuan selesai.",
       });
       expect(mockGrnCreate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -582,7 +583,7 @@ describe("inventory restock request lifecycle routes", () => {
         },
         data: {
           cancelledQuantity: { increment: 4 },
-          cancelReason: "Tidak dimasukkan ke gudang",
+          cancelReason: "Tidak sampai",
           cancelledAt: expect.any(Date),
         },
       });
@@ -594,7 +595,7 @@ describe("inventory restock request lifecycle routes", () => {
           }),
           data: expect.objectContaining({
             cancelledQuantity: { increment: 5 },
-            cancelReason: "Tidak dimasukkan ke gudang",
+            cancelReason: "Tidak sampai",
           }),
         }),
       );
@@ -630,7 +631,7 @@ describe("inventory restock request lifecycle routes", () => {
 
       expect(response.status).toBe(409);
       expect((await response.json()).error).toBe(
-        'Barang sudah masuk gudang, tetapi pengajuan belum tertutup. Jangan masukkan barang yang sama lagi. Muat ulang halaman, buka Masukkan Barang, isi semua jumlah dengan 0, lalu pilih "Selesaikan tanpa barang tambahan".',
+        'Laporan barang sampai sudah tersimpan dan stok sudah bertambah, tetapi pengajuan belum tertutup. Jangan laporkan barang yang sama lagi. Muat ulang halaman, buka Lapor Barang Sampai, isi semua jumlah dengan 0, lalu pilih "Selesaikan tanpa barang tambahan".',
       );
       expect(mockGrnCreate).toHaveBeenCalledTimes(1);
     });
@@ -715,7 +716,7 @@ describe("inventory restock request lifecycle routes", () => {
 
       expect(response.status).toBe(400);
       expect((await response.json()).error).toBe(
-        "Isi jumlah barang yang masuk. Bila tidak ada barang yang datang, batalkan pengajuan.",
+        "Isi jumlah barang yang sampai. Bila tidak ada barang yang datang, batalkan pengajuan.",
       );
       expect(prismaMock.purchaseOrderItem.updateMany).not.toHaveBeenCalled();
     });
@@ -763,7 +764,7 @@ describe("inventory restock request lifecycle routes", () => {
 
       expect(response.status).toBe(500);
       expect((await response.json()).error).toBe(
-        "Pesanan untuk pengajuan ini belum bisa dibuat, jadi barangnya belum bisa dimasukkan. Tidak ada barang yang masuk gudang. Hubungi admin.",
+        "Pesanan untuk pengajuan ini belum bisa dibuat, jadi laporan barang sampai belum bisa disimpan. Tidak ada barang yang masuk stok. Hubungi admin.",
       );
       expect(mockGrnCreate).not.toHaveBeenCalled();
     });
@@ -946,7 +947,7 @@ describe("inventory restock request lifecycle routes", () => {
 
         expect(response.status).toBe(400);
         expect((await response.json()).error).toBe(
-          "Jumlah barang yang masuk harus angka bulat, tanpa koma.",
+          "Jumlah barang yang sampai harus angka bulat, tanpa koma.",
         );
         expect(mockGrnCreate).not.toHaveBeenCalled();
       });
@@ -1135,7 +1136,7 @@ describe("inventory restock request lifecycle routes", () => {
       };
     }
 
-    /** Penghapusan bersyarat: tanpa pesanan, belum Sudah Dimasukkan, tanpa jasa selesai. */
+    /** Penghapusan bersyarat: tanpa pesanan, belum Sudah Sampai, tanpa jasa selesai. */
     const DELETABLE_REQUEST_WHERE = {
       id: "pr-1",
       tenantId: "tenant-1",
@@ -1211,7 +1212,7 @@ describe("inventory restock request lifecycle routes", () => {
       expect((await response.json()).error).toContain("baru saja diubah");
     });
 
-    it("answers 409 while Masukkan Barang or Batalkan holds the request lock", async () => {
+    it("answers 409 while Lapor Barang Sampai or Batalkan holds the request lock", async () => {
       mockFns.acquireLock.mockResolvedValue(null);
 
       const response = await remove();
@@ -1250,7 +1251,7 @@ describe("inventory restock request lifecycle routes", () => {
       );
 
       await expectRefused(
-        "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang masuk gudang atau jasa yang ditandai selesai.",
+        "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang dilaporkan sampai atau jasa yang ditandai selesai.",
       );
       expect(mockPurchaseOrderDelete).not.toHaveBeenCalled();
     });
@@ -1265,7 +1266,7 @@ describe("inventory restock request lifecycle routes", () => {
       );
 
       await expectRefused(
-        "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang masuk gudang atau jasa yang ditandai selesai.",
+        "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang dilaporkan sampai atau jasa yang ditandai selesai.",
       );
     });
 
@@ -1302,7 +1303,7 @@ describe("inventory restock request lifecycle routes", () => {
       );
 
       await expectRefused(
-        "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang masuk gudang atau jasa yang ditandai selesai.",
+        "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang dilaporkan sampai atau jasa yang ditandai selesai.",
       );
     });
   });

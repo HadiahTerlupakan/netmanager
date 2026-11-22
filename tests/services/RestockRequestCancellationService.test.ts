@@ -271,7 +271,7 @@ describe("RestockRequestCancellationService", () => {
       "sudah ada barang yang masuk",
       approvedRequest(),
       untouchedOrder({ items: [{ ...kabel, receivedQuantity: 4 }] }),
-      "sudah ada barang yang masuk gudang",
+      "sudah ada barang yang dilaporkan sampai",
     ],
     [
       "jasanya sudah ditandai selesai",
@@ -344,7 +344,7 @@ describe("RestockRequestCancellationService", () => {
     expect(repository.closeRequest).not.toHaveBeenCalled();
   });
 
-  it("pesan tolak pengajuan jasa saja tidak menyuruh Masukkan Barang", async () => {
+  it("pesan tolak pengajuan jasa saja tidak menyuruh Lapor Barang Sampai", async () => {
     const { service } = createService(
       approvedRequest({
         lines: [],
@@ -360,11 +360,11 @@ describe("RestockRequestCancellationService", () => {
 
     expect(result.success).toBe(false);
     expect(result.success === false && result.error).not.toContain(
-      "Masukkan Barang",
+      "Lapor Barang Sampai",
     );
   });
 
-  it("pesan tolak pengajuan berbarang menunjukkan jalan keluar lewat Masukkan Barang", async () => {
+  it("pesan tolak pengajuan berbarang menunjukkan jalan keluar lewat Lapor Barang Sampai", async () => {
     const { service } = createService(
       approvedRequest(),
       untouchedOrder({ items: [{ ...kabel, receivedQuantity: 4 }] }),
@@ -376,7 +376,7 @@ describe("RestockRequestCancellationService", () => {
       success: false,
       code: "CONFLICT",
       error: expect.stringContaining(
-        'Selesaikan lewat Masukkan Barang. Kalau tidak ada barang lagi yang datang, isi semua jumlah dengan 0, lalu pilih "Selesaikan tanpa barang tambahan".',
+        'Selesaikan lewat Lapor Barang Sampai. Kalau tidak ada barang lagi yang datang, isi semua jumlah dengan 0, lalu pilih "Selesaikan tanpa barang tambahan".',
       ),
     });
   });

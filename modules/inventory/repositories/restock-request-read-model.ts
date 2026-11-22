@@ -112,7 +112,7 @@ export function withLineProgress<TLine extends RestockLineSource>(
   return {
     ...item,
     // Pesanan gabungan memuat beberapa pengajuan; sisa dihitung dari jumlah
-    // di PO seperti yang dipakai server saat Masukkan Barang.
+    // di PO seperti yang dipakai server saat Lapor Barang Sampai.
     orderedQuantity: purchaseOrderItem?.quantity ?? item.jumlah,
     receivedQuantity: purchaseOrderItem?.receivedQuantity || 0,
     cancelledQuantity: purchaseOrderItem?.cancelledQuantity || 0,

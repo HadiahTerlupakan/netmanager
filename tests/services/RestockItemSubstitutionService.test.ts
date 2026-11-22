@@ -1,5 +1,5 @@
 /**
- * Unit tests untuk substitusi barang saat Masukkan Barang restock.
+ * Unit tests untuk substitusi barang saat Lapor Barang Sampai restock.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -115,7 +115,7 @@ describe("RestockItemSubstitutionService", () => {
     });
     await expect(attempt).rejects.toThrow(RestockSubstitutionInvalidError);
     await expect(attempt).rejects.toThrow(
-      /sudah masuk sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi\. Masukkan sisanya/,
+      /sudah sampai sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi\. Laporkan sisanya/,
     );
   });
 

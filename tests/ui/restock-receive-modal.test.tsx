@@ -115,11 +115,11 @@ describe("RestockReceiveModal", () => {
   it("memperkenalkan pengajuan, kode pesanan, status, dan gudang tujuan", () => {
     const markup = renderReceiveModal();
 
-    expect(markup).toContain("Masukkan Barang");
+    expect(markup).toContain("Lapor Barang Sampai");
     expect(markup).toContain("Pengajuan PR-001");
     expect(markup).toContain("Kode pesanan: PO-2026-001");
     expect(markup).toContain("Disetujui");
-    expect(markup).toContain("Masuk ke gudang: Gudang A");
+    expect(markup).toContain("Gudang tujuan: Gudang A");
     expect(markup).not.toContain("belanja");
   });
 
@@ -127,19 +127,19 @@ describe("RestockReceiveModal", () => {
     const markup = renderReceiveModal();
 
     expect(markup).toContain("Jumlah masuk");
-    expect(markup).toContain('aria-label="Jumlah Kabel Fiber yang masuk"');
+    expect(markup).toContain('aria-label="Jumlah Kabel Fiber yang sampai"');
     expect(markup).toContain("Disetujui 10 roll");
-    expect(markup).toContain("Simpan ke Gudang");
+    expect(markup).toContain("Simpan Laporan");
   });
 
   it("menjelaskan isian awal dan batasnya bagi petugas tanpa izin kelebihan", () => {
     const markup = renderReceiveModal();
 
     expect(markup).toContain(
-      "Jumlah sudah terisi sesuai sisa yang belum masuk. Ubah kalau yang masuk lebih sedikit.",
+      "Jumlah sudah terisi sesuai sisa yang belum sampai. Ubah kalau yang sampai lebih sedikit.",
     );
     expect(markup).toContain(
-      "Terisi sesuai jumlah yang disetujui. Ubah kalau yang masuk lebih sedikit. Lebih dari ini hanya bisa dicatat petugas yang boleh mengubah pesanan.",
+      "Terisi sesuai jumlah yang disetujui. Ubah kalau yang sampai lebih sedikit. Lebih dari ini hanya bisa dicatat petugas yang boleh mengubah pesanan.",
     );
     expect(markup).toContain('max="10"');
   });
@@ -183,7 +183,7 @@ describe("RestockReceiveModal", () => {
     const short = renderReceiveModal({
       entry: { request: raised, receivedItems: { "barang-1": 10 } },
     });
-    expect(short).toContain("5 roll tidak dimasukkan.");
+    expect(short).toContain("5 roll tidak sampai.");
     expect(short).toContain("Kabel Fiber — 5 roll");
   });
 
@@ -257,13 +257,13 @@ describe("RestockReceiveModal", () => {
     });
 
     expect(markup).toContain(
-      "Disetujui 10 roll · Sudah masuk 4 roll · Sisa 4 roll",
+      "Disetujui 10 roll · Sudah sampai 4 roll · Sisa 4 roll",
     );
     expect(markup).toContain(
       "Sebelumnya tidak masuk: 2 roll (Barang habis di toko)",
     );
     expect(markup).toContain(
-      "Sudah masuk 4 roll sebelumnya, jadi barangnya tidak bisa diganti lagi.",
+      "Sudah sampai 4 roll sebelumnya, jadi barangnya tidak bisa diganti lagi.",
     );
   });
 
@@ -282,7 +282,7 @@ describe("RestockReceiveModal", () => {
 
     expect(markup).toContain(NOTHING_ENTERED_MESSAGE);
     expect(markup).toContain('aria-disabled="true"');
-    expect(markup).toContain("Simpan ke Gudang");
+    expect(markup).toContain("Simpan Laporan");
     expect(markup).not.toContain("Selesaikan tanpa barang tambahan");
   });
 
@@ -304,9 +304,9 @@ describe("RestockReceiveModal", () => {
 
   it("menampilkan ringkasan dan pengingat bahwa pengajuan selesai", () => {
     const complete = renderReceiveModal();
-    expect(complete).toContain("Masuk gudang");
+    expect(complete).toContain(">Sampai<");
     expect(complete).toContain("Kabel Fiber — 10 roll");
-    expect(complete).toContain("Tidak dimasukkan");
+    expect(complete).toContain("Tidak sampai");
     expect(complete).toContain("Tidak ada.");
     expect(complete).toContain("Pengajuan akan selesai setelah disimpan.");
 
@@ -314,7 +314,7 @@ describe("RestockReceiveModal", () => {
       entry: { receivedItems: { "barang-1": 6 } },
     });
     expect(short).toContain("Kabel Fiber — 4 roll");
-    expect(short).toContain("4 roll tidak dimasukkan.");
+    expect(short).toContain("4 roll tidak sampai.");
   });
 
   it("mengingatkan jasa yang masih ditandai lewat Konfirmasi Jasa", () => {
@@ -348,7 +348,7 @@ describe("RestockReceiveModal", () => {
 
   it("menawarkan ganti barang bila yang masuk berbeda", () => {
     expect(renderReceiveModal()).toContain(
-      "Yang masuk barang lain? Pilih barangnya",
+      "Yang sampai barang lain? Pilih barangnya",
     );
   });
 

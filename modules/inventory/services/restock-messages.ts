@@ -20,7 +20,7 @@ export {
 /**
  * Keadaan pengajuan/pesanan dalam kata biasa, untuk kalimat "Pengajuan ini …".
  * Sejalan dengan label status di layar: Menunggu Persetujuan (DRAFT,
- * SUBMITTED), Disetujui (APPROVED, ORDERED), Sudah Dimasukkan, Ditolak, dan
+ * SUBMITTED), Disetujui (APPROVED, ORDERED), Sudah Sampai, Ditolak, dan
  * Dibatalkan. PARTIAL hanya ada di pesanan lama yang barangnya masuk sebagian.
  */
 const RESTOCK_STATUS_WORDS: Record<string, string> = {
@@ -29,8 +29,8 @@ const RESTOCK_STATUS_WORDS: Record<string, string> = {
   APPROVED: "sudah disetujui",
   ORDERED: "sudah disetujui",
   REJECTED: "sudah ditolak",
-  PARTIAL: "barangnya baru masuk sebagian",
-  RECEIVED: "sudah dimasukkan",
+  PARTIAL: "barangnya baru sampai sebagian",
+  RECEIVED: "sudah dilaporkan sampai",
   CANCELLED: "sudah dibatalkan",
 };
 
@@ -49,7 +49,7 @@ const RESTOCK_PERMISSION_ACTIVITIES = {
   "restock:delete": "menghapus pengajuan restock",
   "restock:approve": "menyetujui pengajuan restock",
   "restock:verify":
-    "memasukkan barang, mengonfirmasi jasa, atau membatalkan pengajuan restock",
+    "melaporkan barang sampai, mengonfirmasi jasa, atau membatalkan pengajuan restock",
 } as const;
 
 export type RestockPermission = keyof typeof RESTOCK_PERMISSION_ACTIVITIES;
@@ -85,9 +85,9 @@ export const RESTOCK_MESSAGES = {
   gudangBedaSite:
     "Gudang tujuan ini milik site lain. Pilih gudang di site Anda.",
   cannotDeleteReceived:
-    "Pengajuan ini tidak bisa dihapus karena barangnya sudah dimasukkan ke gudang.",
+    "Pengajuan ini tidak bisa dihapus karena barangnya sudah dilaporkan sampai.",
   cannotDeleteAfterEntry:
-    "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang masuk gudang atau jasa yang ditandai selesai.",
+    "Pengajuan ini tidak bisa dihapus karena sudah ada barang yang dilaporkan sampai atau jasa yang ditandai selesai.",
   cannotDeleteProcessedOrder:
     "Pengajuan ini tidak bisa dihapus karena pesanannya sudah diproses atau dibatalkan. Muat ulang halaman untuk melihat keadaan terbarunya.",
   cannotDeleteWithLegacyPurchases:

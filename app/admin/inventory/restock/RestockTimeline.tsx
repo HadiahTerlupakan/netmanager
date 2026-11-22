@@ -56,7 +56,7 @@ function PhotoThumbnails({
   subject,
 }: {
   photos: string[];
-  /** Mis. "barang masuk ke-2". */
+  /** Mis. "barang sampai ke-2". */
   subject: string;
 }) {
   if (photos.length === 0) return null;
@@ -120,7 +120,7 @@ function ReceiptStep({
   ordinal: string | null;
 }) {
   const photos = receipt.fotoBukti ?? [];
-  const label = ordinal ? `Barang masuk ${ordinal}` : "Barang masuk";
+  const label = ordinal ? `Barang sampai ${ordinal}` : "Barang sampai";
   const recordedBy = receipt.receivedBy?.name
     ? `dicatat ${receipt.receivedBy.name}`
     : null;
@@ -173,7 +173,7 @@ function ClosingStep({
         <TimelineStep
           isDone
           title={
-            isServiceOnly ? "Semua jasa selesai" : "Selesai tanpa barang masuk"
+            isServiceOnly ? "Semua jasa selesai" : "Selesai tanpa barang sampai"
           }
         />
       );
@@ -184,7 +184,7 @@ function ClosingStep({
           title={
             isServiceOnly
               ? "Menunggu jasa ditandai selesai"
-              : "Menunggu admin memasukkan barang"
+              : "Menunggu laporan barang sampai"
           }
         />
       );

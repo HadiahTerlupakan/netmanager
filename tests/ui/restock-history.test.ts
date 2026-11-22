@@ -68,7 +68,7 @@ describe("describeGoodsReceiptContents", () => {
 
   it("memberi tahu bila isinya tidak tercatat", () => {
     expect(describeGoodsReceiptContents(makeReceipt())).toBe(
-      "Isi barang masuk tidak tercatat",
+      "Isi laporan barang sampai tidak tercatat",
     );
   });
 });

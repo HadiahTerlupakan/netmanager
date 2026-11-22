@@ -712,3 +712,10 @@
   satu peran ("cukup sampai situ" bagi pemohon, "di mobile cukup status X") bukan perintah membuang tahap peran lain.
   Bila penyederhanaan bisa berarti membuang fitur yang tidak disebut, pilih tafsiran yang mempertahankannya dan tulis
   itu sebagai asumsi.
+
+## 2026-11-22 — Pakai istilah pemilik untuk nama langkah di UI
+- Koreksi: langkah setelah restock disetujui saya namai "Masukkan Barang" (istilah gudang/teknis), padahal pemilik
+  menyebutnya laporan barang sampai. Nama tombol, status, dan pesan harus memakai kata yang dipakai pemilik saat
+  menjelaskan alurnya.
+- Aturan: sebelum menamai tombol/status baru, tulis 1 kalimat alur dengan kata-kata pemilik dan ambil kata kerjanya
+  dari situ; untuk data yang sudah tersimpan dengan istilah lama (alasan baku), tetap kenali nilai lama.

@@ -32,7 +32,7 @@ describe("pesan restock untuk petugas", () => {
       "Pengajuan ini sudah disetujui, jadi tidak bisa diubah lagi. Yang bisa diubah hanya pengajuan yang belum disetujui.",
     );
     expect(restockCannotEditMessage("RECEIVED")).toBe(
-      "Pengajuan ini sudah dimasukkan, jadi tidak bisa diubah lagi. Yang bisa diubah hanya pengajuan yang belum disetujui.",
+      "Pengajuan ini sudah dilaporkan sampai, jadi tidak bisa diubah lagi. Yang bisa diubah hanya pengajuan yang belum disetujui.",
     );
     expect(restockAlreadyDecidedMessage("REJECTED", "disetujui")).toContain(
       "Pengajuan ini sudah ditolak, jadi tidak bisa disetujui lagi.",
@@ -65,7 +65,7 @@ describe("pesan restock untuk petugas", () => {
   it("menyebut kegiatan yang dilindungi izin, bukan nama izinnya", () => {
     const message = restockForbiddenMessage("restock:verify");
     expect(message).toBe(
-      "Akun Anda tidak punya izin memasukkan barang, mengonfirmasi jasa, atau membatalkan pengajuan restock. Minta admin menambahkan izin itu ke peran Anda.",
+      "Akun Anda tidak punya izin melaporkan barang sampai, mengonfirmasi jasa, atau membatalkan pengajuan restock. Minta admin menambahkan izin itu ke peran Anda.",
     );
     expect(message).not.toContain("restock:verify");
     expect(restockForbiddenMessage("restock:approve")).toBe(

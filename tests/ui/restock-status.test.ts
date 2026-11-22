@@ -100,7 +100,7 @@ describe("getRestockStatus — disetujui", () => {
       expect(result).toMatchObject({
         key: "APPROVED",
         label: "Disetujui",
-        sentence: "Menunggu admin memasukkan barang.",
+        sentence: "Menunggu laporan barang sampai.",
       });
       expect(result.badgeClassName).toBe(
         "bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100",
@@ -111,7 +111,7 @@ describe("getRestockStatus — disetujui", () => {
   it("disetujui tanpa pesanan (pembuatan pesanan gagal) tetap menunggu admin", () => {
     expect(
       getRestockStatus(makeRequest({ purchaseOrder: null })).sentence,
-    ).toBe("Menunggu admin memasukkan barang.");
+    ).toBe("Menunggu laporan barang sampai.");
   });
 
   it("data lama yang sudah menerima sebagian menunggu admin menyelesaikannya", () => {
@@ -123,7 +123,7 @@ describe("getRestockStatus — disetujui", () => {
     );
     expect(partly.key).toBe("APPROVED");
     expect(partly.sentence).toBe(
-      "Sebagian barang sudah masuk gudang. Menunggu admin menyelesaikan pengajuan ini.",
+      "Sebagian barang sudah sampai. Menunggu admin menyelesaikan pengajuan ini.",
     );
   });
 
@@ -132,7 +132,7 @@ describe("getRestockStatus — disetujui", () => {
       getRestockStatus(makeRequest({ goodsReceipts: [makeReceipt()] }))
         .sentence,
     ).toBe(
-      "Sebagian barang sudah masuk gudang. Menunggu admin menyelesaikan pengajuan ini.",
+      "Sebagian barang sudah sampai. Menunggu admin menyelesaikan pengajuan ini.",
     );
   });
 
@@ -148,7 +148,7 @@ describe("getRestockStatus — disetujui", () => {
       getRestockStatus(
         makeRequest({ jasaItems: [makeJasa({ statusKonfirmasi: "SELESAI" })] }),
       ).sentence,
-    ).toBe("Menunggu admin memasukkan barang.");
+    ).toBe("Menunggu laporan barang sampai.");
   });
 });
 
@@ -163,13 +163,13 @@ describe("getRestockStatus — sudah dimasukkan", () => {
     );
     expect(result).toMatchObject({
       key: "RECEIVED",
-      label: "Sudah Dimasukkan",
-      sentence: "Semua barang sudah masuk gudang.",
+      label: "Sudah Sampai",
+      sentence: "Semua barang sudah sampai.",
     });
     expect(result.badgeClassName).toContain("bg-green-100");
   });
 
-  it("menyebut barang yang masuk kurang dari yang disetujui, satu per satu", () => {
+  it("menyebut barang yang sampai kurang dari yang disetujui, satu per satu", () => {
     const result = getRestockStatus(
       makeRequest({
         status: "RECEIVED",
@@ -180,7 +180,7 @@ describe("getRestockStatus — sudah dimasukkan", () => {
       }),
     );
     expect(result.sentence).toBe(
-      "Kabel Fiber masuk 6 dari 10 roll. ONT masuk 1 dari 2 pcs.",
+      "Kabel Fiber sampai 6 dari 10 roll. ONT sampai 1 dari 2 pcs.",
     );
   });
 
@@ -196,7 +196,7 @@ describe("getRestockStatus — sudah dimasukkan", () => {
       }),
     );
     expect(result.sentence).toBe(
-      "3 jenis barang masuk kurang dari yang disetujui.",
+      "3 jenis barang sampai kurang dari yang disetujui.",
     );
   });
 
@@ -209,7 +209,7 @@ describe("getRestockStatus — sudah dimasukkan", () => {
           items: [makeItem({ orderedQuantity: 6, receivedQuantity: 6 })],
         }),
       ).sentence,
-    ).toBe("Kabel Fiber masuk 6 dari 10 roll.");
+    ).toBe("Kabel Fiber sampai 6 dari 10 roll.");
   });
 
   it("tidak menyebut kekurangan bila yang disetujui sudah masuk walau pesanannya dinaikkan", () => {
@@ -227,7 +227,7 @@ describe("getRestockStatus — sudah dimasukkan", () => {
           ],
         }),
       ).sentence,
-    ).toBe("Semua barang sudah masuk gudang.");
+    ).toBe("Semua barang sudah sampai.");
   });
 
   it("menghitung sisa yang tidak dicoret pada data lama yang sudah ditutup", () => {
@@ -238,7 +238,7 @@ describe("getRestockStatus — sudah dimasukkan", () => {
           items: [makeItem({ receivedQuantity: 6 })],
         }),
       ).sentence,
-    ).toBe("Kabel Fiber masuk 6 dari 10 roll.");
+    ).toBe("Kabel Fiber sampai 6 dari 10 roll.");
   });
 
   it("mengabaikan baris yang ditolak atasan", () => {
@@ -252,7 +252,7 @@ describe("getRestockStatus — sudah dimasukkan", () => {
           ],
         }),
       ).sentence,
-    ).toBe("Semua barang sudah masuk gudang.");
+    ).toBe("Semua barang sudah sampai.");
   });
 
   it("menambahkan jasa yang belum ditandai selesai", () => {
@@ -264,7 +264,7 @@ describe("getRestockStatus — sudah dimasukkan", () => {
           jasaItems: [makeJasa()],
         }),
       ).sentence,
-    ).toBe("Semua barang sudah masuk gudang. Jasa belum ditandai selesai.");
+    ).toBe("Semua barang sudah sampai. Jasa belum ditandai selesai.");
   });
 
   it("pengajuan jasa saja: selesai, atau jasa masih belum ditandai", () => {
@@ -294,7 +294,7 @@ describe("getRestockStatus — sudah dimasukkan", () => {
       ),
     ).toMatchObject({
       key: "RECEIVED",
-      sentence: "Kabel Fiber masuk 6 dari 10 roll.",
+      sentence: "Kabel Fiber sampai 6 dari 10 roll.",
     });
   });
 
@@ -374,7 +374,12 @@ describe("getRestockStatus — ditolak dan dibatalkan", () => {
 });
 
 describe("getRestockLineCancelReason", () => {
-  it("tidak menulis alasan baku untuk sisa yang tidak dimasukkan", () => {
+  it("tidak menulis alasan baku untuk sisa yang tidak sampai, termasuk versi lama", () => {
+    expect(
+      getRestockLineCancelReason({
+        cancelReason: "Tidak sampai",
+      }),
+    ).toBeNull();
     expect(
       getRestockLineCancelReason({
         cancelReason: "Tidak dimasukkan ke gudang",

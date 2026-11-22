@@ -31,7 +31,7 @@ const RECEIPT_ERROR_RESPONSES: Record<
 };
 
 /**
- * Masukkan Barang pada pengajuan restock yang sudah disetujui: jumlah masuk
+ * Lapor Barang Sampai pada pengajuan restock yang sudah disetujui: jumlah masuk
  * per barang, barang pengganti, kelebihan beserta alasannya, dan foto bukti.
  * Sekali simpan langsung menyelesaikan pengajuan.
  */
@@ -85,7 +85,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
     // Barang pengganti bisa sudah tertulis sebelum gangguan ini, jadi jangan
     // menjanjikan bahwa tidak ada yang berubah.
     return ApiErrors.internalError(
-      restockServerErrorMessage("Memasukkan barang", false),
+      restockServerErrorMessage("Menyimpan laporan barang sampai", false),
     );
   }
 });
@@ -93,7 +93,7 @@ export const PATCH = createHandler({ auth: true }, async (req, ctx) => {
 /** Ringkasan hasil penyimpanan untuk admin gudang. */
 function describeReceiptOutcome(result: RestockReceiptResult): string {
   return result.goodsReceipt
-    ? "Tersimpan. Barang sudah masuk gudang. Pengajuan selesai."
+    ? "Laporan tersimpan. Barang yang sampai sudah masuk stok gudang. Pengajuan selesai."
     : "Tersimpan. Pengajuan selesai.";
 }
 

@@ -50,7 +50,7 @@ function expectNothingWritten(fixture: ReceiptFixture): void {
   expect(fixture.repository.closeRequest).not.toHaveBeenCalled();
 }
 
-describe("RestockGoodsReceiptService — penjaga Masukkan Barang", () => {
+describe("RestockGoodsReceiptService — penjaga Lapor Barang Sampai", () => {
   beforeEach(() => mocks.logActivitySafe.mockReset());
 
   describe("status pengajuan", () => {
@@ -67,7 +67,7 @@ describe("RestockGoodsReceiptService — penjaga Masukkan Barang", () => {
         success: false,
         code: "CONFLICT",
         error:
-          "Pengajuan ini belum disetujui. Barangnya bisa dimasukkan setelah atasan menyetujuinya.",
+          "Pengajuan ini belum disetujui. Barang sampai bisa dilaporkan setelah atasan menyetujuinya.",
       });
       expectNothingWritten(fixture);
     });
@@ -193,10 +193,10 @@ describe("RestockGoodsReceiptService — penjaga Masukkan Barang", () => {
         success: false,
         code: "INVALID",
         error:
-          "Isi jumlah barang yang masuk. Bila tidak ada barang yang datang, batalkan pengajuan.",
+          "Isi jumlah barang yang sampai. Bila tidak ada barang yang datang, batalkan pengajuan.",
       });
       expect(NOTHING_ENTERED_MESSAGE).toBe(
-        "Isi jumlah barang yang masuk. Bila tidak ada barang yang datang, batalkan pengajuan.",
+        "Isi jumlah barang yang sampai. Bila tidak ada barang yang datang, batalkan pengajuan.",
       );
       expectNothingWritten(fixture);
     });
@@ -360,7 +360,7 @@ describe("RestockGoodsReceiptService — penjaga Masukkan Barang", () => {
         error: ENTRY_NOT_FINISHED_MESSAGE,
       });
       expect(ENTRY_NOT_FINISHED_MESSAGE).toContain(
-        "Jangan masukkan barang yang sama lagi",
+        "Jangan laporkan barang yang sama lagi",
       );
       expect(ENTRY_NOT_FINISHED_MESSAGE).toContain(
         '"Selesaikan tanpa barang tambahan"',

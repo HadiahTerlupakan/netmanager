@@ -74,13 +74,13 @@ export function RestockReceiveSummaryPanel({
     >
       <div className="grid gap-2 sm:grid-cols-2">
         <SummaryBlock
-          title="Masuk gudang"
+          title="Sampai"
           lines={summary.entering}
           emptyText="Belum ada."
           className="border-green-200 bg-green-50 text-green-950 dark:border-green-900/40 dark:bg-green-950/20 dark:text-green-100"
         />
         <SummaryBlock
-          title="Tidak dimasukkan"
+          title="Tidak sampai"
           lines={summary.notEntered}
           emptyText="Tidak ada."
           className="border-orange-200 bg-orange-50 text-orange-950 dark:border-orange-900/40 dark:bg-orange-950/20 dark:text-orange-100"

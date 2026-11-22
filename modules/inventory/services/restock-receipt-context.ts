@@ -13,7 +13,7 @@ import { RESTOCK_MESSAGES } from "./restock-messages";
 import { resolveOwnedBarangIds } from "./restock-receipt-settlement";
 
 /*
- * Keadaan pengajuan yang dibaca untuk Masukkan Barang atau Batalkan. Dibaca
+ * Keadaan pengajuan yang dibaca untuk Lapor Barang Sampai atau Batalkan. Dibaca
  * di bawah kunci pengajuan, jadi statusnya yang terbaru.
  */
 
@@ -26,7 +26,7 @@ export interface RestockRequestSnapshot {
   order: RestockPurchaseOrderForReceipt | null;
   linkedRequestCount: number;
   /**
-   * Item pesanan yang diisi pengajuan ini di Masukkan Barang (pesanan
+   * Item pesanan yang diisi pengajuan ini di Lapor Barang Sampai (pesanan
    * gabungan: hanya barang di barisnya), sebelum penyimpanan mengubah apa pun.
    */
   ownedItems: RestockPurchaseOrderItem[];
@@ -62,7 +62,7 @@ export async function loadRestockRequestSnapshot(
 }
 
 /**
- * Item yang diisi di Masukkan Barang: item pesanan milik pengajuan ini. Bila
+ * Item yang diisi di Lapor Barang Sampai: item pesanan milik pengajuan ini. Bila
  * pesanan belum dibuat, rencananya disusun dari baris pengajuan, satu item per
  * barang seperti `generatePOFromPRs`, hanya untuk memeriksa isian sebelum
  * pesanan dibuat (id item = barangId, tidak pernah ditulis).

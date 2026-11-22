@@ -171,7 +171,7 @@ describe("RestockTable action visibility", () => {
     expect(markup).toContain('title="Edit"');
     expect(markup).toContain("Tinjau &amp; Putuskan");
     expect(markup).toContain('title="Hapus"');
-    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).not.toContain("Lapor Barang Sampai");
     expect(markup).not.toContain("Batalkan Pengajuan");
   });
 
@@ -216,11 +216,11 @@ describe("RestockTable action visibility", () => {
     items,
   });
 
-  it("offers Masukkan Barang as the main action and Batalkan for an approved request", () => {
+  it("offers Lapor Barang Sampai as the main action and Batalkan for an approved request", () => {
     const markup = renderActions(approvedRequest("DRAFT"), verifyOnly);
 
-    expect(markup).toContain("Masukkan Barang");
-    expect(markup).toContain('aria-label="Masukkan Barang untuk PR-001"');
+    expect(markup).toContain("Lapor Barang Sampai");
+    expect(markup).toContain('aria-label="Lapor Barang Sampai untuk PR-001"');
     expect(markup).toContain("bg-indigo-700");
     expect(markup).toContain('title="Batalkan Pengajuan"');
     expect(markup).toContain('aria-label="Batalkan Pengajuan PR-001"');
@@ -229,12 +229,12 @@ describe("RestockTable action visibility", () => {
     expect(markup).not.toContain("Link Belanja");
   });
 
-  it("orders the actions: detail, PDF, Masukkan Barang, Batalkan, Hapus", () => {
+  it("orders the actions: detail, PDF, Lapor Barang Sampai, Batalkan, Hapus", () => {
     const markup = renderActions(approvedRequest("DRAFT"));
     const positions = [
       'aria-label="Lihat detail PR-001"',
       'aria-label="Unduh PDF pengajuan PR-001"',
-      'aria-label="Masukkan Barang untuk PR-001"',
+      'aria-label="Lapor Barang Sampai untuk PR-001"',
       'aria-label="Batalkan Pengajuan PR-001"',
       'aria-label="Hapus PR-001"',
     ].map((label) => markup.indexOf(label));
@@ -246,14 +246,14 @@ describe("RestockTable action visibility", () => {
   it("offers both actions when the order could not be created at approval", () => {
     const markup = renderActions(approvedRequest(null), verifyOnly);
 
-    expect(markup).toContain("Masukkan Barang");
+    expect(markup).toContain("Lapor Barang Sampai");
     expect(markup).toContain('title="Batalkan Pengajuan"');
   });
 
-  it("keeps Masukkan Barang but not Batalkan once a legacy request received goods", () => {
+  it("keeps Lapor Barang Sampai but not Batalkan once a legacy request received goods", () => {
     const markup = renderActions(approvedRequest("PARTIAL", [fiberLine(4)]));
 
-    expect(markup).toContain("Masukkan Barang");
+    expect(markup).toContain("Lapor Barang Sampai");
     expect(markup).not.toContain('title="Batalkan Pengajuan"');
     expect(markup).not.toContain('title="Hapus"');
   });
@@ -286,7 +286,7 @@ describe("RestockTable action visibility", () => {
     expect(markup.match(/data-restock-focus=/g)).toHaveLength(2);
   });
 
-  it("hides Masukkan Barang and Batalkan when closed or without verify permission", () => {
+  it("hides Lapor Barang Sampai and Batalkan when closed or without verify permission", () => {
     const received = renderActions(
       { ...approvedRequest("RECEIVED", [fiberLine(10)]), status: "RECEIVED" },
       verifyOnly,
@@ -302,12 +302,12 @@ describe("RestockTable action visibility", () => {
     });
 
     for (const markup of [received, rejected, cancelled, noPermission]) {
-      expect(markup).not.toContain("Masukkan Barang");
+      expect(markup).not.toContain("Lapor Barang Sampai");
       expect(markup).not.toContain("Batalkan Pengajuan");
     }
   });
 
-  it("offers Batalkan but not Masukkan Barang on an approved request with services only", () => {
+  it("offers Batalkan but not Lapor Barang Sampai on an approved request with services only", () => {
     const markup = renderActions({
       ...approvedRequest("DRAFT", []),
       jasaItems: [
@@ -323,7 +323,7 @@ describe("RestockTable action visibility", () => {
       ],
     });
 
-    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).not.toContain("Lapor Barang Sampai");
     expect(markup).toContain('title="Batalkan Pengajuan"');
     expect(markup).toContain("Konfirmasi Jasa");
   });
@@ -338,7 +338,7 @@ describe("RestockTable action visibility", () => {
     ).not.toContain('title="Hapus"');
   });
 
-  it("opens Masukkan Barang and Batalkan with the whole request", () => {
+  it("opens Lapor Barang Sampai and Batalkan with the whole request", () => {
     const onOpenReceive = vi.fn();
     const onOpenCancel = vi.fn();
     const request = approvedRequest("DRAFT");
@@ -352,7 +352,7 @@ describe("RestockTable action visibility", () => {
     );
     const actions = actionColumn?.render(request);
 
-    findActionByLabel(actions, "Masukkan Barang untuk PR-001")?.onClick?.();
+    findActionByLabel(actions, "Lapor Barang Sampai untuk PR-001")?.onClick?.();
     findActionByLabel(actions, "Batalkan Pengajuan PR-001")?.onClick?.();
 
     expect(onOpenReceive).toHaveBeenCalledWith(request);
@@ -512,7 +512,7 @@ describe("RestockTable action visibility", () => {
     expect(markup).toContain("Menunggu Persetujuan");
     expect(markup).toContain("Semua Gudang");
     expect(markup).toContain(
-      "Ajukan barang dan jasa. Setelah disetujui, admin memasukkan barangnya",
+      "Ajukan barang dan jasa. Setelah disetujui, admin melaporkan barang yang sampai",
     );
   });
 

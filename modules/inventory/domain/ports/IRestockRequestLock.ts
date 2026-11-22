@@ -2,7 +2,7 @@
 export type RestockRequestLockRelease = () => Promise<void>;
 
 /**
- * Kunci per pengajuan restock: Masukkan Barang, Batalkan, dan Hapus pada
+ * Kunci per pengajuan restock: Lapor Barang Sampai, Batalkan, dan Hapus pada
  * pengajuan yang sama tidak boleh berjalan bersamaan.
  */
 export interface IRestockRequestLock {

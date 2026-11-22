@@ -15,6 +15,7 @@ import {
   getRestockStatusKey,
   hasRestockEnteredAnything,
   hasRestockJasaDone,
+  isNotEnteredCancelReason,
   isRestockClosed,
   isRestockLineRejected,
   isRestockMergedOrder,
@@ -109,7 +110,7 @@ function approvedServiceOnly(
   });
 }
 
-/** Data lama: sudah disetujui dan dipesan, barangnya baru masuk sebagian. */
+/** Data lama: sudah disetujui dan dipesan, barangnya baru sampai sebagian. */
 function partiallyReceivedLegacyRequest(): RestockStatusInput {
   return approvedRequest({
     purchaseOrder: { status: "PARTIAL" },
@@ -161,14 +162,20 @@ describe("konstanta status restock", () => {
     expect(RESTOCK_STATUS_LABELS).toEqual({
       AWAITING_APPROVAL: "Menunggu Persetujuan",
       APPROVED: "Disetujui",
-      RECEIVED: "Sudah Dimasukkan",
+      RECEIVED: "Sudah Sampai",
       REJECTED: "Ditolak",
       CANCELLED: "Dibatalkan",
     });
   });
 
-  it("alasan baku sisa yang tidak dimasukkan", () => {
-    expect(NOT_ENTERED_CANCEL_REASON).toBe("Tidak dimasukkan ke gudang");
+  it("alasan baku sisa yang tidak sampai", () => {
+    expect(NOT_ENTERED_CANCEL_REASON).toBe("Tidak sampai");
+  });
+
+  it("mengenali alasan baku versi kini dan versi lama, bukan alasan lain", () => {
+    expect(isNotEnteredCancelReason("Tidak sampai")).toBe(true);
+    expect(isNotEnteredCancelReason("Tidak dimasukkan ke gudang")).toBe(true);
+    expect(isNotEnteredCancelReason("Barang habis di toko")).toBe(false);
   });
 
   it("status jasa selesai sama dengan yang ditulis saat konfirmasi jasa", () => {

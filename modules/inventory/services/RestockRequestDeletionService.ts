@@ -62,11 +62,11 @@ const ORDER_REMOVAL_REFUSAL_MESSAGES: Record<
 
 /**
  * Hapus pengajuan restock dengan aturan yang sama seperti tombol Hapus di
- * layar (`canDeleteRestockRequest`): belum Sudah Dimasukkan, pesanannya (bila
+ * layar (`canDeleteRestockRequest`): belum Sudah Sampai, pesanannya (bila
  * ada) belum diproses, dan belum ada barang atau jasa yang masuk. Pesanan yang
  * masih DRAFT dihapus lewat procurement lebih dulu, baru pengajuannya.
  *
- * Berjalan di bawah kunci pengajuan yang sama dengan Masukkan Barang dan
+ * Berjalan di bawah kunci pengajuan yang sama dengan Lapor Barang Sampai dan
  * Batalkan, dan pengajuan dibaca setelah kunci didapat. Penghapusannya sendiri
  * bersyarat di database, karena persetujuan dan Generate PO di procurement
  * bisa membuat pesanan tanpa kunci ini.

@@ -47,11 +47,11 @@ const CANCEL_BLOCKED_MESSAGES: Record<
   REJECTED: "Pengajuan ini sudah ditolak, jadi tidak perlu dibatalkan.",
 };
 
-/** Pengajuan berbarang: jalan keluarnya Masukkan Barang, boleh tanpa barang tambahan. */
+/** Pengajuan berbarang: jalan keluarnya Lapor Barang Sampai, boleh tanpa barang tambahan. */
 const CANCEL_AFTER_ENTRY_MESSAGE =
-  'Pengajuan ini tidak bisa dibatalkan karena sudah ada barang yang masuk gudang atau jasa yang ditandai selesai. Selesaikan lewat Masukkan Barang. Kalau tidak ada barang lagi yang datang, isi semua jumlah dengan 0, lalu pilih "Selesaikan tanpa barang tambahan".';
+  'Pengajuan ini tidak bisa dibatalkan karena sudah ada barang yang dilaporkan sampai atau jasa yang ditandai selesai. Selesaikan lewat Lapor Barang Sampai. Kalau tidak ada barang lagi yang datang, isi semua jumlah dengan 0, lalu pilih "Selesaikan tanpa barang tambahan".';
 
-/** Pengajuan jasa saja tidak punya Masukkan Barang; jalan keluarnya Konfirmasi Jasa. */
+/** Pengajuan jasa saja tidak punya Lapor Barang Sampai; jalan keluarnya Konfirmasi Jasa. */
 const CANCEL_AFTER_SERVICE_DONE_MESSAGE =
   "Pengajuan ini tidak bisa dibatalkan karena sudah ada jasa yang ditandai selesai. Tandai jasa yang tersisa selesai lewat Konfirmasi Jasa.";
 

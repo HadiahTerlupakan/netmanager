@@ -2,7 +2,7 @@
 
 /** Pesan untuk petugas saat pesanan restock diterima dari halaman Pembelian. */
 export const RESTOCK_ORDER_RECEIPT_MESSAGE =
-  "Pesanan ini dari pengajuan restock. Masukkan barangnya lewat tombol Masukkan Barang di halaman Restock.";
+  "Pesanan ini dari pengajuan restock. Laporkan barang yang sampai lewat tombol Lapor Barang Sampai di halaman Restock.";
 
 /**
  * Jumlah masuk melebihi sisa pesanan (dipesan dikurangi yang tidak jadi

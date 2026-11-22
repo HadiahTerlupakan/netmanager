@@ -24,8 +24,7 @@ const LEGACY_EMPTY_STAGE: MobileRestockRequest["tahap"] = {
 /** Kosakata tahap pembelian dan daftar tahap yang sudah dihapus. */
 const RETIRED_WORDING = /beli|belanja|tahap/i;
 const AWAITING_APPROVAL_SENTENCE = "Menunggu persetujuan atasan.";
-const APPROVED_SENTENCE =
-  "Sudah disetujui. Menunggu admin memasukkan barangnya ke gudang.";
+const APPROVED_SENTENCE = "Sudah disetujui. Menunggu barangnya sampai.";
 
 /** Bentuk dari repository: tanggal masih `Date`, belum lewat JSON. */
 function makeSource(
@@ -270,7 +269,7 @@ describe("presentRestockRequestForMobile", () => {
     expect(json).not.toContain("catatan-belanja-1");
   });
 
-  it("Sudah Dimasukkan: angka per barang, termasuk 0 untuk yang tidak masuk", () => {
+  it("Sudah Sampai: angka per barang, termasuk 0 untuk yang tidak masuk", () => {
     const presented = presentRestockRequestForMobile(
       makeApprovedSource({
         status: "RECEIVED",
@@ -292,8 +291,8 @@ describe("presentRestockRequestForMobile", () => {
 
     expect(presented.status).toEqual({
       kode: "RECEIVED",
-      label: "Sudah Dimasukkan",
-      kalimat: "Barangnya sudah dimasukkan admin ke gudang.",
+      label: "Sudah Sampai",
+      kalimat: "Barangnya sudah sampai.",
     });
     expect(presented.barang[0]).toMatchObject({
       disetujui: 10,
@@ -311,7 +310,7 @@ describe("presentRestockRequestForMobile", () => {
     });
   });
 
-  it("data lama yang semua barangnya sudah masuk atau dicoret dianggap Sudah Dimasukkan", () => {
+  it("data lama yang semua barangnya sudah masuk atau dicoret dianggap Sudah Sampai", () => {
     const presented = presentRestockRequestForMobile(
       makeApprovedSource({
         status: "ORDERED",
@@ -329,7 +328,7 @@ describe("presentRestockRequestForMobile", () => {
   });
 
   it.each([
-    ["RECEIVED", "Sudah Dimasukkan"],
+    ["RECEIVED", "Sudah Sampai"],
     ["CANCELLED", "Dibatalkan"],
   ])(
     "pengajuan APPROVED mengikuti status pesanannya (%s)",

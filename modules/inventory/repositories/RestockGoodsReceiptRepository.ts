@@ -32,7 +32,7 @@ const BARANG_NAME_SELECT = { select: { id: true, nama: true } } as const;
 class ReceiptConcurrentChange extends Error {}
 
 /**
- * Akses data untuk Masukkan Barang dan Batalkan pada pengajuan restock.
+ * Akses data untuk Lapor Barang Sampai dan Batalkan pada pengajuan restock.
  * Semua query Prisma milik alur ini terpusat di sini agar service tetap bebas ORM.
  */
 export class RestockGoodsReceiptRepository implements IRestockGoodsReceiptRepository {

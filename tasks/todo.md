@@ -1,6 +1,7 @@
 # Rencana: Restock jadi pencatat — diajukan → admin masukkan barang (2026-11-21)
 
-Status: **selesai (belum di-commit)**
+Status: **selesai — di-deploy 2026-11-22 (49682d932, OTA mobile cd82973)**
+Lanjutan 2026-11-22: istilah "Masukkan Barang" diganti "Lapor Barang Sampai" (status "Sudah Sampai") atas masukan pemilik.
 
 ## Permintaan user
 "Gak perlu ke sesi pembelian; habis diajukan ya sudah cukup sampai situ; nanti admin memasukkan

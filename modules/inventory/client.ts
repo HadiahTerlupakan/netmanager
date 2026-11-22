@@ -54,6 +54,7 @@ export {
   isRestockMergedOrder,
   isRestockServiceOnly,
   NOT_ENTERED_CANCEL_REASON,
+  isNotEnteredCancelReason,
   RESTOCK_EDITABLE_STATUSES,
   RESTOCK_JASA_DONE_STATUS,
   RESTOCK_STATUS_LABELS,

@@ -16,7 +16,7 @@ const procurementGoodsReceiptCreator: RestockGoodsReceiptCreator = {
   create: (input) => getGoodsReceiptService().create(input),
 };
 
-/** Rakit service Masukkan Barang restock beserta dependency konkretnya. */
+/** Rakit service Lapor Barang Sampai restock beserta dependency konkretnya. */
 export function createRestockGoodsReceiptService(): RestockGoodsReceiptService {
   const repository = new RestockGoodsReceiptRepository();
   return new RestockGoodsReceiptService({

@@ -13,10 +13,10 @@ import {
   type PlannedRemainderCancellation,
 } from "./restock-receipt-settlement";
 
-/** Langkah Masukkan Barang yang sudah tertulis sebelum pengajuan ditutup. */
+/** Langkah Lapor Barang Sampai yang sudah tertulis sebelum pengajuan ditutup. */
 export interface RestockEntryClosingInput {
   snapshot: RestockRequestSnapshot;
-  /** Pesanan pengajuan; Masukkan Barang selalu punya pesanan saat menutup. */
+  /** Pesanan pengajuan; Lapor Barang Sampai selalu punya pesanan saat menutup. */
   order: RestockPurchaseOrderForReceipt;
   /** Jumlah yang baru masuk lewat GRN, per id item pesanan. */
   enteredByItemId: ReadonlyMap<string, number>;

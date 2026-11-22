@@ -30,7 +30,7 @@ export function getPurchaseOrderItemOutstanding(
 }
 
 /**
- * Barang yang diisi pengajuan ini di Masukkan Barang. Pesanan milik satu
+ * Barang yang diisi pengajuan ini di Lapor Barang Sampai. Pesanan milik satu
  * pengajuan: semua barangnya (null). Pesanan gabungan: hanya barang di baris
  * pengajuan yang tidak ditolak.
  */

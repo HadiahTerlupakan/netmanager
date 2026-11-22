@@ -159,7 +159,7 @@ describe("useRestockEntry", () => {
 
     expect(mockPatchWithAuth).not.toHaveBeenCalled();
     expect(mockToastError).toHaveBeenCalledWith(
-      "Belum bisa disimpan:\nFoto barang yang masuk dulu.",
+      "Belum bisa disimpan:\nFoto barang yang sampai dulu.",
       expect.anything(),
     );
   });
@@ -186,7 +186,7 @@ describe("useRestockEntry", () => {
       },
     );
     expect(mockToastSuccess).toHaveBeenCalledWith(
-      "Tersimpan. Semua barang sudah masuk gudang.",
+      "Laporan tersimpan. Semua barang sudah sampai dan masuk stok gudang.",
     );
     expect(current().request).toBeNull();
     expect(fetchData).toHaveBeenCalledTimes(1);
@@ -200,7 +200,7 @@ describe("useRestockEntry", () => {
     await act(async () => current().submit());
 
     expect(mockToastSuccess).toHaveBeenCalledWith(
-      "Tersimpan. Barang sudah masuk gudang. Tidak dimasukkan: Kabel Fiber 4 roll.",
+      "Laporan tersimpan. Barang yang sampai sudah masuk stok gudang. Tidak sampai: Kabel Fiber 4 roll.",
     );
   });
 

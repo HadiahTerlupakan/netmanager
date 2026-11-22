@@ -22,7 +22,7 @@ import {
   receiveWith,
 } from "./restock-receipt-fixtures";
 
-describe("Log Aktivitas Masukkan Barang", () => {
+describe("Log Aktivitas Lapor Barang Sampai", () => {
   beforeEach(() => mocks.logActivitySafe.mockReset());
 
   it("mencatat barang masuk bernomor pengajuan beserta GRN dan sisa yang tidak dimasukkan", async () => {

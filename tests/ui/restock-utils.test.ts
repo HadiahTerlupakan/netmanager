@@ -385,7 +385,7 @@ describe("restock utils", () => {
       { value: "all", label: "Semua Status" },
       { value: "AWAITING_APPROVAL", label: "Menunggu Persetujuan" },
       { value: "APPROVED", label: "Disetujui" },
-      { value: "RECEIVED", label: "Sudah Dimasukkan" },
+      { value: "RECEIVED", label: "Sudah Sampai" },
       { value: "REJECTED", label: "Ditolak" },
       { value: "CANCELLED", label: "Dibatalkan" },
     ]);

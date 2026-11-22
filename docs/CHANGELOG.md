@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-22] — Restock: istilah "Masukkan Barang" jadi "Lapor Barang Sampai"
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/inventory/restock`, `modules/inventory`, `app/api/mobile/inventory/pengajuan`
+- **Author**: agent
+- **Deskripsi**: Atas masukan pemilik, langkah setelah disetujui adalah laporan barang sampai, bukan
+  "memasukkan barang". Teks yang terlihat pengguna diganti: tombol/judul "Lapor Barang Sampai", status
+  "Sudah Sampai" (dulu "Sudah Dimasukkan"), kolom "Sampai" / "Tidak sampai" di detail dan PDF, tombol
+  "Simpan Laporan", toast, riwayat, dan pesan galat (termasuk pesan halaman Pembelian untuk PO restock).
+  Alasan baku sisa kini "Tidak sampai"; `isNotEnteredCancelReason` tetap mengenali alasan lama
+  "Tidak dimasukkan ke gudang" pada data yang ditutup 2026-11-21. API mobile: label `RECEIVED` "Sudah Sampai"
+  dan kalimat status baru; nama field (`dimasukkan`) dan kode status tidak berubah. Aplikasi menampilkan
+  "Sampai N" per barang (OTA).
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-22] — Tambal advisori keamanan Next.js, Hono, dan effect
 
 - **Tipe**: [SECURITY]

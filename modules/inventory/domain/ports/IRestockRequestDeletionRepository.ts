@@ -21,7 +21,7 @@ export interface IRestockRequestDeletionRepository {
   /**
    * Hapus pengajuan beserta barisnya hanya bila database masih menyatakannya
    * boleh dihapus: tanpa pesanan (pesanan DRAFT-nya sudah dihapus lebih
-   * dulu), belum Sudah Dimasukkan, dan tanpa jasa yang sudah ditandai
+   * dulu), belum Sudah Sampai, dan tanpa jasa yang sudah ditandai
    * selesai. False bila ada yang berubah sejak dibaca, misalnya pesanan baru
    * saja dibuat untuknya.
    */

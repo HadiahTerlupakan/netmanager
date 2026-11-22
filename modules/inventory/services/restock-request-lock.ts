@@ -12,7 +12,7 @@ export interface RestockRequestBusy {
 }
 
 /**
- * Jalankan `task` di bawah kunci pengajuan, supaya Masukkan Barang,
+ * Jalankan `task` di bawah kunci pengajuan, supaya Lapor Barang Sampai,
  * Batalkan, dan Hapus pada pengajuan yang sama tidak berjalan bersamaan.
  * Tanpa kunci (dipegang permintaan lain atau Redis tidak tersedia) `task`
  * tidak dijalankan. Kunci selalu dilepas, termasuk saat `task` gagal.

@@ -232,13 +232,13 @@ export const restockCancelSchema = z.strictObject(
 );
 
 /**
- * Kiriman Masukkan Barang dari tab halaman Restock versi lama yang masih
+ * Kiriman Lapor Barang Sampai dari tab halaman Restock versi lama yang masih
  * membawa field tindakan yang sudah dihapus.
  */
 const OUTDATED_PAGE_MESSAGE =
   "Tindakan ini sudah tidak tersedia. Muat ulang halaman, lalu coba lagi.";
 
-/** Pesan untuk masalah pada objek body Masukkan Barang itu sendiri, menurut kodenya. */
+/** Pesan untuk masalah pada objek body Lapor Barang Sampai itu sendiri, menurut kodenya. */
 const RECEIVE_BODY_MESSAGES: Readonly<Record<string, string>> = {
   invalid_type: BODY_UNREADABLE_MESSAGE,
   unrecognized_keys: OUTDATED_PAGE_MESSAGE,
@@ -249,9 +249,9 @@ const PHOTO_UNREADABLE_MESSAGE =
 
 /** Jumlah barang yang masuk gudang: angka bulat, boleh 0. */
 const enteredQuantitySchema = z
-  .number({ error: "Jumlah barang yang masuk harus diisi angka." })
-  .int({ error: "Jumlah barang yang masuk harus angka bulat, tanpa koma." })
-  .min(0, { error: "Jumlah barang yang masuk tidak boleh minus." });
+  .number({ error: "Jumlah barang yang sampai harus diisi angka." })
+  .int({ error: "Jumlah barang yang sampai harus angka bulat, tanpa koma." })
+  .min(0, { error: "Jumlah barang yang sampai tidak boleh minus." });
 
 /** Peta barangId → teks (barang pengganti atau alasan kelebihan); boleh kosong. */
 const barangTextMapSchema = z
@@ -261,7 +261,7 @@ const barangTextMapSchema = z
   .default({});
 
 /**
- * Body PATCH /api/inventory/restock/requests/[id]/receive (Masukkan Barang):
+ * Body PATCH /api/inventory/restock/requests/[id]/receive (Lapor Barang Sampai):
  * jumlah masuk per barangId, barang pengganti (barangId asal → pengganti),
  * alasan kelebihan per barangId, dan foto bukti. Sekali simpan langsung
  * menyelesaikan pengajuan, jadi field lain (termasuk field dari halaman versi

@@ -35,7 +35,7 @@ export class RestockSubstitutionInvalidError extends Error {
 }
 
 /**
- * Substitusi barang saat Masukkan Barang: barang yang masuk bisa berbeda dari
+ * Substitusi barang saat Lapor Barang Sampai: barang yang masuk bisa berbeda dari
  * yang dipesan (supplier mengirim merek/tipe lain).
  *
  * Aturan:
@@ -126,7 +126,7 @@ export class RestockItemSubstitutionService {
       }
       if (purchaseOrderItem.receivedQuantity > 0) {
         throw new RestockSubstitutionInvalidError(
-          `${this.describeItem(purchaseOrderItem)} sudah masuk sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi. Masukkan sisanya dengan barang yang sama.`,
+          `${this.describeItem(purchaseOrderItem)} sudah sampai sebagian sebelumnya, jadi barangnya tidak bisa diganti lagi. Laporkan sisanya dengan barang yang sama.`,
         );
       }
       if (usedBarangIds.has(substitution.toBarangId)) {

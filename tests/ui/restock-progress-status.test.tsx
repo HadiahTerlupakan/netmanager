@@ -50,7 +50,7 @@ describe("RestockProgressStatus", () => {
     );
 
     expect(markup.indexOf("Disetujui")).toBeLessThan(
-      markup.indexOf("Menunggu admin memasukkan barang."),
+      markup.indexOf("Menunggu laporan barang sampai."),
     );
     expect(markup).not.toContain("Tahap");
   });
@@ -77,10 +77,10 @@ describe("RestockProgressStatus", () => {
     );
 
     expect(markup.indexOf("Disetujui")).toBeLessThan(
-      markup.indexOf("Menunggu admin memasukkan barang."),
+      markup.indexOf("Menunggu laporan barang sampai."),
     );
     expect(markup).toContain("whitespace-nowrap");
     expect(markup).toContain("line-clamp-2");
-    expect(markup).toContain('title="Menunggu admin memasukkan barang."');
+    expect(markup).toContain('title="Menunggu laporan barang sampai."');
   });
 });

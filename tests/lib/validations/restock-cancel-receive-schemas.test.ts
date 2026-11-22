@@ -136,7 +136,7 @@ describe("PATCH pengajuan: Batalkan terpisah dari Setujui/Tolak", () => {
   });
 });
 
-describe("restockReceiveSchema: Masukkan Barang", () => {
+describe("restockReceiveSchema: Lapor Barang Sampai", () => {
   const validBody = {
     items: { "barang-1": 8, "barang-2": 0 },
     substitutions: { "barang-1": "barang-pengganti" },
@@ -169,10 +169,14 @@ describe("restockReceiveSchema: Masukkan Barang", () => {
   });
 
   it.each<[string, unknown, string]>([
-    ["minus", -1, "Jumlah barang yang masuk tidak boleh minus."],
-    ["berkoma", 1.5, "Jumlah barang yang masuk harus angka bulat, tanpa koma."],
-    ["teks", "5", "Jumlah barang yang masuk harus diisi angka."],
-    ["kosong", null, "Jumlah barang yang masuk harus diisi angka."],
+    ["minus", -1, "Jumlah barang yang sampai tidak boleh minus."],
+    [
+      "berkoma",
+      1.5,
+      "Jumlah barang yang sampai harus angka bulat, tanpa koma.",
+    ],
+    ["teks", "5", "Jumlah barang yang sampai harus diisi angka."],
+    ["kosong", null, "Jumlah barang yang sampai harus diisi angka."],
   ])("menolak jumlah %s", (_label, quantity, message) => {
     expect(
       problemsOf(restockReceiveSchema, {

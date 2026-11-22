@@ -53,7 +53,7 @@ const INITIAL_FORM_ITEM: RestockFormItem = {
 
 /**
  * State halaman Pengajuan Barang: daftar dan filternya, form pengajuan,
- * konfirmasi jasa, serta pengendali modal persetujuan, Masukkan Barang, dan
+ * konfirmasi jasa, serta pengendali modal persetujuan, Lapor Barang Sampai, dan
  * Batalkan Pengajuan.
  */
 export function useRestockPage() {

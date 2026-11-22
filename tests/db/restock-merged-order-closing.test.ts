@@ -10,7 +10,7 @@ vi.mock("@/lib/logger", () => ({
   logActivitySafe: vi.fn(),
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
-// Hanya kelas galat yang dibaca service Masukkan Barang; GRN-nya ditulis
+// Hanya kelas galat yang dibaca service Lapor Barang Sampai; GRN-nya ditulis
 // langsung lewat repository procurement di bawah.
 vi.mock("@/modules/procurement", () => ({
   GoodsReceiptExceedsRemainingError: class extends Error {},
@@ -65,7 +65,7 @@ const FIRST_REQUEST = "pr-uji-po-gabungan-1";
 const SECOND_REQUEST = "pr-uji-po-gabungan-2";
 const ORDERED = 10;
 const SHARE_PER_REQUEST = 5;
-const NOT_ENTERED_REASON = "Tidak dimasukkan ke gudang";
+const NOT_ENTERED_REASON = "Tidak sampai";
 /** Cukup lama supaya penutupan sudah sampai di kunci pesanan sebelum kunci dilepas. */
 const LOCK_HOLD_MS = 300;
 
@@ -268,7 +268,7 @@ async function readState(): Promise<{
   };
 }
 
-/** Penutupan Masukkan Barang tanpa barang baru, dengan snapshot item yang belum tersentuh. */
+/** Penutupan Lapor Barang Sampai tanpa barang baru, dengan snapshot item yang belum tersentuh. */
 function entryClosing(purchaseRequestId: string): CloseRestockRequestInput {
   return {
     purchaseOrderId: ORDER,
@@ -304,7 +304,7 @@ describeDb("Pesanan gabungan dengan barang bersama — Postgres", () => {
     await bersihkan();
   });
 
-  it("Masukkan Barang pengajuan pertama tidak mencoret apa pun; pengajuan kedua mencoret sisanya dan menutup pesanan", async () => {
+  it("Lapor Barang Sampai pengajuan pertama tidak mencoret apa pun; pengajuan kedua mencoret sisanya dan menutup pesanan", async () => {
     await seed();
 
     const first = await enterGoods(FIRST_REQUEST, SHARE_PER_REQUEST);

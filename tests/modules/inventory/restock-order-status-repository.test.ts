@@ -50,7 +50,7 @@ function createDb(): DbMock {
 const NOT_ENTERED_CANCELLATION = {
   purchaseOrderItemId: "poi-1",
   cancelledQuantity: 4,
-  reason: "Tidak dimasukkan ke gudang",
+  reason: "Tidak sampai",
   expected: { quantity: 10, receivedQuantity: 6, cancelledQuantity: 0 },
 };
 
@@ -149,7 +149,7 @@ describe("RestockGoodsReceiptRepository — menutup pengajuan", () => {
       },
       data: {
         cancelledQuantity: { increment: 4 },
-        cancelReason: "Tidak dimasukkan ke gudang",
+        cancelReason: "Tidak sampai",
         cancelledAt,
       },
     });

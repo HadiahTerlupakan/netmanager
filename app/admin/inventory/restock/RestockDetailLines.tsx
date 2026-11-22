@@ -51,7 +51,7 @@ function NumberCell({ label, value }: { label: string; value: string }) {
 
 /** Judul kolom terakhir: sisa yang belum masuk, atau yang tidak masuk setelah ditutup. */
 function getLastColumnLabel(isOrderFinished: boolean): string {
-  return isOrderFinished ? "Tidak masuk" : "Sisa";
+  return isOrderFinished ? "Tidak sampai" : "Sisa";
 }
 
 /** "12 roll (+2 lebih)" bila yang masuk melebihi jumlah yang disetujui. */
@@ -94,7 +94,7 @@ function ProgressLine({
         <LineApprovalInfo item={item} />
         {cancelReason && cancelled > 0 && (
           <p className="mt-1 text-xs font-semibold text-orange-800 dark:text-orange-300">
-            Alasan tidak masuk: {cancelReason}
+            Alasan tidak sampai: {cancelReason}
           </p>
         )}
       </div>
@@ -107,7 +107,7 @@ function ProgressLine({
         value={showUnlessRejected(`${item.jumlah} ${satuan}`)}
       />
       <NumberCell
-        label="Masuk gudang"
+        label="Sampai"
         value={showUnlessRejected(formatReceived(item, received))}
       />
       <NumberCell
@@ -163,7 +163,7 @@ export function RestockDetailLines({
             <span>Barang</span>
             <span className="text-right">Diajukan</span>
             <span className="text-right">Disetujui</span>
-            <span className="text-right">Masuk gudang</span>
+            <span className="text-right">Sampai</span>
             <span className="text-right">
               {getLastColumnLabel(isOrderFinished)}
             </span>

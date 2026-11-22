@@ -187,7 +187,7 @@ describe("RestockDetailModal riwayat dan barang", () => {
 
     expect(markup).toContain("Disetujui");
     expect(markup).toContain(
-      "Sebagian barang sudah masuk gudang. Menunggu admin menyelesaikan pengajuan ini.",
+      "Sebagian barang sudah sampai. Menunggu admin menyelesaikan pengajuan ini.",
     );
     expect(markup).toContain("Gudang tujuan");
     expect(markup).toContain("Gudang A");
@@ -202,14 +202,14 @@ describe("RestockDetailModal riwayat dan barang", () => {
     expect(markup).toContain("Riwayat");
     expect(markup).toContain("Diajukan · 1 Nov 2026 · Rohadim");
     expect(markup).toContain("Disetujui 2 Nov 2026 · Manajer Gudang");
-    expect(markup.indexOf("Barang masuk ke-1")).toBeLessThan(
-      markup.indexOf("Barang masuk ke-2"),
+    expect(markup.indexOf("Barang sampai ke-1")).toBeLessThan(
+      markup.indexOf("Barang sampai ke-2"),
     );
     expect(markup).toContain("dicatat Budi");
     expect(markup).toContain("Kabel Dropcore 4 roll (1 foto)");
-    expect(markup).toContain('aria-label="Buka foto 1 barang masuk ke-1"');
+    expect(markup).toContain('aria-label="Buka foto 1 barang sampai ke-1"');
     expect(markup).toContain("No. catatan: GRN-1");
-    expect(markup).toContain("Menunggu admin memasukkan barang");
+    expect(markup).toContain("Menunggu laporan barang sampai");
     expect(markup).toContain("Kode pesanan: PO-2026-009");
     expect(markup).not.toContain("belanja");
   });
@@ -221,31 +221,31 @@ describe("RestockDetailModal riwayat dan barang", () => {
       goodsReceipts: [legacyPartial.goodsReceipts![1]],
     });
 
-    expect(markup).toContain("Barang masuk · ");
-    expect(markup).not.toContain("Barang masuk ke-1");
-    expect(markup).not.toContain("Menunggu admin memasukkan barang");
+    expect(markup).toContain("Barang sampai · ");
+    expect(markup).not.toContain("Barang sampai ke-1");
+    expect(markup).not.toContain("Menunggu laporan barang sampai");
   });
 
   it("menampilkan jumlah diajukan, disetujui, masuk gudang, dan sisa per barang", () => {
     const markup = renderDetail(legacyPartial);
 
-    for (const header of ["Diajukan", "Disetujui", "Masuk gudang", "Sisa"]) {
+    for (const header of ["Diajukan", "Disetujui", "Sampai", "Sisa"]) {
       expect(markup).toContain(`<span class="text-right">${header}</span>`);
     }
     expect(markup).toContain(">10 roll<");
     expect(markup).toContain(">8 roll<");
     expect(markup).toContain(">6 roll<");
     expect(markup).toContain(">1 roll<");
-    expect(markup).toContain("Alasan tidak masuk: Barang habis di toko");
+    expect(markup).toContain("Alasan tidak sampai: Barang habis di toko");
   });
 
   it("menghitung sisa sebagai tidak masuk setelah pengajuan selesai", () => {
     const markup = renderDetail({ ...legacyPartial, status: "RECEIVED" });
 
-    expect(markup).toContain('<span class="text-right">Tidak masuk</span>');
+    expect(markup).toContain('<span class="text-right">Tidak sampai</span>');
     expect(markup).toContain(">2 roll<");
-    expect(markup).toContain("Sudah Dimasukkan");
-    expect(markup).toContain("Kabel Dropcore masuk 6 dari 8 roll.");
+    expect(markup).toContain("Sudah Sampai");
+    expect(markup).toContain("Kabel Dropcore sampai 6 dari 8 roll.");
   });
 
   it("menandai barang yang masuk lebih banyak dari yang disetujui", () => {
@@ -276,7 +276,7 @@ describe("RestockDetailModal riwayat dan barang", () => {
         },
       ],
     });
-    expect(finished).toContain("Selesai tanpa barang masuk");
+    expect(finished).toContain("Selesai tanpa barang sampai");
 
     const cancelled = renderDetail({
       ...approvedFresh,
@@ -288,7 +288,7 @@ describe("RestockDetailModal riwayat dan barang", () => {
     expect(cancelled).toContain(
       "Pengajuan ini dibatalkan. Alasan: Proyek ditunda",
     );
-    expect(cancelled).not.toContain("Menunggu admin memasukkan barang");
+    expect(cancelled).not.toContain("Menunggu laporan barang sampai");
   });
 
   it("menampilkan pengajuan yang belum diputuskan tanpa kolom barang masuk", () => {
@@ -315,9 +315,9 @@ describe("RestockDetailModal riwayat dan barang", () => {
     expect(markup).toContain("Menunggu Persetujuan");
     expect(markup).toContain("Belum diputuskan atasan.");
     expect(markup).toContain("Menunggu keputusan atasan");
-    expect(markup).not.toContain("Masuk gudang");
+    expect(markup).not.toContain('<span class="text-right">Sampai</span>');
     expect(markup).not.toContain("Keputusan Atasan");
-    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).not.toContain("Lapor Barang Sampai");
     expect(markup).not.toContain("Batalkan Pengajuan");
   });
 
@@ -332,7 +332,7 @@ describe("RestockDetailModal riwayat dan barang", () => {
     expect(markup).toContain(
       "Pengajuan ini ditolak. Alasan: Stok gudang masih cukup",
     );
-    expect(markup).not.toContain("Masuk gudang");
+    expect(markup).not.toContain('<span class="text-right">Sampai</span>');
   });
 });
 
@@ -345,7 +345,7 @@ describe("RestockDetailModal tombol lanjutan", () => {
   };
   const handlers = { onOpenReceive: vi.fn(), onOpenCancel: vi.fn() };
 
-  it("memberi petugas verifikasi Masukkan Barang dan Batalkan Pengajuan", () => {
+  it("memberi petugas verifikasi Lapor Barang Sampai dan Batalkan Pengajuan", () => {
     const markup = renderToStaticMarkup(
       <RestockDetailModal
         request={approved}
@@ -355,10 +355,10 @@ describe("RestockDetailModal tombol lanjutan", () => {
       />,
     );
 
-    expect(markup).toContain('aria-label="Masukkan Barang untuk PR-001"');
+    expect(markup).toContain('aria-label="Lapor Barang Sampai untuk PR-001"');
     expect(markup).toContain("bg-indigo-700");
     expect(markup).toContain('aria-label="Batalkan Pengajuan PR-001"');
-    expect(markup.indexOf("Masukkan Barang untuk")).toBeLessThan(
+    expect(markup.indexOf("Lapor Barang Sampai untuk")).toBeLessThan(
       markup.indexOf("Batalkan Pengajuan PR-001"),
     );
   });
@@ -368,7 +368,7 @@ describe("RestockDetailModal tombol lanjutan", () => {
       <RestockDetailModal request={approved} onClose={vi.fn()} {...handlers} />,
     );
 
-    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).not.toContain("Lapor Barang Sampai");
     expect(markup).not.toContain("Batalkan Pengajuan");
   });
 
@@ -385,7 +385,7 @@ describe("RestockDetailModal tombol lanjutan", () => {
       />,
     );
 
-    expect(markup).toContain("Masukkan Barang");
+    expect(markup).toContain("Lapor Barang Sampai");
     expect(markup).not.toContain("Batalkan Pengajuan");
   });
 
@@ -463,7 +463,7 @@ describe("RestockDetailModal tombol lanjutan", () => {
       />,
     );
 
-    expect(markup).not.toContain("Masukkan Barang");
+    expect(markup).not.toContain("Lapor Barang Sampai");
     expect(markup).not.toContain("Batalkan Pengajuan");
   });
 });

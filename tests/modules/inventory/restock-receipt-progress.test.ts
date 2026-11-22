@@ -42,7 +42,7 @@ import {
   receiveWith,
 } from "./restock-receipt-fixtures";
 
-describe("RestockGoodsReceiptService — Masukkan Barang", () => {
+describe("RestockGoodsReceiptService — Lapor Barang Sampai", () => {
   beforeEach(() => mocks.logActivitySafe.mockReset());
 
   describe("pengajuan yang sudah disetujui dan punya pesanan", () => {

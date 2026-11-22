@@ -21,7 +21,7 @@ import {
 import { getPurchaseOrderItemOutstanding } from "./restock-receipt-settlement";
 
 /*
- * Aturan isian Masukkan Barang, tanpa I/O: kapan tombolnya boleh dipakai,
+ * Aturan isian Lapor Barang Sampai, tanpa I/O: kapan tombolnya boleh dipakai,
  * baris yang wajib diisi, foto bukti, kelebihan, dan kapan pengajuan boleh
  * diselesaikan tanpa barang.
  */
@@ -31,19 +31,19 @@ const ENTRY_BLOCKED_MESSAGES: Record<
   string
 > = {
   AWAITING_APPROVAL:
-    "Pengajuan ini belum disetujui. Barangnya bisa dimasukkan setelah atasan menyetujuinya.",
+    "Pengajuan ini belum disetujui. Barang sampai bisa dilaporkan setelah atasan menyetujuinya.",
   RECEIVED:
-    "Pengajuan ini sudah selesai, jadi barangnya tidak bisa dimasukkan lagi. Muat ulang halaman untuk melihat keadaan terbarunya.",
+    "Pengajuan ini sudah selesai, jadi barang sampai tidak bisa dilaporkan lagi. Muat ulang halaman untuk melihat keadaan terbarunya.",
   CANCELLED:
-    "Pengajuan ini sudah dibatalkan, jadi barangnya tidak bisa dimasukkan. Kalau barangnya tetap datang, buat pengajuan baru.",
+    "Pengajuan ini sudah dibatalkan, jadi barang sampai tidak bisa dilaporkan. Kalau barangnya tetap datang, buat pengajuan baru.",
   REJECTED:
-    "Pengajuan ini sudah ditolak, jadi barangnya tidak bisa dimasukkan.",
+    "Pengajuan ini sudah ditolak, jadi barang sampai tidak bisa dilaporkan.",
 };
 
 const SERVICE_ONLY_ENTRY_MESSAGE =
-  "Pengajuan ini hanya berisi jasa, jadi tidak ada barang yang dimasukkan. Tandai jasanya selesai lewat Konfirmasi Jasa.";
+  "Pengajuan ini hanya berisi jasa, jadi tidak ada barang yang perlu dilaporkan sampai. Tandai jasanya selesai lewat Konfirmasi Jasa.";
 
-/** Bagian input Masukkan Barang yang diperiksa terhadap item pesanan. */
+/** Bagian input Lapor Barang Sampai yang diperiksa terhadap item pesanan. */
 export type RestockEntryInput = Pick<
   ReceiveRestockRequestInput,
   | "receivedItems"
@@ -59,7 +59,7 @@ export interface RestockEntryLine {
   quantity: number;
 }
 
-/** Isian Masukkan Barang yang sudah lolos pemeriksaan. */
+/** Isian Lapor Barang Sampai yang sudah lolos pemeriksaan. */
 export interface RestockEntryPlan {
   /** Semua item yang masih punya sisa, dengan jumlah masuknya (boleh 0). */
   lines: RestockEntryLine[];
@@ -71,7 +71,7 @@ export type RestockEntryPlanResult =
   | { success: true; data: RestockEntryPlan }
   | RestockReceiptFailure;
 
-/** Alasan Masukkan Barang tidak bisa dipakai pada pengajuan ini; null bila bisa. */
+/** Alasan Lapor Barang Sampai tidak bisa dipakai pada pengajuan ini; null bila bisa. */
 export function describeEntryBlocker(
   status: RestockStatusInput,
 ): string | null {
@@ -175,7 +175,7 @@ function describeForbiddenIncrease(
 ): string {
   const barangNames = overReceipts.map((item) => item.barangName).join(", ");
   return (
-    `${barangNames} datang lebih banyak dari pesanan. Memasukkan kelebihannya berarti menambah jumlah pesanan ke toko, dan akun Anda tidak punya izin untuk itu. ` +
-    "Masukkan sesuai sisa pesanan saja, atau minta atasan yang boleh mengubah pesanan untuk memasukkan barang ini."
+    `${barangNames} datang lebih banyak dari pesanan. Melaporkan kelebihannya berarti menambah jumlah pesanan ke toko, dan akun Anda tidak punya izin untuk itu. ` +
+    "Laporkan sesuai sisa pesanan saja, atau minta atasan yang boleh mengubah pesanan untuk melaporkan barang ini."
   );
 }

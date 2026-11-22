@@ -289,7 +289,7 @@ describe("RestockRequestDeletionService", () => {
       expect(release).toHaveBeenCalledTimes(1);
     });
 
-    it("menolak 409 tanpa membaca apa pun bila Masukkan Barang atau Batalkan sedang memegang kunci", async () => {
+    it("menolak 409 tanpa membaca apa pun bila Lapor Barang Sampai atau Batalkan sedang memegang kunci", async () => {
       const { service, repository, remover, lock } =
         createService(approvedRequest());
       lock.acquire.mockResolvedValue(null);

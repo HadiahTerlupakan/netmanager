@@ -135,8 +135,7 @@ describe("GET /api/mobile/inventory/pengajuan", () => {
       expect(row.status).toEqual({
         kode: "APPROVED",
         label: "Sudah Diajukan",
-        kalimat:
-          "Sudah disetujui. Menunggu admin memasukkan barangnya ke gudang.",
+        kalimat: "Sudah disetujui. Menunggu barangnya sampai.",
       });
     }
     for (const row of json.data) {

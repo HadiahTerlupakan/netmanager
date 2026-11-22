@@ -90,7 +90,7 @@ export interface MobileRestockLine extends LegacyMobileRestockLineFields {
   /**
    * Jumlah yang sudah dimasukkan admin ke gudang, dalam `satuan`. Null bila
    * belum ada yang dimasukkan atau barangnya ditolak; angka (boleh 0) bila
-   * pengajuan Sudah Dimasukkan atau sudah ada barang yang masuk.
+   * pengajuan Sudah Sampai atau sudah ada barang yang masuk.
    */
   dimasukkan: number | null;
   isDitolak: boolean;
@@ -139,12 +139,12 @@ const SITE_STATUS_COPY: Record<RestockStatusKey, SiteStatusCopy> = {
   },
   APPROVED: {
     label: SUBMITTED_SITE_LABEL,
-    kalimat: "Sudah disetujui. Menunggu admin memasukkan barangnya ke gudang.",
+    kalimat: "Sudah disetujui. Menunggu barangnya sampai.",
     kalimatJasa: "Sudah disetujui. Menunggu admin mengonfirmasi jasanya.",
   },
   RECEIVED: {
     label: RESTOCK_STATUS_LABELS.RECEIVED,
-    kalimat: "Barangnya sudah dimasukkan admin ke gudang.",
+    kalimat: "Barangnya sudah sampai.",
     kalimatJasa: "Jasanya sudah dikonfirmasi admin.",
   },
   REJECTED: {

@@ -17,10 +17,10 @@ function createDb(deletedCount: number): DeletionDbMock {
 /**
  * Hapus pengajuan bersyarat di database: syaratnya ada di baris pengajuan
  * sendiri, jadi pesanan yang dibuat bersamaan (persetujuan, Generate PO,
- * Masukkan Barang) membuat penghapusan tidak mengenai apa pun.
+ * Lapor Barang Sampai) membuat penghapusan tidak mengenai apa pun.
  */
 describe("InventoryPurchaseRequestRepository.deletePurchaseRequestIfDeletable", () => {
-  it("menghapus hanya pengajuan tanpa pesanan, belum Sudah Dimasukkan, dan tanpa jasa yang selesai", async () => {
+  it("menghapus hanya pengajuan tanpa pesanan, belum Sudah Sampai, dan tanpa jasa yang selesai", async () => {
     const db = createDb(1);
 
     const isDeleted = await new InventoryPurchaseRequestRepository(

@@ -12,7 +12,7 @@ interface RestockProgressStatusProps extends RestockStatusBadgeProps {
   isCompact?: boolean;
 }
 
-/** Badge status pengajuan (mis. "Menunggu Persetujuan", "Sudah Dimasukkan"). */
+/** Badge status pengajuan (mis. "Menunggu Persetujuan", "Sudah Sampai"). */
 export function RestockStatusBadge({ request }: RestockStatusBadgeProps) {
   const status = getRestockStatus(request);
   return (

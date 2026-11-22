@@ -43,7 +43,7 @@ const FALLBACK_ERROR_MESSAGE = "Barang belum tersimpan. Coba sekali lagi.";
 const STALE_ENTRY_STATUSES = [400, 404, 409];
 
 /**
- * State dan aksi modal "Masukkan Barang" lewat
+ * State dan aksi modal "Lapor Barang Sampai" lewat
  * PATCH /api/inventory/restock/requests/[id]/receive. Satu kali simpan
  * selalu menyelesaikan pengajuan.
  */

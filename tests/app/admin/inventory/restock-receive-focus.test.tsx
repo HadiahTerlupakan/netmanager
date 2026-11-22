@@ -88,11 +88,11 @@ function typeQuantity(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-describe("konfirmasi barang kurang di modal Masukkan Barang", () => {
+describe("konfirmasi barang kurang di modal Lapor Barang Sampai", () => {
   it("langsung menyimpan tanpa konfirmasi bila semua sisa dimasukkan", () => {
     const entry = renderModal({ receivedItems: { "barang-1": 10 } });
 
-    act(() => findButton("Simpan ke Gudang").click());
+    act(() => findButton("Simpan Laporan").click());
 
     expect(findAlertDialog()).toBeNull();
     expect(entry.submit).toHaveBeenCalledTimes(1);
@@ -101,7 +101,7 @@ describe("konfirmasi barang kurang di modal Masukkan Barang", () => {
   it("meminta konfirmasi dulu bila ada barang yang masuk kurang dari sisanya", () => {
     const entry = renderModal();
 
-    act(() => findButton("Simpan ke Gudang").click());
+    act(() => findButton("Simpan Laporan").click());
 
     expect(findAlertDialog()).not.toBeNull();
     expect(entry.submit).not.toHaveBeenCalled();
@@ -114,18 +114,18 @@ describe("konfirmasi barang kurang di modal Masukkan Barang", () => {
 
   it("mengembalikan fokus ke tombol simpan setelah Kembali", () => {
     const entry = renderModal();
-    act(() => findButton("Simpan ke Gudang").click());
+    act(() => findButton("Simpan Laporan").click());
 
     act(() => findButton("Kembali").click());
 
     expect(findAlertDialog()).toBeNull();
-    expect(document.activeElement).toBe(findButton("Simpan ke Gudang"));
+    expect(document.activeElement).toBe(findButton("Simpan Laporan"));
     expect(entry.submit).not.toHaveBeenCalled();
   });
 
   it("menganggap Escape sebagai Kembali, bukan menutup modal", () => {
     const entry = renderModal();
-    act(() => findButton("Simpan ke Gudang").click());
+    act(() => findButton("Simpan Laporan").click());
 
     act(() => {
       document.dispatchEvent(
@@ -145,32 +145,30 @@ describe("konfirmasi barang kurang di modal Masukkan Barang", () => {
       receivedItems: { "barang-1": 10 },
     });
 
-    act(() => findButton("Simpan ke Gudang").click());
+    act(() => findButton("Simpan Laporan").click());
 
     expect(
       document.getElementById(
         findAlertDialog()?.getAttribute("aria-labelledby") ?? "",
       )?.textContent,
-    ).toBe(
-      "Kabel Fiber 5 roll tidak dimasukkan dan pengajuan selesai. Lanjutkan?",
-    );
+    ).toBe("Kabel Fiber 5 roll tidak sampai dan pengajuan selesai. Lanjutkan?");
     expect(entry.submit).not.toHaveBeenCalled();
   });
 
   it("memberi nama yang bisa dibaca pada dialog konfirmasi", () => {
     renderModal();
-    act(() => findButton("Simpan ke Gudang").click());
+    act(() => findButton("Simpan Laporan").click());
 
     const labelId = findAlertDialog()?.getAttribute("aria-labelledby");
     expect(labelId).toBeTruthy();
     expect(document.getElementById(labelId!)?.textContent).toBe(
-      "Kabel Fiber 4 roll tidak dimasukkan dan pengajuan selesai. Lanjutkan?",
+      "Kabel Fiber 4 roll tidak sampai dan pengajuan selesai. Lanjutkan?",
     );
   });
 
   it("menutup konfirmasi tanpa merebut fokus saat jumlah diubah", () => {
     const entry = renderModal();
-    act(() => findButton("Simpan ke Gudang").click());
+    act(() => findButton("Simpan Laporan").click());
     const input = document.querySelector<HTMLInputElement>(
       'input[type="number"]',
     );
@@ -210,9 +208,7 @@ describe("konfirmasi barang kurang di modal Masukkan Barang", () => {
       document.getElementById(
         findAlertDialog()?.getAttribute("aria-labelledby") ?? "",
       )?.textContent,
-    ).toBe(
-      "Kabel Fiber 6 roll tidak dimasukkan dan pengajuan selesai. Lanjutkan?",
-    );
+    ).toBe("Kabel Fiber 6 roll tidak sampai dan pengajuan selesai. Lanjutkan?");
 
     act(() => findButton("Ya, selesaikan").click());
     expect(entry.submit).toHaveBeenCalledTimes(1);

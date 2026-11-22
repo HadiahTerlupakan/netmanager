@@ -82,7 +82,7 @@ function selectPhoto(file: File) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-describe("Masukkan Barang — kontrak ref PhotoUpload", () => {
+describe("Lapor Barang Sampai — kontrak ref PhotoUpload", () => {
   let container: HTMLDivElement;
   let root: Root;
   const fetchMock = vi.fn();
@@ -147,6 +147,6 @@ describe("Masukkan Barang — kontrak ref PhotoUpload", () => {
 
     expect(document.body.textContent).not.toContain("Foto (1/3)");
     expect(photoUploadRef.current!.getPhotos()).toHaveLength(0);
-    expect(document.body.textContent).toContain("Foto barang yang masuk dulu");
+    expect(document.body.textContent).toContain("Foto barang yang sampai dulu");
   });
 });

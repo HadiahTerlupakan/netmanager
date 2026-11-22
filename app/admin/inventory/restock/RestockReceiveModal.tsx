@@ -75,7 +75,7 @@ function RestockReceiveHeader({ request }: { request: PurchaseRequest }) {
       <div className="flex flex-wrap items-center gap-2">
         <RestockStatusBadge request={request} />
         <span className="text-sm text-gray-800 dark:text-gray-200">
-          Masuk ke gudang: {request.gudang?.nama || "-"}
+          Gudang tujuan: {request.gudang?.nama || "-"}
         </span>
       </div>
     </div>
@@ -190,8 +190,8 @@ function RestockReceiveDialog({
           </h3>
           <p className="text-sm text-gray-700 dark:text-gray-300">
             {canOverReceive
-              ? "Jumlah sudah terisi sesuai sisa yang belum masuk. Ubah kalau yang masuk lebih sedikit atau lebih banyak."
-              : "Jumlah sudah terisi sesuai sisa yang belum masuk. Ubah kalau yang masuk lebih sedikit."}
+              ? "Jumlah sudah terisi sesuai sisa yang belum sampai. Ubah kalau yang sampai lebih sedikit atau lebih banyak."
+              : "Jumlah sudah terisi sesuai sisa yang belum sampai. Ubah kalau yang sampai lebih sedikit."}
           </p>
           <div className="space-y-3">
             {enterableItems.map((item) => (
@@ -312,7 +312,7 @@ function RestockReceiveDialog({
 }
 
 /**
- * Modal "Masukkan Barang": isi jumlah per barang (terisi sesuai sisa), foto
+ * Modal "Lapor Barang Sampai": isi jumlah per barang (terisi sesuai sisa), foto
  * bukti, lalu simpan sekali untuk menyelesaikan pengajuan. Ringkasan dan
  * alasan tombol mati selalu terlihat di atas tombol simpan; konfirmasi hanya
  * muncul bila ada barang yang masuk kurang dari sisanya.

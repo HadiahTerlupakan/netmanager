@@ -63,7 +63,7 @@ interface RestockTableProps {
   onOpenEdit: (request: PurchaseRequest) => void;
   onOpenDetail: (request: PurchaseRequest) => void;
   onOpenApproval: (request: PurchaseRequest) => void;
-  /** Buka "Masukkan Barang". */
+  /** Buka "Lapor Barang Sampai". */
   onOpenReceive: (request: PurchaseRequest) => void;
   /** Buka "Batalkan Pengajuan". */
   onOpenCancel: (request: PurchaseRequest) => void;
@@ -151,7 +151,7 @@ function PrimaryActionButton({
 }
 
 /**
- * Urutan aksi: Detail, PDF, Edit, Tinjau & Putuskan, Masukkan Barang,
+ * Urutan aksi: Detail, PDF, Edit, Tinjau & Putuskan, Lapor Barang Sampai,
  * Konfirmasi Jasa, Batalkan Pengajuan, Hapus.
  */
 function renderRestockActions(input: RenderRestockActionsInput) {
@@ -239,7 +239,7 @@ function renderApproveAction(
 const ENTER_ACTION_CLASS =
   "inline-flex min-h-[44px] min-w-[8.5rem] items-center justify-center rounded-xl bg-indigo-700 px-3 py-2 text-xs font-bold text-white transition-all hover:bg-indigo-800 sm:min-h-0";
 
-/** "Masukkan Barang", tombol utama untuk pengajuan yang sudah disetujui. */
+/** "Lapor Barang Sampai", tombol utama untuk pengajuan yang sudah disetujui. */
 function renderEnterAction(
   request: PurchaseRequest,
   input: RestockActionInput,
@@ -497,8 +497,8 @@ export function RestockTable({
             Pengajuan Barang
           </h1>
           <p className="max-w-[42rem] text-sm font-medium text-gray-600 dark:text-gray-400">
-            Ajukan barang dan jasa. Setelah disetujui, admin memasukkan
-            barangnya ke gudang dengan foto bukti.
+            Ajukan barang dan jasa. Setelah disetujui, admin melaporkan barang
+            yang sampai dengan foto bukti.
           </p>
         </div>
         <button

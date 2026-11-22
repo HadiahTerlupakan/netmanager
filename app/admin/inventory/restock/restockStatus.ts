@@ -2,7 +2,7 @@ import {
   getRestockStatusKey,
   isRestockLineRejected,
   isRestockServiceOnly,
-  NOT_ENTERED_CANCEL_REASON,
+  isNotEnteredCancelReason,
   RESTOCK_STATUS_LABELS,
   type RestockStatusKey,
 } from "@/modules/inventory/client";
@@ -35,11 +35,11 @@ const BADGE_CLASS: Record<RestockStatusKey, string> = {
 const MAX_SHORT_LINES_NAMED = 2;
 
 const AWAITING_APPROVAL_SENTENCE = "Belum diputuskan atasan.";
-const WAITING_FOR_ENTRY_SENTENCE = "Menunggu admin memasukkan barang.";
+const WAITING_FOR_ENTRY_SENTENCE = "Menunggu laporan barang sampai.";
 const PARTLY_ENTERED_SENTENCE =
-  "Sebagian barang sudah masuk gudang. Menunggu admin menyelesaikan pengajuan ini.";
+  "Sebagian barang sudah sampai. Menunggu admin menyelesaikan pengajuan ini.";
 const WAITING_FOR_SERVICE_SENTENCE = "Menunggu jasa ditandai selesai.";
-const ALL_GOODS_ENTERED_SENTENCE = "Semua barang sudah masuk gudang.";
+const ALL_GOODS_ENTERED_SENTENCE = "Semua barang sudah sampai.";
 const ALL_SERVICES_DONE_SENTENCE = "Semua jasa sudah selesai.";
 const SERVICE_PENDING_SENTENCE = "Jasa belum ditandai selesai.";
 const REJECTED_SENTENCE = "Pengajuan ini ditolak.";
@@ -89,7 +89,7 @@ export function getRestockLineCancelReason(
   item: Pick<PurchaseRequestItem, "cancelReason">,
 ): string | null {
   const reason = item.cancelReason?.trim();
-  if (!reason || reason === NOT_ENTERED_CANCEL_REASON) return null;
+  if (!reason || isNotEnteredCancelReason(reason)) return null;
   return reason;
 }
 
@@ -104,7 +104,7 @@ function getApprovedShortfall(item: PurchaseRequestItem): number {
 /** "Kabel Fiber masuk 6 dari 10 roll." — dibanding jumlah yang disetujui. */
 function describeShortLine(item: PurchaseRequestItem): string {
   const nama = item.barang?.nama ?? "Barang";
-  return `${nama} masuk ${item.receivedQuantity} dari ${withUnit(item.jumlah, item.barang?.satuan)}.`;
+  return `${nama} sampai ${item.receivedQuantity} dari ${withUnit(item.jumlah, item.barang?.satuan)}.`;
 }
 
 /** Kalimat barang pada pengajuan yang sudah dimasukkan, menyebut kekurangannya. */
@@ -114,7 +114,7 @@ function describeEnteredGoods(request: PurchaseRequest): string {
   );
   if (shortLines.length === 0) return ALL_GOODS_ENTERED_SENTENCE;
   if (shortLines.length > MAX_SHORT_LINES_NAMED) {
-    return `${shortLines.length} jenis barang masuk kurang dari yang disetujui.`;
+    return `${shortLines.length} jenis barang sampai kurang dari yang disetujui.`;
   }
   return shortLines.map(describeShortLine).join(" ");
 }

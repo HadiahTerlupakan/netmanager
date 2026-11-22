@@ -111,7 +111,7 @@ describe("GoodsReceiptService — pesanan dari pengajuan restock", () => {
     await expect(attempt).rejects.toBeInstanceOf(GoodsReceiptRestockOrderError);
     await expect(attempt).rejects.toThrow(RESTOCK_ORDER_RECEIPT_MESSAGE);
     expect(RESTOCK_ORDER_RECEIPT_MESSAGE).toBe(
-      "Pesanan ini dari pengajuan restock. Masukkan barangnya lewat tombol Masukkan Barang di halaman Restock.",
+      "Pesanan ini dari pengajuan restock. Laporkan barang yang sampai lewat tombol Lapor Barang Sampai di halaman Restock.",
     );
     expect(grnRepo.generateGrnNumber).not.toHaveBeenCalled();
     expect(grnRepo.createAndPost).not.toHaveBeenCalled();

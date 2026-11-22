@@ -226,8 +226,8 @@ describe("generatePurchaseRequestPdf", () => {
             "NAMA BARANG",
             "DIMINTA",
             "DISETUJUI",
-            "MASUK GUDANG",
-            "TIDAK MASUK",
+            "SAMPAI",
+            "TIDAK SAMPAI",
             "KETERANGAN",
           ],
         ],
@@ -298,7 +298,7 @@ describe("generatePurchaseRequestPdf", () => {
       "1 roll\n(Barang habis di toko)",
     );
     expect(pdfMocks.text).toHaveBeenCalledWith(
-      "Sudah Dimasukkan",
+      "Sudah Sampai",
       expect.any(Number),
       expect.any(Number),
     );
@@ -314,7 +314,7 @@ describe("generatePurchaseRequestPdf", () => {
           jumlah: 5,
           receivedQuantity: 2,
           cancelledQuantity: 1,
-          cancelReason: "Tidak dimasukkan ke gudang",
+          cancelReason: "Tidak sampai",
         },
       ],
     });
