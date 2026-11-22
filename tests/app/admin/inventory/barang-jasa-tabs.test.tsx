@@ -159,6 +159,16 @@ describe("Tab Barang dan Jasa di Manajemen Barang", () => {
     expect(container.textContent).toContain("Tanam Tiang");
   });
 
+  // Jasa tidak punya harga di master: harganya ditentukan per pengajuan/PO.
+  it("daftar jasa tidak menampilkan kolom harga", async () => {
+    grant("barang:read", "jasa:read");
+    await renderList("jasa");
+
+    expect(container.textContent).toContain("Tanam Tiang");
+    expect(container.textContent).not.toContain("Harga");
+    expect(container.textContent).not.toContain("150.000");
+  });
+
   it("tautan tab memakai ?tab=jasa dan menandai tab aktif", async () => {
     grant("barang:read", "jasa:read");
     await renderList("jasa");

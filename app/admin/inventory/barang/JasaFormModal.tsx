@@ -40,7 +40,6 @@ interface JasaFormData {
   nama: string;
   satuan: string;
   supplierId: string;
-  hargaEstimasi: string;
   kategoriPph: string;
   deskripsi: string;
   status: "ACTIVE" | "INACTIVE";
@@ -51,7 +50,6 @@ const EMPTY_FORM: JasaFormData = {
   nama: "",
   satuan: "job",
   supplierId: "",
-  hargaEstimasi: "0",
   kategoriPph: "",
   deskripsi: "",
   status: "ACTIVE",
@@ -70,7 +68,6 @@ function jasaToForm(jasa: Jasa): JasaFormData {
     nama: jasa.nama,
     satuan: jasa.satuan,
     supplierId: jasa.supplierId ?? "",
-    hargaEstimasi: String(jasa.hargaEstimasi),
     kategoriPph: jasa.kategoriPph ?? "",
     deskripsi: jasa.deskripsi ?? "",
     status: jasa.status === "ACTIVE" ? "ACTIVE" : "INACTIVE",
@@ -129,7 +126,6 @@ export default function JasaFormModal({
       nama: form.nama.trim(),
       satuan: form.satuan,
       supplierId: form.supplierId || null,
-      hargaEstimasi: parseFloat(form.hargaEstimasi) || 0,
       kategoriPph: form.kategoriPph || null,
       deskripsi: form.deskripsi.trim() || null,
       status: form.status,
@@ -221,20 +217,6 @@ export default function JasaFormModal({
             </select>
           </div>
 
-          <div>
-            <label className={labelClass}>Harga Estimasi (Rp)</label>
-            <input
-              type="number"
-              min="0"
-              value={form.hargaEstimasi}
-              onChange={(e) => set("hargaEstimasi", e.target.value)}
-              placeholder="0"
-              className={inputClass}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div>
             <label className={labelClass}>Supplier (Opsional)</label>
             {suppliers.length > 0 ? (

@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-23] — Hapus harga estimasi dari master jasa
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/inventory/barang`
+- **Author**: agent
+- **Deskripsi**: Tab Jasa di katalog inventory tidak lagi menampilkan kolom dan
+  input "Harga Estimasi". Harga jasa ditentukan per item pengajuan/PO
+  (`hargaPerUnit`), dan harga di master tidak dipakai di perhitungan mana pun.
+  Kolom `Jasa.hargaEstimasi` di database dan API dibiarkan (opsional, default 0)
+  supaya tidak perlu migration.
+- **Files**: `app/admin/inventory/barang/JasaFormModal.tsx`,
+  `app/admin/inventory/barang/JasaList.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-23] — Lampiran izin dibuka di halaman, semua foto tampil
 
 - **Tipe**: [CHANGED]

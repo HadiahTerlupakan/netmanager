@@ -17,14 +17,6 @@ const PESAN_GAGAL_MUAT_JASA =
 const PESAN_GAGAL_HAPUS_JASA =
   "Jasa belum terhapus. Coba sekali lagi. Kalau tetap gagal, laporkan ke admin.";
 
-function formatRupiah(value: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(value);
-}
-
 type JasaListProps = {
   /** Naik setiap kali jasa tersimpan dari modal, memicu muat ulang daftar. */
   reloadKey: number;
@@ -125,9 +117,6 @@ export default function JasaList({ reloadKey, onEdit }: JasaListProps) {
                   <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">
                     Supplier
                   </th>
-                  <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-gray-400">
-                    Harga Estimasi
-                  </th>
                   <th className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">
                     Status
                   </th>
@@ -167,11 +156,6 @@ export default function JasaList({ reloadKey, onEdit }: JasaListProps) {
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
                         {jasa.supplier?.name ?? "—"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <span className="font-black text-gray-900 dark:text-white">
-                        {formatRupiah(jasa.hargaEstimasi)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
