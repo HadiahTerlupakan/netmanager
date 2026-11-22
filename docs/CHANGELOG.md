@@ -41,6 +41,17 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-22] — PDF pengajuan barang: tabel disederhanakan
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/inventory/restock`
+- **Author**: agent
+- **Deskripsi**: Atas permintaan pemilik, tabel barang di PDF hanya KODE, NAMA BARANG, DIMINTA, KETERANGAN
+  (kolom DISETUJUI, SAMPAI, TIDAK SAMPAI dihapus). Tabel jasa juga tanpa DISETUJUI (STATUS tetap). Baris barang
+  yang ditolak (dicetak hanya bila semua baris ditolak) kini diawali "Ditolak" di kolom keterangan.
+- **Files**: `app/admin/inventory/restock/pdf.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-22] — Restock: istilah "Masukkan Barang" jadi "Lapor Barang Sampai"
 
 - **Tipe**: [CHANGED]

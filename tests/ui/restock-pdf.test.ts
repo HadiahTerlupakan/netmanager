@@ -128,17 +128,7 @@ describe("generatePurchaseRequestPdf", () => {
     expect(pdfMocks.autoTable).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        body: [
-          [
-            "-",
-            "Barang tidak tersedia",
-            "2 -",
-            "2 -",
-            "1 -",
-            "-",
-            "Untuk ODP baru",
-          ],
-        ],
+        body: [["-", "Barang tidak tersedia", "2 -", "Untuk ODP baru"]],
       }),
     );
   });
@@ -215,38 +205,18 @@ describe("generatePurchaseRequestPdf", () => {
     );
   });
 
-  it("includes requested quantity, received quantity, unit, and item notes", () => {
+  it("keeps the barang table simple: code, name, requested quantity, notes", () => {
     generatePurchaseRequestPdf(baseRequest);
 
     expect(getGeneratedTableOptions()).toEqual(
       expect.objectContaining({
-        head: [
-          [
-            "KODE",
-            "NAMA BARANG",
-            "DIMINTA",
-            "DISETUJUI",
-            "SAMPAI",
-            "TIDAK SAMPAI",
-            "KETERANGAN",
-          ],
-        ],
-        body: [
-          [
-            "BRG-001",
-            "Kabel Fiber",
-            "2 roll",
-            "2 roll",
-            "1 roll",
-            "-",
-            "Untuk ODP baru",
-          ],
-        ],
+        head: [["KODE", "NAMA BARANG", "DIMINTA", "KETERANGAN"]],
+        body: [["BRG-001", "Kabel Fiber", "2 roll", "Untuk ODP baru"]],
       }),
     );
   });
 
-  it("shows requested vs approved quantity, substitution and approver notes", () => {
+  it("shows the requested quantity, substitution and approver notes", () => {
     generatePurchaseRequestPdf({
       ...baseRequest,
       items: [
@@ -272,15 +242,12 @@ describe("generatePurchaseRequestPdf", () => {
         "BRG-001",
         "Kabel Fiber (pengganti Kabel Lama)",
         "8 roll",
-        "5 roll",
-        "1 roll",
-        "-",
         "Untuk ODP baru\nCatatan atasan: Stok gudang masih ada",
       ],
     ]);
   });
 
-  it("prints what did not enter the warehouse together with the reason", () => {
+  it("prints the finished status in the header", () => {
     generatePurchaseRequestPdf({
       ...baseRequest,
       status: "RECEIVED",
@@ -294,32 +261,11 @@ describe("generatePurchaseRequestPdf", () => {
       ],
     });
 
-    expect(getGeneratedTableOptions().body[0][5]).toBe(
-      "1 roll\n(Barang habis di toko)",
-    );
     expect(pdfMocks.text).toHaveBeenCalledWith(
       "Sudah Sampai",
       expect.any(Number),
       expect.any(Number),
     );
-  });
-
-  it("counts the rest of a finished request as not entered, without the standard reason", () => {
-    generatePurchaseRequestPdf({
-      ...baseRequest,
-      status: "RECEIVED",
-      items: [
-        {
-          ...baseRequest.items[0],
-          jumlah: 5,
-          receivedQuantity: 2,
-          cancelledQuantity: 1,
-          cancelReason: "Tidak sampai",
-        },
-      ],
-    });
-
-    expect(getGeneratedTableOptions().body[0][5]).toBe("3 roll");
   });
 
   it("still prints rejected lines, marked, when every line was rejected", () => {
@@ -351,13 +297,14 @@ describe("generatePurchaseRequestPdf", () => {
     const [barangCall, jasaCall] = pdfMocks.autoTable.mock.calls.map(
       (call) => call[1] as { body: string[][]; head: string[][] },
     );
-    expect(barangCall.body[0].slice(3, 6)).toEqual(["Ditolak", "-", "-"]);
-    expect(jasaCall.head[0]).toContain("DISETUJUI");
+    expect(barangCall.body[0][3]).toBe(
+      "Ditolak\nUntuk ODP baru\nCatatan atasan: Tidak dibutuhkan",
+    );
+    expect(jasaCall.head[0]).not.toContain("DISETUJUI");
     expect(jasaCall.body[0]).toEqual([
       "JS-1",
       "Splicing",
       "1 job",
-      "Ditolak",
       "Ditolak",
       "Catatan atasan: Dikerjakan tim internal",
     ]);
@@ -394,7 +341,7 @@ describe("generatePurchaseRequestPdf", () => {
     expect(pdfMocks.autoTable).toHaveBeenCalledTimes(1);
     const { body } = getGeneratedTableOptions();
     expect(body.map((row) => row[0])).toEqual(["BRG-001"]);
-    expect(body.flat()).not.toContain("Ditolak");
+    expect(body.flat().join(" ")).not.toContain("Ditolak");
     expect(pdfMocks.text).not.toHaveBeenCalledWith(
       "ITEM JASA",
       expect.any(Number),
@@ -454,36 +401,7 @@ describe("generatePurchaseRequestPdf", () => {
       ],
     });
 
-    expect(getGeneratedTableOptions().body[0].slice(2, 4)).toEqual([
-      "5 roll",
-      "50 meter",
-    ]);
-  });
-
-  it("shows no approved quantity while the request is still waiting for a decision", () => {
-    generatePurchaseRequestPdf({
-      ...baseRequest,
-      status: "DRAFT",
-      items: [{ ...baseRequest.items[0], statusApproval: "PENDING" }],
-      jasaItems: [
-        {
-          id: "jasa-item-1",
-          jasaId: "jasa-1",
-          jumlah: 1,
-          hargaPerUnit: 100,
-          totalHarga: 100,
-          statusKonfirmasi: "PENDING",
-          statusApproval: "PENDING",
-          jasa: { id: "jasa-1", kode: "JS-1", nama: "Splicing", satuan: "job" },
-        },
-      ],
-    });
-
-    const [barangCall, jasaCall] = pdfMocks.autoTable.mock.calls.map(
-      (call) => call[1] as { body: string[][] },
-    );
-    expect(barangCall.body[0][3]).toBe("Menunggu");
-    expect(jasaCall.body[0][3]).toBe("Menunggu");
+    expect(getGeneratedTableOptions().body[0][2]).toBe("5 roll");
   });
 
   it("marks every line rejected on a request rejected before line decisions existed", () => {
@@ -514,8 +432,8 @@ describe("generatePurchaseRequestPdf", () => {
     const [barangCall, jasaCall] = pdfMocks.autoTable.mock.calls.map(
       (call) => call[1] as { body: string[][] },
     );
-    expect(barangCall.body[0].slice(3, 6)).toEqual(["Ditolak", "-", "-"]);
-    expect(jasaCall.body[0].slice(3, 5)).toEqual(["Ditolak", "Ditolak"]);
+    expect(barangCall.body[0][3]).toBe("Ditolak\nUntuk ODP baru");
+    expect(jasaCall.body[0][3]).toBe("Ditolak");
   });
   it("puts the signature block right after the tables, without a purchase section", () => {
     generatePurchaseRequestPdf({ ...baseRequest, status: "ORDERED" });

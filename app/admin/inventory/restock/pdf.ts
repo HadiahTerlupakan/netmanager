@@ -3,18 +3,13 @@ import autoTable from "jspdf-autotable";
 import { toast } from "react-hot-toast";
 
 import {
-  getRestockLineProgress,
-  isRestockClosed,
-} from "@/modules/inventory/client";
-
-import {
   type ApprovalLine,
   getRequestedQuantity,
   getRequestedSatuan,
   isLineRejected,
   wasSubstituted,
 } from "./approvalUtils";
-import { getRestockLineCancelReason, getRestockStatus } from "./restockStatus";
+import { getRestockStatus } from "./restockStatus";
 import type { PurchaseRequest } from "./types";
 
 interface AutoTableDoc extends jsPDF {
@@ -24,7 +19,6 @@ interface AutoTableDoc extends jsPDF {
 }
 
 const REJECTED_LABEL = "Ditolak";
-const AWAITING_DECISION_LABEL = "Menunggu";
 const UNDECIDED_REQUEST_STATUSES = new Set(["DRAFT", "SUBMITTED"]);
 
 type LineApprovalState = "AWAITING" | "REJECTED" | "APPROVED";
@@ -33,9 +27,6 @@ interface PurchaseRequestTableItem {
   kode: string;
   nama: string;
   requestedQuantity: string;
-  approvedQuantity: string;
-  receivedQuantity: string;
-  notEnteredQuantity: string;
   keterangan: string;
 }
 
@@ -57,17 +48,22 @@ interface PurchaseRequestJasaTableItem {
   kode: string;
   nama: string;
   requestedQuantity: string;
-  approvedQuantity: string;
   statusKonfirmasi: string;
   keterangan: string;
 }
 
-/** Gabungkan keterangan pemohon dan catatan approver dalam satu sel. */
+/**
+ * Gabungkan keterangan pemohon dan catatan atasan dalam satu sel. Baris
+ * barang yang ditolak diawali "Ditolak" karena tabelnya tidak punya kolom
+ * keputusan.
+ */
 function formatLineNotes(
   keterangan: string | null | undefined,
   catatanApproval: string | null | undefined,
+  isRejected = false,
 ): string {
   const notes = [
+    isRejected ? REJECTED_LABEL : null,
     keterangan,
     catatanApproval ? `Catatan atasan: ${catatanApproval}` : null,
   ].filter(Boolean);
@@ -112,16 +108,6 @@ function selectPrintableLines(request: PurchaseRequest): PrintableLines {
   return { barangItems: keptBarang, jasaItems: keptJasa };
 }
 
-function formatApprovedQuantity(
-  state: LineApprovalState,
-  jumlah: number,
-  satuan: string,
-): string {
-  if (state === "REJECTED") return REJECTED_LABEL;
-  if (state === "AWAITING") return AWAITING_DECISION_LABEL;
-  return `${jumlah} ${satuan}`;
-}
-
 function getJasaStatusLabel(
   item: NonNullable<PurchaseRequest["jasaItems"]>[number],
   state: LineApprovalState,
@@ -142,7 +128,6 @@ function getPurchaseRequestJasaTableItem(
     kode: item.jasa?.kode || "-",
     nama: item.jasa?.nama || "Jasa tidak tersedia",
     requestedQuantity: `${getRequestedQuantity(item)} ${satuan}`,
-    approvedQuantity: formatApprovedQuantity(state, item.jumlah, satuan),
     statusKonfirmasi: getJasaStatusLabel(item, state),
     keterangan: formatLineNotes(item.keterangan, item.catatanApproval),
   };
@@ -154,44 +139,21 @@ function getBarangDisplayName(item: PurchaseRequest["items"][number]): string {
   return `${nama} (pengganti ${item.barangDiminta?.nama ?? "barang lain"})`;
 }
 
-/**
- * Sel TIDAK MASUK: jumlah yang tidak masuk gudang beserta alasannya. Pada
- * pengajuan yang sudah ditutup, sisa yang belum masuk ikut dihitung.
- */
-function formatNotEntered(
-  item: PurchaseRequest["items"][number],
-  state: LineApprovalState,
-  satuan: string,
-  isClosed: boolean,
-): string {
-  const { cancelled } = getRestockLineProgress(item, isClosed);
-  if (state === "REJECTED" || cancelled === 0) return "-";
-  const quantity = `${cancelled} ${satuan}`;
-  const reason = getRestockLineCancelReason(item);
-  return reason ? `${quantity}\n(${reason})` : quantity;
-}
-
 function getPurchaseRequestTableItem(
   item: PurchaseRequest["items"][number],
   request: PurchaseRequest,
 ): PurchaseRequestTableItem {
-  const satuan = item.barang?.satuan || "-";
-  const state = getLineApprovalState(request.status, item);
+  const isRejected = getLineApprovalState(request.status, item) === "REJECTED";
 
   return {
     kode: item.barang?.kode || "-",
     nama: getBarangDisplayName(item),
     requestedQuantity: `${getRequestedQuantity(item)} ${getRequestedSatuan(item)}`,
-    approvedQuantity: formatApprovedQuantity(state, item.jumlah, satuan),
-    receivedQuantity:
-      state === "REJECTED" ? "-" : `${item.receivedQuantity || 0} ${satuan}`,
-    notEnteredQuantity: formatNotEntered(
-      item,
-      state,
-      satuan,
-      isRestockClosed(request),
+    keterangan: formatLineNotes(
+      item.keterangan,
+      item.catatanApproval,
+      isRejected,
     ),
-    keterangan: formatLineNotes(item.keterangan, item.catatanApproval),
   };
 }
 
@@ -299,26 +261,13 @@ export function generatePurchaseRequestPdf(request: PurchaseRequest) {
   if (barangItems.length > 0) {
     autoTable(doc, {
       startY: nextTableY,
-      head: [
-        [
-          "KODE",
-          "NAMA BARANG",
-          "DIMINTA",
-          "DISETUJUI",
-          "SAMPAI",
-          "TIDAK SAMPAI",
-          "KETERANGAN",
-        ],
-      ],
+      head: [["KODE", "NAMA BARANG", "DIMINTA", "KETERANGAN"]],
       body: barangItems.map((item) => {
         const tableItem = getPurchaseRequestTableItem(item, request);
         return [
           tableItem.kode,
           tableItem.nama,
           tableItem.requestedQuantity,
-          tableItem.approvedQuantity,
-          tableItem.receivedQuantity,
-          tableItem.notEnteredQuantity,
           tableItem.keterangan,
         ];
       }),
@@ -333,9 +282,6 @@ export function generatePurchaseRequestPdf(request: PurchaseRequest) {
       styles: { fontSize: 9, cellPadding: 4 },
       columnStyles: {
         2: { halign: "center" },
-        3: { halign: "center" },
-        4: { halign: "center" },
-        5: { halign: "center" },
       },
     });
     nextTableY = (doc as AutoTableDoc).lastAutoTable?.finalY ?? nextTableY;
@@ -349,16 +295,13 @@ export function generatePurchaseRequestPdf(request: PurchaseRequest) {
 
     autoTable(doc, {
       startY: nextTableY + 17,
-      head: [
-        ["KODE", "NAMA JASA", "DIMINTA", "DISETUJUI", "STATUS", "KETERANGAN"],
-      ],
+      head: [["KODE", "NAMA JASA", "DIMINTA", "STATUS", "KETERANGAN"]],
       body: jasaItems.map((item) => {
         const tableItem = getPurchaseRequestJasaTableItem(item, request.status);
         return [
           tableItem.kode,
           tableItem.nama,
           tableItem.requestedQuantity,
-          tableItem.approvedQuantity,
           tableItem.statusKonfirmasi,
           tableItem.keterangan,
         ];
@@ -375,7 +318,6 @@ export function generatePurchaseRequestPdf(request: PurchaseRequest) {
       columnStyles: {
         2: { halign: "center" },
         3: { halign: "center" },
-        4: { halign: "center" },
       },
     });
     nextTableY = (doc as AutoTableDoc).lastAutoTable?.finalY ?? nextTableY;
