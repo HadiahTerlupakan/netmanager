@@ -25,7 +25,12 @@ import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { LeaveCalendarView } from "./LeaveCalendarView";
-import { getApproverLabel, transformLeaveToCalendarEvent } from "./utils";
+import { LeaveAttachmentGallery } from "./LeaveAttachmentGallery";
+import {
+  getApproverLabel,
+  getLeaveAttachmentUrls,
+  transformLeaveToCalendarEvent,
+} from "./utils";
 import type { LeaveCalendarEvent } from "./types";
 import type { LeaveType, LeaveStatus } from "@prisma/client";
 
@@ -630,32 +635,14 @@ export function IzinClient() {
                     </div>
                   </div>
                 )}
-                {selectedRequest.attachmentUrl && (
+                {getLeaveAttachmentUrls(selectedRequest).length > 0 && (
                   <div className="md:col-span-2">
                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
                       Lampiran
                     </label>
-                    <a
-                      href={selectedRequest.attachmentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium border border-blue-100"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                        />
-                      </svg>
-                      Lihat Lampiran
-                    </a>
+                    <LeaveAttachmentGallery
+                      urls={getLeaveAttachmentUrls(selectedRequest)}
+                    />
                   </div>
                 )}
               </div>
@@ -824,17 +811,12 @@ export function IzinClient() {
                     className="hidden"
                   />
                 </label>
-                {manualForm.attachmentUrl && (
-                  <a
-                    href={manualForm.attachmentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100"
-                  >
-                    Lihat
-                  </a>
-                )}
               </div>
+              {manualForm.attachmentUrl && (
+                <div className="mt-2">
+                  <LeaveAttachmentGallery urls={[manualForm.attachmentUrl]} />
+                </div>
+              )}
               {manualForm.attachmentUrl && (
                 <span className="text-xs text-green-600 mt-1 block">
                   ✓ Terupload

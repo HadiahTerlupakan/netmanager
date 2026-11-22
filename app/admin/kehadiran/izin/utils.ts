@@ -149,3 +149,16 @@ export function getApproverLabel(
   if (approvedBy === SYSTEM_AUTO_APPROVER) return "Otomatis (sistem)";
   return approverName || UNKNOWN_APPROVER_LABEL;
 }
+
+/**
+ * Semua URL lampiran izin. Pengajuan mobile menyimpan semua foto di
+ * `attachments` (foto pertama juga di `attachmentUrl`); input manual admin
+ * hanya mengisi `attachmentUrl`.
+ */
+export function getLeaveAttachmentUrls(request: {
+  attachmentUrl?: string | null;
+  attachments?: string[] | null;
+}): string[] {
+  const urls = [...(request.attachments ?? []), request.attachmentUrl ?? ""];
+  return Array.from(new Set(urls.filter((url) => url.trim() !== "")));
+}

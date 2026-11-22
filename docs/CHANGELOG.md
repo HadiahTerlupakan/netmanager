@@ -41,6 +41,20 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-23] — Lampiran izin dibuka di halaman, semua foto tampil
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/kehadiran/izin`
+- **Author**: agent
+- **Deskripsi**: Lampiran di Manajemen Izin & Cuti dulu berupa link yang membuka
+  tab baru dan hanya menampilkan foto pertama, padahal pengajuan mobile bisa
+  berisi beberapa foto (`attachments`). Sekarang semua foto tampil sebagai
+  thumbnail dan dibuka di lightbox (zoom, geser antar-foto) tanpa meninggalkan
+  halaman. Pratinjau upload manual admin memakai komponen yang sama.
+- **Files**: `app/admin/kehadiran/izin/LeaveAttachmentGallery.tsx`,
+  `app/admin/kehadiran/izin/IzinClient.tsx`, `app/admin/kehadiran/izin/utils.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-23] — Laporan kehadiran & lembur: perbaikan semua hitungan
 
 - **Tipe**: [FIXED]

@@ -6,6 +6,7 @@ import {
   getLeaveStatusColor,
   formatDateRange,
   getApproverLabel,
+  getLeaveAttachmentUrls,
 } from "@/app/admin/kehadiran/izin/utils";
 import type { LeaveCalendarEvent } from "@/app/admin/kehadiran/izin/types";
 
@@ -270,5 +271,31 @@ describe("getApproverLabel", () => {
   it("null bila belum ada penyetuju", () => {
     expect(getApproverLabel(null, null)).toBeNull();
     expect(getApproverLabel(undefined, undefined)).toBeNull();
+  });
+});
+
+describe("getLeaveAttachmentUrls", () => {
+  // Regresi: halaman admin hanya menampilkan foto pertama; pengajuan mobile
+  // menyimpan semua foto di `attachments`.
+  it("mengembalikan semua foto mobile tanpa duplikat attachmentUrl", () => {
+    expect(
+      getLeaveAttachmentUrls({
+        attachmentUrl: "https://cdn/a.jpg",
+        attachments: ["https://cdn/a.jpg", "https://cdn/b.jpg"],
+      }),
+    ).toEqual(["https://cdn/a.jpg", "https://cdn/b.jpg"]);
+  });
+
+  it("memakai attachmentUrl dari input manual admin", () => {
+    expect(
+      getLeaveAttachmentUrls({ attachmentUrl: "https://cdn/m.jpg" }),
+    ).toEqual(["https://cdn/m.jpg"]);
+  });
+
+  it("kosong bila tidak ada lampiran", () => {
+    expect(
+      getLeaveAttachmentUrls({ attachmentUrl: "", attachments: [] }),
+    ).toEqual([]);
+    expect(getLeaveAttachmentUrls({ attachmentUrl: null })).toEqual([]);
   });
 });
