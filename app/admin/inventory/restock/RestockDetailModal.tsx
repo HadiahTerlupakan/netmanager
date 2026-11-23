@@ -1,6 +1,7 @@
 "use client";
 
 import { Modal } from "@/components/ui/Modal";
+import { PhotoThumbnailGallery } from "@/components/ui/PhotoThumbnailGallery";
 import {
   canCancelRestockRequest,
   canEnterRestockGoods,
@@ -143,23 +144,12 @@ function RestockDetailJasaList({
                 {isSelesai &&
                   item.buktiSelesai &&
                   item.buktiSelesai.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {item.buktiSelesai.map((url) => (
-                        <a
-                          key={url}
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block w-12 h-12 rounded-xl overflow-hidden border border-violet-100 dark:border-violet-800"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={url}
-                            alt="Bukti"
-                            className="w-full h-full object-cover"
-                          />
-                        </a>
-                      ))}
+                    <div className="mt-2">
+                      <PhotoThumbnailGallery
+                        urls={item.buktiSelesai}
+                        subject={`bukti selesai ${item.jasa.nama}`}
+                        thumbnailClassName="h-12 w-12 rounded-xl"
+                      />
                     </div>
                   )}
               </div>

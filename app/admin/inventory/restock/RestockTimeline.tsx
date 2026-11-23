@@ -3,6 +3,8 @@
 import { type ReactNode, useId } from "react";
 import { FiCheck } from "react-icons/fi";
 
+import { PhotoThumbnailGallery } from "@/components/ui/PhotoThumbnailGallery";
+
 import {
   getRestockStatusKey,
   isRestockServiceOnly,
@@ -50,7 +52,7 @@ function joinParts(parts: Array<string | null | undefined>): string {
   return parts.filter(Boolean).join(" · ");
 }
 
-/** Deretan foto kecil yang bisa dibuka. */
+/** Deretan foto kecil yang dibuka di pratinjau, bukan tab baru. */
 function PhotoThumbnails({
   photos,
   subject,
@@ -59,27 +61,12 @@ function PhotoThumbnails({
   /** Mis. "barang sampai ke-2". */
   subject: string;
 }) {
-  if (photos.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-2">
-      {photos.map((url, photoIndex) => (
-        <a
-          key={url}
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={`Buka foto ${photoIndex + 1} ${subject}`}
-          className="block h-16 w-16 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={`Foto ${subject}`}
-            className="h-full w-full object-cover"
-          />
-        </a>
-      ))}
-    </div>
+    <PhotoThumbnailGallery
+      urls={photos}
+      subject={subject}
+      thumbnailClassName="h-16 w-16 rounded-xl"
+    />
   );
 }
 

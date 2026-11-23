@@ -41,6 +41,21 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-23] — Foto restock dibuka di pratinjau, bukan tab baru
+
+- **Tipe**: [CHANGED]
+- **Scope**: `app/admin/inventory/restock`, `components/ui`
+- **Author**: agent
+- **Deskripsi**: Foto barang sampai dan bukti selesai jasa di detail restock
+  sekarang dibuka di lightbox di halaman yang sama (zoom, geser antarfoto),
+  bukan tab baru. Komponen galeri dipindah ke `components/ui/PhotoThumbnailGallery`
+  dan dipakai bersama halaman Izin & Cuti (menggantikan `LeaveAttachmentGallery`).
+- **Files**: `components/ui/PhotoThumbnailGallery.tsx`,
+  `app/admin/inventory/restock/RestockTimeline.tsx`,
+  `app/admin/inventory/restock/RestockDetailModal.tsx`,
+  `app/admin/kehadiran/izin/IzinClient.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-23] — Tautkan mutasi opname dan simpan efek stoknya
 
 - **Tipe**: [MIGRATION]

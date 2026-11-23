@@ -24,8 +24,8 @@ import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
 import { usePermission } from "@/hooks/use-permission";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
+import { PhotoThumbnailGallery } from "@/components/ui/PhotoThumbnailGallery";
 import { LeaveCalendarView } from "./LeaveCalendarView";
-import { LeaveAttachmentGallery } from "./LeaveAttachmentGallery";
 import {
   getApproverLabel,
   getLeaveAttachmentUrls,
@@ -640,8 +640,9 @@ export function IzinClient() {
                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
                       Lampiran
                     </label>
-                    <LeaveAttachmentGallery
+                    <PhotoThumbnailGallery
                       urls={getLeaveAttachmentUrls(selectedRequest)}
+                      subject="lampiran izin"
                     />
                   </div>
                 )}
@@ -814,7 +815,10 @@ export function IzinClient() {
               </div>
               {manualForm.attachmentUrl && (
                 <div className="mt-2">
-                  <LeaveAttachmentGallery urls={[manualForm.attachmentUrl]} />
+                  <PhotoThumbnailGallery
+                    urls={[manualForm.attachmentUrl]}
+                    subject="lampiran izin"
+                  />
                 </div>
               )}
               {manualForm.attachmentUrl && (

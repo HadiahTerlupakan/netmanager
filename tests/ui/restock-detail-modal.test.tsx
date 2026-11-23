@@ -207,7 +207,9 @@ describe("RestockDetailModal riwayat dan barang", () => {
     );
     expect(markup).toContain("dicatat Budi");
     expect(markup).toContain("Kabel Dropcore 4 roll (1 foto)");
-    expect(markup).toContain('aria-label="Buka foto 1 barang sampai ke-1"');
+    // Foto dibuka di pratinjau di halaman yang sama, bukan tab baru.
+    expect(markup).toContain('aria-label="Lihat foto 1 barang sampai ke-1"');
+    expect(markup).not.toContain('target="_blank"');
     expect(markup).toContain("No. catatan: GRN-1");
     expect(markup).toContain("Menunggu laporan barang sampai");
     expect(markup).toContain("Kode pesanan: PO-2026-009");
