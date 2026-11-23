@@ -1798,11 +1798,14 @@ model BarangKeluar {
   fotoBukti           String[]
   fotoMetadata        Json?
   tenantId            String?
+  /// Opname yang membuat mutasi ini; null untuk mutasi biasa.
+  opnameId            String?
   barang              Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang              Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
   tenant              Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   transferAntarGudang TransferAntarGudang? @relation(fields: [transferId], references: [id])
   user                User?                @relation(fields: [userId], references: [id])
+  stockOpname         StockOpname?         @relation(fields: [opnameId], references: [id], onDelete: SetNull)
 
   @@index([barangId])
   @@index([gudangId])
@@ -1812,6 +1815,7 @@ model BarangKeluar {
   @@index([transferId])
   @@index([tenantId])
   @@index([actorType, actorId])
+  @@index([opnameId])
   @@map("barang_keluar")
 }
 
@@ -1841,11 +1845,14 @@ model BarangMasuk {
   actorId             String?
   hargaBeliSatuan     Int?                 @default(0)
   tenantId            String?
+  /// Opname yang membuat mutasi ini; null untuk mutasi biasa.
+  opnameId            String?
   barang              Barang               @relation(fields: [barangId], references: [id], onDelete: Cascade)
   gudang              Gudang               @relation(fields: [gudangId], references: [id], onDelete: Cascade)
   tenant              Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   transferAntarGudang TransferAntarGudang? @relation(fields: [transferId], references: [id])
   user                User?                @relation(fields: [userId], references: [id])
+  stockOpname         StockOpname?         @relation(fields: [opnameId], references: [id], onDelete: SetNull)
 
   @@index([barangId])
   @@index([gudangId])
@@ -1854,6 +1861,7 @@ model BarangMasuk {
   @@index([transferId])
   @@index([tenantId])
   @@index([actorType, actorId])
+  @@index([opnameId])
   @@map("barang_masuk")
 }
 
@@ -2399,17 +2407,17 @@ model StockOpnameJadwal {
 }
 
 model StockOpname {
-  id                String    @id
+  id                String         @id
   barangId          String
   gudangId          String
-  tanggal           DateTime  @default(now())
+  tanggal           DateTime       @default(now())
   stokFisik         Int
   stokSistem        Int
   selisih           Int
   keterangan        String?
-  kondisiBaik       Int       @default(0)
-  kondisiRusak      Int       @default(0)
-  kondisiExpire     Int       @default(0)
+  kondisiBaik       Int            @default(0)
+  kondisiRusak      Int            @default(0)
+  kondisiExpire     Int            @default(0)
   lokasiPenyimpanan String?
   nomorRak          String?
   nomorBox          String?
@@ -2419,12 +2427,20 @@ model StockOpname {
   tanggalExpire     DateTime?
   nomorBatch        String?
   catatanDetail     String?
-  createdAt         DateTime  @default(now())
+  createdAt         DateTime       @default(now())
   alasanSelisih     String?
+  /// Perubahan kolom stok per kondisi yang benar-benar diterapkan opname ini,
+  /// agar edit/hapus bisa membaliknya persis. Null = opname lama (sebelum
+  /// 2026-11-23) yang efeknya selalu di stokBaru sebesar selisih.
+  efekStokBaru      Int?
+  efekStokBekas     Int?
+  efekStokRusak     Int?
   tenantId          String?
-  barang            Barang    @relation(fields: [barangId], references: [id], onDelete: Cascade)
-  gudang            Gudang    @relation(fields: [gudangId], references: [id], onDelete: Cascade)
-  tenant            Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  barang            Barang         @relation(fields: [barangId], references: [id], onDelete: Cascade)
+  gudang            Gudang         @relation(fields: [gudangId], references: [id], onDelete: Cascade)
+  tenant            Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  barangMasuk       BarangMasuk[]
+  barangKeluar      BarangKeluar[]
 
   @@index([barangId])
   @@index([gudangId])

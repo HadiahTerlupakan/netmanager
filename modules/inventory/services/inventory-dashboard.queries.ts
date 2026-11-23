@@ -35,7 +35,13 @@ export interface InventoryDashboardTrendRange {
   monthStart: Date;
 }
 
-/** Jalankan query dashboard inventory utama secara paralel. */
+/**
+ * Jalankan query dashboard inventory utama secara paralel.
+ *
+ * Mutasi hasil stock opname (`opnameId` terisi) adalah koreksi selisih, bukan
+ * pemakaian atau restock, sehingga dikeluarkan dari hitungan transaksi bulan
+ * ini, tren bulanan, fast-moving, dan slow-moving.
+ */
 export async function fetchInventoryDashboardQueries(
   filters: InventoryDashboardFilters,
   trendRange: InventoryDashboardTrendRange,
@@ -46,6 +52,7 @@ export async function fetchInventoryDashboardQueries(
     by: ["tanggal"],
     where: {
       ...filters.transactionFilter,
+      opnameId: null,
       tanggal: { gte: trendRange.start, lte: trendRange.end },
     },
     _sum: { jumlah: true },
@@ -54,6 +61,7 @@ export async function fetchInventoryDashboardQueries(
     by: ["tanggal"],
     where: {
       ...filters.transactionFilter,
+      opnameId: null,
       tanggal: { gte: trendRange.start, lte: trendRange.end },
     },
     _sum: { jumlah: true },
@@ -81,12 +89,14 @@ export async function fetchInventoryDashboardQueries(
     prisma.barangMasuk.count({
       where: {
         ...filters.transactionFilter,
+        opnameId: null,
         tanggal: { gte: trendRange.monthStart },
       },
     }),
     prisma.barangKeluar.count({
       where: {
         ...filters.transactionFilter,
+        opnameId: null,
         tanggal: { gte: trendRange.monthStart },
       },
     }),
@@ -105,6 +115,7 @@ export async function fetchInventoryDashboardQueries(
       by: ["barangId"],
       where: {
         ...filters.transactionFilter,
+        opnameId: null,
         tanggal: { gte: trendRange.start, lte: trendRange.end },
       },
       _sum: { jumlah: true },
@@ -116,6 +127,7 @@ export async function fetchInventoryDashboardQueries(
         barang_keluar: {
           none: {
             tanggal: { gte: slowMovingDate },
+            opnameId: null,
           },
         },
       },
@@ -124,6 +136,7 @@ export async function fetchInventoryDashboardQueries(
         kode: true,
         nama: true,
         barang_keluar: {
+          where: { opnameId: null },
           orderBy: { tanggal: "desc" },
           take: 1,
           select: { tanggal: true },

@@ -41,6 +41,90 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-23] — Tautkan mutasi opname dan simpan efek stoknya
+
+- **Tipe**: [MIGRATION]
+- **Scope**: `prisma/`, `modules/inventory`
+- **Author**: agent
+- **Deskripsi**: Kolom `opnameId` (nullable, FK ke `stock_opname`, ON DELETE SET NULL,
+  berindeks) di `barang_masuk` dan `barang_keluar`. Mutasi opname lama ditautkan
+  lewat teks `Ref: <opnameId>` di keterangan, hanya bila barang & gudangnya sama.
+  Kolom `efekStokBaru/Bekas/Rusak` (nullable) di `stock_opname` menyimpan
+  perubahan per kondisi yang benar-benar diterapkan; null = opname lama.
+  Keduanya hanya menambah kolom, tanpa data loss.
+- **Migration**: `20261123000236_link_opname_movements_to_stock_opname`,
+  `20261123001913_add_opname_stock_effect_columns`
+- **Breaking**: ❌ Tidak
+
+### [2026-11-23] — Stock opname: edit/hapus, stok per kondisi, dan riwayat
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory`, `components/inventory/opname`, `components/inventory`
+- **Author**: agent
+- **Deskripsi**: Hasil audit halaman Stock Opname.
+  - **Edit/hapus:** hanya opname terakhir per barang & gudang yang boleh diubah
+    atau dihapus (409 untuk yang lama). Sebelumnya, menghapus opname lama
+    menggeser stok yang sudah dikoreksi opname sesudahnya.
+  - **Mutasi ikut dibatalkan:** hapus/edit sekarang menghapus mutasi barang
+    masuk/keluar milik opname itu. Sebelumnya mutasinya tertinggal tanpa induk,
+    tetap terhitung di laporan, dan bisa dihapus lagi sehingga stok terbalik
+    dua kali.
+  - **Stok per kondisi:** selisih masuk ke kolom kondisi mutasinya (baru/bekas/
+    rusak), bukan selalu ke stok baru. Edit/hapus membalik persis efek yang
+    tersimpan; opname lama dibalik di stok baru seperti saat diterapkan.
+  - **Alasan selisih:** bisa diubah dan dikosongkan saat edit, dan otomatis
+    kosong bila selisih jadi 0. Sebelumnya badge HILANG tetap menempel setelah
+    selisih berubah jadi surplus.
+  - **Form edit:** pratinjau selisih memakai stok sistem saat opname, sama
+    dengan yang disimpan.
+  - **Riwayat:**
+    - Filter tanggal memakai hari di zona waktu tenant (dulu opname pukul
+      00:00–06:59 WIB di tanggal mulai terlewat).
+    - Urutan halaman stabil (dulu item satu sesi SO bisa dobel/hilang antar
+      halaman).
+    - "Barang Hilang" hanya menghitung selisih minus.
+    - "Catatan Perlu Perhatian" menghitung catatan, bukan menjumlah unit
+      beda satuan.
+    - Ekspor CSV mengambil semua halaman (dulu terpotong diam-diam di 10.000).
+    - Halaman dijepit setelah hapus baris terakhir.
+    - Tombol detail yang tidak berfungsi dihapus.
+- **Files**: `modules/inventory/repositories/InventoryOpnameRepository.ts`,
+  `modules/inventory/repositories/opname-stock-effect.ts`,
+  `modules/inventory/domain/opname-stock-condition.ts`,
+  `modules/inventory/domain/opname-mutasi.ts`,
+  `modules/inventory/services/inventory-opname-create.helpers.ts`,
+  `modules/inventory/services/inventory-opname-list.helpers.ts`,
+  `components/inventory/OpnameForm.tsx`, `components/inventory/OpnameReportTable.tsx`,
+  `components/inventory/opname/history/*`
+- **Breaking**: ❌ Tidak (API `PUT/DELETE /api/inventory/opname/[id]` kini bisa
+  menjawab 409 untuk opname yang bukan terakhir)
+
+### [2026-11-23] — Fitur yang bergantung pada opname tidak lagi salah hitung
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/inventory`
+- **Author**: agent
+- **Deskripsi**:
+  - **Pemakaian & restock:** prediksi restock (restock terakhir, pemakaian,
+    tren bulanan, analitik pemakaian), rata-rata pemakaian setting restock, dan
+    dashboard inventory (transaksi bulan ini, tren, fast/slow-moving) tidak lagi
+    menghitung selisih opname sebagai pemakaian atau restock.
+  - **Mutasi opname terkunci:** barang masuk/keluar hasil opname tidak bisa
+    diubah/dihapus dari daftar Barang Masuk/Keluar (409, ditandai badge
+    "Opname"); koreksi lewat Riwayat Opname.
+  - **Kepatuhan SO:** hanya mewajibkan barang yang `stok > 0`, sama dengan
+    pencatat opname.
+- **Files**: `modules/inventory/repositories/inventory-restock-repository.predictions.ts`,
+  `modules/inventory/repositories/inventory-restock-repository.settings.ts`,
+  `modules/inventory/repositories/InventoryRestockRepository.ts`,
+  `modules/inventory/repositories/inventory-api-repository-helpers.ts`,
+  `modules/inventory/services/inventory-dashboard.queries.ts`,
+  `modules/inventory/repositories/inventory-repository-masuk-helpers.ts`,
+  `modules/inventory/repositories/InventoryOpnameApiRepository.ts`,
+  `modules/inventory/repositories/StockOpnameJadwalRepository.ts`,
+  `components/inventory/KeluarTable.tsx`, `components/inventory/MasukTable.tsx`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-23] — Hapus harga estimasi dari master jasa
 
 - **Tipe**: [CHANGED]

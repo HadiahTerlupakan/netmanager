@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { fetchWithHandling, isFetchError } from "@/lib/utils/fetch-wrapper";
+import { labelAlasanSelisih } from "./alasanSelisihOptions";
 import { describeOpnameFailure } from "./opnameErrorMessage";
 import type { OpnameCalculationItem } from "./useOpnameCalculation";
 
@@ -82,7 +83,7 @@ function describeSubmitError(
 }
 
 function buildOpnameBatchItem(item: OpnameCalculationItem) {
-  const alasanText = OPNAME_REASON_LABEL[item.alasanSelisih ?? ""] ?? "";
+  const alasanText = labelAlasanSelisih(item.alasanSelisih);
   const today = new Date().toLocaleDateString("id-ID");
   const keterangan = item.alasanSelisih
     ? `Stock Opname ${today} - ${alasanText}${item.catatanDetail ? ": " + item.catatanDetail : ""}`
@@ -102,14 +103,3 @@ function buildOpnameBatchItem(item: OpnameCalculationItem) {
     catatanDetail: item.catatanDetail || undefined,
   };
 }
-
-const OPNAME_REASON_LABEL: Record<string, string> = {
-  hilang: "Hilang / Kehilangan",
-  rusak: "Rusak / Tidak Layak",
-  revisi: "Revisi Stok / Koreksi Data",
-  salah_input: "Kesalahan Input Sebelumnya",
-  terpakai: "Terpakai Tidak Tercatat",
-  expired: "Kadaluarsa / Expire",
-  lebih: "Stok Lebih / Ditemukan",
-  lainnya: "Lainnya",
-};

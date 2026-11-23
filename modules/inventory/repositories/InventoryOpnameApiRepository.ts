@@ -7,6 +7,7 @@ import {
   labelKondisiBarang,
   MUTASI_STOK_PESAN,
 } from "../domain/inventory-user-error";
+import { assertBukanMutasiOpname } from "../domain/mutasi-opname-terkunci";
 import { calculateInitialOpnameItems } from "./inventory-opname-api-calculation.helpers";
 
 type PrismaClientLike = Prisma.TransactionClient;
@@ -209,7 +210,10 @@ export class InventoryOpnameApiRepository {
     });
   }
 
-  /** Perbarui keluar record dan sinkronkan stok. */
+  /**
+   * Perbarui keluar record dan sinkronkan stok. Mutasi hasil stock opname
+   * ditolak (409): koreksinya lewat Riwayat Opname.
+   */
   async updateKeluarRecord(input: {
     id: string;
     jumlah: number;
@@ -221,6 +225,7 @@ export class InventoryOpnameApiRepository {
         include: { barang: true, gudang: true },
       });
       if (!currentRecord) throw keluarNotFoundError();
+      assertBukanMutasiOpname(currentRecord);
       const currentStock = await this.requireCurrentStock(tx, currentRecord);
       const stockField = this.getStockField(currentRecord.kondisi);
       const stockDifference = currentRecord.jumlah - input.jumlah;
@@ -253,7 +258,10 @@ export class InventoryOpnameApiRepository {
     });
   }
 
-  /** Hapus keluar record dan kembalikan stok. */
+  /**
+   * Hapus keluar record dan kembalikan stok. Mutasi hasil stock opname
+   * ditolak (409): koreksinya lewat Riwayat Opname.
+   */
   async deleteKeluarRecord(id: string) {
     return this.db.$transaction(async (tx) => {
       const keluarRecord = await tx.barangKeluar.findUnique({
@@ -261,6 +269,7 @@ export class InventoryOpnameApiRepository {
         include: { barang: true, gudang: true },
       });
       if (!keluarRecord) throw keluarNotFoundError();
+      assertBukanMutasiOpname(keluarRecord);
       await this.restoreKeluarStock(tx, keluarRecord);
       await tx.barangKeluar.delete({ where: { id } });
       return {

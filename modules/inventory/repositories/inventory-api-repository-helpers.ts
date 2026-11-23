@@ -254,7 +254,13 @@ async function findMonthlyUsageTotal(
   endDate: Date,
 ) {
   const usage = await prisma.barangKeluar.aggregate({
-    where: { barangId, gudangId, tanggal: { gte: startDate, lte: endDate } },
+    // Selisih opname bukan pemakaian.
+    where: {
+      barangId,
+      gudangId,
+      tanggal: { gte: startDate, lte: endDate },
+      opnameId: null,
+    },
     _sum: { jumlah: true },
   });
   return usage._sum.jumlah || 0;

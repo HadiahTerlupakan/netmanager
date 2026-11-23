@@ -28,6 +28,8 @@ export class InventoryRestockRepository {
           barangId: input.barangId,
           gudangId: input.gudangId,
           tanggal: { gte: startDate },
+          // Selisih opname bukan pemakaian.
+          opnameId: null,
         },
         _sum: { jumlah: true },
         _count: { id: true },

@@ -80,6 +80,7 @@ function findRecentUsage(
       barangId: input.barangId,
       gudangId: input.gudangId,
       tanggal: { gte: thirtyDaysAgo },
+      opnameId: null,
     },
     _sum: { jumlah: true },
   });

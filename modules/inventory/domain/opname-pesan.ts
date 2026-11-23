@@ -27,6 +27,8 @@ export const OPNAME_PESAN = {
     "Catatan opname ini milik gudang site lain, jadi tidak bisa Anda buka atau ubah. Minta admin kalau catatan ini memang harus Anda urus.",
   catatanBukanMilikAnda:
     "Catatan opname ini milik perusahaan lain, jadi tidak bisa dibuka atau diubah.",
+  bukanOpnameTerakhir:
+    "Hanya opname terakhir untuk barang ini di gudang ini yang bisa diubah atau dihapus. Untuk koreksi, catat opname baru.",
   gagalSimpan:
     "Opname belum tersimpan karena ada gangguan di server. Tidak ada angka yang berubah. Coba simpan sekali lagi; kalau tetap gagal, laporkan ke admin.",
   gagalHapus:

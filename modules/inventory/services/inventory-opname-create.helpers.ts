@@ -1,5 +1,3 @@
-import { randomUUID } from "crypto";
-
 import { getUserPermissions } from "@/lib/auth";
 import { logActivitySafe } from "@/lib/logger";
 import { prisma } from "@/modules/database";
@@ -15,13 +13,19 @@ import {
   buildUpdatedStockData,
   calculateStockDifference,
   ensureTenantConsistency,
-  resolveOpnameReasonLabel,
 } from "./inventory-opname.service-helpers";
 import {
-  isAdministrativeAdjustment,
-  resolveNegativeMovementCondition,
-  resolvePositiveMovementCondition,
-} from "./inventory-opname-movement-mapping.helpers";
+  planOpnameMovement,
+  resolveOpnameStockCondition,
+} from "../domain/opname-mutasi";
+import {
+  STOK_KOSONG,
+  computeStockEffect,
+  toStoredStockEffect,
+  type KondisiStok,
+  type StokPerKondisi,
+} from "../domain/opname-stock-condition";
+import { createOpnameMovement } from "../repositories/opname-stock-effect";
 import { namaPelaku, ringkasPembuatan } from "../domain/riwayat-stock-opname";
 import { getStockOpnameRiwayatRepository } from "../repositories/StockOpnameRiwayatRepository";
 
@@ -95,7 +99,7 @@ async function runOpnameTransaction(
 
   await catatPembuatanKeRiwayat(tx, input, references.barang, opnameRecord);
 
-  await syncOpnameAdjustment(tx, {
+  await applyOpnameToStock(tx, {
     input,
     opnameId: opnameRecord.id,
     currentStock: references.currentStock,
@@ -182,77 +186,42 @@ function createOpnameRecord(
   });
 }
 
-async function syncOpnameAdjustment(
+/**
+ * Terapkan selisih opname: catat mutasinya (tertaut lewat `opnameId`) lalu
+ * sesuaikan stok pada kolom kondisi yang sama dengan mutasi itu.
+ */
+async function applyOpnameToStock(
   tx: Prisma.TransactionClient,
   input: {
     input: CreateInventoryOpnameInput;
     opnameId: string;
-    currentStock: { stokBaru: number | null } | null;
+    currentStock: StokPerKondisi | null;
     selisih: number;
   },
 ) {
-  if (isAdministrativeAdjustment(input.input.alasanSelisih)) {
-    await syncGudangStock(tx, input);
-    return;
-  }
-
-  await createOpnameMovement(tx, input);
-  await syncGudangStock(tx, input);
-}
-
-async function createOpnameMovement(
-  tx: Prisma.TransactionClient,
-  input: {
-    input: CreateInventoryOpnameInput;
-    opnameId: string;
-    selisih: number;
-  },
-) {
-  if (input.selisih === 0) return;
-  if (input.selisih > 0) return createPositiveOpnameMovement(tx, input);
-  return createNegativeOpnameMovement(tx, input);
-}
-
-function createPositiveOpnameMovement(
-  tx: Prisma.TransactionClient,
-  input: {
-    input: CreateInventoryOpnameInput;
-    opnameId: string;
-    selisih: number;
-  },
-) {
-  const alasanText = resolveOpnameReasonLabel(input.input.alasanSelisih);
-  return tx.barangMasuk.create({
-    data: {
-      id: randomUUID(),
-      barangId: input.input.barangId,
-      gudangId: input.input.gudangId,
-      jumlah: input.selisih,
-      kondisi: resolvePositiveMovementCondition(input.input),
-      keterangan: `Opname: ${alasanText} (+${input.selisih}). Ref: ${input.opnameId}`,
-    },
+  const plan = planOpnameMovement({
+    opnameId: input.opnameId,
+    selisih: input.selisih,
+    alasanSelisih: input.input.alasanSelisih,
+    kondisiBaik: input.input.kondisiBaik,
+    kondisiRusak: input.input.kondisiRusak,
+    kondisiExpire: input.input.kondisiExpire,
   });
-}
-
-function createNegativeOpnameMovement(
-  tx: Prisma.TransactionClient,
-  input: {
-    input: CreateInventoryOpnameInput;
-    opnameId: string;
-    selisih: number;
-  },
-) {
-  const alasanText = resolveOpnameReasonLabel(input.input.alasanSelisih);
-  return tx.barangKeluar.create({
-    data: {
-      id: randomUUID(),
-      barangId: input.input.barangId,
-      gudangId: input.input.gudangId,
-      jumlah: Math.abs(input.selisih),
-      kondisi: resolveNegativeMovementCondition(input.input.alasanSelisih),
-      isHilang: input.input.alasanSelisih === "hilang",
-      keterangan: `Opname: ${alasanText} (${input.selisih}). Ref: ${input.opnameId}`,
-    },
+  if (plan) {
+    await createOpnameMovement(tx, {
+      location: input.input,
+      opnameId: input.opnameId,
+      plan,
+    });
+  }
+  const sebelum = input.currentStock ?? STOK_KOSONG;
+  const sesudah = await syncGudangStock(tx, {
+    ...input,
+    kondisi: resolveOpnameStockCondition(plan),
+  });
+  await tx.stockOpname.update({
+    where: { id: input.opnameId },
+    data: toStoredStockEffect(computeStockEffect(sebelum, sesudah)),
   });
 }
 
@@ -260,36 +229,57 @@ async function syncGudangStock(
   tx: Prisma.TransactionClient,
   input: {
     input: CreateInventoryOpnameInput;
-    currentStock: { stokBaru: number | null } | null;
+    currentStock: StokPerKondisi | null;
     selisih: number;
+    kondisi: KondisiStok;
   },
 ) {
-  if (input.currentStock) return updateExistingGudangStock(tx, input);
-  if (input.input.stokFisik <= 0) return;
-  await tx.barangGudang.create({ data: buildInitialGudangStock(input.input) });
+  if (input.currentStock) {
+    return updateExistingGudangStock(tx, {
+      ...input,
+      currentStock: input.currentStock,
+    });
+  }
+  if (input.input.stokFisik <= 0) return STOK_KOSONG;
+  const row = buildInitialGudangStock(input.input, input.kondisi);
+  await tx.barangGudang.create({ data: row });
+  return pickStockColumns(row);
 }
 
-function updateExistingGudangStock(
+function pickStockColumns(row: StokPerKondisi): StokPerKondisi {
+  return {
+    stok: row.stok,
+    stokBaru: row.stokBaru,
+    stokBekas: row.stokBekas,
+    stokRusak: row.stokRusak,
+  };
+}
+
+async function updateExistingGudangStock(
   tx: Prisma.TransactionClient,
   input: {
     input: CreateInventoryOpnameInput;
-    currentStock: { stokBaru: number | null };
+    currentStock: StokPerKondisi;
     selisih: number;
+    kondisi: KondisiStok;
   },
 ) {
-  return tx.barangGudang.update({
+  const columns = buildUpdatedStockData({
+    stokFisik: input.input.stokFisik,
+    selisih: input.selisih,
+    kondisi: input.kondisi,
+    currentStock: input.currentStock,
+  });
+  await tx.barangGudang.update({
     where: {
       barangId_gudangId: {
         barangId: input.input.barangId,
         gudangId: input.input.gudangId,
       },
     },
-    data: buildUpdatedStockData({
-      stokFisik: input.input.stokFisik,
-      selisih: input.selisih,
-      currentStock: input.currentStock,
-    }),
+    data: columns,
   });
+  return columns;
 }
 
 function logCreatedOpname(

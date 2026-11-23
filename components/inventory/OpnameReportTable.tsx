@@ -7,19 +7,27 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { clientLogger } from "@/lib/client-logger";
 import { useToast } from "@/hooks/use-toast";
-import type { StockOpnameRecord } from "@/lib/types/inventory";
 
 import { OpnameHistoryFiltersBar } from "./opname/history/OpnameHistoryFilters";
 import { OpnameHistoryPaginationBar } from "./opname/history/OpnameHistoryPagination";
 import { OpnameHistoryTable } from "./opname/history/OpnameHistoryTable";
 import { OpnameStatsCards } from "./opname/history/OpnameStatsCards";
-import { useOpnameHistory } from "./opname/history/useOpnameHistory";
+import {
+  buildOpnameListQuery,
+  readJsonOrThrow,
+  useOpnameHistory,
+  type OpnameHistoryFilters,
+  type OpnameHistoryRecord,
+} from "./opname/history/useOpnameHistory";
 
 interface OpnameReportTableProps {
-  onEdit?: ((opname: StockOpnameRecord) => void) | undefined;
-  onView?: ((opname: StockOpnameRecord) => void) | undefined;
+  onEdit?: ((opname: OpnameHistoryRecord) => void) | undefined;
   refreshTrigger?: number;
 }
+
+const EXPORT_PAGE_LIMIT = 1000;
+const FIRST_PAGE = 1;
+const ISO_DATE_LENGTH = 10;
 
 const CSV_HEADERS = [
   "Tanggal",
@@ -38,7 +46,7 @@ function escapeCsvCell(value: string | number | null | undefined) {
   return `"${str.replace(/"/g, '""')}"`;
 }
 
-function buildCsvContent(items: StockOpnameRecord[]) {
+function buildCsvContent(items: OpnameHistoryRecord[]) {
   const rows = items.map((item) => [
     new Date(item.createdAt).toLocaleDateString("id-ID"),
     `${item.barang.kode} - ${item.barang.nama}`,
@@ -68,9 +76,45 @@ function downloadCsv(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+type OpnameListPage = {
+  opnameList?: OpnameHistoryRecord[];
+  pagination?: { totalPages?: number };
+};
+
+/** Ambil seluruh halaman list opname (per 1000) agar export tidak terpotong. */
+async function fetchAllOpnameRecords(filters: OpnameHistoryFilters) {
+  const items: OpnameHistoryRecord[] = [];
+  let page = FIRST_PAGE;
+  let totalPages = FIRST_PAGE;
+
+  do {
+    const query = buildOpnameListQuery(filters, page, EXPORT_PAGE_LIMIT);
+    const response = await fetch(`/api/inventory/opname/list?${query}`);
+    const result: OpnameListPage = await readJsonOrThrow(
+      response,
+      "Gagal mengambil data export",
+    );
+    items.push(...(result.opnameList ?? []));
+    totalPages = result.pagination?.totalPages ?? FIRST_PAGE;
+    page += 1;
+  } while (page <= totalPages);
+
+  return items;
+}
+
+function buildDeleteDescription(target: OpnameHistoryRecord | null) {
+  if (!target)
+    return "Apakah Anda yakin ingin menghapus catatan stock opname ini?";
+  return (
+    `Hapus catatan opname ${target.barang.kode} - ${target.barang.nama} di ${target.gudang.nama}? ` +
+    `Stok akan disesuaikan kembali sebesar selisih opname ini (${target.selisih}), ` +
+    "dan mutasi stok (barang masuk/keluar) yang dibuat opname ini ikut dihapus."
+  );
+}
+
+/** Halaman Riwayat Opname: statistik, filter, tabel, hapus, dan export CSV. */
 export function OpnameReportTable({
   onEdit,
-  onView,
   refreshTrigger = 0,
 }: OpnameReportTableProps) {
   const { showToast } = useToast();
@@ -88,9 +132,8 @@ export function OpnameReportTable({
   } = useOpnameHistory(refreshTrigger);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [confirmTarget, setConfirmTarget] = useState<StockOpnameRecord | null>(
-    null,
-  );
+  const [confirmTarget, setConfirmTarget] =
+    useState<OpnameHistoryRecord | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const handleDelete = async () => {
@@ -130,23 +173,7 @@ export function OpnameReportTable({
   const handleExportCsv = async () => {
     setExporting(true);
     try {
-      const params = new URLSearchParams({ page: "1", limit: "10000" });
-      if (filters.barangId) params.set("barangId", filters.barangId);
-      if (filters.gudangId) params.set("gudangId", filters.gudangId);
-      if (filters.tanggalMulai)
-        params.set("tanggalMulai", filters.tanggalMulai);
-      if (filters.tanggalSelesai)
-        params.set("tanggalSelesai", filters.tanggalSelesai);
-      if (filters.alasanSelisih)
-        params.set("alasanSelisih", filters.alasanSelisih);
-
-      const response = await fetch(`/api/inventory/opname/list?${params}`);
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Gagal mengambil data export");
-      }
-      const data = await response.json();
-      const items: StockOpnameRecord[] = (data.data || data).opnameList || [];
+      const items = await fetchAllOpnameRecords(filters);
 
       if (items.length === 0) {
         showToast("warning", "Tidak ada data untuk di-export");
@@ -154,7 +181,7 @@ export function OpnameReportTable({
       }
 
       const content = buildCsvContent(items);
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().slice(0, ISO_DATE_LENGTH);
       downloadCsv(content, `stock_opname_${today}.csv`);
       showToast("success", `Berhasil export ${items.length} record`);
     } catch (err) {
@@ -211,7 +238,6 @@ export function OpnameReportTable({
             data={opnameList}
             loading={loading}
             deletingId={deletingId}
-            onView={onView}
             onEdit={onEdit}
             onDelete={(opname) => setConfirmTarget(opname)}
           />
@@ -229,11 +255,7 @@ export function OpnameReportTable({
       <ConfirmDialog
         open={confirmTarget !== null}
         title="Hapus Stock Opname"
-        description={
-          confirmTarget
-            ? `Apakah Anda yakin ingin menghapus record ${confirmTarget.barang.kode} - ${confirmTarget.barang.nama}? Stok akan dikembalikan ke kondisi sebelum opname.`
-            : "Apakah Anda yakin ingin menghapus record stock opname ini?"
-        }
+        description={buildDeleteDescription(confirmTarget)}
         confirmText="Hapus"
         cancelText="Batal"
         onConfirm={handleDelete}

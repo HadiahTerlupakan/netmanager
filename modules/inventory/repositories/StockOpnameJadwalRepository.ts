@@ -142,19 +142,18 @@ export class StockOpnameJadwalRepository {
     });
   }
 
-  /** Pasangan gudang–barang yang punya stok (wajib dihitung saat SO). */
+  /**
+   * Pasangan gudang–barang yang punya stok (wajib dihitung saat SO). Ukurannya
+   * `stok` total, sama dengan angka yang dipakai pencatat dan riwayat opname;
+   * kolom per kondisi bisa tertinggal dari total sehingga tidak dipakai.
+   */
   async findBarangBerstok(tenantId: string, gudangIds: string[]) {
     if (gudangIds.length === 0) return [];
     return this.client.barangGudang.findMany({
       where: {
         tenantId,
         gudangId: { in: gudangIds },
-        OR: [
-          { stok: { gt: 0 } },
-          { stokBaru: { gt: 0 } },
-          { stokBekas: { gt: 0 } },
-          { stokRusak: { gt: 0 } },
-        ],
+        stok: { gt: 0 },
       },
       select: { gudangId: true, barangId: true },
     });

@@ -228,6 +228,8 @@ export interface UpdateStockOpnameInput {
   tanggalExpire?: string | null;
   nomorBatch?: string | null;
   catatanDetail?: string | null;
+  /** Alasan selisih baru; kosong = pakai alasan lama. Dihapus bila selisih jadi 0. */
+  alasanSelisih?: string | null;
 }
 
 /**

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   isAdministrativeAdjustment,
+  planOpnameMovement,
   resolveNegativeMovementCondition,
+  resolveOpnameStockCondition,
   resolvePositiveMovementCondition,
-} from "@/modules/inventory/services/inventory-opname-movement-mapping.helpers";
+} from "@/modules/inventory/domain/opname-mutasi";
 
-describe("inventory-opname-movement-mapping.helpers", () => {
+describe("opname-mutasi", () => {
   describe("isAdministrativeAdjustment", () => {
     it("treats revisi as administrative", () => {
       expect(isAdministrativeAdjustment("revisi")).toBe(true);
@@ -123,5 +125,70 @@ describe("inventory-opname-movement-mapping.helpers", () => {
       expect(resolveNegativeMovementCondition(undefined)).toBe("BARU");
       expect(resolveNegativeMovementCondition("")).toBe("BARU");
     });
+  });
+});
+
+describe("planOpnameMovement", () => {
+  it("tidak merencanakan mutasi untuk selisih 0 atau alasan administratif", () => {
+    expect(planOpnameMovement({ opnameId: "op-1", selisih: 0 })).toBeNull();
+    expect(
+      planOpnameMovement({
+        opnameId: "op-1",
+        selisih: 5,
+        alasanSelisih: "revisi",
+      }),
+    ).toBeNull();
+    expect(
+      planOpnameMovement({
+        opnameId: "op-1",
+        selisih: -5,
+        alasanSelisih: "salah_input",
+      }),
+    ).toBeNull();
+  });
+
+  it("selisih positif menjadi barang masuk dengan kondisi mayoritas breakdown", () => {
+    expect(
+      planOpnameMovement({
+        opnameId: "op-1",
+        selisih: 3,
+        alasanSelisih: "lebih",
+        kondisiBaik: 1,
+        kondisiRusak: 4,
+      }),
+    ).toEqual({
+      arah: "MASUK",
+      jumlah: 3,
+      kondisi: "RUSAK",
+      isHilang: false,
+      keterangan: "Opname: Stok lebih/ditemukan (+3). Ref: op-1",
+    });
+  });
+
+  it("selisih negatif menjadi barang keluar dengan kondisi dari alasan", () => {
+    expect(
+      planOpnameMovement({
+        opnameId: "op-1",
+        selisih: -2,
+        alasanSelisih: "hilang",
+      }),
+    ).toEqual({
+      arah: "KELUAR",
+      jumlah: 2,
+      kondisi: "BARU",
+      isHilang: true,
+      keterangan: "Opname: Barang hilang (-2). Ref: op-1",
+    });
+    expect(
+      planOpnameMovement({
+        opnameId: "op-1",
+        selisih: -2,
+        alasanSelisih: "expired",
+      })?.kondisi,
+    ).toBe("BEKAS");
+  });
+
+  it("penyesuaian tanpa mutasi ditanggung kondisi BARU", () => {
+    expect(resolveOpnameStockCondition(null)).toBe("BARU");
   });
 });

@@ -6,6 +6,10 @@ import type { StockOpnameRecord } from "@/lib/types/inventory";
 import { clientLogger } from "@/lib/client-logger";
 
 const PAGE_LIMIT = 20;
+const FIRST_PAGE = 1;
+
+/** Item Riwayat Opname; `isTerbaru` = opname terakhir barang di gudang itu. */
+export type OpnameHistoryRecord = StockOpnameRecord & { isTerbaru?: boolean };
 
 export type OpnameHistoryFilters = {
   tanggalMulai: string;
@@ -23,6 +27,7 @@ export type OpnameHistoryStats = {
   totalKondisiRusak: number;
   totalKondisiExpire: number;
   totalHilang: number;
+  /** Jumlah catatan yang perlu perhatian (rusak atau hilang), bukan unit. */
   totalPerluPerhatian: number;
 };
 
@@ -52,25 +57,8 @@ const EMPTY_STATS: OpnameHistoryStats = {
   totalPerluPerhatian: 0,
 };
 
-function buildListQueryString(
-  filters: OpnameHistoryFilters,
-  page: number,
-  limit: number,
-) {
-  const params = new URLSearchParams({
-    page: page.toString(),
-    limit: limit.toString(),
-  });
-  if (filters.barangId) params.set("barangId", filters.barangId);
-  if (filters.gudangId) params.set("gudangId", filters.gudangId);
-  if (filters.tanggalMulai) params.set("tanggalMulai", filters.tanggalMulai);
-  if (filters.tanggalSelesai)
-    params.set("tanggalSelesai", filters.tanggalSelesai);
-  if (filters.alasanSelisih) params.set("alasanSelisih", filters.alasanSelisih);
-  return params.toString();
-}
-
-function buildStatsQueryString(filters: OpnameHistoryFilters) {
+/** Bangun query string filter Riwayat Opname (tanpa pagination). */
+export function buildOpnameFilterParams(filters: OpnameHistoryFilters) {
   const params = new URLSearchParams();
   if (filters.barangId) params.set("barangId", filters.barangId);
   if (filters.gudangId) params.set("gudangId", filters.gudangId);
@@ -78,10 +66,32 @@ function buildStatsQueryString(filters: OpnameHistoryFilters) {
   if (filters.tanggalSelesai)
     params.set("tanggalSelesai", filters.tanggalSelesai);
   if (filters.alasanSelisih) params.set("alasanSelisih", filters.alasanSelisih);
+  return params;
+}
+
+/** Bangun query string list opname: filter plus halaman dan limit. */
+export function buildOpnameListQuery(
+  filters: OpnameHistoryFilters,
+  page: number,
+  limit: number,
+) {
+  const params = buildOpnameFilterParams(filters);
+  params.set("page", page.toString());
+  params.set("limit", limit.toString());
   return params.toString();
 }
 
-async function readJsonOrThrow(response: Response, fallbackMessage: string) {
+/** Halaman yang valid setelah total halaman berubah (mis. baris terakhir dihapus). */
+export function clampOpnamePage(currentPage: number, totalPages: number) {
+  if (totalPages > 0 && currentPage > totalPages) return totalPages;
+  return currentPage;
+}
+
+/** Baca body JSON sukses (`data` envelope) atau lempar pesan galat API. */
+export async function readJsonOrThrow(
+  response: Response,
+  fallbackMessage: string,
+) {
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
     throw new Error(errData.error || fallbackMessage);
@@ -95,8 +105,8 @@ async function fetchOpnameHistory(
   page: number,
   signal: AbortSignal,
 ) {
-  const listQuery = buildListQueryString(filters, page, PAGE_LIMIT);
-  const statsQuery = buildStatsQueryString(filters);
+  const listQuery = buildOpnameListQuery(filters, page, PAGE_LIMIT);
+  const statsQuery = buildOpnameFilterParams(filters).toString();
 
   const [listResult, statsResult] = await Promise.all([
     fetch(`/api/inventory/opname/list?${listQuery}`, { signal }).then((res) =>
@@ -110,19 +120,20 @@ async function fetchOpnameHistory(
   ]);
 
   return {
-    opnameList: (listResult.opnameList || []) as StockOpnameRecord[],
+    opnameList: (listResult.opnameList || []) as OpnameHistoryRecord[],
     totalPages: listResult.pagination?.totalPages || 0,
     total: listResult.pagination?.total || 0,
     stats: (statsResult.stats || EMPTY_STATS) as OpnameHistoryStats,
   };
 }
 
+/** State, filter, dan pemuatan data Riwayat Opname beserta statistiknya. */
 export function useOpnameHistory(refreshTrigger: number) {
-  const [opnameList, setOpnameList] = useState<StockOpnameRecord[]>([]);
+  const [opnameList, setOpnameList] = useState<OpnameHistoryRecord[]>([]);
   const [stats, setStats] = useState<OpnameHistoryStats>(EMPTY_STATS);
   const [filters, setFilters] =
     useState<OpnameHistoryFilters>(EMPTY_OPNAME_FILTERS);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(FIRST_PAGE);
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -145,6 +156,7 @@ export function useOpnameHistory(refreshTrigger: number) {
         if (cancelled) return;
         setOpnameList(result.opnameList);
         setTotalPages(result.totalPages);
+        setCurrentPage((page) => clampOpnamePage(page, result.totalPages));
         setTotal(result.total);
         setStats(result.stats);
       } catch (err) {
@@ -166,12 +178,12 @@ export function useOpnameHistory(refreshTrigger: number) {
 
   const updateFilters = useCallback((next: Partial<OpnameHistoryFilters>) => {
     setFilters((prev) => ({ ...prev, ...next }));
-    setCurrentPage(1);
+    setCurrentPage(FIRST_PAGE);
   }, []);
 
   const resetFilters = useCallback(() => {
     setFilters(EMPTY_OPNAME_FILTERS);
-    setCurrentPage(1);
+    setCurrentPage(FIRST_PAGE);
   }, []);
 
   const refetch = useCallback(() => {

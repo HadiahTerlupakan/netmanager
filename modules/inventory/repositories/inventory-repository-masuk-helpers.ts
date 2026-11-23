@@ -7,6 +7,7 @@ import {
   labelKondisiBarang,
   MUTASI_STOK_PESAN,
 } from "../domain/inventory-user-error";
+import { assertBukanMutasiOpname } from "../domain/mutasi-opname-terkunci";
 import type {
   InventoryMasukRecord,
   UpdateBarangMasukInput,
@@ -51,6 +52,7 @@ export async function updateMasuk(
       include: { barang: true, gudang: true },
     });
     if (!currentRecord) throw masukNotFoundError();
+    assertBukanMutasiOpname(currentRecord);
     const stockDifference = input.jumlah - currentRecord.jumlah;
     const kondisiBaru = (input.kondisi ||
       currentRecord.kondisi) as keyof typeof STOCK_FIELD_MAP;
@@ -99,6 +101,7 @@ export async function deleteMasuk(db: PrismaClient, id: string): Promise<void> {
       include: { barang: true, gudang: true },
     });
     if (!masukRecord) throw masukNotFoundError();
+    assertBukanMutasiOpname(masukRecord);
     const currentStock = await tx.barangGudang.findUnique({
       where: {
         barangId_gudangId: {

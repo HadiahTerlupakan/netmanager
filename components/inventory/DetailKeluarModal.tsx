@@ -25,6 +25,7 @@ import {
   formatInventoryDate,
 } from "@/lib/utils/inventory-helpers";
 import { clientLogger } from "@/lib/client-logger";
+import { isOpnameMutation, OpnameMutationBadge } from "./OpnameMutationBadge";
 
 interface BarangKeluar {
   id: string;
@@ -33,6 +34,8 @@ interface BarangKeluar {
   jumlah: number;
   kondisi: "BARU" | "BEKAS" | "RUSAK";
   isHilang?: boolean;
+  /** Terisi bila baris ini dicatat oleh stock opname (tidak boleh diubah di sini). */
+  opnameId?: string | null;
   keterangan: string | null;
   tanggal: string;
   createdAt: string;
@@ -185,6 +188,7 @@ export function DetailKeluarModal({
                     <FiMinusCircle className="w-3 h-3" /> HILANG
                   </span>
                 )}
+                {isOpnameMutation(keluar) && <OpnameMutationBadge />}
               </div>
             </div>
           </div>
@@ -345,7 +349,7 @@ export function DetailKeluarModal({
         <Button variant="secondary" onClick={onClose}>
           Tutup
         </Button>
-        {onEdit && (
+        {onEdit && !isOpnameMutation(keluar) && (
           <Button
             onClick={() => {
               onEdit(keluar);

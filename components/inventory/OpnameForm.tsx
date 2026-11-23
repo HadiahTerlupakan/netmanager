@@ -11,6 +11,7 @@ import {
   pesanKondisiMelebihiStokFisik,
 } from "@/modules/inventory/client";
 import { InventoryErrorBanner } from "@/components/inventory/form-shared/InventoryErrorBanner";
+import { ALASAN_SELISIH_OPTIONS } from "@/components/inventory/opname/alasanSelisihOptions";
 
 interface OpnameFormProps {
   initialData?: StockOpnameFormData;
@@ -47,6 +48,7 @@ interface FormState {
   tanggalExpire: string;
   nomorBatch: string;
   catatanDetail: string;
+  alasanSelisih: string;
 }
 
 const SUCCESS_REDIRECT_DELAY_MS = 1000;
@@ -75,13 +77,18 @@ export function OpnameForm({
   const barangs = useMemo(() => normalizeBarangs(barangData), [barangData]);
   const gudangs = useMemo(() => normalizeGudangs(gudangData), [gudangData]);
 
+  const isEditMode = !!initialData?.id;
+  // Saat mengubah, selisih dihitung server terhadap stok sistem waktu opname
+  // dicatat — bukan stok gudang sekarang — jadi stok sekarang tidak dimuat.
   const stockUrl =
-    formData.barangId && formData.gudangId
+    !isEditMode && formData.barangId && formData.gudangId
       ? `/api/inventory/barang/stock?barangId=${encodeURIComponent(formData.barangId)}&gudangId=${encodeURIComponent(formData.gudangId)}`
       : null;
 
   const { data: stockData } = useApi<{ stok?: number } | null>(stockUrl);
-  const currentStock = stockData?.stok ?? 0;
+  const stokSistem = isEditMode
+    ? (initialData?.stokSistem ?? 0)
+    : (stockData?.stok ?? 0);
 
   const updateField = (field: keyof FormState, value: string) => {
     setFormData((prev) => syncDerivedFormFields(prev, field, value));
@@ -127,8 +134,7 @@ export function OpnameForm({
 
   const selectedBarang = barangs.find((b) => b.id === formData.barangId);
   const selectedGudang = gudangs.find((g) => g.id === formData.gudangId);
-  const selisih = (parseInt(formData.stokFisik) || 0) - currentStock;
-  const isEditMode = !!initialData?.id;
+  const selisih = (parseInt(formData.stokFisik) || 0) - stokSistem;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -167,9 +173,19 @@ export function OpnameForm({
       {selectedBarang && selectedGudang && (
         <StockInfo
           satuan={selectedBarang.satuan}
-          currentStock={currentStock}
+          stokSistem={stokSistem}
+          stokSistemLabel={
+            isEditMode ? "Stok Sistem saat opname:" : "Stok Sistem:"
+          }
           stokFisik={formData.stokFisik}
           selisih={selisih}
+        />
+      )}
+
+      {selisih !== 0 && (
+        <AlasanSelisihField
+          value={formData.alasanSelisih}
+          onChange={(v) => updateField("alasanSelisih", v)}
         />
       )}
 
@@ -294,6 +310,7 @@ function buildInitialFormState(
       : "",
     nomorBatch: initialData?.nomorBatch || "",
     catatanDetail: initialData?.catatanDetail || "",
+    alasanSelisih: initialData?.alasanSelisih || "",
   };
 }
 
@@ -382,6 +399,10 @@ async function submitOpname(form: FormState, opnameId?: string) {
     tanggalExpire: form.tanggalExpire || undefined,
     nomorBatch: form.nomorBatch || undefined,
     catatanDetail: form.catatanDetail || undefined,
+    // Saat edit, pilihan kosong berarti alasan dihapus (null), bukan dibiarkan.
+    alasanSelisih: opnameId
+      ? form.alasanSelisih || null
+      : form.alasanSelisih || undefined,
   };
 
   const url = opnameId
@@ -568,12 +589,14 @@ function Label({
 
 function StockInfo({
   satuan,
-  currentStock,
+  stokSistem,
+  stokSistemLabel,
   stokFisik,
   selisih,
 }: {
   satuan: string;
-  currentStock: number;
+  stokSistem: number;
+  stokSistemLabel: string;
   stokFisik: string;
   selisih: number;
 }) {
@@ -591,9 +614,11 @@ function StockInfo({
       </h4>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
         <div>
-          <span className="text-gray-600 dark:text-gray-400">Stok Sistem:</span>
+          <span className="text-gray-600 dark:text-gray-400">
+            {stokSistemLabel}
+          </span>
           <span className="ml-2 font-medium text-blue-600">
-            {currentStock} {satuan}
+            {stokSistem} {satuan}
           </span>
         </div>
         <div>
@@ -610,6 +635,34 @@ function StockInfo({
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Pilihan alasan selisih; dikirim ke server bersama hitungan fisik. */
+function AlasanSelisihField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <Label htmlFor="alasanSelisih">Alasan Selisih</Label>
+      <select
+        id="alasanSelisih"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+      >
+        <option value="">-- Pilih Alasan --</option>
+        {ALASAN_SELISIH_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

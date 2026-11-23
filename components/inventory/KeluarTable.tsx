@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { clientLogger } from "@/lib/client-logger";
 import { describeInventoryError, sendInventoryRequest } from "./form-shared";
+import { isOpnameMutation, OpnameMutationBadge } from "./OpnameMutationBadge";
 
 const DELETE_FAILED_MESSAGE =
   "Catatan barang keluar belum terhapus. Coba hapus sekali lagi; kalau tetap gagal, laporkan ke admin.";
@@ -36,6 +37,8 @@ interface BarangKeluar {
   jumlah: number;
   kondisi: "BARU" | "BEKAS" | "RUSAK";
   isHilang?: boolean;
+  /** Terisi bila baris ini dicatat oleh stock opname (tidak boleh diubah di sini). */
+  opnameId?: string | null;
   keterangan: string | null;
   tujuanPenggunaan?: string | null;
   tanggal: string;
@@ -254,6 +257,7 @@ export function KeluarTable({
               <FiMinusCircle className="mr-1" /> HILANG
             </span>
           )}
+          {isOpnameMutation(item) && <OpnameMutationBadge />}
         </div>
       ),
     },
@@ -331,28 +335,32 @@ export function KeluarTable({
       >
         <FiEye className="h-4 w-4" />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => onEdit?.(item)}
-        title="Edit"
-      >
-        <FiEdit className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="destructive"
-        size="icon-sm"
-        onClick={() =>
-          setConfirmDelete({
-            id: item.id,
-            kode: item.barang.kode,
-            jumlah: item.jumlah,
-          })
-        }
-        title="Hapus"
-      >
-        <FiTrash2 className="h-4 w-4" />
-      </Button>
+      {!isOpnameMutation(item) && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onEdit?.(item)}
+            title="Edit"
+          >
+            <FiEdit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="destructive"
+            size="icon-sm"
+            onClick={() =>
+              setConfirmDelete({
+                id: item.id,
+                kode: item.barang.kode,
+                jumlah: item.jumlah,
+              })
+            }
+            title="Hapus"
+          >
+            <FiTrash2 className="h-4 w-4" />
+          </Button>
+        </>
+      )}
     </>
   );
 

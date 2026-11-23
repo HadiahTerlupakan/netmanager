@@ -1,15 +1,11 @@
 import { randomUUID } from "crypto";
 
-export const INVENTORY_OPNAME_REASON_LABELS: Record<string, string> = {
-  hilang: "Barang hilang",
-  rusak: "Barang rusak/tidak layak",
-  revisi: "Revisi stok/koreksi data",
-  salah_input: "Kesalahan input sebelumnya",
-  terpakai: "Terpakai tidak tercatat",
-  expired: "Barang kadaluarsa",
-  lebih: "Stok lebih/ditemukan",
-  lainnya: "Lainnya",
-};
+import {
+  STOK_KOSONG,
+  applyConditionDelta,
+  type KondisiStok,
+  type StokPerKondisi,
+} from "../domain/opname-stock-condition";
 
 /** Pastikan semua tenant record inventory tetap konsisten. */
 export function ensureTenantConsistency(input: {
@@ -174,64 +170,39 @@ function parseOptionalDate(dateString?: string) {
   return dateString ? new Date(dateString) : null;
 }
 
-/** Ambil label alasan selisih opname yang ramah pengguna. */
-export function resolveOpnameReasonLabel(alasanSelisih?: string) {
-  if (!alasanSelisih) {
-    return "Penyesuaian stok";
-  }
-
-  return INVENTORY_OPNAME_REASON_LABELS[alasanSelisih] || alasanSelisih;
-}
-
 /**
- * Bangun payload update stok gudang setelah opname.
- * Note: 21 baris - sudah optimal dengan conditional logic untuk update stok.
- * Memecah lebih lanjut akan memisahkan business rule yang harus kohesif.
+ * Bangun kolom stok gudang setelah opname: selisih masuk ke kolom kondisi
+ * mutasinya, dan total disamakan dengan stok fisik yang dihitung.
  */
 export function buildUpdatedStockData(input: {
   stokFisik: number;
   selisih: number;
-  currentStock: {
-    stokBaru?: number | null;
-  };
-}) {
-  const updateData: { stok: number; stokBaru?: number } = {
-    stok: input.stokFisik,
-  };
-
-  if (input.selisih === 0) {
-    return updateData;
-  }
-
-  updateData.stokBaru = calculateNewStock(
-    input.currentStock.stokBaru || 0,
+  kondisi: KondisiStok;
+  currentStock: StokPerKondisi;
+}): StokPerKondisi {
+  const columns = applyConditionDelta(
+    input.currentStock,
+    input.kondisi,
     input.selisih,
   );
-  return updateData;
-}
-
-function calculateNewStock(currentStokBaru: number, selisih: number) {
-  if (selisih < 0) {
-    return Math.max(0, currentStokBaru - Math.abs(selisih));
-  }
-  return currentStokBaru + selisih;
+  return { ...columns, stok: input.stokFisik };
 }
 
 /** Bangun stok awal gudang bila record stok belum tersedia. */
-export function buildInitialGudangStock(input: {
-  barangId: string;
-  gudangId: string;
-  stokFisik: number;
-  user?: { tenantId?: string | null };
-}) {
+export function buildInitialGudangStock(
+  input: {
+    barangId: string;
+    gudangId: string;
+    stokFisik: number;
+    user?: { tenantId?: string | null };
+  },
+  kondisi: KondisiStok = "BARU",
+) {
   return {
     id: randomUUID(),
     barangId: input.barangId,
     gudangId: input.gudangId,
-    stok: input.stokFisik,
-    stokBaru: input.stokFisik,
-    stokBekas: 0,
-    stokRusak: 0,
+    ...applyConditionDelta(STOK_KOSONG, kondisi, input.stokFisik),
     updatedAt: new Date(),
     tenantId: input.user?.tenantId || null,
   };

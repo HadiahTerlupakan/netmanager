@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   opnameBatchSchema,
   opnameItemSchema,
+  opnameUpdateSchema,
 } from "@/modules/inventory/validators/opnameValidator";
 
 describe("opnameItemSchema", () => {
@@ -157,5 +158,31 @@ describe("opnameBatchSchema", () => {
       items: [{ barangId: "brg-001", stokFisik: 3, kondisiBaik: 5 }],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("opnameUpdateSchema alasanSelisih", () => {
+  const BASE = { stokFisik: 5 };
+
+  // Regresi: memilih "-- Pilih Alasan --" saat edit tidak bisa menghapus alasan
+  // lama, karena "" diubah jadi undefined (= pertahankan alasan lama).
+  it("kosong berarti alasan dihapus (null)", () => {
+    expect(
+      opnameUpdateSchema.parse({ ...BASE, alasanSelisih: "" }).alasanSelisih,
+    ).toBeNull();
+    expect(
+      opnameUpdateSchema.parse({ ...BASE, alasanSelisih: null }).alasanSelisih,
+    ).toBeNull();
+  });
+
+  it("tidak dikirim berarti alasan lama dipertahankan (undefined)", () => {
+    expect(opnameUpdateSchema.parse(BASE).alasanSelisih).toBeUndefined();
+  });
+
+  it("alasan yang dikenal diteruskan", () => {
+    expect(
+      opnameUpdateSchema.parse({ ...BASE, alasanSelisih: "hilang" })
+        .alasanSelisih,
+    ).toBe("hilang");
   });
 });

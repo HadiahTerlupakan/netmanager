@@ -1,10 +1,11 @@
 "use client";
 
-import { FiEdit2, FiEye, FiMinusCircle, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiMinusCircle, FiTrash2 } from "react-icons/fi";
 
 import { Button } from "@/components/ui/Button";
 import { ResponsiveTable, type Column } from "@/components/ui/ResponsiveTable";
-import type { StockOpnameRecord } from "@/lib/types/inventory";
+
+import type { OpnameHistoryRecord } from "./useOpnameHistory";
 
 const ALASAN_LABELS: Record<string, string> = {
   hilang: "Hilang",
@@ -19,6 +20,9 @@ const ALASAN_LABELS: Record<string, string> = {
 
 const QUALITY_GOOD_THRESHOLD = 95;
 const QUALITY_OK_THRESHOLD = 85;
+const PERCENT_FULL = 100;
+const BUKAN_TERAKHIR_HINT =
+  "Hanya opname terakhir barang ini di gudang tersebut yang dapat diubah atau dihapus.";
 
 function getSelisihBadge(selisih: number) {
   if (selisih === 0) {
@@ -36,7 +40,7 @@ function getSelisihBadge(selisih: number) {
 function getQualityBadge(baik: number, rusak: number, bekas: number) {
   const total = baik + rusak + bekas;
   if (total === 0) return null;
-  const persentase = (baik / total) * 100;
+  const persentase = (baik / total) * PERCENT_FULL;
 
   if (persentase >= QUALITY_GOOD_THRESHOLD) {
     return {
@@ -67,23 +71,25 @@ function formatDate(dateString: string) {
 }
 
 type OpnameHistoryTableProps = {
-  data: StockOpnameRecord[];
+  data: OpnameHistoryRecord[];
   loading: boolean;
   deletingId: string | null;
-  onView?: (opname: StockOpnameRecord) => void;
-  onEdit?: (opname: StockOpnameRecord) => void;
-  onDelete: (opname: StockOpnameRecord) => void;
+  onEdit?: (opname: OpnameHistoryRecord) => void;
+  onDelete: (opname: OpnameHistoryRecord) => void;
 };
 
+/**
+ * Tabel Riwayat Opname. Aksi Edit/Hapus hanya untuk opname terakhir per
+ * barang-gudang (`isTerbaru`); baris lama menampilkan petunjuk singkat.
+ */
 export function OpnameHistoryTable({
   data,
   loading,
   deletingId,
-  onView,
   onEdit,
   onDelete,
 }: OpnameHistoryTableProps) {
-  const columns: Column<StockOpnameRecord>[] = [
+  const columns: Column<OpnameHistoryRecord>[] = [
     {
       key: "createdAt",
       header: "Tanggal",
@@ -232,36 +238,42 @@ export function OpnameHistoryTable({
     },
   ];
 
-  const renderActions = (opname: StockOpnameRecord) => (
-    <div className="flex justify-center space-x-2">
-      {onView && (
-        <Button
-          onClick={() => onView(opname)}
-          className="inline-flex items-center justify-center w-8 h-8 rounded text-blue-600 hover:bg-blue-50 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-200"
-          title="View Detail"
+  const renderActions = (opname: OpnameHistoryRecord) => {
+    if (!opname.isTerbaru) {
+      return (
+        <span
+          className="block text-center text-xs text-gray-400 dark:text-gray-500"
+          title={BUKAN_TERAKHIR_HINT}
         >
-          <FiEye className="h-4 w-4" />
-        </Button>
-      )}
-      {onEdit && (
+          Bukan opname terakhir
+        </span>
+      );
+    }
+
+    return (
+      <div className="flex justify-center space-x-2">
+        {onEdit && (
+          <Button
+            onClick={() => onEdit(opname)}
+            className="inline-flex items-center justify-center w-8 h-8 rounded text-yellow-600 hover:bg-yellow-50 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 border border-yellow-200"
+            title="Edit"
+            aria-label="Edit"
+          >
+            <FiEdit2 className="h-4 w-4" />
+          </Button>
+        )}
         <Button
-          onClick={() => onEdit(opname)}
-          className="inline-flex items-center justify-center w-8 h-8 rounded text-yellow-600 hover:bg-yellow-50 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300 border border-yellow-200"
-          title="Edit"
+          onClick={() => onDelete(opname)}
+          disabled={deletingId === opname.id}
+          className="inline-flex items-center justify-center w-8 h-8 rounded text-red-600 hover:bg-red-50 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 border border-red-200"
+          title="Hapus"
+          aria-label="Hapus"
         >
-          <FiEdit2 className="h-4 w-4" />
+          <FiTrash2 className="h-4 w-4" />
         </Button>
-      )}
-      <Button
-        onClick={() => onDelete(opname)}
-        disabled={deletingId === opname.id}
-        className="inline-flex items-center justify-center w-8 h-8 rounded text-red-600 hover:bg-red-50 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 border border-red-200"
-        title="Delete"
-      >
-        <FiTrash2 className="h-4 w-4" />
-      </Button>
-    </div>
-  );
+      </div>
+    );
+  };
 
   return (
     <ResponsiveTable

@@ -39,6 +39,7 @@ function respondOpnameError(
   if (failure.status === 404) return ApiErrors.notFound(failure.error);
   if (failure.status === 403) return ApiErrors.forbidden(failure.error);
   if (failure.status === 400) return ApiErrors.badRequest(failure.error);
+  if (failure.status === 409) return ApiErrors.conflict(failure.error);
   return ApiErrors.internalError(failure.error);
 }
 

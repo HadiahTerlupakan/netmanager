@@ -266,6 +266,11 @@ const OPNAME_ERROR_TRANSLATIONS: readonly OpnameErrorTranslation[] = [
     message: OPNAME_PESAN.catatanBukanMilikAnda,
   },
   {
+    matches: (m) => m === OPNAME_PESAN.bukanOpnameTerakhir,
+    status: 409,
+    message: OPNAME_PESAN.bukanOpnameTerakhir,
+  },
+  {
     matches: (m) => m === OPNAME_BEDA_SITE_ERROR,
     status: 403,
     message: OPNAME_PESAN.catatanBedaSite,

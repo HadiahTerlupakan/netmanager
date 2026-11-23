@@ -143,8 +143,24 @@ export const opnameBatchSchema = z.object(
 export type OpnameBatchInput = z.infer<typeof opnameBatchSchema>;
 
 /** Schema update opname dari endpoint PUT /api/inventory/opname/[id]. */
+/**
+ * Alasan saat mengubah opname: kosong ("" atau null) berarti alasan dihapus,
+ * tidak dikirim berarti alasan lama dipertahankan.
+ */
+const updateReasonSchema = z
+  .union([z.enum(OPNAME_REASON_CODES), z.literal(""), z.null()], {
+    error:
+      "Alasan selisih tidak dikenal. Pilih alasan dari daftar yang tersedia.",
+  })
+  .optional()
+  .transform((v) => (v === "" ? null : v));
+
 export const opnameUpdateSchema = z
-  .object({ ...opnameCountShape, pic: optionalString })
+  .object({
+    ...opnameCountShape,
+    alasanSelisih: updateReasonSchema,
+    pic: optionalString,
+  })
   .superRefine(refineKondisiTidakMelebihiStokFisik);
 
 export type OpnameUpdateInput = z.infer<typeof opnameUpdateSchema>;

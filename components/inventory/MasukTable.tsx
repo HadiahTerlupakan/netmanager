@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { clientLogger } from "@/lib/client-logger";
 import { describeInventoryError, sendInventoryRequest } from "./form-shared";
+import { isOpnameMutation, OpnameMutationBadge } from "./OpnameMutationBadge";
 
 const DELETE_FAILED_MESSAGE =
   "Catatan barang masuk belum terhapus. Coba hapus sekali lagi; kalau tetap gagal, laporkan ke admin.";
@@ -33,6 +34,8 @@ interface BarangMasuk {
   gudangId: string;
   jumlah: number;
   kondisi: "BARU" | "BEKAS" | "RUSAK";
+  /** Terisi bila baris ini dicatat oleh stock opname (tidak boleh diubah di sini). */
+  opnameId?: string | null;
   keterangan: string | null;
   tanggal: string;
   createdAt: string;
@@ -215,31 +218,34 @@ export function MasukTable({
       header: "Kondisi",
       priority: "secondary",
       render: (item) => (
-        <span
-          className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-            item.kondisi === "BARU"
-              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-              : item.kondisi === "BEKAS"
-                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-          }`}
-        >
-          {item.kondisi === "BARU" && (
-            <>
-              <FiCheckCircle className="mr-1" /> Baru
-            </>
-          )}
-          {item.kondisi === "BEKAS" && (
-            <>
-              <FiAlertTriangle className="mr-1" /> Bekas
-            </>
-          )}
-          {item.kondisi === "RUSAK" && (
-            <>
-              <FiXCircle className="mr-1" /> Rusak
-            </>
-          )}
-        </span>
+        <div className="flex flex-col gap-1">
+          <span
+            className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+              item.kondisi === "BARU"
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                : item.kondisi === "BEKAS"
+                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+            }`}
+          >
+            {item.kondisi === "BARU" && (
+              <>
+                <FiCheckCircle className="mr-1" /> Baru
+              </>
+            )}
+            {item.kondisi === "BEKAS" && (
+              <>
+                <FiAlertTriangle className="mr-1" /> Bekas
+              </>
+            )}
+            {item.kondisi === "RUSAK" && (
+              <>
+                <FiXCircle className="mr-1" /> Rusak
+              </>
+            )}
+          </span>
+          {isOpnameMutation(item) && <OpnameMutationBadge />}
+        </div>
       ),
     },
     {
@@ -302,30 +308,34 @@ export function MasukTable({
       >
         <FiEye className="h-4 w-4" />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => onEdit?.(item)}
-        className="text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/20 transition-colors"
-        title="Edit"
-      >
-        <FiEdit className="h-4 w-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={() =>
-          setConfirmDelete({
-            id: item.id,
-            kode: item.barang.kode,
-            jumlah: item.jumlah,
-          })
-        }
-        className="text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 transition-colors"
-        title="Hapus"
-      >
-        <FiTrash2 className="h-4 w-4" />
-      </Button>
+      {!isOpnameMutation(item) && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onEdit?.(item)}
+            className="text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/20 transition-colors"
+            title="Edit"
+          >
+            <FiEdit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() =>
+              setConfirmDelete({
+                id: item.id,
+                kode: item.barang.kode,
+                jumlah: item.jumlah,
+              })
+            }
+            className="text-red-600 hover:text-red-900 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 transition-colors"
+            title="Hapus"
+          >
+            <FiTrash2 className="h-4 w-4" />
+          </Button>
+        </>
+      )}
     </>
   );
 

@@ -1,10 +1,15 @@
 "use client";
 
-import { clientLogger } from "@/lib/client-logger";
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { FiClipboard, FiList, FiPieChart, FiBarChart2, FiCalendar } from "react-icons/fi";
+import {
+  FiClipboard,
+  FiList,
+  FiPieChart,
+  FiBarChart2,
+  FiCalendar,
+} from "react-icons/fi";
 import { TabLaporanSo } from "@/components/inventory/opname/jadwal/TabLaporanSo";
 import { StockOpnameRecorder } from "@/components/inventory/StockOpnameRecorder";
 import { OpnameReportTable } from "@/components/inventory/OpnameReportTable";
@@ -24,9 +29,9 @@ export default function StockOpnamePage() {
 
   const searchParams = useSearchParams();
   // Tautan notifikasi pengingat SO membuka laporan SO bulanan bulan tertentu.
-  const [activeTab, setActiveTab] = useState<"report" | "input" | "history" | "laporan">(
-    searchParams.get("tab") === "laporan" ? "laporan" : "report",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "report" | "input" | "history" | "laporan"
+  >(searchParams.get("tab") === "laporan" ? "laporan" : "report");
   const [showForm, setShowForm] = useState(false);
   const [editingOpname, setEditingOpname] = useState<StockOpnameRecord | null>(
     null,
@@ -36,11 +41,6 @@ export default function StockOpnamePage() {
   const handleEdit = (opname: StockOpnameRecord) => {
     setEditingOpname(opname);
     setShowForm(true);
-  };
-
-  const handleView = (opname: StockOpnameRecord) => {
-    // Implement view modal or navigation
-    clientLogger.info("View opname:", opname);
   };
 
   const handleFormClose = () => {
@@ -188,13 +188,14 @@ export default function StockOpnamePage() {
         <div className="space-y-6">
           <OpnameReportTable
             onEdit={canUpdate ? handleEdit : undefined}
-            onView={handleView}
             refreshTrigger={refreshTrigger}
           />
         </div>
       )}
 
-      {activeTab === "laporan" && <TabLaporanSo periodeAwal={searchParams.get("periode")} />}
+      {activeTab === "laporan" && (
+        <TabLaporanSo periodeAwal={searchParams.get("periode")} />
+      )}
 
       {/* Form Modal */}
       <Modal

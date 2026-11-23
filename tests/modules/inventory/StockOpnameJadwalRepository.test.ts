@@ -136,3 +136,29 @@ describe("StockOpnameJadwalRepository.findPenggunaDenganIzin", () => {
     expect(findMany).not.toHaveBeenCalled();
   });
 });
+
+describe("StockOpnameJadwalRepository.findBarangBerstok", () => {
+  it("wajib-hitung hanya bila stok total > 0, sama dengan pencatat opname", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const repository = new StockOpnameJadwalRepository({
+      barangGudang: { findMany },
+    } as never);
+
+    await repository.findBarangBerstok("t-1", ["g-1"]);
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { tenantId: "t-1", gudangId: { in: ["g-1"] }, stok: { gt: 0 } },
+      select: { gudangId: true, barangId: true },
+    });
+  });
+
+  it("tanpa gudang tidak menyentuh database", async () => {
+    const findMany = vi.fn();
+    const repository = new StockOpnameJadwalRepository({
+      barangGudang: { findMany },
+    } as never);
+
+    expect(await repository.findBarangBerstok("t-1", [])).toEqual([]);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+});

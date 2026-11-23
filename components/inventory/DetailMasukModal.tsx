@@ -12,6 +12,7 @@ import { FiPaperclip, FiZoomIn } from "react-icons/fi";
 import Image from "next/image";
 import { ImageLightbox } from "../ui/ImageLightbox";
 import { clientLogger } from "@/lib/client-logger";
+import { isOpnameMutation, OpnameMutationBadge } from "./OpnameMutationBadge";
 
 interface DetailMasukModalProps {
   isOpen: boolean;
@@ -24,6 +25,8 @@ interface DetailMasukModalProps {
     gudangId?: string;
     jenis?: string;
     kondisi?: string;
+    /** Terisi bila baris ini dicatat oleh stock opname (tidak boleh diubah di sini). */
+    opnameId?: string | null;
     tanggal?: string | Date;
     createdAt: string | Date;
     barang?: {
@@ -85,13 +88,14 @@ const DetailMasukModal: React.FC<DetailMasukModalProps> = ({
             <span className="px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold uppercase tracking-wider">
               {masuk.jenis || "MASUK"}
             </span>
+            {isOpnameMutation(masuk) && <OpnameMutationBadge />}
             <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center">
               <HiCalendar className="mr-1.5 h-4 w-4" />
               {formatDate(masuk.createdAt)}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {onEdit && (
+            {onEdit && !isOpnameMutation(masuk) && (
               <button
                 onClick={() => {
                   onClose();
