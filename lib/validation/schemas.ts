@@ -221,7 +221,7 @@ export const systemConfigSchema = z.object({
 export const auditLogQuerySchema = z.object({
   ...basePaginationSchema,
   ...baseDateRangeSchema,
-  userId: z.uuid().optional(),
+  userId: z.string().min(1).optional(), // ID user di produksi campuran UUID & CUID
   action: z.string().max(50).optional(),
   entityType: z.string().max(50).optional(),
   ipAddress: z

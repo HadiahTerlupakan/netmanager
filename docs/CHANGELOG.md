@@ -57,6 +57,19 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
   `modules/overtime/repositories/OvertimeRepository.helpers.ts`
 - **Breaking**: ❌ Tidak
 
+### [2026-11-25] — Cuti, saldo cuti & audit log menerima ID user CUID
+
+- **Tipe**: [FIXED]
+- **Scope**: `app/api/admin/leaves`, `app/api/admin/leave-balance`, `lib/`
+- **Author**: agent
+- **Deskripsi**: `userId` divalidasi `z.uuid()`, padahal 8 user aktif di produksi
+  (4 Teknisi, THD, Support, Branch Manager, Super Admin) ber-ID CUID → buat cuti,
+  atur kuota cuti, dan filter audit log per user gagal 400. Validasi diganti
+  string tidak kosong.
+- **Files**: `app/api/admin/leaves/route.ts`, `app/api/admin/leave-balance/route.ts`,
+  `lib/validation/schemas.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-23] — Foto restock dibuka di pratinjau, bukan tab baru
 
 - **Tipe**: [CHANGED]

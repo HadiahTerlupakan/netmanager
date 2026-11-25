@@ -24,7 +24,7 @@ const leaveBalanceService = new AdminLeaveBalanceRouteService();
  * Validation schema for setting leave quota
  */
 const setQuotaSchema = z.object({
-  userId: z.uuid({ error: "Invalid user ID" }),
+  userId: z.string().min(1, "Invalid user ID"), // ID user di produksi campuran UUID & CUID
   year: z.number().int().min(2000).max(2100).optional(),
   quotas: z.record(z.enum(LEAVE_TYPES), z.number().int().min(0).max(365)),
 });

@@ -22,7 +22,7 @@ import { parsePaginationParams } from "@/lib/utils/pagination";
 const leaveRouteService = new AdminLeaveRouteService();
 
 const createLeaveSchema = z.object({
-  userId: z.uuid({ error: "Invalid user ID" }),
+  userId: z.string().min(1, "Invalid user ID"), // ID user di produksi campuran UUID & CUID
   type: z.enum(LEAVE_TYPES),
   startDate: z
     .string()
