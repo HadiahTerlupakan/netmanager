@@ -26,8 +26,9 @@ export const lemburFilterSchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(10),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  siteId: z.uuid().optional(),
-  departmentId: z.uuid().optional(),
+  // ID di produksi campuran UUID & CUID — jangan validasi format
+  siteId: z.string().min(1).optional(),
+  departmentId: z.string().min(1).optional(),
   status: z
     .enum([
       OvertimeStatus.PENDING,

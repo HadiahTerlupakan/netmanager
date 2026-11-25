@@ -41,6 +41,22 @@ Setiap entry ditulis oleh agent atau developer yang mengerjakan perubahan terseb
 
 ## [Unreleased]
 
+### [2026-11-25] — Filter lembur & absensi menerima ID site CUID
+
+- **Tipe**: [FIXED]
+- **Scope**: `modules/overtime`, `modules/attendance`
+- **Author**: agent
+- **Deskripsi**: Filter site/departemen di `/admin/lembur` dan absensi divalidasi
+  `z.uuid()`, padahal site CARIU dan departemen Technical/Technical Helpdesk
+  Support di produksi ber-ID CUID → API 400, tabel kosong + toast error. Validasi
+  diganti string tidak kosong. Sekaligus filter tanggal lembur satu sisi (hanya
+  "dari" atau hanya "sampai") kini benar-benar menyaring, sebelumnya diabaikan.
+- **Files**: `modules/overtime/validators/lembur.ts`,
+  `modules/attendance/validators/attendance.ts`,
+  `modules/overtime/services/OvertimeRouteService.ts`,
+  `modules/overtime/repositories/OvertimeRepository.helpers.ts`
+- **Breaking**: ❌ Tidak
+
 ### [2026-11-23] — Foto restock dibuka di pratinjau, bukan tab baru
 
 - **Tipe**: [CHANGED]

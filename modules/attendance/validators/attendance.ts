@@ -30,9 +30,10 @@ export const attendanceFilterSchema = z
     limit: z.coerce.number().int().positive().max(100).default(10),
     startDate: z.preprocess(emptyToUndefined, z.string().optional()),
     endDate: z.preprocess(emptyToUndefined, z.string().optional()),
-    userId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-    siteId: z.preprocess(emptyToUndefined, z.uuid().optional()),
-    departmentId: z.preprocess(emptyToUndefined, z.uuid().optional()),
+    // ID di produksi campuran UUID & CUID — jangan validasi format
+    userId: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+    siteId: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+    departmentId: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
     status: z.preprocess(
       emptyToUndefined,
       z

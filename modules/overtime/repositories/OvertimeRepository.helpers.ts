@@ -206,9 +206,12 @@ function applyCreatedAtRange(
   startDate?: Date,
   endDate?: Date,
 ): void {
-  if (!startDate || !endDate) {
+  if (!startDate && !endDate) {
     return;
   }
 
-  where.createdAt = { gte: startDate, lte: endDate };
+  where.createdAt = {
+    ...(startDate && { gte: startDate }),
+    ...(endDate && { lte: endDate }),
+  };
 }

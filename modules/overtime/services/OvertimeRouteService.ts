@@ -177,8 +177,10 @@ export class OvertimeRouteService {
       departmentId: scope.departmentId ?? input.departmentId,
     };
 
-    if (input.startDate && input.endDate) {
+    if (input.startDate) {
       filters.startDate = toStartOfDay(new Date(input.startDate));
+    }
+    if (input.endDate) {
       filters.endDate = toEndOfDay(new Date(input.endDate));
     }
 
